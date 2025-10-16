@@ -31,6 +31,11 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
     if (!request.ivc_in_progress) {
         throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
     }
+    if (!USE_SUMCHECK_IVC) {
+        info("ClientIvcLoad - using ClientIVC");
+    } else {
+        info("ClientIvcLoad - using SumcheckClientIVC");
+    }
 
     request.loaded_circuit_name = circuit.name;
     request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
@@ -57,19 +62,33 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
+    if (!USE_SUMCHECK_IVC) {
+        std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
+        if (!request.loaded_circuit_vk.empty()) {
+            // Deserialize directly from buffer
+            precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        }
+        info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+        request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+        request.ivc_stack_depth++;
 
-    std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-    if (!request.loaded_circuit_vk.empty()) {
-        // Deserialize directly from buffer
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        request.loaded_circuit_constraints.reset();
+        request.loaded_circuit_vk.clear();
+    } else {
+        std::shared_ptr<SumcheckClientIVC::MegaVerificationKey> precomputed_vk;
+        if (!request.loaded_circuit_vk.empty()) {
+            // Deserialize directly from buffer
+            precomputed_vk =
+                from_buffer<std::shared_ptr<SumcheckClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        }
+        info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+        request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+
+        request.ivc_stack_depth++;
+
+        request.loaded_circuit_constraints.reset();
+        request.loaded_circuit_vk.clear();
     }
-
-    info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
-    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
-    request.ivc_stack_depth++;
-
-    request.loaded_circuit_constraints.reset();
-    request.loaded_circuit_vk.clear();
 
     return Response{};
 }
@@ -136,24 +155,30 @@ ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     // Deserialize the verification key directly from buffer
-    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+    if (!USE_SUMCHECK_IVC) {
+        ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+        const bool verified = ClientIVC::verify(proof, verification_key);
 
-    // Verify the proof using ClientIVC's static verify method
-    const bool verified = ClientIVC::verify(proof, verification_key);
+        return { .valid = verified };
+    } else {
+        SumcheckClientIVC::VerificationKey verification_key = from_buffer<SumcheckClientIVC::VerificationKey>(vk);
+        SumcheckClientIVC::Proof sumcheck_proof{ .mega_proof = proof.mega_proof, .goblin_proof = proof.goblin_proof };
+        const bool verified = SumcheckClientIVC::verify(sumcheck_proof, verification_key);
 
-    return { .valid = verified };
+        return { .valid = verified };
+    }
 }
 
-static std::shared_ptr<ClientIVC::ProverInstance> get_acir_program_prover_instance(const BBApiRequest& request,
-                                                                                   acir_format::AcirProgram& program)
+static std::shared_ptr<ClientIVC::ProverInstance> get_acir_program_prover_instance(acir_format::AcirProgram& program)
 {
     ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<ClientIVC::ProverInstance>(builder, request.trace_settings);
+    return std::make_shared<ClientIVC::ProverInstance>(builder);
 }
 
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
+ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(
+    [[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
@@ -161,8 +186,9 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+    std::shared_ptr<SumcheckClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
+    auto verification_key =
+        std::make_shared<SumcheckClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
@@ -179,41 +205,75 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
     auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(standalone_vk_response.bytes);
     auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
     auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
-    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
-                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
-                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
-    Response response;
-    response.bytes = to_buffer(civc_vk);
+    if (!USE_SUMCHECK_IVC) {
+        ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
+                                            .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
+                                            .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
+        Response response;
+        response.bytes = to_buffer(civc_vk);
 
-    info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
+        info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
+        return response;
+    } else {
+        SumcheckClientIVC::VerificationKey civc_vk{
+            .mega = std::make_shared<SumcheckClientIVC::MegaVerificationKey>(mega_vk),
+            .eccvm = std::make_shared<SumcheckClientIVC::ECCVMVerificationKey>(),
+            .translator = std::make_shared<SumcheckClientIVC::TranslatorVerificationKey>()
+        };
+        Response response;
+        response.bytes = to_buffer(civc_vk);
 
-    return response;
+        info("SumcheckClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
+        return response;
+    }
 }
 
-ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const BBApiRequest& request) &&
+ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(
+    [[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(request, program);
-    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+    std::shared_ptr<ClientIVC::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
+    if (!USE_SUMCHECK_IVC) {
+        auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
-    if (circuit.verification_key.empty()) {
-        info("FAIL: Expected precomputed vk for function ", circuit.name);
-        throw_or_abort("Missing precomputed VK");
+        if (circuit.verification_key.empty()) {
+            info("FAIL: Expected precomputed vk for function ", circuit.name);
+            throw_or_abort("Missing precomputed VK");
+        }
+
+        // Deserialize directly from buffer
+        auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
+
+        Response response;
+        response.valid = true;
+        if (*computed_vk != *precomputed_vk) {
+            response.valid = false;
+            response.actual_vk = to_buffer(computed_vk);
+        }
+        return response;
+    } else {
+        auto computed_vk = std::make_shared<SumcheckClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+
+        if (circuit.verification_key.empty()) {
+            info("FAIL: Expected precomputed vk for function ", circuit.name);
+            throw_or_abort("Missing precomputed VK");
+        }
+
+        // Deserialize directly from buffer
+        auto precomputed_vk =
+            from_buffer<std::shared_ptr<SumcheckClientIVC::MegaVerificationKey>>(circuit.verification_key);
+
+        Response response;
+        response.valid = true;
+        if (*computed_vk != *precomputed_vk) {
+            response.valid = false;
+            response.actual_vk = to_buffer(computed_vk);
+        }
+        return response;
     }
-
-    // Deserialize directly from buffer
-    auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
-
-    Response response;
-    response.valid = true;
-    if (*computed_vk != *precomputed_vk) {
-        response.valid = false;
-        response.actual_vk = to_buffer(computed_vk);
-    }
-    return response;
 }
 
 ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&

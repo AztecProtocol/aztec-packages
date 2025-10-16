@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #ifndef __wasm__
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
@@ -497,6 +498,90 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     ClientIVC::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
+}
+
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputsMegaProof)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export FORCE_CACHE_DOWNLOAD=1
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    info("the name of the first program is: ", steps.function_names[0]);
+    // create a mega proof for the circuit loaded
+    auto program = steps.folding_stack[0];
+    auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program);
+    // create the prover instance
+    auto prover_instance = std::make_shared<ProverInstance_<MegaFlavor>>(circuit);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+    MegaProver prover{ prover_instance, verification_key };
+    auto proof = prover.construct_proof();
+    // Create a mega verifier
+    MegaVerifier verifier{ verification_key };
+    EXPECT_TRUE(verifier.template verify_proof<DefaultIO>(proof).result);
+}
+
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputsSumcheckProof)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export FORCE_CACHE_DOWNLOAD=1
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
+    using Flavor = SumcheckClientIVC::Flavor;
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N;
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    info("the name of the first program is: ", steps.function_names[0]);
+    // create a mega proof for the circuit loaded
+    auto program = steps.folding_stack[0];
+    auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program);
+
+    // create the prover instance
+    auto prover_instance = std::make_shared<ProverInstance_<Flavor>>(circuit);
+    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+    // run oink prover
+    std::shared_ptr<ClientIVC::Transcript> transcript = std::make_shared<ClientIVC::Transcript>();
+    MegaOinkProver oink_prover{ prover_instance, verification_key, transcript };
+    oink_prover.prove();
+    prover_instance->gate_challenges =
+        transcript->template get_powers_of_challenge<typename Flavor::FF>("Sumcheck:gate_challenge", virtual_log_n);
+
+    size_t polynomial_size = prover_instance->dyadic_size();
+    // now we can run sumcheck
+    SumcheckProver<Flavor> sumcheck(polynomial_size,
+                                    prover_instance->polynomials,
+                                    transcript,
+                                    prover_instance->alphas,
+                                    prover_instance->gate_challenges,
+                                    prover_instance->relation_parameters,
+                                    virtual_log_n);
+    auto sumcheck_output = sumcheck.prove();
+    // Now we can run the sumcheck verifier
+    std::vector<typename Flavor::FF> padding_indicator_array(virtual_log_n, 1);
+    auto verifier_inst = std::make_shared<VerifierInstance_<Flavor>>(verification_key);
+    OinkVerifier<Flavor> verifier{ verifier_inst, transcript };
+    transcript->load_proof(transcript->export_proof());
+    verifier.verify();
+    SumcheckVerifier<Flavor> sumcheck_verifier(
+        transcript, prover_instance->alphas, virtual_log_n, prover_instance->target_sum);
+    auto sumcheck_verifier_output = sumcheck_verifier.verify(
+        prover_instance->relation_parameters, prover_instance->gate_challenges, padding_indicator_array);
+    EXPECT_TRUE(sumcheck_verifier_output.verified);
 }
 
 /**

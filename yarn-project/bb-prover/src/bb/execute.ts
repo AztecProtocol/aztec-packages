@@ -153,7 +153,16 @@ export async function executeBbClientIvcProof(
       log(`bb - ${message}`);
     };
 
-    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    const args = [
+      '-o',
+      outputPath,
+      '--ivc_inputs_path',
+      inputsPath,
+      '-v',
+      '--scheme',
+      'client_ivc',
+      '--use-sumcheck-ivc',
+    ];
     if (writeVk) {
       args.push('--write_vk');
     }
