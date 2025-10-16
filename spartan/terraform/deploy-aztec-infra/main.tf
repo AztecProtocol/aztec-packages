@@ -145,15 +145,16 @@ locals {
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "node.mnemonic"                           = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                 = var.PROVER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"              = var.PROVER_REAL_PROOFS
-        "node.node.env.NETWORK"                   = var.NETWORK
-        "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
-        "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS
-        "broker.node.env.NETWORK"                 = var.NETWORK
-        "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
-        "agent.node.env.NETWORK"                  = var.NETWORK
+        "node.mnemonic"                                   = var.PROVER_MNEMONIC
+        "node.mnemonicStartIndex"                         = var.PROVER_MNEMONIC_START_INDEX
+        "node.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+        "node.node.env.NETWORK"                           = var.NETWORK
+        "node.node.env.PROVER_FAILED_PROOF_STORE"         = var.PROVER_FAILED_PROOF_STORE
+        "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH" = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+        "broker.node.proverRealProofs"                    = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"                         = var.NETWORK
+        "agent.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"                          = var.NETWORK
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
