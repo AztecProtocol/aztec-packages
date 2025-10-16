@@ -16,7 +16,10 @@ namespace {
 
 class ShmTest : public ::testing::Test {
   protected:
-    static constexpr size_t MAX_CLIENTS = 10;
+    // NOTE: MAX_CLIENTS must be > number of concurrent test clients
+    // TearDown creates an additional wake_client to unblock the server thread,
+    // so we need at least num_clients + 1 slots available.
+    static constexpr size_t MAX_CLIENTS = 4;
     std::string shm_name;
 
     std::unique_ptr<IpcServer> server;
