@@ -226,29 +226,4 @@ using perm_sha256_mem_mem_input_read_settings = permutation_settings<perm_sha256
 template <typename FF_>
 using perm_sha256_mem_mem_input_read_relation = permutation_relation_base<FF_, perm_sha256_mem_mem_input_read_settings>;
 
-/////////////////// perm_sha256_mem_dispatch_sha256 ///////////////////
-
-struct perm_sha256_mem_dispatch_sha256_settings_ {
-    static constexpr std::string_view NAME = "PERM_SHA256_MEM_DISPATCH_SHA256";
-    static constexpr std::string_view RELATION_NAME = "sha256_mem";
-    static constexpr size_t COLUMNS_PER_SET = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_sha256_compression;
-    static constexpr Column DST_SELECTOR = Column::sha256_start;
-    static constexpr Column INVERSES = Column::perm_sha256_mem_dispatch_sha256_inv;
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,  ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_0_, ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_rop_2_, ColumnAndShifts::execution_sel_opcode_error
-    };
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::sha256_execution_clk, ColumnAndShifts::sha256_space_id,   ColumnAndShifts::sha256_output_addr,
-        ColumnAndShifts::sha256_state_addr,    ColumnAndShifts::sha256_input_addr, ColumnAndShifts::sha256_err
-    };
-};
-
-using perm_sha256_mem_dispatch_sha256_settings = permutation_settings<perm_sha256_mem_dispatch_sha256_settings_>;
-template <typename FF_>
-using perm_sha256_mem_dispatch_sha256_relation =
-    permutation_relation_base<FF_, perm_sha256_mem_dispatch_sha256_settings>;
-
 } // namespace bb::avm2

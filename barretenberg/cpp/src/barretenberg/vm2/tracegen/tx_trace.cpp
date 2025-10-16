@@ -208,16 +208,14 @@ std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32
     auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
 
     auto remaining_length = phase_length - read_counter;
-    auto remaining_length_inv = remaining_length == 0 ? 0 : FF(remaining_length).invert();
-    auto remaining_length_minus_one_inv = remaining_length - 1 == 0 ? 0 : FF(remaining_length - 1).invert();
 
     return {
         { Column::tx_read_pi_offset, read_offset + read_counter },
         { Column::tx_read_pi_length_offset, length_offset - read_counter },
 
         { Column::tx_remaining_phase_counter, remaining_length },
-        { Column::tx_remaining_phase_inv, remaining_length_inv },
-        { Column::tx_remaining_phase_minus_one_inv, remaining_length_minus_one_inv },
+        { Column::tx_remaining_phase_inv, remaining_length },               // Will be inverted in batch later
+        { Column::tx_remaining_phase_minus_one_inv, remaining_length - 1 }, // Will be inverted in batch later
     };
 }
 
@@ -277,7 +275,7 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_note_hash, phase == TransactionPhase::NR_NOTE_INSERTION },
         { Column::tx_sel_revertible_append_note_hash, phase == TransactionPhase::R_NOTE_INSERTION },
         { Column::tx_should_try_note_hash_append, 1 },
@@ -296,7 +294,7 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_nullifier, phase == TransactionPhase::NR_NULLIFIER_INSERTION },
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
         { Column::tx_should_try_nullifier_append, 1 },
@@ -329,8 +327,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_sel_revertible_append_l2_l1_msg, phase == TransactionPhase::R_L2_TO_L1_MESSAGE },
         { Column::tx_sel_non_revertible_append_l2_l1_msg, phase == TransactionPhase::NR_L2_TO_L1_MESSAGE },
         { Column::tx_should_try_l2_l1_msg_append, 1 },
-        { Column::tx_remaining_side_effects_inv,
-          remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
         { Column::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 },
         { Column::tx_l2_l1_msg_contract_address, event.scoped_msg.contractAddress },
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
@@ -687,6 +684,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         // In case we encounter another skip row
         propagated_state = phase_events.back()->state_after;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::tx_remaining_phase_inv, C::tx_remaining_phase_minus_one_inv, C::tx_remaining_side_effects_inv } });
 }
 
 const InteractionDefinition TxTraceBuilder::interactions =

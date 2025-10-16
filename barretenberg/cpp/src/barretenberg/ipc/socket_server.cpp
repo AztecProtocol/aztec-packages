@@ -1,10 +1,14 @@
 #include "barretenberg/ipc/socket_server.hpp"
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
+#include <string>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <utility>
 
 namespace bb::ipc {
 
@@ -17,7 +21,7 @@ SocketServer::SocketServer(std::string socket_path, int initial_max_clients)
 
 SocketServer::~SocketServer()
 {
-    close();
+    close_internal();
 }
 
 bool SocketServer::listen()
@@ -90,7 +94,12 @@ int SocketServer::accept(uint64_t timeout_ns)
 
     // Wait for connection
     struct epoll_event ev;
-    int timeout_ms = timeout_ns > 0 ? static_cast<int>(timeout_ns / 1000000) : (timeout_ns == 0 ? 0 : -1);
+    int timeout_ms = -1; // default: infinite
+    if (timeout_ns > 0) {
+        timeout_ms = static_cast<int>(timeout_ns / 1000000);
+    } else if (timeout_ns == 0) {
+        timeout_ms = 0;
+    }
     int n = epoll_wait(epoll_fd_, &ev, 1, timeout_ms);
     if (n <= 0) {
         return -1;
@@ -111,8 +120,9 @@ int SocketServer::accept(uint64_t timeout_ns)
     int client_id = find_free_slot();
 
     // Store client fd
-    if (client_id >= static_cast<int>(client_fds_.size())) {
-        client_fds_.resize(static_cast<size_t>(client_id) + 1, -1);
+    const auto client_id_unsigned = static_cast<size_t>(client_id);
+    if (client_id_unsigned >= client_fds_.size()) {
+        client_fds_.resize(client_id_unsigned + 1, -1);
     }
     client_fds_[static_cast<size_t>(client_id)] = client_fd;
     fd_to_client_id_[client_fd] = client_id;
@@ -161,7 +171,7 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
 
 ssize_t SocketServer::recv(int client_id, void* buffer, size_t max_len)
 {
-    if (client_id < 0 || client_id >= static_cast<int>(client_fds_.size()) ||
+    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size() ||
         client_fds_[static_cast<size_t>(client_id)] < 0) {
         errno = EINVAL;
         return -1;
@@ -172,7 +182,7 @@ ssize_t SocketServer::recv(int client_id, void* buffer, size_t max_len)
     // Read length prefix (4 bytes)
     uint32_t msg_len = 0;
     ssize_t n = ::recv(fd, &msg_len, sizeof(msg_len), MSG_WAITALL);
-    if (n != sizeof(msg_len)) {
+    if (n < 0 || static_cast<size_t>(n) != sizeof(msg_len)) {
         if (n == 0) {
             // Client disconnected
             disconnect_client(client_id);
@@ -187,10 +197,13 @@ ssize_t SocketServer::recv(int client_id, void* buffer, size_t max_len)
 
     // Read message data
     n = ::recv(fd, buffer, msg_len, MSG_WAITALL);
-    if (n != static_cast<ssize_t>(msg_len)) {
-        if (n == 0 || n < 0) {
-            disconnect_client(client_id);
-        }
+    if (n < 0) {
+        disconnect_client(client_id);
+        return -1;
+    }
+    const auto bytes_received = static_cast<size_t>(n);
+    if (bytes_received != msg_len) {
+        disconnect_client(client_id);
         return -1;
     }
 
@@ -199,7 +212,7 @@ ssize_t SocketServer::recv(int client_id, void* buffer, size_t max_len)
 
 bool SocketServer::send(int client_id, const void* data, size_t len)
 {
-    if (client_id < 0 || client_id >= static_cast<int>(client_fds_.size()) ||
+    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size() ||
         client_fds_[static_cast<size_t>(client_id)] < 0) {
         errno = EINVAL;
         return false;
@@ -210,25 +223,30 @@ bool SocketServer::send(int client_id, const void* data, size_t len)
     // Send length prefix (4 bytes)
     auto msg_len = static_cast<uint32_t>(len);
     ssize_t n = ::send(fd, &msg_len, sizeof(msg_len), 0);
-    if (n != sizeof(msg_len)) {
+    if (n < 0 || static_cast<size_t>(n) != sizeof(msg_len)) {
         return false;
     }
 
     // Send message data
     n = ::send(fd, data, len, 0);
-    if (n != static_cast<ssize_t>(len)) {
+    if (n < 0) {
         return false;
     }
-
-    return true;
+    const auto bytes_sent = static_cast<size_t>(n);
+    return bytes_sent == len;
 }
 
 void SocketServer::close()
 {
+    close_internal();
+}
+
+void SocketServer::close_internal()
+{
     // Close all client connections
-    for (size_t i = 0; i < client_fds_.size(); i++) {
-        if (client_fds_[i] >= 0) {
-            ::close(client_fds_[i]);
+    for (int fd : client_fds_) {
+        if (fd >= 0) {
+            ::close(fd);
         }
     }
     client_fds_.clear();
@@ -251,7 +269,7 @@ void SocketServer::close()
 
 void SocketServer::disconnect_client(int client_id)
 {
-    if (client_id < 0 || client_id >= static_cast<int>(client_fds_.size())) {
+    if (client_id < 0 || static_cast<size_t>(client_id) >= client_fds_.size()) {
         return;
     }
 

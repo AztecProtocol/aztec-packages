@@ -65,6 +65,7 @@ import {
 import type { ContractDataProvider } from '../storage/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
+import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
 import { Oracle } from './oracle/oracle.js';
 import { executePrivateFunction, verifyCurrentClassId } from './oracle/private_execution.js';
@@ -133,6 +134,7 @@ export class ContractFunctionSimulator {
 
     const txRequestHash = await request.toTxRequest().hash();
     const noteCache = new ExecutionNoteCache(txRequestHash);
+    const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     const privateExecutionOracle = new PrivateExecutionOracle(
       request.firstCallArgsHash,
@@ -143,6 +145,7 @@ export class ContractFunctionSimulator {
       request.capsules,
       HashedValuesCache.create(request.argsOfCalls),
       noteCache,
+      taggingIndexCache,
       this.executionDataProvider,
       0, // totalPublicArgsCount
       startSideEffectCounter,

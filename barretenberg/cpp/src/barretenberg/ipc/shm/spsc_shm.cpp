@@ -1,13 +1,16 @@
 #include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include <atomic>
 #include <cerrno>
+#include <cstdint>
 #include <cstring>
 #include <fcntl.h>
 #include <linux/futex.h>
 #include <stdexcept>
+#include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
-#include <time.h>
+#include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
 
 #if defined(__x86_64__) || defined(_M_X64)
@@ -21,9 +24,10 @@
 
 namespace bb::ipc {
 
+namespace {
 // ----- Utilities -----
 
-static inline uint64_t pow2_ceil_u64(uint64_t x)
+inline uint64_t pow2_ceil_u64(uint64_t x)
 {
     if (x < 2) {
         return 2;
@@ -38,23 +42,28 @@ static inline uint64_t pow2_ceil_u64(uint64_t x)
     return x + 1;
 }
 
-static inline uint64_t mono_ns_now()
+inline uint64_t mono_ns_now()
 {
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts); // typically vDSO
-    return static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL + static_cast<uint64_t>(ts.tv_nsec);
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+        return 0;
+    }
+    return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
 }
 
 // Futex helpers
-static inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
+inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
 }
 
-static inline int futex_wake(volatile uint32_t* addr, int n)
+inline int futex_wake(volatile uint32_t* addr, int n)
 {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
 }
+} // anonymous namespace
 
 // ----- SpscShm Implementation -----
 
@@ -81,7 +90,7 @@ SpscShm& SpscShm::operator=(SpscShm&& other) noexcept
 {
     if (this != &other) {
         // Clean up current resources
-        if (ctrl_) {
+        if (ctrl_ != nullptr) {
             munmap(ctrl_, map_len_);
         }
         if (fd_ >= 0) {
@@ -105,7 +114,7 @@ SpscShm& SpscShm::operator=(SpscShm&& other) noexcept
 
 SpscShm::~SpscShm()
 {
-    if (ctrl_) {
+    if (ctrl_ != nullptr) {
         munmap(ctrl_, map_len_);
     }
     if (fd_ >= 0) {
@@ -223,14 +232,14 @@ void* SpscShm::claim(size_t want, size_t* granted)
 
     uint64_t freeb = cap - (head - tail);
     if (freeb == 0) {
-        if (granted) {
+        if (granted != nullptr) {
             *granted = 0;
         }
         return nullptr;
     }
     if (want > freeb) {
         // Not enough free space at all
-        if (granted) {
+        if (granted != nullptr) {
             *granted = 0;
         }
         return nullptr;
@@ -242,7 +251,7 @@ void* SpscShm::claim(size_t want, size_t* granted)
     // Check if we have enough contiguous space
     if (want <= till_end) {
         // Fits contiguously - normal path
-        if (granted) {
+        if (granted != nullptr) {
             *granted = want;
         }
         return buf_ + pos;
@@ -253,7 +262,7 @@ void* SpscShm::claim(size_t want, size_t* granted)
     // After padding, we'll lose `till_end` bytes
     if (freeb < till_end + want) {
         // Not enough space even if we wrap
-        if (granted) {
+        if (granted != nullptr) {
             *granted = 0;
         }
         return nullptr;
@@ -269,7 +278,7 @@ void* SpscShm::claim(size_t want, size_t* granted)
     // we can't safely wrap and write there
     if (tail_pos < want && tail < new_head) {
         // Beginning of buffer is still occupied
-        if (granted) {
+        if (granted != nullptr) {
             *granted = 0;
         }
         return nullptr;
@@ -291,7 +300,7 @@ void* SpscShm::claim(size_t want, size_t* granted)
     // Now claim from the beginning of the ring
     pos = head & mask; // Should be 0 or close to 0
 
-    if (granted) {
+    if (granted != nullptr) {
         *granted = want;
     }
     return buf_ + pos;
@@ -320,7 +329,7 @@ void* SpscShm::peek(size_t* n)
 
         uint64_t avail = head - tail;
         if (avail == 0) {
-            if (n) {
+            if (n != nullptr) {
                 *n = 0;
             }
             return nullptr;
@@ -332,7 +341,7 @@ void* SpscShm::peek(size_t* n)
 
         // Check for padding marker (zero-length message)
         if (grant >= sizeof(uint32_t)) {
-            uint32_t marker;
+            uint32_t marker = 0;
             std::memcpy(&marker, buf_ + pos, sizeof(uint32_t));
             if (marker == 0) {
                 // This is padding - skip it by releasing and continuing
@@ -348,7 +357,7 @@ void* SpscShm::peek(size_t* n)
         }
 
         // Not padding - return the data
-        if (n) {
+        if (n != nullptr) {
             *n = grant;
         }
         return buf_ + pos;
@@ -379,6 +388,7 @@ bool SpscShm::wait_for_data(uint32_t spin_ns)
 
     if (spin_ns > 0) {
         uint64_t start = mono_ns_now();
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (available() > 0) {
                 return true;
@@ -406,6 +416,7 @@ bool SpscShm::wait_for_space(size_t need, uint32_t spin_ns)
 
     if (spin_ns > 0) {
         uint64_t start = mono_ns_now();
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             if (free_space() >= need) {
                 return true;

@@ -246,10 +246,17 @@ export class NoteDataProvider {
    * @param filter - Filter criteria including contractAddress (required), and optional
    *                 storageSlot, txHash, recipient, siloedNullifier, status, and scopes
    * @returns Promise resolving to array of NoteDao objects matching the filter
-   * @throws Error if trying to access notes for a scope not in the PXE database
+   * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     filter.status = filter.status ?? NoteStatus.ACTIVE;
+
+    // throw early if scopes is an empty array
+    if (filter.scopes !== undefined && filter.scopes.length === 0) {
+      throw new Error(
+        'Trying to get notes with an empty scopes array. Scopes have to be set to undefined if intending on not filtering by scopes.',
+      );
+    }
 
     const candidateNoteSources = [];
 
@@ -262,7 +269,7 @@ export class NoteDataProvider {
     for (const scope of new Set(filter.scopes)) {
       const formattedScopeString = scope.toString();
       if (!(await this.#scopes.hasAsync(formattedScopeString))) {
-        throw new Error('Trying to get incoming notes of an scope that is not in the PXE database');
+        throw new Error('Trying to get incoming notes of a scope that is not in the PXE database');
       }
 
       activeNoteIdsPerScope.push(
@@ -293,17 +300,32 @@ export class NoteDataProvider {
       notes: this.#notes,
     });
 
-    if (filter.status == NoteStatus.ACTIVE_OR_NULLIFIED) {
-      candidateNoteSources.push({
-        ids: filter.recipient
-          ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
-          : filter.txHash
-            ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
-            : filter.storageSlot
-              ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-              : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString())),
-        notes: this.#nullifiedNotes,
-      });
+    // If status is ACTIVE_OR_NULLIFIED we add nullified notes as candidates on top of the default active ones.
+    if (filter.status === NoteStatus.ACTIVE_OR_NULLIFIED) {
+      const nullifiedIds = filter.recipient
+        ? await toArray(this.#nullifiedNotesByRecipient.getValuesAsync(filter.recipient.toString()))
+        : filter.txHash
+          ? await toArray(this.#nullifiedNotesByTxHash.getValuesAsync(filter.txHash.toString()))
+          : filter.storageSlot
+            ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
+            : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()));
+
+      const setOfScopes = new Set(filter.scopes.map(s => s.toString() as string));
+      const filteredNullifiedIds = new Set<string>();
+
+      for (const noteId of nullifiedIds) {
+        const scopeList = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteId));
+        if (scopeList.some(scope => setOfScopes.has(scope))) {
+          filteredNullifiedIds.add(noteId);
+        }
+      }
+
+      if (filteredNullifiedIds.size > 0) {
+        candidateNoteSources.push({
+          ids: filteredNullifiedIds,
+          notes: this.#nullifiedNotes,
+        });
+      }
     }
 
     const result: NoteDao[] = [];
@@ -363,8 +385,15 @@ export class NoteDataProvider {
 
       for (const blockScopedNullifier of nullifiers) {
         const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
-        const noteIndex = await this.#nullifierToNoteId.getAsync(nullifier.toString());
+        const nullifierKey = nullifier.toString();
+
+        const noteIndex = await this.#nullifierToNoteId.getAsync(nullifierKey);
         if (!noteIndex) {
+          // Check if already nullified?
+          const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
+          if (alreadyNullified) {
+            throw new Error(`Nullifier already applied in applyNullifiers`);
+          }
           throw new Error('Nullifier not found in applyNullifiers');
         }
 

@@ -65,7 +65,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         honk_proof = proof;
     }
     transcript->load_proof(honk_proof);
-    OinkVerifier oink_verifier{ builder, verifier_instance, transcript };
+    OinkVerifier oink_verifier{ verifier_instance, transcript };
     oink_verifier.verify();
     const std::vector<FF>& public_inputs = verifier_instance->public_inputs;
 

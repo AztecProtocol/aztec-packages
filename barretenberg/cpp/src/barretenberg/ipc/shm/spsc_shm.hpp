@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
@@ -27,16 +28,16 @@ constexpr size_t SPSC_CACHELINE = 64;
 struct alignas(SPSC_CACHELINE) SpscCtrl {
     // Producer-owned (written by producer, read by consumer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> head; // bytes written
-    char _pad0[SPSC_CACHELINE - sizeof(std::atomic<uint64_t>)];
+    std::array<char, SPSC_CACHELINE - sizeof(head)> _pad0;
 
     // Consumer-owned (written by consumer, read by producer)
     alignas(SPSC_CACHELINE) std::atomic<uint64_t> tail; // bytes consumed
-    char _pad1[SPSC_CACHELINE - sizeof(std::atomic<uint64_t>)];
+    std::array<char, SPSC_CACHELINE - sizeof(tail)> _pad1;
 
     // Futex sequencers (increment on empty→nonempty and full→has-space)
     alignas(SPSC_CACHELINE) std::atomic<uint32_t> data_seq;
     alignas(SPSC_CACHELINE) std::atomic<uint32_t> space_seq;
-    char _pad2[SPSC_CACHELINE - sizeof(std::atomic<uint32_t>) * 2];
+    std::array<char, SPSC_CACHELINE - (sizeof(data_seq) + sizeof(space_seq))> _pad2;
 
     // Immutable capacity information
     alignas(SPSC_CACHELINE) uint64_t capacity; // power of two
@@ -44,6 +45,9 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
 
     // uint8_t buffer[capacity] follows in memory...
 };
+
+static_assert(alignof(SpscCtrl) == SPSC_CACHELINE, "SpscCtrl alignment");
+static_assert(sizeof(SpscCtrl) % SPSC_CACHELINE == 0, "SpscCtrl size multiple of cache line");
 
 /**
  * @brief Lock-free single-producer single-consumer shared memory ring buffer

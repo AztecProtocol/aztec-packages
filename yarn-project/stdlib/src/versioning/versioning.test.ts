@@ -104,5 +104,45 @@ describe('versioning', () => {
       });
       expect(await client.get()).toEqual(1);
     });
+
+    it('throws ComponentsVersionsError on version mismatch even when request causes validation error', async () => {
+      // Create a schema that expects a string parameter
+      type TestApiWithParam = { getWithParam: (value: string) => Promise<number> };
+      const TestApiWithParamSchema: ApiSchemaFor<TestApiWithParam> = {
+        getWithParam: z.function().args(z.string()).returns(z.number()),
+      };
+
+      // Server handler with correct version
+      const handler = { getWithParam: (value: string) => Promise.resolve(value.length) };
+      const serverContext = await createJsonRpcTestSetup<TestApiWithParam>(
+        handler,
+        TestApiWithParamSchema,
+        { middlewares: [getVersioningMiddleware(versions)] },
+        {},
+      );
+
+      try {
+        // Client with mismatched version - should throw ComponentsVersionsError
+        // even if the request would cause a Zod validation error
+        const client = createSafeJsonRpcClient(serverContext.url, TestApiWithParamSchema, {
+          onResponse: getVersioningResponseHandler({ ...versions, l1ChainId: 999 }),
+        });
+
+        // Send a request that would normally cause a Zod error (passing number instead of string)
+        // But we should get a version mismatch error instead of a Zod validation error
+        try {
+          await (client.getWithParam as any)(123);
+          fail('Expected error to be thrown');
+        } catch (err: any) {
+          // Verify we get a version error, not a Zod validation error
+          expect(err.message).toMatch(/Expected component version/);
+          expect(err.message).toMatch(/l1ChainId/);
+          expect(err.message).not.toMatch(/validation/i);
+          expect(err.name).toBe('ComponentsVersionsError');
+        }
+      } finally {
+        serverContext.httpServer.close();
+      }
+    });
   });
 });

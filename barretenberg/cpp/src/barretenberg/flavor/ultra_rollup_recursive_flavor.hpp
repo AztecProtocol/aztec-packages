@@ -17,7 +17,6 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 namespace bb {
@@ -88,16 +87,16 @@ template <typename BuilderType> class UltraRollupRecursiveFlavor_ : public Ultra
          */
         VerificationKey(std::span<FF> elements)
         {
-            using namespace bb::stdlib::field_conversion;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
+                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 

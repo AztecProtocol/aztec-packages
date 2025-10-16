@@ -1,6 +1,9 @@
 #include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/ipc/shm_server.hpp"
 #include "barretenberg/ipc/socket_server.hpp"
+#include <cstddef>
+#include <memory>
+#include <string>
 
 namespace bb::ipc {
 

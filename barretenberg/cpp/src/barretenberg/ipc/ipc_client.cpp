@@ -1,6 +1,9 @@
 #include "barretenberg/ipc/ipc_client.hpp"
 #include "barretenberg/ipc/shm_client.hpp"
 #include "barretenberg/ipc/socket_client.hpp"
+#include <cstddef>
+#include <memory>
+#include <string>
 
 namespace bb::ipc {
 

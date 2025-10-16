@@ -20,15 +20,15 @@ namespace class_id_derivation;
     // H(GENERATOR_INDEX__CONTRACT_LEAF, artifact_hash, private_function_root, public_bytecode_commitment)
     pol commit class_id;
 
-    // TODO: We need these temporarily while we dont allow for aliases in the lookup tuple, there must be a better way
-    pol commit temp_constant_for_lookup;
-    sel * (temp_constant_for_lookup - constants.GENERATOR_INDEX__CONTRACT_LEAF) = 0;
+    // TODO: We need these temporarily while we dont allow for aliases in the lookup tuple.
+    pol commit gen_index_contract_leaf;
+    sel * (gen_index_contract_leaf - constants.GENERATOR_INDEX__CONTRACT_LEAF) = 0;
     pol commit const_two;
     sel * (const_two - 2) = 0;
 
     // Since the inputs to poseidon2 have to be chunks of 3, we need two lookups if we want to do this in a single row
     #[CLASS_ID_POSEIDON2_0]
-    sel { temp_constant_for_lookup, artifact_hash, private_function_root, class_id, const_two }
+    sel { gen_index_contract_leaf, artifact_hash, private_function_root, class_id, const_two }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.num_perm_rounds_rem };
 
     #[CLASS_ID_POSEIDON2_1]

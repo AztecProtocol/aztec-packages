@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <sys/types.h>
 
 namespace bb::ipc {
 
@@ -15,7 +16,14 @@ namespace bb::ipc {
  */
 class IpcClient {
   public:
+    IpcClient() = default;
     virtual ~IpcClient() = default;
+
+    // Abstract interface - no copy or move
+    IpcClient(const IpcClient&) = delete;
+    IpcClient& operator=(const IpcClient&) = delete;
+    IpcClient(IpcClient&&) = delete;
+    IpcClient& operator=(IpcClient&&) = delete;
 
     /**
      * @brief Connect to the server
@@ -30,7 +38,7 @@ class IpcClient {
      * @param timeout_ns Timeout in nanoseconds (0 = infinite)
      * @return true if sent successfully, false on error or timeout
      */
-    virtual bool send(const void* data, size_t len, uint64_t timeout_ns = 0) = 0;
+    virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;
 
     /**
      * @brief Receive a message from the server
@@ -39,7 +47,7 @@ class IpcClient {
      * @param timeout_ns Timeout in nanoseconds (0 = infinite)
      * @return Number of bytes received, or -1 on error/timeout
      */
-    virtual ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns = 0) = 0;
+    virtual ssize_t recv(void* buffer, size_t max_len, uint64_t timeout_ns) = 0;
 
     /**
      * @brief Close the connection
