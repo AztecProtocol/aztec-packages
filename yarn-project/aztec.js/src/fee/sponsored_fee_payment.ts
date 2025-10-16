@@ -11,14 +11,31 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 export class SponsoredFeePaymentMethod implements FeePaymentMethod {
   constructor(private paymentContract: AztecAddress) {}
 
+  /**
+   * Gets the asset used for fee payment.
+   * For sponsored payments, this is not applicable as the sponsor covers all fees.
+   *
+   * @throws Always throws an error as sponsored payments don't require an asset.
+   */
   getAsset(): Promise<AztecAddress> {
     throw new Error('Asset is not required for sponsored fpc.');
   }
 
+  /**
+   * Gets the address of the fee payer contract.
+   *
+   * @returns The address of the sponsoring payment contract.
+   */
   getFeePayer() {
     return Promise.resolve(this.paymentContract);
   }
 
+  /**
+   * Creates an execution payload for unconditional fee sponsorship.
+   * The sponsor will pay fees regardless of transaction outcome.
+   *
+   * @returns An execution payload containing the sponsor_unconditionally function call.
+   */
   async getExecutionPayload(): Promise<ExecutionPayload> {
     return new ExecutionPayload(
       [
@@ -37,6 +54,12 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
     );
   }
 
+  /**
+   * Gets the gas settings for this payment method.
+   * Sponsored payments don't specify gas settings as the sponsor handles it.
+   *
+   * @returns undefined as sponsored payments don't require gas settings.
+   */
   getGasSettings(): GasSettings | undefined {
     return;
   }

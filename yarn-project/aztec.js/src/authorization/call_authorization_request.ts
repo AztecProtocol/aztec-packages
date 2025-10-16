@@ -4,8 +4,11 @@ import { AuthorizationSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
- * An authwit request for a function call. Includes the preimage of the data
- * to be signed, as opposed of just the inner hash.
+ * An authorization witness request for a function call.
+ *
+ * This class represents a request to authorize a function call on behalf of another account.
+ * It includes the preimage of the data to be signed, as opposed to just the inner hash,
+ * allowing for verification and reconstruction of the authorization.
  */
 export class CallAuthorizationRequest {
   constructor(
@@ -38,10 +41,22 @@ export class CallAuthorizationRequest {
     public args: Fr[],
   ) {}
 
+  /**
+   * Gets the authorization selector for CallAuthorization requests.
+   *
+   * @returns The authorization selector computed from the CallAuthorization signature.
+   */
   static getSelector(): Promise<AuthorizationSelector> {
     return AuthorizationSelector.fromSignature('CallAuthorization((Field),(u32),Field)');
   }
 
+  /**
+   * Deserializes a CallAuthorizationRequest from an array of field elements.
+   *
+   * @param fields - The array of field elements to deserialize from.
+   * @returns A new CallAuthorizationRequest instance.
+   * @throws If the authorization selector doesn't match the expected CallAuthorization selector.
+   */
   static async fromFields(fields: Fr[]): Promise<CallAuthorizationRequest> {
     const expectedSelector = await CallAuthorizationRequest.getSelector();
     const reader = FieldReader.asReader(fields);

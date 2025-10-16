@@ -3,8 +3,13 @@ import { Gas } from '@aztec/stdlib/gas';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
 
 /**
- * Returns suggested total and teardown gas limits for a simulated tx.
- * @param pad - Percentage to pad the suggested gas limits by, (as decimal, e.g., 0.10 for 10%).
+ * Returns suggested total and teardown gas limits for a simulated transaction.
+ * Adds padding to the gas used to account for variations in execution.
+ *
+ * @param simulationResult - The result from simulating the transaction.
+ * @param pad - Percentage to pad the suggested gas limits by (as decimal, e.g., 0.10 for 10%). Defaults to 0.1 (10%).
+ * @returns An object containing the padded gas limits and teardown gas limits.
+ * @throws If the transaction consumes more gas than the AVM maximum processable gas.
  */
 export function getGasLimits(
   simulationResult: TxSimulationResult,

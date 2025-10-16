@@ -1,3 +1,12 @@
+/**
+ * Re-exports of ABI (Application Binary Interface) types and utilities for Aztec smart contracts.
+ *
+ * This module provides access to contract artifacts, function definitions, selectors,
+ * and encoding/decoding utilities used throughout the Aztec ecosystem.
+ *
+ * @module api/abi
+ */
+
 export {
   type ContractArtifact,
   type FunctionArtifact,

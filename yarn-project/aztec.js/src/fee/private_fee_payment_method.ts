@@ -85,13 +85,19 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     return this.assetPromise!;
   }
 
+  /**
+   * Gets the address of the fee payer contract.
+   *
+   * @returns The address of the fee payment contract.
+   */
   getFeePayer(): Promise<AztecAddress> {
     return Promise.resolve(this.paymentContract);
   }
 
   /**
-   * Creates an execution payload to pay the fee using a private function through an FPC in the desired asset
-   * @param gasSettings - The gas settings.
+   * Creates an execution payload to pay the fee using a private function through an FPC in the desired asset.
+   * Sets up an authorization witness to allow the payment contract to transfer funds from the sender.
+   *
    * @returns An execution payload that contains the required function calls and auth witnesses.
    */
   async getExecutionPayload(): Promise<ExecutionPayload> {
@@ -130,6 +136,11 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     );
   }
 
+  /**
+   * Gets the gas settings for this payment method.
+   *
+   * @returns The gas settings used to compute the maximum fee.
+   */
   getGasSettings(): GasSettings | undefined {
     return this.gasSettings;
   }

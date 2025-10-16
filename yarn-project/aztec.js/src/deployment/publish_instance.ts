@@ -6,8 +6,11 @@ import type { Wallet } from '../wallet/wallet.js';
 
 /**
  * Sets up a call to the canonical contract instance registry to publish a contract instance.
+ * Publishing makes the contract instance available to other users on the network.
+ *
  * @param wallet - The wallet to use for the publication (setup) tx.
- * @param instance - The instance to publish.
+ * @param instance - The instance to publish, including its address and metadata.
+ * @returns A ContractFunctionInteraction that can be executed to publish the instance.
  */
 export async function publishInstance(
   wallet: Wallet,

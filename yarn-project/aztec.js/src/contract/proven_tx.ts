@@ -26,7 +26,9 @@ export class ProvenTx extends Tx {
   }
 
   /**
-   * Sends the transaction to the network via the provided wallet.
+   * Sends the proven transaction to the network via the provided wallet.
+   *
+   * @returns A SentTx instance that can be used to track the transaction status.
    */
   public send(): SentTx {
     const sendTx = () => this.#wallet.sendTx(this);
