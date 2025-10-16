@@ -264,13 +264,8 @@ function build {
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    if [ "${DISABLE_AZTEC_VM:-0}" -eq 0 ]; then
-      # We only build these with AVM transpiler linked, and disable them if not building AVM.
-      # This coupling is mostly arbitrary.
-      builds+=(build_darwin_arm64 build_darwin_amd64)
-      macos_cross_compile=1
-    fi
     builds+=(build_darwin_arm64 build_darwin_amd64)
+    macos_cross_compile=1
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
 
