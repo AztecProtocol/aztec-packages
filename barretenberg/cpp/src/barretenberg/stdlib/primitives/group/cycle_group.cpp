@@ -31,8 +31,9 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
- * @warning This constructor does not constrain the point to be on the curve. It is intended for cases where points are
- * implicitly known to be on the curve such as the result of a point addition or doubling.
+ * @warning This constructor constrains the point to be on the curve by default, however this can be disabled by passing
+ * `false` for the `assert_on_curve` parameter. This is intended for cases where points are implicitly known to be on
+ * the curve such as the result of a point addition or doubling.
  *
  * @param _x
  * @param _y
@@ -57,8 +58,12 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
         *this = constant_infinity(this->context);
     }
 
-    ASSERT(get_value().on_curve());
+    // We don't support points with only one constant coordinate since valid use-cases are limited and it complicates
+    // the logic
+    ASSERT(x.is_constant() == y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
 
+    // Elements are always expected to be on the curve but may or may not be constrained as such.
+    ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
     if (assert_on_curve) {
         validate_on_curve();
     }
