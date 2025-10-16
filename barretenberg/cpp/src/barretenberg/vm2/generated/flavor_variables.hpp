@@ -142,11 +142,11 @@
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 133;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 3086;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 129;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 3080;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 337;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 3556;
+    static constexpr size_t NUM_ALL_ENTITIES = 3546;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -237,8 +237,6 @@ struct AvmFlavorVariables {
         lookup_addressing_relative_overflow_result_4_relation<FF_>,
         lookup_addressing_relative_overflow_result_5_relation<FF_>,
         lookup_addressing_relative_overflow_result_6_relation<FF_>,
-        lookup_alu_exec_dispatching_cast_relation<FF_>,
-        lookup_alu_exec_dispatching_set_relation<FF_>,
         lookup_alu_ff_gt_relation<FF_>,
         lookup_alu_gt_div_remainder_relation<FF_>,
         lookup_alu_int_gt_relation<FF_>,
@@ -249,7 +247,6 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_decomposition_b_lo_relation<FF_>,
         lookup_alu_range_check_mul_u128_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
-        lookup_alu_register_tag_value_relation<FF_>,
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,
         lookup_bc_decomposition_bytes_are_bytes_relation<FF_>,
@@ -260,7 +257,6 @@ struct AvmFlavorVariables {
         lookup_bc_retrieval_is_new_class_check_relation<FF_>,
         lookup_bc_retrieval_retrieved_bytecodes_insertion_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
-        lookup_bitwise_dispatch_exec_bitwise_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_calldata_hashing_check_final_size_relation<FF_>,
         lookup_calldata_hashing_get_calldata_field_0_relation<FF_>,
@@ -289,11 +285,15 @@ struct AvmFlavorVariables {
         lookup_emit_nullifier_write_nullifier_relation<FF_>,
         lookup_emit_unencrypted_log_check_log_fields_count_relation<FF_>,
         lookup_emit_unencrypted_log_check_memory_out_of_bounds_relation<FF_>,
-        lookup_emit_unencrypted_log_dispatch_exec_emit_unencrypted_log_relation<FF_>,
         lookup_emit_unencrypted_log_write_data_to_public_inputs_relation<FF_>,
         lookup_execution_bytecode_retrieval_result_relation<FF_>,
         lookup_execution_check_radix_gt_256_relation<FF_>,
         lookup_execution_check_written_storage_slot_relation<FF_>,
+        lookup_execution_dispatch_to_alu_relation<FF_>,
+        lookup_execution_dispatch_to_bitwise_relation<FF_>,
+        lookup_execution_dispatch_to_cast_relation<FF_>,
+        lookup_execution_dispatch_to_emit_unencrypted_log_relation<FF_>,
+        lookup_execution_dispatch_to_set_relation<FF_>,
         lookup_execution_dyn_l2_factor_bitwise_relation<FF_>,
         lookup_execution_exec_spec_read_relation<FF_>,
         lookup_execution_get_max_limbs_relation<FF_>,
@@ -640,23 +640,25 @@ struct AvmFlavorVariables {
         perm_bc_hashing_get_packed_field_0_relation<FF_>,
         perm_bc_hashing_get_packed_field_1_relation<FF_>,
         perm_bc_hashing_get_packed_field_2_relation<FF_>,
-        perm_data_copy_dispatch_cd_copy_relation<FF_>,
-        perm_data_copy_dispatch_rd_copy_relation<FF_>,
         perm_data_copy_mem_read_relation<FF_>,
         perm_data_copy_mem_write_relation<FF_>,
-        perm_ecc_mem_dispatch_exec_ecc_add_relation<FF_>,
         perm_ecc_mem_write_mem_0_relation<FF_>,
         perm_ecc_mem_write_mem_1_relation<FF_>,
         perm_ecc_mem_write_mem_2_relation<FF_>,
         perm_emit_unencrypted_log_read_mem_relation<FF_>,
-        perm_execution_dispatch_get_contract_instance_relation<FF_>,
-        perm_execution_dispatch_keccakf1600_relation<FF_>,
+        perm_execution_dispatch_to_cd_copy_relation<FF_>,
+        perm_execution_dispatch_to_ecc_add_relation<FF_>,
+        perm_execution_dispatch_to_get_contract_instance_relation<FF_>,
+        perm_execution_dispatch_to_keccakf1600_relation<FF_>,
+        perm_execution_dispatch_to_poseidon2_perm_relation<FF_>,
+        perm_execution_dispatch_to_rd_copy_relation<FF_>,
+        perm_execution_dispatch_to_sha256_compression_relation<FF_>,
+        perm_execution_dispatch_to_to_radix_relation<FF_>,
         perm_get_contract_instance_mem_write_contract_instance_exists_relation<FF_>,
         perm_get_contract_instance_mem_write_contract_instance_member_relation<FF_>,
         perm_keccak_memory_slice_to_mem_relation<FF_>,
         perm_keccakf1600_read_to_slice_relation<FF_>,
         perm_keccakf1600_write_to_slice_relation<FF_>,
-        perm_poseidon2_mem_dispatch_exec_pos2_relation<FF_>,
         perm_poseidon2_mem_pos_read_mem_0_relation<FF_>,
         perm_poseidon2_mem_pos_read_mem_1_relation<FF_>,
         perm_poseidon2_mem_pos_read_mem_2_relation<FF_>,
@@ -672,8 +674,6 @@ struct AvmFlavorVariables {
         perm_registers_mem_op_3_relation<FF_>,
         perm_registers_mem_op_4_relation<FF_>,
         perm_registers_mem_op_5_relation<FF_>,
-        perm_registers_mem_op_6_relation<FF_>,
-        perm_sha256_mem_dispatch_sha256_relation<FF_>,
         perm_sha256_mem_mem_input_read_relation<FF_>,
         perm_sha256_mem_mem_op_0_relation<FF_>,
         perm_sha256_mem_mem_op_1_relation<FF_>,
@@ -684,7 +684,6 @@ struct AvmFlavorVariables {
         perm_sha256_mem_mem_op_6_relation<FF_>,
         perm_sha256_mem_mem_op_7_relation<FF_>,
         perm_sstore_storage_write_relation<FF_>,
-        perm_to_radix_mem_dispatch_exec_to_radix_relation<FF_>,
         perm_to_radix_mem_write_mem_relation<FF_>,
         perm_tx_balance_update_relation<FF_>>;
 };

@@ -201,29 +201,7 @@ template <typename Fr> class Polynomial {
      */
     Fr evaluate_mle(std::span<const Fr> evaluation_points, bool shift = false) const;
 
-    /**
-     * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
-     *
-     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension
-     * p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables
-     * X_n-m,…,X_{n-1}. The result is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) =
-     * p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
-     *
-     * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
-     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable
-     * (as is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
-     * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
-     * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
-     * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
-     *
-     * @param evaluation_points an MLE partial evaluation point u = (u_0,…,u_{m-1})
-     * @return DensePolynomial<Fr> g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1})
-     */
-    Polynomial partial_evaluate_mle(std::span<const Fr> evaluation_points) const;
-
     Fr compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
-        requires polynomial_arithmetic::SupportsFFT<Fr>;
-    Fr compute_kate_opening_coefficients(const Fr& z)
         requires polynomial_arithmetic::SupportsFFT<Fr>;
 
     /**
@@ -335,14 +313,6 @@ template <typename Fr> class Polynomial {
      * @return a polynomial initialized with zero on the range defined by size
      */
     static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
-
-    /**
-     * @brief Expands the polynomial with new start_index and end_index
-     * The value of the polynomial remains the same, but defined memory region differs.
-     *
-     * @return a polynomial with a larger size() but same virtual_size()
-     */
-    Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
 
     /**
      * @brief The end_index of the polynomial is decreased without any memory de-allocation.

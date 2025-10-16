@@ -368,15 +368,15 @@
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_sequencer"
-    to = "/the_aztec_network/guides/sequencer_management"
+    to = "/the_aztec_network/setup/sequencer_management"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes/how_to_run_prover"
-    to = "/the_aztec_network/guides/running_a_prover"
+    to = "/the_aztec_network/setup/running_a_prover"
 
 [[redirects]]
     from = "/the_aztec_network/guides/run_nodes"
-    to = "/the_aztec_network/guides/running_a_node"
+    to = "/the_aztec_network/setup/running_a_node"
 
 [[redirects]]
     from = "/the_aztec_network/reference/operator_faq"
@@ -384,4 +384,4 @@
 
 [[redirects]]
     from = "/the_aztec_network/reference/useful_commands"
-    to = "/the_aztec_network/guides/useful_commands"
+    to = "/the_aztec_network/operation/sequencer_management/useful_commands"

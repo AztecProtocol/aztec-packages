@@ -265,6 +265,7 @@ export class PXE {
       selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
+      hideMsgSender: false,
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };
@@ -736,10 +737,23 @@ export class PXE {
         };
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+
+        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
+
+        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
+        if (preTagsUsedInTheTx.length > 0) {
+          await this.taggingDataProvider.setLastUsedIndexesAsSender(preTagsUsedInTheTx);
+          this.log.debug(`Stored used pre tags as sender for the tx`, {
+            preTagsUsedInTheTx,
+          });
+        } else {
+          this.log.debug(`No pre tags used in the tx`);
+        }
+
+        return txProvingResult;
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }
@@ -1015,7 +1029,6 @@ export class PXE {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
-        // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();

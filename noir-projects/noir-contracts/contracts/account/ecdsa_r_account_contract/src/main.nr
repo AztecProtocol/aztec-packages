@@ -48,7 +48,7 @@ pub contract EcdsaRAccount {
         unsafe { set_sender_for_tags(original_sender) };
     }
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`)
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
     #[noinitcheck]

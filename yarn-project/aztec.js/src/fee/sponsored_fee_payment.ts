@@ -27,6 +27,7 @@ export class SponsoredFeePaymentMethod implements FeePaymentMethod {
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('sponsor_unconditionally()'),
           type: FunctionType.PRIVATE,
+          hideMsgSender: false,
           isStatic: false,
           args: [],
           returnTypes: [],

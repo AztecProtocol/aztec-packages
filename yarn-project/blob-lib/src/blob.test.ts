@@ -21,7 +21,7 @@ const {
 } = cKzg;
 
 try {
-  loadTrustedSetup();
+  loadTrustedSetup(8);
 } catch (error: any) {
   if (error.message.includes('trusted setup is already loaded')) {
     // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,

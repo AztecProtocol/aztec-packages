@@ -187,6 +187,35 @@ describe('ValidatorClient', () => {
       expect(addAttestationsSpy).toHaveBeenCalled();
       expect(addAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
     });
+
+    it('should filter out attestations with mismatched payload', async () => {
+      const signer = Secp256k1Signer.random();
+      const attestor1 = Secp256k1Signer.random();
+      const attestor2 = Secp256k1Signer.random();
+
+      const archive = Fr.random();
+      const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
+
+      const proposal = makeBlockProposal({ signer, archive, txHashes });
+
+      // Create attestations - one with matching payload, one with mismatched
+      const validAttestation = makeBlockAttestation({ signer: attestor1, archive, txHashes });
+      const invalidAttestation = makeBlockAttestation({ signer: attestor2, archive: Fr.random(), txHashes });
+
+      p2pClient.getAttestationsForSlot.mockImplementation((slot, proposalId) =>
+        slot === proposal.payload.header.slotNumber.toBigInt() && proposalId === proposal.archive.toString()
+          ? Promise.resolve([validAttestation, invalidAttestation])
+          : Promise.resolve([]),
+      );
+
+      // Perform the query - should timeout but we're testing the filtering behavior
+      await expect(
+        validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 1000)),
+      ).rejects.toThrow(AttestationTimeoutError);
+
+      // Verify that getAttestationsForSlot was called (meaning the loop ran)
+      expect(p2pClient.getAttestationsForSlot).toHaveBeenCalled();
+    });
   });
 
   describe('attestToProposal', () => {

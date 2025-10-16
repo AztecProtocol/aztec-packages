@@ -227,7 +227,7 @@ where
 }
 
 // Performs a fixed length hash with a subarray of the given input.
-// Useful for SpongeBlob in which we aborb M things and want to check it vs a hash of M elts of an N-len array.
+// Useful for SpongeBlob in which we absorb M things and want to check it vs a hash of M elts of an N-len array.
 // Using stdlib poseidon, this will always absorb an extra 1 as a 'variable' hash, and not match spongeblob.squeeze()
 // or any ts implementation. Also checks that any remaining elts not hashed are empty.
 #[no_predicates]
