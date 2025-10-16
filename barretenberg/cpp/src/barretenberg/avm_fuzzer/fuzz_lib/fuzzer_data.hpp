@@ -1,18 +1,17 @@
 #pragma once
 #include "barretenberg/serialize/msgpack.hpp"
+#include "control_flow.hpp"
 #include "instruction.hpp"
-#include <vector>
-
 #include <cstdint>
+#include <vector>
 
 /// @brief describes the data which will be used for fuzzing
 /// Should contain instructions, calldata, CFG instructions, options to disable/enable instructions, etc
 struct FuzzerData {
-    std::vector<FuzzInstruction> instructions;
+    std::vector<std::vector<FuzzInstruction>> instruction_blocks;
+    std::vector<CFGInstruction> cfg_instructions;
     std::vector<bb::avm2::FF> calldata;
-    // TODO(defkit) CFG + other options
-    // InsertInstruction
-    MSGPACK_FIELDS(instructions, calldata);
+    MSGPACK_FIELDS(instruction_blocks, cfg_instructions, calldata);
 };
 
 #include <iostream>
@@ -21,15 +20,25 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzerData& data)
 {
     os << "FuzzerData {\n";
     os << "  instructions: [\n";
-    for (const auto& instr : data.instructions) {
+    for (const auto& block : data.instruction_blocks) {
+        os << "    [\n";
+        for (const auto& instr : block) {
+            os << "      " << instr << ",\n";
+        }
+        os << "    ],\n";
+    }
+    os << "  ],\n";
+    os << "  cfg_instructions: [\n";
+    for (const auto& instr : data.cfg_instructions) {
         os << "    " << instr << ",\n";
     }
     os << "  ],\n";
     os << "  calldata: [";
     for (size_t i = 0; i < data.calldata.size(); ++i) {
         os << data.calldata[i];
-        if (i + 1 < data.calldata.size())
+        if (i + 1 < data.calldata.size()) {
             os << ", ";
+        }
     }
     os << "]\n";
     os << "}";

@@ -1,6 +1,8 @@
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
-#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/control_flow_commands/control_flow_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include <random>
 
 void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
@@ -10,10 +12,17 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
     for (uint8_t i = 0; i < num_of_mutation; i++) {
         switch (mutation_config) {
         case FuzzerDataMutationOptions::InstructionMutation:
-            mutate_instruction_vec(fuzzer_data.instructions, rng);
+            mutate_vec<std::vector<FuzzInstruction>>(fuzzer_data.instruction_blocks,
+                                                     rng,
+                                                     mutate_instruction_block,
+                                                     generate_instruction_block,
+                                                     BASIC_VEC_MUTATION_CONFIGURATION);
+            break;
+        case FuzzerDataMutationOptions::ControlFlowCommandMutation:
+            mutate_control_flow_vec(fuzzer_data.cfg_instructions, rng);
             break;
         case FuzzerDataMutationOptions::CalldataMutation:
-            // TODO: implement calldata mutation
+            // TODO(defkit): implement calldata mutation
             break;
         }
     }

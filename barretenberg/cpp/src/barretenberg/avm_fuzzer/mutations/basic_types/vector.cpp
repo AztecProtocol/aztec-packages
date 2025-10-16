@@ -97,10 +97,26 @@ void mutate_vec(std::vector<T>& vec,
 }
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/mutations/control_flow_commands/control_flow_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
+
+template void mutate_vec<CFGInstruction>(
+    std::vector<CFGInstruction>& vec,
+    std::mt19937_64& rng,
+    std::function<void(CFGInstruction&, std::mt19937_64&)> mutate_element_function,
+    std::function<CFGInstruction(std::mt19937_64&)> generate_random_element_function,
+    const VecMutationConfig& config);
 
 template void mutate_vec<FuzzInstruction>(
     std::vector<FuzzInstruction>& vec,
     std::mt19937_64& rng,
     std::function<void(FuzzInstruction&, std::mt19937_64&)> mutate_element_function,
     std::function<FuzzInstruction(std::mt19937_64&)> generate_random_element_function,
+    const VecMutationConfig& config);
+
+template void mutate_vec<std::vector<FuzzInstruction>>(
+    std::vector<std::vector<FuzzInstruction>>& vec,
+    std::mt19937_64& rng,
+    std::function<void(std::vector<FuzzInstruction>&, std::mt19937_64&)> mutate_element_function,
+    std::function<std::vector<FuzzInstruction>(std::mt19937_64&)> generate_random_element_function,
     const VecMutationConfig& config);

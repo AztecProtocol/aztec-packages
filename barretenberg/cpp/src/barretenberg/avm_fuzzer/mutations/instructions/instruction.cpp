@@ -112,23 +112,6 @@ void mutate_set_8_instruction(SET_8_Instruction& instruction, std::mt19937_64& r
     }
 }
 
-/*void mutate_return_instruction(RETURN_Instruction& instruction, std::mt19937_64& rng)
-{
-    ReturnMutationOptions option = BASIC_RETURN_MUTATION_CONFIGURATION.select(rng);
-    switch (option) {
-    case ReturnMutationOptions::return_size:
-        // TODO(defkit)
-        // mutate_uint8_t(instruction.return_size, rng, BASIC_UINT8_T_MUTATION_CONFIGURATION);
-        break;
-    case ReturnMutationOptions::return_value_tag:
-        mutate_memory_tag(instruction.return_value_tag, rng, BASIC_MEMORY_TAG_MUTATION_CONFIGURATION);
-        break;
-    case ReturnMutationOptions::return_value_offset_index:
-        mutate_uint16_t(instruction.return_value_offset_index, rng, BASIC_UINT16_T_MUTATION_CONFIGURATION);
-        break;
-    }
-}*/
-
 void mutate_instruction(FuzzInstruction& instruction, std::mt19937_64& rng)
 {
     std::visit(overloaded_instruction{ [&rng](ADD_8_Instruction& instr) { mutate_binary_instruction_8(instr, rng); },

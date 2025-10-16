@@ -1,5 +1,3 @@
-// TODO(defkit) GET RID OF STATIC CASTS, EVERY INSTRUCTION SHOULD DESCRIBE IT
-
 #include "program_block.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -228,31 +226,6 @@ void ProgramBlock::process_set_8_instruction(SET_8_Instruction instruction)
                                .build());
     memory_manager.set_memory_address(instruction.value_tag.value, instruction.offset);
 }
-
-/* void ProgramBlock::process_return_instruction(RETURN_Instruction instruction)
-{
-    auto return_addr =
-        get_16_bit_offset_by_tag_and_index(instruction.return_value_tag, instruction.return_value_offset_index);
-
-    // TODO(defkit) fix, should return something... or just not throw
-    if (!return_addr.has_value()) {
-        return_addr = std::optional<uint16_t>(0);
-    }
-
-    // TODO(defkit) temp
-    uint16_t return_size_offset = 5U;
-    auto set_size_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_16)
-                                    .operand(return_size_offset)
-                                    .operand(bb::avm2::MemoryTag::U32)
-                                    .operand(static_cast<uint16_t>(instruction.return_size))
-                                    .build();
-    instructions.push_back(set_size_instruction);
-    auto return_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::RETURN)
-                                  .operand(return_size_offset)
-                                  .operand(return_addr.value())
-                                  .build();
-    instructions.push_back(return_instruction);
-} */
 
 void ProgramBlock::finalize_with_return(uint8_t return_size,
                                         MemoryTagWrapper return_value_tag,

@@ -45,7 +45,8 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
         msgpack_encode_buffer(deserialized_data);
     // std::cout << "Mutated serialized fuzzer data: " << deserialized_data << std::endl;
     if (mutated_serialized_fuzzer_data_size > max_size) {
-        /// TODO(defkit) ???
+        //???
+        return 0;
     }
 
     memcpy(serialized_fuzzer_data, mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size);

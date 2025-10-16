@@ -1,10 +1,22 @@
 #include "control_flow.hpp"
 
-void ControlFlow::add_instructions(std::vector<FuzzInstruction>& instructions)
+void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructionBlock instruction)
 {
-    for (const auto& instruction : instructions) {
-        current_block.process_instruction(instruction);
+    if (instruction_blocks->size() == 0) {
+        return;
     }
+    auto instruction_block = instruction_blocks->at(instruction.instruction_block_idx % instruction_blocks->size());
+    for (const auto& instr : instruction_block) {
+        current_block.process_instruction(instr);
+    }
+}
+
+void ControlFlow::process_cfg_instruction(CFGInstruction instruction)
+{
+    std::visit(overloaded_cfg_instruction{ [&](InsertSimpleInstructionBlock arg) {
+                   process_insert_simple_instruction_block(arg);
+               } },
+               instruction);
 }
 
 // Helper function to create bytecode from a vector of instructions
