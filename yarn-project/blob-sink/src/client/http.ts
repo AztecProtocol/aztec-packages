@@ -1,7 +1,7 @@
 import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
-import { bufferToHex } from '@aztec/foundation/string';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 
@@ -157,9 +157,12 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    */
   public async getBlobSidecar(
     blockHash: `0x${string}`,
-    blobHashes: Buffer[] = [],
+    blobHashes: Buffer[],
     indices?: number[],
   ): Promise<BlobWithIndex[]> {
+    // TODO(palla/blobs): Each attempt tries to download all blobs. If it does not download all of them,
+    // it discards the successful ones and then tries the next source. We could instead keep the successful ones
+    // and only try to download the missing ones from the next source.
     let blobs: BlobWithIndex[] = [];
 
     const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
@@ -169,7 +172,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
       blobs = await this.getBlobsFromSink(blobSinkUrl, blobHashes);
       this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
-      if (blobs.length > 0) {
+      if (blobs.length === blobHashes.length) {
         return blobs;
       }
     }
@@ -194,7 +197,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             l1ConsensusHostIndex,
           );
           this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
-          if (blobs.length > 0) {
+          if (blobs.length === blobHashes.length) {
             return blobs;
           }
         }
@@ -212,7 +215,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
       blobs = await getRelevantBlobs(allBlobs, blobHashes, this.log, this.opts.onBlobDeserializationError);
       this.log.debug(`Got ${blobs.length} blobs from archive client`, archiveCtx);
-      if (blobs.length > 0) {
+      if (blobs.length === blobHashes.length) {
         return blobs;
       }
     }
@@ -255,6 +258,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       const getBlobs = async (res: Response) =>
         getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
 
+      // TODO(palla/blobs): We should be computing the indices ourselves so we can request specific blobs
+      // rather than all blobs in the slot and then filtering.
       let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
       if (res.ok) {
         return await getBlobs(res);
@@ -412,35 +417,30 @@ async function getRelevantBlobs(
   logger: Logger,
   onBlobDeserializationError: 'warn' | 'trace' = 'warn',
 ): Promise<BlobWithIndex[]> {
-  const blobsPromise = data
-    // Filter out blobs not requested
-    .filter((b: BlobJson) => {
-      if (blobHashes.length === 0) {
-        return true;
-      }
-      const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
-      const blobHash = Blob.getEthVersionedBlobHash(commitment);
-      logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);
-      return blobHashes.some(hash => hash.equals(blobHash));
-    })
-    // Attempt to deserialise the blob
-    // If we cannot decode it, then it is malicious and we should not use it
-    .map(async (b: BlobJson): Promise<BlobWithIndex | undefined> => {
-      try {
-        const blob = await Blob.fromJson(b);
-        return new BlobWithIndex(blob, parseInt(b.index));
-      } catch (err) {
-        if (err instanceof BlobDeserializationError) {
-          logger[onBlobDeserializationError](`Failed to deserialise blob`, { commitment: b.kzg_commitment });
-          return undefined;
-        }
-        throw err;
-      }
-    });
+  const hashToBlob = new Map<string, BlobJson>(
+    data.map(b => [bufferToHex(Blob.getEthVersionedBlobHash(hexToBuffer(b.kzg_commitment))), b] as const),
+  );
 
-  // Second map is async, so we need to await it, and filter out blobs that did not deserialise
-  const maybeBlobs = await Promise.all(blobsPromise);
-  return maybeBlobs.filter((b: BlobWithIndex | undefined): b is BlobWithIndex => b !== undefined);
+  const requestedBlobs = blobHashes
+    .map(bh => hashToBlob.get(bufferToHex(bh)))
+    .filter((b): b is BlobJson => b !== undefined);
+
+  const deserializedBlobs = requestedBlobs.map(async (b: BlobJson): Promise<BlobWithIndex | undefined> => {
+    try {
+      const blob = await Blob.fromJson(b);
+      return new BlobWithIndex(blob, parseInt(b.index));
+    } catch (err) {
+      if (err instanceof BlobDeserializationError) {
+        logger[onBlobDeserializationError](`Failed to deserialise blob`, { commitment: b.kzg_commitment });
+        return undefined;
+      }
+      throw err;
+    }
+  });
+
+  return (await Promise.all(deserializedBlobs)).filter(
+    (b: BlobWithIndex | undefined): b is BlobWithIndex => b !== undefined,
+  );
 }
 
 function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1ConsensusHostIndex?: number) {
