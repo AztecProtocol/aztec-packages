@@ -100,11 +100,7 @@ jobs:
       - name: CI Cached
         if: steps.ci_cache.outputs.cache-hit == 'true'
         run: |
-          echo "CI cached for tree ${{ env.TREE_HASH }}"
-          if [ -f ci-success.txt ]; then
-            echo "Previous run: $(cat ci-success.txt)"
-          fi
-          echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "Previous run: $(cat ci-success.txt)"
 
       #############
       # Run
