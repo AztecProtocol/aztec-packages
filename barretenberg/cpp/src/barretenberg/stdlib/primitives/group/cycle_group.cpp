@@ -39,7 +39,7 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
@@ -58,6 +58,10 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     }
 
     ASSERT(get_value().on_curve());
+
+    if (assert_on_curve) {
+        validate_on_curve();
+    }
 }
 
 /**
@@ -115,7 +119,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
     field_t y(_context, Group::one.y);
     bool_t is_infinity(_context, false);
 
-    return cycle_group<Builder>(x, y, is_infinity);
+    return cycle_group<Builder>(x, y, is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -371,12 +375,13 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
     // Construct the doubled point based on whether this is a constant or witness
     cycle_group result;
     if (is_constant()) {
-        result = cycle_group(x3, y3, is_point_at_infinity());
+        result = cycle_group(x3, y3, is_point_at_infinity(), /*assert_on_curve=*/false);
         // Propagate the origin tag as-is
         result.set_origin_tag(get_origin_tag());
     } else {
         // Create result witness and construct ECC double constraint
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
             .x1 = x.get_witness_index(),
@@ -451,10 +456,11 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     // Construct the result based on whether inputs are constant or witness
     cycle_group result;
     if (lhs_constant && rhs_constant) {
-        result = cycle_group(x3, y3, /*is_infinity=*/false);
+        result = cycle_group(x3, y3, /*is_infinity=*/false, /*assert_on_curve=*/false);
     } else {
         // Both points are witnesses - create result witness and construct ECC add constraint
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
         context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
             .x1 = x.get_witness_index(),
@@ -606,7 +612,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
+    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -695,7 +701,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
+    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -953,7 +959,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const field_t x = lookup_data[ColumnIdx::C2][j];
             const field_t y = lookup_data[ColumnIdx::C3][j];
-            lookup_points.emplace_back(x, y, /*is_infinity=*/false);
+            lookup_points.emplace_back(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
         }
         // Update offset accumulator with the total offset for the corresponding multitable
         offset_generator_accumulator += table::get_generator_offset_for_table_id(table_id);
@@ -1224,7 +1230,7 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
         x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
     }
 
-    cycle_group<Builder> result(x_res, y_res, _is_infinity_res);
+    cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
     result._is_standard = _is_standard_res;
     return result;
 };
