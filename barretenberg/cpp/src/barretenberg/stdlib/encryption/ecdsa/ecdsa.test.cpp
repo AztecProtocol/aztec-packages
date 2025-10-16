@@ -264,7 +264,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // Verify signature
         stdlib::bool_t<Builder> signature_result =
-            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+            stdlib::incomplete_ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
 
         // Enforce verification returns the expected result
         signature_result.assert_equal(stdlib::bool_t<Builder>(signature_verification_result));

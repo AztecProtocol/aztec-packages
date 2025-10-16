@@ -17,16 +17,26 @@ using namespace bb;
 /**
  * @brief Create constraints to verify an ECDSA signature
  *
+ * @note These constraints are incomplete because the ECDSA verification function enforces that the hash of the message
+ * is smaller than the scalar field of the curve, which means an honest prover has a negligible probability of not being
+ * able to generate a proof for a valid witness.
+ *
  * @details Given and ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
  * perform the following operations:
  *  1. Reconstruct byte arrays from builder variables (we enforce that each variable fits in one byte and stack them in
  *     a vector) and the boolean result from the corresponding builder variable
  *  2. Reconstruct the public key from the byte representations (big-endian, 32-byte numbers) of the \f$x\f$ and \f$y\f$
  *     coordinates.
- *  3. Conditionally select the public key with a non generator default point (2*G1.one, in order to avoid issues
- *     withsecp256r1) when the predicate is false. This ensures that the public key is always on the curve when the
- *     predicate is false. Furthermore, make sure all the coordinates of the public key are either all constant or all
- *     witness.
+ *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is false. This
+ *     ensures that the circuit is satisfied when the predicate is false. We set:
+ *      - We set the first byte of r and s to 1, and the last of both to 0 (NOTE: This is only valid when numbers of 31
+ *        bytes are smaller than the order of the elliptic curve divided by two, which is the case for secp256k1 and
+ *        secp256r1)
+ *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
+ *        secp265r1)
+ *      - The last byte of the hash of the message to 0 (NOTE: This is only valid when numbers of 31 bytes are smaller
+ *        than the order of the elliptic curve) Furthermore, we make sure all the coordinates of the public key are
+ *        either all constant or all witness.
  *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
  * \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
  *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -39,9 +49,9 @@ using namespace bb;
  * @param has_valid_witness_assignments
  */
 template <typename Curve>
-void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                     const EcdsaConstraint& input,
-                                     bool has_valid_witness_assignments)
+void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder,
+                                                const EcdsaConstraint& input,
+                                                bool has_valid_witness_assignments)
 {
     using Builder = Curve::Builder;
 
@@ -52,20 +62,6 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     using field_ct = bb::stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
     using byte_array_ct = bb::stdlib::byte_array<Builder>;
-
-    // Lambda to convert std::vector<field_ct> to byte_array_ct
-    auto fields_to_bytes = [](Builder& builder, std::vector<field_ct>& fields) -> byte_array_ct {
-        byte_array_ct result(&builder);
-        for (auto& field : fields) {
-            // Construct byte array of length 1 from the field element
-            // The constructor enforces that `field` fits in one byte
-            byte_array_ct byte_to_append(field, /*num_bytes=*/1);
-            // Append the new byte to the result
-            result.write(byte_to_append);
-        }
-
-        return result;
-    };
 
     // Define builder variables based on the witness indices
     std::vector<field_ct> hashed_message_fields = fields_from_witnesses(builder, input.hashed_message);
@@ -96,13 +92,20 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     Fq pub_y(pub_y_bytes);
 
     // Step 3.
-    // Update it depending on the predicate: if predicate is false, set public key to 2*G1.one
+    // Update values depending on the predicate
     if (!input.predicate.is_constant) {
-        // We need to use a point which is different from the generator otherwise secp256r1 ECDSA verification fails
-        auto default_point = Curve::g1::one + Curve::g1::one;
-        // Addition is done on affine coordinates, so we need to normalize it
-        default_point = default_point.normalize();
         bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
+        // r != 0
+        r[0] = field_ct::conditional_assign(predicate_witness, r[0], field_ct(1));
+        // s != 0
+        s[0] = field_ct::conditional_assign(predicate_witness, s[0], field_ct(1));
+        // r < n
+        r[31] = field_ct::conditional_assign(predicate_witness, r[31], field_ct(0));
+        // s < n/2
+        s[31] = field_ct::conditional_assign(predicate_witness, s[31], field_ct(0));
+        // P is on the curve
+        // We need to use a point which is different from the generator otherwise secp256r1 ECDSA verification fails
+        typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
         pub_x = Fq::conditional_assign(predicate_witness, pub_x, default_point.x);
         pub_y = Fq::conditional_assign(predicate_witness, pub_y, default_point.y);
         // Avoid mixing constant/witness coordinates because of issue
@@ -127,7 +130,7 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
 
     // Step 5.
     bool_ct signature_result =
-        stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
+        stdlib::incomplete_ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
     // Step 6.
     // Assert that signature verification returned the expected result
@@ -188,13 +191,13 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     builder.set_variable(result_field.witness_index, bb::fr::one());
 }
 
-template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(
+template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(
+template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(
     MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(
+template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(
+template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(
     MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
 
 template void create_dummy_ecdsa_constraint<stdlib::secp256k1<UltraCircuitBuilder>>(

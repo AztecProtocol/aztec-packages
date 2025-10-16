@@ -30,7 +30,11 @@ using namespace bb;
  *  5. `result`, an array of length 1 representing the witness index of the expected result of the signature
  *     verification.
  *  6. `predicate`, a boolean witness indicating whether the constraint should be disabled or not. If the predicate is
- *     false, then the constraint is disabled, i.e it must not fail and can return whatever.
+ *     false, then the constraint is disabled, i.e it must not fail and can return whatever. When `predicate` is set to
+ *     false, we override some values to ensure that all the circuit constraints are satisfied:
+ *      - We set the components of the signature to be equal to 1.
+ *      - We set the public key to be 2 times the generator of the curve.
+ *      - We set the hash of the message to be ?????????
  */
 struct EcdsaConstraint {
     // The byte representation of the hashed message.
@@ -59,9 +63,9 @@ struct EcdsaConstraint {
 };
 
 template <typename Curve>
-void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                     const EcdsaConstraint& input,
-                                     bool has_valid_witness_assignments = true);
+void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder,
+                                                const EcdsaConstraint& input,
+                                                bool has_valid_witness_assignments = true);
 
 template <typename Curve>
 void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
