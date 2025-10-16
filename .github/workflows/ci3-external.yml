@@ -95,7 +95,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ci-success.txt
-          key: ci-external-${{ env.CI_FULL == '1' && 'full' || 'fast' }}-${{ env.TREE_HASH }}
+          key: ci-external-${{ env.CI_MERGE_QUEUE == '1' && 'merge-queue' || env.CI_FULL == '1' && 'full' || 'fast' }}-${{ env.NO_CACHE == '1' && 'no-cache' || 'cache' }}-${{ env.NO_FAIL_FAST == '1' && 'no-fail-fast' || 'fail-fast' }}-${{ env.TREE_HASH }}
 
       - name: CI Cached
         if: steps.ci_cache.outputs.cache-hit == 'true'
