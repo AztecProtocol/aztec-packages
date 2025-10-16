@@ -166,6 +166,16 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             }
         }
     }
+
+    static void unset_free_witness_tags(std::vector<DataType>& input)
+    {
+        if constexpr (in_circuit) {
+            for (auto& entry : input) {
+                input.unset_free_witness_tag();
+            }
+        }
+    }
+
     Proof proof_data; // Contains the raw data sent by the prover.
 
     /**
@@ -306,11 +316,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
         // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
         // security mechanism while we are hashing them
-        if constexpr (in_circuit) {
-            for (auto& element : current_round_data) {
-                element.unset_free_witness_tag();
-            }
-        }
+        unset_free_witness_tags(current_round_data);
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
@@ -328,14 +334,14 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
 
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // We are in challenge generation mode
-            if (reception_phase) {
-                reception_phase = false;
-            }
-            // Assign origin tags to the challenges
-            assign_origin_tag(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+        // We are in challenge generation mode
+        if (reception_phase) {
+            reception_phase = false;
         }
+
+        // Assign origin tags to the challenges
+        assign_origin_tag(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+
         // Prepare for next round.
         ++round_number;
 
@@ -389,16 +395,14 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
+        // If the element is iterable, then we need to assign origin tags to all the elements
+        assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto element_frs = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
@@ -418,11 +422,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
         // get an origin tag violation inside the hasher
-        if constexpr (in_circuit) {
-            for (auto& element : independent_hash_buffer) {
-                element.unset_free_witness_tag();
-            }
-        }
+        unset_free_witness_tags(independent_hash_buffer);
         DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;
@@ -440,16 +440,14 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-
-            assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
+
+        assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto elements = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
@@ -502,18 +500,16 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // Assign an origin tag to the elements going into the hash buffer
-            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
-            for (auto& subelement : element_frs) {
-                subelement.set_origin_tag(element_origin_tag);
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
+        }
+        // Assign an origin tag to the elements going into the hash buffer
+        const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
+        for (auto& subelement : element_frs) {
+            subelement.set_origin_tag(element_origin_tag);
         }
         num_frs_read += element_size;
 
