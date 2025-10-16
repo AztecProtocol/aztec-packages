@@ -1,6 +1,7 @@
 #include "../mem.hpp"
 
 #ifdef TRACY_MEMORY
+
 void* operator new(std::size_t count)
 {
     // NOLINTBEGIN(cppcoreguidelines-no-malloc)
@@ -54,11 +55,39 @@ void operator delete[](void* ptr, std::size_t) noexcept
 // C++17 aligned new
 void* operator new(std::size_t size, std::align_val_t alignment)
 {
-    return aligned_alloc(static_cast<std::size_t>(alignment), size);
+    void* ptr = aligned_alloc(static_cast<std::size_t>(alignment), size);
+    TRACY_ALLOC(ptr, size);
+    return ptr;
+}
+
+void* operator new[](std::size_t size, std::align_val_t alignment)
+{
+    void* ptr = aligned_alloc(static_cast<std::size_t>(alignment), size);
+    TRACY_ALLOC(ptr, size);
+    return ptr;
 }
 
 void operator delete(void* ptr, std::align_val_t) noexcept
 {
+    TRACY_FREE(ptr);
+    aligned_free(ptr);
+}
+
+void operator delete(void* ptr, std::size_t, std::align_val_t) noexcept
+{
+    TRACY_FREE(ptr);
+    aligned_free(ptr);
+}
+
+void operator delete[](void* ptr, std::align_val_t) noexcept
+{
+    TRACY_FREE(ptr);
+    aligned_free(ptr);
+}
+
+void operator delete[](void* ptr, std::size_t, std::align_val_t) noexcept
+{
+    TRACY_FREE(ptr);
     aligned_free(ptr);
 }
 
