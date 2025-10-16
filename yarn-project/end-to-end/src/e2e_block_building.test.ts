@@ -679,6 +679,56 @@ describe('e2e_block_building', () => {
     });
   });
 
+  describe('empty blocks', () => {
+    let wallet: Wallet;
+
+    afterEach(async () => {
+      if (teardown) {
+        await teardown();
+      }
+    });
+
+    it('syncs blocks with no access to blobs if they are empty', async () => {
+      const context = await setup(1, {
+        minTxsPerBlock: 0,
+        skipProtocolContracts: true,
+        numberOfInitialFundedAccounts: 1,
+        ethereumSlotDuration: 4,
+        aztecSlotDuration: 8,
+        aztecProofSubmissionEpochs: 32,
+        automineL1Setup: true,
+      });
+
+      ({
+        teardown,
+        logger,
+        aztecNode,
+        wallet,
+        accounts: [ownerAddress],
+      } = context);
+
+      const testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
+      const deploymentBlock = await aztecNode.getBlockNumber();
+      logger.warn(`Test contract deployed at ${testContract.address} at block ${deploymentBlock}`);
+
+      // Mock the blob sink to prevent blob storage
+      logger.warn(`Disabling blob storage`);
+      context.blobSink!.setDisableBlobStorage(true);
+
+      // Produce an empty block (no txs) - should sync fine without blobs
+      logger.warn('Producing empty block without blob publishing');
+      await retryUntil(async () => (await aztecNode.getBlockNumber()) > deploymentBlock + 1, 'wait-empty-block', 24, 1);
+      const emptyBlockNumber = await aztecNode.getBlockNumber();
+      logger.warn(`Empty block ${emptyBlockNumber} synced`);
+
+      // Now produce a block with txs (blobs still blocked)
+      logger.warn('Producing block with txs but no blob publishing');
+      await expect(() =>
+        testContract.methods.emit_nullifier(Fr.random()).send({ from: ownerAddress }).wait({ timeout: 12 }),
+      ).rejects.toThrow(/time/i);
+    });
+  });
+
   const interceptTxProcessorSimulate = (
     node: AztecNodeService,
     stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,

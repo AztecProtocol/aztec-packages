@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/blob-lib';
+import { Blob, EMPTY_BLOB_VERSIONED_HASH } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import { BlobWithIndex } from '@aztec/blob-sink/types';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
@@ -16,6 +16,7 @@ import { bufferToHex, withoutHexPrefix } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import {
+  Body,
   CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   L2Block,
@@ -925,6 +926,71 @@ describe('Archiver', () => {
     // Then the archiver must reprocess the old block to get to the new one
     await retryUntil(async () => (await archiver.getBlockNumber()) === 3, 'resync', 10, 0.1);
   });
+
+  it('handles empty blob hash without downloading blob', async () => {
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    // Create a block with an empty body
+    const emptyBlock = blocks[0];
+    emptyBlock.body = Body.empty();
+
+    const emptyBlobHash = bufferToHex(EMPTY_BLOB_VERSIONED_HASH);
+    const rollupTx = await makeRollupTx(emptyBlock);
+
+    mockL1BlockNumbers(100n);
+
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, emptyBlock.archive.root.toString(), GENESIS_ROOT]);
+
+    makeL2BlockProposedEvent(70n, 1n, emptyBlock.archive.root.toString(), [emptyBlobHash]);
+
+    // Mock getBlobSidecar to return empty array (simulating blob not downloaded)
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce([]);
+
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
+
+    await archiver.start(false);
+
+    // Wait until block 1 is processed
+    await waitUntilArchiverBlock(1);
+
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(1);
+
+    // Verify the block was synced successfully
+    const syncedBlock = await archiver.getBlock(1);
+    expect(syncedBlock).toBeDefined();
+    expect(syncedBlock!.body.txEffects.length).toEqual(0);
+  }, 10_000);
+
+  it('throws error when blob hashes and bodies mismatch (non-empty case)', async () => {
+    let latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+
+    const block = blocks[0];
+    const blobHashes = await makeVersionedBlobHashes(block);
+    const rollupTx = await makeRollupTx(block);
+
+    mockL1BlockNumbers(100n);
+
+    mockRollup.read.status.mockResolvedValue([0n, GENESIS_ROOT, 1n, block.archive.root.toString(), GENESIS_ROOT]);
+
+    makeL2BlockProposedEvent(70n, 1n, block.archive.root.toString(), blobHashes);
+
+    // Mock getBlobSidecar to return empty array (missing blobs)
+    blobSinkClient.getBlobSidecar.mockResolvedValueOnce([]);
+
+    publicClient.getTransaction.mockResolvedValueOnce(rollupTx);
+
+    await archiver.start(false);
+
+    // Give it some time to attempt processing
+    await sleep(1000);
+
+    // Should still be at block 0 since the blob fetch failed
+    latestBlockNum = await archiver.getBlockNumber();
+    expect(latestBlockNum).toEqual(0);
+  }, 10_000);
 
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
