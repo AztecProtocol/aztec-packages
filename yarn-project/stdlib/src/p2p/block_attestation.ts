@@ -30,6 +30,7 @@ export class BlockAttestation extends Gossipable {
   static override p2pTopic = TopicType.block_attestation;
 
   private sender: EthAddress | undefined;
+  private proposer: EthAddress | undefined;
 
   constructor(
     /** The block number of the attestation. */
@@ -40,6 +41,9 @@ export class BlockAttestation extends Gossipable {
 
     /** The signature of the block attester */
     public readonly signature: Signature,
+
+    /** The signature from the block proposer */
+    public readonly proposerSignature: Signature,
   ) {
     super();
   }
@@ -50,8 +54,9 @@ export class BlockAttestation extends Gossipable {
         blockNumber: schemas.UInt32,
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
+        proposerSignature: Signature.schema,
       })
-      .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature));
+      .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature, obj.proposerSignature));
   }
 
   override generateP2PMessageIdentifier(): Promise<Buffer32> {
@@ -81,28 +86,74 @@ export class BlockAttestation extends Gossipable {
     return this.sender;
   }
 
+  /**
+   * Tries to get the sender of the attestation
+   * @returns The sender of the attestation or undefined if it fails during recovery
+   */
+  tryGetSender(): EthAddress | undefined {
+    try {
+      return this.getSender();
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Lazily evaluate and cache the proposer of the block
+   * @returns The proposer of the block
+   */
+  getProposer(): EthAddress {
+    if (!this.proposer) {
+      // Recover the proposer from the proposal signature
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
+      // Cache the proposer for later use
+      this.proposer = recoverAddress(hashed, this.proposerSignature);
+    }
+
+    return this.proposer;
+  }
+
   getPayload(): Buffer {
     return this.payload.getPayloadToSign(SignatureDomainSeparator.blockAttestation);
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.payload, this.signature]);
+    return serializeToBuffer([this.blockNumber, this.payload, this.signature, this.proposerSignature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
-    return new BlockAttestation(reader.readNumber(), reader.readObject(ConsensusPayload), reader.readObject(Signature));
+    return new BlockAttestation(
+      reader.readNumber(),
+      reader.readObject(ConsensusPayload),
+      reader.readObject(Signature),
+      reader.readObject(Signature),
+    );
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(0, ConsensusPayload.empty(), Signature.empty());
+    return new BlockAttestation(0, ConsensusPayload.empty(), Signature.empty(), Signature.empty());
   }
 
   static random(): BlockAttestation {
-    return new BlockAttestation(Math.floor(Math.random() * 1000) + 1, ConsensusPayload.random(), Signature.random());
+    return new BlockAttestation(
+      Math.floor(Math.random() * 1000) + 1,
+      ConsensusPayload.random(),
+      Signature.random(),
+      Signature.random(),
+    );
   }
 
   getSize(): number {
-    return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize();
+    return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize() + this.proposerSignature.getSize();
+  }
+
+  toInspect() {
+    return {
+      blockNumber: this.blockNumber,
+      payload: this.payload.toInspect(),
+      signature: this.signature.toString(),
+      proposerSignature: this.proposerSignature.toString(),
+    };
   }
 }
