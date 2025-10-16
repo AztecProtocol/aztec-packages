@@ -160,24 +160,58 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     blobHashes: Buffer[],
     indices?: number[],
   ): Promise<BlobWithIndex[]> {
-    // TODO(palla/blobs): Each attempt tries to download all blobs. If it does not download all of them,
-    // it discards the successful ones and then tries the next source. We could instead keep the successful ones
-    // and only try to download the missing ones from the next source.
-    let blobs: BlobWithIndex[] = [];
+    // Accumulate blobs across sources, preserving order and handling duplicates
+    // resultBlobs[i] will contain the blob for blobHashes[i], or undefined if not yet found
+    const resultBlobs: (BlobWithIndex | undefined)[] = new Array(blobHashes.length).fill(undefined);
+
+    // Helper to get  missing blob hashes that we still need to fetch
+    const getMissingBlobHashes = (): Buffer[] =>
+      blobHashes
+        .map((bh, i) => (resultBlobs[i] === undefined ? bh : undefined))
+        .filter((bh): bh is Buffer => bh !== undefined);
+
+    // Helper to fill in results from fetched blobs
+    const fillResults = (fetchedBlobs: BlobWithIndex[]) => {
+      // Create a map from hash to blob for quick lookup
+      const hashToBlob = new Map<string, BlobWithIndex>(
+        fetchedBlobs.map(b => [bufferToHex(b.blob.getEthVersionedBlobHash()), b] as const),
+      );
+
+      // Fill in any missing positions with matching blobs
+      for (let i = 0; i < blobHashes.length; i++) {
+        if (resultBlobs[i] === undefined) {
+          const blob = hashToBlob.get(bufferToHex(blobHashes[i]));
+          if (blob) {
+            resultBlobs[i] = blob;
+          }
+        }
+      }
+    };
+
+    // Helper to count how many blobs we have successfully fetched so far
+    const getFilledCount = () => resultBlobs.filter(b => b !== undefined).length;
 
     const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
 
     if (blobSinkUrl) {
-      this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
-      blobs = await this.getBlobsFromSink(blobSinkUrl, blobHashes);
-      this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
-      if (blobs.length === blobHashes.length) {
-        return blobs;
+      const missingHashes = getMissingBlobHashes();
+      if (missingHashes.length > 0) {
+        this.log.trace(`Attempting to get ${missingHashes.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
+        const blobs = await this.getBlobsFromSink(blobSinkUrl, missingHashes);
+        fillResults(blobs);
+        this.log.debug(`Got ${blobs.length} blobs from blob sink (total: ${getFilledCount()}/${blobHashes.length})`, {
+          blobSinkUrl,
+          ...ctx,
+        });
+        if (getFilledCount() === blobHashes.length) {
+          return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+        }
       }
     }
 
-    if (blobs.length == 0 && l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
+    const missingAfterSink = getMissingBlobHashes();
+    if (missingAfterSink.length > 0 && l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
       // The beacon api can query by slot number, so we get that first
       const consensusCtx = { l1ConsensusHostUrls, ...ctx };
       this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
@@ -187,45 +221,74 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       if (slotNumber) {
         let l1ConsensusHostUrl: string;
         for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
+          const missingHashes = getMissingBlobHashes();
+          if (missingHashes.length === 0) {
+            break;
+          }
+
           l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
-          this.log.trace(`Attempting to get blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
+          this.log.trace(`Attempting to get ${missingHashes.length} blobs from consensus host`, {
+            slotNumber,
+            l1ConsensusHostUrl,
+            ...ctx,
+          });
           const blobs = await this.getBlobSidecarFrom(
             l1ConsensusHostUrl,
             slotNumber,
-            blobHashes,
+            missingHashes,
             indices,
             l1ConsensusHostIndex,
           );
-          this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
-          if (blobs.length === blobHashes.length) {
-            return blobs;
+          fillResults(blobs);
+          this.log.debug(
+            `Got ${blobs.length} blobs from consensus host (total: ${getFilledCount()}/${blobHashes.length})`,
+            { slotNumber, l1ConsensusHostUrl, ...ctx },
+          );
+          if (getFilledCount() === blobHashes.length) {
+            return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
           }
         }
       }
     }
 
-    if (blobs.length == 0 && this.archiveClient) {
+    const missingAfterConsensus = getMissingBlobHashes();
+    if (missingAfterConsensus.length > 0 && this.archiveClient) {
       const archiveCtx = { archiveUrl: this.archiveClient.getBaseUrl(), ...ctx };
-      this.log.trace(`Attempting to get blobs from archive`, archiveCtx);
+      this.log.trace(`Attempting to get ${missingAfterConsensus.length} blobs from archive`, archiveCtx);
       const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
       if (!allBlobs) {
         this.log.debug('No blobs found from archive client', archiveCtx);
-        return [];
+        return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
       }
       this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
-      blobs = await getRelevantBlobs(allBlobs, blobHashes, this.log, this.opts.onBlobDeserializationError);
-      this.log.debug(`Got ${blobs.length} blobs from archive client`, archiveCtx);
-      if (blobs.length === blobHashes.length) {
-        return blobs;
+      const blobs = await getRelevantBlobs(
+        allBlobs,
+        missingAfterConsensus,
+        this.log,
+        this.opts.onBlobDeserializationError,
+      );
+      fillResults(blobs);
+      this.log.debug(
+        `Got ${blobs.length} blobs from archive client (total: ${getFilledCount()}/${blobHashes.length})`,
+        archiveCtx,
+      );
+      if (getFilledCount() === blobHashes.length) {
+        return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
       }
     }
 
-    this.log.warn(`Failed to fetch blobs for ${blockHash} from all blob sources`, {
-      blobSinkUrl,
-      l1ConsensusHostUrls,
-      archiveUrl: this.archiveClient?.getBaseUrl(),
-    });
-    return [];
+    const filledCount = getFilledCount();
+    if (filledCount < blobHashes.length) {
+      this.log.warn(
+        `Failed to fetch all blobs for ${blockHash} from all blob sources (got ${filledCount}/${blobHashes.length})`,
+        {
+          blobSinkUrl,
+          l1ConsensusHostUrls,
+          archiveUrl: this.archiveClient?.getBaseUrl(),
+        },
+      );
+    }
+    return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
   }
 
   private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
@@ -258,8 +321,6 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       const getBlobs = async (res: Response) =>
         getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
 
-      // TODO(palla/blobs): We should be computing the indices ourselves so we can request specific blobs
-      // rather than all blobs in the slot and then filtering.
       let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
       if (res.ok) {
         return await getBlobs(res);
