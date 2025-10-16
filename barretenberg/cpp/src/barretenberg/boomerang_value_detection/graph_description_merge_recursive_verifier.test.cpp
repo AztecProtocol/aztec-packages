@@ -41,43 +41,8 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
     using TableCommitments = MergeVerifier::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
 
-    enum class TamperProofMode { None, Shift, MCommitment, LEval };
-
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-
-    static void tamper_with_proof(MergeProof& merge_proof, const TamperProofMode tampering_mode)
-    {
-        const size_t shift_idx = 0;        // Index of shift_size in the merge proof
-        const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 34;      // Index of first evaluation of l(1/kappa) in merge proof
-
-        switch (tampering_mode) {
-        case TamperProofMode::Shift:
-            // Tamper with the shift size in the proof
-            merge_proof[shift_idx] += 1;
-            break;
-        case TamperProofMode::MCommitment: {
-            // Tamper with the commitment in the proof
-            Commitment m_commitment =
-                bb::field_conversion::convert_from_bn254_frs<Commitment>(std::span{ merge_proof }.subspan(
-                    m_commitment_idx, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
-            m_commitment = m_commitment + Commitment::one();
-            auto m_commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(m_commitment);
-            for (size_t idx = 0; idx < 4; ++idx) {
-                merge_proof[m_commitment_idx + idx] = m_commitment_frs[idx];
-            }
-            break;
-        }
-        case TamperProofMode::LEval:
-            // Tamper with the evaluation in the proof
-            merge_proof[l_eval_idx] -= FF(1);
-            break;
-        default:
-            // Nothing to do
-            break;
-        }
-    }
 
     static void analyze_circuit(RecursiveBuilder& outer_circuit)
     {
@@ -97,16 +62,13 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
                                        const MergeSettings settings = MergeSettings::PREPEND,
-                                       const bool run_analyzer = false,
-                                       const TamperProofMode tampering_mode = TamperProofMode::None,
-                                       const bool expected = true)
+                                       const bool run_analyzer = false)
 
     {
         RecursiveBuilder outer_circuit;
 
         MergeProver merge_prover{ op_queue, settings };
         auto merge_proof = merge_prover.construct_proof();
-        tamper_with_proof(merge_proof, tampering_mode);
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
@@ -134,7 +96,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
             verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
-        EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
+        EXPECT_FALSE(outer_circuit.failed());
         if (run_analyzer) {
             analyze_circuit(outer_circuit);
         }

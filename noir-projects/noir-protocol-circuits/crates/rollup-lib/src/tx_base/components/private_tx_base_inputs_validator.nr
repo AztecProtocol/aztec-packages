@@ -5,7 +5,6 @@ use dep::types::{
     abis::{
         block_constant_data::BlockConstantData,
         kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-        partial_state_reference::PartialStateReference,
     },
     constants::{
         ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
@@ -18,7 +17,6 @@ use dep::types::{
 pub struct PrivateTxBaseInputsValidator {
     hiding_kernel_proof_data: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
     constants: BlockConstantData,
-    start_tree_snapshots: PartialStateReference,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -28,7 +26,6 @@ impl PrivateTxBaseInputsValidator {
     pub fn new(
         hiding_kernel_proof_data: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
         constants: BlockConstantData,
-        start_tree_snapshots: PartialStateReference,
         contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
         anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -36,7 +33,6 @@ impl PrivateTxBaseInputsValidator {
         PrivateTxBaseInputsValidator {
             hiding_kernel_proof_data,
             constants,
-            start_tree_snapshots,
             contract_class_log_fields,
             fee_payer_balance_leaf_preimage,
             anchor_block_archive_sibling_path,

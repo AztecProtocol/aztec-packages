@@ -159,7 +159,7 @@ void generate_vks_for_functions(const std::filesystem::path& cache_dir,
 /**
  * @brief Transpile the artifact file (or copy if transpiler not enabled)
  */
-bool transpile_artifact(const std::string& input_path, const std::string& output_path)
+bool transpile_artifact([[maybe_unused]] const std::string& input_path, [[maybe_unused]] const std::string& output_path)
 {
 #ifdef ENABLE_AVM_TRANSPILER
     info("Transpiling: ", input_path, " -> ", output_path);
@@ -191,11 +191,7 @@ bool transpile_artifact(const std::string& input_path, const std::string& output
 
     info("Transpiled: ", input_path, " -> ", output_path);
 #else
-    // If transpiler is not enabled, just copy the file
-    info("Warning: AVM Transpiler is not enabled. Skipping transpilation.");
-    if (input_path != output_path) {
-        std::filesystem::copy_file(input_path, output_path, std::filesystem::copy_options::overwrite_existing);
-    }
+    throw_or_abort("AVM Transpiler is not enabled. Please enable it to use bb aztec_process.");
 #endif
     return true;
 }

@@ -40,10 +40,7 @@ fn assert_prev_block_rollups_follow_on_from_each_other(
         "Rollup block timestamps do not follow on from each other",
     );
 
-    // Ensure `in_hash` is set on the left rollup. It originates from the first block root and must propagate through
-    // all merge steps via the left rollup only.
-    assert(left.in_hash != 0, "in_hash must be set on the left rollup when merging blocks");
-
-    // The right rollup must not carry or propagate the `in_hash`, only the left rollup does.
+    // Non-empty `in_hash` originates from the first block root and must propagate through all merge steps via the left
+    // rollup only. Which means the right rollup must not carry or propagate the `in_hash`.
     assert_eq(right.in_hash, 0, "Right rollup must not carry in_hash");
 }

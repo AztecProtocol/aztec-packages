@@ -1,4 +1,3 @@
-include "bc_hashing.pil";
 include "address_derivation.pil";
 include "update_check.pil";
 include "../ff_gt.pil";

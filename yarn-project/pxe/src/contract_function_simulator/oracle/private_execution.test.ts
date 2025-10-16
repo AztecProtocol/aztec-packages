@@ -2,6 +2,7 @@ import {
   GeneratorIndex,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
+  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -47,6 +48,7 @@ import {
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
+import { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
@@ -156,7 +158,8 @@ describe('Private Execution test suite', () => {
     artifact,
     functionName,
     args = [],
-    msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+    /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
+    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
     contractAddress = undefined,
     txContext = {},
   }: {
@@ -301,11 +304,9 @@ describe('Private Execution test suite', () => {
       throw new Error(`Unknown address: ${address}. Recipient: ${recipient}, Owner: ${owner}`);
     });
 
-    executionDataProvider.getNextAppTagAsSender.mockImplementation(
-      (_contractAddress: AztecAddress, _sender: AztecAddress, _recipient: AztecAddress) => {
-        return Promise.resolve(Fr.random());
-      },
-    );
+    executionDataProvider.getLastUsedIndexAsSender.mockImplementation((_secret: DirectionalAppTaggingSecret) => {
+      return Promise.resolve(undefined);
+    });
     executionDataProvider.getFunctionArtifact.mockImplementation(async (address, selector) => {
       const contract = contracts[address.toString()];
       if (!contract) {
@@ -331,6 +332,13 @@ describe('Private Execution test suite', () => {
     });
 
     executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
+    // Provide tagging-related mocks expected by private log emission
+    executionDataProvider.calculateDirectionalAppTaggingSecret.mockImplementation((_contract, _sender, _recipient) => {
+      return Promise.resolve(DirectionalAppTaggingSecret.fromString('0x1'));
+    });
+    executionDataProvider.syncTaggedLogsAsSender.mockImplementation((_directionalAppTaggingSecret, _contractAddress) =>
+      Promise.resolve(),
+    );
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
@@ -405,6 +413,7 @@ describe('Private Execution test suite', () => {
         artifact: StatefulTestContractArtifact,
         functionName: 'constructor',
         contractAddress: instance.address,
+        msgSender: AztecAddress.fromNumber(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 

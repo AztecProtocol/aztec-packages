@@ -207,56 +207,6 @@ template <typename Fr> Fr Polynomial<Fr>::evaluate_mle(std::span<const Fr> evalu
     return _evaluate_mle(evaluation_points, coefficients_, shift);
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::partial_evaluate_mle(std::span<const Fr> evaluation_points) const
-{
-    // Get size of partial evaluation point u = (u_0,...,u_{m-1})
-    const size_t m = evaluation_points.size();
-
-    // Assert that the size of the Polynomial being evaluated is a power of 2 greater than (1 << m)
-    ASSERT(numeric::is_power_of_two(size()));
-    BB_ASSERT_GTE(size(), static_cast<size_t>(1 << m));
-    size_t n = numeric::get_msb(size());
-
-    // Partial evaluation is done in m rounds l = 0,...,m-1. At the end of round l, the Polynomial has been
-    // partially evaluated at u_{m-l-1}, ..., u_{m-1} in variables X_{n-l-1}, ..., X_{n-1}. The size of this
-    // Polynomial is n_l.
-    size_t n_l = 1 << (n - 1);
-
-    // Temporary buffer of half the size of the Polynomial
-    Polynomial<Fr> intermediate(n_l, n_l, DontZeroMemory::FLAG);
-
-    // Evaluate variable X_{n-1} at u_{m-1}
-    Fr u_l = evaluation_points[m - 1];
-
-    for (size_t i = 0; i < n_l; i++) {
-        // Initiate our intermediate results using this Polynomial.
-        intermediate.at(i) = get(i) + u_l * (get(i + n_l) - get(i));
-    }
-    // Evaluate m-1 variables X_{n-l-1}, ..., X_{n-2} at m-1 remaining values u_0,...,u_{m-2})
-    for (size_t l = 1; l < m; ++l) {
-        n_l = 1 << (n - l - 1);
-        u_l = evaluation_points[m - l - 1];
-        for (size_t i = 0; i < n_l; ++i) {
-            intermediate.at(i) = intermediate[i] + u_l * (intermediate[i + n_l] - intermediate[i]);
-        }
-    }
-
-    // Construct resulting Polynomial g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}) from buffer
-    Polynomial<Fr> result(n_l, n_l, DontZeroMemory::FLAG);
-    for (size_t idx = 0; idx < n_l; ++idx) {
-        result.at(idx) = intermediate[idx];
-    }
-
-    return result;
-}
-
-template <typename Fr>
-Fr Polynomial<Fr>::compute_kate_opening_coefficients(const Fr& z)
-    requires polynomial_arithmetic::SupportsFFT<Fr>
-{
-    return polynomial_arithmetic::compute_kate_opening_coefficients(data(), data(), z, size());
-}
-
 template <typename Fr>
 Fr Polynomial<Fr>::compute_barycentric_evaluation(const Fr& z, const EvaluationDomain<Fr>& domain)
     requires polynomial_arithmetic::SupportsFFT<Fr>
@@ -299,23 +249,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
     Polynomial p(size, virtual_size, Polynomial<Fr>::DontZeroMemory::FLAG);
     memset(static_cast<void*>(p.coefficients_.data()), 0, sizeof(Fr) * size);
     return p;
-}
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1113): Optimizing based on actual sizes would involve using
-// expand, but it is currently unused.
-template <typename Fr>
-Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t new_end_index) const
-{
-    BB_ASSERT_LTE(new_end_index, virtual_size());
-    BB_ASSERT_LTE(new_start_index, start_index());
-    BB_ASSERT_GTE(new_end_index, end_index());
-    if (new_start_index == start_index() && new_end_index == end_index()) {
-        return *this;
-    }
-    Polynomial result = *this;
-    // Make new_start_index..new_end_index usable
-    result.coefficients_ = _clone(coefficients_, new_end_index - end_index(), start_index() - new_start_index);
-    return result;
 }
 
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)

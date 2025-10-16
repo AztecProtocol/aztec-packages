@@ -438,7 +438,7 @@ export class Oracle {
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
-    return [toACVMField(tag)];
+    return [toACVMField(tag.value)];
   }
 
   async utilityFetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {

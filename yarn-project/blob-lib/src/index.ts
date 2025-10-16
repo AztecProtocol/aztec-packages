@@ -12,7 +12,7 @@ export * from './blob_batching_public_inputs.js';
 export * from './sponge_blob.js';
 
 try {
-  loadTrustedSetup();
+  loadTrustedSetup(8); // See https://notes.ethereum.org/@jtraglia/windowed_multiplications
 } catch (error: any) {
   if (error.message.includes('trusted setup is already loaded')) {
     // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,

@@ -79,10 +79,11 @@ std::shared_ptr<ClientIVC::RecursiveVerifierInstance> ClientIVC::perform_oink_re
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof)
 {
-    OinkRecursiveVerifier verifier{ &circuit, verifier_instance, transcript };
-    verifier.verify_proof(proof);
+    transcript->load_proof(proof);
+    OinkRecursiveVerifier verifier{ verifier_instance, transcript };
+    verifier.verify();
 
-    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx());
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", CONST_PG_LOG_N);

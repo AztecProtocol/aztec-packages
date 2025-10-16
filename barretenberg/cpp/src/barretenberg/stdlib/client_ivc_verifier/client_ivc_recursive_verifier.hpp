@@ -15,7 +15,6 @@ class ClientIVCRecursiveVerifier {
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The hiding circuit verifier algorithm is MegaZK
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveVerifierInstance::VerificationKey;
-    using FoldingVerifier = ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
     using MegaVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using GoblinVerifier = GoblinRecursiveVerifier;
     using Flavor = RecursiveFlavor::NativeFlavor;

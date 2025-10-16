@@ -139,7 +139,7 @@ pub contract SimpleToken {
 
     #[private]
     fn private_transfer(to: AztecAddress, amount: u128) {
-        let from = context.msg_sender();
+        let from = context.msg_sender().unwrap();
 
         let change = subtract_balance(
             &mut context,
@@ -180,7 +180,7 @@ pub contract SimpleToken {
 
     #[private]
     fn transfer_from_public_to_private(to: AztecAddress, amount: u128) {
-        let from = context.msg_sender();
+        let from = context.msg_sender().unwrap();
         let token = SimpleToken::at(context.this_address());
 
         let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
@@ -203,7 +203,7 @@ pub contract SimpleToken {
             storage.balances.at(to).set.storage_slot,
             context,
             to,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
         );
 
         partial_note
@@ -211,7 +211,7 @@ pub contract SimpleToken {
 
     #[public]
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
-        let from_and_completer = context.msg_sender();
+        let from_and_completer = context.msg_sender().unwrap();
         _finalize_transfer_to_private(
             from_and_completer,
             amount,
@@ -255,15 +255,15 @@ pub contract SimpleToken {
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
         let token = SimpleToken::at(context.this_address());
         let partial_note = _prepare_private_balance_increase(to, &mut context, storage);
-        token._finalize_mint_to_private_unsafe(context.msg_sender(), amount, partial_note).enqueue(
-            &mut context,
-        );
+        token
+            ._finalize_mint_to_private_unsafe(context.msg_sender().unwrap(), amount, partial_note)
+            .enqueue(&mut context);
     }
 
     #[public]
     fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
         _finalize_mint_to_private(
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             amount,
             partial_note,
             &mut context,
@@ -326,7 +326,7 @@ pub contract SimpleToken {
 
     #[private]
     fn cancel_authwit(inner_hash: Field) {
-        let on_behalf_of = context.msg_sender();
+        let on_behalf_of = context.msg_sender().unwrap();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
         context.push_nullifier(nullifier);
     }

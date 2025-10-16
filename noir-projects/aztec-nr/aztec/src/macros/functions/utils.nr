@@ -323,7 +323,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
     let name = f.name();
     let assertion_message = f"Function {name} can only be called internally";
-    quote { assert(context.msg_sender() == context.this_address(), $assertion_message); }
+    quote { assert(context.msg_sender().unwrap() == context.this_address(), $assertion_message); }
 }
 
 comptime fn create_view_check(f: FunctionDefinition) -> Quoted {
@@ -373,7 +373,7 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
 
 /// Injects an authwit verification check of the form:
 /// ```
-///   if (!from.eq(context.msg_sender())) {
+///   if (!from.eq(context.msg_sender().unwrap())) {
 ///         assert_current_call_valid_authwit::<N>(&mut context, from);
 ///     } else {
 ///         assert(authwit_nonce, "Invalid authwit nonce. When 'from' and 'msg_sender' are the same, authwit_nonce must be zero");
@@ -442,7 +442,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
         .as_ctstring()
         .as_quoted_str();
     quote {         
-        if (!$from_arg_name_quoted.eq(context.msg_sender())) {
+        if (!$from_arg_name_quoted.eq(context.msg_sender().unwrap())) {
             $fn_call(&mut context, $from_arg_name_quoted);
         } else {
             assert($nonce_check_quote, $invalid_nonce_message);

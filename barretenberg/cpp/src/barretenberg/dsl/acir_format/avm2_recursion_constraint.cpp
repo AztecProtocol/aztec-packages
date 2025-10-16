@@ -56,7 +56,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // a lambda that sets dummy commitments
     auto set_dummy_commitment = [&builder](const std::vector<stdlib::field_t<Builder>>& fields, size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
-        auto frs = field_conversion::convert_to_bn254_frs(comm);
+        auto frs = FrCodec::serialize_to_fields(comm);
         builder.set_variable(fields[offset].witness_index, frs[0]);
         builder.set_variable(fields[offset + 1].witness_index, frs[1]);
         builder.set_variable(fields[offset + 2].witness_index, frs[2]);

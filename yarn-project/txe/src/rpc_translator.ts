@@ -1007,6 +1007,6 @@ export class RPCTranslator {
 
     const nextAppTag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(sender, recipient);
 
-    return toForeignCallResult([toSingle(nextAppTag)]);
+    return toForeignCallResult([toSingle(nextAppTag.value)]);
   }
 }

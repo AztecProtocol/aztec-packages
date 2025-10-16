@@ -55,7 +55,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     FF e = a + b + c + d;
     uint32_t e_idx = builder.add_variable(e);
 
-    uint32_t zero_idx = builder.zero_idx;
+    uint32_t zero_idx = builder.zero_idx();
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true); // use next row
     builder.create_big_add_gate({ zero_idx, zero_idx, zero_idx, e_idx, 0, 0, 0, 0, 0 }, false);
 
@@ -134,9 +134,9 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true);
     builder.create_big_add_gate(
         {
-            builder.zero_idx,
-            builder.zero_idx,
-            builder.zero_idx,
+            builder.zero_idx(),
+            builder.zero_idx(),
+            builder.zero_idx(),
             e_idx,
             0,
             0,

@@ -759,15 +759,14 @@ TEST(AddressingConstrainingTest, IndirectPropagationWhenIndirection)
 
 TEST(AddressingConstrainingTest, FinalCheckNoFailure)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 0, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U32 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 0, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U32 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
@@ -810,15 +809,14 @@ TEST(AddressingConstrainingTest, FinalCheckNoFailure)
 
 TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
@@ -864,15 +862,14 @@ TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
 
 TEST(AddressingConstrainingTest, FinalCheckMultipleFailures)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U8,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U8,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
