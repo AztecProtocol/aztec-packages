@@ -115,13 +115,10 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
-        // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
-        // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from
-        // having to domain separate all the data. (See https://safe-hash.dev)
         std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
-            full_buffer.emplace_back(previous_challenge);
+            full_buffer.push_back(previous_challenge);
         } else {
             // Update is_first_challenge for the future
             is_first_challenge = false;
@@ -145,6 +142,30 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     };
 
   protected:
+    template <class T> static void assign_origin_tag(T& elem, const OriginTag& tag)
+    {
+        if constexpr (in_circuit) {
+            if constexpr (is_iterable_v<T>) {
+                for (auto& e : elem)
+                    e.set_origin_tag(tag);
+            } else {
+                elem.set_origin_tag(tag);
+            }
+        }
+    }
+
+    template <class T> static void check_origin_tag(T& elem, const OriginTag& tag)
+    {
+        if constexpr (in_circuit) {
+            if constexpr (is_iterable_v<T>) {
+                for (auto& e : elem) {
+                    ASSERT(e.get_origin_tag() == tag);
+                };
+            } else {
+                ASSERT(elem.get_origin_tag() == tag);
+            }
+        }
+    }
     Proof proof_data; // Contains the raw data sent by the prover.
 
     /**
@@ -313,9 +334,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
                 reception_phase = false;
             }
             // Assign origin tags to the challenges
-            for (size_t i = 0; i < num_challenges; i++) {
-                challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
-            }
+            assign_origin_tag(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
         }
         // Prepare for next round.
         ++round_number;
@@ -378,14 +397,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
                 round_index++;
             }
             // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+            assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         }
         auto element_frs = Codec::serialize_to_fields(element);
 
@@ -435,15 +447,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
                 reception_phase = true;
                 round_index++;
             }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+
+            assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         }
         auto elements = Codec::serialize_to_fields(element);
 
@@ -518,18 +523,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         DEBUG_LOG(label, element);
 
         // Ensure that the element got assigned an origin tag
-        if constexpr (in_circuit) {
-            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
-            // If the element is iterable, then we need to check origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (auto& subelement : element) {
-                    ASSERT(subelement.get_origin_tag() == element_origin_tag);
-                }
-            } else {
-                // If the element is not iterable, then we need to check an origin tag of the element
-                ASSERT(element.get_origin_tag() == element_origin_tag);
-            }
-        }
+        // If the element is iterable, then we need to check origin tags to all the elements
+        check_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("received: ", label, ": ", element);
