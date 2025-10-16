@@ -59,6 +59,8 @@ resource "google_storage_bucket_object" "testnet" {
   cache_control = "no-store"
   content = jsonencode({
     version = ""
-    config  = {}
+    config = {
+      governanceProposerPayload = "0x9D8869D17Af6B899AFf1d93F23f863FF41ddc4fa"
+    }
   })
 }
