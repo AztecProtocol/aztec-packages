@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.38.0"
     }
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 7.7.0"
+    }
   }
 }
 
@@ -25,6 +29,11 @@ provider "helm" {
     config_path    = "~/.kube/config"
     config_context = var.k8s_cluster_context
   }
+}
+
+provider "google" {
+  project = var.gcp_project_id
+  region  = var.gcp_region
 }
 
 resource "random_bytes" "jwt" {
