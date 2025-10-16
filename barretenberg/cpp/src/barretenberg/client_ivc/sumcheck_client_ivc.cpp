@@ -271,7 +271,8 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
-        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator(&circuit, recursive_verifier_native_accum);
+        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
+            &circuit, recursive_verifier_native_accum);
     }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
@@ -298,7 +299,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value();
+        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
