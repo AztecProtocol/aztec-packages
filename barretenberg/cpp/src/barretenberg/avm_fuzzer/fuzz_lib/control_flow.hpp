@@ -4,6 +4,14 @@
 #include "program_block.hpp"
 #include <vector>
 
+struct ReturnOptions {
+    uint8_t return_size;
+    MemoryTagWrapper return_value_tag;
+    uint16_t return_value_offset_index;
+
+    MSGPACK_FIELDS(return_size, return_value_tag, return_value_offset_index);
+};
+
 /// @brief insert instruction block to the current block
 struct InsertSimpleInstructionBlock {
     uint16_t instruction_block_idx;
@@ -44,5 +52,5 @@ class ControlFlow {
     void process_cfg_instruction(CFGInstruction instruction);
 
     /// @brief build the bytecode, finalizing the current block with return
-    std::vector<uint8_t> build_bytecode();
+    std::vector<uint8_t> build_bytecode(const ReturnOptions& return_options);
 };

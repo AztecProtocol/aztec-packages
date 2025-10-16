@@ -11,7 +11,8 @@ struct FuzzerData {
     std::vector<std::vector<FuzzInstruction>> instruction_blocks;
     std::vector<CFGInstruction> cfg_instructions;
     std::vector<bb::avm2::FF> calldata;
-    MSGPACK_FIELDS(instruction_blocks, cfg_instructions, calldata);
+    ReturnOptions return_options;
+    MSGPACK_FIELDS(instruction_blocks, cfg_instructions, calldata, return_options);
 };
 
 #include <iostream>
@@ -40,7 +41,9 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzerData& data)
             os << ", ";
         }
     }
-    os << "]\n";
+    os << "],\n";
+    os << "  return_options: " << "tag: " << data.return_options.return_value_tag
+       << ", offset: " << data.return_options.return_value_offset_index << ",\n";
     os << "}";
     return os;
 }

@@ -132,12 +132,18 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SET_8, 1 },
 });
 
-enum class FuzzerDataMutationOptions { InstructionMutation, ControlFlowCommandMutation, CalldataMutation };
+enum class FuzzerDataMutationOptions {
+    InstructionMutation,
+    ControlFlowCommandMutation,
+    ReturnOptionsMutation,
+    CalldataMutation
+};
 
-using FuzzerDataMutationConfig = WeightedSelectionConfig<FuzzerDataMutationOptions, 3>;
+using FuzzerDataMutationConfig = WeightedSelectionConfig<FuzzerDataMutationOptions, 4>;
 
 constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = FuzzerDataMutationConfig({
     { FuzzerDataMutationOptions::InstructionMutation, 100 },
     { FuzzerDataMutationOptions::ControlFlowCommandMutation, 1 },
+    { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
     { FuzzerDataMutationOptions::CalldataMutation, 0 },
 });

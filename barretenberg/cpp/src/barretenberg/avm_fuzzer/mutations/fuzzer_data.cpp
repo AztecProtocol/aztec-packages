@@ -1,7 +1,8 @@
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
-#include "barretenberg/avm_fuzzer/mutations/control_flow_commands/control_flow_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 #include <random>
 
@@ -20,6 +21,9 @@ void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
             break;
         case FuzzerDataMutationOptions::ControlFlowCommandMutation:
             mutate_control_flow_vec(fuzzer_data.cfg_instructions, rng);
+            break;
+        case FuzzerDataMutationOptions::ReturnOptionsMutation:
+            mutate_return_options(fuzzer_data.return_options, rng);
             break;
         case FuzzerDataMutationOptions::CalldataMutation:
             // TODO(defkit): implement calldata mutation

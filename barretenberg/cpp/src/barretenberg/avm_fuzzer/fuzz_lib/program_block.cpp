@@ -236,6 +236,8 @@ void ProgramBlock::finalize_with_return(uint8_t return_size,
         return_addr = std::optional<uint16_t>(0);
     }
 
+    // TODO(defkit): return_size_offset should be const and defined by fuzzer
+
     uint16_t return_size_offset = 5U;
     auto set_size_instruction = bb::avm2::testing::InstructionBuilder(bb::avm2::WireOpCode::SET_16)
                                     .operand(return_size_offset)

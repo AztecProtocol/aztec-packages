@@ -1,6 +1,6 @@
+#include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
-#include "barretenberg/avm_fuzzer/mutations/control_flow_commands/control_flow_vec.hpp"
 
 void mutate_insert_simple_instruction_block(InsertSimpleInstructionBlock& instr, std::mt19937_64& rng)
 {

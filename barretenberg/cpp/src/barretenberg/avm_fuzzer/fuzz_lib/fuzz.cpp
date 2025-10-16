@@ -1,4 +1,5 @@
 #include "fuzz.hpp"
+#include "control_flow.hpp"
 
 SimulatorResult fuzz(FuzzerData& fuzzer_data)
 {
@@ -6,7 +7,7 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     for (const auto& cfg_instruction : fuzzer_data.cfg_instructions) {
         control_flow.process_cfg_instruction(cfg_instruction);
     }
-    auto bytecode = control_flow.build_bytecode();
+    auto bytecode = control_flow.build_bytecode(fuzzer_data.return_options);
 
     auto cpp_simulator = CppSimulator();
     auto js_simulator = JsSimulator();

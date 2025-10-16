@@ -1,5 +1,5 @@
 #include "control_flow.hpp"
-
+#include "fuzzer_data.hpp"
 void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructionBlock instruction)
 {
     if (instruction_blocks->size() == 0) {
@@ -32,8 +32,9 @@ std::vector<uint8_t> create_bytecode(const std::vector<bb::avm2::simulation::Ins
     return bytecode;
 }
 
-std::vector<uint8_t> ControlFlow::build_bytecode()
+std::vector<uint8_t> ControlFlow::build_bytecode(const ReturnOptions& return_options)
 {
-    current_block.finalize_with_return(1, bb::avm2::MemoryTag::U8, 0);
+    current_block.finalize_with_return(
+        /*TODO(defkit) fix return size */ 1, return_options.return_value_tag, return_options.return_value_offset_index);
     return create_bytecode(current_block.get_instructions());
 }

@@ -97,7 +97,7 @@ void mutate_vec(std::vector<T>& vec,
 }
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
-#include "barretenberg/avm_fuzzer/mutations/control_flow_commands/control_flow_vec.hpp"
+#include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
 
 template void mutate_vec<CFGInstruction>(
