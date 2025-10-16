@@ -5,10 +5,10 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 
+import { type GetContractReturnType, type PrivateKeyAccount, encodeFunctionData, getContract } from '@spalladino/viem';
+import { privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
-import { type GetContractReturnType, type PrivateKeyAccount, encodeFunctionData, getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';

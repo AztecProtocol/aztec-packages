@@ -25,8 +25,8 @@ import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { TypedDataDefinition } from '@spalladino/viem';
 import { EventEmitter } from 'events';
-import type { TypedDataDefinition } from 'viem';
 
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
 import type { ValidatorClientConfig } from './config.js';
@@ -396,7 +396,22 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     let attestations: BlockAttestation[] = [];
     while (true) {
-      const collectedAttestations = await this.p2pClient.getAttestationsForSlot(slot, proposalId);
+      // Filter out attestations with a mismatching payload. This should NOT happen since we have verified
+      // the proposer signature (ie our own) before accepting the attestation into the pool via the p2p client.
+      const collectedAttestations = (await this.p2pClient.getAttestationsForSlot(slot, proposalId)).filter(
+        attestation => {
+          if (!attestation.payload.equals(proposal.payload)) {
+            this.log.warn(
+              `Received attestation for slot ${slot} with mismatched payload from ${attestation.getSender().toString()}`,
+              { attestationPayload: attestation.payload, proposalPayload: proposal.payload },
+            );
+            return false;
+          }
+          return true;
+        },
+      );
+
+      // Log new attestations we collected
       const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
         const collectedSender = collected.getSender();

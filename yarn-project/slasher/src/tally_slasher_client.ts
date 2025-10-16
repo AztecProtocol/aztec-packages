@@ -18,7 +18,7 @@ import {
   getSlashConsensusVotesFromOffenses,
 } from '@aztec/stdlib/slashing';
 
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 
 import {
   SlashOffensesCollector,

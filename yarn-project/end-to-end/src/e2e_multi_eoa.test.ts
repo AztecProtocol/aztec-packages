@@ -11,9 +11,9 @@ import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
+import { type Hex, type TransactionSerialized, recoverTransactionAddress } from '@spalladino/viem';
+import { mnemonicToAccount } from '@spalladino/viem/accounts';
 import 'jest-extended';
-import { type Hex, type TransactionSerialized, recoverTransactionAddress } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';

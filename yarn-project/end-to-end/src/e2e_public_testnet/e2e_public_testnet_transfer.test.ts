@@ -1,7 +1,7 @@
 import type { AccountWalletWithSecretKey, AztecAddress, Logger } from '@aztec/aztec.js';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
-import { foundry, sepolia } from 'viem/chains';
+import { foundry, sepolia } from '@spalladino/viem/chains';
 
 import { setup } from '../fixtures/utils.js';
 

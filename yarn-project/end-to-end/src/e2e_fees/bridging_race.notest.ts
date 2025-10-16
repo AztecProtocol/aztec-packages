@@ -4,7 +4,7 @@ import { Fq } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { jest } from '@jest/globals';
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 
 import { FeesTest } from './fees_test.js';
 

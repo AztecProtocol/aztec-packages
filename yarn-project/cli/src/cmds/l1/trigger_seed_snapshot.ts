@@ -2,7 +2,7 @@ import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { LogFn } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { getContract } from 'viem';
+import { getContract } from '@spalladino/viem';
 
 import type { RollupCommandArgs } from './update_l1_validators.js';
 

@@ -76,13 +76,13 @@
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@spalladino/viem": "2.38.2-eip7594.0",
     "json-stringify-deterministic": "1.0.12",
     "koa": "^2.16.1",
     "koa-router": "^13.1.1",
     "lodash.omit": "^4.5.0",
     "sha3": "^2.1.4",
-    "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "tslib": "^2.4.0"
   },
   "devDependencies": {
     "@aztec/merkle-tree": "workspace:^",

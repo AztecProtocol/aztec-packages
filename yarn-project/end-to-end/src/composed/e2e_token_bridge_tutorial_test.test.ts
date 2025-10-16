@@ -22,7 +22,7 @@ import {
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import { getContract } from 'viem';
+import { getContract } from '@spalladino/viem';
 
 // docs:end:imports
 // docs:start:utils

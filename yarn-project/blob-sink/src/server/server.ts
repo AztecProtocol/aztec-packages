@@ -33,6 +33,8 @@ export class BlobSinkServer {
   private metrics: BlobSinkMetrics;
   private log: Logger = createLogger('blob-sink:server');
 
+  private disableStorage = false;
+
   constructor(
     config: BlobSinkConfig = {},
     private store?: AztecAsyncKVStore,
@@ -68,6 +70,12 @@ export class BlobSinkServer {
 
   private async handleGetBlobs(req: Request, res: Response) {
     const { blobHashes: blobHashesQuery } = req.query;
+
+    if (this.disableStorage) {
+      this.log.warn(`Blob storage is disabled, cannot retrieve blobs`);
+      res.json({ version: 'deneb', data: [] });
+      return;
+    }
 
     try {
       // Parse blob hashes from comma-separated hex strings
@@ -124,11 +132,15 @@ export class BlobSinkServer {
     }
 
     try {
-      await this.blobStore.addBlobs(blobObjects);
-      this.metrics.recordBlobReceipt(blobObjects);
       const blobHashes = blobObjects.map(blob => bufferToHex(blob.blob.getEthVersionedBlobHash()));
-      this.log.info(`Blobs stored successfully`, { blobHashes });
+      if (this.disableStorage) {
+        this.log.warn(`Blob storage is disabled, not storing blobs`);
+      } else {
+        await this.blobStore.addBlobs(blobObjects);
+        this.log.info(`Blobs stored successfully`, { blobHashes });
+      }
       res.json({ blobHashes });
+      this.metrics.recordBlobReceipt(blobObjects);
       this.metrics.incStoreBlob(true);
     } catch (error: any) {
       this.log.error(`Error storing blob sidecar`, error);
@@ -154,6 +166,10 @@ export class BlobSinkServer {
           index,
         ),
     );
+  }
+
+  public setDisableBlobStorage(value: boolean) {
+    this.disableStorage = value;
   }
 
   public start(): Promise<void> {

@@ -28,9 +28,9 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import { type GetContractReturnType, getAddress, getContract } from '@spalladino/viem';
+import { privateKeyToAccount } from '@spalladino/viem/accounts';
 import getPort from 'get-port';
-import { type GetContractReturnType, getAddress, getContract } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,

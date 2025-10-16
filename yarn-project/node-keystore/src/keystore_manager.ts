@@ -10,10 +10,10 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
+import type { TypedDataDefinition } from '@spalladino/viem';
+import { mnemonicToAccount } from '@spalladino/viem/accounts';
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { extname, join } from 'path';
-import type { TypedDataDefinition } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
 
 import { ethPrivateKeySchema } from './schemas.js';
 import { LocalSigner, RemoteSigner } from './signer.js';

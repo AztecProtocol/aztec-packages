@@ -3,7 +3,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 
-import { inspect } from 'util';
 import {
   type Client,
   type Hex,
@@ -14,7 +13,8 @@ import {
   publicActions,
   serializeTransaction,
   walletActions,
-} from 'viem';
+} from '@spalladino/viem';
+import { inspect } from 'util';
 
 import { type ViemClient, isExtendedClient } from '../types.js';
 

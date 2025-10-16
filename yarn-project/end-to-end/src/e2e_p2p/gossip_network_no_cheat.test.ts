@@ -3,6 +3,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress, Fr, sleep } from '@aztec/aztec.js';
 import { addL1Validator } from '@aztec/cli/l1';
 import { RollupContract } from '@aztec/ethereum';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StakingAssetHandlerAbi } from '@aztec/l1-artifacts/StakingAssetHandlerAbi';
@@ -11,10 +12,10 @@ import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
+import { getContract } from '@spalladino/viem';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
@@ -225,7 +226,7 @@ describe('e2e_p2p_network', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(blockNumber, payload, a.signature));
+      .map(a => new BlockAttestation(blockNumber, payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
     t.logger.info(`Attestation signers`, { signers });
 

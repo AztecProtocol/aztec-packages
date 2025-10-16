@@ -4,7 +4,7 @@ import { omit } from '@aztec/foundation/collection';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
-import type { Hex } from 'viem';
+import type { Hex } from '@spalladino/viem';
 
 import { L1TxStore } from './l1_tx_store.js';
 

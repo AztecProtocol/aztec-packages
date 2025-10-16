@@ -13,7 +13,7 @@ import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';
-import { privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from '@spalladino/viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
@@ -44,9 +44,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
 
     // Setup context with the given set of validators, mocked gossip sub network, and no anvil test watcher.
     test = await EpochsTestContext.setup({
-      aztecSlotDuration: 8,
-      aztecEpochDuration: 4,
-      ethereumSlotDuration: 4,
+      ethereumSlotDuration: 8,
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,

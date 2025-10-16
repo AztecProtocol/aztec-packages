@@ -30,12 +30,12 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/stdlib": "workspace:*",
+    "@spalladino/viem": "2.38.2-eip7594.0",
     "@viem/anvil": "^0.0.10",
     "dotenv": "^16.0.3",
     "get-port": "^7.1.0",
     "jest-mock-extended": "^4.0.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7",
     "zod": "^3.23.8"
   },
   "devDependencies": {

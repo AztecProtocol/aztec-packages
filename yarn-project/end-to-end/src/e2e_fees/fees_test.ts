@@ -23,7 +23,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { GasSettings } from '@aztec/stdlib/gas';
 
-import { getContract } from 'viem';
+import { getContract } from '@spalladino/viem';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
 import {

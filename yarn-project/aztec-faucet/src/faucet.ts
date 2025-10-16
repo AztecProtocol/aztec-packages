@@ -12,8 +12,8 @@ import {
   type WalletClient,
   getContract,
   parseEther,
-} from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+} from '@spalladino/viem';
+import { mnemonicToAccount } from '@spalladino/viem/accounts';
 
 import type { FaucetConfig, L1AssetConfig } from './config.js';
 

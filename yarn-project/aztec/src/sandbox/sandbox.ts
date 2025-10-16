@@ -31,9 +31,15 @@ import {
 } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type HDAccount, type PrivateKeyAccount, createPublicClient, fallback, http as httpViemTransport } from 'viem';
-import { mnemonicToAccount, privateKeyToAddress } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import {
+  type HDAccount,
+  type PrivateKeyAccount,
+  createPublicClient,
+  fallback,
+  http as httpViemTransport,
+} from '@spalladino/viem';
+import { mnemonicToAccount, privateKeyToAddress } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 
 import { createAccountLogs } from '../cli/util.js';
 import { DefaultMnemonic } from '../mnemonic.js';

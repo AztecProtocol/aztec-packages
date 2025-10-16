@@ -15,6 +15,12 @@ const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzg
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 export const VERSIONED_HASH_VERSION_KZG = 0x01;
 
+/** Versioned blob hash for an empty blob */
+export const EMPTY_BLOB_VERSIONED_HASH = Buffer.from(
+  `010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014`,
+  'hex',
+);
+
 /**
  * A class to create, manage, and prove EVM blobs.
  */
@@ -279,6 +285,7 @@ export class Blob {
     return {
       blobToKzgCommitment: cKzg.blobToKzgCommitment,
       computeBlobKzgProof: cKzg.computeBlobKzgProof,
+      computeCellsAndKzgProofs: cKzg.computeCellsAndKzgProofs,
     };
   }
 

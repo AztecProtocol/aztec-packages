@@ -4,7 +4,7 @@ import { parseBooleanEnv } from '@aztec/foundation/config';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
 import '@jest/globals';
-import { type GetContractReturnType, getContract } from 'viem';
+import { type GetContractReturnType, getContract } from '@spalladino/viem';
 
 import { FullProverTest } from '../fixtures/e2e_prover_test.js';
 

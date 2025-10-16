@@ -8,7 +8,7 @@ import {
 } from '@aztec/stdlib/p2p';
 import { makeHeader } from '@aztec/stdlib/testing';
 
-import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { type LocalAccount, generatePrivateKey, privateKeyToAccount } from '@spalladino/viem/accounts';
 
 /** Generate Account
  *
@@ -35,8 +35,11 @@ export const mockAttestation = (
   const header = makeHeader(1, 2, slot);
   const payload = new ConsensusPayload(header.toPropose(), archive, header.state);
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
-  const signature = signer.sign(hash);
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSignature = signer.sign(attestationHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, signature);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposerSignature = signer.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };

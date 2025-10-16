@@ -10,7 +10,7 @@ import {
   L1PublishedData,
   L2Block,
   PublishedL2Block,
-  getAttestationsFromPublishedL2Block,
+  getAttestationInfoFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { orderAttestations } from '@aztec/stdlib/p2p';
 import { makeBlockAttestationFromBlock } from '@aztec/stdlib/testing';
@@ -91,6 +91,18 @@ describe('validateBlockAttestations', () => {
       expect(result.invalidIndex).toBe(5); // The bad signer is at index 5
     });
 
+    it('fails if there is an empty attestation', async () => {
+      const block = await makeBlock(signers.slice(0, 4), committee);
+      block.attestations[1] = new CommitteeAttestation(EthAddress.ZERO, Signature.empty());
+      const result = await validateBlockAttestations(block, epochCache, constants, logger);
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.block.blockNumber).toEqual(block.block.number);
+      expect(result.block.archive.toString()).toEqual(block.block.archive.root.toString());
+      expect(result.committee).toEqual(committee);
+      expect(result.invalidIndex).toBe(1); // The empty attestation is at index 1
+    });
+
     it('fails if there is an attestation with an invalid signature', async () => {
       const block = await makeBlock(signers.slice(0, 4), committee);
       // Create an invalid signature that will fail curve point recovery with "Point is not on curve: Cannot find square root"
@@ -104,9 +116,9 @@ describe('validateBlockAttestations', () => {
       const invalidSig = new Signature(invalidR, invalidS, 27);
       block.attestations[0] = new CommitteeAttestation(EthAddress.ZERO, invalidSig);
 
-      // Verify that getSender() actually throws for the invalid signature
-      const attestations = getAttestationsFromPublishedL2Block(block);
-      expect(() => attestations[0]!.getSender()).toThrow('Point is not on curve: Cannot find square root');
+      // Verify that the invalid signature is detected
+      const attestations = getAttestationInfoFromPublishedL2Block(block);
+      expect(attestations[0].status).toBe('invalid-signature');
 
       const result = await validateBlockAttestations(block, epochCache, constants, logger);
       assert(!result.valid);
@@ -117,11 +129,11 @@ describe('validateBlockAttestations', () => {
       expect(result.invalidIndex).toBe(0);
     });
 
-    it('reports correct index when invalid attestation follows empty signature attestation', async () => {
+    it('reports correct index when invalid attestation follows provided address', async () => {
       const block = await makeBlock(signers.slice(0, 3), committee);
 
-      // Create an empty signature (index 0) - this will be undefined in getAttestationsFromPublishedL2Block
-      block.attestations[0] = new CommitteeAttestation(EthAddress.ZERO, Signature.empty());
+      // Create an attestation with a provided address (index 0)
+      block.attestations[0] = new CommitteeAttestation(signers[0].address, Signature.empty());
 
       // Create an invalid signature at index 1 - this should be reported as invalid at index 1, not 0
       block.attestations[1] = new CommitteeAttestation(EthAddress.ZERO, Signature.random());

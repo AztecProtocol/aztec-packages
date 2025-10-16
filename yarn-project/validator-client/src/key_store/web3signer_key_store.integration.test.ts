@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { type TypedDataDefinition, hashTypedData } from 'viem';
+import { type TypedDataDefinition, hashTypedData } from '@spalladino/viem';
 
 import { LocalKeyStore } from './local_key_store.js';
 import { Web3SignerKeyStore } from './web3signer_key_store.js';

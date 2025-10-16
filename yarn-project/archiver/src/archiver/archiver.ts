@@ -72,9 +72,9 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
+import { type GetContractReturnType, createPublicClient, fallback, http } from '@spalladino/viem';
 import { EventEmitter } from 'events';
 import groupBy from 'lodash.groupby';
-import { type GetContractReturnType, createPublicClient, fallback, http } from 'viem';
 
 import type { ArchiverDataStore, ArchiverL1SynchPoint } from './archiver_store.js';
 import type { ArchiverConfig } from './config.js';

@@ -13,7 +13,7 @@ import {
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
 
-import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from 'viem';
+import { createPublicClient, encodeAbiParameters, fallback, http, keccak256 } from '@spalladino/viem';
 
 import { type EpochCacheConfig, getEpochCacheConfigEnvVars } from './config.js';
 

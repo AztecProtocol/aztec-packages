@@ -10,7 +10,7 @@ import {
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { formatEther } from 'viem/utils';
+import { formatEther } from '@spalladino/viem/utils';
 
 export type L1TxType = 'process';
 

@@ -4,7 +4,7 @@ import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { InboxAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { decodeEventLog, getContract } from 'viem';
+import { decodeEventLog, getContract } from '@spalladino/viem';
 
 import { getLogger } from './utils.js';
 

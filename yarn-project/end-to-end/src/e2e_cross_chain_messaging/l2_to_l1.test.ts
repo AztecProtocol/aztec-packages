@@ -11,7 +11,7 @@ import {
   getL2ToL1MessageLeafId,
 } from '@aztec/stdlib/messaging';
 
-import { type Hex, decodeEventLog, getContract } from 'viem';
+import { type Hex, decodeEventLog, getContract } from '@spalladino/viem';
 
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';

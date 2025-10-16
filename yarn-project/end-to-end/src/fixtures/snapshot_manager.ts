@@ -40,6 +40,9 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getConfigEnvVars as getTelemetryConfig, initTelemetryClient } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import type { Hex } from '@spalladino/viem';
+import { mnemonicToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { copySync, removeSync } from 'fs-extra/esm';
@@ -47,9 +50,6 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import path, { join } from 'path';
-import type { Hex } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
 
 import { MNEMONIC, TEST_MAX_TX_POOL_SIZE, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';

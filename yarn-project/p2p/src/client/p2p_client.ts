@@ -387,6 +387,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return this.attestationPool?.addAttestations(attestations) ?? Promise.resolve();
   }
 
+  public deleteAttestation(attestation: BlockAttestation): Promise<void> {
+    return this.attestationPool?.deleteAttestations([attestation]) ?? Promise.resolve();
+  }
+
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
   // ^ This pattern is not my favorite (md)
   public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {

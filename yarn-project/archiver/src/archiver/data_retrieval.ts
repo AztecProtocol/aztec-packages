@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
+import { Blob, BlobDeserializationError, EMPTY_BLOB_VERSIONED_HASH } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -14,6 +14,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { bufferToHex } from '@aztec/foundation/string';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { Body, CommitteeAttestation, L2Block, PublishedL2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
@@ -28,7 +29,7 @@ import {
   getAbiItem,
   hexToBytes,
   multicall3Abi,
-} from 'viem';
+} from '@spalladino/viem';
 
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
@@ -340,25 +341,7 @@ async function getBlockFromRollupTx(
   // TODO(md): why is the proposed block header different to the actual block header?
   // This is likely going to be a footgun
   const header = ProposedBlockHeader.fromViem(decodedArgs.header);
-  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
-  if (blobBodies.length === 0) {
-    throw new NoBlobBodiesFoundError(l2BlockNumber);
-  }
-
-  let blockFields: Fr[];
-  try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
-  } catch (err: any) {
-    if (err instanceof BlobDeserializationError) {
-      logger.fatal(err.message);
-    } else {
-      logger.fatal('Unable to sync: failed to decode fetched blob, this blob was likely not created by us');
-    }
-    throw err;
-  }
-
-  // The blob source gives us blockFields, and we must construct the body from them:
-  const body = Body.fromBlobFields(blockFields);
+  const body = await getBlockBodyFromBlobs(blobSinkClient, blockHash!, blobHashes, l2BlockNumber, logger);
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
@@ -372,6 +355,46 @@ async function getBlockFromRollupTx(
     body,
     attestations,
   };
+}
+
+async function getBlockBodyFromBlobs(
+  blobSinkClient: BlobSinkClientInterface,
+  blockHash: string,
+  blobHashes: Buffer<ArrayBufferLike>[],
+  l2BlockNumber: number,
+  logger: Logger,
+) {
+  const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
+  logger.trace(`Fetched ${blobBodies.length} blob bodies for L2 block ${l2BlockNumber}`, {
+    blobHashes: blobHashes.map(bufferToHex),
+    l2BlockNumber,
+  });
+
+  if (blobBodies.length !== blobHashes.length) {
+    // If there is exactly one blob hash and it is the empty blob hash, we are fine with not downloading it
+    // and just defaulting to an empty block body.
+    if (blobHashes.length === 1 && blobBodies.length === 0 && blobHashes[0].equals(EMPTY_BLOB_VERSIONED_HASH)) {
+      logger.verbose(`Ignoring error fetching blob body for block ${l2BlockNumber} as it is empty`);
+      return Body.empty();
+    } else {
+      throw new NoBlobBodiesFoundError(l2BlockNumber, blobBodies.length, blobHashes.length);
+    }
+  }
+
+  let blockFields: Fr[];
+  try {
+    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+  } catch (err: any) {
+    if (err instanceof BlobDeserializationError) {
+      logger.error(err.message);
+    } else {
+      logger.error('Unable to sync: failed to decode fetched blob, this blob was likely not created by us');
+    }
+    throw err;
+  }
+
+  // The blob source gives us blockFields, and we must construct the body from them:
+  return Body.fromBlobFields(blockFields);
 }
 
 /** Given an L1 to L2 message, retrieves its corresponding event from the Inbox within a specific block range. */

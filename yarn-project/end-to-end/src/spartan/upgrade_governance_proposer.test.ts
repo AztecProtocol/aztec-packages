@@ -12,8 +12,8 @@
 // import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 
 // import type { ChildProcess } from 'child_process';
-// import { privateKeyToAccount } from 'viem/accounts';
-// import { parseEther, stringify } from 'viem/utils';
+// import { privateKeyToAccount } from '@spalladino/viem/accounts';
+// import { parseEther, stringify } from '@spalladino/viem/utils';
 
 // import { MNEMONIC } from '../fixtures/fixtures.js';
 // import { isK8sConfig, setupEnvironment, startPortForward, updateSequencersConfig } from './utils.js';

@@ -1,10 +1,11 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { bufferToHex } from '@aztec/foundation/string';
 
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
 
-import { Blob } from './index.js';
+import { Blob, EMPTY_BLOB_VERSIONED_HASH } from './index.js';
 import { makeEncodedBlob } from './testing.js';
 
 // Importing directly from 'c-kzg' does not work:
@@ -21,7 +22,7 @@ const {
 } = cKzg;
 
 try {
-  loadTrustedSetup();
+  loadTrustedSetup(8);
 } catch (error: any) {
   if (error.message.includes('trusted setup is already loaded')) {
     // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
@@ -140,5 +141,11 @@ describe('blob', () => {
     const blobJson = blob.toJson(1);
     const deserialisedBlob = await Blob.fromJson(blobJson);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+  });
+
+  it('computes correct eth versioned blob hash for an empty blob', async () => {
+    const blob = await Blob.fromFields([]);
+    const versionedHash = blob.getEthVersionedBlobHash();
+    expect(bufferToHex(versionedHash)).toBe(bufferToHex(EMPTY_BLOB_VERSIONED_HASH));
   });
 });

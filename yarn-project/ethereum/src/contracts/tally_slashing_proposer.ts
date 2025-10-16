@@ -12,7 +12,7 @@ import {
   type TypedDataDefinition,
   encodeFunctionData,
   getContract,
-} from 'viem';
+} from '@spalladino/viem';
 
 /**
  * Wrapper around the TallySlashingProposer contract that provides

@@ -1,12 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  compactArray,
-  countWhile,
-  filterAsync,
-  fromEntries,
-  getEntries,
-  mapValues,
-} from '@aztec/foundation/collection';
+import { countWhile, filterAsync, fromEntries, getEntries, mapValues } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -25,7 +18,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
-  getAttestationsFromPublishedL2Block,
+  getAttestationInfoFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -98,7 +91,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
         this.slotNumberToBlock.set(block.block.header.getSlot(), {
           blockNumber: block.block.number,
           archive: block.block.archive.root.toString(),
-          attestors: compactArray(getAttestationsFromPublishedL2Block(block)).map(att => att.getSender()),
+          attestors: getAttestationInfoFromPublishedL2Block(block)
+            .filter(a => a.status === 'recovered-from-signature')
+            .map(a => a.address!),
         });
       }
 

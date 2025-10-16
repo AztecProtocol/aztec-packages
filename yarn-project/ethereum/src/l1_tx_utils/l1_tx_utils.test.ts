@@ -9,9 +9,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';
-import type { Anvil } from '@viem/anvil';
-import { type MockProxy, mock } from 'jest-mock-extended';
-import assert from 'node:assert';
 import {
   type Abi,
   type BlockTag,
@@ -22,9 +19,12 @@ import {
   createPublicClient,
   encodeFunctionData,
   http,
-} from 'viem';
-import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+} from '@spalladino/viem';
+import { mnemonicToAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
+import { foundry } from '@spalladino/viem/chains';
+import type { Anvil } from '@viem/anvil';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import assert from 'node:assert';
 
 import { createExtendedL1Client, getPublicClient } from '../client.js';
 import { EthCheatCodes } from '../test/eth_cheat_codes.js';

@@ -7,8 +7,8 @@ import type { EthRemoteSignerConfig } from '@aztec/node-keystore';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { InvalidValidatorPrivateKeyError } from '@aztec/stdlib/validators';
 
-import type { TypedDataDefinition } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import type { TypedDataDefinition } from '@spalladino/viem';
+import { privateKeyToAccount } from '@spalladino/viem/accounts';
 
 import type { ExtendedValidatorKeyStore } from './interface.js';
 
