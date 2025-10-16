@@ -36,7 +36,6 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<VerifierClaim> accumulator_claim;
     std::shared_ptr<VerifierClaim> instance_claim;
-    RelationParameters<FF> relation_parameters;
 };
 
 } // namespace bb

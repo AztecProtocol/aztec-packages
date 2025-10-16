@@ -11,7 +11,7 @@ import { BlobAccumulator, FinalBlobAccumulator } from './blob_batching_public_in
 import { makeBatchedBlobAccumulator } from './testing.js';
 
 try {
-  cKzg.loadTrustedSetup();
+  cKzg.loadTrustedSetup(8);
 } catch (error: any) {
   if (error.message.includes('trusted setup is already loaded')) {
     // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,

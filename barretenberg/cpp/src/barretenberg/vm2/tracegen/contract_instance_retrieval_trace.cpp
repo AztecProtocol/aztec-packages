@@ -26,12 +26,12 @@ void ContractInstanceRetrievalTraceBuilder::process(
     uint32_t row = 1;
     for (const auto& event : events) {
         AztecAddress derived_address = event.address;
-        FF protocol_contract_derived_address_inv = 0;
+        FF protocol_contract_derived_address = 0;
         uint32_t derived_address_pi_index = 0;
 
         if (event.is_protocol_contract) {
             derived_address = event.exists ? simulation::compute_contract_address(event.contract_instance) : 0;
-            protocol_contract_derived_address_inv = event.exists ? derived_address.invert() : 0;
+            protocol_contract_derived_address = derived_address;
             derived_address_pi_index =
                 AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX + static_cast<uint32_t>(event.address - 1);
         }
@@ -80,7 +80,7 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_max_protocol_contracts, MAX_PROTOCOL_CONTRACTS },
                 { C::contract_instance_retrieval_derived_address_pi_index, derived_address_pi_index },
                 { C::contract_instance_retrieval_protocol_contract_derived_address_inv,
-                  protocol_contract_derived_address_inv },
+                  protocol_contract_derived_address }, // Will be inverted in batch later
                 { C::contract_instance_retrieval_derived_address, derived_address },
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
@@ -88,6 +88,9 @@ void ContractInstanceRetrievalTraceBuilder::process(
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::contract_instance_retrieval_protocol_contract_derived_address_inv } });
 }
 
 const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions =

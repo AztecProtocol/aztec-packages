@@ -144,14 +144,12 @@ include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
 include(cmake/nlohmann_json.cmake)
 include(cmake/httplib.cmake)
-include(cmake/lmdb.cmake)
 include(cmake/libdeflate.cmake)
 
-# We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
-if (NOT WASM)
-    include(cmake/libdeflate.cmake)
-else()
+if (WASM)
     set(DISABLE_AZTEC_VM ON)
+elseif (NOT WASM)
+    include(cmake/lmdb.cmake)
 endif()
 
 if(AVM_TRANSPILER_LIB)

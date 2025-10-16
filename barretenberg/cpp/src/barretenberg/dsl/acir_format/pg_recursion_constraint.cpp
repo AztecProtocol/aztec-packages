@@ -283,14 +283,16 @@ void mock_sumcheck_ivc_accumulation(const std::shared_ptr<SumcheckClientIVC>& iv
     // Initialize verifier accumulator with proper structure
     ivc->recursive_verifier_native_accum.challenge =
         std::vector<FF>(SumcheckClientIVC::Flavor::VIRTUAL_LOG_N, FF::zero());
-    ivc->recursive_verifier_native_accum.batched_evaluations = { FF::zero(), FF::zero() };
-    ivc->recursive_verifier_native_accum.batched_commitments = { Commitment::one(), Commitment::one() };
+    ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
+    ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
+    ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
+    ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
 
     SumcheckClientIVC::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     if (type == SumcheckClientIVC::QUEUE_TYPE::PG_FINAL) {
-        ivc->pcs_proof = acir_format::create_mock_pcs_proof<SumcheckClientIVC::Flavor>();
+        ivc->decider_proof = acir_format::create_mock_pcs_proof<SumcheckClientIVC::Flavor>();
     }
     ivc->num_circuits_accumulated++;
 }

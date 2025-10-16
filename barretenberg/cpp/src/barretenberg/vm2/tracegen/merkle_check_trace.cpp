@@ -44,7 +44,6 @@ void MerkleCheckTraceBuilder::process(
             // path-length decrements by 1 for each level until it reaches 1
             const FF path_len = FF(full_path_len - i);
             const FF remaining_path_len = path_len - 1;
-            const FF remaining_path_len_inv = remaining_path_len == 0 ? FF(0) : remaining_path_len.invert();
 
             // end == 1 when the remaining_path_len == 0
             const bool end = remaining_path_len == 0;
@@ -58,26 +57,27 @@ void MerkleCheckTraceBuilder::process(
             const FF write_right_node = write ? index_is_even ? sibling : write_node : FF(0);
             const FF write_output_hash = write ? Poseidon2::hash({ write_left_node, write_right_node }) : FF(0);
 
-            trace.set(row,
-                      { { { C::merkle_check_sel, 1 },
-                          { C::merkle_check_read_node, read_node },
-                          { C::merkle_check_write, write },
-                          { C::merkle_check_write_node, write_node },
-                          { C::merkle_check_index, current_index_in_layer },
-                          { C::merkle_check_path_len, path_len },
-                          { C::merkle_check_remaining_path_len_inv, remaining_path_len_inv },
-                          { C::merkle_check_read_root, root },
-                          { C::merkle_check_write_root, new_root },
-                          { C::merkle_check_sibling, sibling },
-                          { C::merkle_check_start, start },
-                          { C::merkle_check_end, end },
-                          { C::merkle_check_index_is_even, index_is_even },
-                          { C::merkle_check_read_left_node, read_left_node },
-                          { C::merkle_check_read_right_node, read_right_node },
-                          { C::merkle_check_write_left_node, write_left_node },
-                          { C::merkle_check_write_right_node, write_right_node },
-                          { C::merkle_check_read_output_hash, read_output_hash },
-                          { C::merkle_check_write_output_hash, write_output_hash } } });
+            trace.set(
+                row,
+                { { { C::merkle_check_sel, 1 },
+                    { C::merkle_check_read_node, read_node },
+                    { C::merkle_check_write, write },
+                    { C::merkle_check_write_node, write_node },
+                    { C::merkle_check_index, current_index_in_layer },
+                    { C::merkle_check_path_len, path_len },
+                    { C::merkle_check_remaining_path_len_inv, remaining_path_len }, // Will be inverted in batch later
+                    { C::merkle_check_read_root, root },
+                    { C::merkle_check_write_root, new_root },
+                    { C::merkle_check_sibling, sibling },
+                    { C::merkle_check_start, start },
+                    { C::merkle_check_end, end },
+                    { C::merkle_check_index_is_even, index_is_even },
+                    { C::merkle_check_read_left_node, read_left_node },
+                    { C::merkle_check_read_right_node, read_right_node },
+                    { C::merkle_check_write_left_node, write_left_node },
+                    { C::merkle_check_write_right_node, write_right_node },
+                    { C::merkle_check_read_output_hash, read_output_hash },
+                    { C::merkle_check_write_output_hash, write_output_hash } } });
 
             // Update the current/target node value for the next iteration
             read_node = read_output_hash;
@@ -89,6 +89,9 @@ void MerkleCheckTraceBuilder::process(
         assert(read_node == root);
         assert(write_node == new_root);
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::merkle_check_remaining_path_len_inv } });
 }
 
 const InteractionDefinition MerkleCheckTraceBuilder::interactions =

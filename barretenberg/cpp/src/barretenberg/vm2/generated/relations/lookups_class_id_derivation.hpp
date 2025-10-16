@@ -22,7 +22,7 @@ struct lookup_class_id_derivation_class_id_poseidon2_0_settings_ {
     static constexpr Column COUNTS = Column::lookup_class_id_derivation_class_id_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_class_id_derivation_class_id_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::class_id_derivation_temp_constant_for_lookup,
+        ColumnAndShifts::class_id_derivation_gen_index_contract_leaf,
         ColumnAndShifts::class_id_derivation_artifact_hash,
         ColumnAndShifts::class_id_derivation_private_function_root,
         ColumnAndShifts::class_id_derivation_class_id,

@@ -70,6 +70,14 @@ function(barretenberg_module MODULE_NAME)
             )
         endif()
 
+        if(FUZZING)
+            target_compile_options(
+                ${MODULE_NAME}_objects
+                PRIVATE
+                -fsanitize=fuzzer-no-link
+            )
+        endif()
+
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME} msgpack-c)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)

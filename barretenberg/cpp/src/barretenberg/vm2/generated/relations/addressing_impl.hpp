@@ -96,8 +96,7 @@ void addressingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               execution_ADDRESSING_COLLECTION_Y) -
          FF(1)) +
         execution_ADDRESSING_COLLECTION_E;
-    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
-        in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
+    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;

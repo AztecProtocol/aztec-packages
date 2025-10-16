@@ -359,6 +359,7 @@ TEST_F(SumcheckIvcRecursionConstraintTest, AccumulateTwoApps)
 // Test generation of "init" kernel VK via dummy IVC data
 TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
@@ -392,6 +393,7 @@ TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
 // Test generation of "reset" kernel VK via dummy IVC data
 TEST_F(SumcheckIvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
@@ -431,6 +433,7 @@ TEST_F(SumcheckIvcRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
 // Test generation of "tail" kernel VK via dummy IVC data
 TEST_F(SumcheckIvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
@@ -475,6 +478,7 @@ TEST_F(SumcheckIvcRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
 // Test generation of "inner" kernel VK via dummy IVC data
 TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC (accumulate one app and one kernel)
     std::shared_ptr<MegaFlavor::VerificationKey> expected_kernel_vk;
     {
@@ -525,6 +529,7 @@ TEST_F(SumcheckIvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 // Test generation of "hiding" kernel VK via dummy IVC data
 TEST_F(SumcheckIvcRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     // First, construct the kernel VK by running the full IVC
     std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
     {

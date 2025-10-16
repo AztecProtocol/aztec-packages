@@ -110,6 +110,11 @@ jobs:
           path: ci-success.txt
           key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
 
+      - name: CI Cached
+        if: steps.ci_cache.outputs.cache-hit == 'true'
+        run: |
+          echo "Previous run: $(cat ci-success.txt)"
+
       #############
       # Run
       #############
@@ -151,7 +156,7 @@ jobs:
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'
-        run: echo "success" > ci-success.txt
+        run: echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ci-success.txt
 
       # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
       # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.

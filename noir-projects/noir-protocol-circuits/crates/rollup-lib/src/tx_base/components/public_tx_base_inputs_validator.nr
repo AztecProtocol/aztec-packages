@@ -177,6 +177,12 @@ impl PublicTxBaseInputsValidator {
             "Mismatched public_teardown_call_request between private and avm",
         );
 
+        assert_eq(
+            avm.public_call_request_array_lengths.teardown_call,
+            !private_tail.public_teardown_call_request.is_empty(),
+            "Mismatched public_teardown_call_request length between private and avm",
+        );
+
         // --- Non-revertible accumulated data ---
 
         assert_eq_array_and_length(

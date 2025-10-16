@@ -11,7 +11,7 @@
       "gasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" }
     },
     "tx": {
-      "hash": "0x1d5307c6cfb92a40aef55eba87f0f7cc7f49387ef77ba4a2bf462ddd9e619933",
+      "hash": "0x118a601c5af4c2498882e5ba578588e5376a2bc9c6034c9b7174903f4990c57d",
       "gasSettings": {
         "gasLimits": { "daGas": 6291456, "l2Gas": 6000000 },
         "teardownGasLimits": { "daGas": 0, "l2Gas": 0 },

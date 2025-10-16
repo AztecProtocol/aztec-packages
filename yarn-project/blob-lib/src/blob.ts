@@ -279,6 +279,7 @@ export class Blob {
     return {
       blobToKzgCommitment: cKzg.blobToKzgCommitment,
       computeBlobKzgProof: cKzg.computeBlobKzgProof,
+      computeCellsAndKzgProofs: cKzg.computeCellsAndKzgProofs,
     };
   }
 

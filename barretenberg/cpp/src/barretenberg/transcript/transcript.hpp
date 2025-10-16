@@ -11,14 +11,17 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/common/serialize.hpp"
+#include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include <concepts>
-
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "transcript_manifest.hpp"
 #include <atomic>
+#include <concepts>
 
 namespace bb {
 
@@ -26,109 +29,9 @@ namespace bb {
 template <typename T, typename... U>
 concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, grumpkin::g1::affine_element, uint32_t>);
 
-class TranscriptManifest {
-    struct RoundData {
-        std::vector<std::string> challenge_label;
-        std::vector<std::pair<std::string, size_t>> entries;
-
-        void print()
-        {
-            for (auto& label : challenge_label) {
-                info("\tchallenge: ", label);
-            }
-            for (auto& entry : entries) {
-                info("\telement (", entry.second, "): ", entry.first);
-            }
-        }
-
-        bool operator==(const RoundData& other) const = default;
-    };
-
-    std::map<size_t, RoundData> manifest;
-
-  public:
-    void print()
-    {
-        for (auto& round : manifest) {
-            info("Round: ", round.first);
-            round.second.print();
-        }
-    }
-
-    template <typename... Strings> void add_challenge(size_t round, Strings&... labels)
-    {
-        manifest[round].challenge_label = { labels... };
-    }
-    template <typename String, size_t NumChallenges>
-    void add_challenge(size_t round, std::array<String, NumChallenges> labels)
-    {
-        auto call_add_challenge = [&] {
-            auto call_fn_with_expanded_parameters =
-                [&]<size_t... Indices>([[maybe_unused]] std::index_sequence<Indices...>) {
-                    return add_challenge(round, std::get<Indices>(labels)...);
-                };
-            return call_fn_with_expanded_parameters(std::make_index_sequence<NumChallenges>());
-        };
-        call_add_challenge();
-    }
-
-    void add_entry(size_t round, const std::string& element_label, size_t element_size)
-    {
-        manifest[round].entries.emplace_back(element_label, element_size);
-    }
-
-    [[nodiscard]] size_t size() const { return manifest.size(); }
-
-    RoundData operator[](const size_t& round) { return manifest[round]; };
-
-    bool operator==(const TranscriptManifest& other) const = default;
-};
-
-struct NativeTranscriptParams {
-    using DataType = bb::fr;
-    using Proof = HonkProof;
-
-    static DataType hash(const std::vector<DataType>& data);
-    template <typename T> static T convert_challenge(const DataType& challenge)
-    {
-        return bb::field_conversion::convert_challenge<T>(challenge);
-    }
-    /**
-     * @brief Split a challenge field element into two half-width challenges
-     * @details `lo` is 128 bits and `hi` is 126 bits.
-     * This should provide significantly more than our security parameter bound: 100 bits
-     *
-     * @param challenge
-     * @return std::array<Fr, 2>
-     */
-    static std::array<DataType, 2> split_challenge(const DataType& challenge)
-    {
-        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = DataType::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = DataType::modulus.get_msb() + 1 - LO_BITS;
-
-        auto converted = static_cast<uint256_t>(challenge);
-        uint256_t lo = converted.slice(0, LO_BITS);
-        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
-    }
-    template <typename T> static constexpr size_t calc_num_data_types()
-    {
-        return bb::field_conversion::calc_num_bn254_frs<T>();
-    }
-    template <typename T> static T deserialize(std::span<const DataType> frs)
-    {
-        return bb::field_conversion::convert_from_bn254_frs<T>(frs);
-    }
-    template <typename T> static std::vector<DataType> serialize(const T& element)
-    {
-        return bb::field_conversion::convert_to_bn254_frs(element);
-    }
-};
-
 // A concept for detecting whether a type is native or in-circuit
 template <typename T>
-concept InCircuit = !(std::same_as<T, bb::fr> || std::same_as<T, grumpkin::fr> || std::same_as<T, uint256_t>);
+concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
 
 template <typename T, typename = void> struct is_iterable : std::false_type {};
 
@@ -148,10 +51,11 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename TranscriptParams> class BaseTranscript {
+template <typename Codec_, typename HashFunction> class BaseTranscript {
   public:
-    using DataType = TranscriptParams::DataType;
-    using Proof = typename TranscriptParams::Proof;
+    using Codec = Codec_;
+    using DataType = typename Codec::DataType;
+    using Proof = std::vector<DataType>;
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
@@ -173,8 +77,6 @@ template <typename TranscriptParams> class BaseTranscript {
             transcript_index = unique_transcript_index.fetch_add(1);
         }
     }
-
-    static constexpr size_t HASH_OUTPUT_SIZE = 32;
 
     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
@@ -200,7 +102,7 @@ template <typename TranscriptParams> class BaseTranscript {
      * and the current round data, if they exist. It clears the current_round_data if nonempty after
      * computing the challenge to minimize how much we compress. It also sets previous_challenge
      * to the current challenge buffer to set up next function call.
-     * @return std::array<Fr, HASH_OUTPUT_SIZE>
+     * @return std::array<DataType, 2>
      */
     [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
@@ -235,8 +137,8 @@ template <typename TranscriptParams> class BaseTranscript {
         // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
         // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
         // previously did with Pedersen and Blake3s.
-        DataType new_challenge = TranscriptParams::hash(full_buffer);
-        std::array<DataType, 2> new_challenges = TranscriptParams::split_challenge(new_challenge);
+        DataType new_challenge = HashFunction::hash(full_buffer);
+        std::array<DataType, 2> new_challenges = Codec::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -271,7 +173,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> void serialize_to_buffer(const T& element, Proof& proof_data)
     {
-        auto element_frs = TranscriptParams::serialize(element);
+        auto element_frs = Codec::serialize_to_fields(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
     }
     /**
@@ -285,13 +187,13 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> T deserialize_from_buffer(const Proof& proof_data, size_t& offset) const
     {
-        constexpr size_t element_fr_size = TranscriptParams::template calc_num_data_types<T>();
+        constexpr size_t element_fr_size = Codec::template calc_num_fields<T>();
         BB_ASSERT_LTE(offset + element_fr_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(offset, element_fr_size);
         offset += element_fr_size;
 
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        auto element = Codec::template deserialize_from_fields<T>(element_frs);
 
         return element;
     }
@@ -332,14 +234,14 @@ template <typename TranscriptParams> class BaseTranscript {
     void enable_manifest() { use_manifest = true; }
 
     /**
-     * @brief Static hash method that forwards to TranscriptParams hash.
+     * @brief Static hash method that forwards to Codec hash.
      * @details This method allows hash to be called on the Transcript class directly,
      * which is needed for verification key hashing.
      *
      * @param data Vector of field elements to hash
      * @return Fr Hash result
      */
-    static DataType hash(const std::vector<DataType>& data) { return TranscriptParams::hash(data); }
+    static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
 
     /**
      * @brief Serialize a size_t to a vector of field elements
@@ -349,18 +251,15 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <typename T> static std::vector<DataType> serialize(const T& element)
     {
-        return TranscriptParams::serialize(element);
+        return Codec::serialize_to_fields(element);
     }
 
     template <typename T> static T deserialize(std::span<const DataType> frs)
     {
-        return TranscriptParams::template deserialize<T>(frs);
+        return Codec::template deserialize_from_fields<T>(frs);
     }
 
-    template <typename T> static size_t calc_num_data_types()
-    {
-        return TranscriptParams::template calc_num_data_types<T>();
-    }
+    template <typename T> static size_t calc_num_data_types() { return Codec::template calc_num_fields<T>(); }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
@@ -399,13 +298,12 @@ template <typename TranscriptParams> class BaseTranscript {
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
             auto challenge_buffer = get_next_duplex_challenge_buffer(2);
-            challenges[2 * i] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
-            challenges[2 * i + 1] = TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[1]);
+            challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
+            challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
         if ((num_challenges & 1) == 1) {
             auto challenge_buffer = get_next_duplex_challenge_buffer(1);
-            challenges[num_challenges - 1] =
-                TranscriptParams::template convert_challenge<ChallengeType>(challenge_buffer[0]);
+            challenges[num_challenges - 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
@@ -489,7 +387,7 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
-        auto element_frs = TranscriptParams::serialize(element);
+        auto element_frs = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
@@ -513,7 +411,7 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.unset_free_witness_tag();
             }
         }
-        DataType buffer_hash = TranscriptParams::hash(independent_hash_buffer);
+        DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;
     }
@@ -547,14 +445,14 @@ template <typename TranscriptParams> class BaseTranscript {
                 element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
             }
         }
-        auto elements = TranscriptParams::serialize(element);
+        auto elements = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("consumed:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, elements);
+        add_element_frs_to_hash_buffer(label, elements);
     }
 
     /**
@@ -573,7 +471,7 @@ template <typename TranscriptParams> class BaseTranscript {
     template <class T> void send_to_verifier(const std::string& label, const T& element)
     {
         DEBUG_LOG(label, element);
-        auto element_frs = TranscriptParams::serialize(element);
+        auto element_frs = Codec::template serialize_to_fields<T>(element);
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
@@ -582,7 +480,7 @@ template <typename TranscriptParams> class BaseTranscript {
             info("sent:     ", label, ": ", element);
         }
 #endif
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        add_element_frs_to_hash_buffer(label, element_frs);
     }
 
     /**
@@ -594,7 +492,7 @@ template <typename TranscriptParams> class BaseTranscript {
      */
     template <class T> T receive_from_prover(const std::string& label)
     {
-        const size_t element_size = TranscriptParams::template calc_num_data_types<T>();
+        const size_t element_size = Codec::template calc_num_fields<T>();
         BB_ASSERT_LTE(num_frs_read + element_size, proof_data.size());
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
@@ -614,9 +512,9 @@ template <typename TranscriptParams> class BaseTranscript {
         }
         num_frs_read += element_size;
 
-        BaseTranscript::add_element_frs_to_hash_buffer(label, element_frs);
+        add_element_frs_to_hash_buffer(label, element_frs);
 
-        auto element = TranscriptParams::template deserialize<T>(element_frs);
+        auto element = Codec::template deserialize_from_fields<T>(element_frs);
         DEBUG_LOG(label, element);
 
         // Ensure that the element got assigned an origin tag
@@ -766,75 +664,14 @@ template <typename TranscriptParams> class BaseTranscript {
     }
 };
 
-using NativeTranscript = BaseTranscript<NativeTranscriptParams>;
+using NativeTranscript = BaseTranscript<FrCodec, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;
+using KeccakTranscript = BaseTranscript<U256Codec, bb::crypto::Keccak>;
 
-///////////////////////////////////////////
-// Solidity Transcript
-///////////////////////////////////////////
-
-// This is a compatible wrapper around the keccak256 function from ethash
-inline bb::fr keccak_hash_uint256(std::vector<uint256_t> const& data)
-// Losing 2 bits of this is not an issue -> we can just reduce mod p
-{
-    // cast into uint256_t
-    std::vector<uint8_t> buffer = to_buffer(data);
-
-    keccak256 hash_result = ethash_keccak256(&buffer[0], buffer.size());
-    for (auto& word : hash_result.word64s) {
-        if (is_little_endian()) {
-            word = __builtin_bswap64(word);
-        }
-    }
-    std::array<uint8_t, 32> result;
-
-    for (size_t i = 0; i < 4; ++i) {
-        for (size_t j = 0; j < 8; ++j) {
-            uint8_t byte = static_cast<uint8_t>(hash_result.word64s[i] >> (56 - (j * 8)));
-            result[i * 8 + j] = byte;
-        }
-    }
-
-    return from_buffer<bb::fr>(result);
-}
-
-struct KeccakTranscriptParams {
-    using Fr = bb::fr;
-    using DataType = uint256_t;
-    using Proof = std::vector<uint256_t>;
-
-    static inline Fr hash(const std::vector<DataType>& data) { return keccak_hash_uint256(data); }
-
-    template <typename T> static inline T convert_challenge(const DataType& challenge)
-    {
-        return bb::field_conversion::convert_challenge<T>(challenge);
-    }
-
-    template <typename T> static constexpr size_t calc_num_data_types()
-    {
-        return bb::field_conversion::calc_num_uint256_ts<T>();
-    }
-    template <typename T> static inline T deserialize(std::span<const DataType> elements)
-    {
-        return bb::field_conversion::convert_from_uint256_ts<T>(elements);
-    }
-    template <typename T> static inline std::vector<DataType> serialize(const T& element)
-    {
-        return bb::field_conversion::convert_to_uint256(element);
-    }
-    static inline std::array<DataType, 2> split_challenge(const DataType& challenge)
-    {
-        // Challenges sizes are matched with the challenge sizes used in bb::fr
-        // match the parameter used in stdlib, which is derived from cycle_scalar (is 128)
-        static constexpr size_t LO_BITS = bb::fr::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
-        static constexpr size_t HI_BITS = bb::fr::modulus.get_msb() + 1 - LO_BITS;
-
-        auto converted = static_cast<uint256_t>(challenge);
-        uint256_t lo = converted.slice(0, LO_BITS);
-        uint256_t hi = converted.slice(LO_BITS, LO_BITS + HI_BITS);
-        return std::array<DataType, 2>{ DataType(lo), DataType(hi) };
-    }
-};
-
-using KeccakTranscript = BaseTranscript<KeccakTranscriptParams>;
+template <typename Builder>
+using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<Builder>>, stdlib::poseidon2<Builder>>;
+using UltraStdlibTranscript =
+    BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<UltraCircuitBuilder>>, stdlib::poseidon2<UltraCircuitBuilder>>;
+using MegaStdlibTranscript =
+    BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<MegaCircuitBuilder>>, stdlib::poseidon2<MegaCircuitBuilder>>;
 
 } // namespace bb

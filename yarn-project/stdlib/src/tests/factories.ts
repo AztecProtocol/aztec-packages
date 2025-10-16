@@ -88,6 +88,7 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
+import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
 import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
@@ -1544,6 +1545,8 @@ export async function makeBloatedProcessedTx({
   newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
   feePayer,
   feePaymentPublicDataWrite,
+  // The default gasUsed is the tx overhead.
+  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
 }: {
   seed?: number;
@@ -1558,6 +1561,7 @@ export async function makeBloatedProcessedTx({
   protocolContracts?: ProtocolContracts;
   feePayer?: AztecAddress;
   feePaymentPublicDataWrite?: PublicDataWrite;
+  gasUsed?: Gas;
   privateOnly?: boolean;
 } = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
@@ -1573,22 +1577,21 @@ export async function makeBloatedProcessedTx({
   txConstantData.protocolContractsHash = await protocolContracts.hash();
 
   const tx = !privateOnly
-    ? await mockTx(seed, { feePayer })
+    ? await mockTx(seed, { feePayer, gasUsed })
     : await mockTx(seed, {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
         feePayer,
+        gasUsed,
       });
   tx.data.constants = txConstantData;
 
-  // No side effects were created in mockTx. The default gasUsed is the tx overhead.
-  tx.data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
+  const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 
   if (privateOnly) {
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
     clearContractClassLogs(data);
 
-    const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
     feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
 
     tx.data.forRollup!.end = data;
@@ -1612,6 +1615,7 @@ export async function makeBloatedProcessedTx({
     avmOutput.protocolContracts = protocolContracts;
     avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
+    avmOutput.effectiveGasFees = computeEffectiveGasFees(globalVariables.gasFees, gasSettings);
     // Assign data from private.
     avmOutput.globalVariables = globalVariables;
     avmOutput.startGasUsed = tx.data.gasUsed;
@@ -1654,6 +1658,9 @@ export async function makeBloatedProcessedTx({
     );
     avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
     avmOutput.gasSettings = gasSettings;
+    // Note: The fee is computed from the tx's gas used, which only includes the gas used in private. But this shouldn't
+    // be a problem for the tests.
+    avmOutput.transactionFee = transactionFee;
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
     avmCircuitInputs.hints.startingTreeRoots.l1ToL2MessageTree = newL1ToL2Snapshot;

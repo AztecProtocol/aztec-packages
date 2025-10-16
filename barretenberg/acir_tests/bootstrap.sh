@@ -93,7 +93,7 @@ function regenerate_recursive_inputs {
   mv ./target/assert_statement.json ./target/program.json
   mv ./target/assert_statement.gz ./target/witness.gz
   cd ../..
-  parallel 'run_proof_generation {}' ::: $(ls internal_test_programs)
+  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof"
 }
 
 export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation generate_toml

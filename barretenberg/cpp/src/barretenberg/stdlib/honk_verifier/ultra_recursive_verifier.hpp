@@ -11,12 +11,12 @@
 #include "barretenberg/flavor/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/honk_verifier/oink_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -61,8 +61,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
     using PairingObject = PairingPoints<Builder>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-    using OinkVerifier = OinkRecursiveVerifier_<Flavor>;
+    using Transcript = StdlibTranscript<Builder>;
+    using OinkVerifier = bb::OinkVerifier<Flavor>;
     using Output = UltraRecursiveVerifierOutput<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
