@@ -31,9 +31,9 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
         transcript->template get_challenges<FF>(labels_shifted_witnesses);
 
     // Batch polynomials
-    Polynomial batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
+    Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
         instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
-    Polynomial batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
+    Polynomial<FF> batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
         instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
 
     // Batch evaluations
@@ -84,8 +84,10 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
 };
 
 template <size_t N>
-HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
-    RefArray<Polynomial, N> polynomials_to_batch, const size_t& full_batched_size, const std::array<FF, N>& challenges)
+Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials(
+    RefArray<Polynomial<FF>, N> polynomials_to_batch,
+    const size_t& full_batched_size,
+    const std::array<FF, N>& challenges)
 {
     BB_BENCH();
     BB_ASSERT_EQ(full_batched_size,
