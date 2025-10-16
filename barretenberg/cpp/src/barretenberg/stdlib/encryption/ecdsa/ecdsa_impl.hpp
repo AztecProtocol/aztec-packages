@@ -20,6 +20,10 @@ auto& engine = numeric::get_debug_randomness();
 /**
  * @brief Verify ECDSA signature. Returns bool_t(true/false) depending on whether the signature is valid or not.
  *
+ * @note This function produces incomplete constraints it enforces that the hash of the message is smaller than the
+ * scalar field of the curve, which means an honest prover has a negligible probability of not being able to generate a
+ * proof for a valid witness.
+ *
  * @details Fix the following notation:
  *  1. \f$E\f$ is an elliptic curve over the base field \f$\mathbb{F}_q\f$.
  *  2. \f$G\f$ is a generator of the group of points of \f$E\f$, the order of \f$G\f$ is \f$n\f$.
@@ -72,9 +76,9 @@ auto& engine = numeric::get_debug_randomness();
  * @return bool_t<Builder>
  */
 template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed_message,
-                                       const G1& public_key,
-                                       const ecdsa_signature<Builder>& sig)
+bool_t<Builder> incomplete_ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed_message,
+                                                  const G1& public_key,
+                                                  const ecdsa_signature<Builder>& sig)
 {
     BB_ASSERT_EQ(Fr::modulus.get_msb() + 1, 256UL, "The implementation assumes that the bit-length of Fr is 256 bits.");
 
@@ -216,7 +220,7 @@ template <typename Builder> void generate_ecdsa_verification_test_circuit(Builde
 
         // Verify ecdsa signature
         bool_t<Builder> result =
-            stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
+            stdlib::incomplete_ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, sig);
         result.assert_equal(bool_t<Builder>(true));
     }
 }

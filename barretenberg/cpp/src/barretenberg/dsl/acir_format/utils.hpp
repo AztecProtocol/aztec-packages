@@ -13,6 +13,7 @@
 namespace acir_format {
 
 using namespace bb;
+using namespace bb::stdlib;
 
 /**
  * @brief Generate builder variables from witness indices. This function is useful when receiving the indices of the
@@ -24,16 +25,30 @@ using namespace bb;
  * @return std::vector<stdlib::field_t<Builder>>
  */
 template <typename Builder>
-static std::vector<stdlib::field_t<Builder>> fields_from_witnesses(Builder& builder,
-                                                                   std::span<const uint32_t> witness_indices)
+static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices)
 {
-    std::vector<stdlib::field_t<Builder>> result;
+    std::vector<field_t<Builder>> result;
     result.reserve(witness_indices.size());
     for (const auto& idx : witness_indices) {
-        result.emplace_back(stdlib::field_t<Builder>::from_witness_index(&builder, idx));
+        result.emplace_back(field_t<Builder>::from_witness_index(&builder, idx));
     }
     return result;
 }
+
+// Lambda to convert std::vector<field_ct> to byte_array_ct
+template <typename Builder> byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields)
+{
+    byte_array<Builder> result(&builder);
+    for (auto& field : fields) {
+        // Construct byte array of length 1 from the field element
+        // The constructor enforces that `field` fits in one byte
+        byte_array<Builder> byte_to_append(field, /*num_bytes=*/1);
+        // Append the new byte to the result
+        result.write(byte_to_append);
+    }
+
+    return result;
+};
 
 /**
  * @brief Append values to a witness vector and track their indices.
