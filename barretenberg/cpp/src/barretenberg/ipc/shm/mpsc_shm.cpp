@@ -4,15 +4,27 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
-#include <linux/futex.h>
 #include <stdexcept>
 #include <string>
 #include <sys/mman.h>
-#include <sys/syscall.h>
 #include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
 #include <utility>
 #include <vector>
+
+// Platform-specific includes and declarations for futex/ulock
+#ifdef __APPLE__
+// Darwin's private ulock API (stable since macOS 10.12)
+extern "C" {
+int __ulock_wait(uint32_t operation, void* addr, uint64_t value, uint32_t timeout_us);
+int __ulock_wake(uint32_t operation, void* addr, uint64_t wake_value);
+}
+#define UL_COMPARE_AND_WAIT 1
+#else
+// Linux futex
+#include <linux/futex.h>
+#include <sys/syscall.h>
+#endif
 
 #if defined(__x86_64__) || defined(_M_X64)
 #include <immintrin.h>
@@ -39,14 +51,27 @@ inline uint64_t mpsc_mono_ns_now()
 
 inline int mpsc_futex_wait(volatile uint32_t* addr, uint32_t expect)
 {
+#ifdef __APPLE__
+    // Darwin ulock: addr must be 4-byte aligned, value is compared as uint64_t
+    return __ulock_wait(UL_COMPARE_AND_WAIT, const_cast<uint32_t*>(addr), static_cast<uint64_t>(expect), 0);
+#else
+    // Linux futex
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
+#endif
 }
 
 inline int mpsc_futex_wake(volatile uint32_t* addr, int n)
 {
+#ifdef __APPLE__
+    // Darwin ulock: wake_value parameter is ignored for COMPARE_AND_WAIT
+    (void)n; // Darwin ulock wakes all waiters
+    return __ulock_wake(UL_COMPARE_AND_WAIT, const_cast<uint32_t*>(addr), 0);
+#else
+    // Linux futex
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
+#endif
 }
 } // anonymous namespace
 
