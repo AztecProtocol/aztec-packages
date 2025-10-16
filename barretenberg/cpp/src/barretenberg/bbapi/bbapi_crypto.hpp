@@ -16,25 +16,21 @@ namespace bb::bbapi {
 
 /**
  * @struct Poseidon2Hash
- * @brief Computes a Poseidon2 hash over BN254 scalar field elements.
- *
- * This command provides direct access to the Poseidon2 hash function,
- * which is useful for testing, debugging, and simple hash operations.
+ * @brief Compute Poseidon2 hash of input field elements
  */
 struct Poseidon2Hash {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2Hash";
 
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "Poseidon2HashResponse";
-
-        uint256_t hash; // Field element hash result
+        fr hash;
         MSGPACK_FIELDS(hash);
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint256_t> inputs; // Field element inputs
+    std::vector<fr> inputs;
+    Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(inputs);
-    Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const Poseidon2Hash&) const = default;
 };
 
