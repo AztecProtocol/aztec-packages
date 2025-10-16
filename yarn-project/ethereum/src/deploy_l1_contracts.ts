@@ -84,6 +84,74 @@ export type Operator = {
 };
 
 /**
+ * Checks if an address has the minter role on an ERC20-like contract.
+ * Assumes the contract has a `minters(address)` public mapping.
+ */
+async function isMinter(
+  client: ExtendedViemWalletClient,
+  tokenAddress: EthAddress,
+  minterAddress: EthAddress,
+): Promise<boolean> {
+  try {
+    const contract = getContract({
+      address: getAddress(tokenAddress.toString()),
+      abi: FeeAssetArtifact.contractAbi,
+      client,
+    });
+    return await contract.read.minters([minterAddress.toString()]);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validates governance contract deployment consistency.
+ * All governance contracts must either all exist or all be missing.
+ * Throws an error if only some exist (inconsistent state).
+ */
+async function validateGovernanceConsistency(
+  client: ExtendedViemWalletClient,
+  deployer: L1Deployer,
+  addresses: {
+    gseAddress?: EthAddress;
+    registryAddress?: EthAddress;
+    governanceAddress?: EthAddress;
+    governanceProposerAddress?: EthAddress;
+  },
+  logger: Logger,
+): Promise<{ allExist: boolean; noneExist: boolean }> {
+  const checks = await Promise.all([
+    addresses.gseAddress
+      ? client.getCode({ address: addresses.gseAddress.toString() }).then(code => code && code !== '0x')
+      : Promise.resolve(false),
+    addresses.registryAddress
+      ? client.getCode({ address: addresses.registryAddress.toString() }).then(code => code && code !== '0x')
+      : Promise.resolve(false),
+    addresses.governanceAddress
+      ? client.getCode({ address: addresses.governanceAddress.toString() }).then(code => code && code !== '0x')
+      : Promise.resolve(false),
+    addresses.governanceProposerAddress
+      ? client.getCode({ address: addresses.governanceProposerAddress.toString() }).then(code => code && code !== '0x')
+      : Promise.resolve(false),
+  ]);
+
+  const existingCount = checks.filter(Boolean).length;
+  const allExist = existingCount === 4;
+  const noneExist = existingCount === 0;
+
+  if (!allExist && !noneExist) {
+    throw new Error(
+      `Inconsistent governance deployment state: ${existingCount}/4 contracts exist. ` +
+        `All governance contracts must be deployed together. ` +
+        `Found: GSE=${checks[0]}, Registry=${checks[1]}, Governance=${checks[2]}, GovernanceProposer=${checks[3]}`,
+    );
+  }
+
+  logger.verbose(`Governance consistency check: ${allExist ? 'all exist' : 'none exist'}`);
+  return { allExist, noneExist };
+}
+
+/**
  * Return type of the deployL1Contract function.
  */
 export type DeployL1ContractsReturnType = {
@@ -315,6 +383,19 @@ export const deploySharedContracts = async (
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
 
+  // Validate governance consistency: all governance contracts must exist together
+  await validateGovernanceConsistency(
+    l1Client,
+    deployer,
+    {
+      gseAddress,
+      registryAddress,
+      governanceAddress,
+      governanceProposerAddress,
+    },
+    logger,
+  );
+
   let needToSetGovernance = false;
 
   const existingCode = await l1Client.getCode({ address: gseAddress.toString() });
@@ -382,8 +463,9 @@ export const deploySharedContracts = async (
     ).address;
     logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
 
-    // Only if we are "fresh" will we be adding as a minter, otherwise above will simply get same address
-    if (needToSetGovernance) {
+    // Only add as minter if not already a minter
+    const isAlreadyMinter = await isMinter(l1Client, feeAssetAddress, feeAssetHandlerAddress);
+    if (!isAlreadyMinter) {
       const { txHash } = await deployer.sendTransaction({
         to: feeAssetAddress.toString(),
         data: encodeFunctionData({
@@ -394,6 +476,8 @@ export const deploySharedContracts = async (
       });
       logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
       txHashes.push(txHash);
+    } else {
+      logger.verbose(`Fee asset handler ${feeAssetHandlerAddress} is already a minter on fee asset`);
     }
 
     // Only if on sepolia will we deploy the staking asset handler
@@ -426,18 +510,24 @@ export const deploySharedContracts = async (
         .address;
       logger.verbose(`Deployed StakingAssetHandler at ${stakingAssetHandlerAddress}`);
 
-      const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
-        to: stakingAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: StakingAssetArtifact.contractAbi,
-          functionName: 'addMinter',
-          args: [stakingAssetHandlerAddress.toString()],
-        }),
-      });
-      logger.verbose(
-        `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
-      );
-      txHashes.push(stakingMinterTxHash);
+      // Only add as minter if not already a minter
+      const isStakingMinter = await isMinter(l1Client, stakingAssetAddress, stakingAssetHandlerAddress);
+      if (!isStakingMinter) {
+        const { txHash: stakingMinterTxHash } = await deployer.sendTransaction({
+          to: stakingAssetAddress.toString(),
+          data: encodeFunctionData({
+            abi: StakingAssetArtifact.contractAbi,
+            functionName: 'addMinter',
+            args: [stakingAssetHandlerAddress.toString()],
+          }),
+        });
+        logger.verbose(
+          `Added staking asset handler ${stakingAssetHandlerAddress} as minter on staking asset in ${stakingMinterTxHash}`,
+        );
+        txHashes.push(stakingMinterTxHash);
+      } else {
+        logger.verbose(`Staking asset handler ${stakingAssetHandlerAddress} is already a minter on staking asset`);
+      }
     }
   }
 
@@ -461,18 +551,35 @@ export const deploySharedContracts = async (
 
   if (!args.existingTokenAddress) {
     const blockReward = getRewardConfig(networkName).blockReward;
+    const targetFunding = blockReward * 200000n;
 
-    const funding = blockReward * 200000n;
-    const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: FeeAssetArtifact.contractAbi,
-        functionName: 'mint',
-        args: [rewardDistributorAddress.toString(), funding],
-      }),
+    // Check current balance and only mint the difference
+    const feeAssetContract = getContract({
+      address: getAddress(feeAssetAddress.toString()),
+      abi: FeeAssetArtifact.contractAbi,
+      client: l1Client,
     });
+    const currentBalance = await feeAssetContract.read.balanceOf([rewardDistributorAddress.toString()]);
 
-    logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+    if (currentBalance < targetFunding) {
+      const amountToMint = targetFunding - currentBalance;
+      const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
+        to: feeAssetAddress.toString(),
+        data: encodeFunctionData({
+          abi: FeeAssetArtifact.contractAbi,
+          functionName: 'mint',
+          args: [rewardDistributorAddress.toString(), amountToMint],
+        }),
+      });
+
+      logger.verbose(
+        `Funded reward distributor with ${amountToMint} fee asset (current: ${currentBalance}, target: ${targetFunding}) in ${fundRewardDistributorTxHash}`,
+      );
+    } else {
+      logger.verbose(
+        `Reward distributor already has sufficient balance (${currentBalance} >= ${targetFunding}), skipping funding`,
+      );
+    }
   } else {
     logger.verbose(`Skipping reward distributor funding as existing token is provided`);
   }
@@ -698,19 +805,33 @@ export const deployRollup = async (
     if (!('existingTokenAddress' in args) || !args.existingTokenAddress) {
       const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
 
-      // In fast mode, use the L1TxUtils to send transactions with nonce management
-      const { txHash: mintTxHash } = await deployer.sendTransaction({
-        to: addresses.feeJuiceAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'mint',
-          args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-        }),
+      // Check current balance and only mint the difference
+      const feeAssetContract = getContract({
+        address: getAddress(addresses.feeJuiceAddress.toString()),
+        abi: FeeAssetArtifact.contractAbi,
+        client: extendedClient,
       });
-      logger.verbose(
-        `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-      );
-      txHashes.push(mintTxHash);
+      const currentBalance = await feeAssetContract.read.balanceOf([feeJuicePortalAddress.toString()]);
+
+      if (currentBalance < args.feeJuicePortalInitialBalance) {
+        const amountToMint = args.feeJuicePortalInitialBalance - currentBalance;
+        const { txHash: mintTxHash } = await deployer.sendTransaction({
+          to: addresses.feeJuiceAddress.toString(),
+          data: encodeFunctionData({
+            abi: FeeAssetArtifact.contractAbi,
+            functionName: 'mint',
+            args: [feeJuicePortalAddress.toString(), amountToMint],
+          }),
+        });
+        logger.verbose(
+          `Funding fee juice portal with ${amountToMint} fee juice (current: ${currentBalance}, target: ${args.feeJuicePortalInitialBalance}) in ${mintTxHash}`,
+        );
+        txHashes.push(mintTxHash);
+      } else {
+        logger.verbose(
+          `Fee juice portal already has sufficient balance (${currentBalance} >= ${args.feeJuicePortalInitialBalance}), skipping funding`,
+        );
+      }
     } else {
       logger.verbose('Skipping fee juice portal funding due to external token usage');
     }
@@ -866,10 +987,8 @@ export const handoverToGovernance = async (
   const txHashes: Hex[] = [];
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (
-    acceleratedTestDeployments ||
-    (await registryContract.read.owner()) !== getAddress(governanceAddress.toString())
-  ) {
+  const currentRegistryOwner = await registryContract.read.owner();
+  if (currentRegistryOwner !== getAddress(governanceAddress.toString())) {
     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: registryAddress.toString(),
@@ -883,10 +1002,13 @@ export const handoverToGovernance = async (
       `Transferring the ownership of the registry contract at ${registryAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
+  } else {
+    logger.verbose(`Registry ownership already transferred to governance ${governanceAddress}`);
   }
 
   // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (acceleratedTestDeployments || (await gseContract.read.owner()) !== getAddress(governanceAddress.toString())) {
+  const currentGseOwner = await gseContract.read.owner();
+  if (currentGseOwner !== getAddress(governanceAddress.toString())) {
     // TODO(md): add send transaction to the deployer such that we do not need to manage tx hashes here
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: gseContract.address,
@@ -900,39 +1022,43 @@ export const handoverToGovernance = async (
       `Transferring the ownership of the gse contract at ${gseAddress} to the Governance ${governanceAddress} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
+  } else {
+    logger.verbose(`GSE ownership already transferred to governance ${governanceAddress}`);
   }
 
-  if (
-    !useExternalToken &&
-    (acceleratedTestDeployments || (await feeAsset.read.owner()) !== coinIssuerAddress.toString())
-  ) {
-    const { txHash } = await deployer.sendTransaction(
-      {
-        to: feeAssetAddress.toString(),
-        data: encodeFunctionData({
-          abi: FeeAssetArtifact.contractAbi,
-          functionName: 'transferOwnership',
-          args: [coinIssuerAddress.toString()],
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
-    txHashes.push(txHash);
+  if (!useExternalToken) {
+    const currentFeeAssetOwner = await feeAsset.read.owner();
+    if (currentFeeAssetOwner !== coinIssuerAddress.toString()) {
+      const { txHash } = await deployer.sendTransaction(
+        {
+          to: feeAssetAddress.toString(),
+          data: encodeFunctionData({
+            abi: FeeAssetArtifact.contractAbi,
+            functionName: 'transferOwnership',
+            args: [coinIssuerAddress.toString()],
+          }),
+        },
+        { gasLimit: 500_000n },
+      );
+      logger.verbose(`Transfer ownership of fee asset to coin issuer ${coinIssuerAddress} in ${txHash}`);
+      txHashes.push(txHash);
 
-    const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
-      {
-        to: coinIssuerAddress.toString(),
-        data: encodeFunctionData({
-          abi: CoinIssuerArtifact.contractAbi,
-          functionName: 'acceptTokenOwnership',
-        }),
-      },
-      { gasLimit: 500_000n },
-    );
-    logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
-    txHashes.push(acceptTokenOwnershipTxHash);
-  } else if (useExternalToken) {
+      const { txHash: acceptTokenOwnershipTxHash } = await deployer.sendTransaction(
+        {
+          to: coinIssuerAddress.toString(),
+          data: encodeFunctionData({
+            abi: CoinIssuerArtifact.contractAbi,
+            functionName: 'acceptTokenOwnership',
+          }),
+        },
+        { gasLimit: 500_000n },
+      );
+      logger.verbose(`Accept ownership of fee asset in ${acceptTokenOwnershipTxHash}`);
+      txHashes.push(acceptTokenOwnershipTxHash);
+    } else {
+      logger.verbose(`Fee asset ownership already transferred to coin issuer ${coinIssuerAddress}`);
+    }
+  } else {
     logger.verbose('Skipping fee asset ownership transfer due to external token usage');
   }
 
@@ -942,8 +1068,9 @@ export const handoverToGovernance = async (
     1798761600n, // 2027-01-01 00:00:00 UTC
   ]);
 
-  // If the owner is not the Governance contract, transfer ownership to the Governance contract
-  if (acceleratedTestDeployments || (await coinIssuerContract.read.owner()) === deployer.client.account.address) {
+  // If the owner is not the DateGatedRelayer, transfer ownership to it
+  const currentCoinIssuerOwner = await coinIssuerContract.read.owner();
+  if (currentCoinIssuerOwner !== getAddress(dateGatedRelayer.address.toString())) {
     const { txHash: transferOwnershipTxHash } = await deployer.sendTransaction({
       to: coinIssuerContract.address,
       data: encodeFunctionData({
@@ -956,6 +1083,10 @@ export const handoverToGovernance = async (
       `Transferring the ownership of the coin issuer contract at ${coinIssuerAddress} to the DateGatedRelayer ${dateGatedRelayer.address} in tx ${transferOwnershipTxHash}`,
     );
     txHashes.push(transferOwnershipTxHash);
+  } else {
+    logger.verbose(
+      `Coin issuer ownership already transferred to DateGatedRelayer ${dateGatedRelayer.address.toString()}`,
+    );
   }
 
   // Wait for all actions to be mined
@@ -990,24 +1121,22 @@ export const addMultipleValidators = async (
   const activationThreshold = await rollup.getActivationThreshold();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
-    if (!acceleratedTestDeployments) {
-      const enrichedValidators = await Promise.all(
-        validators.map(async operator => ({
-          operator,
-          status: await rollup.getStatus(operator.attester),
-        })),
+    const enrichedValidators = await Promise.all(
+      validators.map(async operator => ({
+        operator,
+        status: await rollup.getStatus(operator.attester),
+      })),
+    );
+    const existingValidators = enrichedValidators.filter(v => v.status !== 0);
+    if (existingValidators.length > 0) {
+      logger.warn(
+        `Validators ${existingValidators
+          .map(v => v.operator.attester)
+          .join(', ')} already exist. Skipping from initialization.`,
       );
-      const existingValidators = enrichedValidators.filter(v => v.status !== 0);
-      if (existingValidators.length > 0) {
-        logger.warn(
-          `Validators ${existingValidators
-            .map(v => v.operator.attester)
-            .join(', ')} already exist. Skipping from initialization.`,
-        );
-      }
-
-      validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
     }
+
+    validators = enrichedValidators.filter(v => v.status === 0).map(v => v.operator);
 
     if (validators.length === 0) {
       logger.warn('No validators to add. Skipping.');

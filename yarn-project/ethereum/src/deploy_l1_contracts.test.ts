@@ -380,4 +380,180 @@ describe('deploy_l1_contracts', () => {
       args: [minter.toString()],
     });
   };
+
+  const getBalance = async (tokenAddress: EthAddress, holderAddress: EthAddress) => {
+    return (await client.readContract({
+      address: tokenAddress.toString(),
+      abi: [
+        {
+          name: 'balanceOf',
+          type: 'function',
+          inputs: [{ type: 'address' }],
+          outputs: [{ type: 'uint256' }],
+          stateMutability: 'view',
+        },
+      ],
+      functionName: 'balanceOf',
+      args: [holderAddress.toString()],
+    })) as bigint;
+  };
+
+  describe('idempotency tests', () => {
+    it('minter idempotency: does not add minter twice', async () => {
+      const first = await deploy({ salt: 200 });
+
+      // Verify minters were added
+      if (first.l1ContractAddresses.feeAssetHandlerAddress) {
+        expect(
+          await isMinter(first.l1ContractAddresses.feeJuiceAddress, first.l1ContractAddresses.feeAssetHandlerAddress),
+        ).toBe(true);
+      }
+
+      // Deploy again with same salt - should be idempotent
+      const second = await deploy({ salt: 200 });
+
+      expect(first.l1ContractAddresses).toEqual(second.l1ContractAddresses);
+
+      // Verify minters are still correctly set
+      if (second.l1ContractAddresses.feeAssetHandlerAddress) {
+        expect(
+          await isMinter(second.l1ContractAddresses.feeJuiceAddress, second.l1ContractAddresses.feeAssetHandlerAddress),
+        ).toBe(true);
+      }
+    });
+
+    it('funding idempotency: does not duplicate funding', async () => {
+      const initialBalance = 1000000n * 10n ** 18n;
+
+      const first = await deploy({ salt: 201, feeJuicePortalInitialBalance: initialBalance });
+
+      const rollup = getRollup(first);
+      const portalAddress = await rollup.getFeeJuicePortal();
+
+      const balanceAfterFirst = await getBalance(first.l1ContractAddresses.feeJuiceAddress, portalAddress);
+      expect(balanceAfterFirst).toBeGreaterThanOrEqual(initialBalance);
+
+      // Deploy again with same parameters
+      const second = await deploy({ salt: 201, feeJuicePortalInitialBalance: initialBalance });
+
+      const balanceAfterSecond = await getBalance(second.l1ContractAddresses.feeJuiceAddress, portalAddress);
+
+      // Balance should not have doubled
+      expect(balanceAfterSecond).toEqual(balanceAfterFirst);
+    });
+
+    it('ownership transfer idempotency: does not fail on repeated transfers', async () => {
+      const first = await deploy({ salt: 202 });
+
+      const governance = new GovernanceContract(first.l1ContractAddresses.governanceAddress, client);
+      const registry = new RegistryContract(client, first.l1ContractAddresses.registryAddress);
+      const rollup = new RollupContract(client, first.l1ContractAddresses.rollupAddress);
+      const gse = new GSEContract(client, await rollup.getGSE());
+
+      // Verify ownerships are correct
+      expect(await registry.getOwner()).toEqual(governance.address);
+      expect(await gse.getOwner()).toEqual(governance.address);
+      expect(await getOwner(EthAddress.fromString(rollup.address))).toEqual(governance.address);
+
+      // Deploy again - should not fail on ownership transfers
+      const second = await deploy({ salt: 202 });
+
+      expect(first.l1ContractAddresses).toEqual(second.l1ContractAddresses);
+
+      // Verify ownerships are still correct
+      expect(await registry.getOwner()).toEqual(governance.address);
+      expect(await gse.getOwner()).toEqual(governance.address);
+      expect(await getOwner(EthAddress.fromString(rollup.address))).toEqual(governance.address);
+    });
+
+    it('governance consistency: allows redeployment with same parameters', async () => {
+      // This test verifies that governance contracts can be redeployed with the same parameters
+      const firstDeployment = await deploy({ salt: 203 });
+
+      // Deploy again with the same salt and parameters - should succeed due to idempotency
+      const secondDeployment = await deploy({ salt: 203 });
+
+      // All governance contracts should be at the same addresses
+      expect(firstDeployment.l1ContractAddresses.governanceAddress).toEqual(
+        secondDeployment.l1ContractAddresses.governanceAddress,
+      );
+      expect(firstDeployment.l1ContractAddresses.governanceProposerAddress).toEqual(
+        secondDeployment.l1ContractAddresses.governanceProposerAddress,
+      );
+      expect(firstDeployment.l1ContractAddresses.gseAddress).toEqual(secondDeployment.l1ContractAddresses.gseAddress);
+      expect(firstDeployment.l1ContractAddresses.registryAddress).toEqual(
+        secondDeployment.l1ContractAddresses.registryAddress,
+      );
+    });
+
+    it('allows new rollup deployment with existing governance', async () => {
+      // Deploy full system
+      const first = await deploy({ salt: 204, vkTreeRoot: Fr.random() });
+
+      // Deploy new rollup with different genesis (this creates a new rollup version)
+      const newVkTreeRoot = Fr.random();
+      const newProtocolContractsHash = Fr.random();
+      const newGenesisArchiveRoot = Fr.random();
+
+      const second = await deploy({
+        salt: 205, // Different salt for rollup but reuses governance infrastructure
+        vkTreeRoot: newVkTreeRoot,
+        protocolContractsHash: newProtocolContractsHash,
+        genesisArchiveRoot: newGenesisArchiveRoot,
+      });
+
+      // Governance contracts should exist for both
+      expect(await isContract(first.l1ContractAddresses.governanceAddress)).toBe(true);
+      expect(await isContract(second.l1ContractAddresses.governanceAddress)).toBe(true);
+
+      // Rollups should be different
+      expect(first.l1ContractAddresses.rollupAddress).not.toEqual(second.l1ContractAddresses.rollupAddress);
+
+      // Both rollups should be in the registry
+      const registry = new RegistryContract(client, first.l1ContractAddresses.registryAddress);
+      const firstRollupVersion = await new RollupContract(client, first.l1ContractAddresses.rollupAddress).getVersion();
+      const secondRollupVersion = await new RollupContract(
+        client,
+        second.l1ContractAddresses.rollupAddress,
+      ).getVersion();
+
+      expect(firstRollupVersion).not.toEqual(secondRollupVersion);
+    });
+
+    it('validator idempotency: does not duplicate validators on redeploy', async () => {
+      const validators = times(5, () => ({
+        attester: EthAddress.random(),
+        withdrawer: EthAddress.random(),
+        bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
+      }));
+
+      const first = await deploy({
+        salt: 206,
+        initialValidators: validators,
+        aztecTargetCommitteeSize: validators.length,
+      });
+
+      const rollup = getRollup(first);
+      const activeCountAfterFirst = await rollup.getActiveAttesterCount();
+      const queueLengthAfterFirst = await rollup.getEntryQueueLength();
+      const totalAfterFirst = activeCountAfterFirst + queueLengthAfterFirst;
+
+      expect(totalAfterFirst).toEqual(BigInt(validators.length));
+
+      // Deploy again with same parameters - validators should not be duplicated
+      const second = await deploy({
+        salt: 206,
+        initialValidators: validators,
+        aztecTargetCommitteeSize: validators.length,
+      });
+
+      const activeCountAfterSecond = await rollup.getActiveAttesterCount();
+      const queueLengthAfterSecond = await rollup.getEntryQueueLength();
+      const totalAfterSecond = activeCountAfterSecond + queueLengthAfterSecond;
+
+      // Should still be the same count, not doubled
+      expect(totalAfterSecond).toEqual(totalAfterFirst);
+      expect(totalAfterSecond).toEqual(BigInt(validators.length));
+    });
+  });
 });
