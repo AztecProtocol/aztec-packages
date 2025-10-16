@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstring>
 #include <gtest/gtest.h>
+#include <sstream>
 #include <thread>
 #include <vector>
 
@@ -16,7 +17,7 @@ namespace {
 class ShmTest : public ::testing::Test {
   protected:
     static constexpr size_t MAX_CLIENTS = 10;
-    static constexpr const char* SHM_NAME = "test_shm_ringwrap";
+    std::string shm_name;
 
     std::unique_ptr<IpcServer> server;
     std::thread server_thread;
@@ -25,8 +26,14 @@ class ShmTest : public ::testing::Test {
 
     void SetUp() override
     {
+        // Generate unique SHM name based on test name for parallel execution
+        const ::testing::TestInfo* test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+        std::ostringstream oss;
+        oss << "test_shm_" << test_info->test_suite_name() << "_" << test_info->name();
+        shm_name = oss.str();
+
         // Create server
-        server = IpcServer::create_shm(SHM_NAME, MAX_CLIENTS);
+        server = IpcServer::create_shm(shm_name, MAX_CLIENTS);
         ASSERT_TRUE(server->listen()) << "Server failed to listen";
 
         // Start server thread
@@ -66,7 +73,7 @@ class ShmTest : public ::testing::Test {
         // This ensures the thread wakes up and checks the server_running flag
         if (server_thread.joinable()) {
             // Create a temporary client to wake the server
-            auto wake_client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
+            auto wake_client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
             if (wake_client && wake_client->connect()) {
                 uint8_t dummy = 0;
                 wake_client->send(&dummy, 1, 0);
@@ -84,7 +91,7 @@ class ShmTest : public ::testing::Test {
 TEST_F(ShmTest, BasicEcho)
 {
     std::cerr << "Creating client..." << '\n';
-    auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
 
     std::cerr << "Connecting client..." << '\n';
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
@@ -110,7 +117,7 @@ TEST_F(ShmTest, BasicEcho)
 // Test with varying message sizes to trigger ring buffer wrapping
 TEST_F(ShmTest, VaryingMessageSizes)
 {
-    auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
     std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
@@ -144,7 +151,7 @@ TEST_F(ShmTest, VaryingMessageSizes)
 // Eventually, a message will hit the wrap boundary and fail with the unfixed implementation
 TEST_F(ShmTest, RingBufferWrapStressTest)
 {
-    auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
+    auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
     ASSERT_TRUE(client->connect()) << "Client failed to connect";
 
     std::vector<uint8_t> recv_buffer(16UL * 1024 * 1024);
@@ -193,8 +200,8 @@ TEST_F(ShmTest, ConcurrentClients)
 
     client_threads.reserve(num_clients);
     for (size_t client_idx = 0; client_idx < num_clients; client_idx++) {
-        client_threads.emplace_back([client_idx, &failures]() {
-            auto client = IpcClient::create_shm(SHM_NAME, MAX_CLIENTS);
+        client_threads.emplace_back([client_idx, &failures, shm_name = this->shm_name]() {
+            auto client = IpcClient::create_shm(shm_name, MAX_CLIENTS);
             if (!client->connect()) {
                 failures.fetch_add(1);
                 return;
