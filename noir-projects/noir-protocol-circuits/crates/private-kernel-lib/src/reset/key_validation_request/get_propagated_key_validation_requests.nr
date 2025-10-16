@@ -1,18 +1,22 @@
 use dep::types::{
-    abis::validation_requests::ScopedKeyValidationRequestAndGenerator, traits::Empty,
+    abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped, traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
 
+/// Creates the set of un-validated key validation requests to be propagated to the next circuit.
 pub unconstrained fn get_propagated_key_validation_requests<let N: u32>(
-    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N>,
+    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N>,
     key_validation_amount: u32,
-) -> ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N> {
-    let mut propagated: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, N> =
-        ClaimedLengthArray::empty();
+) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, N> {
+    let mut propagated = ClaimedLengthArray::empty();
 
-    // We'll process a number of requests up to the `key_validation_amount`. We'll propagate any beyond that.
-    // We "shift" (from the front) items that we want to process, instead of "pop" (from the back),
-    // to process the requests in the order in which they were made. It will also be easier to verify later.
+    // Up to `key_validation_amount` requests will be validated, and the remaining ones will be propagated.
+    // For efficiency, we "shift" (remove from the front) the requests to validate, rather than "pop" (from the back).
+    // This simplifies index management when validating the propagated requests.
+    // See `KeyValidationRequestsValidator` for more details.
+    //
+    // The loop below copies all requests with index >= `key_validation_amount` into the `propagated` array, effectively
+    // producing the set of un-validated requests to be passed to the next circuit.
     for i in key_validation_amount..key_validation_requests.length {
         propagated.array[i - key_validation_amount] = key_validation_requests.array[i];
     }

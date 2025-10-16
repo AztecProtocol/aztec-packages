@@ -17,7 +17,7 @@ if (NOT(FUZZING))
     PRIVATE
     stdlib_solidity_helpers
   )
-  if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+  if(ENABLE_STACKTRACES)
     target_link_libraries(
         honk_solidity_key_gen
         PUBLIC

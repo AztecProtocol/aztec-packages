@@ -21,7 +21,7 @@ fn with_both_roots_left_is_first() {
     }
 }
 
-#[test(should_fail_with = "in_hash must be set on the left rollup when merging blocks")]
+#[test(should_fail_with = "Right rollup must not carry in_hash")]
 fn with_both_roots_right_is_first() {
     TestBuilder::new(
         BLOCK_ROOT_ROLLUP_VK_INDEX,
@@ -43,6 +43,12 @@ fn with_both_first_roots() {
         .execute_with_mock_and_fail();
 }
 
+#[test(should_fail_with = "in_hash must be set via the first block root in the checkpoint")]
+fn with_both_non_first_roots() {
+    TestBuilder::new(BLOCK_ROOT_ROLLUP_VK_INDEX, 1, BLOCK_ROOT_ROLLUP_VK_INDEX, 1)
+        .execute_with_mock_and_fail();
+}
+
 #[test]
 fn with_left_merge_and_right_root() {
     let builder = TestBuilder::new(
@@ -56,6 +62,40 @@ fn with_left_merge_and_right_root() {
     let (pi, mock) = builder.execute_with_mock();
     builder.assert_expected_public_inputs(pi);
     builder.assert_mock_called(mock);
+}
+
+#[test(should_fail_with = "in_hash must be set via the first block root in the checkpoint")]
+fn with_left_non_first_merge_and_right_root() {
+    let mut builder = TestBuilder::new(
+        // Left rollup is a merge that has 4 blocks.
+        BLOCK_MERGE_ROLLUP_VK_INDEX,
+        4,
+        // Right rollup is a root.
+        BLOCK_ROOT_ROLLUP_VK_INDEX,
+        1,
+    );
+
+    // The merge at the left has 0 in hash since it does not contain the first block root.
+    builder.left_rollup.in_hash = 0;
+
+    builder.execute_with_mock_and_fail();
+}
+
+#[test(should_fail_with = "Right rollup must not carry in_hash")]
+fn with_left_non_first_merge_and_right_first_root() {
+    let mut builder = TestBuilder::new(
+        // Left rollup is a merge that has 4 blocks.
+        BLOCK_MERGE_ROLLUP_VK_INDEX,
+        4,
+        // Right rollup is a first block root.
+        BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
+        1,
+    );
+
+    // The merge at the left has 0 in hash since it does not contain the first block root.
+    builder.left_rollup.in_hash = 0;
+
+    builder.execute_with_mock_and_fail();
 }
 
 #[test(should_fail_with = "The rollup should be filled greedily from left to right, but received left rollups < right rollups")]

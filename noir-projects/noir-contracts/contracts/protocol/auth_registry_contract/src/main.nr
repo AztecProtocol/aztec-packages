@@ -34,7 +34,11 @@ pub contract AuthRegistry {
      */
     #[public]
     fn set_authorized(message_hash: Field, authorize: bool) {
-        storage.approved_actions.at(context.msg_sender()).at(message_hash).write(authorize);
+        // We use the unsafe method, because for some use cases a "null"
+        // msg_sender might be acceptable (e.g. if it doesn't matter who takes
+        // an action).
+        let msg_sender = context.msg_sender_unsafe();
+        storage.approved_actions.at(msg_sender).at(message_hash).write(authorize);
     }
 
     /**
@@ -46,7 +50,7 @@ pub contract AuthRegistry {
      */
     #[public]
     fn set_reject_all(reject: bool) {
-        storage.reject_all.at(context.msg_sender()).write(reject);
+        storage.reject_all.at(context.msg_sender().unwrap()).write(reject);
     }
 
     /**
@@ -64,7 +68,7 @@ pub contract AuthRegistry {
         assert_eq(false, storage.reject_all.at(on_behalf_of).read(), "rejecting all");
 
         let message_hash = compute_authwit_message_hash(
-            context.msg_sender(),
+            context.msg_sender_unsafe(), // we allow "null" msg_sender.
             context.chain_id(),
             context.version(),
             inner_hash,

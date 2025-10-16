@@ -5,8 +5,10 @@
 // =====================
 
 #pragma once
+#include <sstream>
 #include <utility>
 
+#include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "databus.hpp"
@@ -21,7 +23,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     using ExecutionTrace = MegaExecutionTraceBlocks;
 
-    static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
         UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
@@ -143,22 +144,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
 
-    /**
-     * @brief Dynamically compute the number of gates added by the "add_gates_to_ensure_all_polys_are_non_zero" method
-     * @note This does NOT add the gates to the present builder
-     *
-     */
-    size_t get_num_gates_added_to_ensure_nonzero_polynomials()
-    {
-        MegaCircuitBuilder_<FF> builder; // instantiate new builder
-
-        size_t num_gates_prior = builder.get_estimated_num_finalized_gates();
-        builder.add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
-        size_t num_gates_post = builder.get_estimated_num_finalized_gates(); // accounts for finalization gates
-
-        return num_gates_post - num_gates_prior;
-    }
-
     /**x
      * @brief Print the number and composition of gates in the circuit
      *
@@ -245,6 +230,45 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+
+    /**
+     * @brief Compute a hash of the circuit
+     * @details Hashes all wires and selectors from each block. Note that this encompases all gate data, copy
+     * constraints, and public inputs (via pub inputs block). Useful for debugging purposes to identify where two
+     * circuits diverge.
+     */
+    std::string hash() const
+    {
+        using serialize::write;
+        std::vector<uint8_t> buffer;
+
+        // Hash each block's complete structure - need to const_cast to call non-const methods
+        auto& blocks_ref = const_cast<MegaExecutionTraceBlocks&>(this->blocks);
+        for (auto& block : blocks_ref.get()) {
+            // Hash all wires; implicitly contains copy constraint information
+            for (const auto& wire : block.wires) {
+                for (const auto& idx : wire) {
+                    write(buffer, idx);
+                }
+            }
+
+            // Hash all selectors
+            auto selectors = block.get_selectors();
+            for (auto& selector : selectors) {
+                for (size_t i = 0; i < selector.size(); ++i) {
+                    write(buffer, selector[i]);
+                }
+            }
+        }
+
+        // Compute SHA256 hash
+        auto hash_bytes = crypto::sha256(buffer);
+
+        // Convert to hex string
+        std::stringstream ss;
+        ss << hash_bytes;
+        return ss.str();
+    }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

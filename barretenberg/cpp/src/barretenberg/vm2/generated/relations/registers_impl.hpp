@@ -27,9 +27,7 @@ void registersImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         in.get(C::execution_sel_tag_check_reg_4_) * FF(4096) *
             (in.get(C::execution_mem_tag_reg_4_) - in.get(C::execution_expected_tag_reg_4_)) +
         in.get(C::execution_sel_tag_check_reg_5_) * FF(32768) *
-            (in.get(C::execution_mem_tag_reg_5_) - in.get(C::execution_expected_tag_reg_5_)) +
-        in.get(C::execution_sel_tag_check_reg_6_) * FF(262144) *
-            (in.get(C::execution_mem_tag_reg_6_) - in.get(C::execution_expected_tag_reg_6_));
+            (in.get(C::execution_mem_tag_reg_5_) - in.get(C::execution_expected_tag_reg_5_));
     const auto execution_BATCHED_TAGS_DIFF_X_REG =
         in.get(C::execution_sel_should_read_registers) * execution_BATCHED_TAGS_DIFF_REG;
     const auto execution_BATCHED_TAGS_DIFF_Y_REG = in.get(C::execution_batched_tags_diff_inv_reg);
@@ -101,26 +99,16 @@ void registersImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                              static_cast<View>(in.get(C::execution_rw_reg_5_))));
         std::get<5>(evals) += (tmp * scaling_factor);
     }
-    { // SEL_OP_REG_EFFECTIVE_6
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_op_reg_effective_6_)) -
-                    static_cast<View>(in.get(C::execution_sel_mem_op_reg_6_)) *
-                        (static_cast<View>(in.get(C::execution_sel_should_read_registers)) *
-                             (FF(1) - static_cast<View>(in.get(C::execution_rw_reg_6_))) +
-                         static_cast<View>(in.get(C::execution_sel_should_write_registers)) *
-                             static_cast<View>(in.get(C::execution_rw_reg_6_))));
-        std::get<6>(evals) += (tmp * scaling_factor);
-    }
     {
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::execution_sel_register_read_error)) *
                    (FF(1) - static_cast<View>(in.get(C::execution_sel_register_read_error)));
-        std::get<7>(evals) += (tmp * scaling_factor);
+        std::get<6>(evals) += (tmp * scaling_factor);
     }
     { // REGISTER_READ_TAG_CHECK
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
         auto tmp = CView(execution_BATCHED_TAGS_DIFF_EQ_REG);
-        std::get<8>(evals) += (tmp * scaling_factor);
+        std::get<7>(evals) += (tmp * scaling_factor);
     }
 }
 

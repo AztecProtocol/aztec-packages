@@ -78,7 +78,10 @@ pub contract FeeJuice {
     #[public]
     #[view]
     fn check_balance(fee_limit: u128) {
-        assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
+        assert(
+            storage.balances.at(context.msg_sender().unwrap()).read() >= fee_limit,
+            "Balance too low",
+        );
     }
 
     // utility function for testing

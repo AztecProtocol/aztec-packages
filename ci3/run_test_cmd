@@ -235,8 +235,8 @@ function flake {
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests_${TARGET_BRANCH:-}" "$line"
 
-  # Early out if no token or not in merge queue.
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$is_merge_queue" -eq 0 ]; then
+  # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
     return
   fi
 

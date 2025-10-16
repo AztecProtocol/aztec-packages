@@ -11,10 +11,8 @@ pub(crate) use num_active_squashing_hints::get_num_active_squashing_hints;
 use squash_flags::{build_note_hash_squash_flags, build_nullifier_squash_flags};
 
 use dep::types::{
-    abis::{
-        note_hash::ScopedNoteHash, nullifier::ScopedNullifier, private_log::PrivateLogData,
-        side_effect::scoped::Scoped,
-    },
+    abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::PrivateLogData},
+    side_effect::{Counted, Scoped},
     utils::arrays::{ClaimedLengthArray, SortedTuple},
 };
 
@@ -38,10 +36,10 @@ pub struct DerivedHints<let SquashingHintsLen: u32, let NoteHashesLen: u32, let 
 /// Any mismatch in derived hints will cause the verification to fail.
 /// An attacker cannot manipulate the hints to bypass the verification process.
 pub unconstrained fn build_derived_hints<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32>(
-    note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
+    note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
     transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
 ) -> DerivedHints<SquashingHintsLen, NoteHashesLen, NullifiersLen, LogsLen> {
     let num_active_squashing_hints =

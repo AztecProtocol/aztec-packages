@@ -92,7 +92,7 @@ A node is a computer running Aztec software that participates in the Aztec netwo
 
 The Aztec testnet rolls up to Ethereum Sepolia.
 
-To run your own node see [here](../../../the_aztec_network/guides/run_nodes/index.md).
+To run your own node see [here](../../../the_aztec_network/index.md).
 
 ### Note
 

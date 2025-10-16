@@ -13,11 +13,11 @@ use dep::types::{
         private_kernel::private_call_data::PrivateCallData,
         private_tx_constant_data::PrivateTxConstantData,
         protocol_contracts::ProtocolContracts,
-        side_effect::{Ordered, OrderedValue},
         transaction::tx_request::TxRequest,
     },
     constants::MAX_U64_VALUE,
     debug::no_op,
+    side_effect::Ordered,
     traits::Empty,
     utils::arrays::{ClaimedLengthArray, sort_by_counter_asc},
 };
@@ -69,7 +69,8 @@ impl PrivateKernelCircuitPublicInputsComposer {
         if first_nullifier_hint == 0 {
             let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
             public_inputs_builder.end.nullifiers.push_hint(scoped_protocol_nullifier);
-            public_inputs_builder.claimed_first_nullifier = scoped_protocol_nullifier.value();
+            public_inputs_builder.claimed_first_nullifier =
+                scoped_protocol_nullifier.innermost().value;
         } else {
             public_inputs_builder.claimed_first_nullifier = first_nullifier_hint;
         }
@@ -264,7 +265,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let note_hashes = private_call_public_inputs.note_hashes;
         for i in 0..note_hashes.array.len() {
             let note_hash = note_hashes.array[i];
-            if note_hash.value != 0 {
+            if note_hash.inner != 0 {
                 self.public_inputs_builder.end.note_hashes.push(note_hash.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));
@@ -279,7 +280,7 @@ impl PrivateKernelCircuitPublicInputsComposer {
         let nullifiers = private_call_public_inputs.nullifiers;
         for i in 0..nullifiers.array.len() {
             let nullifier = nullifiers.array[i];
-            if nullifier.value != 0 {
+            if nullifier.inner.value != 0 {
                 self.public_inputs_builder.end.nullifiers.push(nullifier.scope(
                     private_call_public_inputs.call_context.contract_address,
                 ));

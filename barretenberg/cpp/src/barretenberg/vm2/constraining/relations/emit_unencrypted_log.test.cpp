@@ -249,7 +249,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_emit_unencrypted_log, 1 },
+            { C::execution_sel_exec_dispatch_emit_unencrypted_log, 1 },
             { C::execution_context_id, 57 },
             { C::execution_rop_1_, log_address },
             { C::execution_register_0_, log_size },

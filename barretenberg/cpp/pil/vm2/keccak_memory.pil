@@ -130,9 +130,9 @@ pol commit ctr_end;
 ctr_end * (1 - ctr_end) = 0;
 
 // We define ctr_end == 1 <==> ctr == AVM_KECCAKF1600_STATE_SIZE (25)
-pol commit ctr_min_state_size_inv;
+pol commit state_size_min_ctr_inv;
 #[CTR_END]
-sel * ((ctr - constants.AVM_KECCAKF1600_STATE_SIZE) * (ctr_end * (1 - ctr_min_state_size_inv) + ctr_min_state_size_inv) + ctr_end - 1) = 0;
+sel * ((constants.AVM_KECCAKF1600_STATE_SIZE - ctr) * (ctr_end * (1 - state_size_min_ctr_inv) + state_size_min_ctr_inv) + ctr_end - 1) = 0;
 
 // Last ctr of a multi-rows processing of a slice
 pol commit last;

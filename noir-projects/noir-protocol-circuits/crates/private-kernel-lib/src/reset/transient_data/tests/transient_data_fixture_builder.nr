@@ -4,14 +4,10 @@ use crate::reset::transient_data::{
     transient_data_validator::TransientDataValidator,
 };
 use dep::types::{
-    abis::{
-        note_hash::{NoteHash, ScopedNoteHash},
-        nullifier::{Nullifier, ScopedNullifier},
-        private_log::{PrivateLog, PrivateLogData},
-        side_effect::scoped::Scoped,
-    },
+    abis::{note_hash::NoteHash, nullifier::Nullifier, private_log::{PrivateLog, PrivateLogData}},
     address::AztecAddress,
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
+    side_effect::{Counted, Scoped},
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };
@@ -26,12 +22,12 @@ pub fn mock_log(filled_with: Field) -> PrivateLog {
 }
 
 pub struct TransientDataFixtureBuilder<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let SquashingHintsLen: u32> {
-    pub note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    pub nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    pub logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
-    pub expected_kept_note_hashes: ClaimedLengthArray<ScopedNoteHash, NoteHashesLen>,
-    pub expected_kept_nullifiers: ClaimedLengthArray<ScopedNullifier, NullifiersLen>,
-    pub expected_kept_logs: ClaimedLengthArray<Scoped<PrivateLogData>, LogsLen>,
+    pub note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    pub nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    pub logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
+    pub expected_kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, NoteHashesLen>,
+    pub expected_kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, NullifiersLen>,
+    pub expected_kept_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, LogsLen>,
     pub min_revertible_side_effect_counter: u32,
     pub transient_data_squashing_hints: [TransientDataSquashingHint; SquashingHintsLen],
     num_transient_data_squashing_hints: u32,
@@ -61,19 +57,19 @@ impl<let NoteHashesLen: u32, let NullifiersLen: u32, let LogsLen: u32, let Squas
         }
     }
 
-    pub fn add_note_hashes<let N: u32>(&mut self, note_hashes: [NoteHash; N]) {
+    pub fn add_note_hashes<let N: u32>(&mut self, note_hashes: [Counted<NoteHash>; N]) {
         for i in 0..N {
             self.note_hashes.push(note_hashes[i].scope(contract_address));
         }
     }
 
-    pub fn add_nullifiers<let N: u32>(&mut self, nullifiers: [Nullifier; N]) {
+    pub fn add_nullifiers<let N: u32>(&mut self, nullifiers: [Counted<Nullifier>; N]) {
         for i in 0..N {
             self.nullifiers.push(nullifiers[i].scope(contract_address));
         }
     }
 
-    pub fn add_logs<let N: u32>(&mut self, logs: [PrivateLogData; N]) {
+    pub fn add_logs<let N: u32>(&mut self, logs: [Counted<PrivateLogData>; N]) {
         for i in 0..N {
             self.logs.push(logs[i].scope(contract_address));
         }

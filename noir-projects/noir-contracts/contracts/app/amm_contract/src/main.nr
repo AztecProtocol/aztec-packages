@@ -99,7 +99,7 @@ pub contract AMM {
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
@@ -252,7 +252,7 @@ pub contract AMM {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
         // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and then have
@@ -337,7 +337,7 @@ pub contract AMM {
         assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
@@ -406,7 +406,7 @@ pub contract AMM {
         assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We don't know how many tokens we'll receive from the user, since the swap amount will only be known during
         // public execution as it depends on the live balances. We therefore transfer the full maximum amount and

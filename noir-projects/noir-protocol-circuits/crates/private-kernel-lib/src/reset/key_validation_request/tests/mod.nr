@@ -6,13 +6,11 @@ use super::{
     key_validation_requests_validator::KeyValidationRequestsValidator,
 };
 use dep::types::{
-    abis::validation_requests::{
-        KeyValidationRequest, KeyValidationRequestAndGenerator,
-        ScopedKeyValidationRequestAndGenerator,
-    },
+    abis::validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     address::AztecAddress,
     hash::compute_app_secret_key,
     scalar::Scalar,
+    side_effect::Scoped,
     traits::{Empty, FromField},
     utils::arrays::ClaimedLengthArray,
 };
@@ -22,8 +20,8 @@ global TEST_READ_REQUEST_LEN: u32 = 6;
 global TEST_HINT_LEN: u32 = 2;
 
 struct TestBuilder {
-    key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, TEST_READ_REQUEST_LEN>,
-    propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, TEST_READ_REQUEST_LEN>,
+    key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
+    propagated_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN>,
     hints: BoundedVec<KeyValidationHint, TEST_HINT_LEN>,
 }
 
@@ -97,7 +95,7 @@ impl TestBuilder {
 
     pub fn get_propagated_key_validation_requests(
         self,
-    ) -> ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, TEST_READ_REQUEST_LEN> {
+    ) -> ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, TEST_READ_REQUEST_LEN> {
         let key_validation_amount = self.hints.len();
         // Safety: This is only used in tests.
         unsafe {

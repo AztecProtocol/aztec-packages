@@ -6,15 +6,11 @@ use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData,
-        protocol_contracts::ProtocolContracts,
-        public_call_request::PublicCallRequest,
-        side_effect::{Ordered, RangeOrdered},
-        transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        public_call_request::PublicCallRequest, transaction::tx_request::TxRequest,
     },
-    address::AztecAddress,
-    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_FIELD_VALUE, PRIVATE_LOG_SIZE_IN_FIELDS},
-    traits::FromField,
+    constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    side_effect::{Ordered, RangeOrdered},
     utils::arrays::ClaimedLengthArray,
 };
 use validate_contract_address::validate_contract_address;
@@ -106,7 +102,6 @@ impl PrivateCallDataValidator {
         self.validate_public_call_requests();
 
         self.validate_that_side_effect_counters_are_strictly_increasing_and_within_bounds();
-        self.validate_log_lengths();
     }
 
     /// For Init only.
@@ -117,9 +112,9 @@ impl PrivateCallDataValidator {
 
         assert_eq(call_context.is_static_call, false, "Users cannot make a static call");
 
-        // Notice: msg_sender MUST be `-1` for the first function call in a tx.
+        // Notice: msg_sender MUST be "null" for the first function call in a tx.
         assert(
-            call_context.msg_sender == AztecAddress::from_field(MAX_FIELD_VALUE),
+            call_context.msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS,
             "Users cannot set msg_sender in first call",
         );
     }
@@ -289,11 +284,23 @@ impl PrivateCallDataValidator {
 
     fn validate_public_call_request(self, call_request: PublicCallRequest) {
         let this_context = self.data.public_inputs.call_context;
-        assert_eq(
-            call_request.msg_sender,
-            this_context.contract_address,
-            "incorrect msg_sender for call request",
-        );
+
+        if call_request.msg_sender != NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            // We assert that the caller's address is copied-over as the
+            // msg_sender of the called function (the call_request), with one
+            // exception:
+            // The calling contract can instead elect to set the msg_sender as
+            // the `NULL_MSG_SENDER_CONTRACT_ADDRESS`, so as not to leak to
+            // the world which address made the public call.
+            // It is up to the called public function to determine whether a
+            // "null" value is acceptable for its use case, and revert if not.
+            assert_eq(
+                call_request.msg_sender,
+                this_context.contract_address,
+                "incorrect msg_sender for call request",
+            );
+        }
+
         if !call_request.is_static_call {
             assert(
                 this_context.is_static_call == false,
@@ -357,26 +364,5 @@ impl PrivateCallDataValidator {
             counter_end,
             public_inputs.public_call_requests,
         );
-    }
-
-    fn validate_log_lengths(self) {
-        let public_inputs = self.data.public_inputs;
-
-        // Private logs.
-        let logs = public_inputs.private_logs;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(log.log.length <= PRIVATE_LOG_SIZE_IN_FIELDS, "private log length is too large");
-        }
-
-        // Contract class logs.
-        let logs = public_inputs.contract_class_logs_hashes;
-        for i in 0..logs.array.len() {
-            let log = logs.array[i];
-            assert(
-                log.inner.length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-                "contract class log length is too large",
-            );
-        }
     }
 }

@@ -11,4 +11,5 @@ environments/*
 !environments/staging-ignition.env
 !environments/testnet.env
 !environments/next-net.env
+!environments/next-scenario.env
 *.tfvars

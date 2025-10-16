@@ -29,6 +29,8 @@ using namespace bb;
  *     coordinate of the public key against which the signature should be verified.
  *  5. `result`, an array of length 1 representing the witness index of the expected result of the signature
  *     verification.
+ *  6. `predicate`, a boolean witness indicating whether the constraint should be disabled or not. If the predicate is
+ *     false, then the constraint is disabled, i.e it must not fail and can return whatever.
  */
 struct EcdsaConstraint {
     // The byte representation of the hashed message.

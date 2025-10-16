@@ -1,8 +1,5 @@
 use super::{TEST_HINT_LEN, TestBuilder};
-use types::{
-    abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
-    tests::utils::assert_array_eq, traits::Empty,
-};
+use types::{side_effect::Scoped, tests::utils::assert_array_eq, traits::Empty};
 
 #[test]
 fn clear_all_succeeds() {
@@ -98,8 +95,7 @@ fn propagate_fewer_requests_fails() {
     let mut builder = TestBuilder::new_clear_partial();
 
     let num_propagated = builder.propagated_requests.length;
-    builder.propagated_requests.array[num_propagated - 1] =
-        ScopedKeyValidationRequestAndGenerator::empty();
+    builder.propagated_requests.array[num_propagated - 1] = Scoped::empty();
 
     builder.validate();
 }
@@ -143,8 +139,7 @@ fn clear_nothing_propagate_fewer_requests_fails() {
 
     let num_propagated = builder.propagated_requests.length;
     // Remove the last request.
-    builder.propagated_requests.array[num_propagated - 1] =
-        ScopedKeyValidationRequestAndGenerator::empty();
+    builder.propagated_requests.array[num_propagated - 1] = Scoped::empty();
 
     builder.validate_with_amount::<0>();
 }

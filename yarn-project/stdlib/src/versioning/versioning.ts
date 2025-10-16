@@ -117,11 +117,16 @@ export function validatePartialComponentVersionsMatch(
 /** Returns a Koa middleware that injects the versioning info as headers. */
 export function getVersioningMiddleware(versions: Partial<ComponentsVersions>) {
   return async (ctx: Koa.Context, next: () => Promise<void>) => {
-    await next();
-    for (const key in versions) {
-      const value = versions[key as keyof ComponentsVersions];
-      if (value !== undefined) {
-        ctx.set(`x-aztec-${key}`, value.toString());
+    try {
+      await next();
+    } finally {
+      // Always add version headers, even if there was an error
+      // This allows the client to detect version mismatches before processing other errors
+      for (const key in versions) {
+        const value = versions[key as keyof ComponentsVersions];
+        if (value !== undefined) {
+          ctx.set(`x-aztec-${key}`, value.toString());
+        }
       }
     }
   };

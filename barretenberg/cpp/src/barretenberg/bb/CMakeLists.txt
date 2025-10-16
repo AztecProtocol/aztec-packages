@@ -15,10 +15,14 @@ if (NOT(FUZZING))
         libdeflate::libdeflate_static
         tracy_mem
     )
+    # Link avm_transpiler when library is provided
+    if(AVM_TRANSPILER_LIB)
+        target_link_libraries(bb PRIVATE ${AVM_TRANSPILER_LIB})
+    endif()
     if(NOT DISABLE_AZTEC_VM)
         add_dependencies(bb vm2)
     endif()
-    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    if(ENABLE_STACKTRACES)
         target_link_libraries(
             bb
             PUBLIC

@@ -55,7 +55,7 @@ pub contract Parent {
         target_selector: FunctionSelector,
         target_value: Field,
     ) {
-        context.call_public_function(target_contract, target_selector, [target_value]);
+        context.call_public_function(target_contract, target_selector, [target_value], false);
     }
 
     #[public]
@@ -93,7 +93,7 @@ pub contract Parent {
             enqueue_call_to_child_selector,
             [target_contract.to_field(), target_selector.to_field(), 10],
         );
-        context.call_public_function(target_contract, target_selector, [20]);
+        context.call_public_function(target_contract, target_selector, [20], false);
     }
     // Private function that enqueues two calls to a child contract:
     // - one issued directly from this function with value 20,
@@ -103,7 +103,7 @@ pub contract Parent {
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
     ) {
-        context.call_public_function(target_contract, target_selector, [20]);
+        context.call_public_function(target_contract, target_selector, [20], false);
         let enqueue_call_to_child_selector = comptime {
             FunctionSelector::from_signature("enqueue_call_to_child((Field),(u32),Field)")
         };
@@ -121,9 +121,9 @@ pub contract Parent {
         target_value: Field,
     ) {
         // Enqueue the first public call
-        context.call_public_function(target_contract, target_selector, [target_value]);
+        context.call_public_function(target_contract, target_selector, [target_value], false);
         // Enqueue the second public call
-        context.call_public_function(target_contract, target_selector, [target_value + 1]);
+        context.call_public_function(target_contract, target_selector, [target_value + 1], false);
     }
     // Private function to enqueue a call to the pub_entry_point function of this same contract, passing the target arguments provided
     #[private]
@@ -139,6 +139,7 @@ pub contract Parent {
             this_address,
             pub_entry_point_selector,
             [target_contract.to_field(), target_selector.to_field(), target_value],
+            false,
         );
     }
     // Private function to enqueue two calls to the pub_entry_point function of this same contract, passing the target arguments provided
@@ -155,11 +156,13 @@ pub contract Parent {
             this_address,
             pub_entry_point_selector,
             [target_contract.to_field(), target_selector.to_field(), target_value],
+            false,
         );
         context.call_public_function(
             this_address,
             pub_entry_point_selector,
             [target_contract.to_field(), target_selector.to_field(), target_value + 1],
+            false,
         );
     }
     #[private]
@@ -248,6 +251,7 @@ pub contract Parent {
             this_address,
             pub_entry_point_selector,
             [target_contract.to_field(), target_selector.to_field(), args[0]],
+            false,
         );
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
@@ -258,7 +262,7 @@ pub contract Parent {
         args: [Field; 1],
     ) {
         // Call the target private function
-        context.static_call_public_function(target_contract, target_selector, args);
+        context.static_call_public_function(target_contract, target_selector, args, false);
     }
     use dep::aztec::test::helpers::test_environment::TestEnvironment;
     use dep::child_contract::Child;

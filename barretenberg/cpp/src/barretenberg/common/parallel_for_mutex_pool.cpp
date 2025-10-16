@@ -140,7 +140,11 @@ void parallel_for_mutex_pool(size_t num_iterations, const std::function<void(siz
     // Check if we are already in a nested parallel_for_mutex_pool call
     bool expected = false;
     if (!nested.compare_exchange_strong(expected, true)) {
-        throw_or_abort("Error: Nested parallel_for_mutex_pool calls are not allowed.");
+        // Run single-threaded if nested
+        for (size_t i = 0; i < num_iterations; ++i) {
+            func(i);
+        }
+        return;
     }
     // info("starting job with iterations: ", num_iterations);
     pool.start_tasks(num_iterations, func);

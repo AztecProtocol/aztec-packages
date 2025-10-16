@@ -3,19 +3,19 @@ use super::{
     validate_key_validation_request::validate_key_validation_request,
 };
 use dep::types::{
-    abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
+    abis::validation_requests::KeyValidationRequestAndGenerator, side_effect::Scoped,
     utils::arrays::ClaimedLengthArray,
 };
 
 pub struct KeyValidationRequestsValidator<let RequestsLen: u32, let HintsLen: u32> {
-    pub key_validation_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
-    pub propagated_requests: ClaimedLengthArray<ScopedKeyValidationRequestAndGenerator, RequestsLen>,
+    pub key_validation_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, RequestsLen>,
+    pub propagated_requests: ClaimedLengthArray<Scoped<KeyValidationRequestAndGenerator>, RequestsLen>,
     pub hints: [KeyValidationHint; HintsLen],
 }
 
 impl<let RequestsLen: u32, let HintsLen: u32> KeyValidationRequestsValidator<RequestsLen, HintsLen> {
     // Generic parameter is used because generic arrays cannot have zero length.
-    // When a reset circuit does not require key validations, the hints array will still contain at least one item,
+    // When a reset circuit does not require key validations, the `hints` array will still contain at least one item,
     // while `KeyValidationAmount` will be set to zero.
     pub fn validate<let KeyValidationAmount: u32>(self) {
         if KeyValidationAmount == 0 {

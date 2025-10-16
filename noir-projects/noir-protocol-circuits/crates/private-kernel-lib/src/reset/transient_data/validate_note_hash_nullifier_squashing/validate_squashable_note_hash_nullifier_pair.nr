@@ -1,7 +1,6 @@
-use types::abis::{
-    note_hash::ScopedNoteHash,
-    nullifier::ScopedNullifier,
-    side_effect::{Ordered, OrderedValue},
+use types::{
+    abis::{note_hash::NoteHash, nullifier::Nullifier},
+    side_effect::{Counted, Ordered, Scoped},
 };
 
 /// Validates that a (note hash, nullifier) pair is eligible to be squashed.
@@ -12,14 +11,14 @@ use types::abis::{
 /// - The nullifier was created after the note hash (i.e., has a greater counter).
 /// - If the nullifier is revertible, then the note hash must also be revertible.
 pub fn validate_squashable_note_hash_nullifier_pair(
-    note_hash: ScopedNoteHash,
-    nullifier: ScopedNullifier,
+    note_hash: Scoped<Counted<NoteHash>>,
+    nullifier: Scoped<Counted<Nullifier>>,
     min_revertible_side_effect_counter: u32,
 ) {
     // Ensure the nullifier refers to the note hash.
     assert_eq(
-        note_hash.value(),
-        nullifier.nullified_note_hash(),
+        note_hash.innermost(),
+        nullifier.innermost().note_hash,
         "Value of the hinted transient note hash does not match",
     );
 
@@ -56,15 +55,15 @@ pub fn validate_squashable_note_hash_nullifier_pair(
 
 mod tests {
     use crate::reset::transient_data::tests::TransientDataFixtureBuilder;
-    use types::abis::{note_hash::NoteHash, nullifier::Nullifier};
+    use types::{abis::nullifier::Nullifier, side_effect::Counted};
 
     #[test]
     fn succeeds_squash_one_pair() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -75,10 +74,10 @@ mod tests {
     fn fails_mismatch_note_hash_value() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
         // This nullifier does not link to the note hash.
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 99 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 99 }.count(5)]);
 
         // Squash the note hash (11) with a nullifier that has a different note_hash value (99).
         builder.add_squashing_hint(0, 0);
@@ -90,9 +89,9 @@ mod tests {
     fn fails_mismatch_contract_address() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -107,9 +106,9 @@ mod tests {
         let mut builder = TransientDataFixtureBuilder::new();
 
         // The note hash has a larger counter than its nullifier.
-        builder.add_note_hashes([NoteHash { value: 11, counter: 9 }]);
+        builder.add_note_hashes([Counted::new(11, 9)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         builder.add_squashing_hint(0, 0);
 
@@ -120,9 +119,9 @@ mod tests {
     fn fails_nullify_non_revertible_note_hash_with_revertible_nullifier() {
         let mut builder = TransientDataFixtureBuilder::new();
 
-        builder.add_note_hashes([NoteHash { value: 11, counter: 1 }]);
+        builder.add_note_hashes([Counted::new(11, 1)]);
 
-        builder.add_nullifiers([Nullifier { value: 505, counter: 5, note_hash: 11 }]);
+        builder.add_nullifiers([Nullifier { value: 505, note_hash: 11 }.count(5)]);
 
         // Make the note hash non-revertible and the nullifier revertible.
         builder.min_revertible_side_effect_counter = 3;

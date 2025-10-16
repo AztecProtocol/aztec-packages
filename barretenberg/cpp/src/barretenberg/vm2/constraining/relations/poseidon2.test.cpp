@@ -285,7 +285,7 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInteractions)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_poseidon2_perm, 1 },
+            { C::execution_sel_exec_dispatch_poseidon2_perm, 1 },
             { C::execution_rop_0_, src_address },
             { C::execution_rop_1_, dst_address },
             // GT - dst out of range check
@@ -347,7 +347,7 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidTag)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_poseidon2_perm, 1 },
+            { C::execution_sel_exec_dispatch_poseidon2_perm, 1 },
             { C::execution_rop_0_, src_address },
             { C::execution_rop_1_, dst_address },
             { C::execution_sel_opcode_error, 1 }, // Invalid tag error
@@ -396,7 +396,7 @@ TEST_F(Poseidon2MemoryConstrainingTest, PermutationMemoryInvalidAddressRange)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_poseidon2_perm, 1 },
+            { C::execution_sel_exec_dispatch_poseidon2_perm, 1 },
             { C::execution_rop_0_, src_address },
             { C::execution_rop_1_, dst_address },
             { C::execution_sel_opcode_error, 1 }, // Invalid address error

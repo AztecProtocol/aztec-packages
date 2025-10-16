@@ -553,9 +553,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::madd(const field_
     field_t<Builder> result(ctx);
     result.witness_index = ctx->add_variable(out);
     ctx->create_big_mul_gate({
-        .a = is_constant() ? ctx->zero_idx : witness_index,
-        .b = to_mul.is_constant() ? ctx->zero_idx : to_mul.witness_index,
-        .c = to_add.is_constant() ? ctx->zero_idx : to_add.witness_index,
+        .a = is_constant() ? ctx->zero_idx() : witness_index,
+        .b = to_mul.is_constant() ? ctx->zero_idx() : to_mul.witness_index,
+        .c = to_add.is_constant() ? ctx->zero_idx() : to_add.witness_index,
         .d = result.witness_index,
         .mul_scaling = mul_scaling,
         .a_scaling = a_scaling,
@@ -612,9 +612,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
 
     // Constrain the result
     ctx->create_big_mul_gate({
-        .a = is_constant() ? ctx->zero_idx : witness_index,
-        .b = add_b.is_constant() ? ctx->zero_idx : add_b.witness_index,
-        .c = add_c.is_constant() ? ctx->zero_idx : add_c.witness_index,
+        .a = is_constant() ? ctx->zero_idx() : witness_index,
+        .b = add_b.is_constant() ? ctx->zero_idx() : add_b.witness_index,
+        .c = add_c.is_constant() ? ctx->zero_idx() : add_c.witness_index,
         .d = result.witness_index,
         .mul_scaling = bb::fr::zero(),
         .a_scaling = a_scaling,
@@ -662,7 +662,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
     //       this.v * a_scaling + result.v * c_scaling + const_scaling = 0
 
     context->create_add_gate({ .a = witness_index,
-                               .b = context->zero_idx,
+                               .b = context->zero_idx(),
                                .c = result.witness_index,
                                .a_scaling = multiplicative_constant,
                                .b_scaling = bb::fr::zero(),
@@ -693,8 +693,8 @@ template <typename Builder> void field_t<Builder>::assert_is_zero(std::string co
 
     context->create_poly_gate({
         .a = witness_index,
-        .b = context->zero_idx,
-        .c = context->zero_idx,
+        .b = context->zero_idx(),
+        .c = context->zero_idx(),
         .q_m = bb::fr::zero(),
         .q_l = multiplicative_constant,
         .q_r = bb::fr::zero(),
@@ -738,7 +738,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
     context->create_poly_gate({
         .a = witness_index,             // input value
         .b = inverse.witness_index,     // inverse
-        .c = context->zero_idx,         // no output
+        .c = context->zero_idx(),       // no output
         .q_m = multiplicative_constant, // a * b * mul_const
         .q_l = bb::fr::zero(),          // a * 0
         .q_r = additive_constant,       // b * mul_const
@@ -948,7 +948,7 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
             // single `add` gate constraining a - b = 0
             ctx->create_add_gate({ .a = lhs.witness_index,
                                    .b = rhs.witness_index,
-                                   .c = ctx->zero_idx,
+                                   .c = ctx->zero_idx(),
                                    .a_scaling = lhs.multiplicative_constant,
                                    .b_scaling = -rhs.multiplicative_constant,
                                    .c_scaling = 0,
@@ -1094,10 +1094,10 @@ void field_t<Builder>::evaluate_linear_identity(
     bb::fr const_scaling = a.additive_constant + b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_add_gate({
-        .a = a.is_constant() ? ctx->zero_idx : a.witness_index,
-        .b = b.is_constant() ? ctx->zero_idx : b.witness_index,
-        .c = c.is_constant() ? ctx->zero_idx : c.witness_index,
-        .d = d.is_constant() ? ctx->zero_idx : d.witness_index,
+        .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
+        .b = b.is_constant() ? ctx->zero_idx() : b.witness_index,
+        .c = c.is_constant() ? ctx->zero_idx() : c.witness_index,
+        .d = d.is_constant() ? ctx->zero_idx() : d.witness_index,
         .a_scaling = a.multiplicative_constant,
         .b_scaling = b.multiplicative_constant,
         .c_scaling = c.multiplicative_constant,
@@ -1135,10 +1135,10 @@ void field_t<Builder>::evaluate_polynomial_identity(
     bb::fr const_scaling = a.additive_constant * b.additive_constant + c.additive_constant + d.additive_constant;
 
     ctx->create_big_mul_gate({
-        .a = a.is_constant() ? ctx->zero_idx : a.witness_index,
-        .b = b.is_constant() ? ctx->zero_idx : b.witness_index,
-        .c = c.is_constant() ? ctx->zero_idx : c.witness_index,
-        .d = d.is_constant() ? ctx->zero_idx : d.witness_index,
+        .a = a.is_constant() ? ctx->zero_idx() : a.witness_index,
+        .b = b.is_constant() ? ctx->zero_idx() : b.witness_index,
+        .c = c.is_constant() ? ctx->zero_idx() : c.witness_index,
+        .d = d.is_constant() ? ctx->zero_idx() : d.witness_index,
         .mul_scaling = mul_scaling,
         .a_scaling = a_scaling,
         .b_scaling = b_scaling,
@@ -1195,7 +1195,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::accumulate(const 
     // Pad the accumulator with zeroes so that its size is a multiple of 3.
     const size_t num_padding_wires = (num_elements % 3) == 0 ? 0 : 3 - (num_elements % 3);
     for (size_t i = 0; i < num_padding_wires; ++i) {
-        accumulator.emplace_back(field_t<Builder>::from_witness_index(ctx, ctx->zero_idx));
+        accumulator.emplace_back(field_t<Builder>::from_witness_index(ctx, ctx->zero_idx()));
     }
     num_elements = accumulator.size();
     const size_t num_gates = (num_elements / 3);

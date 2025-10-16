@@ -993,7 +993,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInteractions)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_sel_exec_dispatch_ecc_add, 1 },
             { C::execution_rop_6_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
@@ -1071,7 +1071,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_sel_exec_dispatch_ecc_add, 1 },
             { C::execution_rop_6_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },
@@ -1133,7 +1133,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
         {
             // Execution
             { C::execution_sel, 1 },
-            { C::execution_sel_execute_ecc_add, 1 },
+            { C::execution_sel_exec_dispatch_ecc_add, 1 },
             { C::execution_rop_6_, dst_address },
             { C::execution_register_0_, p.x() },
             { C::execution_register_1_, p.y() },

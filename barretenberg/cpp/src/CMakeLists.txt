@@ -49,7 +49,12 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
+
+# Add avm-transpiler include path when library is provided
+if(AVM_TRANSPILER_LIB)
+    include_directories(${AVM_TRANSPILER_INCLUDE})
+endif()
 
 # I feel this should be limited to ecc, however it's currently used in headers that go across libraries,
 # and there currently isn't an easy way to inherit the DDISABLE_ASM parameter.
@@ -81,14 +86,19 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/hypernova)
 add_subdirectory(barretenberg/honk)
+add_subdirectory(barretenberg/ipc)
 add_subdirectory(barretenberg/trace_to_polynomials)
 add_subdirectory(barretenberg/ext/starknet/crypto)
 add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
-add_subdirectory(barretenberg/lmdblib)
+if(NOT WASM)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
+add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/polynomials)
@@ -105,7 +115,9 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/wasi)
 if(NOT FUZZING)
-    add_subdirectory(barretenberg/world_state)
+    if(NOT WASM)
+        add_subdirectory(barretenberg/world_state)
+    endif()
     add_subdirectory(barretenberg/vm2)
 endif()
 
@@ -151,6 +163,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:honk>
+    $<TARGET_OBJECTS:multilinear_batching_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>
@@ -253,7 +266,7 @@ if(WASM)
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
-    if(CHECK_CIRCUIT_STACKTRACES OR ENABLE_STACKTRACES)
+    if(ENABLE_STACKTRACES)
         target_link_libraries(
             barretenberg.wasm
             PUBLIC
