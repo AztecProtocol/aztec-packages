@@ -1,7 +1,5 @@
 terraform {
   backend "gcs" {
-    bucket = "aztec-terraform"
-    prefix = "terraform/state/eth/sepolia"
   }
   required_providers {
     helm = {
@@ -18,14 +16,14 @@ terraform {
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = var.K8S_CLUSTER_CONTEXT
+  config_context = var.k8s_cluster_context
 }
 
 provider "helm" {
   alias = "gke-cluster"
   kubernetes = {
     config_path    = "~/.kube/config"
-    config_context = var.K8S_CLUSTER_CONTEXT
+    config_context = var.k8s_cluster_context
   }
 }
 
@@ -35,13 +33,7 @@ resource "random_bytes" "jwt" {
 
 locals {
   eth_panda_ops_repo = "https://ethpandaops.github.io/ethereum-helm-charts"
-
-  lighthouse_chart_ver = "1.1.7"
-  lighthouse_image     = "sigp/lighthouse:v8.0.0-rc.1" # compatible with Fusaka hardfork
-
-  reth_name      = "reth" # this the name of the helm installed app
-  reth_chart_ver = "0.1.6"
-  reth_image     = "ghcr.io/paradigmxyz/reth:v1.8.2"
+  reth_name          = "reth" # this the name of the helm installed app
 
   common = yamlencode({
     replicas = 1
@@ -71,21 +63,21 @@ locals {
       name       = local.reth_name
       chart      = "reth"
       repository = local.eth_panda_ops_repo
-      version    = local.reth_chart_ver
+      version    = var.reth_chart_version
       values = [
         local.common,
         yamlencode({
           image = {
             pullPolicy = "Always"
-            repository = split(":", local.reth_image)[0]
-            tag        = split(":", local.reth_image)[1]
+            repository = split(":", var.reth_image)[0]
+            tag        = split(":", var.reth_image)[1]
           }
           p2pNodePort = {
             enabled = true
-            port    = 32000
+            port    = var.reth_p2p_port
           }
           extraArgs = [
-            "--chain=sepolia",
+            "--chain=${var.chain}",
             "--full"
           ]
         })
@@ -95,28 +87,28 @@ locals {
     lighthouse = {
       name       = "lighthouse"
       chart      = "lighthouse"
-      version    = local.lighthouse_chart_ver
+      version    = var.lighthouse_chart_version
       repository = local.eth_panda_ops_repo
       values = [
         local.common,
         yamlencode({
           image = {
             pullPolicy = "Always"
-            repository = split(":", local.lighthouse_image)[0]
-            tag        = split(":", local.lighthouse_image)[1]
+            repository = split(":", var.lighthouse_image)[0]
+            tag        = split(":", var.lighthouse_image)[1]
           }
           checkpointSync = {
             enabled = true
-            url     = "https://checkpoint-sync.sepolia.ethpandaops.io"
+            url     = var.checkpoint_sync_url
           }
           p2pNodePort = {
             enabled = true
-            port    = 32001
+            port    = var.lighthouse_p2p_port
           }
           extraArgs = [
-            "--execution-endpoint=http://${local.reth_name}.${var.NAMESPACE}.svc.cluster.local:8551",
+            "--execution-endpoint=http://${local.reth_name}.${var.namespace}.svc.cluster.local:8551",
             "--supernode",
-            "--network=sepolia"
+            "--network=${var.chain}"
           ]
         })
       ]
@@ -129,7 +121,7 @@ resource "helm_release" "releases" {
   for_each = { for k, v in local.helm_releases : k => v if v != null }
 
   provider  = helm.gke-cluster
-  namespace = var.NAMESPACE
+  namespace = var.namespace
 
   name       = each.value.name
   repository = each.value.repository
