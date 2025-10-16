@@ -25,13 +25,15 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     for (size_t idx = 0; idx < Flavor::NUM_SHIFTED_ENTITIES; idx++) {
         labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
     }
-    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
-    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
+    std::array<FF, Flavor::NUM_UNSHIFTED_ENTITIES> unshifted_challenges =
+        transcript->template get_challenges<FF>(labels_unshifted_entities);
+    std::array<FF, Flavor::NUM_SHIFTED_ENTITIES> shifted_challenges =
+        transcript->template get_challenges<FF>(labels_shifted_witnesses);
 
     // Batch polynomials
-    auto batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
+    Polynomial batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
         instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
-    auto batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
+    Polynomial batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
         instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
 
     // Batch evaluations
@@ -70,11 +72,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     batched_shifted_commitment = batch_mul_native(points, scalars);
 
     return Accumulator{
-        .challenge = sumcheck_output.challenge,
+        .challenge = std::move(sumcheck_output.challenge),
         .shifted_evaluation = batched_shifted_evaluation,
         .non_shifted_evaluation = batched_unshifted_evaluation,
-        .non_shifted_polynomial = batched_unshifted_polynomial,
-        .shifted_polynomial = batched_shifted_polynomial,
+        .non_shifted_polynomial = std::move(batched_unshifted_polynomial),
+        .shifted_polynomial = std::move(batched_shifted_polynomial),
         .non_shifted_commitment = batched_unshifted_commitment,
         .shifted_commitment = batched_shifted_commitment,
         .dyadic_size = instance->dyadic_size(),
