@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
-import { type GetContractReturnType, type Hex, type Log, encodeFunctionData, getContract } from '@spalladino/viem';
+import { type GetContractReturnType, type Hex, type Log, encodeFunctionData, getContract } from 'viem';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import {

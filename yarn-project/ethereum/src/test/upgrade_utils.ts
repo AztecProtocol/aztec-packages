@@ -2,7 +2,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
 import { TestERC20Abi as StakingAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import { type GetContractReturnType, type PrivateKeyAccount, getContract } from '@spalladino/viem';
+import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 
 import { extractProposalIdFromLogs } from '../contracts/governance.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';

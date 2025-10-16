@@ -16,7 +16,7 @@ import {
   ValueType,
 } from '@aztec/telemetry-client';
 
-import { formatEther, formatUnits } from '@spalladino/viem';
+import { formatEther, formatUnits } from 'viem';
 
 export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;

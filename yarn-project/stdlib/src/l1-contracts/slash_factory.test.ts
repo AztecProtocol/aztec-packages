@@ -12,10 +12,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SlashFactoryAbi } from '@aztec/l1-artifacts/SlashFactoryAbi';
 
-import { type TransactionReceipt, decodeFunctionData } from '@spalladino/viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
+import { type TransactionReceipt, decodeFunctionData } from 'viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { OffenseType, type ValidatorSlash, type ValidatorSlashOffense } from '../slashing/index.js';

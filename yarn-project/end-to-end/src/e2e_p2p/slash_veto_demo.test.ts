@@ -20,12 +20,12 @@ import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { encodeFunctionData, getContract } from '@spalladino/viem';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
 import assert from 'assert';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { encodeFunctionData, getContract } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';

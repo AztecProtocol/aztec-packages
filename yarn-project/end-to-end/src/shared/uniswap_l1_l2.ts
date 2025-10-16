@@ -24,7 +24,7 @@ import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { jest } from '@jest/globals';
-import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from '@spalladino/viem';
+import { type GetContractReturnType, getContract, parseEther, toFunctionSelector } from 'viem';
 
 import { ensureAccountContractsPublished } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from './cross_chain_test_harness.js';

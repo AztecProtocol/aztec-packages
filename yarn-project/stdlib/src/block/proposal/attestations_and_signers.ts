@@ -1,7 +1,7 @@
 import type { ViemCommitteeAttestations } from '@aztec/ethereum';
 import { hexToBuffer } from '@aztec/foundation/string';
 
-import { encodeAbiParameters, parseAbiParameters } from '@spalladino/viem';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { Signable, SignatureDomainSeparator } from '../../p2p/signature_utils.js';

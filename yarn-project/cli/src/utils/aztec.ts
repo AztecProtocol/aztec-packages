@@ -63,7 +63,7 @@ export async function deployAztecContracts(
   debugLogger: Logger,
 ): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
-  const { mnemonicToAccount, privateKeyToAccount } = await import('@spalladino/viem/accounts');
+  const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
     ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
@@ -112,7 +112,7 @@ export async function deployNewRollupContracts(
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
-  const { mnemonicToAccount, privateKeyToAccount } = await import('@spalladino/viem/accounts');
+  const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
 
   const account = !privateKey

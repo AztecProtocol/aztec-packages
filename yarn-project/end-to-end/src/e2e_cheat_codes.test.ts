@@ -4,10 +4,10 @@ import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/et
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-import { parseEther } from '@spalladino/viem';
-import { mnemonicToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
+import { parseEther } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { MNEMONIC } from './fixtures/fixtures.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';

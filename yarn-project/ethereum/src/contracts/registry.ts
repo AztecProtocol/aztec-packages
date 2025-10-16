@@ -3,7 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 
-import { type GetContractReturnType, type Hex, getContract } from '@spalladino/viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { ViemClient } from '../types.js';

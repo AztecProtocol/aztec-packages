@@ -58,6 +58,8 @@ import {
 } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import type { Anvil } from '@viem/anvil';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type Address,
   type GetContractReturnType,
@@ -66,11 +68,9 @@ import {
   getAddress,
   getContract,
   multicall3Abi,
-} from '@spalladino/viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
-import type { Anvil } from '@viem/anvil';
-import { type MockProxy, mock } from 'jest-mock-extended';
+} from 'viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { setupL1Contracts } from '../fixtures/utils.js';

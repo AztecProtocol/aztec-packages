@@ -15,7 +15,7 @@ import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGov
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 

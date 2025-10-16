@@ -3,11 +3,11 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RegistryAbi } from '@aztec/l1-artifacts/RegistryAbi';
 
-import { createPublicClient, getContract, http } from '@spalladino/viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
 import omit from 'lodash.omit';
+import { createPublicClient, getContract, http } from 'viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { createExtendedL1Client } from '../client.js';
 import { DefaultL1ContractsConfig } from '../config.js';

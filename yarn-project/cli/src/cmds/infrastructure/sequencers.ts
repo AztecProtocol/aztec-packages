@@ -3,8 +3,8 @@ import { GSEContract, RollupContract, createEthereumChain, getL1ContractsConfigE
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, getContract, http } from '@spalladino/viem';
-import { mnemonicToAccount } from '@spalladino/viem/accounts';
+import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 export async function sequencers(opts: {
   command: 'list' | 'add' | 'remove' | 'who-next' | 'flush';

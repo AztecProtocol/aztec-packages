@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts/FeeAssetHandlerAbi';
 
-import { type Hex, encodeFunctionData, getContract } from '@spalladino/viem';
+import { type Hex, encodeFunctionData, getContract } from 'viem';
 
 import type { L1TxUtils } from '../l1_tx_utils/index.js';
 

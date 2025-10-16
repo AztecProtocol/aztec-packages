@@ -3,9 +3,9 @@ import { getAddressFromPrivateKey } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 
-import { signMessage, signTypedData } from '@spalladino/viem/accounts';
 import { writeFile } from 'fs/promises';
 import { createServer } from 'http';
+import { signMessage, signTypedData } from 'viem/accounts';
 
 // Create a mock JSON RPC signer
 // Only supports signing messages and type data

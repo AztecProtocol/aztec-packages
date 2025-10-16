@@ -1,6 +1,6 @@
 import { compactArray } from '@aztec/foundation/collection';
 
-import type { ContractFunctionExecutionError } from '@spalladino/viem';
+import type { ContractFunctionExecutionError } from 'viem';
 
 export function tryGetCustomErrorNameContractFunction(err: ContractFunctionExecutionError) {
   return compactArray([err.shortMessage, ...(err.metaMessages ?? []).slice(0, 2).map(s => s.trim())]).join(' ');

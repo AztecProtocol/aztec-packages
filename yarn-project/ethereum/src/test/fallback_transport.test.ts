@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import type { Anvil } from '@viem/anvil';
 import {
   type Account,
   type Chain,
@@ -18,10 +19,9 @@ import {
   fallback,
   http,
   publicActions,
-} from '@spalladino/viem';
-import { privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
-import type { Anvil } from '@viem/anvil';
+} from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { startAnvil } from './start_anvil.js';
 

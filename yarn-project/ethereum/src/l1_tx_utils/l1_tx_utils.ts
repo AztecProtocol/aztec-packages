@@ -8,6 +8,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
+import pickBy from 'lodash.pickby';
 import {
   type Abi,
   type BlockOverrides,
@@ -20,9 +21,8 @@ import {
   createNonceManager,
   formatGwei,
   serializeTransaction,
-} from '@spalladino/viem';
-import { jsonRpc } from '@spalladino/viem/nonce';
-import pickBy from 'lodash.pickby';
+} from 'viem';
+import { jsonRpc } from 'viem/nonce';
 
 import type { ViemClient } from '../types.js';
 import { formatViemError } from '../utils.js';

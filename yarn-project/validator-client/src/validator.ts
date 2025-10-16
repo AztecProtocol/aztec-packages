@@ -25,8 +25,8 @@ import type { ProposedBlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { TypedDataDefinition } from '@spalladino/viem';
 import { EventEmitter } from 'events';
+import type { TypedDataDefinition } from 'viem';
 
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
 import type { ValidatorClientConfig } from './config.js';

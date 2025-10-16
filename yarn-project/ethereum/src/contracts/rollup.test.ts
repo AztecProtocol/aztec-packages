@@ -4,10 +4,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import type { Abi } from '@spalladino/viem';
-import { type PrivateKeyAccount, privateKeyToAccount } from '@spalladino/viem/accounts';
-import { foundry } from '@spalladino/viem/chains';
 import type { Anvil } from '@viem/anvil';
+import type { Abi } from 'viem';
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
+import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
 import { deployL1Contracts } from '../deploy_l1_contracts.js';

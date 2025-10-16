@@ -29,16 +29,9 @@ import { makeAndSignCommitteeAttestationsAndSigners, makeBlockAttestationFromBlo
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
-import {
-  type FormattedBlock,
-  type Log,
-  type Transaction,
-  encodeFunctionData,
-  multicall3Abi,
-  toHex,
-} from '@spalladino/viem';
 import assert from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { type FormattedBlock, type Log, type Transaction, encodeFunctionData, multicall3Abi, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
 import type { ArchiverDataStore } from './archiver_store.js';

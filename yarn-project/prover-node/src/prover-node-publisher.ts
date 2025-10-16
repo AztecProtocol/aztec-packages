@@ -16,8 +16,8 @@ import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup'
 import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type Hex, type TransactionReceipt, encodeFunctionData } from '@spalladino/viem';
 import { inspect } from 'util';
+import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
 
 import { ProverNodePublisherMetrics } from './metrics.js';
 
