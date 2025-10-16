@@ -60,6 +60,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
 
+    static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
+
     // The unique index of the transcript
     size_t transcript_index = 0;
 
@@ -104,36 +106,35 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<DataType, 2>
      */
-    [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer(size_t num_challenges)
     {
         // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
-        BB_ASSERT_LTE(num_challenges, 2U);
-        // Prevent challenge generation if this is the first challenge we're generating,
-        // AND nothing was sent by the prover.
-        if (is_first_challenge) {
-            ASSERT(!current_round_data.empty());
-        }
+        BB_ASSERT_LTE(num_challenges, CHALLENGE_BUFFER_SIZE);
+
+        std::vector<DataType> full_buffer;
+
+        const size_t size_bump = (is_first_challenge) ? 0 : 1;
+
+        full_buffer.resize(current_round_data.size() + size_bump);
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
-        std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
-            full_buffer.push_back(previous_challenge);
+            full_buffer[0] = previous_challenge;
         } else {
+            // Prevent challenge generation if this is the first challenge we're generating,
+            // AND nothing was sent by the prover.
+            ASSERT(!current_round_data.empty());
             // Update is_first_challenge for the future
             is_first_challenge = false;
         }
-        if (!current_round_data.empty()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/832): investigate why
-            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end()); fails to
-            // compile with gcc
-            std::copy(current_round_data.begin(), current_round_data.end(), std::back_inserter(full_buffer));
-            current_round_data.clear(); // clear the round data buffer since it has been used
-        }
 
-        // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
-        // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
-        // previously did with Pedersen and Blake3s.
+        std::copy(current_round_data.begin(),
+                  current_round_data.end(),
+                  full_buffer.begin() + static_cast<std::ptrdiff_t>(size_bump));
+        current_round_data.clear();
+
+        // Hash the full buffer
         DataType new_challenge = HashFunction::hash(full_buffer);
         std::array<DataType, 2> new_challenges = Codec::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
@@ -171,7 +172,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         if constexpr (in_circuit) {
             for (auto& entry : input) {
-                input.unset_free_witness_tag();
+                entry.unset_free_witness_tag();
             }
         }
     }
@@ -324,7 +325,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(2);
+            std::array<DataType, 2> challenge_buffer = get_next_duplex_challenge_buffer(2);
             challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
             challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
@@ -507,10 +508,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             round_index++;
         }
         // Assign an origin tag to the elements going into the hash buffer
-        const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
-        for (auto& subelement : element_frs) {
-            subelement.set_origin_tag(element_origin_tag);
-        }
+        assign_origin_tag(element_frs, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+
         num_frs_read += element_size;
 
         add_element_frs_to_hash_buffer(label, element_frs);
