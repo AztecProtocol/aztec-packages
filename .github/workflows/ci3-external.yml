@@ -95,7 +95,16 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ci-success.txt
-          key: ci-external-${{ env.TREE_HASH }}
+          key: ci-external-${{ env.CI_FULL == '1' && 'full' || 'fast' }}-${{ env.TREE_HASH }}
+
+      - name: CI Cached
+        if: steps.ci_cache.outputs.cache-hit == 'true'
+        run: |
+          echo "CI cached for tree ${{ env.TREE_HASH }}"
+          if [ -f ci-success.txt ]; then
+            echo "Previous run: $(cat ci-success.txt)"
+          fi
+          echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       #############
       # Run
@@ -123,7 +132,7 @@ jobs:
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'
-        run: echo "success" > ci-success.txt
+        run: echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ci-success.txt
 
       # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
       # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
