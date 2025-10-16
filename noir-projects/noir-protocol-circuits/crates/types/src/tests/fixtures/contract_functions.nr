@@ -25,6 +25,8 @@ pub global default_private_function: ContractFunction = ContractFunction {
             0x0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614,
             0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937,
             0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854,
+            0x0a43a7d0ff038f2492a51b4465c73f28c0644cdde523cb652668b167eab21b7a,
+            0x2a9072ec897e59149199988f87258e75d43dea6ccb509eb1f6f864c3294dd512,
         ],
     },
 };
@@ -44,6 +46,8 @@ pub fn get_protocol_contract_function(contract_index: u32) -> ContractFunction {
                 0x26d4cb8f72c0330bbebdb587bf896ce790ec7d091ee6aa3aabcf9bd60b2de307,
                 0x1d8f5034624cbef3663cf6a73a04bf82d34379e7e65f2b7d29fce4d6987ca7c1,
                 0x1758942724d8e39e5a0bc52b58cd80e5b6f26bedcc2a00d4b2f0dc6019fb1bf1,
+                0,
+                0,
             ],
         },
     }

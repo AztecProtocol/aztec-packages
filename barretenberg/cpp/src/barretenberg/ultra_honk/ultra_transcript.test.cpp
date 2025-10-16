@@ -64,16 +64,16 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         // UltraKeccak uses uint256_t for commitments and frs, so we need to handle that differently.
         size_t data_types_per_Frs = [] {
             if constexpr (IsKeccakFlavor<Flavor>) {
-                return bb::field_conversion::calc_num_uint256_ts<FF>();
+                return U256Codec::calc_num_fields<FF>();
             } else {
-                return bb::field_conversion::calc_num_bn254_frs<FF>();
+                return FrCodec::calc_num_fields<FF>();
             }
         }();
         size_t data_types_per_G = [] {
             if constexpr (IsKeccakFlavor<Flavor>) {
-                return bb::field_conversion::calc_num_uint256_ts<Commitment>();
+                return U256Codec::calc_num_fields<Commitment>();
             } else {
-                return bb::field_conversion::calc_num_bn254_frs<Commitment>();
+                return FrCodec::calc_num_fields<Commitment>();
             }
         }();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * data_types_per_Frs;

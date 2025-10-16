@@ -34,6 +34,7 @@ const CPP_CONSTANTS = [
   'NULLIFIER_TREE_HEIGHT',
   'NOTE_HASH_TREE_HEIGHT',
   'L1_TO_L2_MSG_TREE_HEIGHT',
+  'ARCHIVE_HEIGHT',
   'TIMESTAMP_OF_CHANGE_BIT_SIZE',
   'UPDATES_DELAYED_PUBLIC_MUTABLE_METADATA_BIT_SIZE',
   'MAX_ENQUEUED_CALLS_PER_TX',
@@ -230,7 +231,7 @@ const PIL_CONSTANTS = [
   'AVM_SUBTRACE_ID_CAST',
   'AVM_SUBTRACE_ID_SET',
   'AVM_SUBTRACE_ID_BITWISE',
-  'AVM_SUBTRACE_ID_POSEIDON_PERM',
+  'AVM_SUBTRACE_ID_POSEIDON2_PERM',
   'AVM_SUBTRACE_ID_TO_RADIX',
   'AVM_SUBTRACE_ID_ECC',
   'AVM_SUBTRACE_ID_KECCAKF1600',
@@ -598,8 +599,9 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
         .replaceAll(' as u64', '')
-        // Remove the 'AztecAddress::from_field(...)' pattern
-        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
+        // Remove the 'AztecAddress::from_field(...)' pattern.
+        // Also copes with the noir formatter re-formatting over multiple lines.
+        .replace(/AztecAddress::from_field\(\s*(0x[a-fA-F0-9]+|\d+)\s*,?\s*\)/gs, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')

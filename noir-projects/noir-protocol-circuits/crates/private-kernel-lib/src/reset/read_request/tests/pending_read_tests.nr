@@ -77,7 +77,7 @@ fn mismatch_pending_value_being_read() {
     let mut builder = TestBuilder::new_all_pending();
 
     // Read a value that does not exist.
-    builder.read_requests.array[1].read_request.value = 9999;
+    builder.read_requests.array[1].inner.inner = 9999;
 
     builder.validate();
 }
@@ -91,7 +91,7 @@ fn read_pending_value_at_claimed_length() {
     builder.pending_values.array[pending_value_index].value = 9999;
     // Change the read request to be reading the random value.
     let mut hint = builder.hints.pending_read_hints.pop();
-    builder.read_requests.array[hint.read_request_index].read_request.value = 9999;
+    builder.read_requests.array[hint.read_request_index].inner.inner = 9999;
     // Update the hint to point to the random value.
     hint.pending_value_index = pending_value_index;
     builder.hints.pending_read_hints.push(hint);
@@ -108,7 +108,7 @@ fn read_pending_value_beyond_claimed_length() {
     builder.pending_values.array[pending_value_index].value = 9999;
     // Change the read request to be reading the random value.
     let mut hint = builder.hints.pending_read_hints.pop();
-    builder.read_requests.array[hint.read_request_index].read_request.value = 9999;
+    builder.read_requests.array[hint.read_request_index].inner.inner = 9999;
     // Update the hint to point to the random value.
     hint.pending_value_index = pending_value_index;
     builder.hints.pending_read_hints.push(hint);
@@ -123,8 +123,7 @@ fn read_request_counter_equals_pending_value_counter() {
     // Change the counter of the read request to be equal to the counter of the pending value.
     let hint = builder.hints.pending_read_hints.get(1);
     let pending_value_counter = builder.pending_values.array[hint.pending_value_index].counter;
-    builder.read_requests.array[hint.read_request_index].read_request.counter =
-        pending_value_counter;
+    builder.read_requests.array[hint.read_request_index].inner.counter = pending_value_counter;
 
     builder.validate();
 }
@@ -136,8 +135,7 @@ fn read_request_counter_less_than_pending_value_counter() {
     // Change the counter of the read request to be less than the counter of the pending value.
     let hint = builder.hints.pending_read_hints.get(1);
     let pending_value_counter = builder.pending_values.array[hint.pending_value_index].counter;
-    builder.read_requests.array[hint.read_request_index].read_request.counter =
-        pending_value_counter - 1;
+    builder.read_requests.array[hint.read_request_index].inner.counter = pending_value_counter - 1;
 
     builder.validate();
 }

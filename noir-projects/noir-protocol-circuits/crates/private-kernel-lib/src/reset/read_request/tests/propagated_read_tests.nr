@@ -91,7 +91,7 @@ fn extra_identical_read_requests_beyond_claimed_length() {
 
     // Fill the read requests array with the same dummy read request.
     let mut dummy_read_request = read_request_11;
-    dummy_read_request.read_request.value = 9999;
+    dummy_read_request.inner.inner = 9999;
     for i in claimed_length..builder.read_requests.array.len() {
         builder.read_requests.array[i] = dummy_read_request;
     }
@@ -133,7 +133,7 @@ fn random_non_empty_read_request_at_claimed_length() {
     builder.add_pending_read(1);
 
     // Set a random value to the read request at the claimed length.
-    builder.propagated_read_requests.array[0].read_request.value = 9999;
+    builder.propagated_read_requests.array[0].inner.inner = 9999;
 
     // It's fine to propagate non-empty read requests at or beyond the claimed length. But this test fails because
     // the implementation is simpler and cheaper if all the skipped read requests must match the propagated read
@@ -148,7 +148,7 @@ fn random_non_empty_read_request_beyond_claimed_length() {
     builder.add_pending_read(1);
 
     // Set a random value to the first read request beyond the claimed length.
-    builder.propagated_read_requests.array[1].read_request.value = 9999;
+    builder.propagated_read_requests.array[1].inner.inner = 9999;
 
     builder.validate();
 

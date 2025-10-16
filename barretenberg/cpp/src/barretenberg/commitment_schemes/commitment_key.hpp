@@ -160,12 +160,15 @@ template <class Curve> class CommitmentKey {
         CommitmentKey* key;
         RefVector<Polynomial<Fr>> wires;
         std::vector<std::string> labels;
-        void commit_and_send_to_verifier(auto transcript, size_t max_batch_size = std::numeric_limits<size_t>::max())
+        std::vector<Commitment> commit_and_send_to_verifier(auto transcript,
+                                                            size_t max_batch_size = std::numeric_limits<size_t>::max())
         {
             std::vector<Commitment> commitments = key->batch_commit(wires, max_batch_size);
             for (size_t i = 0; i < commitments.size(); ++i) {
                 transcript->send_to_verifier(labels[i], commitments[i]);
             }
+
+            return commitments;
         }
 
         void add_to_batch(Polynomial<Fr>& poly, const std::string& label, bool mask)

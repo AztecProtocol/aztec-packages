@@ -19,9 +19,6 @@ policies:
             - =~
             - $STAGING_PUBLIC_REGEX
 
-
-
-
       # Staging Ignition - by namespace
       - receiver: "Slack #alerts-staging-ignition by namespace"
         object_matchers:
@@ -35,8 +32,6 @@ policies:
             - =~
             - $STAGING_IGNITION_REGEX
 
-
-
       # Next Scenario - by namespace
       - receiver: "Slack #alerts-next-scenario by namespace"
         object_matchers:
@@ -44,7 +39,12 @@ policies:
             - =~
             - $NEXT_SCENARIO_REGEX
 
-
+      # Next Net - by namespace
+      - receiver: "Slack #alerts-next-net by namespace"
+        object_matchers:
+          - - k8s_namespace_name
+            - =~
+            - $NEXT_NET_REGEX
 
       # Testnet - by namespace
       - receiver: "Slack #alerts-testnet by namespace"
@@ -60,8 +60,6 @@ policies:
             - =~
             - $TESTNET_NAMESPACES_REGEX
 
-
-
       # Mainnet - by namespace
       - receiver: "Slack #alerts-mainnet by namespace"
         object_matchers:
@@ -75,8 +73,6 @@ policies:
           - - network
             - =~
             - $MAINNET_NAMESPACES_REGEX
-
-
 
       # Production - by namespace
       - receiver: "Slack #network-alerts channel by namespace"

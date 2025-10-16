@@ -11,6 +11,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 import { ServerWorldStateSynchronizer, worldStateConfigMappings } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import fs, { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -19,6 +20,9 @@ import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
 
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import type { TxPool } from './tx_pool.js';
+
+const TEST_TIMEOUT = 150_000;
+jest.setTimeout(TEST_TIMEOUT);
 
 const RUNS = 50;
 const batchSizes = [

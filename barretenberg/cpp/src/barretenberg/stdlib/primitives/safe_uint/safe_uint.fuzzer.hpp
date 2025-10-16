@@ -110,6 +110,8 @@ FastRandom VarianceRNG(0);
 #define THREE_IN_ONE_OUT 4
 #define SLICE_ARGS_SIZE 6
 
+char EXCEEDED_MAX_BITNUM_ERROR[43] = "Assertion failed: (bit_num <= MAX_BIT_NUM)";
+
 /**
  * @brief The class parametrizing SafeUint fuzzing instructions, execution, etc
  *
@@ -801,8 +803,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Multiplying", "*")
-
             // If the maximum values overflow 256 bits, this is detected by ASSERTS
             if ((static_cast<uint512_t>(stack[first_index].suint.current_max) *
                  static_cast<uint512_t>(stack[second_index].suint.current_max))
@@ -819,8 +819,13 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("exceeded modulus in safe_uint class"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Multiplying", "*")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -852,8 +857,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
-
             ExecutionHandler result;
             try {
                 result = stack[first_index] + stack[second_index];
@@ -863,8 +866,12 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("exceeded modulus in safe_uint class"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -895,8 +902,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
-
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
 
             // Perform ASSERT checks that we've disabled
             if ((static_cast<uint512_t>(1 << (stack[first_index].suint.current_max.get_msb() + 1)) +
@@ -930,8 +935,13 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("maximum value exceeded in safe_uint minus operator"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -963,8 +973,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Dividing", "/")
-
             if (stack[first_index].suint.value.is_constant()) {
                 return 1;
             }
@@ -989,12 +997,17 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("maximum value exceeded in safe_uint minus operator"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
             // If division of zero by zero passes that is not ok.
             if (stack[first_index].suint.get_value().is_zero() && stack[second_index].suint.get_value().is_zero()) {
                 circuit_should_fail = true;
             }
+
+            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Dividing", "/")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1027,7 +1040,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out;
-            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "ADD_TWO:", "+", "+")
 
             if ((static_cast<uint512_t>(stack[first_index].suint.current_max) +
                  static_cast<uint512_t>(stack[second_index].suint.current_max) +
@@ -1044,8 +1056,13 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("exceeded modulus in safe_uint class"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "ADD_TWO:", "+", "+")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1078,7 +1095,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out;
-            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "MADD:", "*", "+")
 
             // If maximums overflow the modulus, then skip this instruction (an assert should handle this)
             if ((static_cast<uint512_t>(stack[first_index].suint.current_max) *
@@ -1096,8 +1112,13 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("exceeded modulus in safe_uint class"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "MADD:", "*", "+")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1131,9 +1152,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t difference_bit_size = instruction.arguments.fourArgs.in3;
             size_t output_index = instruction.arguments.fourArgs.out;
-            PRINT_TWO_ARG_ONE_VALUE_INSTRUCTION(
-                first_index, second_index, difference_bit_size, stack, "SUBTRACT_WITH_CONSTRAINT:", "-", "<= 2**")
-
             // If difference bit size is too big, it should be caught by assertion.
             if (difference_bit_size > suint_t::MAX_BIT_NUM) {
                 return 0;
@@ -1151,8 +1169,14 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("maximum value exceeded in safe_uint subtract"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_TWO_ARG_ONE_VALUE_INSTRUCTION(
+                first_index, second_index, difference_bit_size, stack, "SUBTRACT_WITH_CONSTRAINT:", "-", "<= 2**")
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1193,16 +1217,6 @@ template <typename Builder> class SafeUintFuzzBase {
 
             size_t remainder_bit_size = instruction.arguments.fiveArgs.rbs;
             size_t output_index = instruction.arguments.fiveArgs.out;
-            PRINT_TWO_ARG_TWO_VALUES_INSTRUCTION(first_index,
-                                                 second_index,
-                                                 quotient_bit_size,
-                                                 remainder_bit_size,
-                                                 stack,
-                                                 "DIVIDE_WITH_CONSTRAINTS:",
-                                                 "/",
-                                                 "quotient < 2**",
-                                                 "remainder < 2**")
-
             // If difference bit size is too big, it should be caught by assertion.
             if ((quotient_bit_size > suint_t::MAX_BIT_NUM) || (remainder_bit_size > suint_t::MAX_BIT_NUM)) {
                 return 0;
@@ -1225,8 +1239,22 @@ template <typename Builder> class SafeUintFuzzBase {
                              sizeof("maximum value exceeded in safe_uint minus operator"))) {
                     return 1;
                 }
+                if (!strncmp(err.what(), EXCEEDED_MAX_BITNUM_ERROR, sizeof(EXCEEDED_MAX_BITNUM_ERROR) - 1)) {
+                    return 1;
+                }
                 throw err;
             }
+
+            PRINT_TWO_ARG_TWO_VALUES_INSTRUCTION(first_index,
+                                                 second_index,
+                                                 quotient_bit_size,
+                                                 remainder_bit_size,
+                                                 stack,
+                                                 "DIVIDE_WITH_CONSTRAINTS:",
+                                                 "/",
+                                                 "quotient < 2**",
+                                                 "remainder < 2**")
+
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
                 PRINT_RESULT("", "pushed to ", stack.size(), result)
@@ -1261,7 +1289,6 @@ template <typename Builder> class SafeUintFuzzBase {
             size_t second_index = instruction.arguments.sliceArgs.out1;
             size_t third_index = instruction.arguments.sliceArgs.out2;
             size_t output_index = instruction.arguments.sliceArgs.out3;
-            PRINT_SLICE(first_index, lsb, msb, stack)
             // Check assert conditions
             if ((lsb > msb) || (msb > 252) ||
                 (static_cast<uint256_t>(stack[first_index].suint.get_value()) >=

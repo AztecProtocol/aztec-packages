@@ -22,7 +22,7 @@ Hypothetical Asset would live on Ethereum L1. It may have a minter which would b
 
 This is brought up to the community for discussion purposes only to illustrate how proposed governance mechanisms could work with a Hypothetical Asset.
 
-- **Validators** must stake the Hypothetical Asset within the instance's contract to join that instance's validator set.
+- **Sequencers** must stake the Hypothetical Asset within the instance's contract to join that instance's sequencer set.
 - **Holders** must lock Hypothetical Asset with the Governance contract to be able to vote on proposals.
 - **Provers** must deposit Hypothetical Asset in the escrow contract in order to bid for the right to create a proof for an epoch.
 

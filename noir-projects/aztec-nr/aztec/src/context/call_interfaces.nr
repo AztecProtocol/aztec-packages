@@ -379,15 +379,50 @@ where
     ///               #[private] annotation's macro.
     ///
     pub fn enqueue(self, context: &mut PrivateContext) {
-        let calldata = self.args.push_front(self.selector.to_field());
-        let calldata_hash = hash_calldata(calldata);
-        execution_cache::store(calldata, calldata_hash);
-        context.call_public_function_with_calldata_hash(
-            self.target_contract,
-            calldata_hash,
-            /*static=*/
-            false,
-        )
+        self.enqueue_impl(context, false, false)
+    }
+
+    /// Enqueues a call to this public function, to be executed later.
+    ///
+    /// As per `enqueue`, but hides this calling contract's address from the
+    /// target public function.
+    /// This means the origin of the call (msg_sender) will not be publicly
+    /// visible to any blockchain observers, nor to the target public function.
+    /// When the target public function reads `context.msg_sender()` it will
+    /// receive an `Option<AztecAddress>::none`.
+    ///
+    /// NOTES:
+    /// - Not all public functions will accept a msg_sender of "none". Many
+    ///   public functions will require that msg_sender is "some" and will
+    ///   revert otherwise. Therefore, if using `enqueue_incognito`, you must
+    ///   understand whether the function you're calling will accept a
+    ///   msg_sender of "none".
+    ///   Lots of public bookkeeping patterns rely on knowing which address made
+    ///   the call, so as to ascribe state against the caller's address.
+    ///   (There are patterns whereby bookkeeping could instead be done in
+    ///   private-land).
+    /// - If you are enqueueing a call to an _internal_ public function (i.e.
+    ///   a public function that will only accept calls from other functions
+    ///   of its own contract), then by definition a call to it cannot possibly
+    ///   be "incognito": the msg_sender must be its own address, and indeed the
+    ///   called public function will assert this. Tl;dr this is not usable for
+    ///   enqueued internal public calls.
+    ///
+    /// # Arguments
+    /// * `context` - The PrivateContext -- made magically available to the body
+    ///               of every #[private] function as `context`, through the
+    ///               #[private] annotation's macro.
+    ///
+    /// Advanced:
+    /// - The kernel circuits will permit _any_ private function to set the
+    ///   msg_sender field of any enqueued public function call to
+    ///   NULL_MSG_SENDER_CONTRACT_ADDRESS.
+    /// - When the called public function calls `PublicContext::msg_sender()`,
+    ///   aztec-nr will translate NULL_MSG_SENDER_CONTRACT_ADDRESS into
+    ///   `Option<AztecAddress>::none` for familiarity to devs.
+    ///
+    pub fn enqueue_incognito(self, context: &mut PrivateContext) {
+        self.enqueue_impl(context, false, true)
     }
 
     /// Enqueues a read-only call to this public function.
@@ -402,14 +437,39 @@ where
     ///               #[private] annotation's macro.
     ///
     pub fn enqueue_view(self, context: &mut PrivateContext) {
+        self.enqueue_impl(context, true, false)
+    }
+
+    /// Enqueues a read-only call to this public function.
+    ///
+    /// As per `enqueue_view`, but hides this calling contract's address from
+    /// the target public function.
+    ///
+    /// See `enqueue_incognito` for more details relating to hiding msg_sender.
+    ///
+    /// # Arguments
+    /// * `context` - The PrivateContext -- made magically available to the body
+    ///               of every #[private] function as `context`, through the
+    ///               #[private] annotation's macro.
+    ///
+    pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
+        self.enqueue_impl(context, true, true)
+    }
+
+    fn enqueue_impl(
+        self,
+        context: &mut PrivateContext,
+        is_static_call: bool,
+        hide_msg_sender: bool,
+    ) {
         let calldata = self.args.push_front(self.selector.to_field());
         let calldata_hash = hash_calldata(calldata);
         execution_cache::store(calldata, calldata_hash);
         context.call_public_function_with_calldata_hash(
             self.target_contract,
             calldata_hash,
-            /*static=*/
-            true,
+            is_static_call,
+            hide_msg_sender,
         )
     }
 
@@ -445,6 +505,23 @@ where
     ///               #[private] annotation's macro.
     ///
     pub fn set_as_teardown(self, context: &mut PrivateContext) {
+        self.set_as_teardown_impl(context, false);
+    }
+
+    /// Enqueues a call to this public function, and designates it to be the teardown
+    /// function for this tx. Only one teardown function call can be made by a
+    /// tx.
+    ///
+    /// As per `set_as_teardown`, but hides this calling contract's address from
+    /// the target public function.
+    ///
+    /// See `enqueue_incognito` for more details relating to hiding msg_sender.
+    ///
+    pub fn set_as_teardown_incognito(self, context: &mut PrivateContext) {
+        self.set_as_teardown_impl(context, true);
+    }
+
+    fn set_as_teardown_impl(self, context: &mut PrivateContext, hide_msg_sender: bool) {
         let calldata = self.args.push_front(self.selector.to_field());
         let calldata_hash = hash_calldata(calldata);
         execution_cache::store(calldata, calldata_hash);
@@ -452,6 +529,7 @@ where
             self.target_contract,
             calldata_hash,
             false,
+            hide_msg_sender,
         )
     }
 }
@@ -561,6 +639,20 @@ where
             self.target_contract,
             calldata_hash,
             /*static=*/
+            true,
+            false,
+        )
+    }
+
+    pub fn enqueue_view_incognito(self, context: &mut PrivateContext) {
+        let calldata = self.args.push_front(self.selector.to_field());
+        let calldata_hash = hash_calldata(calldata);
+        execution_cache::store(calldata, calldata_hash);
+        context.call_public_function_with_calldata_hash(
+            self.target_contract,
+            calldata_hash,
+            /*static=*/
+            true,
             true,
         )
     }

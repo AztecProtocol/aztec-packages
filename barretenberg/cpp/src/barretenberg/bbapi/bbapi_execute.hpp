@@ -68,7 +68,8 @@ using Command = NamedUnion<CircuitProve,
                            EcdsaSecp256k1VerifySignature,
                            EcdsaSecp256r1VerifySignature,
                            SrsInitSrs,
-                           SrsInitGrumpkinSrs>;
+                           SrsInitGrumpkinSrs,
+                           Shutdown>;
 
 using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitComputeVk::Response,
@@ -124,7 +125,8 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    EcdsaSecp256k1VerifySignature::Response,
                                    EcdsaSecp256r1VerifySignature::Response,
                                    SrsInitSrs::Response,
-                                   SrsInitGrumpkinSrs::Response>;
+                                   SrsInitGrumpkinSrs::Response,
+                                   Shutdown::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.

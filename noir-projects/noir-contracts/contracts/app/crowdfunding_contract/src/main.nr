@@ -58,7 +58,7 @@ pub contract Crowdfunding {
         // docs:end:call-check-deadline
 
         // 2) Transfer the donation tokens from donor to this contract
-        let donor = context.msg_sender();
+        let donor = context.msg_sender().unwrap();
         Token::at(config.donation_token)
             .transfer_in_private(donor, context.this_address(), amount, 0)
             .call(&mut context);
@@ -83,7 +83,7 @@ pub contract Crowdfunding {
         let operator_address = config.operator;
 
         // 1) Check that msg_sender() is the operator
-        assert(context.msg_sender() == operator_address, "Not an operator");
+        assert(context.msg_sender().unwrap() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
         Token::at(config.donation_token).transfer(operator_address, amount).call(&mut context);

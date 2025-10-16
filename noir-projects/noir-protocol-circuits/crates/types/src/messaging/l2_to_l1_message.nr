@@ -1,6 +1,6 @@
 use crate::{
-    abis::side_effect::{counted::Counted, scoped::Scoped},
     address::{AztecAddress, EthAddress},
+    side_effect::{Counted, Scoped},
     traits::{Deserialize, Empty, Serialize},
 };
 use std::meta::derive;
@@ -36,7 +36,7 @@ impl Counted<L2ToL1Message> {
 
 impl Scoped<Counted<L2ToL1Message>> {
     pub fn expose_to_public(self) -> Scoped<L2ToL1Message> {
-        self.inner.inner.scope(self.contract_address)
+        self.innermost().scope(self.contract_address)
     }
 }
 

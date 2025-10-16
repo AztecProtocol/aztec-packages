@@ -16,7 +16,6 @@
 namespace bb {
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1437): Change template params back to ProverInstances
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1239): clean out broken support for multi-folding
 template <IsUltraOrMegaHonk Flavor> class ProtogalaxyProver_ {
   public:
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;

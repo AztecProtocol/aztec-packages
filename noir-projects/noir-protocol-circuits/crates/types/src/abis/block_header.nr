@@ -62,11 +62,11 @@ fn hash_of_genesis_block_header() {
     let mut header = BlockHeader::empty();
     // The following values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees.
     header.state.l1_to_l2_message_tree.root =
-        0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6;
+        0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5;
     header.state.partial.note_hash_tree.root =
-        0x1fd848aa69e1633722fe249a5b7f53b094f1c9cef9f5c694b073fd1cc5850dfb;
+        0x2ac5dda169f6bb3b9ca09bbac34e14c94d1654597db740153a1288d859a8a30a;
     header.state.partial.nullifier_tree.root =
-        0x0c499b373a1f0fe1b510a63563546d2d39e206895056a5af0143c5f30d639073;
+        0x1ec3788cd1c32e54d889d67fe29e481114f9d4afe9b44b229aa29d8ad528dd31;
     header.state.partial.nullifier_tree.next_available_leaf_index = 128;
     header.state.partial.public_data_tree.root =
         0x23c08a6b1297210c5e24c76b9a936250a1ce2721576c26ea797c7ec35f9e46a9;

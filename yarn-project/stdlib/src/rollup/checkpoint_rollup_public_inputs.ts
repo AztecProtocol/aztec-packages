@@ -118,6 +118,10 @@ export class FeeRecipient {
     return serializeToFields(...FeeRecipient.getFields(this));
   }
 
+  static empty() {
+    return new FeeRecipient(EthAddress.ZERO, Fr.ZERO);
+  }
+
   isEmpty() {
     return this.value.isZero() && this.recipient.isZero();
   }

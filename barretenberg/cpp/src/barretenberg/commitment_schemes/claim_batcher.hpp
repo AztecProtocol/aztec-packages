@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include <optional>
 
