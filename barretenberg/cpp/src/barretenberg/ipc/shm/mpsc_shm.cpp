@@ -52,7 +52,6 @@ inline int mpsc_futex_wake(volatile uint32_t* addr, int n)
 
 // ----- MpscConsumer Implementation -----
 
-// NOLINTNEXTLINE(misc-include-cleaner) - SpscShm included via mpsc_shm.hpp
 MpscConsumer::MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell)
     : rings_(std::move(rings))
     , doorbell_fd_(doorbell_fd)

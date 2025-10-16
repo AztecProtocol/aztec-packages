@@ -46,6 +46,9 @@ struct alignas(SPSC_CACHELINE) SpscCtrl {
     // uint8_t buffer[capacity] follows in memory...
 };
 
+static_assert(alignof(SpscCtrl) == SPSC_CACHELINE, "SpscCtrl alignment");
+static_assert(sizeof(SpscCtrl) % SPSC_CACHELINE == 0, "SpscCtrl size multiple of cache line");
+
 /**
  * @brief Lock-free single-producer single-consumer shared memory ring buffer
  *
