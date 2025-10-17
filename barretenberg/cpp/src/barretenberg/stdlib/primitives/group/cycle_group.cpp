@@ -1035,6 +1035,11 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in batch mul!");
 
+    if (scalars.empty()) {
+        cycle_group result{ Group::point_at_infinity };
+        return result;
+    }
+
     std::vector<cycle_scalar> variable_base_scalars;
     std::vector<cycle_group> variable_base_points;
     std::vector<cycle_scalar> fixed_base_scalars;
@@ -1045,14 +1050,11 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     for (auto [point, scalar] : zip_view(base_points, scalars)) {
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
     }
-    size_t num_bits = 0;
-    for (auto& s : scalars) {
-        num_bits = std::max(num_bits, s.num_bits());
 
-        // Note: is this the best place to put `validate_is_in_field`? Should it not be part of the constructor?
-        // Note note: validate_scalar_is_in_field does not apply range checks to the hi/lo slices, this is performed
-        // implicitly via the scalar mul algorithm
-        s.validate_scalar_is_in_field();
+    // Determine scalar bit length (for simplicity we require all scalars to have the same bit length)
+    size_t num_bits = scalars[0].num_bits();
+    for (auto& s : scalars) {
+        BB_ASSERT_EQ(num_bits, s.num_bits());
     }
 
     // If scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
