@@ -65,17 +65,15 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
 #define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
 #else
-// BB_ASSERT_IN_CONSTEXPR: For use in constexpr functions. Does nothing, as we cannot assert in constexpr contexts.
-#define BB_ASSERT_IN_CONSTEXPR(expression, ...) DONT_EVALUATE((expression))
+#define BB_ASSERT_IN_CONSTEXPR(expression, ...) BB_ASSERT(expression, __VA_ARGS__)
 
 #define BB_ASSERT(expression, ...)                                                                                        \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                         \
         if (!(BB_LIKELY(expression))) {                                                                                \
-            std::ostringstream oss;                                                                                    \
-            oss << "Assertion failed: (" #expression ")";                                                              \
-            __VA_OPT__(oss << " | Reason: " << __VA_ARGS__;)                                                           \
-            bb::assert_failure(oss.str());                                                                             \
+            info("Assertion failed: (" #expression ")");                                                               \
+            __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \
+            bb::assert_failure("");                                                                                    \
         }                                                                                                              \
     } while (0)
 
