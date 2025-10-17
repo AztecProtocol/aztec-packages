@@ -453,3 +453,9 @@ variable "RPC_INGRESS_SSL_CERT_NAME" {
   default     = ""
 }
 
+variable "PROVER_REPLICAS" {
+  description = "The number of prover replicas"
+  type        = number
+  default     = 4
+}
+
