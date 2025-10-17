@@ -1,10 +1,11 @@
-import { type AztecNode, Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { type AztecNode, ProvenTx, SponsoredFeePaymentMethod, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TestWallet } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
 
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
 import {
   type TestAccounts,
   createWalletAndAztecNodeClient,
@@ -14,13 +15,14 @@ import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 
+// TODO: parallelize tx creation
 describe('sustained 10 TPS test', () => {
-  jest.setTimeout(20 * 60 * 1000); // 20 minutes
+  jest.setTimeout(60 * 60 * 1000); // 1 hour
 
   const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
   const MINT_AMOUNT = 10000n;
-  const TEST_DURATION_SECONDS = 10;
-  const TARGET_TPS = 5; // 10
+  const TEST_DURATION_SECONDS = 5;
+  const TARGET_TPS = 10;
   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
   let testAccounts: TestAccounts;
@@ -87,45 +89,32 @@ describe('sustained 10 TPS test', () => {
 
     const defaultAccountAddress = testAccounts.accounts[0];
 
-    const baseTx = await testAccounts.tokenContract.methods
-      .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
-      .prove({ from: testAccounts.tokenAdminAddress });
+    // Pre-prove all transactions (avoid cloning/mutating nullifiers)
+    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+    const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+    const txs: ProvenTx[] = await Promise.all(
+      Array.from({ length: TOTAL_TXS }, () =>
+        testAccounts.tokenContract.methods
+          .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
+          .prove({
+            from: testAccounts.tokenAdminAddress,
+            fee: { paymentMethod: sponsor },
+          }),
+      ),
+    );
 
-    const allSentTxs: any[] = []; // Store sent transactions separately
-
-    let globalIdx = 0;
-
+    const allSentTxs: any[] = [];
+    let sentSoFar = 0;
     for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
       const secondStart = Date.now();
-
-      const batchTxs: ProvenTx[] = [];
-
-      for (let i = 0; i < TARGET_TPS; i++, globalIdx++) {
-        const clonedTxData = Tx.clone(baseTx);
-
-        const nullifiers = clonedTxData.data.getNonEmptyNullifiers();
-        if (nullifiers.length > 0) {
-          const newNullifier = nullifiers[0].add(Fr.fromString(globalIdx.toString()));
-          if (clonedTxData.data.forRollup) {
-            clonedTxData.data.forRollup.end.nullifiers[0] = newNullifier;
-          } else if (clonedTxData.data.forPublic) {
-            clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[0] = newNullifier;
-          }
-        }
-
-        const clonedTx = new ProvenTx(testAccounts.wallet, clonedTxData, []);
-        batchTxs.push(clonedTx);
-      }
-
-      // Send transactions without waiting for inclusion
-      for (let idx = 0; idx < batchTxs.length; idx++) {
-        const tx = batchTxs[idx];
+      const chunk = txs.splice(0, TARGET_TPS);
+      chunk.forEach((tx, idx) => {
         const sentTx = tx.send();
         allSentTxs.push(sentTx);
-        logger.info(`sec ${sec + 1}: sent tx ${globalIdx - TARGET_TPS + idx + 1}`);
-      }
+        logger.info(`sec ${sec + 1}: sent tx ${sentSoFar + idx + 1}`);
+      });
 
-      // 1 second spacing between batches
+      sentSoFar += chunk.length;
       const elapsed = Date.now() - secondStart;
       if (elapsed < 1000) {
         await sleep(1000 - elapsed);

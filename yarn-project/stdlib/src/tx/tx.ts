@@ -162,6 +162,16 @@ export class Tx extends Gossipable {
   }
 
   /**
+   * Validates that the tx hash matches the computed hash from the tx data.
+   * This should be called when deserializing a tx from an untrusted source.
+   * @returns true if the hash is valid, false otherwise
+   */
+  async validateTxHash(): Promise<boolean> {
+    const expectedHash = await Tx.computeTxHash(this);
+    return this.txHash.equals(expectedHash);
+  }
+
+  /**
    * Gets public logs emitted by this tx.
    * @param logsSource - An instance of `L2LogsSource` which can be used to obtain the logs.
    * @returns The requested logs.

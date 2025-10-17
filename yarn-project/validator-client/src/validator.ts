@@ -458,7 +458,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         throw new AttestationTimeoutError(attestations.length, required, slot);
       }
 
-      this.log.debug(`Collected ${attestations.length} attestations so far`);
+      this.log.debug(`Collected ${attestations.length} of ${required} attestations so far`);
       await sleep(this.config.attestationPollingIntervalMs);
     }
   }
