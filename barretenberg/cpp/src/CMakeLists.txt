@@ -193,7 +193,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT DISABLE_AZTEC_VM)
+if(NOT DISABLE_AZTEC_VM AND NOT FUZZING)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
 endif()
