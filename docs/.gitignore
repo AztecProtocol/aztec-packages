@@ -1,6 +1,9 @@
 # Dependencies
 /node_modules
 
+artifacts
+dist
+
 # Production
 /build
 /processed-docs
