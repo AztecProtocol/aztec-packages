@@ -17,8 +17,80 @@ import {
 } from './interaction_options.js';
 
 /**
- * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
- * It contains available interactions one can call on a method, including view.
+ * Represents a prepared contract function call that can be sent, simulated, or proved.
+ *
+ * @remarks
+ * ContractFunctionInteraction is the primary class for interacting with contract functions.
+ * When you call a method on a contract (e.g., `contract.methods.transfer(to, amount)`),
+ * you receive an instance of this class, which provides multiple ways to execute the function:
+ *
+ * - **send()**: Execute the function as a transaction on-chain
+ * - **simulate()**: Simulate execution locally and get return values
+ * - **prove()**: Generate a proof without sending
+ * - **request()**: Get the execution payload for batching
+ *
+ * The class supports all function types in Aztec:
+ * - **Private functions**: Execute in the user's PXE with privacy guarantees
+ * - **Public functions**: Execute on-chain with public state
+ * - **Utility functions**: Pure functions for queries and computations
+ *
+ * ContractFunctionInteraction provides a fluent interface where you can chain configuration
+ * methods like `with()` to add authorization witnesses or capsules before execution.
+ *
+ * @example
+ * ```typescript
+ * // Simple private function call
+ * const interaction = contract.methods.transfer(recipient, amount);
+ * const tx = interaction.send({ from: wallet.getAddress() });
+ * const receipt = await tx.wait();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Simulate before sending to check return value and gas
+ * const interaction = contract.methods.calculateRewards(user);
+ * const simulation = await interaction.simulate({
+ *   from: wallet.getAddress(),
+ *   fee: { estimateGas: true }
+ * });
+ *
+ * console.log('Rewards:', simulation.result);
+ * console.log('Gas estimate:', simulation.estimatedGas);
+ *
+ * // If acceptable, send the transaction
+ * if (simulation.result > threshold) {
+ *   await interaction.send({ from: wallet.getAddress() }).wait();
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Add authorization witness for cross-contract calls
+ * const authwit = await wallet.createAuthWit(from, messageHash);
+ * const interaction = contract.methods.transferFrom(from, to, amount)
+ *   .with({ authWitnesses: [authwit] });
+ *
+ * await interaction.send({ from: wallet.getAddress() }).wait();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Call a utility (view) function
+ * const balance = await contract.methods.balanceOf(owner).simulate({
+ *   from: wallet.getAddress()
+ * });
+ * console.log('Balance:', balance);
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Profile execution to analyze performance
+ * const profile = await contract.methods.complexFunction(args).profile({
+ *   from: wallet.getAddress(),
+ *   profileMode: 'gates'
+ * });
+ * console.log('Gate count:', profile.gateCount);
+ * ```
  */
 export class ContractFunctionInteraction extends BaseContractInteraction {
   constructor(

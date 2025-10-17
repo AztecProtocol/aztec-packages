@@ -9,8 +9,50 @@ import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
 
 /**
- * Base class for an interaction with a contract, be it a deployment, a function call, or a batch.
- * Implements the sequence create/simulate/send.
+ * Abstract base class for all contract interactions (deployments, function calls, batches).
+ *
+ * @remarks
+ * BaseContractInteraction provides the common foundation for interacting with contracts,
+ * implementing the standard lifecycle: create → simulate → prove → send.
+ *
+ * All contract interactions follow this pattern:
+ * 1. **Request**: Create an execution payload describing the operation
+ * 2. **Simulate**: Execute locally to get return values and gas estimates (optional)
+ * 3. **Prove**: Generate a cryptographic proof of execution (optional)
+ * 4. **Send**: Submit the transaction to the network
+ *
+ * This class handles:
+ * - Authorization witness management
+ * - Capsule (bytecode) attachment
+ * - Transaction proving and sending
+ * - Logging and error handling
+ *
+ * Concrete implementations must provide the `request()` method to generate the
+ * execution payload for their specific operation type (deployment, function call, etc.).
+ *
+ * @example
+ * ```typescript
+ * // Typical usage through concrete classes
+ * const interaction = contract.methods.transfer(recipient, amount);
+ *
+ * // Create execution request
+ * const request = await interaction.request();
+ *
+ * // Simulate (optional)
+ * const simulation = await interaction.simulate({ from: sender });
+ *
+ * // Send transaction
+ * const tx = interaction.send({ from: sender });
+ * const receipt = await tx.wait();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Prove without sending
+ * const provenTx = await interaction.prove({ from: sender });
+ * // Later, send the proven transaction
+ * const txHash = await wallet.sendTx(provenTx.tx);
+ * ```
  */
 export abstract class BaseContractInteraction {
   protected log = createLogger('aztecjs:contract_interaction');

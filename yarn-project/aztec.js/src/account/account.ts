@@ -22,14 +22,59 @@ interface AuthwitnessIntentProvider {
 }
 
 /**
- * A type defining an account, capable of both creating authwits and using them
- * to authenticate transaction execution requests.
+ * Complete account type combining account interface capabilities with intent-based authorization.
+ *
+ * @remarks
+ * The Account type extends AccountInterface with the ability to create authorization witnesses
+ * from high-level intents (function calls) rather than just pre-computed message hashes.
+ * This provides a more developer-friendly API for creating cross-contract authorizations.
+ *
+ * @example
+ * ```typescript
+ * // Create authwit from function call intent
+ * const authwit = await account.createAuthWit({
+ *   caller: dappContract.address,
+ *   call: {
+ *     to: tokenContract.address,
+ *     selector: transferSelector,
+ *     args: [recipient, amount]
+ *   }
+ * });
+ * ```
  */
 export type Account = AccountInterface & AuthwitnessIntentProvider;
 
 /**
- * An account implementation that uses authwits as an authentication mechanism
- * and can assemble transaction execution requests for an entrypoint.
+ * Base implementation of the Account interface providing authorization witness creation.
+ *
+ * @remarks
+ * BaseAccount wraps an AccountInterface and adds convenient methods for creating
+ * authorization witnesses from intents (function calls) in addition to raw message hashes.
+ * It handles the message hash computation including chain ID and version for replay protection.
+ *
+ * This class is typically used as a building block for higher-level account implementations
+ * that add additional functionality like wallet integration or transaction batching.
+ *
+ * @example
+ * ```typescript
+ * const accountInterface = new SchnorrAccountInterface(completeAddress, signingKey);
+ * const account = new BaseAccount(accountInterface);
+ *
+ * // Create authwit from message hash
+ * const authwit1 = await account.createAuthWit(messageHash);
+ *
+ * // Create authwit from function call intent
+ * const authwit2 = await account.createAuthWit({
+ *   caller: callerAddress,
+ *   call: functionCall
+ * });
+ *
+ * // Create transaction
+ * const txRequest = await account.createTxExecutionRequest(
+ *   executionPayload,
+ *   gasSettings
+ * );
+ * ```
  */
 export class BaseAccount implements Account {
   constructor(protected account: AccountInterface) {}

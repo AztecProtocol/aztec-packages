@@ -34,9 +34,40 @@ import {
 } from './interaction_options.js';
 
 /**
- * Options for deploying a contract on the Aztec network.
- * Allows specifying a contract address salt and different options to tweak contract publication
- * and initialization
+ * Configuration options for creating a deployment execution request.
+ *
+ * @remarks
+ * These options control how a contract deployment is prepared before being sent to the network.
+ * They allow fine-grained control over the deployment process, including which steps to skip
+ * and how to derive the contract address.
+ *
+ * The deployment process consists of three potential phases:
+ * 1. Contract class publication - Registers the contract bytecode and ABI on-chain
+ * 2. Contract instance publication - Registers the specific instance for public execution
+ * 3. Contract initialization - Calls the constructor to set up initial state
+ *
+ * @example
+ * ```typescript
+ * // Minimal deployment
+ * const request = await deployMethod.request();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Deterministic deployment with custom salt
+ * const request = await deployMethod.request({
+ *   contractAddressSalt: new Fr(12345),
+ *   deployer: deployerAddress
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Skip class publication if already published
+ * const request = await deployMethod.request({
+ *   skipClassPublication: true
+ * });
+ * ```
  */
 export type RequestDeployOptions = RequestInteractionOptions & {
   /** An optional salt value used to deterministically calculate the contract address. */
@@ -55,7 +86,30 @@ export type RequestDeployOptions = RequestInteractionOptions & {
 };
 
 /**
- * Extends the deployment options with the required parameters to send the transaction
+ * Configuration options for sending a contract deployment transaction.
+ *
+ * @remarks
+ * Extends RequestDeployOptions with transaction execution parameters like the sender address
+ * and fee configuration. These options are used when actually sending a deployment transaction
+ * to the network via the `send()` or `prove()` methods.
+ *
+ * @example
+ * ```typescript
+ * // Deploy with explicit sender
+ * const tx = deployMethod.send({
+ *   from: wallet.getAddress(),
+ *   fee: { estimateGas: true }
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Universal deployment (address independent of sender)
+ * const tx = deployMethod.send({
+ *   from: wallet.getAddress(),
+ *   universalDeploy: true
+ * });
+ * ```
  */
 export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
   /**
@@ -68,8 +122,32 @@ export type DeployOptions = Omit<RequestDeployOptions, 'deployer'> & {
 // TODO(@spalladino): Add unit tests for this class!
 
 /**
- * Options for simulating the deployment of a contract
- * Allows skipping certain validations and computing gas estimations
+ * Configuration options for simulating a contract deployment.
+ *
+ * @remarks
+ * Extends DeployOptions with simulation-specific settings that control validation behavior
+ * and whether to include additional metadata in the simulation results. Simulations are
+ * useful for estimating gas costs and validating deployment logic before sending the transaction.
+ *
+ * @example
+ * ```typescript
+ * // Simulate with gas estimation
+ * const result = await deployMethod.simulate({
+ *   from: wallet.getAddress(),
+ *   fee: { estimateGas: true }
+ * });
+ * console.log('Estimated gas:', result.estimatedGas);
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Simulation with relaxed validation
+ * const result = await deployMethod.simulate({
+ *   from: wallet.getAddress(),
+ *   skipTxValidation: true, // Skip nullifier checks
+ *   skipFeeEnforcement: true // Don't validate fee payment
+ * });
+ * ```
  */
 export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
   /** The fee options for the transaction. */
@@ -86,16 +164,73 @@ export type SimulateDeployOptions = Omit<DeployOptions, 'fee'> & {
 };
 
 /**
- * Contract interaction for deployment.
- * Handles class publication, instance publication, and initialization of the contract.
+ * Handles contract deployment operations including class publication, instance publication, and initialization.
  *
- * Note that for some contracts, a tx is not required as part of its "creation":
- * If there are no public functions, and if there are no initialization functions,
- * then technically the contract has already been "created", and all of the contract's
- * functions (private and utility) can be interacted-with immediately, without any
- * "deployment tx".
+ * @remarks
+ * DeployMethod orchestrates the multi-step process of deploying a contract to the Aztec network.
+ * It provides a fluent interface for configuring and executing deployments with various options.
  *
- * Extends the BaseContractInteraction class.
+ * The deployment lifecycle consists of up to three phases:
+ * 1. **Class Publication**: Registers the contract's bytecode and ABI on-chain (if not already published)
+ * 2. **Instance Publication**: Registers the specific contract instance for public execution (optional)
+ * 3. **Initialization**: Calls the contract's constructor to set up initial state (if defined)
+ *
+ * For contracts without public functions or constructors, deployment may not require an on-chain transaction.
+ * In such cases, the contract can be interacted with immediately after local registration.
+ *
+ * @typeParam TContract - The contract type that will be returned after successful deployment
+ *
+ * @example
+ * ```typescript
+ * // Standard deployment flow
+ * const deployMethod = Contract.deploy(wallet, artifact, [constructorArg1, constructorArg2]);
+ *
+ * // Send and wait for deployment
+ * const sentTx = deployMethod.send({ from: wallet.getAddress() });
+ * const receipt = await sentTx.wait();
+ * const contract = receipt.contract;
+ *
+ * // Or use the convenience method
+ * const contract = await sentTx.deployed();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Simulate before deploying
+ * const simulation = await deployMethod.simulate({
+ *   from: wallet.getAddress(),
+ *   fee: { estimateGas: true }
+ * });
+ *
+ * if (simulation.estimatedGas.gasLimits.l2Gas > threshold) {
+ *   console.warn('Deployment will be expensive!');
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Deploy with custom options
+ * const tx = deployMethod.send({
+ *   from: wallet.getAddress(),
+ *   contractAddressSalt: Fr.random(),
+ *   skipClassPublication: true, // Class already published
+ *   skipInstancePublication: false, // Need public execution
+ *   universalDeploy: false, // Include sender in address
+ *   fee: {
+ *     gasSettings: {
+ *       gasLimits: Gas.from({ l2Gas: 100000, daGas: 50000 })
+ *     }
+ *   }
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Register without deploying (for private-only contracts)
+ * const contract = await deployMethod.register();
+ * // Contract is now usable for private functions
+ * await contract.methods.privateFunction().send().wait();
+ * ```
  */
 export class DeployMethod<TContract extends ContractBase = Contract> extends BaseContractInteraction {
   /** The contract instance to be deployed. */
@@ -150,8 +285,34 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Adds this contract to the wallet and returns the Contract object.
-   * @param options - Deployment options.
+   * Registers the contract instance locally without deploying it to the network.
+   *
+   * @remarks
+   * This method is useful for contracts that don't require on-chain deployment, such as:
+   * - Contracts with only private functions
+   * - Contracts without constructors or initialization logic
+   * - Pre-deployed contracts where you just need a local interface
+   *
+   * The registered contract can be used immediately for private and utility function calls.
+   * However, public functions will fail unless the contract instance is also published on-chain.
+   *
+   * @param options - Optional deployment configuration (salt, public keys, etc.)
+   * @returns A contract instance ready for local interaction
+   *
+   * @example
+   * ```typescript
+   * // Register a private-only contract
+   * const contract = await deployMethod.register();
+   * const tx = contract.methods.privateTransfer(recipient, amount).send();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Register with specific public keys
+   * const contract = await deployMethod.register({
+   *   contractAddressSalt: customSalt
+   * });
+   * ```
    */
   public async register(options?: RequestDeployOptions): Promise<TContract> {
     const instance = await this.getInstance(options);
@@ -236,12 +397,56 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
   }
 
   /**
-   * Send a contract deployment transaction (initialize and/or publish) using the provided options.
-   * This function extends the 'send' method from the ContractFunctionInteraction class,
-   * allowing us to send a transaction specifically for contract deployment.
+   * Sends a contract deployment transaction to the network.
    *
-   * @param options - An object containing various deployment options such as contractAddressSalt and from.
-   * @returns A SentTx object that returns the receipt and the deployed contract instance.
+   * @remarks
+   * This method creates, proves, and sends the deployment transaction. The returned DeploySentTx
+   * object provides methods to wait for transaction confirmation and retrieve the deployed contract.
+   *
+   * The deployment transaction will include:
+   * - Class publication (if needed and not skipped)
+   * - Instance publication (if not skipped)
+   * - Constructor call (if defined and not skipped)
+   *
+   * @param options - Deployment configuration including sender address and fee settings
+   * @returns A DeploySentTx object for tracking the deployment transaction
+   *
+   * @throws Will throw if the contract requires a constructor but no constructor is found
+   * @throws Will throw if the transaction simulation fails
+   * @throws Will throw if the transaction is rejected by the network
+   *
+   * @example
+   * ```typescript
+   * // Basic deployment
+   * const deployTx = deployMethod.send({
+   *   from: wallet.getAddress()
+   * });
+   * const contract = await deployTx.deployed();
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Deployment with gas estimation
+   * const deployTx = deployMethod.send({
+   *   from: wallet.getAddress(),
+   *   fee: { estimateGas: true }
+   * });
+   *
+   * const receipt = await deployTx.wait();
+   * console.log('Gas used:', receipt.gasUsed);
+   * console.log('Deployed at:', receipt.contract.address);
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Deterministic deployment
+   * const salt = new Fr(123456);
+   * const deployTx = deployMethod.send({
+   *   from: wallet.getAddress(),
+   *   contractAddressSalt: salt,
+   *   universalDeploy: true // Address won't depend on sender
+   * });
+   * ```
    */
   public override send(options: DeployOptions): DeploySentTx<TContract> {
     const sendTx = () => {

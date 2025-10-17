@@ -136,7 +136,61 @@ export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods
 };
 
 /**
- * The wallet interface.
+ * The primary interface for interacting with the Aztec network.
+ *
+ * @remarks
+ * The Wallet interface provides the main API for developers to:
+ * - Deploy and interact with smart contracts
+ * - Send and simulate transactions
+ * - Manage accounts and contract instances
+ * - Create authorization witnesses for cross-contract calls
+ * - Query contract and transaction state
+ *
+ * A Wallet combines the functionality of an Aztec node connection with account management
+ * and transaction creation capabilities. It abstracts away the complexity of the Aztec
+ * protocol, providing a high-level interface similar to Web3 providers in Ethereum.
+ *
+ * Wallets handle:
+ * - **Transaction Creation**: Building, proving, and sending transactions
+ * - **Account Abstraction**: Using account contracts for flexible authentication
+ * - **Fee Management**: Handling transaction fees and gas estimation
+ * - **Contract Management**: Registering and tracking deployed contracts
+ * - **Simulation**: Testing transaction execution before sending
+ *
+ * @example
+ * ```typescript
+ * // Register a contract and interact with it
+ * const contract = await Contract.at(contractAddress, artifact, wallet);
+ * const tx = contract.methods.transfer(recipient, amount).send();
+ * const receipt = await tx.wait();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Deploy a new contract
+ * const deployTx = Contract.deploy(wallet, artifact, [constructorArg])
+ *   .send({ from: wallet.getAddress() });
+ * const contract = await deployTx.deployed();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Simulate a transaction before sending
+ * const simulation = await contract.methods.complexOperation(args)
+ *   .simulate({ from: wallet.getAddress(), fee: { estimateGas: true } });
+ *
+ * console.log('Estimated gas:', simulation.estimatedGas);
+ * console.log('Return value:', simulation.result);
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Create an authwit for cross-contract authorization
+ * const authwit = await wallet.createAuthWit(
+ *   myAddress,
+ *   { caller: callerAddress, call: functionCall }
+ * );
+ * ```
  */
 export type Wallet = {
   getContractClassMetadata(id: Fr, includeArtifact?: boolean): Promise<ContractClassMetadata>;

@@ -9,33 +9,71 @@ import { NoteStatus, type NotesFilter } from '@aztec/stdlib/note';
 import { NoteDao } from './note_dao.js';
 
 /**
- * NoteDataProvider manages the storage and retrieval of notes.
+ * Manages storage and retrieval of encrypted notes for the PXE.
  *
- * Notes can be active or nullified. This class processes new notes, nullifications,
- * and performs rollback handling in the case of a reorg.
- **/
+ * @remarks
+ * NoteDataProvider maintains a sophisticated indexing system for efficient note retrieval
+ * and privacy isolation. Notes exist in two states:
+ * - **Active**: Notes that can be spent (not yet nullified)
+ * - **Nullified**: Notes that have been spent/consumed
+ *
+ * The provider implements a scope-based architecture where each scope (typically a user account)
+ * has its own isolated set of indexes. This ensures that queries are efficient while maintaining
+ * privacy boundaries between different accounts in the same PXE.
+ *
+ * Key features:
+ * - Multi-dimensional indexing by contract, storage slot, transaction hash, and recipient
+ * - Atomic nullification operations with rollback support for chain reorganizations
+ * - Efficient filtering using compound indexes per scope
+ * - Transaction-based operations ensuring consistency
+ *
+ * Notes are indexed using their position in the note hash tree, which provides both
+ * uniqueness and a natural ordering by creation time.
+ */
 export class NoteDataProvider {
+  /** The underlying key-value store for persistence */
   #store: AztecAsyncKVStore;
 
+  /** Active notes indexed by their note hash tree index */
   #notes: AztecAsyncMap<string, Buffer>;
+  /** Nullified (spent) notes indexed by their note hash tree index */
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
+  /** Maps nullifiers to their corresponding note IDs for efficient lookup */
   #nullifierToNoteId: AztecAsyncMap<string, string>;
+  /** Tracks which nullifiers were applied in which blocks for reorg handling */
   #nullifiersByBlockNumber: AztecAsyncMultiMap<number, string>;
 
+  /** Maps nullified notes to their scopes for reorg recovery */
   #nullifiedNotesToScope: AztecAsyncMultiMap<string, string>;
+  /** Global index of nullified notes by contract address (non-scope-specific) */
   #nullifiedNotesByContract: AztecAsyncMultiMap<string, string>;
+  /** Global index of nullified notes by storage slot (non-scope-specific) */
   #nullifiedNotesByStorageSlot: AztecAsyncMultiMap<string, string>;
+  /** Global index of nullified notes by transaction hash (non-scope-specific) */
   #nullifiedNotesByTxHash: AztecAsyncMultiMap<string, string>;
+  /** Global index of nullified notes by recipient address (non-scope-specific) */
   #nullifiedNotesByRecipient: AztecAsyncMultiMap<string, string>;
+  /** Maps nullifiers directly to note IDs for nullified notes */
   #nullifiedNotesByNullifier: AztecAsyncMap<string, string>;
 
+  /** Set of all registered scopes (user accounts) */
   #scopes: AztecAsyncMap<string, true>;
+  /** Maps note IDs to their associated scopes */
   #notesToScope: AztecAsyncMultiMap<string, string>;
+  /** Per-scope index of active notes by contract address */
   #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
+  /** Per-scope index of active notes by storage slot */
   #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
+  /** Per-scope index of active notes by transaction hash */
   #notesByTxHashAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
+  /** Per-scope index of active notes by recipient address */
   #notesByRecipientAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
 
+  /**
+   * Private constructor - use create() factory method instead.
+   *
+   * @param store - The key-value store for persistence
+   */
   private constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#notes = store.openMap('notes');
@@ -104,14 +142,24 @@ export class NoteDataProvider {
   }
 
   /**
-   * Adds multiple notes to the data provider under the specified scope.
+   * Stores multiple notes under a specific scope.
    *
-   * Notes are stored using their index from the notes hash tree as the key, which provides
-   * uniqueness and maintains creation order. Each note is indexed by multiple criteria
-   * for efficient retrieval.
+   * @param notes - Array of notes to store
+   * @param scope - The scope (user account) under which to store the notes
+   * @remarks
+   * Notes are indexed using their position in the note hash tree as the key, which ensures
+   * uniqueness and maintains chronological ordering. Each note is indexed across multiple
+   * dimensions for efficient retrieval:
+   * - By contract address
+   * - By storage slot
+   * - By transaction hash
+   * - By recipient address
    *
-   * @param notes - Notes to store
-   * @param scope - The scope (user/account) under which to store the notes
+   * The operation is atomic - either all notes are stored successfully or none are.
+   * If the specified scope doesn't exist, it will be created automatically.
+   *
+   * Additionally, each note's nullifier is pre-indexed to enable efficient nullification
+   * lookup when the note is later spent.
    */
   addNotes(notes: NoteDao[], scope: AztecAddress): Promise<void> {
     return this.#store.transactionAsync(async () => {
@@ -134,14 +182,22 @@ export class NoteDataProvider {
   }
 
   /**
-   * Synchronizes notes and nullifiers to a specific block number.
+   * Rolls back note state to a specific block number after a chain reorganization.
    *
-   * This method ensures that the state of notes and nullifiers is consistent with the
-   * specified block number. It restores any notes that were nullified after the given block
-   * and deletes any active notes created after that block.
+   * @param blockNumber - The new chain tip block number (blocks after this are considered invalid)
+   * @param synchedBlockNumber - The block number the PXE had synced to before the reorg
+   * @remarks
+   * This method handles chain reorganizations by reverting note state changes:
+   * 1. **Rewinds nullifications**: Restores notes that were nullified in orphaned blocks
+   *    (blocks after blockNumber) back to active state
+   * 2. **Deletes future notes**: Permanently removes notes that were created in orphaned blocks
    *
-   * @param blockNumber - The new chain tip after a reorg
-   * @param synchedBlockNumber - The block number up to which PXE managed to sync before the reorg happened.
+   * The operation ensures the note database reflects only the canonical chain state.
+   * Both operations are performed atomically to maintain consistency.
+   *
+   * This is critical for maintaining note availability - without proper rollback, users
+   * could lose access to notes that were spent in orphaned blocks, or have access to
+   * notes that don't exist on the canonical chain.
    */
   public async rollbackNotesAndNullifiers(blockNumber: number, synchedBlockNumber: number): Promise<void> {
     await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
@@ -149,12 +205,20 @@ export class NoteDataProvider {
   }
 
   /**
-   * Deletes (removes) all active notes created after the specified block number.
+   * Permanently deletes all active notes created after a specified block number.
    *
-   * Permanently delete notes from the active notes store, e.g. during a reorg.
-   * Note: This only affects #notes (active notes), not #nullifiedNotes.
+   * @param blockNumber - Notes created after this block will be deleted
+   * @remarks
+   * This method is used during chain reorganizations to remove notes from orphaned blocks.
+   * It only affects active notes - nullified notes are not touched.
    *
-   * @param blockNumber - Notes created after this block number will be deleted
+   * For each deleted note, the method also:
+   * - Removes the note from all scope-specific indexes
+   * - Removes the nullifier-to-note mapping
+   * - Removes the note-to-scope mapping
+   *
+   * This ensures complete cleanup across all indexes, preventing orphaned index entries
+   * and maintaining storage consistency.
    */
   #deleteActiveNotesAfterBlock(blockNumber: number): Promise<void> {
     return this.#store.transactionAsync(async () => {
@@ -179,14 +243,24 @@ export class NoteDataProvider {
   }
 
   /**
-   * Rewinds nullifications after a given block number.
-   *
-   * This operation "unnullifies" notes, rolling back nullifications that occurred
-   * in orphaned blocks, e.g. during a reorg.  The notes are restored to the
-   * active notes store and removed from the nullified store.
+   * Restores notes that were nullified in orphaned blocks back to active state.
    *
    * @param blockNumber - Revert nullifications that occurred after this block
-   * @param synchedBlockNumber - Upper bound for the block range to process
+   * @param synchedBlockNumber - The highest block number to check for nullifications
+   * @remarks
+   * This method "un-nullifies" notes that were spent in blocks that are no longer
+   * part of the canonical chain due to a reorganization. The process:
+   *
+   * 1. Identifies all nullifiers applied in blocks (blockNumber + 1) through synchedBlockNumber
+   * 2. Looks up the corresponding notes using the nullifier-to-note mapping
+   * 3. Moves each note from nullified storage back to active storage
+   * 4. Restores all index entries (by contract, slot, txHash, recipient) for each scope
+   * 5. Removes all nullification-related index entries
+   *
+   * The scope associations are restored from the nullified-notes-to-scope mapping.
+   * If no scope mapping exists (old data), the note's recipient is used as the default scope.
+   *
+   * This ensures users regain access to notes that were spent in orphaned transactions.
    */
   async #rewindNullifiersAfterBlock(blockNumber: number, synchedBlockNumber: number): Promise<void> {
     await this.#store.transactionAsync(async () => {
@@ -238,15 +312,31 @@ export class NoteDataProvider {
   }
 
   /**
-   * Retrieves notes based on the provided filter criteria.
+   * Retrieves notes matching the specified filter criteria.
    *
-   * This method queries both active and optionally nullified notes based on the filter
-   * parameters.
+   * @param filter - Filter criteria for note retrieval
+   * @param filter.contractAddress - (Required) Contract address to filter by
+   * @param filter.storageSlot - (Optional) Storage slot to filter by
+   * @param filter.txHash - (Optional) Transaction hash to filter by
+   * @param filter.recipient - (Optional) Recipient address to filter by
+   * @param filter.siloedNullifier - (Optional) Specific nullifier to match
+   * @param filter.status - (Optional) Note status: ACTIVE (default) or ACTIVE_OR_NULLIFIED
+   * @param filter.scopes - (Optional) Array of scopes to search within (defaults to all scopes)
+   * @returns Array of notes matching all specified criteria
+   * @throws If scopes is an empty array (must be undefined or non-empty)
+   * @remarks
+   * This method uses a hierarchical index selection strategy for optimal performance:
+   * 1. If recipient is specified, use recipient index (most selective)
+   * 2. Else if txHash is specified, use transaction index
+   * 3. Else if storageSlot is specified, use storage slot index
+   * 4. Otherwise, use contract address index (least selective but always available)
    *
-   * @param filter - Filter criteria including contractAddress (required), and optional
-   *                 storageSlot, txHash, recipient, siloedNullifier, status, and scopes
-   * @returns Promise resolving to array of NoteDao objects matching the filter
-   * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
+   * For ACTIVE_OR_NULLIFIED queries, the method searches both active and nullified note
+   * stores, merging results while respecting scope boundaries.
+   *
+   * All filter criteria are applied in-memory after index lookup to ensure exact matches.
+   * This two-stage approach (index lookup + in-memory filtering) balances query performance
+   * with flexibility.
    */
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
     filter.status = filter.status ?? NoteStatus.ACTIVE;
@@ -365,15 +455,29 @@ export class NoteDataProvider {
   }
 
   /**
-   * Transitions notes from "active" to "nullified" state.
+   * Marks notes as spent by applying their nullifiers.
    *
-   * This operation processes a batch of nullifiers to mark the corresponding notes
-   * as spent/nullified.  The operation is atomic - if any nullifier is not found,
-   * the entire operation fails and no notes are modified.
+   * @param nullifiers - Array of nullifiers with their block numbers
+   * @returns Array of notes that were nullified
+   * @throws If a nullifier is not found in active notes, or if it was already nullified
+   * @remarks
+   * This method atomically transitions notes from active to nullified state when they
+   * are spent in a transaction. The process:
    *
-   * @param nullifiers - Array of nullifiers with their block numbers to process
-   * @returns Promise resolving to array of nullified NoteDao objects
-   * @throws Error if any nullifier is not found in the active notes
+   * 1. For each nullifier, looks up the corresponding note using the nullifier-to-note mapping
+   * 2. Validates the note exists and hasn't already been nullified
+   * 3. Removes the note from active storage and all active indexes
+   * 4. Adds the note to nullified storage with new indexes
+   * 5. Records the block number for potential reorg handling
+   *
+   * The entire operation is atomic - if any nullifier fails validation, no notes are modified.
+   * This ensures consistency and prevents partial application of nullifiers.
+   *
+   * Nullified notes maintain separate indexes (by contract, slot, txHash, recipient, nullifier)
+   * to support queries for spent notes, which is useful for transaction history and auditing.
+   *
+   * The nullifier-to-note mapping is removed after successful nullification to prevent
+   * accidental re-use of the same nullifier.
    */
   applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {

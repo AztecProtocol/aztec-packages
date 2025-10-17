@@ -15,9 +15,37 @@ import {
 } from '@aztec/stdlib/abi';
 
 /**
- * Returns the corresponding typescript type for a given Noir type.
- * @param type - The input Noir type.
- * @returns An equivalent typescript type.
+ * Converts a Noir ABI type to its corresponding TypeScript type representation.
+ *
+ * @remarks
+ * This function maps Noir's type system to TypeScript types that are compatible with
+ * Aztec's contract interaction layer. The conversion handles:
+ * - Primitive types (field, boolean, integer, string)
+ * - Arrays and nested arrays
+ * - Structs, including special Aztec types (addresses, function selectors)
+ * - BoundedVec (converted to simple arrays for easier TypeScript usage)
+ *
+ * Special struct types recognized:
+ * - `EthAddress` → `EthAddressLike`
+ * - `AztecAddress` → `AztecAddressLike`
+ * - `FunctionSelector` → `FunctionSelectorLike`
+ * - `WrappedField` → `WrappedFieldLike`
+ * - `BoundedVec<T>` → `T[]` (simplified for TypeScript)
+ *
+ * @param type - The Noir ABI parameter type to convert
+ * @returns A TypeScript type string that can be used in generated code
+ *
+ * @example
+ * ```typescript
+ * // Noir field type becomes FieldLike
+ * abiTypeToTypescript({ kind: 'field' }) // Returns: 'FieldLike'
+ *
+ * // Noir array becomes TypeScript array
+ * abiTypeToTypescript({
+ *   kind: 'array',
+ *   type: { kind: 'integer' }
+ * }) // Returns: '(bigint | number)[]'
+ * ```
  */
 function abiTypeToTypescript(type: ABIParameter['type']): string {
   switch (type.kind) {
@@ -56,18 +84,34 @@ function abiTypeToTypescript(type: ABIParameter['type']): string {
 }
 
 /**
- * Generates the typescript code to represent a Noir parameter.
- * @param param - A Noir parameter with name and type.
- * @returns The corresponding ts code.
+ * Generates TypeScript parameter declaration from a Noir ABI parameter.
+ *
+ * @remarks
+ * Creates a typed parameter string suitable for use in function signatures.
+ * The parameter name and type are both derived from the Noir ABI.
+ *
+ * @param param - A Noir ABI parameter with name and type information
+ * @returns TypeScript parameter declaration (e.g., "amount: FieldLike")
  */
 function generateParameter(param: ABIParameter) {
   return `${param.name}: ${abiTypeToTypescript(param.type)}`;
 }
 
 /**
- * Generates the typescript code to represent a Noir function as a type.
- * @param param - A Noir function.
- * @returns The corresponding ts code.
+ * Generates a TypeScript method signature for a contract function.
+ *
+ * @remarks
+ * Creates a method signature with:
+ * - JSDoc comment describing the function and its parameters
+ * - Typed parameters matching the Noir function signature
+ * - Return type of `ContractFunctionInteraction` for transaction building
+ * - Access to the function's selector via `Pick<ContractMethod, 'selector'>`
+ *
+ * The generated methods are used to create type-safe contract interactions,
+ * allowing developers to call contract functions with full TypeScript support.
+ *
+ * @param entry - The Noir function ABI information
+ * @returns TypeScript method signature as a string
  */
 function generateMethod(entry: FunctionAbi) {
   const args = entry.parameters.map(generateParameter).join(', ');
@@ -77,9 +121,45 @@ function generateMethod(entry: FunctionAbi) {
 }
 
 /**
- * Generates a deploy method for this contract.
- * @param input - Build artifact of the contract.
- * @returns A type-safe deploy method in ts.
+ * Generates deployment methods for a contract class.
+ *
+ * @remarks
+ * Creates three static deployment methods:
+ * 1. `deploy(wallet, ...args)` - Standard deployment with default public keys
+ * 2. `deployWithPublicKeys(publicKeys, wallet, ...args)` - Deploy with custom public keys for address derivation
+ * 3. `deployWithOpts(opts, ...args)` - Advanced deployment with method selection and custom keys
+ *
+ * All deployment methods:
+ * - Accept the contract's constructor arguments
+ * - Return a `DeployMethod` that can be sent, simulated, or proved
+ * - Automatically handle contract class and instance publication
+ * - Support both private and public constructors
+ *
+ * The contract address is deterministically derived from the public keys, contract class,
+ * constructor arguments, and deployment salt.
+ *
+ * @param input - The contract artifact containing constructor information
+ * @returns TypeScript code for the three deployment methods
+ *
+ * @example
+ * Generated code allows usage like:
+ * ```typescript
+ * // Standard deployment
+ * const contract = await TokenContract.deploy(wallet, name, symbol, decimals)
+ *   .send()
+ *   .deployed();
+ *
+ * // Deployment with custom public keys
+ * const contract = await TokenContract.deployWithPublicKeys(publicKeys, wallet, name, symbol, decimals)
+ *   .send()
+ *   .deployed();
+ *
+ * // Deployment with custom constructor method
+ * const contract = await TokenContract.deployWithOpts(
+ *   { wallet, method: 'public_constructor', publicKeys },
+ *   ...args
+ * ).send().deployed();
+ * ```
  */
 function generateDeploy(input: ContractArtifact) {
   const ctor = getDefaultInitializer(input);
@@ -122,10 +202,19 @@ function generateDeploy(input: ContractArtifact) {
 }
 
 /**
- * Generates the constructor by supplying the ABI to the parent class so the user doesn't have to.
- * @param name - Name of the contract to derive the ABI name from.
- * @returns A constructor method.
- * @remarks The constructor is private because we want to force the user to use the create method.
+ * Generates a private constructor for the contract class.
+ *
+ * @remarks
+ * The constructor is private to enforce the factory pattern - users must use:
+ * - `ContractName.at()` to connect to existing deployed contracts
+ * - `ContractName.deploy()` to deploy new contracts
+ *
+ * This ensures contracts are always properly registered with the wallet's PXE
+ * before use. The constructor automatically passes the contract artifact to
+ * the base class, so users don't need to provide it.
+ *
+ * @param name - Name of the contract to derive artifact variable names
+ * @returns TypeScript constructor code
  */
 function generateConstructor(name: string) {
   return `
@@ -139,10 +228,29 @@ function generateConstructor(name: string) {
 }
 
 /**
- * Generates the at method for this contract.
- * @param name - Name of the contract to derive the ABI name from.
- * @returns An at method.
- * @remarks We don't use constructor directly because of the async `wallet.getContractData` call.
+ * Generates the static `at()` factory method for connecting to deployed contracts.
+ *
+ * @remarks
+ * The `at()` method is the standard way to create a contract instance for an already-deployed
+ * contract. It performs the following:
+ * 1. Registers the contract with the wallet's PXE (if not already registered)
+ * 2. Retrieves contract instance data from the network
+ * 3. Creates a typed contract wrapper ready for method calls
+ *
+ * This is an async method (unlike the constructor) because it needs to fetch contract
+ * data from the network and register it with the PXE.
+ *
+ * @param name - Name of the contract to derive type and artifact names
+ * @returns TypeScript code for the `at()` method
+ *
+ * @example
+ * Generated code allows usage like:
+ * ```typescript
+ * const contract = await TokenContract.at(
+ *   AztecAddress.fromString('0x123...'),
+ *   wallet
+ * );
+ * ```
  */
 function generateAt(name: string) {
   return `
@@ -161,8 +269,24 @@ function generateAt(name: string) {
 }
 
 /**
- * Generates static getters for the contract's artifact.
- * @param name - Name of the contract used to derive name of the artifact import.
+ * Generates static artifact getter methods.
+ *
+ * @remarks
+ * Creates two static getters:
+ * 1. `artifact` - Returns the full contract artifact with private bytecode
+ * 2. `artifactForPublic` - Returns the artifact with only public bytecode (for public-only deployments)
+ *
+ * The artifact contains:
+ * - Contract ABI (function signatures, parameter types)
+ * - Compiled bytecode (for private and public functions)
+ * - Contract metadata (name, version, events)
+ * - Storage layout information
+ *
+ * These getters allow access to the artifact without instantiating the contract,
+ * useful for tools and utilities that need to inspect contract metadata.
+ *
+ * @param name - Name of the contract used to derive artifact variable names
+ * @returns TypeScript code for the artifact getter methods
  */
 function generateArtifactGetters(name: string) {
   const artifactName = `${name}ContractArtifact`;
@@ -184,10 +308,20 @@ function generateArtifactGetters(name: string) {
 }
 
 /**
- * Generates statements for importing the artifact from json and re-exporting it.
- * @param name - Name of the contract.
- * @param artifactImportPath - Path to load the ABI from.
- * @returns Code.
+ * Generates import and export statements for the contract artifact.
+ *
+ * @remarks
+ * Creates two statements:
+ * 1. Imports the JSON artifact from the compiled contract file
+ * 2. Exports a processed artifact loaded via `loadContractArtifact()`
+ *
+ * The `loadContractArtifact()` function validates and transforms the raw Noir
+ * compilation output into Aztec's ContractArtifact format, which includes
+ * additional metadata and standardized structures.
+ *
+ * @param name - Name of the contract (used to generate variable names)
+ * @param artifactImportPath - Relative path to the JSON artifact file
+ * @returns TypeScript import and export statements
  */
 function generateAbiStatement(name: string, artifactImportPath: string) {
   const stmts = [
@@ -198,8 +332,23 @@ function generateAbiStatement(name: string, artifactImportPath: string) {
 }
 
 /**
- * Generates a getter for the contract's storage layout.
- * @param input - The contract artifact.
+ * Generates a static getter for the contract's storage layout.
+ *
+ * @remarks
+ * Creates a typed getter that exposes the storage slots used by the contract's state variables.
+ * The storage layout maps variable names to their storage slot information, which is needed for:
+ * - Direct storage reads via the PXE or node
+ * - Storage proofs and verification
+ * - Debugging and state inspection
+ * - Advanced contract interactions
+ *
+ * Each storage entry contains the slot number as a `Fr` (field element), which is the
+ * actual storage location on the Aztec network.
+ *
+ * Returns an empty string if the contract has no storage variables.
+ *
+ * @param input - The contract artifact containing storage layout information
+ * @returns TypeScript code for the storage layout getter, or empty string if no storage
  */
 function generateStorageLayoutGetter(input: ContractArtifact) {
   const entries = Object.entries(input.storageLayout);
@@ -226,7 +375,25 @@ function generateStorageLayoutGetter(input: ContractArtifact) {
     `;
 }
 
-// events is of type AbiType
+/**
+ * Generates event type definitions and a static events getter.
+ *
+ * @remarks
+ * Processes contract events and generates:
+ * 1. TypeScript type definitions for each event (with typed fields)
+ * 2. A static `events` getter that provides:
+ *    - Event ABI types for decoding
+ *    - Event selectors for filtering logs
+ *    - Field names for event data access
+ *
+ * The generated event metadata is used by the Aztec SDK to:
+ * - Decode event data from transaction receipts
+ * - Filter events by selector when querying logs
+ * - Provide type-safe access to event fields
+ *
+ * @param events - Array of event definitions from the contract artifact, or undefined if no events
+ * @returns Object containing event type definitions and the events getter code
+ */
 async function generateEvents(events: any[] | undefined) {
   if (events === undefined) {
     return { events: '', eventDefs: '' };
@@ -277,10 +444,72 @@ async function generateEvents(events: any[] | undefined) {
 }
 
 /**
- * Generates the typescript code to represent a contract.
- * @param input - The compiled Noir artifact.
- * @param artifactImportPath - Optional path to import the artifact (if not set, will be required in the constructor).
- * @returns The corresponding ts code.
+ * Generates a complete TypeScript contract class from a Noir contract artifact.
+ *
+ * @remarks
+ * This is the main code generation function that produces a full TypeScript contract wrapper.
+ * The generated class extends `ContractBase` and provides:
+ *
+ * **Static Methods:**
+ * - `deploy()` - Deploy new contract instance with default keys
+ * - `deployWithPublicKeys()` - Deploy with custom public keys
+ * - `deployWithOpts()` - Advanced deployment with method selection
+ * - `at()` - Connect to existing deployed contract
+ * - `artifact` getter - Access contract artifact
+ * - `storage` getter - Access storage layout (if contract has storage)
+ * - `events` getter - Access event metadata (if contract has events)
+ *
+ * **Instance Properties:**
+ * - `methods` - Type-safe wrappers for all contract functions
+ *
+ * **Type Safety:**
+ * All generated methods have full TypeScript type information, including:
+ * - Parameter types (mapped from Noir types to TypeScript)
+ * - Return types (ContractFunctionInteraction for transaction building)
+ * - Event types (typed fields for event data)
+ *
+ * **Usage Patterns:**
+ * The generated contracts follow Aztec's standard patterns:
+ * - Use `.send()` to send transactions
+ * - Use `.simulate()` to simulate execution without sending
+ * - Use `.prove()` to generate proofs without sending
+ * - Chain `.wait()` or `.deployed()` to wait for confirmation
+ *
+ * @param input - The Aztec contract artifact (transformed from Noir compilation output)
+ * @param artifactImportPath - Optional relative path to import the JSON artifact.
+ *                              If provided, generates a complete standalone contract class.
+ *                              If omitted, generates only the interface (artifact must be provided externally).
+ * @returns TypeScript code as a string, ready to be written to a .ts file
+ *
+ * @example
+ * ```typescript
+ * const artifact = loadContractArtifact(compiledContract);
+ * const tsCode = await generateTypescriptContractInterface(
+ *   artifact,
+ *   '../artifacts/Token.json'
+ * );
+ * await writeFile('Token.ts', tsCode);
+ * ```
+ *
+ * @example
+ * Generated code enables usage like:
+ * ```typescript
+ * // Deploy a new contract
+ * const token = await TokenContract.deploy(wallet, 'My Token', 'MTK', 18)
+ *   .send()
+ *   .deployed();
+ *
+ * // Connect to existing contract
+ * const existing = await TokenContract.at(address, wallet);
+ *
+ * // Call contract methods
+ * const balance = await token.methods.balance_of(owner).simulate();
+ * await token.methods.transfer(recipient, amount).send().wait();
+ *
+ * // Access metadata
+ * const artifact = TokenContract.artifact;
+ * const events = TokenContract.events;
+ * ```
  */
 export async function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
   const methods = getAllFunctionAbis(input)

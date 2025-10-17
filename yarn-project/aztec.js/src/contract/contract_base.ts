@@ -29,7 +29,36 @@ export type ContractStorageLayout<T extends string> = {
 };
 
 /**
- * Abstract implementation of a contract extended by the Contract class and generated contract types.
+ * Base class for contract wrappers, providing core functionality for contract interaction.
+ *
+ * @remarks
+ * ContractBase serves as the foundation for both the generic Contract class and generated
+ * typed contract classes. It provides:
+ * - Automatic method generation from contract ABI
+ * - Address and instance management
+ * - Wallet connection and switching
+ *
+ * Each function in the contract's ABI is automatically converted into a callable method
+ * on the `methods` object. These methods return ContractFunctionInteraction instances
+ * that can be used to send, simulate, or prove transactions.
+ *
+ * This class is typically not instantiated directly. Instead, use:
+ * - `Contract.at()` for generic contract interaction
+ * - Generated contract types for type-safe interaction
+ *
+ * @example
+ * ```typescript
+ * // Through Contract class
+ * const contract = await Contract.at(address, artifact, wallet);
+ * await contract.methods.myFunction(arg1, arg2).send();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Through generated types (recommended for type safety)
+ * const typedContract = await MyContract.at(address, wallet);
+ * await typedContract.methods.myFunction(arg1, arg2).send();
+ * ```
  */
 export class ContractBase {
   /**

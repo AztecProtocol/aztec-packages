@@ -8,8 +8,76 @@ import { deriveKeys } from '@aztec/stdlib/keys';
 import type { AccountInterface } from './interface.js';
 
 /**
- * An account contract instance. Knows its artifact, deployment arguments, how to create
- * transaction execution requests out of function calls, and how to authorize actions.
+ * Defines a deployable account contract with custom authentication and transaction handling logic.
+ *
+ * @remarks
+ * AccountContract is the primary interface for implementing custom account contracts in Aztec.
+ * It encapsulates all aspects of account contract deployment and usage:
+ *
+ * - **Contract Metadata**: Artifact, initialization parameters
+ * - **Account Interface Creation**: Factory for AccountInterface instances
+ * - **Authorization**: Witness provider for signing operations
+ *
+ * Account contracts enable account abstraction, allowing developers to implement custom:
+ * - Authentication schemes (single-sig, multi-sig, social recovery, biometrics, etc.)
+ * - Transaction validation logic
+ * - Fee payment strategies
+ * - Session key management
+ * - Spending limits and guardrails
+ *
+ * Common account contract implementations:
+ * - Schnorr signature accounts (single key)
+ * - ECDSA accounts (Ethereum-compatible)
+ * - Multi-signature accounts
+ * - Timelock accounts
+ * - Recoverable accounts
+ *
+ * @example
+ * ```typescript
+ * class SchnorrAccountContract implements AccountContract {
+ *   constructor(private signingKey: GrumpkinPrivateKey) {}
+ *
+ *   async getContractArtifact() {
+ *     return SchnorrAccountContractArtifact;
+ *   }
+ *
+ *   async getInitializationFunctionAndArgs() {
+ *     const signingPubKey = derivePublicKey(this.signingKey);
+ *     return {
+ *       constructorName: 'constructor',
+ *       constructorArgs: [signingPubKey]
+ *     };
+ *   }
+ *
+ *   getInterface(address: CompleteAddress, chainInfo: ChainInfo): AccountInterface {
+ *     return new SchnorrAccountInterface(address, this.signingKey, chainInfo);
+ *   }
+ *
+ *   getAuthWitnessProvider(address: CompleteAddress): AuthWitnessProvider {
+ *     return new SchnorrAuthWitnessProvider(this.signingKey);
+ *   }
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Multi-signature account contract
+ * class MultiSigAccountContract implements AccountContract {
+ *   constructor(
+ *     private signers: GrumpkinPrivateKey[],
+ *     private threshold: number
+ *   ) {}
+ *
+ *   async getInitializationFunctionAndArgs() {
+ *     const signerPubKeys = this.signers.map(derivePublicKey);
+ *     return {
+ *       constructorName: 'constructor',
+ *       constructorArgs: [signerPubKeys, this.threshold]
+ *     };
+ *   }
+ *   // ... other methods
+ * }
+ * ```
  */
 export interface AccountContract {
   /**

@@ -36,8 +36,68 @@ export type DeployAccountOptions = Omit<DeployOptions, 'contractAddressSalt' | '
 export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contractAddressSalt'>;
 
 /**
- * Modified version of the DeployMethod used to deploy account contracts. Supports deploying
- * contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
+ * Specialized deployment method for account contracts with support for self-paying deployments.
+ *
+ * @remarks
+ * DeployAccountMethod extends DeployMethod with account-specific features:
+ *
+ * - **Self-Paying Deployment**: Account contracts can pay for their own deployment fees
+ * - **Universal Deployment**: Always deployed as universally deployable (sender-independent address)
+ * - **Preconfigured Options**: Sensible defaults for account deployment
+ *
+ * Account contracts in Aztec implement account abstraction, allowing custom authentication
+ * and transaction validation logic. This deployment method handles the special requirements
+ * of deploying such contracts, including the ability for an account to pay its own deployment
+ * fees through the account's entrypoint.
+ *
+ * Key differences from regular DeployMethod:
+ * 1. Always uses universal deployment (sender-independent addresses)
+ * 2. Can route fee payment through the account's entrypoint
+ * 3. Defaults to skipping class and instance publication for privacy
+ *
+ * @typeParam TContract - The account contract type being deployed
+ *
+ * @example
+ * ```typescript
+ * // Deploy account contract with external fee payer
+ * const manager = await AccountManager.create(wallet, secretKey, accountContract);
+ * const deployMethod = await manager.getDeployMethod();
+ *
+ * const tx = deployMethod.send({
+ *   from: deployerAddress, // External deployer pays fees
+ * });
+ * await tx.deployed();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Self-paying deployment (account pays for itself)
+ * const manager = await AccountManager.create(wallet, secretKey, accountContract);
+ * const deployMethod = await manager.getDeployMethod();
+ *
+ * // Fund the account address with FeeJuice first
+ * const accountAddress = manager.address;
+ * await fundAccountWithFeeJuice(accountAddress);
+ *
+ * // Account deploys and pays for itself
+ * const tx = deployMethod.send({
+ *   from: accountAddress,
+ *   fee: { paymentMethod: new FeeJuicePaymentMethod(accountAddress) }
+ * });
+ * await tx.deployed();
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Deploy with custom options
+ * const deployMethod = await manager.getDeployMethod();
+ * const tx = deployMethod.send({
+ *   from: deployerAddress,
+ *   skipClassPublication: false, // Publish class
+ *   skipInstancePublication: false, // Publish instance
+ *   skipInitialization: false, // Call constructor
+ * });
+ * ```
  */
 export class DeployAccountMethod<TContract extends ContractBase = Contract> extends DeployMethod<TContract> {
   constructor(

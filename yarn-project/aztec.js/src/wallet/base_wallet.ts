@@ -69,7 +69,46 @@ export type FeeOptions = {
 };
 
 /**
- * A base class for Wallet implementations
+ * Abstract base class providing common wallet functionality for Aztec network interactions.
+ *
+ * @remarks
+ * BaseWallet implements the core Wallet interface, handling:
+ * - Transaction execution and simulation
+ * - Fee payment method management
+ * - Gas estimation and limit configuration
+ * - Contract registration and metadata retrieval
+ * - Authorization witness creation
+ * - Batch operation execution
+ *
+ * This class serves as the foundation for concrete wallet implementations, which must
+ * provide account-specific functionality such as account retrieval and authentication.
+ *
+ * The wallet manages the connection to both:
+ * - A PXE (Private Execution Environment) for private transaction simulation and proving
+ * - An Aztec node for sending transactions and querying network state
+ *
+ * Implementers should extend this class and implement the abstract methods to provide
+ * account management capabilities specific to their wallet type.
+ *
+ * @example
+ * ```typescript
+ * class MyWallet extends BaseWallet {
+ *   constructor(pxe: PXE, node: AztecNode, private account: Account) {
+ *     super(pxe, node);
+ *   }
+ *
+ *   protected async getAccountFromAddress(address: AztecAddress): Promise<Account> {
+ *     if (!address.equals(this.account.getAddress())) {
+ *       throw new Error('Account not found');
+ *     }
+ *     return this.account;
+ *   }
+ *
+ *   async getAccounts(): Promise<Aliased<AztecAddress>[]> {
+ *     return [{ item: this.account.getAddress(), alias: 'my-account' }];
+ *   }
+ * }
+ * ```
  */
 export abstract class BaseWallet implements Wallet {
   protected log = createLogger('aztecjs:base_wallet');

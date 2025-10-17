@@ -6,7 +6,13 @@ import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
 
-/** Options related to waiting for a tx. */
+/**
+ * Configuration options for waiting for a transaction to be mined.
+ *
+ * @remarks
+ * These options control the timeout behavior and retry logic when waiting for transaction
+ * confirmation. They help handle network delays and transaction propagation across nodes.
+ */
 export type WaitOpts = {
   /** The amount of time to ignore TxStatus.DROPPED receipts (in seconds) due to the presumption that it is being propagated by the p2p network. Defaults to 5. */
   ignoreDroppedReceiptsFor?: number;
@@ -25,8 +31,54 @@ export const DefaultWaitOpts: WaitOpts = {
 };
 
 /**
- * The SentTx class represents a sent transaction through the PXE (or directly to a node) providing methods to fetch
- * its hash, receipt, and mining status.
+ * Represents a transaction that has been sent to the Aztec network.
+ *
+ * @remarks
+ * SentTx provides methods to track a transaction's progress through the network, from initial
+ * submission to final confirmation. It handles the asynchronous nature of blockchain transactions
+ * and provides a convenient interface for waiting and retrieving results.
+ *
+ * The class manages transaction lifecycle states:
+ * - PENDING: Transaction submitted but not yet mined
+ * - DROPPED: Transaction rejected or removed from mempool
+ * - SUCCESS: Transaction successfully mined and executed
+ * - REVERTED: Transaction mined but execution failed
+ *
+ * @example
+ * ```typescript
+ * // Send a transaction and wait for confirmation
+ * const sentTx = contract.methods.transfer(recipient, amount).send();
+ * const receipt = await sentTx.wait();
+ *
+ * if (receipt.status === TxStatus.SUCCESS) {
+ *   console.log('Transaction successful!');
+ * }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Get transaction hash immediately
+ * const sentTx = contract.methods.mint(amount).send();
+ * const txHash = await sentTx.getTxHash();
+ * console.log('Transaction submitted:', txHash.toString());
+ *
+ * // Wait with custom timeout
+ * const receipt = await sentTx.wait({
+ *   timeout: 120, // 2 minutes
+ *   interval: 2   // Check every 2 seconds
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Handle reverts gracefully
+ * const sentTx = contract.methods.riskyOperation().send();
+ * const receipt = await sentTx.wait({ dontThrowOnRevert: true });
+ *
+ * if (receipt.status === TxStatus.REVERTED) {
+ *   console.error('Transaction reverted:', receipt.error);
+ * }
+ * ```
  */
 export class SentTx {
   protected sendTxPromise: Promise<void>;
