@@ -1,6 +1,6 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
-import { IMsgpackBackendSync } from './interface.js';
+import { IMsgpackBackendSync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
 function getCurrentFile() {

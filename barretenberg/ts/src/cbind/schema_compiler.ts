@@ -34,7 +34,7 @@ export interface FunctionMetadata {
 
 // Compiler configuration
 export interface CompilerConfig {
-  mode: 'types' | 'sync' | 'async' | 'native';
+  mode: 'types' | 'sync' | 'async';
   imports?: string[];
   wasmImport?: string;
 }
@@ -603,10 +603,6 @@ ${methods}
     const className = this.getApiClassName();
     const methods = this.functionMetadata.map(m => this.generateApiMethod(m)).join('\n\n');
 
-    if (this.config.mode === 'native') {
-      return this.generateNativeApiClass(methods);
-    }
-
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
 
@@ -643,8 +639,6 @@ ${destroyMethod}
         return 'SyncApi';
       case 'async':
         return 'AsyncApi';
-      case 'native':
-        return 'NativeApi';
       default:
         throw new Error(`Invalid mode: ${this.config.mode}`);
     }
@@ -663,18 +657,6 @@ ${destroyMethod}
 
   private generateApiMethod(metadata: FunctionMetadata): string {
     const { name, commandType, responseType } = metadata;
-
-    if (this.config.mode === 'native') {
-      return `  ${name}(command: ${commandType}): Promise<${responseType}> {
-    const msgpackCommand = from${commandType}(command);
-    return this.sendCommand(['${metadata.commandType}', msgpackCommand]).then(([variantName, result]: [string, any]) => {
-      if (variantName !== '${responseType}') {
-        throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
-      }
-      return to${responseType}(result);
-    });
-  }`;
-    }
 
     // For async mode, queue immediately and return promise
     if (this.config.mode === 'async') {
@@ -699,124 +681,6 @@ ${destroyMethod}
     return to${responseType}(result);
   }`;
   }
-
-  private generateNativeApiClass(methods: string): string {
-    return `interface NativeApiRequest {
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
-}
-
-class StreamBuffer {
-  private buffer = Buffer.alloc(0);
-  private expectedLength: number | null = null;
-
-  addData(data: Buffer): Buffer[] {
-    // Create buffer to grow as needed
-    const newBuffer = Buffer.allocUnsafe(this.buffer.length + data.length);
-    this.buffer.copy(newBuffer, 0);
-    data.copy(newBuffer, this.buffer.length);
-    this.buffer = newBuffer;
-
-    const messages: Buffer[] = [];
-
-    while (true) {
-      if (this.expectedLength === null) {
-        if (this.buffer.length < 4) break;
-        this.expectedLength = this.buffer.readUInt32LE(0);
-        this.buffer = this.buffer.subarray(4);
-      }
-
-      if (this.buffer.length < this.expectedLength) break;
-
-      // Extract complete message
-      const messageBuffer = this.buffer.subarray(0, this.expectedLength);
-      messages.push(messageBuffer);
-      this.buffer = this.buffer.subarray(this.expectedLength);
-      this.expectedLength = null;
-    }
-
-    return messages;
-  }
-}
-
-export class NativeApi implements BbApiBase {
-  private decoder = new Decoder({ useRecords: false });
-  private encoder = new Encoder({ useRecords: false });
-  private pendingRequests: NativeApiRequest[] = [];
-
-  private constructor(private proc: ChildProcess) {}
-
-  static async new(bbPath = 'bb', logger = console.log): Promise<NativeApi> {
-    const proc = spawn(bbPath, ['msgpack', 'run'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    if (!proc.stdout || !proc.stdin) {
-      throw new Error('Failed to initialize bb process');
-    }
-
-    const api = new NativeApi(proc);
-    const streamBuffer = new StreamBuffer();
-
-    proc.stdout.on('data', (data: Buffer) => {
-      const messages = streamBuffer.addData(data);
-
-      for (const messageBuffer of messages) {
-        const pendingRequest = api.pendingRequests.shift();
-        if (!pendingRequest) {
-          throw new Error('Received response without a pending request');
-        }
-
-        try {
-          const decoded = api.decoder.decode(messageBuffer);
-          if (!Array.isArray(decoded) || decoded.length !== 2) {
-            throw new Error(\`Invalid response format: \${JSON.stringify(decoded)}\`);
-          }
-          const [variantName, result] = decoded;
-          pendingRequest.resolve([variantName, result]);
-        } catch (error) {
-          pendingRequest.reject(error);
-          break;
-        }
-      }
-    });
-
-    proc.stderr.on('data', (data: Buffer) => {
-      logger(data.toString().trim());
-    });
-
-    proc.on('error', err => {
-      throw new Error(err.message);
-    });
-    return api;
-  }
-
-  private sendCommand(command: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.push({ resolve, reject });
-      const encoded = this.encoder.encode(command);
-
-      // Write length prefix (4 bytes, little-endian)
-      const lengthBuffer = Buffer.allocUnsafe(4);
-      lengthBuffer.writeUInt32LE(encoded.length, 0);
-
-      // Write length prefix followed by the encoded data
-      this.proc.stdin!.write(lengthBuffer);
-      this.proc.stdin!.write(encoded);
-    });
-  }
-
-  async close(): Promise<void> {
-    this.proc.kill();
-  }
-
-  destroy(): Promise<void> {
-    return this.close();
-  }
-
-${methods}
-}`;
-  }
 }
 
 // Factory methods for creating configured compilers
@@ -831,7 +695,7 @@ export function createSyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'sync',
     imports: [
-      `import { IMsgpackBackendSync } from '../../backend/interface.js';`,
+      `import { IMsgpackBackendSync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
     ],
   });
@@ -841,15 +705,8 @@ export function createAsyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'async',
     imports: [
-      `import { IMsgpackBackendAsync } from '../../backend/interface.js';`,
+      `import { IMsgpackBackendAsync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
     ],
-  });
-}
-
-export function createNativeApiCompiler(): SchemaCompiler {
-  return new SchemaCompiler({
-    mode: 'native',
-    imports: [`import { spawn, ChildProcess } from 'child_process';`, `import { Decoder, Encoder } from 'msgpackr';`],
   });
 }

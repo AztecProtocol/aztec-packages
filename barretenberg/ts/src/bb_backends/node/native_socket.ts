@@ -3,7 +3,7 @@ import * as net from 'net';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { IMsgpackBackendAsync } from './interface.js';
+import { IMsgpackBackendAsync } from '../interface.js';
 import { findPackageRoot } from './platform.js';
 
 /**

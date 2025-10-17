@@ -1,6 +1,6 @@
 import { spawn, ChildProcess } from 'child_process';
 import * as fs from 'fs';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
+import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../interface.js';
 
 /**
  * Asynchronous native backend that communicates with bb binary via stdin/stdout.

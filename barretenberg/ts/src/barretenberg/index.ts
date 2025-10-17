@@ -2,64 +2,13 @@ import { Crs, GrumpkinCrs } from '../crs/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
 import { SyncApi } from '../cbind/generated/sync.js';
-import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../backend/interface.js';
-import { BarretenbergNativeSocketAsyncBackend } from '../backend/native_socket.js';
-import { BarretenbergWasmSyncBackend, BarretenbergWasmAsyncBackend } from '../backend/wasm.js';
-import { BarretenbergNativeShmSyncBackend } from '../backend/native_shm.js';
-import { SyncToAsyncAdapter } from '../backend/sync_to_async_adapter.js';
-import { findBbBinary, findNapiBinary } from '../backend/platform.js';
+import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
+import { findBbBinary, findNapiBinary } from '../bb_backends/node/platform.js';
+import { BackendOptions, BackendType } from '../bb_backends/index.js';
+import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
-
-/**
- * Backend types for Barretenberg
- */
-export enum BackendType {
-  /** WASM direct execution (no worker) */
-  Wasm = 'wasm',
-  /** WASM with worker threads */
-  WasmWorker = 'wasm-worker',
-  /** Native via Unix domain socket (async only) */
-  NativeUnixSocket = 'native-unix-socket',
-  /** Native via shared memory (sync only currently) */
-  NativeSharedMemory = 'native-shared-mem',
-}
-
-export type BackendOptions = {
-  /** @description Number of threads to run the backend worker on */
-  threads?: number;
-
-  /** @description Initial and Maximum memory to be alloted to the backend worker */
-  memory?: { initial?: number; maximum?: number };
-
-  /** @description Path to download CRS files */
-  crsPath?: string;
-
-  /** @description Path to download WASM files */
-  wasmPath?: string;
-
-  /** @description Custom path to bb binary for native backend (overrides automatic detection) */
-  bbPath?: string;
-
-  /** @description Logging function */
-  logger?: (msg: string) => void;
-
-  /**
-   * @description Maximum concurrent clients for shared memory IPC server (default: 1)
-   * Only applies to NativeSharedMemory backend
-   */
-  maxClients?: number;
-
-  /**
-   * @description Specify exact backend to use
-   * - If unset: tries backends in default order with fallback
-   * - If set: must succeed with specified backend or throw error (no fallback)
-   *
-   * Barretenberg (async) supports: all types
-   * BarretenbergSync supports: Wasm, NativeSharedMem only
-   */
-  backend?: BackendType;
-};
+export * from '../bb_backends/index.js';
 
 export type CircuitOptions = {
   /** @description Whether to produce SNARK friendly proofs */
@@ -73,7 +22,7 @@ export type CircuitOptions = {
 export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
 
-  private constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
+  constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
     super(backend);
     this.options = options;
   }
@@ -91,87 +40,24 @@ export class Barretenberg extends AsyncApi {
 
     if (options.backend) {
       // Explicit backend required - no fallback
-      return await Barretenberg.createBackend(options.backend, options, logger);
+      return await createAsyncBackend(options.backend, options, logger);
     }
 
     if (typeof window === 'undefined') {
-      const bbPath = findBbBinary(options.bbPath);
-      if (!bbPath) {
-        logger(`No native binary found, falling back to WASM`);
-        return await Barretenberg.createBackend(BackendType.Wasm, options, logger);
-      }
-      logger(`bb binary found at: ${bbPath}`);
-
       try {
-        const napiPath = findNapiBinary();
-        if (!napiPath) {
-          logger(`No NAPI stub found. Attempting native domain socket backend`);
-          return await Barretenberg.createBackend(BackendType.NativeUnixSocket, { ...options, bbPath }, logger);
-        } else {
-          logger(`Attempting native shared memory backend`);
-          return await Barretenberg.createBackend(BackendType.NativeSharedMemory, { ...options, bbPath }, logger);
-        }
+        return await createAsyncBackend(BackendType.NativeSharedMemory, options, logger);
       } catch (err: any) {
-        logger(`Native unavailable (${err.message}), falling back to WASM`);
-        return await Barretenberg.createBackend(BackendType.Wasm, options, logger);
+        logger(`Shared memory unavailable (${err.message}), falling back to other backends`);
+        try {
+          return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        } catch (err: any) {
+          logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
+          return await createAsyncBackend(BackendType.Wasm, options, logger);
+        }
       }
     } else {
       logger(`In browser, using WASM over worker backend.`);
-      return await Barretenberg.createBackend(BackendType.WasmWorker, options, logger);
-    }
-  }
-
-  /**
-   * Create backend of specific type (no fallback)
-   */
-  private static async createBackend(
-    type: BackendType,
-    options: BackendOptions,
-    logger: (msg: string) => void,
-  ): Promise<Barretenberg> {
-    switch (type) {
-      case BackendType.NativeUnixSocket: {
-        const bbPath = findBbBinary(options.bbPath);
-        if (!bbPath) {
-          throw new Error('Native backend requires bb binary.');
-        }
-        logger(`Using native Unix socket backend: ${bbPath}`);
-        const socket = new BarretenbergNativeSocketAsyncBackend(bbPath, options.threads);
-        return new Barretenberg(socket, options);
-      }
-
-      case BackendType.NativeSharedMemory: {
-        const bbPath = findBbBinary(options.bbPath);
-        if (!bbPath) {
-          throw new Error('Native backend requires bb binary.');
-        }
-        const napiPath = findNapiBinary();
-        if (!napiPath) {
-          throw new Error('Native sync backend requires napi client stub.');
-        }
-        logger(`Using native shared memory backend (via sync adapter): ${bbPath}`);
-        // Use sync backend with adapter to provide async interface
-        const syncBackend = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.maxClients);
-        const asyncBackend = new SyncToAsyncAdapter(syncBackend);
-        return new Barretenberg(asyncBackend, options);
-      }
-
-      case BackendType.Wasm:
-      case BackendType.WasmWorker: {
-        const useWorker = type === BackendType.WasmWorker;
-        logger(`Using WASM backend (worker: ${useWorker})`);
-        const wasm = await BarretenbergWasmAsyncBackend.new({
-          threads: options.threads,
-          wasmPath: options.wasmPath,
-          logger,
-          memory: options.memory,
-          useWorker,
-        });
-        return new Barretenberg(wasm, options);
-      }
-
-      default:
-        throw new Error(`Unknown backend type: ${type}`);
+      return await createAsyncBackend(BackendType.WasmWorker, options, logger);
     }
   }
 
@@ -276,7 +162,7 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends SyncApi {
-  private constructor(backend: IMsgpackBackendSync) {
+  constructor(backend: IMsgpackBackendSync) {
     super(backend);
   }
 
@@ -295,52 +181,17 @@ export class BarretenbergSync extends SyncApi {
     const logger = options.logger ?? createDebugLogger('bb_sync');
 
     if (options.backend) {
-      return await BarretenbergSync.createBackend(options.backend, options, logger);
+      return await createSyncBackend(options.backend, options, logger);
     }
 
     // Try native, fallback to WASM.
     try {
-      return await BarretenbergSync.createBackend(BackendType.NativeSharedMemory, options, logger);
+      return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
     } catch (err: any) {
       logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
     }
 
-    // Fallback to WASM
-    logger('Using WASM backend');
-    return await BarretenbergSync.createBackend(BackendType.Wasm, options, logger);
-  }
-
-  /**
-   * Create backend of specific type (no fallback)
-   */
-  private static async createBackend(
-    type: BackendType,
-    options: BackendOptions,
-    logger: (msg: string) => void,
-  ): Promise<BarretenbergSync> {
-    switch (type) {
-      case BackendType.NativeSharedMemory: {
-        const bbPath = findBbBinary(options.bbPath);
-        if (!bbPath) {
-          throw new Error('Native backend requires bb binary.');
-        }
-        const napiPath = findNapiBinary();
-        if (!napiPath) {
-          throw new Error('Native sync backend requires napi client stub.');
-        }
-        logger(`Using native shared memory backend: ${bbPath}`);
-        const shm = await BarretenbergNativeShmSyncBackend.new(bbPath, options.threads, options.maxClients);
-        return new BarretenbergSync(shm);
-      }
-
-      case BackendType.Wasm:
-        logger('Using WASM backend');
-        const wasm = await BarretenbergWasmSyncBackend.new(options.wasmPath, logger);
-        return new BarretenbergSync(wasm);
-
-      default:
-        throw new Error(`Backend ${type} not supported for BarretenbergSync`);
-    }
+    return await createSyncBackend(BackendType.Wasm, options, logger);
   }
 
   /**
