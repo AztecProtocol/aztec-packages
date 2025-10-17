@@ -28,7 +28,7 @@ template <typename T, typename... Ts> T* validate_context(T* first, Ts*... rest)
     if (!tail) {
         return first; // tail is null, use first
     }
-    ASSERT(first == tail, "Pointers refer to different builder objects!");
+    BB_ASSERT(first == tail, "Pointers refer to different builder objects!");
     return first;
 }
 
@@ -309,7 +309,7 @@ template <typename Builder_> class field_t {
         // `divide_no_zero_check`, hence we can safely apply the latter instead of `/` operator.
         auto* ctx = get_context();
         if (is_constant()) {
-            ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
+            BB_ASSERT(!get_value().is_zero(), "field_t::invert denominator is constant 0");
         }
 
         if (get_value().is_zero() && !ctx->failed()) {
@@ -411,7 +411,7 @@ template <typename Builder_> class field_t {
     };
     uint32_t set_public() const
     {
-        ASSERT(!is_constant());
+        BB_ASSERT(!is_constant());
         return context->set_public_input(get_normalized_witness_index());
     }
 
@@ -421,8 +421,8 @@ template <typename Builder_> class field_t {
      */
     void convert_constant_to_fixed_witness(Builder* ctx)
     {
-        ASSERT(is_constant());
-        ASSERT(ctx);
+        BB_ASSERT(is_constant());
+        BB_ASSERT(ctx);
         context = ctx;
         (*this) = field_t<Builder>(witness_t<Builder>(context, get_value()));
         context->fix_witness(witness_index, get_value());
@@ -448,8 +448,8 @@ template <typename Builder_> class field_t {
      */
     void fix_witness()
     {
-        ASSERT(!is_constant());
-        ASSERT(context);
+        BB_ASSERT(!is_constant());
+        BB_ASSERT(context);
         // Let     a := *this;
         //       q_l :=  1
         //       q_c := -*this.get_value()

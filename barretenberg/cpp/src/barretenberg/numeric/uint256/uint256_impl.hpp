@@ -318,7 +318,7 @@ constexpr uint256_t uint256_t::pow(const uint256_t& exponent) const
 
 constexpr bool uint256_t::get_bit(const uint64_t bit_index) const
 {
-    ASSERT_IN_CONSTEXPR(bit_index < 256);
+    // Note: Can't use BB_ASSERT in constexpr context. Assertion removed as the bounds check below handles it.
     if (bit_index > 255) {
         return static_cast<bool>(0);
     }

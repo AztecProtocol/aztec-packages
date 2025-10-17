@@ -110,7 +110,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     }
 
     // TODO(#13390): Revive the following assertion once we freeze the number of colums in AVM.
-    // ASSERT(offset == proof_size);
+    // BB_ASSERT(offset == proof_size);
 }
 
 } // namespace
