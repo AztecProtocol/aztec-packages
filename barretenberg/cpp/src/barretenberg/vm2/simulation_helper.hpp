@@ -2,6 +2,7 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
@@ -18,6 +19,9 @@ class AvmSimulationHelper {
     // Fast simulation without event collection.
     // FIXME(fcarreiro): This should eventually only take the Tx, Globals and not much more.
     void simulate_fast(const ExecutionHints& hints, const world_state::WorldStateRevision& ws_revision);
+    void simulate_fast(const ExecutionHints& hints,
+                       const world_state::WorldStateRevision& ws_revision,
+                       simulation::ContractDBInterface& raw_contract_db);
 
     void prepare_ws();
 };

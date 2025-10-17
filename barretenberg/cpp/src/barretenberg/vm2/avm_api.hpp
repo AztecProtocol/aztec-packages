@@ -4,6 +4,7 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
@@ -23,6 +24,7 @@ class AvmAPI {
     bool verify(const AvmProof& proof, const PublicInputs& pi, const AvmVerificationKey& vk_data);
 
     void simulate(const FastSimulationInputs& inputs);
+    void simulate(const FastSimulationInputs& inputs, simulation::ContractDBInterface& contract_db);
 };
 
 } // namespace bb::avm2
