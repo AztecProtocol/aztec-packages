@@ -172,13 +172,9 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto [output_claim, ipa_proof] =
             RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
         output_claim.set_public();
-        output_claim.commitment.x.fix_witness();
-        output_claim.commitment.y.fix_witness();
+        output_claim.commitment.fix_witness();
         builder.ipa_proof = ipa_proof;
         builder.finalize_circuit(/*ensure_nonzero=*/false);
-        info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
-             builder.get_num_finalized_gates());
-
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         const OpeningPair<NativeCurve> opening_pair{ bb::fq(output_claim.opening_pair.challenge.get_value()),
@@ -193,12 +189,15 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto result = NativeIPA::reduce_verify(this->vk(), opening_claim, verifier_transcript);
         EXPECT_TRUE(result);
 
-        info("Starting analyzing circuit");
         auto tool = StaticAnalyzer(builder);
         auto tool_results = tool.analyze_circuit();
-        EXPECT_EQ(tool_results.first.size(), 14);
+        EXPECT_EQ(tool_results.first.size(), 1);
         EXPECT_EQ(tool_results.second.size(), 0);
         tool.print_connected_components_info();
+        if (tool_results.second.size() > 0) {
+            auto fst_idx = std::vector<uint32_t>(tool_results.second.begin(), tool_results.second.end())[0];
+            tool.print_variable_info(fst_idx);
+        }
     }
 };
 
@@ -217,19 +216,10 @@ TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
     EXPECT_TRUE(result);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
 
-    info("Starting analyzing circuit");
     auto tool = StaticAnalyzer(builder);
     auto tool_results = tool.analyze_circuit();
     EXPECT_EQ(tool_results.first.size(), 1);
     EXPECT_EQ(tool_results.second.size(), 0);
-    /*     if (tool_results.second.size() > 1) {
-            auto variables_in_one_gate = tool_results.second;
-            uint33_t first_var = std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0];
-            tool.print_variable_info(first_var);
-        } */
-    if (tool_results.first.size() > 1) {
-        tool.print_connected_components_info();
-    }
 }
 
 TEST_F(BoomerangIPARecursiveTests, AccumulateSmallRandom)
@@ -238,4 +228,66 @@ TEST_F(BoomerangIPARecursiveTests, AccumulateSmallRandom)
     auto [poly1, x1] = generate_poly_and_challenge<log_poly_length>(PolyType::Random);
     auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>(PolyType::Random);
     test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
+}
+
+TEST_F(BoomerangIPARecursiveTests, AccumulateMediumRandom)
+{
+    static constexpr size_t log_poly_length = 10;
+    auto [poly1, x1] = generate_poly_and_challenge<log_poly_length>();
+    auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>();
+    test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
+}
+
+TEST_F(BoomerangIPARecursiveTests, AccumulateMediumFirstZeroPoly)
+{
+    static constexpr size_t log_poly_length = 10;
+    static constexpr size_t poly_length = 1UL << log_poly_length;
+    Polynomial poly1(poly_length);
+    auto x1 = this->random_element();
+    auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>();
+    test_accumulation<log_poly_length>(poly1, poly2, x1, x2);
+}
+
+TEST_F(BoomerangIPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRandom)
+{
+    static constexpr size_t log_poly_length = 10;
+    using RecursiveIPA = IPA<Curve, log_poly_length>;
+
+    // We create a circuit that does two IPA verifications. However, we don't do the full verifications and instead
+    // accumulate the claims into one claim. This accumulation is done in circuit. Create two accumulators, which
+    // contain the commitment and an opening claim.
+    Builder builder;
+
+    auto [poly1, x1] = generate_poly_and_challenge<log_poly_length>();
+    auto [poly2, x2] = generate_poly_and_challenge<log_poly_length>();
+
+    auto [transcript_1, claim_1] = create_ipa_claim<log_poly_length>(builder, poly1, x1);
+    auto [transcript_2, claim_2] = create_ipa_claim<log_poly_length>(builder, poly2, x2);
+
+    // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
+    // polynomial.
+    auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
+    output_claim.set_public();
+    builder.ipa_proof = ipa_proof;
+    builder.finalize_circuit(/*ensure_nonzero=*/false);
+
+    Builder root_rollup;
+    // Fully recursively verify this proof to check it.
+    VerifierCommitmentKey<Curve> stdlib_pcs_vkey(&root_rollup, 1UL << log_poly_length, this->vk());
+    auto stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
+    stdlib_verifier_transcript->load_proof(StdlibProof(root_rollup, ipa_proof));
+    OpeningClaim<Curve> ipa_claim;
+    ipa_claim.opening_pair.challenge =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.challenge.get_value());
+    ipa_claim.opening_pair.evaluation =
+        Curve::ScalarField::create_from_u512_as_witness(&root_rollup, output_claim.opening_pair.evaluation.get_value());
+    ipa_claim.commitment = Curve::AffineElement::from_witness(&root_rollup, output_claim.commitment.get_value());
+    auto result = RecursiveIPA::full_verify_recursive(stdlib_pcs_vkey, ipa_claim, stdlib_verifier_transcript);
+    root_rollup.finalize_circuit(/*ensure_nonzero=*/true);
+    EXPECT_TRUE(result);
+
+    auto tool = StaticAnalyzer(root_rollup);
+    auto tool_results = tool.analyze_circuit();
+    EXPECT_EQ(tool_results.first.size(), 1);
+    EXPECT_EQ(tool_results.second.size(), 0);
 }

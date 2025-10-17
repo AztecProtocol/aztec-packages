@@ -3,8 +3,8 @@ barretenberg_module(boomerang_value_detection stdlib_circuit_builders circuit_ch
                     stdlib_blake3s stdlib_poseidon2 stdlib_honk_verifier stdlib_protogalaxy_verifier stdlib_merge_verifier
                     commitment_schemes)
 
-option(VERBOSE_DEBUG "Enable verbose debug output in StaticAnalyzer" OFF)
+option(ANALYZER_VERBOSE_DEBUG "Enable verbose debug output in StaticAnalyzer" OFF)
 
-if (VERBOSE_DEBUG)
-    target_compile_definitions(boomerang_value_detection PRIVATE VERBOSE_DEBUG)
+if (ANALYZER_VERBOSE_DEBUG)
+    add_definitions(-DANALYZER_VERBOSE_DEBUG)
 endif()
