@@ -116,7 +116,7 @@ void Poseidon2Permutation<Builder>::matrix_multiplication_external(typename Pose
 
     // This can only happen if the input contained constant `field_t` elements.
     BB_ASSERT(state[0].is_normalized() && state[1].is_normalized() && state[2].is_normalized() &&
-           state[3].is_normalized());
+              state[3].is_normalized());
 }
 
 template class Poseidon2Permutation<MegaCircuitBuilder>;

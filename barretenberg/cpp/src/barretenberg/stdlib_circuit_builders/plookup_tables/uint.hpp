@@ -80,7 +80,7 @@ template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTabl
 {
     // uint_size must be one of 8, 16, 32, or 64.
     BB_ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
-           "unsupported uint size for XOR table generation");
+              "unsupported uint size for XOR table generation");
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;
@@ -114,7 +114,7 @@ template <size_t uint_size> inline MultiTable get_uint_and_table(const MultiTabl
 {
     // uint_size must be one of 8, 16, 32, or 64.
     BB_ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
-           "unsupported uint size for AND table generation");
+              "unsupported uint size for AND table generation");
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;

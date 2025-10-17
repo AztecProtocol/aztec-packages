@@ -122,7 +122,7 @@ template <typename OpFormat> class EccOpsTable {
     size_t size() const
     {
         BB_ASSERT(current_subtable.empty(),
-               "Current subtable should be merged before computing the size of the full table of ecc ops.");
+                  "Current subtable should be merged before computing the size of the full table of ecc ops.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
@@ -153,7 +153,7 @@ template <typename OpFormat> class EccOpsTable {
     const OpFormat& operator[](size_t index) const
     {
         BB_ASSERT(current_subtable.empty(),
-               "Current subtable should be merged before attempting to index into the full table.");
+                  "Current subtable should be merged before attempting to index into the full table.");
         BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
@@ -169,7 +169,7 @@ template <typename OpFormat> class EccOpsTable {
     std::vector<OpFormat> get_reconstructed() const
     {
         BB_ASSERT(current_subtable.empty(),
-               "current subtable should be merged before reconstructing the full table of operations.");
+                  "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<OpFormat> reconstructed_table;
         reconstructed_table.reserve(size());
@@ -286,7 +286,7 @@ class UltraEccOpsTable {
     {
 
         BB_ASSERT(get_current_subtable_size() == 0,
-               "current subtable should be merged before reconstructing the full table of operations.");
+                  "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<UltraOp> reconstructed_table;
         reconstructed_table.reserve(1 << CONST_OP_QUEUE_LOG_SIZE);

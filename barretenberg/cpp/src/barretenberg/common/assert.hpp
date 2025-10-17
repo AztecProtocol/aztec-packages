@@ -64,9 +64,9 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
 #define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
 #else
-#define BB_ASSERT(expression, ...)                                                                                        \
+#define BB_ASSERT(expression, ...)                                                                                     \
     do {                                                                                                               \
-        BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                         \
+        BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                      \
         if (!(BB_LIKELY(expression))) {                                                                                \
             info("Assertion failed: (" #expression ")");                                                               \
             __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \

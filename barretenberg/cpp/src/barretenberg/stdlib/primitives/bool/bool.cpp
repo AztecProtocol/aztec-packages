@@ -41,7 +41,7 @@ bool_t<Builder>::bool_t(const witness_t<Builder>& value, const bool& use_range_c
     : context(value.context)
 {
     BB_ASSERT((value.witness == bb::fr::zero()) || (value.witness == bb::fr::one()),
-           "bool_t: witness value is not 0 or 1");
+              "bool_t: witness value is not 0 or 1");
     witness_index = value.witness_index;
 
     if (use_range_constraint) {

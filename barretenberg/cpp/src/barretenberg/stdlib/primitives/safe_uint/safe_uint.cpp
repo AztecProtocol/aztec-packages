@@ -75,7 +75,7 @@ template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-
 {
     // If both are constants and the operation is an underflow, throw an error since circuit itself underflows
     BB_ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
-             static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
+                static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
 
     field_ct difference_val = this->value - other.value;
 

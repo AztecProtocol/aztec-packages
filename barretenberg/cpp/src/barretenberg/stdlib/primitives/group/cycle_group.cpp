@@ -412,9 +412,9 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
 {
     // This method should not be called on known points at infinity
     BB_ASSERT(!this->is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
     BB_ASSERT(!other.is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
 
     auto context = get_context(other);
 

@@ -530,7 +530,7 @@ process_honk_recursion_constraints(Builder& builder,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
     BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-           "Root rollup must accumulate two IPA proofs.");
+              "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 

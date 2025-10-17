@@ -48,7 +48,7 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
 {
     BB_ASSERT_EQ(low_bits_in.is_constant(), high_bits_in.is_constant());
     BB_ASSERT((can_overflow == true && maximum_bitlength == 0) ||
-           (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
+              (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
 
     // Check that the values of two parts are within specified bounds
     BB_ASSERT_LT(uint256_t(low_bits_in.get_value()), uint256_t(1) << (NUM_LIMB_BITS * 2));
@@ -141,7 +141,7 @@ bigfield<Builder, T> bigfield<Builder, T>::create_from_u512_as_witness(Builder* 
                                                                        const size_t maximum_bitlength)
 {
     BB_ASSERT((can_overflow == true && maximum_bitlength == 0) ||
-           (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
+              (can_overflow == false && (maximum_bitlength == 0 || maximum_bitlength > (3 * NUM_LIMB_BITS))));
     std::array<uint256_t, NUM_LIMBS> limbs;
     limbs[0] = value.slice(0, NUM_LIMB_BITS).lo;
     limbs[1] = value.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo;
@@ -1805,7 +1805,7 @@ template <typename Builder, typename T> void bigfield<Builder, T>::sanity_check(
     // max_val < sqrt(2^T * n)
     // Note this is a static assertion, so it is not checked at runtime
     BB_ASSERT(!(get_maximum_value() > get_prohibited_value() || limb_overflow_test_0 || limb_overflow_test_1 ||
-             limb_overflow_test_2 || limb_overflow_test_3));
+                limb_overflow_test_2 || limb_overflow_test_3));
 }
 
 // Underneath performs unsafe_assert_less_than(modulus)
