@@ -78,7 +78,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
             }
         }
     } else {
-        throw_or_abort("Invalid VK policy");
+        throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
