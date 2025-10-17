@@ -29,14 +29,13 @@ using namespace bb;
  *     coordinates.
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is false. This
  *     ensures that the circuit is satisfied when the predicate is false. We set:
- *      - We set the first byte of r and s to 1, and the last of both to 0 (NOTE: This is only valid when numbers of 31
- *        bytes are smaller than the order of the elliptic curve divided by two, which is the case for secp256k1 and
- *        secp256r1)
+ *      - We set the first byte of r and s to 1 (NOTE: This only works when numbers smaller than
+ *        1 << 241 are smaller than the order of the curve divided by two).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
- *        secp265r1)
- *      - The last byte of the hash of the message to 0 (NOTE: This is only valid when numbers of 31 bytes are smaller
- *        than the order of the elliptic curve) Furthermore, we make sure all the coordinates of the public key are
- *        either all constant or all witness.
+ *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either all constant or all
+ *        witness.
+ *      - The first byte of the hash of the message to be 1 (NOTE: This only works when numbers smaller than 1 <<
+ *        241 are smaller than the order of the curve).
  *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
  * \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
  *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -70,6 +69,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
     std::vector<field_ct> pub_x_fields = fields_from_witnesses(builder, input.pub_x_indices);
     std::vector<field_ct> pub_y_fields = fields_from_witnesses(builder, input.pub_y_indices);
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
+    field_ct predicate_field = field_ct::from_witness_index(&builder, input.predicate.index);
 
     if (!has_valid_witness_assignments) {
         // Fill builder variables in case of empty witness assignment
@@ -94,20 +94,18 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
     // Step 3.
     // Update values depending on the predicate
     if (!input.predicate.is_constant) {
-        bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
-        // r != 0
-        r[0] = field_ct::conditional_assign(predicate_witness, r[0], field_ct(1));
-        // s != 0
-        s[0] = field_ct::conditional_assign(predicate_witness, s[0], field_ct(1));
-        // r < n
-        r[31] = field_ct::conditional_assign(predicate_witness, r[31], field_ct(0));
-        // s < n/2
-        s[31] = field_ct::conditional_assign(predicate_witness, s[31], field_ct(0));
+        bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces result_field = 0 or 1
+        // 0 < r < n
+        r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1));
+        // 0 < s < n/2
+        s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1));
+        // hashed_message < n
+        hashed_message[0] = field_ct::conditional_assign(predicate, hashed_message[0], field_ct(1));
         // P is on the curve
         // We need to use a point which is different from the generator otherwise secp256r1 ECDSA verification fails
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
-        pub_x = Fq::conditional_assign(predicate_witness, pub_x, default_point.x);
-        pub_y = Fq::conditional_assign(predicate_witness, pub_y, default_point.y);
+        pub_x = Fq::conditional_assign(predicate, pub_x, default_point.x);
+        pub_y = Fq::conditional_assign(predicate, pub_y, default_point.y);
         // Avoid mixing constant/witness coordinates because of issue
         // https://github.com/AztecProtocol/aztec-packages/issues/17514
         if (pub_x.is_constant() != pub_y.is_constant()) {
@@ -121,6 +119,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
         BB_ASSERT_EQ(
             input.predicate.value, true, "Creating ECDSA constraints with a constant predicate equal to false.");
     }
+
     G1 public_key(pub_x, pub_y);
     // Step 4.
     // Ensure uniqueness of the public key by asserting each of its coordinates is smaller than the modulus of the base
