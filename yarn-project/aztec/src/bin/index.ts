@@ -38,8 +38,8 @@ async function main() {
   }
 
   const networkName = getActiveNetworkName(networkValue);
-  await enrichEnvironmentWithChainConfig(networkName);
   await enrichEnvironmentWithNetworkConfig(networkName);
+  enrichEnvironmentWithChainConfig(networkName);
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');
