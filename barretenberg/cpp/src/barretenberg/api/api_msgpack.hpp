@@ -3,9 +3,7 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/ipc/ipc_server.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include <csignal>
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>

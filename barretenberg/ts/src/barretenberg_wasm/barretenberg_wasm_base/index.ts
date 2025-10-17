@@ -48,7 +48,6 @@ export class BarretenbergWasmBase {
           const str = this.stringFromAddress(addr);
           const m = this.getMemory();
           const str2 = `${str} (mem: ${(m.length / (1024 * 1024)).toFixed(2)}MiB)`;
-          console.log(str2);
           this.logger(str2);
         },
 

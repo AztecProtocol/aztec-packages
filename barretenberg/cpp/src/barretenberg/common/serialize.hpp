@@ -471,8 +471,6 @@ template <bool include_size = false, typename T> std::vector<uint8_t> to_buffer(
 // Some types to describe fixed size buffers for c_bind arguments.
 using in_buf32 = uint8_t const*;
 using out_buf32 = uint8_t*;
-using in_buf48 = uint8_t const*;
-using out_buf48 = uint8_t*;
 using in_buf64 = uint8_t const*;
 using out_buf64 = uint8_t*;
 using in_buf128 = uint8_t const*;

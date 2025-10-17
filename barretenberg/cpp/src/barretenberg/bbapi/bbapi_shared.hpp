@@ -11,7 +11,6 @@
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
-#include <memory>
 #include <string>
 #include <vector>
 

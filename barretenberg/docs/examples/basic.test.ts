@@ -52,12 +52,6 @@ describe("Basic Barretenberg Example", () => {
       console.log(`Proof verification: ${isValid ? "SUCCESS" : "FAILED"}`);
       // docs:end:verify
 
-      // // Get Solidity verifier contract
-      // const vk = await backend.getVerificationKey({ keccak: true });
-      // const contract = await backend.getSolidityVerifier(vk);
-
-      // console.log("Solidity verifier contract generated");
-
       // Assertions
       expect(isValid).to.be.true;
       expect(proofData.proof).to.have.length.greaterThan(0);
@@ -144,37 +138,6 @@ describe("Basic Barretenberg Example", () => {
       await backend.destroy();
     }
   });
-
-  // it('should get solidity verifier contract', async function() {
-  //   this.timeout(60000);
-
-  //   // Load circuit bytecode (from Noir compiler output)
-  //   const circuitPath = path.join(__dirname, 'fixtures/main/target/program.json');
-  //   const circuitJson = JSON.parse(readFileSync(circuitPath, 'utf8'));
-  //   const bytecode = circuitJson.bytecode;
-
-  //   // Initialize backend
-  //   const backend = new UltraHonkBackend(bytecode);
-
-  //   try {
-  //     // Get keccak verification key first
-  //     const vkKeccak = await backend.getVerificationKey({ keccak: true });
-
-  //     // docs:start:solidity_verifier
-  //     // Needs the keccak hash variant of the VK
-  //     const solidityContract = await backend.getSolidityVerifier(vkKeccak);
-  //     // docs:end:solidity_verifier
-
-  //     // Test that solidity contract is valid
-  //     expect(solidityContract).to.be.a('string');
-  //     expect(solidityContract).to.include('contract');
-  //     expect(solidityContract).to.include('function verify');
-
-  //   } finally {
-  //     // Always clean up
-  //     await backend.destroy();
-  //   }
-  // });
 
   it("should perform low-level cryptographic operations", async function () {
     this.timeout(60000);

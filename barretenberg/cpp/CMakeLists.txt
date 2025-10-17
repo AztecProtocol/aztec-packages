@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.24 FATAL_ERROR)
 project(
     Barretenberg
     DESCRIPTION "BN254 elliptic curve library, and PLONK SNARK prover"
-    LANGUAGES CXX C ASM
+    LANGUAGES CXX C
 )
 
 # Add doxygen build command
