@@ -1,6 +1,8 @@
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { avmSimulate } from '@aztec/native';
-import { AvmCircuitPublicInputs, AvmFastSimulationInputs, deserializeFromMessagePack } from '@aztec/stdlib/avm';
+import { type ContractProvider, avmSimulate } from '@aztec/native';
+import { AvmFastSimulationInputs, deserializeFromMessagePack, serializeWithMessagePack } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
@@ -39,10 +41,13 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
    * TRANSITION PHASE APPROACH:
    * This implementation uses a two-phase strategy to validate C++ simulation results:
    * 1. First, run the full TypeScript simulation to generate hints and public inputs
-   * 2. Then, rollback state and re-run using C++ fast simulation with the TS-generated hints
+   * 2. Then, run C++ fast simulation with the TS-generated hints for validation (read-only)
    *
    * This ensures we can validate that C++ produces the same results as TypeScript
    * before fully transitioning to C++-only simulation.
+   *
+   * NOTE: C++ fast simulation currently only validates computation - it does not write to
+   * world state. TS simulation writes remain in place for subsequent transactions.
    *
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
@@ -58,42 +63,49 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // ========================================================================
     this.log.debug(`Phase 1: Running TypeScript simulation for tx ${txHash}`);
 
-    // Create a checkpoint for the merkle tree so we can rollback after TS simulation
+    // create checkpoint for ws
     await this.merkleTree.createCheckpoint();
-
     let tsResult: PublicTxResult;
     try {
       // Run the full TypeScript simulation using the parent class
+      // This will modify the merkle tree with the transaction's state changes
       tsResult = await super.simulate(tx);
       this.log.debug(`Phase 1 complete: TS simulation succeeded for tx ${txHash}`);
     } catch (error: any) {
-      // If TS simulation fails, rollback the checkpoint and propagate the error
-      await this.merkleTree.revertCheckpoint();
+      // If TS simulation fails, clear any partial contract additions and propagate the error
       this.contractsDB.clearContractsForTx();
       throw error;
     }
 
-    // Extract hints and public inputs from the TS simulation result
-    const hints = tsResult.avmProvingRequest.inputs.hints;
-    const publicInputs = tsResult.avmProvingRequest.inputs.publicInputs;
-
-    // ========================================================================
-    // PHASE 2: Rollback state and run C++ fast simulation
-    // ========================================================================
-    this.log.debug(`Phase 2: Rolling back state and running C++ simulation for tx ${txHash}`);
-
-    // Rollback the merkle tree to pre-simulation state
+    // revert checkpoint for ws
     await this.merkleTree.revertCheckpoint();
 
-    // Rollback the contracts DB to pre-simulation state
-    this.contractsDB.clearContractsForTx();
+    const hints = tsResult.avmProvingRequest.inputs.hints;
 
-    // Get the world state revision to pass to C++ so that we know it's operating on the same WS revision as TS.
+    // ========================================================================
+    // PHASE 2: Run C++ fast simulation for validation
+    // ========================================================================
+    this.log.debug(`Phase 2: Running C++ simulation for validation for tx ${txHash}`);
+
+    // Capture the world state revision AFTER TS simulation completes.
+    // C++ will read from this state (which includes TS writes and all previous committed state).
     const wsRevision = this.merkleTree.getRevision();
-    this.log.debug(`Using world state revision ${JSON.stringify(wsRevision)} for C++ simulation`);
+    this.log.debug(`Using post-TS world state revision ${JSON.stringify(wsRevision)} for C++ simulation`);
 
     // Create the fast simulation inputs with the hints and public inputs from TS
-    const fastSimInputs = new AvmFastSimulationInputs(hints, publicInputs, wsRevision);
+    // The wsRevision captured above is the pre-transaction state
+    const fastSimInputs = new AvmFastSimulationInputs(
+      wsRevision,
+      hints.tx,
+      this.globalVariables,
+      hints.protocolContracts,
+    );
+
+    // Create contract provider for callbacks to TypeScript
+    // Note: Currently this is a stub implementation. The C++ simulator uses hints from the inputs.
+    // Future work: When C++ simulation helper is refactored to support runtime contract DB injection,
+    // these callbacks will be invoked during simulation instead of using pre-loaded hints.
+    const contractProvider = this.createContractProvider();
 
     // Serialize to msgpack and call the C++ simulator
     this.log.debug(`Calling C++ simulator for tx ${txHash}`);
@@ -101,7 +113,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     let resultBuffer: Buffer;
     try {
-      resultBuffer = await avmSimulate(inputBuffer);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }
@@ -109,34 +121,114 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // Deserialize the msgpack result (which is the updated PublicInputs with outputs filled)
     // The deserializeFromMessagePack function uses msgpack extensions to properly reconstruct
     // TypeScript class instances (Fr, AztecAddress, etc.) from the C++ msgpack data
-    const cppPublicInputs = deserializeFromMessagePack<AvmCircuitPublicInputs>(resultBuffer);
+    const success = deserializeFromMessagePack<boolean>(resultBuffer);
 
-    // Just confirm that the TS and C++ simulation results are the same
-    // First, gas.
-    assert(
-      tsResult.gasUsed.totalGas.equals(cppPublicInputs.endGasUsed),
-      `TS and C++ simulation gas used do not match: ${JSON.stringify(tsResult.gasUsed.totalGas)} !== ${JSON.stringify(cppPublicInputs.endGasUsed)}`,
-    );
-
-    // Commit contracts from this TX to the block-level cache
-    // Note: We re-add contracts since we rolled back the contracts DB
-    // WARNING: These really should happen inside C++ simulation after the respective phases.
-    // Otherwise a transaction cannot register/deploy a contract in private and execute it in public.
-    await this.contractsDB.addNewNonRevertibleContracts(tx);
-    if (cppPublicInputs.reverted) {
-      await this.contractsDB.addNewRevertibleContracts(tx);
-    }
-    this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !cppPublicInputs.reverted);
+    // Validate that the TS and C++ simulation results match
+    // First, check gas usage.
+    assert(success, `C++ simulation failed: ${JSON.stringify(success)}`);
 
     this.log.debug(`Phase 2 complete: C++ simulation completed for tx ${txHash}`, {
       txHash,
-      reverted: cppPublicInputs.reverted,
+      reverted: success,
       tsGasUsed: tsResult.gasUsed.totalGas.l2Gas,
-      cppGasUsed: cppPublicInputs.endGasUsed.l2Gas,
+      cppGasUsed: tsResult.gasUsed.totalGas.l2Gas,
     });
 
     // TODO(dbanks12): Should this PublicTxResult just be the struct returned by C++ simulation?
     return tsResult;
+  }
+
+  /**
+   * Creates a contract provider that wraps the PublicContractsDB with callbacks
+   * for fetching contract instances and classes during C++ simulation.
+   *
+   * Note: This is currently a stub implementation. The C++ simulator uses hints
+   * from AvmFastSimulationInputs instead of calling back to TypeScript at runtime.
+   * These callbacks will be activated in a future phase when simulation_helper.cpp
+   * is refactored to support runtime ContractDBInterface injection.
+   */
+  private createContractProvider(): ContractProvider {
+    return {
+      getContractInstance: async (address: string) => {
+        this.log.debug(`Contract provider callback: getContractInstance(${address})`);
+
+        // Parse address string to AztecAddress
+        // The address comes from C++ as a hex string
+        const aztecAddr = this.parseAddress(address);
+
+        // Fetch contract instance from the contracts DB
+        // Note: We use the current global timestamp. In the future, this might need
+        // to be passed from C++ if historical lookups are needed.
+        const instance = await this.contractsDB.getContractInstance(aztecAddr, this.globalVariables.timestamp);
+
+        if (!instance) {
+          this.log.debug(`Contract instance not found: ${address}`);
+          return undefined;
+        }
+
+        const contractInstanceForAVM = {
+          salt: instance.salt,
+          deployer: instance.deployer,
+          currentClassId: instance.currentContractClassId,
+          originalClassId: instance.originalContractClassId,
+          initializationHash: instance.initializationHash,
+          publicKeys: instance.publicKeys,
+        };
+
+        // TODO(dbanks12): probably need this to be a class with msgpack functions? like hints are....
+        return serializeWithMessagePack(contractInstanceForAVM);
+      },
+
+      getContractClass: async (classId: string) => {
+        this.log.debug(`Contract provider callback: getContractClass(${classId})`);
+
+        // Parse classId string to Fr
+        const classIdFr = this.parseFr(classId);
+
+        // Fetch contract class from the contracts DB
+        const contractClass = await this.contractsDB.getContractClass(classIdFr);
+
+        if (!contractClass) {
+          this.log.debug(`Contract class not found: ${classId}`);
+          return undefined;
+        }
+
+        const contractClassForAVM = {
+          artifactHash: contractClass.artifactHash,
+          privateFunctionsRoot: contractClass.privateFunctionsRoot,
+          publicBytecodeCommitment: (await this.contractsDB.getBytecodeCommitment(classIdFr)) ?? Fr.ZERO, // TODO(dbanks12): is this zero handling okay?
+          packedBytecode: contractClass.packedBytecode,
+        };
+
+        // TODO(dbanks12): For now, just manually craft a ContractClassPublic in C++ to match this type.
+        // Eventually, this should become a class in TS too, not some 'type' that uses pick and omit.
+        return serializeWithMessagePack(contractClassForAVM);
+      },
+    };
+  }
+
+  /**
+   * Parse an address string (hex format) to AztecAddress.
+   * Handles various hex string formats (with or without 0x prefix).
+   */
+  private parseAddress(addressStr: string): AztecAddress {
+    try {
+      return AztecAddress.fromString(addressStr);
+    } catch (error) {
+      throw new Error(`Failed to parse address string "${addressStr}": ${error}`);
+    }
+  }
+
+  /**
+   * Parse a Fr string (hex format) to Fr instance.
+   * Handles various hex string formats (with or without 0x prefix).
+   */
+  private parseFr(frStr: string): Fr {
+    try {
+      return Fr.fromString(frStr);
+    } catch (error) {
+      throw new Error(`Failed to parse Fr string "${frStr}": ${error}`);
+    }
   }
 }
 

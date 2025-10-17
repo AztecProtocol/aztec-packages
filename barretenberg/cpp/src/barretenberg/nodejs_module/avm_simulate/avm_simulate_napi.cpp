@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/nodejs_module/avm_simulate/ts_callback_contract_db.hpp"
 #include "barretenberg/nodejs_module/util/async_op.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp"
@@ -21,14 +22,21 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
 
     Napi::Env env = info.Env();
 
-    // Validate arguments
-    if (info.Length() < 1) {
-        throw Napi::TypeError::New(env, "Wrong number of arguments. Expected at least 1 argument.");
+    // Validate arguments - expects 2 arguments
+    // arg[0]: inputs Buffer (required)
+    // arg[1]: contractProvider object (required)
+    if (info.Length() < 2) {
+        throw Napi::TypeError::New(
+            env, "Wrong number of arguments. Expected 2 arguments: inputs Buffer and contractProvider object.");
     }
 
     if (!info[0].IsBuffer()) {
         throw Napi::TypeError::New(env,
                                    "First argument must be a Buffer containing serialized AvmFastSimulationInputs");
+    }
+
+    if (!info[1].IsObject()) {
+        throw Napi::TypeError::New(env, "Second argument must be a contractProvider object");
     }
 
     // Extract the inputs buffer
@@ -38,24 +46,51 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
     // Copy the buffer data into C++ memory (we can't access Napi objects from worker thread)
     auto data = std::make_shared<std::vector<uint8_t>>(inputs_buffer.Data(), inputs_buffer.Data() + length);
 
+    // Extract contract provider callbacks
+    auto contract_provider = info[1].As<Napi::Object>();
+
+    if (!contract_provider.Has("getContractInstance") || !contract_provider.Has("getContractClass")) {
+        throw Napi::TypeError::New(env, "contractProvider must have getContractInstance and getContractClass methods");
+    }
+
+    auto get_instance_fn = contract_provider.Get("getContractInstance").As<Napi::Function>();
+    auto get_class_fn = contract_provider.Get("getContractClass").As<Napi::Function>();
+
+    // Create thread-safe function wrappers for callbacks
+    // These allow us to call TypeScript from the C++ worker thread
+    auto instance_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, get_instance_fn, "getContractInstance", 0, 1));
+
+    auto class_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, get_class_fn, "getContractClass", 0, 1));
+
     // Create a deferred promise
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
 
     // Create async operation that will run on a worker thread
-    auto* op = new AsyncOperation(env, deferred, [data](msgpack::sbuffer& result_buffer) {
+    auto* op = new AsyncOperation(env, deferred, [data, instance_tsfn, class_tsfn](msgpack::sbuffer& result_buffer) {
         // Deserialize inputs from msgpack
         avm2::AvmFastSimulationInputs inputs;
         msgpack::object_handle obj_handle = msgpack::unpack(reinterpret_cast<const char*>(data->data()), data->size());
         msgpack::object obj = obj_handle.get();
         obj.convert(inputs);
 
-        // Create AVM API and run simulation
+        // Create TsCallbackContractDB with TypeScript callbacks
+        TsCallbackContractDB contract_db(*instance_tsfn, *class_tsfn);
+
+        // Create AVM API and run simulation with the callback-based contracts DB
         avm2::AvmAPI avm;
-        avm.simulate(inputs);
+        avm.simulate(inputs, contract_db);
+        // TODO(dbanks12): return the PublicTxResult. For now just a bool true.
+        bool success = true;
+
+        // Clean up thread-safe functions
+        instance_tsfn->Release();
+        class_tsfn->Release();
 
         // Serialize the simulation result with msgpack into the return buffer to TS.
         // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.
-        msgpack::pack(result_buffer, inputs.publicInputs);
+        msgpack::pack(result_buffer, success);
     });
 
     // Napi is now responsible for destroying this object

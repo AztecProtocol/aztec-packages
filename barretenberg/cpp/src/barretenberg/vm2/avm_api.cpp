@@ -94,4 +94,11 @@ void AvmAPI::simulate(const FastSimulationInputs& inputs)
     AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast(inputs.hints, inputs.wsRevision));
 }
 
+void AvmAPI::simulate(const FastSimulationInputs& inputs, simulation::ContractDBInterface& contract_db)
+{
+    info("Simulating...");
+    AvmSimulationHelper simulation_helper;
+    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast(inputs.hints, inputs.wsRevision, contract_db));
+}
+
 } // namespace bb::avm2

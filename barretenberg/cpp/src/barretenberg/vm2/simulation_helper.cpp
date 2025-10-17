@@ -298,6 +298,14 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
                                         const world_state::WorldStateRevision& world_state_revision)
 {
+    HintedRawContractDB raw_contract_db(hints);
+    simulate_fast(hints, world_state_revision, raw_contract_db);
+}
+
+void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
+                                        [[maybe_unused]] const world_state::WorldStateRevision& world_state_revision,
+                                        simulation::ContractDBInterface& raw_contract_db)
+{
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
     // TODO(fcarreiro): These should come from the simulate call.
@@ -341,8 +349,6 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
     KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
-    // TODO(dbanks12): use pure contracts DB that calls back to TS
-    HintedRawContractDB raw_contract_db(hints);
 
     // Connect to world state given the revision, this relies on the world state being already initialized.
     std::optional<PureRawMerkleDB> maybe_raw_merkle_db = PureRawMerkleDB::connect(world_state_revision);
