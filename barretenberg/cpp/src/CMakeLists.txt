@@ -119,6 +119,7 @@ if(NOT FUZZING)
         add_subdirectory(barretenberg/world_state)
     endif()
     add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/vm2_sim)
 endif()
 
 if(SMT)
