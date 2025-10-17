@@ -55,16 +55,26 @@ export class InMemoryAttestationPool implements AttestationPool {
       const slotNumber = attestation.payload.header.slotNumber;
 
       const proposalId = attestation.archive.toString();
-      const address = attestation.getSender();
+      const sender = attestation.getSender();
+
+      // Skip attestations with invalid signatures
+      if (!sender) {
+        this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber.toBigInt()}`, {
+          signature: attestation.signature.toString(),
+          slotNumber,
+          proposalId,
+        });
+        continue;
+      }
 
       const slotAttestationMap = getSlotOrDefault(this.attestations, slotNumber.toBigInt());
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
-      proposalAttestationMap.set(address.toString(), attestation);
+      proposalAttestationMap.set(sender.toString(), attestation);
 
-      this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+      this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${sender}`, {
         signature: attestation.signature.toString(),
         slotNumber,
-        address,
+        address: sender,
         proposalId,
       });
     }
@@ -147,9 +157,16 @@ export class InMemoryAttestationPool implements AttestationPool {
         const proposalId = attestation.archive.toString();
         const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
         if (proposalAttestationMap) {
-          const address = attestation.getSender();
-          proposalAttestationMap.delete(address.toString());
-          this.log.debug(`Deleted attestation for slot ${slotNumber} from ${address}`);
+          const sender = attestation.getSender();
+
+          // Skip attestations with invalid signatures
+          if (!sender) {
+            this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber.toBigInt()}`);
+            continue;
+          }
+
+          proposalAttestationMap.delete(sender.toString());
+          this.log.debug(`Deleted attestation for slot ${slotNumber} from ${sender}`);
         }
       }
     }
