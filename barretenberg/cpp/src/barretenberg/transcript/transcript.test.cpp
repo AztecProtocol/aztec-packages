@@ -234,3 +234,110 @@ TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
     simulate_transcript_interaction_with_multiple_provers(
         /*num_proof_exports=*/2, prover_transcript, verifier_transcript, true);
 }
+
+/**
+ * @brief Test convert_prover_transcript_to_verifier_transcript method
+ * @details This test verifies that a prover transcript can be correctly converted to a verifier transcript,
+ * and that the verifier can read all the data that was written by the prover.
+ */
+TEST(NativeTranscript, ConvertProverToVerifier)
+{
+    // Create a prover transcript and write some data
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+
+    Fr elt_a = 1337;
+    prover_transcript->send_to_verifier("a", elt_a);
+
+    Fq elt_b = 42;
+    prover_transcript->send_to_verifier("b", elt_b);
+
+    // Export the proof - this advances proof_start and resets num_frs_written
+    auto proof = prover_transcript->export_proof();
+
+    // At this point:
+    // - proof_data contains [elt_a, elt_b, elt_b (upper bits)]  (3 field elements total)
+    // - proof_start = 3
+    // - num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 3);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Convert to verifier transcript
+    auto verifier_transcript = NativeTranscript::convert_prover_transcript_to_verifier_transcript(prover_transcript);
+
+    // The verifier should be able to read from the beginning of proof_data
+    // num_frs_read should start at 0, NOT at proof_start
+    EXPECT_EQ(verifier_transcript->num_frs_read, 0UL);
+    EXPECT_EQ(verifier_transcript->proof_start, 0);
+
+    // Verify that the verifier can read the data correctly
+    Fr received_a = verifier_transcript->receive_from_prover<Fr>("a");
+    EXPECT_EQ(received_a, elt_a);
+    EXPECT_EQ(verifier_transcript->num_frs_read, 1UL);
+
+    Fq received_b = verifier_transcript->receive_from_prover<Fq>("b");
+    EXPECT_EQ(received_b, elt_b);
+    EXPECT_EQ(verifier_transcript->num_frs_read, 3UL); // Fq uses 2 field elements
+}
+
+/**
+ * @brief Test convert_prover_transcript_to_verifier_transcript with multiple exports
+ * @details This test checks the behavior when multiple proofs are exported before conversion.
+ * This mimics the Client IVC scenario where a transcript is shared across multiple circuits.
+ */
+TEST(NativeTranscript, ConvertProverToVerifierMultipleExports)
+{
+    // Create a prover transcript
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+
+    // First export
+    Fr elt_a = 100;
+    prover_transcript->send_to_verifier("a", elt_a);
+    auto proof1 = prover_transcript->export_proof();
+
+    // After first export: proof_start = 1, num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 1);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Second export
+    Fr elt_b = 200;
+    prover_transcript->send_to_verifier("b", elt_b);
+    auto proof2 = prover_transcript->export_proof();
+
+    // After second export: proof_start = 2, num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 2);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Third export
+    Fq elt_c = 300;
+    prover_transcript->send_to_verifier("c", elt_c);
+    auto proof3 = prover_transcript->export_proof();
+
+    // After third export: proof_start = 4 (Fq uses 2 field elements), num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 4);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Convert to verifier transcript
+    auto verifier_transcript = NativeTranscript::convert_prover_transcript_to_verifier_transcript(prover_transcript);
+
+    // The verifier should start reading from position 0, not from proof_start (which is 4)
+    EXPECT_EQ(verifier_transcript->num_frs_read, 0UL);
+    EXPECT_EQ(verifier_transcript->proof_start, 0);
+
+    // Load all the proofs in order
+    verifier_transcript->load_proof(proof1);
+    verifier_transcript->load_proof(proof2);
+    verifier_transcript->load_proof(proof3);
+
+    // Verify that the verifier can read all the data in order
+    Fr received_a = verifier_transcript->receive_from_prover<Fr>("a");
+    EXPECT_EQ(received_a, elt_a);
+
+    Fr received_b = verifier_transcript->receive_from_prover<Fr>("b");
+    EXPECT_EQ(received_b, elt_b);
+
+    Fq received_c = verifier_transcript->receive_from_prover<Fq>("c");
+    EXPECT_EQ(received_c, elt_c);
+
+    // All data should have been read
+    EXPECT_EQ(verifier_transcript->num_frs_read, 4UL);
+}
