@@ -295,16 +295,11 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     };
 }
 
-void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
-                                        const world_state::WorldStateRevision& world_state_revision)
-{
-    HintedRawContractDB raw_contract_db(hints);
-    simulate_fast(hints, world_state_revision, raw_contract_db);
-}
-
-void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
-                                        [[maybe_unused]] const world_state::WorldStateRevision& world_state_revision,
-                                        simulation::ContractDBInterface& raw_contract_db)
+void AvmSimulationHelper::simulate_fast(simulation::ContractDBInterface& raw_contract_db,
+                                        simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                                        const Tx& tx,
+                                        const GlobalVariables& global_variables,
+                                        const ProtocolContracts& protocol_contracts)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
 
@@ -350,17 +345,10 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
 
-    // Connect to world state given the revision, this relies on the world state being already initialized.
-    std::optional<PureRawMerkleDB> maybe_raw_merkle_db = PureRawMerkleDB::connect(world_state_revision);
-    if (!maybe_raw_merkle_db.has_value()) {
-        throw std::runtime_error("AvmSimulationHelper::simulate_fast, failed to connect to world state");
-    }
-    PureRawMerkleDB raw_merkle_db = maybe_raw_merkle_db.value();
-
     PureContractDB contract_db(raw_contract_db);
 
     PureMerkleDB merkle_db(
-        hints.tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+        tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
     merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
     NoopUpdateCheck update_check;
@@ -368,7 +356,7 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, field_gt, hints.protocolContracts, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
 
     PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
     PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
@@ -383,7 +371,7 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
                                      merkle_db,
                                      written_public_data_slots_tree_check,
                                      retrieved_bytecodes_tree_check,
-                                     hints.globalVariables);
+                                     global_variables);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
     // Create GetContractInstance opcode component
@@ -426,7 +414,29 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints,
                              poseidon2,
                              tx_event_emitter);
 
-    tx_execution.simulate(hints.tx);
+    tx_execution.simulate(tx);
+}
+
+void AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
+{
+    HintedRawContractDB raw_contract_db(hints);
+    HintedRawMerkleDB raw_merkle_db(hints);
+    simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+}
+
+void AvmSimulationHelper::simulate_fast_with_existing_ws(simulation::ContractDBInterface& raw_contract_db,
+                                                         const world_state::WorldStateRevision& world_state_revision,
+                                                         const Tx& tx,
+                                                         const GlobalVariables& global_variables,
+                                                         const ProtocolContracts& protocol_contracts)
+{
+    // Connect to world state given the revision, this relies on the world state being already initialized.
+    std::optional<PureRawMerkleDB> maybe_raw_merkle_db = PureRawMerkleDB::connect(world_state_revision);
+    if (!maybe_raw_merkle_db.has_value()) {
+        throw std::runtime_error("AvmSimulationHelper::simulate_fast, failed to connect to world state");
+    }
+    PureRawMerkleDB raw_merkle_db = maybe_raw_merkle_db.value();
+    simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
 }
 
 } // namespace bb::avm2

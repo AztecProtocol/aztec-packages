@@ -643,27 +643,33 @@ export class AvmCircuitInputs {
 
 export class AvmFastSimulationInputs {
   constructor(
-    public readonly hints: AvmExecutionHints,
-    public publicInputs: AvmCircuitPublicInputs,
-    public wsRevision: WorldStateRevision,
+    public readonly wsRevision: WorldStateRevision,
+    public tx: AvmTxHint,
+    public globalVariables: GlobalVariables,
+    public protocolContracts: ProtocolContracts,
   ) {}
 
   static empty() {
     return new AvmFastSimulationInputs(
-      AvmExecutionHints.empty(),
-      AvmCircuitPublicInputs.empty(),
       WorldStateRevision.empty(),
+      AvmTxHint.empty(),
+      GlobalVariables.empty(),
+      ProtocolContracts.empty(),
     );
   }
 
   static get schema() {
     return z
       .object({
-        hints: AvmExecutionHints.schema,
-        publicInputs: AvmCircuitPublicInputs.schema,
         wsRevision: WorldStateRevision.schema,
+        tx: AvmTxHint.schema,
+        globalVariables: GlobalVariables.schema,
+        protocolContracts: ProtocolContracts.schema,
       })
-      .transform(({ hints, publicInputs, wsRevision }) => new AvmFastSimulationInputs(hints, publicInputs, wsRevision));
+      .transform(
+        ({ wsRevision, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, tx, globalVariables, protocolContracts),
+      );
   }
 
   public serializeWithMessagePack(): Buffer {
