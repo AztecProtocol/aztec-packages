@@ -134,4 +134,17 @@ struct BBApiRequest {
     std::vector<uint8_t> loaded_circuit_vk;
 };
 
+struct Shutdown {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ShutdownResponse";
+        // Empty response - success indicated by no exception
+        void msgpack(auto&& pack_fn) { pack_fn(); }
+        bool operator==(const Response&) const = default;
+    };
+    void msgpack(auto&& pack_fn) { pack_fn(); }
+    Response execute(const BBApiRequest&) && { return {}; }
+    bool operator==(const Shutdown&) const = default;
+};
+
 } // namespace bb::bbapi

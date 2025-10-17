@@ -519,6 +519,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option(
+            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
+        ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
      * Build the CLI11 App
@@ -587,7 +592,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            return execute_msgpack_run(msgpack_input_file);
+            return execute_msgpack_run(msgpack_input_file, max_clients);
         }
         if (aztec_process->parsed()) {
 #ifdef __wasm__
