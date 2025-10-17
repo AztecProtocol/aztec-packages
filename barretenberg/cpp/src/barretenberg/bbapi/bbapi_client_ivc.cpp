@@ -59,9 +59,31 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-    if (!request.loaded_circuit_vk.empty()) {
-        // Deserialize directly from buffer
+
+    // Apply VK policy
+    if (request.vk_policy == VkPolicy::RECOMPUTE) {
+        // RECOMPUTE: Always ignore the provided VK (treat as nullptr)
+        info("ClientIvcAccumulate - VK policy: RECOMPUTE - ignoring provided VK for circuit '", request.loaded_circuit_name, "'");
+        precomputed_vk = nullptr;
+    } else if (!request.loaded_circuit_vk.empty()) {
+        // Deserialize the provided VK
         precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+
+        if (request.vk_policy == VkPolicy::CHECK) {
+            // CHECK: Verify the provided VK matches the computed VK
+            info("ClientIvcAccumulate - VK policy: CHECK - verifying provided VK for circuit '", request.loaded_circuit_name, "'");
+
+            // Compute the VK from the circuit
+            auto prover_instance = std::make_shared<ClientIVC::ProverInstance>(circuit, request.trace_settings);
+            auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+
+            // Compare VKs by dereferencing the shared pointers
+            if (*precomputed_vk != *computed_vk) {
+                throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
+                             "': provided VK does not match computed VK");
+            }
+            info("ClientIvcAccumulate - VK check passed for circuit '", request.loaded_circuit_name, "'");
+        }
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
