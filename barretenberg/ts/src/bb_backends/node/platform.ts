@@ -1,5 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
+import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 function getCurrentDir() {
