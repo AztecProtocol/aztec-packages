@@ -4,6 +4,7 @@
 
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "acir_to_constraint_buf.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 
@@ -338,6 +339,85 @@ TEST_F(AcirFormatTests, TestBigAdd)
 
     AcirProgram program{ constraint_system, witness_values };
     auto builder = create_circuit(program);
+
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// Helper function to convert a uint256_t to a 32-byte vector in big-endian format
+std::vector<uint8_t> to_bytes_be(uint256_t value)
+{
+    std::vector<uint8_t> bytes(32, 0);
+    for (size_t i = 0; i < 32; i++) {
+        bytes[31 - i] = static_cast<uint8_t>(value & 0xFF);
+        value >>= 8;
+    }
+    return bytes;
+}
+
+/**
+ * @brief Test for bug fix where expressions with distinct witnesses requiring more than one width-4 gate
+ *        were incorrectly processed when they initially appeared to fit in width-3 gates
+ *
+ * @details This test verifies the fix for a bug in handle_arithmetic where an expression with:
+ *  - 1 mul term using witnesses (w0 * w1)
+ *  - 3 additional linear terms using distinct witnesses (w2, w3, w4)
+ *
+ *  Such expressions have ≤3 linear combinations and ≤1 mul term, appearing to fit in a
+ *  poly_triple (width-3) gate. However, with all 5 witnesses distinct, serialize_arithmetic_gate
+ *  correctly returns all zeros, indicating it cannot fit in a width-3 gate.
+ *
+ *  The bug: old code would check if poly_triple was all zeros, and if so, directly add to
+ *  quad_constraints via serialize_mul_quad_gate. But it did this inside the initial
+ *  might_fit_in_polytriple check, so it would never properly go through the mul_quad processing
+ *  logic that handles the general case with >4 witnesses.
+ *
+ *  The fix: now uses a needs_to_be_parsed_as_mul_quad flag that is set when poly_triple fails,
+ *  and processes through the proper mul_quad logic path, which splits into multiple gates.
+ *
+ *  Expression: w0 * w1 + w2 + w3 + w4 = 10
+ *  With witnesses: w0=0, w1=1, w2=2, w3=3, w4=4
+ *  Evaluation: 0*1 + 2 + 3 + 4 = 9, but we set q_c = -9, so constraint is: 9 - 9 = 0
+ */
+TEST_F(AcirFormatTests, TestArithmeticGateWithDistinctWitnessesRegression)
+{
+    // Create an ACIR expression: w0 * w1 + w2 + w3 + w4 - 9 = 0
+    // This has 1 mul term and 3 linear terms with all 5 distinct witnesses (requires multiple width-4 gates)
+    Acir::Expression expr{ .mul_terms = { std::make_tuple(
+                               to_bytes_be(1), Acir::Witness{ .value = 0 }, Acir::Witness{ .value = 1 }) },
+                           .linear_combinations = { std::make_tuple(to_bytes_be(1), Acir::Witness{ .value = 2 }),
+                                                    std::make_tuple(to_bytes_be(1), Acir::Witness{ .value = 3 }),
+                                                    std::make_tuple(to_bytes_be(1), Acir::Witness{ .value = 4 }) },
+                           .q_c = to_bytes_be(static_cast<uint256_t>(fr(-9))) };
+
+    Acir::Opcode::AssertZero assert_zero{ .value = expr };
+
+    // Create an ACIR circuit with this opcode
+    Acir::Circuit circuit{
+        .current_witness_index = 5,
+        .opcodes = { Acir::Opcode{ .value = assert_zero } },
+        .return_values = {},
+    };
+
+    Acir::Program program{ .functions = { circuit } };
+
+    // Serialize the program to bytes
+    auto program_bytes = program.bincodeSerialize();
+
+    // Process through circuit_buf_to_acir_format (this calls handle_arithmetic internally)
+    AcirFormat constraint_system = circuit_buf_to_acir_format(std::move(program_bytes));
+
+    // The key assertion: this expression should end up in big_quad_constraints, not poly_triple_constraints
+    // or single quad_constraints, because it needs 5 witness slots (all distinct)
+    EXPECT_EQ(constraint_system.poly_triple_constraints.size(), 0);
+    EXPECT_EQ(constraint_system.quad_constraints.size(), 0);
+    EXPECT_EQ(constraint_system.big_quad_constraints.size(), 1);
+
+    // Now verify the constraint system with valid witness assignments
+    // We need: w0 * w1 + w2 + w3 + w4 = 9
+    // Use values: w0=0, w1=1, w2=2, w3=3, w4=4, so 0*1 + 2 + 3 + 4 = 9
+    WitnessVector witness{ 0, 1, 2, 3, 4 };
+    AcirProgram acir_program{ constraint_system, witness };
+    auto builder = create_circuit(acir_program);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
