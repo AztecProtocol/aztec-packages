@@ -22,7 +22,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
   private msgpackInputScratch: number = 0; // 1MB input buffer
   private msgpackOutputScratch: number = 0; // 1MB output buffer
-  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024; // 1MB
+  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024 * 128; // 128MB
 
   public getNumThreads() {
     return this.workers.length + 1;
