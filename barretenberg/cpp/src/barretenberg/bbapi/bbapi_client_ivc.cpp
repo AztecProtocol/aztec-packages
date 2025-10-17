@@ -73,7 +73,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
                     throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
-                                 "': provided VK does not match computed VK");
+                                   "': provided VK does not match computed VK");
                 }
             }
         }

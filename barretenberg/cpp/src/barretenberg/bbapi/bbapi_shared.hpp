@@ -26,9 +26,9 @@ inline bool USE_SUMCHECK_IVC = false;
  * @brief Policy for handling verification keys during IVC accumulation
  */
 enum class VkPolicy {
-    DEFAULT,   // Use the provided VK as-is (default behavior)
-    CHECK,     // Verify the provided VK matches the computed VK, throw error if mismatch
-    RECOMPUTE  // Always ignore the provided VK and treat it as nullptr
+    DEFAULT,  // Use the provided VK as-is (default behavior)
+    CHECK,    // Verify the provided VK matches the computed VK, throw error if mismatch
+    RECOMPUTE // Always ignore the provided VK and treat it as nullptr
 };
 
 /**
