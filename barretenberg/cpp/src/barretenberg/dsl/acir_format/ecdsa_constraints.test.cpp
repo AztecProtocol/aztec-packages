@@ -151,6 +151,7 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 
     std::shared_ptr<VerificationKey> vk_from_witness;
     {
+        info("running with witness...");
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
         info("Num gates: ", builder.get_estimated_num_finalized_gates());
@@ -164,10 +165,57 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 
     std::shared_ptr<VerificationKey> vk_from_constraint;
     {
+        info("running without witness...");
         AcirProgram program{ constraint_system, /*witness=*/{} };
         auto builder = create_circuit<Builder>(program);
         auto prover_instance = std::make_shared<ProvingKey>(builder);
         vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    }
+
+    // Debug: Compare individual commitments
+    info("Comparing VK commitments:");
+    info("log_circuit_size: ", vk_from_witness->log_circuit_size, " vs ", vk_from_constraint->log_circuit_size);
+    info("num_public_inputs: ", vk_from_witness->num_public_inputs, " vs ", vk_from_constraint->num_public_inputs);
+    info("pub_inputs_offset: ", vk_from_witness->pub_inputs_offset, " vs ", vk_from_constraint->pub_inputs_offset);
+
+    std::vector<std::string> names = { "q_m",
+                                       "q_c",
+                                       "q_l",
+                                       "q_r",
+                                       "q_o",
+                                       "q_4",
+                                       "q_lookup",
+                                       "q_arith",
+                                       "q_delta_range",
+                                       "q_elliptic",
+                                       "q_memory",
+                                       "q_nnf",
+                                       "q_poseidon2_external",
+                                       "q_poseidon2_internal",
+                                       "sigma_1",
+                                       "sigma_2",
+                                       "sigma_3",
+                                       "sigma_4",
+                                       "id_1",
+                                       "id_2",
+                                       "id_3",
+                                       "id_4",
+                                       "table_1",
+                                       "table_2",
+                                       "table_3",
+                                       "table_4",
+                                       "lagrange_first",
+                                       "lagrange_last" };
+
+    auto commitments_witness = vk_from_witness->get_all();
+    auto commitments_constraint = vk_from_constraint->get_all();
+
+    for (size_t i = 0; i < commitments_witness.size(); ++i) {
+        if (commitments_witness[i] != commitments_constraint[i]) {
+            info("DIFFERENCE at ", names[i], " (index ", i, ")");
+            info("  witness:    ", commitments_witness[i]);
+            info("  constraint: ", commitments_constraint[i]);
+        }
     }
 
     EXPECT_EQ(*vk_from_witness, *vk_from_constraint);

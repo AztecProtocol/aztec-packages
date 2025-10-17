@@ -682,13 +682,16 @@ process_avm_recursion_constraints(Builder& builder,
 template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const ProgramMetadata& metadata)
 {
     BB_BENCH();
+    info("creating the circuit...");
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
     Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum };
-
+    info("varnum is: ", constraints.varnum);
+    std::cerr << "varnum is: " << constraints.varnum << std::endl;
+    std::cerr.flush();
     build_constraints(builder, program, metadata);
-
+    info("created the circuit");
     vinfo("created circuit");
 
     return builder;
@@ -711,6 +714,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };
 
+    info("varnum is: ", constraints.varnum);
     // Populate constraints in the builder via the data in constraint_system
     build_constraints(builder, program, metadata);
 

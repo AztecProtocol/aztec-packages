@@ -193,7 +193,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
         builder->update_used_witnesses(index_witness);
         const auto value1_witness = builder->add_variable(value1);
         const auto value2_witness = builder->add_variable(value2);
-        RomRecord sorted_record{
+        [[maybe_unused]] RomRecord old_sorted_record{
             .index_witness = index_witness,
             .value_column1_witness = value1_witness,
             .value_column2_witness = value2_witness,
@@ -201,6 +201,12 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             .record_witness = 0,
             .gate_index = 0,
         };
+        // Note that the _values_ in `old_sorted_record` will be the same as the values in `record`, except for
+        // `gate_index`. HOWEVER, the witness indices will be different. While I was thinking through some aspects of
+        // the execution trace, I tried the following:
+        [[maybe_unused]] RomRecord sorted_record(record);
+        // note that this _simply copies_ the contents of `record` into `sorted_record`. Then `create_sorted_ROM_gate`
+        // will set the `gate_index` correctly.
         create_sorted_ROM_gate(builder, sorted_record);
 
         builder->assign_tag(record.record_witness, read_tag);
