@@ -167,8 +167,11 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
-    polynomials.databus_id = Polynomial(
-        std::max({ calldata_size, secondary_calldata_size, return_data_size, q_busread_end }), dyadic_size());
+    polynomials.databus_id = Polynomial(dyadic_size(), dyadic_size());
+    // WORKTODO: this causes problems because later on its coeffs gets populated based on its size(); if we take the
+    // "allocate full polys" path it has size dyadic_size() and thus different coeffs --> different VK.
+    // polynomials.databus_id = Polynomial(std::max({ calldata_size, secondary_calldata_size, return_data_size,
+    // q_busread_end }), dyadic_size());
 
     polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =
