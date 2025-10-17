@@ -29,7 +29,7 @@ template <typename FF> struct WitnessOrConstant {
     static WitnessOrConstant from_constant(FF value)
     {
         return WitnessOrConstant{
-            .index = 0,
+            .index = bb::stdlib::IS_CONSTANT,
             .value = value,
             .is_constant = true,
         };
