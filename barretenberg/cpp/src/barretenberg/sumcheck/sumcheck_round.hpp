@@ -443,10 +443,15 @@ template <typename Flavor> class SumcheckProverRound {
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
                 // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
                 // \beta_{d-1}^{\ell_{d-1}}\f$.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges,
-                                                relation_parameters,
-                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+
+                FF scaling_factor;
+                // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
+                // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
+                if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                    scaling_factor = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+                }
+                accumulate_relation_univariates(
+                    thread_univariate_accumulators[thread_idx], extended_edges, relation_parameters, scaling_factor);
             }
         });
 
@@ -618,13 +623,13 @@ template <typename Flavor> class SumcheckProverRound {
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            const bool is_subrelation_linearly_independent =
+            constexpr bool is_subrelation_linearly_independent =
                 bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
             // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
             // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
             // verifier, we additionally need a univariate contribution from the pow polynomial which is the
             // extended_random_polynomial which is the
-            if (!is_subrelation_linearly_independent) {
+            if constexpr (!is_subrelation_linearly_independent) {
                 result += extended;
             } else {
                 // Multiply by the pow polynomial univariate contribution and the partial

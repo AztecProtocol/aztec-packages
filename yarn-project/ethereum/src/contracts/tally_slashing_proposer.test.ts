@@ -161,7 +161,6 @@ describe('TallySlashingProposer', () => {
       const roundInfo = await tallySlashingProposer.getRound(0n);
 
       expect(typeof roundInfo.isExecuted).toBe('boolean');
-      expect(typeof roundInfo.readyToExecute).toBe('boolean');
       expect(typeof roundInfo.voteCount).toBe('bigint');
       expect(roundInfo.voteCount).toBeGreaterThanOrEqual(0n);
     });

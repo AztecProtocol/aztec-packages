@@ -16,7 +16,11 @@ namespace bb::bbapi {
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
+    if (USE_SUMCHECK_IVC) {
+        request.ivc_in_progress = std::make_shared<SumcheckClientIVC>(num_circuits);
+    } else {
+        request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
+    }
     request.ivc_stack_depth = 0;
     return Response{};
 }
@@ -51,8 +55,8 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_data(std::move(witness));
     acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
-    const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
-    auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+    const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
+    auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
@@ -82,20 +86,49 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    ClientIVC::Proof proof = request.ivc_in_progress->prove();
-    // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
-    // and it is mysterious if this transaction fails later in the lifecycle.
-    info("ClientIvcProve - verifying the generated proof as a sanity check");
-    ClientIVC::VerificationKey vk = request.ivc_in_progress->get_vk();
-    if (!ClientIVC::verify(proof, vk)) {
-        throw_or_abort("Failed to verify the generated proof!");
+
+    // Call prove and verify using the appropriate IVC type
+    Response response;
+    bool verification_passed = false;
+
+    if (auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckClientIVC>(request.ivc_in_progress)) {
+        info("ClientIvcProve - using SumcheckClientIVC");
+        auto proof = sumcheck_ivc->prove();
+        auto vk = sumcheck_ivc->get_vk();
+
+        // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
+        // and it is mysterious if this transaction fails later in the lifecycle.
+        info("ClientIvcProve - verifying the generated proof as a sanity check");
+        verification_passed = SumcheckClientIVC::verify(proof, vk);
+
+        if (!verification_passed) {
+            throw_or_abort("Failed to verify the generated proof!");
+        }
+
+        response.proof = ClientIVC::Proof{ .mega_proof = std::move(proof.mega_proof),
+                                           .goblin_proof = std::move(proof.goblin_proof) };
+    } else if (auto client_ivc = std::dynamic_pointer_cast<ClientIVC>(request.ivc_in_progress)) {
+        info("ClientIvcProve - using ClientIVC");
+        auto proof = client_ivc->prove();
+        auto vk = client_ivc->get_vk();
+
+        // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
+        // and it is mysterious if this transaction fails later in the lifecycle.
+        info("ClientIvcProve - verifying the generated proof as a sanity check");
+        verification_passed = ClientIVC::verify(proof, vk);
+
+        if (!verification_passed) {
+            throw_or_abort("Failed to verify the generated proof!");
+        }
+
+        response.proof = std::move(proof);
+    } else {
+        throw_or_abort("Unknown IVC type");
     }
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
 
-    Response response;
-    response.proof = std::move(proof);
     return response;
 }
 

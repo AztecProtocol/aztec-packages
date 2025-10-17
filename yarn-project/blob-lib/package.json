@@ -29,7 +29,7 @@
   "dependencies": {
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "c-kzg": "4.0.0-alpha.1",
+    "c-kzg": "4.1.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

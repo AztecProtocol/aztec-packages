@@ -1,4 +1,4 @@
-import { DirectionalAppTaggingSecret, type IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import { DirectionalAppTaggingSecret, type PreTag } from '@aztec/stdlib/logs';
 
 /**
  * A map that stores the tagging index for a given directional app tagging secret.
@@ -8,11 +8,11 @@ import { DirectionalAppTaggingSecret, type IndexedTaggingSecret } from '@aztec/s
 export class ExecutionTaggingIndexCache {
   private taggingIndexMap: Map<string, number> = new Map();
 
-  public getTaggingIndex(secret: DirectionalAppTaggingSecret): number | undefined {
+  public getLastUsedIndex(secret: DirectionalAppTaggingSecret): number | undefined {
     return this.taggingIndexMap.get(secret.toString());
   }
 
-  public setTaggingIndex(secret: DirectionalAppTaggingSecret, index: number) {
+  public setLastUsedIndex(secret: DirectionalAppTaggingSecret, index: number) {
     const currentValue = this.taggingIndexMap.get(secret.toString());
     if (currentValue !== undefined && currentValue !== index - 1) {
       throw new Error(`Invalid tagging index update. Current value: ${currentValue}, new value: ${index}`);
@@ -20,7 +20,10 @@ export class ExecutionTaggingIndexCache {
     this.taggingIndexMap.set(secret.toString(), index);
   }
 
-  public getIndexedTaggingSecrets(): IndexedTaggingSecret[] {
+  /**
+   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
+   */
+  public getUsedPreTags(): PreTag[] {
     return Array.from(this.taggingIndexMap.entries()).map(([secret, index]) => ({
       secret: DirectionalAppTaggingSecret.fromString(secret),
       index,

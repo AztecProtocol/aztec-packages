@@ -13,8 +13,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # Read the network name from the env file
-NETWORK=$(grep "^NETWORK=" "$ENV_FILE" | cut -d'=' -f2 || true)
 NETWORK=${NETWORK:-}
+
+L1_NETWORK=${L1_NETWORK:-sepolia}
 
 echo "Setting up GCP secrets for network: $NETWORK"
 
@@ -30,15 +31,15 @@ get_secret() {
 # Map of environment variables to GCP secret names
 # Generic mappings - network-specific secrets use ${NETWORK} in the name
 declare -A SECRET_MAPPINGS=(
-    ["ETHEREUM_RPC_URLS"]="sepolia-rpc-urls"
-    ["ETHEREUM_CONSENSUS_HOST_URLS"]="sepolia-consensus-host-urls"
-    ["ETHEREUM_CONSENSUS_HOST_API_KEYS"]="sepolia-consensus-host-api-keys"
-    ["ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS"]="sepolia-consensus-host-api-key-headers"
-    ["FUNDING_PRIVATE_KEY"]="sepolia-funding-private-key"
-    ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="sepolia-labs-rollup-private-key"
+    ["ETHEREUM_RPC_URLS"]="${L1_NETWORK}-rpc-urls"
+    ["ETHEREUM_CONSENSUS_HOST_URLS"]="${L1_NETWORK}-consensus-host-urls"
+    ["ETHEREUM_CONSENSUS_HOST_API_KEYS"]="${L1_NETWORK}-consensus-host-api-keys"
+    ["ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS"]="${L1_NETWORK}-consensus-host-api-key-headers"
+    ["FUNDING_PRIVATE_KEY"]="${L1_NETWORK}-funding-private-key"
+    ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="${L1_NETWORK}-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
-    ["LABS_INFRA_MNEMONIC"]="sepolia-labs-${NETWORK}-mnemonic"
+    ["LABS_INFRA_MNEMONIC"]="${L1_NETWORK}-labs-${NETWORK}-mnemonic"
     ["STORE_SNAPSHOT_URL"]="r2-account-id"
     ["R2_ACCESS_KEY_ID"]="r2-access-key-id"
     ["R2_SECRET_ACCESS_KEY"]="r2-secret-access-key"

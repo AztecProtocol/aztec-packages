@@ -241,7 +241,10 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+  fi
+  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+    builds+=(build_smt_verification)
   fi
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
@@ -294,7 +297,7 @@ function test_cmds {
   fi
 
   # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
     local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
@@ -408,7 +411,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

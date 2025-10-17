@@ -33,8 +33,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
-        field_t<Builder> positive_skew;
-        field_t<Builder> negative_skew;
+        bool_ct positive_skew;
+        bool_ct negative_skew;
         field_t<Builder> least_significant_wnaf_fragment;
         bool has_wnaf_fragment = false;
     };
@@ -422,7 +422,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
 
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
-    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar);
+    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
     Builder* get_context() const
     {
@@ -497,6 +497,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq x;
     Fq y;
 
+    // For testing purposes only
+    friend class element_test_accessor;
+
   private:
     bool_ct _is_infinity;
 
@@ -515,8 +518,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * setting `is_negative = true`.
      */
     template <size_t num_bits, size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
-    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(
-        Builder* builder, const secp256k1::fr& scalar, size_t stagger, bool is_negative, bool is_lo = false);
+    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(Builder* builder,
+                                                                       const secp256k1::fr& scalar,
+                                                                       size_t stagger,
+                                                                       bool is_negative,
+                                                                       const bool range_constrain_wnaf = true,
+                                                                       bool is_lo = false);
 
     /**
      * @brief Compute the stagger-related part of wNAF and the final skew
@@ -528,10 +535,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      */
     template <size_t wnaf_size>
-    static std::pair<uint64_t, bool> compute_secp256k1_staggered_wnaf_fragment(const uint64_t fragment_u64,
-                                                                               const uint64_t stagger,
-                                                                               bool is_negative,
-                                                                               bool wnaf_skew);
+    static std::pair<uint64_t, bool> get_staggered_wnaf_fragment_value(const uint64_t fragment_u64,
+                                                                       const uint64_t stagger,
+                                                                       bool is_negative,
+                                                                       bool wnaf_skew);
 
     /**
      * @brief Convert wNAF values to witness values
@@ -548,9 +555,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          uint64_t* wnaf_values,
+                                                                          const uint64_t* wnaf_values,
                                                                           bool is_negative,
-                                                                          size_t rounds);
+                                                                          size_t rounds,
+                                                                          const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit
@@ -566,7 +574,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <size_t wnaf_size>
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
                                              const std::vector<field_t<Builder>>& wnaf,
-                                             const field_t<Builder>& positive_skew,
+                                             const bool_ct& positive_skew,
+                                             const bool_ct& negative_skew,
                                              const field_t<Builder>& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);
@@ -978,6 +987,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     using batch_lookup_table = batch_lookup_table_plookup;
+};
+
+// For testing purposes only
+class element_test_accessor {
+  public:
+    template <typename C, typename Fq, typename Fr, typename G, size_t wnaf_size>
+    static auto get_staggered_wnaf_fragment_value(uint64_t fragment_u64,
+                                                  uint64_t stagger,
+                                                  bool is_negative,
+                                                  bool wnaf_skew)
+    {
+        return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
+            fragment_u64, stagger, is_negative, wnaf_skew);
+    }
 };
 
 template <typename C, typename Fq, typename Fr, typename G>

@@ -14,7 +14,7 @@ import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
  * address: A→B differs from B→A even with the same participants and app.
  *
  * Note: It's a bit unfortunate that this type resides in `stdlib` as the rest of the tagging functionality resides
- * in `pxe/src/tagging`. We need to use this type in `IndexedTaggingSecret` that in turn is used by other types
+ * in `pxe/src/tagging`. We need to use this type in `PreTag` that in turn is used by other types
  * in stdlib hence there doesn't seem to be a good way around this.
  */
 export class DirectionalAppTaggingSecret {

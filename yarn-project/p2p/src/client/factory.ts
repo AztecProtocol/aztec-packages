@@ -14,7 +14,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 import { P2PClient } from '../client/p2p_client.js';
 import type { P2PConfig } from '../config.js';
 import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { InMemoryAttestationPool } from '../mem_pools/attestation_pool/memory_attestation_pool.js';
+import { KvAttestationPool } from '../mem_pools/attestation_pool/kv_attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import { AztecKVTxPool, type TxPool } from '../mem_pools/tx_pool/index.js';
 import { DummyP2PService } from '../services/dummy_service.js';
@@ -35,6 +35,7 @@ export type P2PClientDeps<T extends P2PClientType> = {
 export const P2P_STORE_NAME = 'p2p';
 export const P2P_ARCHIVE_STORE_NAME = 'p2p-archive';
 export const P2P_PEER_STORE_NAME = 'p2p-peers';
+export const P2P_ATTESTATION_STORE_NAME = 'p2p-attestation';
 
 export async function createP2PClient<T extends P2PClientType>(
   clientType: T,
@@ -64,6 +65,12 @@ export async function createP2PClient<T extends P2PClientType>(
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, createLogger('p2p-archive:lmdb-v2'));
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, createLogger('p2p-peer:lmdb-v2'));
+  const attestationStore = await createStore(
+    P2P_ATTESTATION_STORE_NAME,
+    1,
+    config,
+    createLogger('p2p-attestation:lmdb-v2'),
+  );
   const l1Constants = await archiver.getL1Constants();
 
   const mempools: MemPools<T> = {
@@ -75,7 +82,7 @@ export async function createP2PClient<T extends P2PClientType>(
       }),
     attestationPool:
       clientType === P2PClientType.Full
-        ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full
+        ? ((deps.attestationPool ?? new KvAttestationPool(attestationStore, telemetry)) as T extends P2PClientType.Full
             ? AttestationPool
             : undefined)
         : undefined,

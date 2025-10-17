@@ -31,6 +31,8 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
+ * @warning This constructor does not constrain the point to be on the curve. It is intended for cases where points are
+ * implicitly known to be on the curve such as the result of a point addition or doubling.
  *
  * @param _x
  * @param _y
@@ -55,10 +57,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
         *this = constant_infinity(this->context);
     }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
-    // causes schnorr acir test to fail due to a bad input (a public key that has x and y coordinate set to 0).
-    // Investigate this to be able to enable the test.
-    // ASSERT(get_value().on_curve());
+    ASSERT(get_value().on_curve());
 }
 
 /**
@@ -580,17 +579,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
         // Constrain x_diff * lambda = y2 - y1
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
-    const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
-    const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
-    cycle_group add_result(x3, y3, /*is_infinity=*/x_coordinates_match);
+    const field_t add_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
+    const field_t add_result_y = lambda.madd(x1 - add_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
     // Compute the doubling result
     const cycle_group dbl_result = dbl();
 
     // If the addition amounts to a doubling then the result is the doubling result, else the addition result.
     const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
-    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result_x);
+    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result_y);
 
     // If the lhs is the point at infinity, return rhs
     const bool_t lhs_infinity = is_point_at_infinity();
@@ -657,9 +655,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
         // Constrain x_diff * lambda = -y2 - y1
         field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
     }
-    const field_t x3 = lambda.madd(lambda, -(x2 + x1)); // x3 = lambda^2 - x1 - x2
-    const field_t y3 = lambda.madd(x1 - x3, -y1);       // y3 = lambda * (x1 - x3) - y1
-    cycle_group sub_result(x3, y3, /*is_infinity=*/x_coordinates_match);
+    const field_t sub_result_x = lambda.madd(lambda, -(x2 + x1));     // x3 = lambda^2 - x1 - x2
+    const field_t sub_result_y = lambda.madd(x1 - sub_result_x, -y1); // y3 = lambda * (x1 - x3) - y1
 
     // Compute the doubling result
     const cycle_group dbl_result = dbl();
@@ -669,8 +666,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // guaranteed to be on the curve. Ideally we can ensure that on-curve checks are applied to all cycle_group
     // elements, otherwise we may need to be more precise with these predicates.
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match);
-    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result.x);
-    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result.y);
+    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result_x);
+    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result_y);
 
     if (!result_x.is_constant()) {
         context->update_used_witnesses(result_x.witness_index);
