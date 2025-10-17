@@ -3,6 +3,8 @@ import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { IMsgpackBackendSync, IMsgpackBackendAsync } from './interface.js';
 import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
 import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
+import { createDebugLogger } from '../log/index.js';
+import { proxy } from 'comlink';
 
 /**
  * Synchronous WASM backend that wraps BarretenbergWasmMain.
@@ -50,7 +52,7 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
 export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
   private constructor(
     private wasm: BarretenbergWasmMain | BarretenbergWasmMainWorker,
-    private isWorker: boolean,
+    private worker?: any,
   ) {}
 
   /**
@@ -78,14 +80,20 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       const worker = await createMainWorker();
       const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
-      return new BarretenbergWasmAsyncBackend(wasm, true);
+      await wasm.init(
+        module,
+        threads,
+        proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
+        options.memory?.initial,
+        options.memory?.maximum,
+      );
+      return new BarretenbergWasmAsyncBackend(wasm, worker);
     } else {
       // Direct mode: runs on calling thread (faster but blocks thread)
       const wasm = new BarretenbergWasmMain();
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
       await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum);
-      return new BarretenbergWasmAsyncBackend(wasm, false);
+      return new BarretenbergWasmAsyncBackend(wasm);
     }
   }
 
@@ -95,5 +103,8 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
 
   async destroy(): Promise<void> {
     await this.wasm.destroy();
+    if (this.worker) {
+      await this.worker.terminate();
+    }
   }
 }

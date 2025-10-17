@@ -48,7 +48,7 @@ export async function createAsyncBackend(
       const wasm = await BarretenbergWasmAsyncBackend.new({
         threads: options.threads,
         wasmPath: options.wasmPath,
-        logger,
+        logger: options.logger,
         memory: options.memory,
         useWorker,
       });

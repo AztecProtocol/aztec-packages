@@ -1,11 +1,12 @@
-import { Barretenberg, BarretenbergSync } from './index.js';
+import { BackendType, Barretenberg, BarretenbergSync } from './index.js';
 import { Fr } from '../types/index.js';
 
 describe('blake2s async', () => {
   let api: Barretenberg;
 
   beforeAll(async () => {
-    api = await Barretenberg.new({ threads: 1 });
+    // We're going to test over a worker backend to cover more code paths.
+    api = await Barretenberg.new({ threads: 1, backend: BackendType.WasmWorker });
   });
 
   afterAll(async () => {

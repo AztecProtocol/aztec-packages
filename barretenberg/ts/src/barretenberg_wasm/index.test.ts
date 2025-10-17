@@ -17,7 +17,7 @@ describe('barretenberg wasm', () => {
 
   afterAll(async () => {
     await wasm.destroy();
-    worker.terminate();
+    await worker.terminate();
   });
 
   it('should new malloc, transfer and slice mem', async () => {
