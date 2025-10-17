@@ -78,7 +78,93 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 };
 template <typename Flavor> class MemoryTests : public UltraHonkTests<Flavor> {
   public:
-    enum MemType { ROM, RAM, ROMRAM };
+    enum MemType { ROM, RAM };
+    void build_random_mem_table(auto& circuit_builder,
+                                MemType mem_type,
+                                size_t array_length,
+                                const size_t read_write_operations = 0,
+                                bool any_uninitialized_entries = false)
+    {
+        // for ROM tables, we including testing for only partially initialized arrays.
+        size_t num_variables = (!any_uninitialized_entries) ? (array_length / 2) : array_length;
+        std::vector<fr> variables(num_variables);
+        std::vector<uint32_t> variable_witnesses(num_variables);
+        // create a list of random variables, add them to the circuit, and record their witnesses.
+        for (auto [variable, witness] : zip_view(variables, variable_witnesses)) {
+            variable = fr::random_element();
+            witness = circuit_builder.add_variable(variable);
+        }
+        // create the mem table of choice
+        size_t mem_table_id = (mem_type == MemType::ROM) ? circuit_builder.create_ROM_array(array_length)
+                                                         : circuit_builder.create_RAM_array(array_length);
+
+        uint32_t a_idx;
+        uint32_t b_idx;
+        uint32_t c_idx;
+
+        // build three random indices, store their witnesses for later use in the final check.
+        std::array<uint32_t, 3> random_index_witnesses;
+        for (size_t i = 0; i < 3; i++) {
+            uint32_t random_index = static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+            random_index_witnesses[i] = circuit_builder->put_constant_variable(random_index);
+        }
+
+        // different behavior depending on ROM or RAM table.
+        switch (mem_type) {
+        case MemType::Rom:
+
+            for (size_t i = 0; i < num_variables; ++i) {
+                circuit_builder.set_ROM_element(mem_table_id, i, variable_witnesses[i]);
+            }
+            for (size_t i = 0; i < read_write_operations; ++i) {
+                uint32_t random_access_index = static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+            }
+
+            for (size_t i = 0; i < read_write_operations; ++i) {
+            }
+            a_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[0]);
+            b_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[1]);
+            c_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[2]);
+
+            break;
+        case MemType::Ram:
+
+            BB_ASSERT_EQ(any_uninitialized_entries, false);
+            std::vector<size_t> witness_indices(array_length);
+            for (size_t i = 0; i < array_length; ++i) {
+                circuit_builder.init_RAM_element(mem_table_id, i, variable_witnesses[i]);
+                witness_indices[i] = circuit_builder->put_constant_variable(static_cast<uint64_t>(i));
+            }
+
+            std::vector<uint32_t> write_variable_witnesses(read_write_operations);
+            for (size_t i = 0; i < read_write_operations; ++i) {
+                size_t random_write_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
+                fr random_element = fr::random_element();
+                write_variable_witnesses[i] = circuit_builder.add_variable(random_element);
+                circuit_builder.write_RAM_array(mem_table_id, witness_indices[random_write_index]);
+            }
+
+            a_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[0]);
+            b_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[1]);
+            c_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[2]);
+            break;
+        }
+        const fr d_value = circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
+                           circuit_builder.get_variable(c_idx);
+        uint32_t d_idx = circuit_builder.add_variable(d_value);
+
+        circuit_builder.create_big_add_gate({
+            a_idx,
+            b_idx,
+            c_idx,
+            d_idx,
+            1,
+            1,
+            1,
+            -1,
+            0,
+        });
+    }
     template <size_t num_rom_tables, size_t num_ram_tables>
     void build_mem_tables(auto& circuit_builder,
                           std::array<size_t, num_rom_tables> rom_table_sizes,

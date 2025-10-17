@@ -251,6 +251,15 @@ template <typename ExecutionTrace> class RomRamLogic_ {
                           const size_t index_value,
                           const uint32_t value_witness);
     uint32_t read_RAM_array(CircuitBuilder* builder, const size_t ram_id, const uint32_t index_witness);
+    /**
+     * @brief Write a cell in a RAM array.
+     *
+     * @param builder
+     * @param ram_id The index of the RAM array, whose cell we are (re)writing
+     * @param index_witness The _witness_ of the index cell in the RAM array. This is as a safeguard to make sure we
+     * have _already_ initialized the RAM cell, so that we in particular have access to the index witness.
+     * @param value_witness
+     */
     void write_RAM_array(CircuitBuilder* builder,
                          const size_t ram_id,
                          const uint32_t index_witness,

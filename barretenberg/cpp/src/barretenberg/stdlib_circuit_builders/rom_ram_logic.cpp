@@ -445,7 +445,8 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     // Make sure that every cell has been initialized.
     // NOTE: should we throw some kind of error here? Circuit should initialize all RAM elements to prevent errors.
     // e.g. if a RAM record is uninitialized but the index of that record is a function of witness data (e.g.
-    // public/private inputs), different public inputs will produce different circuit constraints.
+    // public/private inputs), different public inputs will produce different circuit constraints, and in particular VKs
+    // will not be independent of witness generation.
     for (size_t i = 0; i < ram_array.state.size(); ++i) {
         if (ram_array.state[i] == UNINITIALIZED_MEMORY_RECORD) {
             info("WARNING: RAM array ", ram_id, " element ", i, " was uninitialized. Initializing to zero.");
