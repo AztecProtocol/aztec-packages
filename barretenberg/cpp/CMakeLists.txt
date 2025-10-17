@@ -145,7 +145,6 @@ include(cmake/msgpack.cmake)
 include(cmake/nlohmann_json.cmake)
 include(cmake/httplib.cmake)
 include(cmake/libdeflate.cmake)
-include(cmake/c-kzg.cmake)
 
 if (WASM)
     set(DISABLE_AZTEC_VM ON)

@@ -1,6 +1,1 @@
-barretenberg_module(bbapi common client_ivc dsl crypto_kzg crypto_poseidon2 crypto_pedersen_commitment crypto_pedersen_hash crypto_blake2s crypto_aes128 crypto_schnorr crypto_ecdsa ecc srs)
-
-# bbapi_objects needs crypto module include paths
-target_link_libraries(bbapi_objects PUBLIC
-    crypto_kzg
-)
+barretenberg_module(bbapi common client_ivc dsl crypto_poseidon2 crypto_pedersen_commitment crypto_pedersen_hash crypto_blake2s crypto_aes128 crypto_schnorr crypto_ecdsa ecc srs)

@@ -4,7 +4,6 @@
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
-#include "barretenberg/bbapi/bbapi_kzg.hpp"
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_srs.hpp"
@@ -29,14 +28,6 @@ using Command = NamedUnion<CircuitProve,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
                            ClientIvcStats,
-                           KzgLoadTrustedSetup,
-                           KzgFreeTrustedSetup,
-                           KzgBlobToCommitment,
-                           KzgComputeProof,
-                           KzgComputeBlobProof,
-                           KzgVerifyProof,
-                           KzgVerifyBlobProof,
-                           KzgVerifyBlobProofBatch,
                            Poseidon2Hash,
                            Poseidon2Permutation,
                            Poseidon2HashAccumulate,
@@ -86,14 +77,6 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
                                    ClientIvcStats::Response,
-                                   KzgLoadTrustedSetup::Response,
-                                   KzgFreeTrustedSetup::Response,
-                                   KzgBlobToCommitment::Response,
-                                   KzgComputeProof::Response,
-                                   KzgComputeBlobProof::Response,
-                                   KzgVerifyProof::Response,
-                                   KzgVerifyBlobProof::Response,
-                                   KzgVerifyBlobProofBatch::Response,
                                    Poseidon2Hash::Response,
                                    Poseidon2Permutation::Response,
                                    Poseidon2HashAccumulate::Response,

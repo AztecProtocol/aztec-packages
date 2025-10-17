@@ -1,21 +1,32 @@
-import { Barretenberg } from '@aztec/bb.js';
 import { BLOBS_PER_BLOCK, BLOB_ACCUMULATOR_LENGTH } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
+import cKzg from 'c-kzg';
+
 import { Blob } from './blob.js';
 import { BatchedBlob } from './blob_batching.js';
 import { BlobAccumulator, FinalBlobAccumulator } from './blob_batching_public_inputs.js';
-import { ensureKzgInitialized } from './kzg_init.js';
 import { makeBatchedBlobAccumulator } from './testing.js';
+
+try {
+  cKzg.loadTrustedSetup(8);
+} catch (error: any) {
+  if (error.message.includes('trusted setup is already loaded')) {
+    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
+    // and it throws an error if it's already loaded, even though nothing is wrong.
+    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
+  } else {
+    throw new Error(error);
+  }
+}
 
 describe('BlobAccumulator', () => {
   let blobPI: BlobAccumulator;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     blobPI = BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
-    await ensureKzgInitialized();
   });
 
   it('serializes to buffer and deserializes it back', () => {
@@ -35,9 +46,8 @@ describe('BlobAccumulator', () => {
 describe('FinalBlobAccumulator', () => {
   let blobPI: FinalBlobAccumulator;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     blobPI = FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(randomInt(1000)));
-    await ensureKzgInitialized();
   });
 
   it('serializes to buffer and deserializes it back', () => {

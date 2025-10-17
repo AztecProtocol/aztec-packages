@@ -1,8 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
+import type { Blob as BlobBuffer } from 'c-kzg';
+
 import { getNumBlobFieldsFromTxStartMarker, isBlockEndMarker } from './encoding.js';
-import type { BlobBuffer } from './index.js';
 
 /**
  * Deserializes a blob buffer into an array of field elements.

@@ -1,11 +1,14 @@
-import { Barretenberg } from '@aztec/bb.js';
 import { AZTEC_MAX_EPOCH_DURATION, BLOBS_PER_BLOCK } from '@aztec/constants';
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
+// Importing directly from 'c-kzg' does not work:
+import cKzg from 'c-kzg';
+
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
-import { ensureKzgInitialized } from './kzg_init.js';
+
+const { computeKzgProof, verifyKzgProof } = cKzg;
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
@@ -72,12 +75,9 @@ export class BatchedBlob {
     for (let i = 1; i < blobs.length; i++) {
       z = await poseidon2Hash([z, blobs[i].challengeZ]);
     }
-    // Now we have a shared challenge for all blobs, evaluate them in parallel...
-    await ensureKzgInitialized();
-    const api = Barretenberg.getSingleton();
-    // Use Promise.all for parallel proof computation - now safe with pipelined backend!
-    const proofObjects = await Promise.all(blobs.map(b => api.kzgComputeProof({ blobData: b.data, z: z.toBuffer() })));
-    const evaluations = proofObjects.map(res => BLS12Fr.fromBuffer(Buffer.from(res.y)));
+    // Now we have a shared challenge for all blobs, evaluate them...
+    const proofObjects = blobs.map(b => computeKzgProof(b.data, z.toBuffer()));
+    const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
     // We start at i = 1, because gamma is initialized as the first blob's evaluation.
@@ -209,20 +209,15 @@ export class BatchedBlobAccumulator {
     blob: Blob,
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
-    const api = Barretenberg.getSingleton();
-    const res = await api.kzgComputeProof({
-      blobData: blob.data,
-      z: finalBlobChallenges.z.toBuffer(),
-    });
-    const firstY = BLS12Fr.fromBuffer(Buffer.from(res.y));
-    const q = Buffer.from(res.proof);
+    const [q, evaluation] = computeKzgProof(blob.data, finalBlobChallenges.z.toBuffer());
+    const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
       sha256ToField([blob.commitment]), // blobCommitmentsHashAcc = sha256(C_0)
       blob.challengeZ, // zAcc = z_0
       firstY, // yAcc = gamma^0 * y_0 = 1 * y_0
       BLS12Point.decompress(blob.commitment), // cAcc = gamma^0 * C_0 = 1 * C_0
-      BLS12Point.decompress(q), // qAcc = gamma^0 * Q_0 = 1 * Q_0
+      BLS12Point.decompress(Buffer.from(q)), // qAcc = gamma^0 * Q_0 = 1 * Q_0
       await hashNoirBigNumLimbs(firstY), // gammaAcc = poseidon2(y_0.limbs)
       finalBlobChallenges.gamma, // gammaPow = gamma^(i + 1) = gamma^1 = gamma
       finalBlobChallenges,
@@ -255,13 +250,8 @@ export class BatchedBlobAccumulator {
     if (this.isEmptyState()) {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
-      const api = Barretenberg.getSingleton();
-      const res = await api.kzgComputeProof({
-        blobData: blob.data,
-        z: this.finalBlobChallenges.z.toBuffer(),
-      });
-      const thisY = BLS12Fr.fromBuffer(Buffer.from(res.y));
-      const q = Buffer.from(res.proof);
+      const [q, evaluation] = computeKzgProof(blob.data, this.finalBlobChallenges.z.toBuffer());
+      const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
 
       // Moving from i - 1 to i, so:
       return new BatchedBlobAccumulator(
@@ -269,7 +259,7 @@ export class BatchedBlobAccumulator {
         await poseidon2Hash([this.zAcc, blob.challengeZ]), // zAcc := poseidon2(zAcc, z_i)
         this.yAcc.add(thisY.mul(this.gammaPow)), // yAcc := yAcc + (gamma^i * y_i)
         this.cAcc.add(BLS12Point.decompress(blob.commitment).mul(this.gammaPow)), // cAcc := cAcc + (gamma^i * C_i)
-        this.qAcc.add(BLS12Point.decompress(q).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
+        this.qAcc.add(BLS12Point.decompress(Buffer.from(q)).mul(this.gammaPow)), // qAcc := qAcc + (gamma^i * C_i)
         await poseidon2Hash([this.gammaAcc, await hashNoirBigNumLimbs(thisY)]), // gammaAcc := poseidon2(gammaAcc, poseidon2(y_i.limbs))
         this.gammaPow.mul(this.finalBlobChallenges.gamma), // gammaPow = gamma^(i + 1) = gamma^i * final_gamma
         this.finalBlobChallenges,
@@ -318,14 +308,7 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
       );
     }
-    const api = Barretenberg.getSingleton();
-    const verifyRes = await api.kzgVerifyProof({
-      commitment: this.cAcc.compress(),
-      z: this.zAcc.toBuffer(),
-      y: this.yAcc.toBuffer(),
-      proof: this.qAcc.compress(),
-    });
-    if (!verifyRes.valid) {
+    if (!verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress())) {
       throw new Error(`KZG proof did not verify.`);
     }
 

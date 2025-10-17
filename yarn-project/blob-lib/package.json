@@ -27,9 +27,9 @@
     "../package.common.json"
   ],
   "dependencies": {
-    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "c-kzg": "4.1.0",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
