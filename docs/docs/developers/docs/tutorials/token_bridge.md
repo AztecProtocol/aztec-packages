@@ -1,7 +1,8 @@
 ---
-title: "Bridge Your NFT to Aztec"
-sidebar_position: 1
-description: "Build a private NFT bridge that moves CryptoPunks between Ethereum and Aztec with encrypted ownership using custom notes and PrivateSet."
+title: NFT Bridge
+sidebar_position: 2
+tags: [privacy, bridge, advanced]
+description: Build a private NFT bridge that moves CryptoPunks between Ethereum and Aztec with encrypted ownership using custom notes and PrivateSet.
 ---
 
 ## Why Bridge an NFT?
