@@ -3,24 +3,10 @@ import { timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
-import cKzg from 'c-kzg';
-
 import { Blob } from './blob.js';
 import { BatchedBlob } from './blob_batching.js';
 import { BlobAccumulator, FinalBlobAccumulator } from './blob_batching_public_inputs.js';
 import { makeBatchedBlobAccumulator } from './testing.js';
-
-try {
-  cKzg.loadTrustedSetup(8);
-} catch (error: any) {
-  if (error.message.includes('trusted setup is already loaded')) {
-    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
-    // and it throws an error if it's already loaded, even though nothing is wrong.
-    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
-  } else {
-    throw new Error(error);
-  }
-}
 
 describe('BlobAccumulator', () => {
   let blobPI: BlobAccumulator;

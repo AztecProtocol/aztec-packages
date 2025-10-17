@@ -4,31 +4,16 @@ import { poseidon2Hash, randomInt, sha256ToField } from '@aztec/foundation/crypt
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { fileURLToPath } from '@aztec/foundation/url';
 
-import cKzg from 'c-kzg';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
 import { BatchedBlob, BatchedBlobAccumulator, Blob } from './index.js';
+import { kzg } from './kzg_context.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
 const trustedSetup = JSON.parse(
   readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), 'trusted_setup_bit_reversed.json')).toString(),
 );
-
-// Importing directly from 'c-kzg' does not work:
-const { FIELD_ELEMENTS_PER_BLOB, computeKzgProof, loadTrustedSetup, verifyKzgProof } = cKzg;
-
-try {
-  loadTrustedSetup(8);
-} catch (error: any) {
-  if (error.message.includes('trusted setup is already loaded')) {
-    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
-    // and it throws an error if it's already loaded, even though nothing is wrong.
-    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
-  } else {
-    throw new Error(error);
-  }
-}
 
 describe('Blob Batching', () => {
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', async size => {
@@ -67,7 +52,7 @@ describe('Blob Batching', () => {
     const commitments = blobs.map(b => BLS12Point.decompress(b.commitment));
 
     // 'Batched' evaluation
-    const proofObjects = blobs.map(b => computeKzgProof(b.data, finalZ.toBuffer()));
+    const proofObjects = blobs.map(b => kzg.computeKzgProof(b.data, finalZ.toBuffer()));
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
     const qs = proofObjects.map(p => BLS12Point.decompress(Buffer.from(p[0])));
 
@@ -104,7 +89,7 @@ describe('Blob Batching', () => {
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
-    const isValid = verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
+    const isValid = kzg.verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
     expect(isValid).toBe(true);
   });
 
@@ -125,7 +110,7 @@ describe('Blob Batching', () => {
 
     // Batched evaluation
     // NB: we share the same finalZ between blobs
-    const proofObjects = blobs.map(b => computeKzgProof(b.data, finalZ.toBuffer()));
+    const proofObjects = blobs.map(b => kzg.computeKzgProof(b.data, finalZ.toBuffer()));
     const evalYs = proofObjects.map(p => BLS12Fr.fromBuffer(Buffer.from(p[1])));
     const qs = proofObjects.map(p => BLS12Point.decompress(Buffer.from(p[0])));
 
@@ -163,7 +148,7 @@ describe('Blob Batching', () => {
     expect(finalY.equals(batchedBlob.y)).toBeTruthy();
     expect(finalBlobCommitmentsHash.equals(batchedBlob.blobCommitmentsHash.toBuffer())).toBeTruthy();
 
-    const isValid = verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
+    const isValid = kzg.verifyKzgProof(batchedC.compress(), finalZ.toBuffer(), finalY.toBuffer(), batchedQ.compress());
     expect(isValid).toBe(true);
   });
 
@@ -171,16 +156,14 @@ describe('Blob Batching', () => {
     3, 5, 10,
     // 32 <- NB Full 32 blocks currently takes around 30s to fully batch
   ])('should construct and verify a batch of blobs over %p blocks', async blocks => {
-    const items = new Array(FIELD_ELEMENTS_PER_BLOB * blocks * BLOBS_PER_BLOCK)
+    const items = new Array(FIELDS_PER_BLOB * blocks * BLOBS_PER_BLOCK)
       .fill(Fr.ZERO)
       .map((_, i) => new Fr(i + randomInt(120)));
 
     const blobs = [];
     for (let i = 0; i < blocks; i++) {
-      const start = i * FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK;
-      blobs.push(
-        ...(await Blob.getBlobsPerBlock(items.slice(start, start + FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK))),
-      );
+      const start = i * FIELDS_PER_BLOB * BLOBS_PER_BLOCK;
+      blobs.push(...(await Blob.getBlobsPerBlock(items.slice(start, start + FIELDS_PER_BLOB * BLOBS_PER_BLOCK))));
     }
     // BatchedBlob.batch() performs a verification check:
     await BatchedBlob.batch(blobs);
@@ -192,9 +175,7 @@ describe('BatchedBlobAccumulator', () => {
   let blobs: Blob[];
 
   beforeAll(async () => {
-    const items = new Array(FIELD_ELEMENTS_PER_BLOB * BLOBS_PER_BLOCK)
-      .fill(Fr.ZERO)
-      .map((_, i) => new Fr(i + randomInt(120)));
+    const items = new Array(FIELDS_PER_BLOB * BLOBS_PER_BLOCK).fill(Fr.ZERO).map((_, i) => new Fr(i + randomInt(120)));
     blobs = await Blob.getBlobsPerBlock(items);
     acc = await BatchedBlob.newAccumulator(blobs);
   });
