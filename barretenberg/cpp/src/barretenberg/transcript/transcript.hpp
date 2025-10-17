@@ -19,6 +19,7 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "origin_tag.hpp"
 #include "transcript_manifest.hpp"
 #include <atomic>
 #include <concepts>
@@ -32,15 +33,6 @@ concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, gru
 // A concept for detecting whether a type is native or in-circuit
 template <typename T>
 concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
-
-template <typename T, typename = void> struct is_iterable : std::false_type {};
-
-// this gets used only when we can call std::begin() and std::end() on that type
-template <typename T>
-struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
-    : std::true_type {};
-
-template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
@@ -141,40 +133,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     };
 
   protected:
-    template <class T> static void assign_origin_tag(T& elem, const OriginTag& tag)
-    {
-        if constexpr (in_circuit) {
-            if constexpr (is_iterable_v<T>) {
-                for (auto& e : elem)
-                    e.set_origin_tag(tag);
-            } else {
-                elem.set_origin_tag(tag);
-            }
-        }
-    }
-
-    template <class T> static void check_origin_tag(T& elem, const OriginTag& tag)
-    {
-        if constexpr (in_circuit) {
-            if constexpr (is_iterable_v<T>) {
-                for (auto& e : elem) {
-                    ASSERT(e.get_origin_tag() == tag);
-                };
-            } else {
-                ASSERT(elem.get_origin_tag() == tag);
-            }
-        }
-    }
-
-    static void unset_free_witness_tags(std::vector<DataType>& input)
-    {
-        if constexpr (in_circuit) {
-            for (auto& entry : input) {
-                entry.unset_free_witness_tag();
-            }
-        }
-    }
-
     Proof proof_data; // Contains the raw data sent by the prover.
 
     /**
@@ -250,17 +208,10 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
 
-    /**
-     * @brief Return the size of proof_data
-     *
-     * @return size_t
-     */
-    size_t size_proof_data() { return proof_data.size(); }
+    // Return the size of proof_data
+    size_t get_proof_size() { return proof_data.size(); }
 
-    /**
-     * @brief Enables the manifest
-     *
-     */
+    // Enables the manifest
     void enable_manifest() { use_manifest = true; }
 
     /**
@@ -273,12 +224,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      */
     static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
 
-    /**
-     * @brief Serialize a size_t to a vector of field elements
-     *
-     * @param element
-     * @return std::vector<DataType>
-     */
+    // Serialize an element of type T to a vector of fields
     template <typename T> static std::vector<DataType> serialize(const T& element)
     {
         return Codec::serialize_to_fields(element);
@@ -315,7 +261,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
         // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
         // security mechanism while we are hashing them
-        unset_free_witness_tags(current_round_data);
+        bb::unset_free_witness_tags<in_circuit, DataType>(current_round_data);
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
@@ -339,7 +285,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
 
         // Assign origin tags to the challenges
-        assign_origin_tag(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+        bb::assign_origin_tag<in_circuit>(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
 
         // Prepare for next round.
         ++round_number;
@@ -401,7 +347,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             round_index++;
         }
         // If the element is iterable, then we need to assign origin tags to all the elements
-        assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto element_frs = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
@@ -421,7 +367,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
         // get an origin tag violation inside the hasher
-        unset_free_witness_tags(independent_hash_buffer);
+        bb::unset_free_witness_tags<in_circuit, DataType>(independent_hash_buffer);
         DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;
@@ -446,7 +392,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             round_index++;
         }
 
-        assign_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto elements = Codec::serialize_to_fields(element);
 
 #ifdef LOG_INTERACTIONS
@@ -506,7 +452,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             round_index++;
         }
         // Assign an origin tag to the elements going into the hash buffer
-        assign_origin_tag(element_frs, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        bb::assign_origin_tag<in_circuit>(element_frs, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 
         num_frs_read += element_size;
 
@@ -517,7 +463,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         // Ensure that the element got assigned an origin tag
         // If the element is iterable, then we need to check origin tags to all the elements
-        check_origin_tag(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+        bb::check_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 #ifdef LOG_INTERACTIONS
         if constexpr (Loggable<T>) {
             info("received: ", label, ": ", element);

@@ -49,7 +49,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
     EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 0);
     Fr received_a = verifier_transcript.receive_from_prover<Fr>("a");
     // receiving is reading frs input and writing them to an internal proof_data buffer
-    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.size_proof_data());
+    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.get_proof_size());
     EXPECT_EQ(received_a, elt_a);
 
     { // send grumpkin::fr
@@ -61,7 +61,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         // load proof is not an action by a prover or verifier, so it does not change read/write counts
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1);
         Fq received_b = verifier_transcript.receive_from_prover<Fq>("b");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.get_proof_size());
         EXPECT_EQ(received_b, elt_b);
     }
     { // send uint32_t
@@ -72,7 +72,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 4, /*written*/ 0);
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3);
         auto received_c = verifier_transcript.receive_from_prover<uint32_t>("c");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.get_proof_size());
         EXPECT_EQ(received_c, elt_c);
     }
     { // send curve::BN254::AffineElement
@@ -82,7 +82,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 8, /*written*/ 0);
         auto received_d = verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("d");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.get_proof_size());
         EXPECT_EQ(received_d, elt_d);
     }
     { // send std::array<bb::fr, 4>
