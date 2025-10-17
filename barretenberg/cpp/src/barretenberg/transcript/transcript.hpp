@@ -106,10 +106,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<DataType, 2>
      */
-    [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer()
     {
-        // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
-        BB_ASSERT_LTE(num_challenges, CHALLENGE_BUFFER_SIZE);
 
         std::vector<DataType> full_buffer;
 
@@ -136,7 +134,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         // Hash the full buffer
         DataType new_challenge = HashFunction::hash(full_buffer);
-        std::array<DataType, 2> new_challenges = Codec::split_challenge(new_challenge);
+        std::array<DataType, CHALLENGE_BUFFER_SIZE> new_challenges = Codec::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -325,12 +323,12 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
-            std::array<DataType, 2> challenge_buffer = get_next_duplex_challenge_buffer(2);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
             challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
             challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
         if ((num_challenges & 1) == 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(1);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
             challenges[num_challenges - 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
