@@ -3,6 +3,16 @@ import { spawn, ChildProcess } from 'child_process';
 import { IMsgpackBackendSync } from './interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 
+function getCurrentFile() {
+  if (typeof __filename !== 'undefined') {
+    return __filename;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return fileURLToPath(import.meta.url);
+  }
+}
+
 // Import the NAPI module
 // The addon is built to the nodejs_module directory
 const addonPath = findNapiBinary();
@@ -10,7 +20,7 @@ const addonPath = findNapiBinary();
 let addon: any = null;
 try {
   if (addonPath) {
-    const require = createRequire(import.meta.url);
+    const require = createRequire(getCurrentFile());
     addon = require(addonPath);
   }
 } catch (err) {

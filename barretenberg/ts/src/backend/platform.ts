@@ -2,15 +2,23 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { fileURLToPath } from 'url';
 
+function getCurrentDir() {
+  if (typeof __dirname !== 'undefined') {
+    return __dirname;
+  } else {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return dirname(fileURLToPath(import.meta.url));
+  }
+}
+
 /**
  * Find package root by climbing directory tree until package.json is found.
  * @param startDir Starting directory to search from
  * @returns Absolute path to package root, or null if not found
  */
 export function findPackageRoot(): string | null {
-  const __filename = fileURLToPath(import.meta.url);
-  const startDir = path.dirname(__filename);
-  let currentDir = path.resolve(startDir);
+  let currentDir = getCurrentDir();
   const root = path.parse(currentDir).root;
 
   while (currentDir !== root) {
