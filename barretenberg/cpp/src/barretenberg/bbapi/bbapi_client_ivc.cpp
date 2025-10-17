@@ -60,30 +60,25 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
 
-    // Apply VK policy
     if (request.vk_policy == VkPolicy::RECOMPUTE) {
-        // RECOMPUTE: Always ignore the provided VK (treat as nullptr)
-        info("ClientIvcAccumulate - VK policy: RECOMPUTE - ignoring provided VK for circuit '", request.loaded_circuit_name, "'");
         precomputed_vk = nullptr;
-    } else if (!request.loaded_circuit_vk.empty()) {
-        // Deserialize the provided VK
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+    } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
+        if (!request.loaded_circuit_vk.empty()) {
+            precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
 
-        if (request.vk_policy == VkPolicy::CHECK) {
-            // CHECK: Verify the provided VK matches the computed VK
-            info("ClientIvcAccumulate - VK policy: CHECK - verifying provided VK for circuit '", request.loaded_circuit_name, "'");
+            if (request.vk_policy == VkPolicy::CHECK) {
+                auto prover_instance = std::make_shared<ClientIVC::ProverInstance>(circuit, request.trace_settings);
+                auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
 
-            // Compute the VK from the circuit
-            auto prover_instance = std::make_shared<ClientIVC::ProverInstance>(circuit, request.trace_settings);
-            auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
-
-            // Compare VKs by dereferencing the shared pointers
-            if (*precomputed_vk != *computed_vk) {
-                throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
-                             "': provided VK does not match computed VK");
+                // Dereference to compare VK contents
+                if (*precomputed_vk != *computed_vk) {
+                    throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
+                                 "': provided VK does not match computed VK");
+                }
             }
-            info("ClientIvcAccumulate - VK check passed for circuit '", request.loaded_circuit_name, "'");
         }
+    } else {
+        throw_or_abort("Invalid VK policy");
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
