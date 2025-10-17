@@ -5,7 +5,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
-import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -18,6 +17,7 @@ import type { TxPool } from '../../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../../services/reqresp/interface.js';
 import { chunkTxHashesRequest } from '../../services/reqresp/protocols/tx.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
+import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -92,9 +92,10 @@ describe('p2p client integration', () => {
   it('returns an empty array if unable to find a transaction from another peer', async () => {
     // We want to create a set of nodes and request transaction from them
     // Not using a before each as a the wind down is not working as expected
+    const config = { ...emptyChainConfig, ...getP2PDefaultConfig() };
     clients = (
       await makeAndStartTestP2PClients(NUMBER_OF_PEERS, {
-        p2pBaseConfig: { ...emptyChainConfig, ...getP2PDefaultConfig() },
+        p2pBaseConfig: config,
         mockAttestationPool: attestationPool,
         mockTxPool: txPool,
         mockEpochCache: epochCache,
@@ -108,7 +109,7 @@ describe('p2p client integration', () => {
     logger.info(`Finished waiting for clients to connect`);
 
     // Perform a get tx request from client 1
-    const tx = await mockTx();
+    const tx = await createMockTxWithMetadata(config);
     const txHash = tx.getTxHash();
 
     const requestedTxs = await client1.requestTxsByHash([txHash], undefined);
@@ -134,7 +135,7 @@ describe('p2p client integration', () => {
     logger.info(`Finished waiting for clients to connect`);
 
     // Perform a get tx request from client 1
-    const tx = await mockTx();
+    const tx = await createMockTxWithMetadata(p2pBaseConfig);
     const txHash = tx.getTxHash();
     // Mock the tx pool to return the tx we are looking for
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx));
@@ -169,7 +170,7 @@ describe('p2p client integration', () => {
     logger.info(`Finished waiting for clients to connect`);
 
     // Perform a get tx request from client 1
-    const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
+    const txs = await Promise.all(times(txToRequestCount, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     // Mock the tx pool to return the tx we are looking for
@@ -224,7 +225,7 @@ describe('p2p client integration', () => {
     logger.info(`Finished waiting for clients to connect`);
 
     // Perform a get tx request from client 1
-    const txs = await Promise.all(times(txToRequestCount, () => mockTx()));
+    const txs = await Promise.all(times(txToRequestCount, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     // Mock the tx pool to return every other tx we are looking for
@@ -285,7 +286,7 @@ describe('p2p client integration', () => {
     const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
     // Perform a get tx request from client 1
-    const tx = await mockTx();
+    const tx = await createMockTxWithMetadata(p2pBaseConfig);
     const txHash = tx.getTxHash();
 
     // Return the correct tx with an invalid proof -> active attack
@@ -322,9 +323,9 @@ describe('p2p client integration', () => {
     const penalizePeerSpy = jest.spyOn((client1 as any).p2pService.peerManager, 'penalizePeer');
 
     // Perform a get tx request from client 1
-    const tx = await mockTx();
+    const tx = await createMockTxWithMetadata(p2pBaseConfig);
     const txHash = tx.getTxHash();
-    const tx2 = await mockTx(420);
+    const tx2 = await createMockTxWithMetadata(p2pBaseConfig, 420);
 
     // Return an invalid tx
     txPool.getTxByHash.mockImplementationOnce(() => Promise.resolve(tx2));
