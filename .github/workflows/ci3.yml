@@ -89,7 +89,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          sudo apt install -y --no-install-recommends redis-tools parallel
+          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Store the GCP key in a file
         env:
