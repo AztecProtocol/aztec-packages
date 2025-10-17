@@ -5,8 +5,6 @@
 // =====================
 
 #pragma once
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
@@ -25,10 +23,6 @@
 #include <concepts>
 
 namespace bb {
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
-template <typename T, typename... U>
-concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, grumpkin::g1::affine_element, uint32_t>);
 
 // A concept for detecting whether a type is native or in-circuit
 template <typename T>
@@ -350,11 +344,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto element_frs = Codec::serialize_to_fields(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("independent hash buffer consumed:     ", label, ": ", element);
-        }
-#endif
         independent_hash_buffer.insert(independent_hash_buffer.end(), element_frs.begin(), element_frs.end());
     }
 
@@ -395,11 +384,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto elements = Codec::serialize_to_fields(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("consumed:     ", label, ": ", element);
-        }
-#endif
         add_element_frs_to_hash_buffer(label, elements);
     }
 
@@ -423,11 +407,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("sent:     ", label, ": ", element);
-        }
-#endif
         add_element_frs_to_hash_buffer(label, element_frs);
     }
 
@@ -464,11 +443,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // Ensure that the element got assigned an origin tag
         // If the element is iterable, then we need to check origin tags to all the elements
         bb::check_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
-#endif
 
         return element;
     }
@@ -521,9 +495,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
         ChallengeType result = get_challenges<ChallengeType>(label)[0];
-#if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
-        info("challenge: ", label, ": ", result);
-#endif
+
         DEBUG_LOG(label, result);
         return result;
     }
