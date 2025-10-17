@@ -1049,7 +1049,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         break;
     }
     case MEMORY_SELECTORS::ROM_READ: {
-        // Memory read gate for reading memory cells.
+        // Memory read gate for reading memory cells. Also used for the _initialization_ of ROM memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
         block.q_1().emplace_back(1);

@@ -76,6 +76,65 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
+template <typename Flavor> class MemoryTests : public UltraHonkTests<Flavor> {
+  public:
+    enum MemType { ROM, RAM, ROMRAM };
+    template <size_t num_rom_tables, size_t num_ram_tables>
+    void build_mem_tables(auto& circuit_builder,
+                          std::array<size_t, num_rom_tables> rom_table_sizes,
+                          std::array<size_t, num_ram_tables> ram_table_sizes,
+
+                          bool any_uninitialized_entries = false)
+    {
+        size_t num_variables = 0;
+
+        for (auto table_size : rom_table_sizes) {
+            num_variables += table_size;
+        }
+        for (auto table_size : ram_table_sizes) {
+            num_variables += table_size;
+        }
+        if (any_uninitialized_entries) {
+            num_variables /= 2;
+        }
+        std::vector<fr> variables(num_variables);
+        for (auto variable : variables) {
+            variable = fr::random_element();
+        }
+        add_variables(circuit_builder, variables);
+
+        // size_t rom_id = circuit_builder.create_ROM_array(8);
+
+        // for (size_t i = 0; i < 8; ++i) {
+        //     circuit_builder.set_ROM_element(rom_id, i, rom_values[i]);
+        // }
+
+        // uint32_t a_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(5));
+        // EXPECT_EQ(a_idx != rom_values[5], true);
+        // uint32_t b_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(4));
+        // uint32_t c_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(1));
+
+        // const auto d_value =
+        //     circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
+        //     circuit_builder.get_variable(c_idx);
+        // uint32_t d_idx = circuit_builder.add_variable(d_value);
+
+        // circuit_builder.create_big_add_gate({
+        //     a_idx,
+        //     b_idx,
+        //     c_idx,
+        //     d_idx,
+        //     1,
+        //     1,
+        //     1,
+        //     -1,
+        //     0,
+        // });
+        // TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+
+        // TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+    }
+};
 
 #ifdef STARKNET_GARAGA_FLAVORS
 using FlavorTypes = testing::Types<UltraFlavor,
@@ -902,12 +961,10 @@ TYPED_TEST(UltraHonkTests, Rom)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    uint32_t rom_values[8]{
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-        circuit_builder.add_variable(fr::random_element()), circuit_builder.add_variable(fr::random_element()),
-    };
+    std::array<uint32_t, 8> rom_values;
+    for (auto& value : rom_values) {
+        value = circuit_builder.add_variable(fr::random_element());
+    }
 
     size_t rom_id = circuit_builder.create_ROM_array(8);
 

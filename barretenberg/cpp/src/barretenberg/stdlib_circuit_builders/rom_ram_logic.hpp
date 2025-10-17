@@ -40,6 +40,9 @@ struct RomRecord {
  *
  * @note In distinction to a `RomRecord`, this also contains an `access_type` member, which records if the memory
  * operation is a READ or WRITE.
+ * @note `timestamp` (resp. `timestamp_witness`) will _not_ be constrained to "increase by one". In particular, from the
+ * perspective of the constraint system, we could _skip_ timestamps. The _consecutive differences_ of the
+ * `timestamp_witness` fields in the sorted records will be constrained to be no greater than the final `access_count`.
  */
 struct RamRecord {
     enum AccessType {

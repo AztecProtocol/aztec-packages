@@ -137,7 +137,7 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     return value_witnesses;
 }
 
-// There is one key difference between `create_ROM_gate` and `create_sorted_ROM_gate`: we apply a different memory
+// There is one important difference between `create_ROM_gate` and `create_sorted_ROM_gate`: we apply a different memory
 // selectors. We also only call `update_used_witnesses` for `record_witness` in the latter, but this is just for
 // Boomerang value detection.
 
@@ -410,8 +410,8 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
     // have been split into a unconstrained gate and a simplified arithmetic gate, respectively. This allows both
     // purposes to be served even after arithmetic gates are sorted out of sequence with the RAM gates.
 
-    // Create a final gate with all selectors zero (hence unconstrained); wire values are accessed by the previous RAM
-    // gate via shifted wires
+    // Create a final gate with all selectors zero (hence unconstrained). In particular, the `MEMORY_SELECTORS` are not
+    // on. Wire values are accessed by the previous RAM gate via shifted wires.
     builder->create_unconstrained_gate(builder->blocks.memory,
                                        record.index_witness,
                                        record.timestamp_witness,
@@ -562,6 +562,8 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx(), builder->zero_idx());
 
     // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
+    // NOTE: we do _not_ check that every possible timestamp between 0 and `max_timestamp` occurs at least once (which
+    // corresponds to an honest trace)
     const size_t max_timestamp = ram_array.access_count - 1;
     for (auto& w : timestamp_deltas) {
         builder->create_new_range_constraint(w, max_timestamp);
