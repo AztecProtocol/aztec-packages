@@ -359,7 +359,7 @@ describe('e2e_p2p_preferred_network', () => {
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new BlockAttestation(blockNumber, payload, a.signature, Signature.empty()));
-    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
+    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     expect(signers.length).toEqual(validators.length);
