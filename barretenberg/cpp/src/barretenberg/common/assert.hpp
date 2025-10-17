@@ -55,7 +55,6 @@ struct AssertGuard {
 #endif // NDEBUG
 
 #ifdef __wasm__
-#define BB_ASSERT_IN_CONSTEXPR(expression, ...) DONT_EVALUATE((expression))
 #define BB_ASSERT(expression, ...) DONT_EVALUATE((expression))
 
 #define BB_ASSERT_EQ(actual, expected, ...) DONT_EVALUATE((actual) == (expected))
@@ -65,8 +64,6 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
 #define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
 #else
-#define BB_ASSERT_IN_CONSTEXPR(expression, ...) BB_ASSERT(expression, __VA_ARGS__)
-
 #define BB_ASSERT(expression, ...)                                                                                        \
     do {                                                                                                               \
         BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                         \
