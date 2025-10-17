@@ -7,7 +7,45 @@ import { inspect } from 'util';
 import { bufferToHex } from '../string/index.js';
 
 /**
- * A class representing a 16 byte Buffer.
+ * A class representing a fixed-size 16-byte buffer.
+ *
+ * This class provides a type-safe wrapper around 16-byte buffers (128 bits),
+ * commonly used for representing identifiers, smaller hashes, and other 128-bit values
+ * in the Aztec protocol. Buffer16 enforces the 16-byte constraint at construction time
+ * and provides convenient methods for serialization, comparison, and conversion.
+ *
+ * @example
+ * ```typescript
+ * // Create from hex string
+ * const id = Buffer16.fromString("0x1234567890abcdef1234567890abcdef");
+ *
+ * // Create random
+ * const random = Buffer16.random();
+ *
+ * // Create from number
+ * const num = Buffer16.fromNumber(12345);
+ *
+ * // Compare
+ * if (id.equals(other)) {
+ *   // IDs are equal
+ * }
+ *
+ * // Check if zero
+ * if (id.isZero()) {
+ *   // ID is all zeros
+ * }
+ *
+ * // Convert to BigInt
+ * const value = id.toBigInt();
+ * ```
+ *
+ * @remarks
+ * - All buffers are exactly 16 bytes (128 bits)
+ * - Attempting to create a Buffer16 with wrong size throws an error
+ * - Immutable: methods return new instances rather than modifying existing ones
+ * - Commonly used for 128-bit identifiers, UUIDs, and smaller cryptographic values
+ * - Serializable to/from JSON, Buffer, BigInt, and hex strings
+ * - Smaller memory footprint than Buffer32 for cases where 128 bits are sufficient
  */
 export class Buffer16 {
   /**

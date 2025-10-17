@@ -8,14 +8,39 @@ import { Selector } from './selector.js';
 
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
 
-/** Authorization selector branding */
+/**
+ * Authorization selector branding.
+ * @remarks Provides nominal typing to prevent type confusion with other selectors.
+ */
 export interface AuthorizationSelector {
   /** Brand. */
   _branding: 'AuthorizationSelector';
 }
 
 /**
- * An authorization selector is the first 4 bytes of the hash of an authorization struct signature.
+ * An authorization selector uniquely identifies an authorization payload type.
+ *
+ * Authorization selectors are 4-byte identifiers used in the authwit (authorization witness)
+ * system to distinguish different types of authorization payloads. They enable:
+ * - Type-safe authorization verification
+ * - Routing authorization checks to correct validators
+ * - Preventing authorization replay across different contexts
+ *
+ * @remarks
+ * Authwit is Aztec's authorization system that allows accounts to delegate permissions
+ * to other contracts or users. Authorization selectors ensure that each authorization
+ * type has a unique identifier, preventing cross-context authorization reuse.
+ *
+ * @example
+ * ```typescript
+ * // Create from signature
+ * const selector = await AuthorizationSelector.fromSignature(
+ *   'CallAuthorization(field,field)'
+ * );
+ *
+ * // Deserialize from authwit data
+ * const selector = AuthorizationSelector.fromString('0xabcd1234');
+ * ```
  */
 export class AuthorizationSelector extends Selector {
   /**

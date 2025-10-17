@@ -4,8 +4,35 @@ import type { AbiType, FunctionAbi } from './abi.js';
 import { isAddressStruct, isBoundedVecStruct, isFunctionSelectorStruct, isWrappedFieldStruct } from './utils.js';
 
 /**
- * Encodes arguments for a function call.
- * Missing support for integer and string.
+ * Encodes TypeScript/JavaScript arguments into field elements for circuit execution.
+ *
+ * This class handles the conversion of high-level types (numbers, strings, objects, arrays)
+ * into the flat array of field elements that Noir circuits expect. It supports:
+ * - Primitive types: field, boolean, integer
+ * - Complex types: arrays, structs, tuples, strings
+ * - Special Aztec types: addresses, selectors, BoundedVec
+ *
+ * @remarks
+ * The encoder flattens all arguments into a single Fr[] array. Noir circuits expect
+ * arguments in this flattened format, with structs and arrays expanded into their
+ * constituent fields in a specific order.
+ *
+ * @example
+ * ```typescript
+ * const abi: FunctionAbi = {
+ *   name: 'transfer',
+ *   parameters: [
+ *     { name: 'to', type: { kind: 'field' }, visibility: 'private' },
+ *     { name: 'amount', type: { kind: 'field' }, visibility: 'private' }
+ *   ],
+ *   // ... other properties
+ * };
+ *
+ * // Encode arguments
+ * const args = [recipient.toField(), new Fr(100)];
+ * const encoded = encodeArguments(abi, args);
+ * // Result: Fr[] with each argument as a field element
+ * ```
  */
 class ArgumentEncoder {
   private flattened: Fr[] = [];
@@ -227,19 +254,81 @@ class ArgumentEncoder {
 }
 
 /**
- * Encodes all the arguments for a function call.
- * @param abi - The function ABI entry.
- * @param args - The arguments to encode.
- * @returns The encoded arguments.
+ * Encodes function arguments from TypeScript values to field elements.
+ *
+ * Converts an array of JavaScript/TypeScript values into the flattened field element
+ * array expected by Noir circuits. Handles type conversion, struct flattening,
+ * and array expansion automatically based on the function ABI.
+ *
+ * @param abi - The function ABI defining parameter types
+ * @param args - The argument values to encode (must match ABI parameter count)
+ * @returns A flat array of field elements ready for circuit execution
+ *
+ * @throws If arguments don't match the expected types or are undefined
+ * @throws If arrays exceed their declared maximum length (for BoundedVec)
+ *
+ * @remarks
+ * The encoder handles several special cases:
+ * - **Addresses**: Can be passed as AztecAddress objects or raw fields
+ * - **Selectors**: Can be passed as Selector objects or raw numbers
+ * - **BoundedVec**: Can be passed as plain arrays (auto-converted to BoundedVec format)
+ * - **Structs with `encodeToNoir()`**: If present, uses the custom encoder
+ *
+ * @example
+ * ```typescript
+ * // Simple field arguments
+ * const encoded = encodeArguments(transferAbi, [
+ *   recipientAddress,
+ *   new Fr(1000)
+ * ]);
+ *
+ * // Complex struct arguments
+ * const encoded = encodeArguments(complexAbi, [
+ *   { x: 1, y: 2 },           // struct
+ *   [1, 2, 3],                // array
+ *   'hello'                   // string
+ * ]);
+ *
+ * // BoundedVec (passed as plain array)
+ * const encoded = encodeArguments(vecAbi, [
+ *   [item1, item2, item3]     // Automatically padded and length-prefixed
+ * ]);
+ * ```
  */
 export function encodeArguments(abi: FunctionAbi, args: any[]) {
   return new ArgumentEncoder(abi, args).encode();
 }
 
 /**
- * Returns the size of the arguments for a function ABI.
- * @param abi - The function ABI entry.
- * @returns The size of the arguments.
+ * Calculates the total number of field elements required for function arguments.
+ *
+ * Computes the size of the flattened field array that would result from encoding
+ * the function's parameters. This is useful for:
+ * - Allocating buffers for encoded arguments
+ * - Estimating circuit input sizes
+ * - Validating argument counts
+ *
+ * @param abi - The function ABI entry
+ * @returns The total number of field elements (after flattening)
+ *
+ * @remarks
+ * The count includes:
+ * - 1 field per primitive (field, boolean, integer)
+ * - n fields per string of length n
+ * - Sum of element sizes for arrays
+ * - Sum of field sizes for structs
+ *
+ * @example
+ * ```typescript
+ * const abi: FunctionAbi = {
+ *   parameters: [
+ *     { type: { kind: 'field' } },           // 1 field
+ *     { type: { kind: 'array', length: 5,    // 5 fields
+ *              type: { kind: 'field' } } }
+ *   ]
+ * };
+ * const size = countArgumentsSize(abi); // Returns 6
+ * ```
  */
 export function countArgumentsSize(abi: FunctionAbi) {
   return abi.parameters.reduce((acc, parameter) => acc + ArgumentEncoder.typeSize(parameter.type), 0);

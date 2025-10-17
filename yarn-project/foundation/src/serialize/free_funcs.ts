@@ -137,9 +137,39 @@ export function toBigInt(buf: Buffer): bigint {
 }
 
 /**
- * Stores full 256 bits of information in 2 fields.
- * @param buf - 32 bytes of data
- * @returns 2 field elements
+ * Stores 256 bits of information across two field elements.
+ *
+ * Since BN254 field elements can hold ~254 bits but we often need to represent full 256-bit
+ * values (like SHA-256 hashes), this function splits a 32-byte buffer into two 16-byte chunks,
+ * each padded to 32 bytes, creating two field elements that together preserve all 256 bits.
+ *
+ * @param buf - 32 bytes of data to split. Must be exactly 32 bytes.
+ * @returns A tuple of two field elements [Fr, Fr] containing the split data.
+ *
+ * @throws {Error} If the buffer is not exactly 32 bytes.
+ *
+ * @example
+ * ```typescript
+ * import { Fr } from '@aztec/foundation/fields';
+ * import { to2Fields, from2Fields } from '@aztec/foundation/serialize';
+ *
+ * // Split a SHA-256 hash into two fields
+ * const hash = Buffer.alloc(32);
+ * // ... fill with hash data ...
+ * const [field1, field2] = to2Fields(hash);
+ *
+ * // Reconstruct the original buffer
+ * const reconstructed = from2Fields(field1, field2);
+ * // hash.equals(reconstructed) === true
+ * ```
+ *
+ * @remarks
+ * - Each field element receives 16 bytes of data, padded to 32 bytes
+ * - The first field contains bytes [0-15], the second contains bytes [16-31]
+ * - Padding is added at the beginning of each field (high-order bytes)
+ * - This ensures both fields are valid (< field modulus)
+ * - Commonly used for representing SHA-256 hashes in circuits
+ * - The reverse operation is {@link from2Fields}
  */
 export function to2Fields(buf: Buffer): [Fr, Fr] {
   if (buf.length !== 32) {
@@ -154,10 +184,38 @@ export function to2Fields(buf: Buffer): [Fr, Fr] {
 }
 
 /**
- * Reconstructs the original 32 bytes of data from 2 field elements.
- * @param field1 - First field element
- * @param field2 - Second field element
- * @returns 32 bytes of data as a Buffer
+ * Reconstructs 256 bits of data from two field elements.
+ *
+ * This is the inverse operation of {@link to2Fields}, combining two field elements back into
+ * a single 32-byte buffer. The function extracts the lower 16 bytes from each field and
+ * concatenates them.
+ *
+ * @param field1 - First field element containing the first 16 bytes (padded to 32).
+ * @param field2 - Second field element containing the last 16 bytes (padded to 32).
+ * @returns A 32-byte buffer reconstructing the original data.
+ *
+ * @example
+ * ```typescript
+ * import { Fr } from '@aztec/foundation/fields';
+ * import { to2Fields, from2Fields } from '@aztec/foundation/serialize';
+ *
+ * // Original data
+ * const original = Buffer.from('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex');
+ *
+ * // Split and reconstruct
+ * const [field1, field2] = to2Fields(original);
+ * const reconstructed = from2Fields(field1, field2);
+ *
+ * // Verify equality
+ * console.log(original.equals(reconstructed)); // true
+ * ```
+ *
+ * @remarks
+ * - Removes the 16-byte padding from each field element
+ * - Extracts bytes [16-31] from each field (the actual data)
+ * - Concatenates the two 16-byte chunks into a 32-byte buffer
+ * - Essential for reading SHA-256 hashes from circuit outputs
+ * - The inverse operation of {@link to2Fields}
  */
 export function from2Fields(field1: Fr, field2: Fr): Buffer {
   // Convert the field elements back to buffers
@@ -173,9 +231,46 @@ export function from2Fields(field1: Fr, field2: Fr): Buffer {
 }
 
 /**
- * Truncates SHA hashes to match Noir's truncated version
- * @param buf - 32 bytes of data
- * @returns 31 bytes of data padded to 32
+ * Truncates a 32-byte hash to 31 bytes and pads it back to 32 bytes.
+ *
+ * This function is essential for using SHA-256 hashes as field elements in the BN254 field.
+ * Since the BN254 field modulus is slightly less than 2^254, a full 256-bit value might
+ * exceed the field modulus. By truncating to 31 bytes (248 bits), we ensure the value
+ * always fits within the field.
+ *
+ * The truncation matches the behavior of Solidity's sha256ToField() and Noir's truncation,
+ * ensuring cross-platform compatibility.
+ *
+ * @param buf - A 32-byte buffer to truncate. Must be exactly 32 bytes.
+ * @returns A 32-byte buffer where the first byte is 0x00 and bytes [1-31] contain
+ *          the first 31 bytes of the input.
+ *
+ * @throws {Error} If the input buffer is not exactly 32 bytes.
+ *
+ * @example
+ * ```typescript
+ * import { sha256 } from '@aztec/foundation/crypto';
+ * import { truncateAndPad } from '@aztec/foundation/serialize';
+ * import { Fr } from '@aztec/foundation/fields';
+ *
+ * // Hash some data
+ * const data = Buffer.from('Hello, Aztec!');
+ * const hash = sha256(data);
+ *
+ * // Truncate and convert to field
+ * const truncated = truncateAndPad(hash);
+ * const field = Fr.fromBuffer(truncated);
+ * // field is guaranteed to be < Fr.MODULUS
+ * ```
+ *
+ * @remarks
+ * - Always truncates to 31 bytes, regardless of the actual value
+ * - The first byte (most significant) is always set to 0x00
+ * - Bytes [1-31] contain the original bytes [0-30]
+ * - The last byte of the input is discarded
+ * - Matches Solidity's sha256ToField() implementation for compatibility
+ * - Reduces security from 256 bits to 248 bits (still cryptographically secure)
+ * - Essential for using SHA-256 in Aztec circuits
  */
 export function truncateAndPad(buf: Buffer): Buffer {
   // Note that we always truncate here, to match solidity's sha256ToField()

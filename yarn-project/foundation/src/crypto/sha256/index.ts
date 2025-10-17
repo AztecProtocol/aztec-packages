@@ -6,14 +6,93 @@ import { truncateAndPad } from '../../serialize/free_funcs.js';
 import { type Bufferable, serializeToBuffer } from '../../serialize/serialize.js';
 import type { Hasher } from '../../trees/hasher.js';
 
+/**
+ * Computes the SHA-256 hash of the input data.
+ *
+ * SHA-256 is a widely-used cryptographic hash function that produces a 256-bit (32-byte) hash value.
+ * It's part of the SHA-2 family and is commonly used in blockchain systems and digital signatures.
+ *
+ * @param data - The buffer to hash.
+ * @returns A 32-byte buffer containing the SHA-256 hash.
+ *
+ * @example
+ * ```typescript
+ * const data = Buffer.from('Hello, World!');
+ * const hash = sha256(data);
+ * // hash.length === 32
+ * ```
+ *
+ * @remarks
+ * - Produces a deterministic 256-bit output
+ * - Collision-resistant: computationally infeasible to find two inputs with the same hash
+ * - One-way: computationally infeasible to reverse the hash to find the input
+ * - Used for data integrity verification and in cryptographic protocols
+ * - Less efficient than Poseidon in zero-knowledge circuits but more standardized
+ */
 export function sha256(data: Buffer) {
   return Buffer.from(hash.sha256().update(data).digest());
 }
 
+/**
+ * Computes a truncated and padded SHA-256 hash for use as a field element.
+ *
+ * This function computes SHA-256 and then truncates the result to 31 bytes (248 bits)
+ * to ensure it fits within the BN254 field modulus. The result is then padded back to
+ * 32 bytes with a leading zero byte.
+ *
+ * @param data - The buffer to hash.
+ * @returns A 32-byte buffer containing the truncated hash (first byte is always 0x00).
+ *
+ * @example
+ * ```typescript
+ * const data = Buffer.from('Hello, World!');
+ * const truncHash = sha256Trunc(data);
+ * // truncHash[0] === 0x00 (leading zero)
+ * // Can safely convert to Fr without overflow
+ * const field = Fr.fromBuffer(truncHash);
+ * ```
+ *
+ * @remarks
+ * - Truncates to 31 bytes to fit within the BN254 scalar field modulus
+ * - Matches Solidity's sha256ToField() behavior for compatibility
+ * - The truncation removes the most significant byte of the SHA-256 output
+ * - Still provides approximately 248 bits of security
+ * - Essential for using SHA-256 outputs as field elements in circuits
+ */
 export function sha256Trunc(data: Buffer) {
   return truncateAndPad(sha256(data));
 }
 
+/**
+ * Hashes an array of bufferable values and returns the result as a field element.
+ *
+ * This is a convenience function that combines serialization, SHA-256 hashing, truncation,
+ * and field element conversion. It's commonly used when you need to hash complex data
+ * structures and use the result as a field element in circuits or cryptographic operations.
+ *
+ * @param data - Array of bufferable values to hash. Each value is serialized to a buffer.
+ * @returns A field element (Fr) containing the truncated SHA-256 hash.
+ *
+ * @example
+ * ```typescript
+ * import { Fr } from '@aztec/foundation/fields';
+ * import { sha256ToField } from '@aztec/foundation/crypto';
+ *
+ * // Hash multiple values
+ * const value1 = new Fr(123);
+ * const value2 = Buffer.from('data');
+ * const field = sha256ToField([value1, value2]);
+ *
+ * // Use in further operations
+ * const combined = field.add(new Fr(456));
+ * ```
+ *
+ * @remarks
+ * - Automatically serializes all inputs using serializeToBuffer
+ * - Internally uses sha256Trunc to ensure the result fits in a field element
+ * - Useful for hashing heterogeneous data and using it in field arithmetic
+ * - The truncation ensures the hash never exceeds the field modulus
+ */
 export function sha256ToField(data: Bufferable[]) {
   const buffer = serializeToBuffer(data);
   return Fr.fromBuffer(sha256Trunc(buffer));
