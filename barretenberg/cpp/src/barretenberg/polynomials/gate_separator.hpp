@@ -77,8 +77,10 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
         : betas(betas)
     {
-        for (const auto& u_k : challenge) {
-            partially_evaluate(u_k);
+        if (!betas.empty()) {
+            for (const auto& u_k : challenge) {
+                partially_evaluate(u_k);
+            }
         }
     }
 
@@ -94,7 +96,13 @@ template <typename FF> struct GateSeparatorPolynomial {
      *
      * @return FF
      */
-    FF current_element() const { return betas[current_element_idx]; }
+    FF current_element() const
+    {
+        if (betas.empty()) {
+            return FF(1);
+        };
+        return betas[current_element_idx];
+    }
 
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
@@ -109,10 +117,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(FF challenge)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        partial_evaluation_result *= current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            partial_evaluation_result *= current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
@@ -125,12 +135,14 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(const FF& challenge, const FF& indicator)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        // If dummy round, make no update to the partial_evaluation_result
-        partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
-                                    indicator * partial_evaluation_result * current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            // If dummy round, make no update to the partial_evaluation_result
+            partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
+                                        indicator * partial_evaluation_result * current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
@@ -145,6 +157,11 @@ template <typename FF> struct GateSeparatorPolynomial {
                                                            const size_t log_num_monomials,
                                                            const FF& scaling_factor = FF(1))
     {
+        if (betas.empty()) {
+            Polynomial<FF> out(1);
+            return out;
+        }
+
         BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
         Polynomial<FF> beta_products(pow_size, Polynomial<FF>::DontZeroMemory::FLAG);
@@ -235,6 +252,21 @@ template <typename FF> struct GateSeparatorPolynomial {
  *    \f}
  * where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
  *
+ * ## Special Case: Empty Betas (No Gate Separation)
+ *
+ * When `betas` is empty, the GateSeparatorPolynomial represents the constant polynomial equal to 1, meaning no gate
+ * separation is applied. This is useful for flavors where all subrelations are linearly **dependent** (not linearly
+ * independent), meaning they do not need to be scaled by the \f$ pow_{\beta} \f$-polynomial.
+ *
+ * **Behavior when `betas` is empty:**
+ * - #beta_products is a size-1 polynomial containing only \f$ [0] \f$
+ * - #periodicity is unused
+ * - #current_element() returns \f$ 1 \f$
+ * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
+ * - #partial_evaluation_result remains \f$ 1 \f$ throughout
+ *
+ * This optimization avoids unnecessary multiplications by 1 in MultilinearBatchingFlavor, where
+ * gate separation is not needed.
  *
  * ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
  * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a

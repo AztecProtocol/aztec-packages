@@ -216,7 +216,7 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
 
     // Iterate over all rounds, starting from the oldest, until we find one that is executable
     for (let roundToCheck = oldestExecutableRound; roundToCheck <= executableRound; roundToCheck++) {
-      const action = await this.tryGetRoundExecuteAction(roundToCheck);
+      const action = await this.tryGetRoundExecuteAction(roundToCheck, slotNumber);
       if (action) {
         return action;
       }
@@ -231,14 +231,14 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
    * Assumes round number has already been checked against lifetime and execution delay.
    * @param executableRound - The round to check for execution
    */
-  private async tryGetRoundExecuteAction(executableRound: bigint): Promise<ProposerSlashAction | undefined> {
-    let logData: Record<string, unknown> = { executableRound };
+  private async tryGetRoundExecuteAction(
+    executableRound: bigint,
+    slotNumber: bigint,
+  ): Promise<ProposerSlashAction | undefined> {
+    let logData: Record<string, unknown> = { executableRound, slotNumber };
     this.log.debug(`Testing if slashing round ${executableRound} is executable`, logData);
 
     try {
-      // Note we do not check isReadyToExecute here, since we already know that based on the
-      // executableRound number. Not just that, but it may be that we are building for the given slot number
-      // that is in the future, so the contract may think it's not yet ready to execute, whereas it is.
       const roundInfo = await this.tallySlashingProposer.getRound(executableRound);
       logData = { ...logData, roundInfo };
       if (roundInfo.isExecuted) {
@@ -249,6 +249,16 @@ export class TallySlasherClient implements ProposerSlashActionProvider, SlasherC
         return undefined;
       } else if (roundInfo.voteCount < this.settings.slashingQuorumSize) {
         this.log.verbose(`Round ${executableRound} does not have enough votes to execute`, logData);
+        return undefined;
+      }
+
+      // Check if round is ready to execute at the given slot
+      const isReadyToExecute = await this.tallySlashingProposer.isRoundReadyToExecute(executableRound, slotNumber);
+      if (!isReadyToExecute) {
+        this.log.warn(
+          `Round ${executableRound} is not ready to execute at slot ${slotNumber} according to contract check`,
+          logData,
+        );
         return undefined;
       }
 

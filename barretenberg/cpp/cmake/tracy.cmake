@@ -1,16 +1,20 @@
-include(FetchContent)
+# Download Tracy at configure time
+set(TRACY_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/tracy-src")
+set(TRACY_COMMIT_HASH "5d542dc09f3d9378d005092a4ad446bd405f819a")
 
-# Find the path where we will download the Tracy github repository
-# we need this to find where the Tracy header files are for inclusion.
-set(TRACY_INCLUDE "${CMAKE_BINARY_DIR}/_deps/tracy-src/public")
+execute_process(
+    COMMAND sh -c "mkdir -p ${TRACY_SOURCE_DIR} && cd ${TRACY_SOURCE_DIR} && git init . && (git remote add origin https://github.com/wolfpld/tracy.git || true) && git fetch --depth 1 origin ${TRACY_COMMIT_HASH} && git checkout FETCH_HEAD"
+    RESULT_VARIABLE result
+)
+if(result)
+    message(FATAL_ERROR "Failed to download Tracy")
+endif()
+
+# Set the same variables as FetchContent would have
+set(TRACY_INCLUDE "${TRACY_SOURCE_DIR}/public")
 
 # Work around an issue finding threads.
 set(CMAKE_THREAD_LIBS_INIT "-lpthread")
 
-# Download the Tracy github project and do an add_subdirectory on it.
-FetchContent_Declare(tracy
-    GIT_REPOSITORY https://github.com/wolfpld/tracy
-    GIT_TAG 5d542dc09f3d9378d005092a4ad446bd405f819a
-    GIT_SHALLOW TRUE
-)
-FetchContent_MakeAvailable(tracy)
+# Add Tracy as a subdirectory (same as FetchContent_MakeAvailable would do)
+add_subdirectory(${TRACY_SOURCE_DIR} ${CMAKE_BINARY_DIR}/_deps/tracy-build EXCLUDE_FROM_ALL)

@@ -89,7 +89,7 @@
     "@aztec/stdlib": "workspace:^",
     "axios": "^1.12.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7",
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -13,6 +13,11 @@
 #include <unistd.h>
 #include <vector>
 
+#ifndef __wasm__
+#include "barretenberg/ipc/ipc_server.hpp"
+#include <csignal>
+#endif
+
 namespace bb {
 
 /**
@@ -54,7 +59,7 @@ inline int process_msgpack_commands(std::istream& input_stream)
         input_stream.read(reinterpret_cast<char*>(buffer.data()), static_cast<std::streamsize>(length));
 
         if (input_stream.gcount() != static_cast<std::streamsize>(length)) {
-            std::cerr << "Error: Incomplete msgpack buffer read" << std::endl;
+            std::cerr << "Error: Incomplete msgpack buffer read" << '\n';
             // Restore original cout buffer before returning
             std::cout.rdbuf(original_cout_buf);
             return 1;
@@ -111,6 +116,7 @@ inline int process_msgpack_commands(std::istream& input_stream)
     return 0;
 }
 
+#ifndef __wasm__
 /**
  * @brief Execute msgpack commands over IPC (shared memory or Unix domain socket)
  *
@@ -140,12 +146,12 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
     // SIGTERM: Sent by processes/test frameworks on shutdown
     // SIGINT: Sent by Ctrl+C
     auto graceful_shutdown_handler = [](int signal) {
-        std::cerr << "\nReceived signal " << signal << ", cleaning up..." << std::endl;
+        std::cerr << "\nReceived signal " << signal << ", cleaning up..." << '\n';
 
         // Clean up IPC resources (socket file or shared memory segments)
         if (global_server) {
             global_server->close();
-            std::cerr << "Cleaned up IPC resources" << std::endl;
+            std::cerr << "Cleaned up IPC resources" << '\n';
         }
 
         std::exit(0);
@@ -155,13 +161,13 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
     // These occur when shared memory exhaustion happens during initialization
     auto fatal_error_handler = [](int signal) {
         const char* signal_name = (signal == SIGBUS) ? "SIGBUS" : (signal == SIGSEGV) ? "SIGSEGV" : "UNKNOWN";
-        std::cerr << "\nFatal error: received " << signal_name << " during initialization" << std::endl;
-        std::cerr << "This likely means shared memory exhaustion (try reducing --max-clients)" << std::endl;
+        std::cerr << "\nFatal error: received " << signal_name << " during initialization" << '\n';
+        std::cerr << "This likely means shared memory exhaustion (try reducing --max-clients)" << '\n';
 
         // Clean up IPC resources before exiting
         if (global_server) {
             global_server->close();
-            std::cerr << "Cleaned up IPC resources" << std::endl;
+            std::cerr << "Cleaned up IPC resources" << '\n';
         }
 
         std::exit(1); // Exit with error code
@@ -173,12 +179,12 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
     std::signal(SIGSEGV, fatal_error_handler);
 
     if (!server->listen()) {
-        std::cerr << "Error: Could not start IPC server at " << path << std::endl;
+        std::cerr << "Error: Could not start IPC server at " << path << '\n';
         return 1;
     }
 
-    std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << std::endl;
-    std::cerr << "Max clients: " << max_clients << std::endl;
+    std::cerr << (use_shm ? "Shared memory" : "Socket") << " server ready at " << path << '\n';
+    std::cerr << "Max clients: " << max_clients << '\n';
 
     // Run server with msgpack handler
     server->run([](int client_id, std::span<const uint8_t> request) -> std::vector<uint8_t> {
@@ -193,7 +199,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
                 std::cerr << "Error: Expected an array of size 1 (tuple of arguments) from client " << client_id
-                          << std::endl;
+                          << '\n';
                 return {}; // Return empty to skip response
             }
 
@@ -205,7 +211,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access)
             if (command_obj.type != msgpack::type::ARRAY || command_obj.via.array.size != 2) {
                 std::cerr << "Error: Expected Command to be an array of size 2 [command-name, payload] from client "
-                          << client_id << std::endl;
+                          << client_id << '\n';
                 return {};
             }
 
@@ -213,7 +219,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
             auto& command_arr = command_obj.via.array;
             if (command_arr.ptr[0].type != msgpack::type::STR) {
                 std::cerr << "Error: Expected first element of Command to be a string (type name) from client "
-                          << client_id << std::endl;
+                          << client_id << '\n';
                 return {};
             }
 
@@ -243,7 +249,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
             // Re-throw shutdown request
             throw;
         } catch (const std::exception& e) {
-            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << std::endl;
+            std::cerr << "Error processing request from client " << client_id << ": " << e.what() << '\n';
             return {};
         }
     });
@@ -251,10 +257,11 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
     // Clean up IPC resources on normal exit (e.g., after Shutdown command)
     // The close() method handles cleanup for both socket and shared memory
     server->close();
-    std::cerr << "Cleaned up IPC resources" << std::endl;
+    std::cerr << "Cleaned up IPC resources" << '\n';
 
     return 0;
 }
+#endif
 
 /**
  * @brief Execute msgpack run command
@@ -270,6 +277,7 @@ inline int execute_msgpack_ipc_server(const std::string& path, bool use_shm, int
  */
 inline int execute_msgpack_run(const std::string& msgpack_input_file, int max_clients = 1)
 {
+#ifndef __wasm__
     // Check if this is a shared memory path (ends with .shm)
     if (!msgpack_input_file.empty() && msgpack_input_file.size() >= 4 &&
         msgpack_input_file.substr(msgpack_input_file.size() - 4) == ".shm") {
@@ -283,6 +291,9 @@ inline int execute_msgpack_run(const std::string& msgpack_input_file, int max_cl
         msgpack_input_file.substr(msgpack_input_file.size() - 5) == ".sock") {
         return execute_msgpack_ipc_server(msgpack_input_file, false, max_clients);
     }
+#else
+    (void)max_clients;
+#endif
 
     // Process msgpack API commands from stdin or file
     std::istream* input_stream = &std::cin;
@@ -291,7 +302,7 @@ inline int execute_msgpack_run(const std::string& msgpack_input_file, int max_cl
     if (!msgpack_input_file.empty()) {
         file_stream.open(msgpack_input_file, std::ios::binary);
         if (!file_stream.is_open()) {
-            std::cerr << "Error: Could not open input file: " << msgpack_input_file << std::endl;
+            std::cerr << "Error: Could not open input file: " << msgpack_input_file << '\n';
             return 1;
         }
         input_stream = &file_stream;

@@ -206,13 +206,13 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders should also have index 1 = offset + 1
-      // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 0 since they were built using the same tag
+      // Next 4 senders should also have index 0 = offset + 0
+      // Last 5 senders should have index 1 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
@@ -244,10 +244,21 @@ describe('PXEOracleInterface', () => {
       );
 
       const getTaggingSecretsIndexesAsSenderForSenders = () =>
-        Promise.all(secrets.map(secret => taggingDataProvider.getNextIndexAsSender(secret)));
+        Promise.all(secrets.map(secret => taggingDataProvider.getLastUsedIndexesAsSender(secret)));
 
       const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(indexesAsSender).toStrictEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
@@ -263,7 +274,7 @@ describe('PXEOracleInterface', () => {
       }
 
       let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // Only 1 window is obtained for each sender
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
@@ -285,7 +296,7 @@ describe('PXEOracleInterface', () => {
       }
 
       indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([10, 10, 10, 10, 10, 11, 11, 11, 11, 11]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
@@ -313,13 +324,13 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // First sender should have 2 logs, but keep index 6 since they were built using the same tag
-      // Next 4 senders should also have index 6 = offset + 1
-      // Last 5 senders should have index 7 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 5 since they were built using the same tag
+      // Next 4 senders should also have index 5 = offset
+      // Last 5 senders should have index 6 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
+      expect(indexes).toEqual([5, 5, 5, 5, 5, 6, 6, 6, 6, 6]);
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
@@ -344,8 +355,8 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // Increase our indexes to 2
-      await taggingDataProvider.setNextIndexesAsRecipient(secrets.map(secret => ({ secret, index: 2 })));
+      // Set last used indexes to 1 (so next scan starts at 2)
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index: 1 })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -353,13 +364,13 @@ describe('PXEOracleInterface', () => {
       // since the window starts at Math.max(0, 2 - window_size) = 0
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
-      // First sender should have 2 logs, but keep index 2 since they were built using the same tag
-      // Next 4 senders should also have index 2 = tagIndex + 1
-      // Last 5 senders should have index 3 = tagIndex + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
+      // Next 4 senders should also have index 1 = tagIndex
+      // Last 5 senders should have index 2 = tagIndex + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
+      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once
@@ -384,10 +395,10 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
-      // should be triggered.
+      // We set the last used indexes to WINDOW_HALF_SIZE so that next scan starts at WINDOW_HALF_SIZE + 1,
+      // which is outside the window, and for this reason no updates should be triggered.
       const index = WINDOW_HALF_SIZE + 1;
-      await taggingDataProvider.setNextIndexesAsRecipient(secrets.map(secret => ({ secret, index })));
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -395,8 +406,8 @@ describe('PXEOracleInterface', () => {
       // be skipped
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS / 2);
 
-      // Indexes should remain where we set them (window_size + 1)
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // Indexes should remain where we set them (window_size)
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
@@ -423,7 +434,7 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      await taggingDataProvider.setNextIndexesAsRecipient(
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(
         secrets.map(secret => ({ secret, index: WINDOW_HALF_SIZE + 2 })),
       );
 
@@ -443,13 +454,13 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
-      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders should also have index 1 = offset + 1
-      // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 0 since they were built using the same tag
+      // Next 4 senders should also have index 0 = offset
+      // Last 5 senders should have index 1 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once

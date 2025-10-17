@@ -16,7 +16,6 @@ class HypernovaFoldingProver {
   public:
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
-    using Polynomial = bb::Polynomial<FF>;
     using Commitment = Flavor::Commitment;
     using ProverInstance = ProverInstance_<Flavor>;
     using Accumulator = MultilinearBatchingProverClaim;
@@ -38,7 +37,8 @@ class HypernovaFoldingProver {
      * @param instance
      * @return Accumulator
      */
-    Accumulator instance_to_accumulator(const std::shared_ptr<ProverInstance>& instance);
+    Accumulator instance_to_accumulator(const std::shared_ptr<ProverInstance>& instance,
+                                        const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
      * @brief Fold an instance into an accumulator. Folding happens in place.
@@ -48,7 +48,8 @@ class HypernovaFoldingProver {
      * @return std::pair<HonkProof, Accumulator>
      */
     std::pair<HonkProof, Accumulator> fold(const Accumulator& accumulator,
-                                           const std::shared_ptr<ProverInstance>& instance);
+                                           const std::shared_ptr<ProverInstance>& instance,
+                                           const std::shared_ptr<VerificationKey>& honk_vk = nullptr);
 
     /**
      * @brief Export the proof contained in the transcript
@@ -69,9 +70,9 @@ class HypernovaFoldingProver {
      * @param shiftable If it is set to true, then the polynomials are aggregated as shiftable polynomials
      */
     template <size_t N>
-    static Polynomial batch_polynomials(RefArray<Polynomial, N> polynomials_to_batch,
-                                        const size_t& full_batched_size,
-                                        const std::array<FF, N>& challenges);
+    static Polynomial<FF> batch_polynomials(RefArray<Polynomial<FF>, N> polynomials_to_batch,
+                                            const size_t& full_batched_size,
+                                            const std::array<FF, N>& challenges);
 };
 
 } // namespace bb

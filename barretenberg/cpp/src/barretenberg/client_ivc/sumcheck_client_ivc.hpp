@@ -9,17 +9,14 @@
 #include "barretenberg/client_ivc/client_ivc_base.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/goblin/goblin.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_prover.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_verifier.hpp"
-#include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_decider_prover.hpp"
+#include "barretenberg/hypernova/hypernova_decider_verifier.hpp"
+#include "barretenberg/hypernova/hypernova_prover.hpp"
+#include "barretenberg/hypernova/hypernova_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_prover.hpp"
-#include "barretenberg/ultra_honk/decider_verifier.hpp"
-#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
@@ -45,48 +42,40 @@ class SumcheckClientIVC : public IVCBase {
     using Commitment = Flavor::Commitment;
     using ProverPolynomials = Flavor::ProverPolynomials;
     using Point = Flavor::Curve::AffineElement;
-    using FoldProof = std::vector<FF>;
     using ProverInstance = ProverInstance_<Flavor>;
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using VerifierInstance = VerifierInstance_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
-    using DeciderProver = DeciderProver_<Flavor>;
-    using DeciderVerifier = DeciderVerifier_<Flavor>;
-    using FoldingProver = ProtogalaxyProver_<Flavor>;
-    using FoldingVerifier = ProtogalaxyVerifier_<VerifierInstance>;
     using ECCVMVerificationKey = bb::ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
     using Transcript = NativeTranscript;
-
+    // Recursive types
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using StdlibFF = RecursiveFlavor::FF;
     using RecursiveCommitment = RecursiveFlavor::Commitment;
     using RecursiveVerifierInstance = stdlib::recursion::honk::RecursiveVerifierInstance_<RecursiveFlavor>;
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
-    using FoldingRecursiveVerifier =
-        bb::stdlib::recursion::honk::ProtogalaxyRecursiveVerifier_<RecursiveVerifierInstance>;
-    using OinkRecursiveVerifier = bb::OinkVerifier<RecursiveFlavor>;
-    using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
-
-    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
-    using PublicPairingPoints = stdlib::PublicInputComponent<PairingPoints>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
     using StdlibProof = stdlib::Proof<ClientCircuit>;
     using WitnessCommitments = RecursiveFlavor::WitnessCommitments;
-
-    // New stuff
-    using Curve = curve::BN254;
-    using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
-
-    // Merge commitments
+    using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
     using TableCommitments = std::array<RecursiveFlavor::Commitment, ClientCircuit::NUM_WIRES>;
+    // Folding
+    using FoldingProver = HypernovaFoldingProver;
+    using FoldingVerifier = HypernovaFoldingVerifier<Flavor>;
+    using RecursiveFoldingVerifier = HypernovaFoldingVerifier<RecursiveFlavor>;
+    using DeciderProver = HypernovaDeciderProver;
+    using RecursiveDeciderVerifier = HypernovaDeciderVerifier<RecursiveFlavor>;
+    using ProverAccumulator = FoldingProver::Accumulator;
+    using VerifierAccumulator = FoldingVerifier::Accumulator;
+    using RecursiveVerifierAccumulator = RecursiveFoldingVerifier::Accumulator;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -228,347 +217,8 @@ class SumcheckClientIVC : public IVCBase {
         }
     };
 
-    struct ProverAccumulator {
-        std::vector<FF> challenge;
-        std::array<FF, 2> batched_evaluations;
-        std::array<Polynomial<FF>, 2> batched_polynomials;
-        std::array<Commitment, 2> batched_commitments;
-        size_t dyadic_size;
-    };
-
-    struct VerifierAccumulator {
-        std::vector<FF> challenge;
-        std::array<FF, 2> batched_evaluations;
-        std::array<Commitment, 2> batched_commitments;
-
-        FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
-        {
-            for (size_t idx = 0; idx < challenge.size(); idx++) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "challenge_" + std::to_string(idx),
-                                                          challenge[idx]);
-            }
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_evaluation_unshifted",
-                                                      batched_evaluations[0]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_evaluation_shifted",
-                                                      batched_evaluations[1]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_commitment_unshifted",
-                                                      batched_commitments[0]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_commitment_shifted",
-                                                      batched_commitments[1]);
-            return transcript.hash_independent_buffer();
-        }
-    };
-
-    struct RecursiveVerifierAccumulator {
-        std::vector<StdlibFF> challenge;
-        std::array<StdlibFF, 2> batched_evaluations;
-        std::array<RecursiveCommitment, 2> batched_commitments;
-
-        RecursiveVerifierAccumulator() = default;
-        RecursiveVerifierAccumulator(const std::vector<StdlibFF>& challenge,
-                                     const std::array<StdlibFF, 2>& batched_evaluations,
-                                     const std::array<RecursiveCommitment, 2>& batched_commitments)
-            : challenge(challenge)
-            , batched_evaluations(batched_evaluations)
-            , batched_commitments(batched_commitments)
-        {}
-        RecursiveVerifierAccumulator(ClientCircuit* builder, VerifierAccumulator& native_accumulator)
-        {
-            for (auto element : native_accumulator.challenge) {
-                challenge.emplace_back(StdlibFF::from_witness(builder, element));
-            }
-
-            batched_evaluations[0] = StdlibFF::from_witness(builder, native_accumulator.batched_evaluations[0]);
-            batched_evaluations[1] = StdlibFF::from_witness(builder, native_accumulator.batched_evaluations[1]);
-
-            batched_commitments[0] =
-                RecursiveCommitment::from_witness(builder, native_accumulator.batched_commitments[0]);
-            batched_commitments[1] =
-                RecursiveCommitment::from_witness(builder, native_accumulator.batched_commitments[1]);
-        }
-
-        StdlibFF hash_through_transcript(const std::string& domain_separator, RecursiveTranscript& transcript) const
-        {
-            for (size_t idx = 0; idx < challenge.size(); idx++) {
-                transcript.add_to_independent_hash_buffer(domain_separator + "challenge_" + std::to_string(idx),
-                                                          challenge[idx]);
-            }
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_evaluation_unshifted",
-                                                      batched_evaluations[0]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_evaluation_shifted",
-                                                      batched_evaluations[1]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_commitment_unshifted",
-                                                      batched_commitments[0]);
-            transcript.add_to_independent_hash_buffer(domain_separator + "batched_commitment_shifted",
-                                                      batched_commitments[1]);
-            return transcript.hash_independent_buffer();
-        }
-
-        VerifierAccumulator get_value()
-        {
-            VerifierAccumulator value;
-
-            for (auto element : challenge) {
-                value.challenge.emplace_back(element.get_value());
-            }
-
-            value.batched_evaluations[0] = batched_evaluations[0].get_value();
-            value.batched_evaluations[1] = batched_evaluations[1].get_value();
-
-            value.batched_commitments[0] = batched_commitments[0].get_value();
-            value.batched_commitments[1] = batched_commitments[1].get_value();
-
-            return value;
-        }
-    };
-
-    struct FirstSumcheckOutput {
-        using VerifierCommitments = Flavor::VerifierCommitments;
-        using ClaimedEvaluations = Flavor::AllValues;
-
-        // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
-        std::vector<FF> challenge;
-        // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
-        ClaimedEvaluations claimed_evaluations;
-        // Full batched size
-        size_t full_batched_size;
-
-        ProverAccumulator batch(ProverPolynomials& polynomials,
-                                VerifierCommitments& commitments,
-                                const std::shared_ptr<Transcript>& transcript)
-        {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<FF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<FF, N> challenges;
-                challenges = transcript->template get_challenges<FF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<FF, N> claimed_evaluations,
-                                                           RefArray<FF, N> challenges) {
-                FF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<Commitment, N> commitments,
-                                                           RefArray<FF, N> challenges) {
-                std::vector<Commitment> points;
-                std::vector<FF> scalars;
-                size_t idx = 0;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    if (commitment.is_point_at_infinity()) {
-                        info("Commitment at index ", idx, " is zero");
-                    }
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                    idx++;
-                }
-                return batch_mul_native(points, scalars);
-            };
-
-            // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
-            auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
-
-            // Batch polynomials
-            auto unshifted = polynomials.get_unshifted();
-            auto shifted = polynomials.get_to_be_shifted();
-
-            auto batched_unshifted = PolynomialBatcher::compute_batched<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted, full_batched_size, unshifted_challenges);
-            auto batched_shifted = PolynomialBatcher::compute_batched<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted, full_batched_size, shifted_challenges, true);
-
-            // Batch evaluations
-            auto unshifted_evaluations = claimed_evaluations.get_unshifted();
-            auto shifted_evaluations = claimed_evaluations.get_shifted();
-
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_evaluations, shifted_challenges);
-
-            // Batch commitments
-            auto unshifted_commitments = commitments.get_unshifted();
-            auto shifted_commitments = commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_commitments, shifted_challenges);
-
-            return ProverAccumulator{
-                .challenge = challenge,
-                .batched_evaluations = { batched_unshifted_evaluation, batched_shifted_evaluation },
-                .batched_polynomials = { batched_unshifted, batched_shifted },
-                .batched_commitments = { batched_unshifted_commitment, batched_shifted_commitment },
-                .dyadic_size = full_batched_size,
-            };
-        }
-
-        VerifierAccumulator batch(const std::shared_ptr<VerifierInstance>& verifier_instance,
-                                  const std::shared_ptr<Transcript>& transcript)
-        {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<FF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<FF, N> challenges;
-                challenges = transcript->template get_challenges<FF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<FF, N> claimed_evaluations,
-                                                           RefArray<FF, N> challenges) {
-                FF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<Commitment, N> commitments,
-                                                           RefArray<FF, N> challenges) {
-                std::vector<Commitment> points;
-                std::vector<FF> scalars;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                }
-                return batch_mul_native(points, scalars);
-            };
-
-            // NOTE: THIS MIGHT BE SLOW!!!!!!
-            Flavor::VerifierCommitments verifier_commitments(verifier_instance->vk,
-                                                             verifier_instance->witness_commitments);
-
-            // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
-            auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
-
-            // Batch evaluations
-            auto unshifted_evaluations = claimed_evaluations.get_unshifted();
-            auto shifted_evaluations = claimed_evaluations.get_to_be_shifted();
-
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_evaluations, shifted_challenges);
-
-            // Batch commitments
-            auto unshifted_commitments = verifier_commitments.get_unshifted();
-            auto shifted_commitments = verifier_commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_commitments, shifted_challenges);
-
-            return VerifierAccumulator{
-                .challenge = challenge,
-                .batched_evaluations = { batched_unshifted_evaluation, batched_shifted_evaluation },
-                .batched_commitments = { batched_unshifted_commitment, batched_shifted_commitment }
-            };
-        }
-    };
-
-    struct RecursiveFirstSumcheckOutput {
-        using ClaimedEvaluations = RecursiveFlavor::AllValues;
-
-        // \f$ \vec u = (u_0, ..., u_{d-1}) \f$
-        std::vector<StdlibFF> challenge;
-        // Evaluations at \f$ \vec u \f$ of the polynomials used in Sumcheck
-        ClaimedEvaluations claimed_evaluations;
-
-        RecursiveVerifierAccumulator batch(const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-                                           const std::shared_ptr<RecursiveTranscript>& transcript)
-        {
-            auto generate_challenges = [&transcript]<size_t N>(const std::string& label) -> std::array<StdlibFF, N> {
-                std::array<std::string, N> labels;
-                for (size_t idx = 0; idx < labels.size(); idx++) {
-                    labels[idx] = label + std::to_string(idx);
-                }
-
-                std::array<StdlibFF, N> challenges;
-                challenges = transcript->template get_challenges<StdlibFF>(labels);
-
-                return challenges;
-            };
-
-            auto compute_batched_evaluation = []<size_t N>(RefArray<StdlibFF, N> claimed_evaluations,
-                                                           RefArray<StdlibFF, N> challenges) {
-                StdlibFF result(0);
-                for (auto [eval, challenge] : zip_view(claimed_evaluations, challenges)) {
-                    result += eval * challenge;
-                }
-                return result;
-            };
-
-            auto compute_batched_commitment = []<size_t N>(RefArray<RecursiveCommitment, N> commitments,
-                                                           RefArray<StdlibFF, N> challenges) {
-                std::vector<RecursiveCommitment> points;
-                std::vector<StdlibFF> scalars;
-                for (auto [commitment, scalar] : zip_view(commitments, challenges)) {
-                    if (commitment.is_point_at_infinity().get_value()) {
-                        info("HELLO");
-                    }
-                    if (scalar.is_zero().get_value()) {
-                        info("HELLO");
-                    }
-                    points.emplace_back(commitment);
-                    scalars.emplace_back(scalar);
-                }
-                return RecursiveCommitment::batch_mul(points, scalars);
-            };
-
-            // NOTE: THIS MIGHT BE SLOW!!!!!!
-            RecursiveFlavor::VerifierCommitments verifier_commitments(verifier_instance->vk_and_hash->vk,
-                                                                      verifier_instance->witness_commitments);
-
-            // Generate challenges to batch shifted and unshifted polynomials/evaluation
-            auto unshifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>("unshifted_challenge_");
-            auto shifted_challenges =
-                generate_challenges.operator()<Flavor::NUM_SHIFTED_ENTITIES>("shifted_challenge_");
-
-            // Batch evaluations
-            auto unshifted_evaluations = claimed_evaluations.get_unshifted();
-            auto shifted_evaluations = claimed_evaluations.get_to_be_shifted();
-
-            auto batched_unshifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_evaluations, unshifted_challenges);
-            auto batched_shifted_evaluation = compute_batched_evaluation.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_evaluations, shifted_challenges);
-
-            // Batch commitments
-            auto unshifted_verifier_commitments = verifier_commitments.get_unshifted();
-            auto shifted_witness_commitments = verifier_commitments.get_to_be_shifted();
-            auto batched_unshifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_UNSHIFTED_ENTITIES>(
-                unshifted_verifier_commitments, unshifted_challenges);
-            auto batched_shifted_commitment = compute_batched_commitment.operator()<Flavor::NUM_SHIFTED_ENTITIES>(
-                shifted_witness_commitments, shifted_challenges);
-
-            return RecursiveVerifierAccumulator(challenge,
-                                                { batched_unshifted_evaluation, batched_shifted_evaluation },
-                                                { batched_unshifted_commitment, batched_shifted_commitment });
-        }
-    };
-
     // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
-    enum class QUEUE_TYPE {
+    enum class QUEUE_TYPE : uint8_t {
         OINK,
         PG,
         PG_FINAL, // the final PG verification, used in hiding kernel
@@ -598,7 +248,7 @@ class SumcheckClientIVC : public IVCBase {
     // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
-    // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
+    // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i} (app)
     std::shared_ptr<Transcript> prover_accumulation_transcript = std::make_shared<Transcript>();
 
     size_t num_circuits; // total number of circuits to be accumulated in the IVC
@@ -607,7 +257,7 @@ class SumcheckClientIVC : public IVCBase {
 
     ProverAccumulator prover_accumulator; // current PG prover accumulator instance
 
-    HonkProof pcs_proof; // decider proof to be verified in the hiding circuit
+    HonkProof decider_proof; // decider proof to be verified in the hiding circuit
 
     VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     VerifierAccumulator native_verifier_accum;           //  native verifier accumulator used in prover folding
@@ -665,56 +315,24 @@ class SumcheckClientIVC : public IVCBase {
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
-    HonkProof construct_pcs_proof(const std::shared_ptr<Transcript>& transcript);
-
     VerificationKey get_vk() const;
 
   private:
+#ifdef NDEBUG
     /**
-     * @brief Runs either Oink or PG native verifier to update the native verifier accumulator
+     * @brief Update native verifier accumulator. Useful for debugging.
      *
      * @param queue_entry The verifier inputs from the queue.
      * @param verifier_transcript Verifier transcript corresponding to the prover transcript.
      */
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
-
-    static ProverAccumulator execute_first_sumcheck(const std::shared_ptr<ProverInstance>& prover_instance,
-                                                    const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                                    const std::shared_ptr<Transcript>& transcript);
-
-    static VerifierAccumulator execute_first_sumcheck_native_verification(
-        const std::shared_ptr<VerifierInstance>& verifier_instance,
-        const std::shared_ptr<Transcript>& transcript,
-        const HonkProof& proof);
-
-    HonkProof construct_sumcheck_proof(const std::shared_ptr<ProverInstance>& prover_instance,
-                                       const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                       const std::shared_ptr<Transcript>& transcript);
-
-    HonkProof construct_folding_proof(const std::shared_ptr<ProverInstance>& prover_instance,
-                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                      const std::shared_ptr<Transcript>& transcript);
+#endif
 
     HonkProof construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
                                                      const std::shared_ptr<MegaVerificationKey>& verification_key);
 
     QUEUE_TYPE get_queue_type() const;
-
-    static RecursiveVerifierAccumulator execute_first_sumcheck_recursive_verification(
-        ClientCircuit& circuit,
-        const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-        const std::shared_ptr<RecursiveTranscript>& transcript,
-        const StdlibProof& proof);
-
-    static RecursiveVerifierAccumulator perform_folding_recursive_verification(
-        ClientCircuit& circuit,
-        const std::optional<RecursiveVerifierAccumulator>& verifier_accumulator,
-        const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-        const std::shared_ptr<RecursiveTranscript>& transcript,
-        const StdlibProof& proof,
-        std::optional<StdlibFF>& prev_accum_hash,
-        bool is_kernel);
 };
 
 // Serialization methods for ClientIVC::VerificationKey

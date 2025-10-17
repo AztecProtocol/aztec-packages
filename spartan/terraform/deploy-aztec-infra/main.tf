@@ -73,6 +73,8 @@ locals {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
     "global.useGcloudLogging"                                  = true
+    "global.customAztecNetwork.enabled"                        = var.NETWORK == null || var.NETWORK == ""
+    "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
     "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
@@ -130,7 +132,6 @@ locals {
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "global.customAztecNetwork.enabled"                 = true
         "validator.web3signerUrl"                           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
