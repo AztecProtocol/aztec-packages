@@ -1,4 +1,5 @@
 import { chromium, firefox, webkit } from "playwright";
+import type { Page, BrowserContext } from "playwright";
 import fs from "fs";
 import { Command } from "commander";
 import chalk from "chalk";
@@ -42,6 +43,27 @@ function formatAndPrintLog(message: string): void {
   console.log(formattedMessage);
 }
 
+function setupPageLogging(page: Page, context: BrowserContext): void {
+  page.on("console", (msg) => formatAndPrintLog(msg.text()));
+  page.on("pageerror", (error) => {
+    console.error(chalk.red("Page error:"), error);
+  });
+  page.on("crash", () => {
+    console.error(chalk.red("Page crashed!"));
+  });
+  page.on("requestfailed", (request) => {
+    console.error(
+      chalk.red("Request failed:"),
+      request.url(),
+      request.failure()?.errorText
+    );
+  });
+
+  context.on("weberror", (webError) => {
+    console.error(chalk.red("Web error:"), webError);
+  });
+}
+
 const readBytecodeFile = (path: string): string => {
   const encodedCircuit = JSON.parse(fs.readFileSync(path, "utf8"));
   return encodedCircuit.bytecode;
@@ -59,7 +81,6 @@ const readIvcInputsFile = (path: string): Uint8Array => {
 
 // Set up the command-line interface
 const program = new Command("headless_test");
-program.option("-v, --verbose", "verbose logging");
 program.option("-c, --crs-path <path>", "ignored (here for compatibility)");
 
 program
@@ -94,9 +115,7 @@ program
       const context = await browser.newContext();
       const provingPage = await context.newPage();
 
-      if (program.opts().verbose) {
-        provingPage.on("console", (msg) => formatAndPrintLog(msg.text()));
-      }
+      setupPageLogging(provingPage, context);
 
       await provingPage.goto(`http://localhost:${PORT}`);
 
@@ -138,9 +157,7 @@ program
       const verificationPage = await context.newPage();
       await verificationPage.goto(`http://localhost:${PORT}`);
 
-      if (program.opts().verbose) {
-        verificationPage.on("console", (msg) => formatAndPrintLog(msg.text()));
-      }
+      setupPageLogging(verificationPage, context);
 
       const verificationResult: boolean = await verificationPage.evaluate(
         ([publicInputs, proof, verificationKey]: [
@@ -194,9 +211,7 @@ program
       const context = await browser.newContext();
       const provingPage = await context.newPage();
 
-      if (program.opts().verbose) {
-        provingPage.on("console", (msg) => formatAndPrintLog(msg.text()));
-      }
+      setupPageLogging(provingPage, context);
 
       await provingPage.goto(`http://localhost:${PORT}`);
       const verificationResult: boolean = await provingPage.evaluate(
