@@ -111,7 +111,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // Prevent challenge generation if this is the first challenge we're generating,
         // AND nothing was sent by the prover.
         if (is_first_challenge) {
-            ASSERT(!current_round_data.empty());
+            BB_ASSERT(!current_round_data.empty());
         }
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
@@ -523,11 +523,11 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             // If the element is iterable, then we need to check origin tags to all the elements
             if constexpr (is_iterable_v<T>) {
                 for (auto& subelement : element) {
-                    ASSERT(subelement.get_origin_tag() == element_origin_tag);
+                    BB_ASSERT(subelement.get_origin_tag() == element_origin_tag);
                 }
             } else {
                 // If the element is not iterable, then we need to check an origin tag of the element
-                ASSERT(element.get_origin_tag() == element_origin_tag);
+                BB_ASSERT(element.get_origin_tag() == element_origin_tag);
             }
         }
 #ifdef LOG_INTERACTIONS
@@ -621,7 +621,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      *      what happens before and after the transcript is branched.
      *  4. To ensure soundness:
      *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
-     *      b. We enforce ASSERT(current_round_data.empty())
+     *      b. We enforce BB_ASSERT(current_round_data.empty())
      *
      * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
      * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
@@ -649,7 +649,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      */
     BaseTranscript branch_transcript()
     {
-        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
+        BB_ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
 
         BaseTranscript branched_transcript;
 

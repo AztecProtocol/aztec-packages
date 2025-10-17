@@ -315,18 +315,18 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         const uint256_t scalar_u2("0xdefbb9bbabde5b9f8d7175946e75babc2f11203a8bfb71beaeec1d7a2bff17dd");
 
         // Check the assumptions
-        ASSERT(scalar_s1 < fr::modulus);
-        ASSERT(scalar_u1 < fr::modulus);
-        ASSERT(scalar_u2 < fr::modulus);
-        ASSERT((fr(scalar_s1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
-        ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_s1)) * fr(scalar_u2)).is_point_at_infinity());
+        BB_ASSERT(scalar_s1 < fr::modulus);
+        BB_ASSERT(scalar_u1 < fr::modulus);
+        BB_ASSERT(scalar_u2 < fr::modulus);
+        BB_ASSERT((fr(scalar_s1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
+        BB_ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_s1)) * fr(scalar_u2)).is_point_at_infinity());
 
         // Check that the wnaf skews of the lo and hi parts of u2 are as expected
         fr u2_lo;
         fr u2_hi;
         fr::split_into_endomorphism_scalars(fr(scalar_u2).from_montgomery_form(), u2_lo, u2_hi);
-        ASSERT(uint256_t(u2_lo).get_bit(0) == 0); // u2_lo skew is 1 (even)
-        ASSERT(uint256_t(u2_hi).get_bit(0) == 1); // u2_hi skew is 0 (odd)
+        BB_ASSERT(uint256_t(u2_lo).get_bit(0) == 0); // u2_lo skew is 1 (even)
+        BB_ASSERT(uint256_t(u2_hi).get_bit(0) == 1); // u2_hi skew is 0 (odd)
 
         Builder builder = Builder();
         element_ct P_a = element_ct::from_witness(&builder, g1::one * fr(scalar_s1));
@@ -375,11 +375,11 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         const uint256_t scalar_u2("0x1323b0342b1a56a076cbf5e3899156fbf3f439f2c3b0d5a95b9ef74622447f2e");
 
         // Check the assumptions
-        ASSERT(scalar_g1 < fr::modulus);
-        ASSERT(scalar_u1 < fr::modulus);
-        ASSERT(scalar_u2 < fr::modulus);
-        ASSERT((fr(scalar_g1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
-        ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_g1)) * fr(scalar_u2)).is_point_at_infinity());
+        BB_ASSERT(scalar_g1 < fr::modulus);
+        BB_ASSERT(scalar_u1 < fr::modulus);
+        BB_ASSERT(scalar_u2 < fr::modulus);
+        BB_ASSERT((fr(scalar_g1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
+        BB_ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_g1)) * fr(scalar_u2)).is_point_at_infinity());
 
         // Create the circuit
         Builder builder = Builder();

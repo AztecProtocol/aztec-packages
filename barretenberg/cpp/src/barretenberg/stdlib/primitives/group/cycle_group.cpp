@@ -57,7 +57,7 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
         *this = constant_infinity(this->context);
     }
 
-    ASSERT(get_value().on_curve());
+    BB_ASSERT(get_value().on_curve());
 }
 
 /**
@@ -80,7 +80,7 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
     , _is_standard(true)
     , context(nullptr)
 {
-    ASSERT(get_value().on_curve());
+    BB_ASSERT(get_value().on_curve());
 }
 
 /**
@@ -261,7 +261,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
         // Check that it's not possible to enter the case when
         // The point is already infinity, but `is_infinity` = false
-        ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
+        BB_ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
 
         if (is_infinity.get_value()) {
             *this = constant_infinity(this->context);
@@ -291,8 +291,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->y = field_t::conditional_assign(is_infinity, 0, this->y).normalize();
 
     // We won't bump into the case where we end up with non constant coordinates
-    ASSERT(!this->x.is_constant());
-    ASSERT(!this->y.is_constant());
+    BB_ASSERT(!this->x.is_constant());
+    BB_ASSERT(!this->y.is_constant());
 
     // We have to check this to avoid the situation, where we change the infinity
     bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
@@ -315,8 +315,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
     if (this->is_constant_point_at_infinity()) {
-        ASSERT(this->is_constant());
-        ASSERT(this->_is_standard);
+        BB_ASSERT(this->is_constant());
+        BB_ASSERT(this->_is_standard);
     }
 
     if (this->_is_standard) {
@@ -411,10 +411,10 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     // This method should not be called on known points at infinity
-    ASSERT(!this->is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
-    ASSERT(!other.is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    BB_ASSERT(!this->is_constant_point_at_infinity(),
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    BB_ASSERT(!other.is_constant_point_at_infinity(),
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
 
     auto context = get_context(other);
 
@@ -504,7 +504,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 {
     const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        BB_ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
     }
@@ -528,7 +528,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 {
     const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        BB_ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
     }

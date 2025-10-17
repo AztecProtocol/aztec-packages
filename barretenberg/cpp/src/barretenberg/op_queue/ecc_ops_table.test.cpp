@@ -269,7 +269,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     const size_t fixed_offset = 20;
     const size_t fixed_offset_num_rows = fixed_offset * ULTRA_ROWS_PER_OP;
     const size_t prepended_size = (subtable_op_counts[0] + subtable_op_counts[1]) * ULTRA_ROWS_PER_OP;
-    ASSERT(fixed_offset_num_rows > prepended_size);
+    BB_ASSERT(fixed_offset_num_rows > prepended_size);
 
     // Construct the ultra ops table
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {

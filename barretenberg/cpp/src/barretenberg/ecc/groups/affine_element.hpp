@@ -189,7 +189,7 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         result.x = Fq::reconstruct_from_public(x_limbs);
         result.y = Fq::reconstruct_from_public(y_limbs);
 
-        ASSERT(result.on_curve());
+        BB_ASSERT(result.on_curve());
         return result;
     }
 
