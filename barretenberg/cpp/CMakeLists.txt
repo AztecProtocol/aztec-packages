@@ -87,8 +87,7 @@ if(FUZZING)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
 
-    add_compile_options(-fsanitize=fuzzer)
-    add_link_options(-fsanitize=fuzzer)
+    set(MULTITHREADING OFF)
 endif()
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
