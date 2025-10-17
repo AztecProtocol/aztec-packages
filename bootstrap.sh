@@ -16,11 +16,6 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
-  [ -n "$NOIR_HASH" ]
-fi
-
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -126,11 +121,9 @@ function install_hooks {
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
 ./yarn-project/precommit.sh
-./noir-projects/precommit.sh
 ./yarn-project/constants/precommit.sh
 EOF
   chmod +x $hooks_dir/pre-commit
-  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
   chmod +x $hooks_dir/post-checkout
 }
 
@@ -156,7 +149,7 @@ function sort_by_cpus {
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
+    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts docs
   fi
   parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
@@ -229,7 +222,6 @@ function build {
 
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(
-    noir
     avm-transpiler
     barretenberg
     noir-projects
@@ -363,7 +355,6 @@ function release {
   projects=(
     barretenberg/cpp
     barretenberg/ts
-    noir
     l1-contracts
     noir-projects/aztec-nr
     yarn-project
