@@ -1,0 +1,17 @@
+# Configuration for bob_token_contract example
+
+# Contract artifacts to import for codegen (names without .json extension)
+# These must already be compiled to docs/target/ directory
+contracts:
+  - bob_token_contract-BobToken
+
+# Dependencies:
+#   - @aztec/* packages are auto-linked from yarn-project/
+#   - Use npm:package-name for external npm packages
+dependencies:
+  - "@aztec/aztec.js"
+  - "@aztec/accounts"
+  - "@aztec/test-wallet"
+  - "@aztec/kv-store"
+  # Example external package (uncomment if needed):
+  # - "npm:viem"

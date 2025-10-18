@@ -3,12 +3,8 @@ import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Field, BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-// Importing directly from 'c-kzg' does not work:
-import cKzg from 'c-kzg';
-
 import { Blob, VERSIONED_HASH_VERSION_KZG } from './blob.js';
-
-const { computeKzgProof, verifyKzgProof } = cKzg;
+import { kzg } from './kzg_context.js';
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
@@ -76,7 +72,7 @@ export class BatchedBlob {
       z = await poseidon2Hash([z, blobs[i].challengeZ]);
     }
     // Now we have a shared challenge for all blobs, evaluate them...
-    const proofObjects = blobs.map(b => computeKzgProof(b.data, z.toBuffer()));
+    const proofObjects = blobs.map(b => kzg.computeKzgProof(b.data, z.toBuffer()));
     const evaluations = proofObjects.map(([_, evaluation]) => BLS12Fr.fromBuffer(Buffer.from(evaluation)));
     // ...and find the challenge for the linear combination of blobs.
     let gamma = await hashNoirBigNumLimbs(evaluations[0]);
@@ -209,7 +205,7 @@ export class BatchedBlobAccumulator {
     blob: Blob,
     finalBlobChallenges: FinalBlobBatchingChallenges,
   ): Promise<BatchedBlobAccumulator> {
-    const [q, evaluation] = computeKzgProof(blob.data, finalBlobChallenges.z.toBuffer());
+    const [q, evaluation] = kzg.computeKzgProof(blob.data, finalBlobChallenges.z.toBuffer());
     const firstY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
     // Here, i = 0, so:
     return new BatchedBlobAccumulator(
@@ -250,7 +246,7 @@ export class BatchedBlobAccumulator {
     if (this.isEmptyState()) {
       return BatchedBlobAccumulator.initialize(blob, this.finalBlobChallenges);
     } else {
-      const [q, evaluation] = computeKzgProof(blob.data, this.finalBlobChallenges.z.toBuffer());
+      const [q, evaluation] = kzg.computeKzgProof(blob.data, this.finalBlobChallenges.z.toBuffer());
       const thisY = BLS12Fr.fromBuffer(Buffer.from(evaluation));
 
       // Moving from i - 1 to i, so:
@@ -308,7 +304,7 @@ export class BatchedBlobAccumulator {
         `Blob batching mismatch: accumulated gamma ${calculatedGamma} does not equal injected gamma ${this.finalBlobChallenges.gamma.toBN254Fr()}`,
       );
     }
-    if (!verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress())) {
+    if (!kzg.verifyKzgProof(this.cAcc.compress(), this.zAcc.toBuffer(), this.yAcc.toBuffer(), this.qAcc.compress())) {
       throw new Error(`KZG proof did not verify.`);
     }
 

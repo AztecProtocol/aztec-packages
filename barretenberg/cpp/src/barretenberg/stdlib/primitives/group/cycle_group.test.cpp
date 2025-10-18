@@ -1683,36 +1683,39 @@ TYPED_TEST(CycleGroupTest, TestMul)
             typename Group::Fr native_scalar = Group::Fr::random_element(&engine);
             auto expected_result = element * native_scalar;
 
-            // 1: add entry where point, scalar are witnesses
+            // 1: perform mul where point, scalar are witnesses
             point = (cycle_group_ct::from_witness(&builder, element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
             point.set_origin_tag(submitted_value_origin_tag);
             scalar.set_origin_tag(challenge_origin_tag);
             result = point * scalar;
-
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 2: add entry where point is constant, scalar is witness
+            // 2: perform mul where point is constant, scalar is witness
             point = (cycle_group_ct(element));
             scalar = (cycle_group_ct::cycle_scalar::from_witness(&builder, native_scalar));
-
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 3: add entry where point is witness, scalar is constant
+            // 3: perform mul where point is witness, scalar is constant
             point = (cycle_group_ct::from_witness(&builder, element));
+            scalar = (typename cycle_group_ct::cycle_scalar(native_scalar));
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
 
-            // 4: add entry where point is constant, scalar is constant
+            // 4: perform mul where point is constant, scalar is constant
             point = (cycle_group_ct(element));
+            scalar = (typename cycle_group_ct::cycle_scalar(native_scalar));
+            result = point * scalar;
             EXPECT_EQ((result).get_value(), (expected_result));
         }
     }
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 6594); // Mega
+        check_circuit_and_gate_count(builder, 12933); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 6597); // Ultra
+        check_circuit_and_gate_count(builder, 12936); // Ultra
     }
 }
 
@@ -1754,7 +1757,7 @@ TYPED_TEST(CycleGroupTest, TestConversionFromBigfield)
         if (construct_witnesses) {
             EXPECT_FALSE(big_elt.is_constant());
             EXPECT_FALSE(scalar_from_big_elt.is_constant());
-            check_circuit_and_gate_count(builder, 3498);
+            check_circuit_and_gate_count(builder, 3523);
         }
     };
     run_test(/*construct_witnesses=*/true);
@@ -1841,6 +1844,97 @@ TYPED_TEST(CycleGroupTest, MixedLengthScalarsIsNotSupported)
     // The different sized scalars results in different sized scalar slices arrays which is not handled in batch_mul
     EXPECT_NE(scalars[0].num_bits(), scalars[1].num_bits());
     EXPECT_THROW_OR_ABORT(cycle_group_ct::batch_mul(points, scalars), "Assertion failed: (s.num_bits() == num_bits)");
+}
+
+/**
+ * @brief Test batch_mul with cycle_scalar created from create_from_bn254_scalar
+ * @details This tests the create_from_bn254_scalar constructor path which performs in-field validation
+ * against bn254::fr::modulus during construction via split_unique.
+ */
+TYPED_TEST(CycleGroupTest, TestBatchMulWithBn254Scalar)
+{
+    STDLIB_TYPE_ALIASES
+    using field_ct = stdlib::field_t<Builder>;
+    Builder builder;
+
+    // Create two points
+    std::vector<cycle_group_ct> points;
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
+
+    // Create scalars from bn254 scalar field elements using create_from_bn254_scalar
+    std::vector<cycle_scalar_ct> scalars;
+    auto bn254_scalar1 = field_ct::from_witness(&builder, bb::fr::random_element(&engine));
+    auto bn254_scalar2 = field_ct::from_witness(&builder, bb::fr::random_element(&engine));
+
+    scalars.push_back(cycle_scalar_ct::create_from_bn254_scalar(bn254_scalar1));
+    scalars.push_back(cycle_scalar_ct::create_from_bn254_scalar(bn254_scalar2));
+
+    // Verify both scalars have the standard 254-bit length
+    EXPECT_EQ(scalars[0].num_bits(), cycle_scalar_ct::NUM_BITS);
+    EXPECT_EQ(scalars[1].num_bits(), cycle_scalar_ct::NUM_BITS);
+
+    // Perform batch mul
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+
+    // Compute expected result natively (bn254 scalars treated as Grumpkin scalars via Fr constructor)
+    auto scalar1_as_grumpkin = typename Group::Fr(bn254_scalar1.get_value());
+    auto scalar2_as_grumpkin = typename Group::Fr(bn254_scalar2.get_value());
+    AffineElement expected =
+        TestFixture::generators[0] * scalar1_as_grumpkin + TestFixture::generators[1] * scalar2_as_grumpkin;
+    EXPECT_EQ(result.get_value(), expected);
+
+    // Gate count difference due to additional constants added by default in Mega builder
+    if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 4021); // Mega
+    } else {
+        check_circuit_and_gate_count(builder, 4024); // Ultra
+    }
+}
+
+/**
+ * @brief Test batch_mul with cycle_scalar created from from_u256_witness with matching bit lengths
+ * @details This tests the from_u256_witness constructor which skips primality testing.
+ * Uses 256-bit scalars with matching lengths (unlike MixedLengthScalarsIsNotSupported test).
+ */
+TYPED_TEST(CycleGroupTest, TestBatchMulWithU256Witness)
+{
+    STDLIB_TYPE_ALIASES
+    Builder builder;
+
+    // Create two points
+    std::vector<cycle_group_ct> points;
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[0]));
+    points.push_back(cycle_group_ct::from_witness(&builder, TestFixture::generators[1]));
+
+    // Create two 256-bit scalars using from_u256_witness (both with same bit length)
+    std::vector<cycle_scalar_ct> scalars;
+    uint256_t scalar1_value = uint256_t(engine.get_random_uint256());
+    uint256_t scalar2_value = uint256_t(engine.get_random_uint256());
+
+    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar1_value));
+    scalars.push_back(cycle_scalar_ct::from_u256_witness(&builder, scalar2_value));
+
+    // Verify both scalars have 256-bit length
+    EXPECT_EQ(scalars[0].num_bits(), 256);
+    EXPECT_EQ(scalars[1].num_bits(), 256);
+
+    // Perform batch mul
+    auto result = cycle_group_ct::batch_mul(points, scalars);
+
+    // Compute expected result natively (scalars are used modulo grumpkin::fr::modulus in batch_mul)
+    auto scalar1_reduced = typename Group::Fr(scalar1_value);
+    auto scalar2_reduced = typename Group::Fr(scalar2_value);
+    AffineElement expected =
+        TestFixture::generators[0] * scalar1_reduced + TestFixture::generators[1] * scalar2_reduced;
+    EXPECT_EQ(result.get_value(), expected);
+
+    // Gate count difference due to additional constants added by default in Mega builder
+    if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
+        check_circuit_and_gate_count(builder, 1245); // Mega
+    } else {
+        check_circuit_and_gate_count(builder, 1248); // Ultra
+    }
 }
 
 /**

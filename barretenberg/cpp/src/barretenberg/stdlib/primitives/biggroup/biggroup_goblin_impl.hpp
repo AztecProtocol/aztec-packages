@@ -43,7 +43,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     auto builder = points[0].get_context();
 
     // Check that the internal accumulator is zero?
-    ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+    BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
 
     // Loop over all points and scalars
     size_t num_points = points.size();

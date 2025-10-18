@@ -9,6 +9,7 @@ import {
   GasTxValidator,
   MetadataTxValidator,
   PhasesTxValidator,
+  TimestampTxValidator,
   TxPermittedValidator,
   TxProofValidator,
 } from '@aztec/p2p';
@@ -57,10 +58,12 @@ export function createValidatorForAcceptingTxs(
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
-      timestamp,
-      blockNumber,
       protocolContractsHash,
       vkTreeRoot: getVKTreeRoot(),
+    }),
+    new TimestampTxValidator({
+      timestamp,
+      blockNumber,
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
@@ -114,10 +117,12 @@ function preprocessValidator(
     new MetadataTxValidator({
       l1ChainId: globalVariables.chainId,
       rollupVersion: globalVariables.version,
-      timestamp: globalVariables.timestamp,
-      blockNumber: globalVariables.blockNumber,
       protocolContractsHash,
       vkTreeRoot: getVKTreeRoot(),
+    }),
+    new TimestampTxValidator({
+      timestamp: globalVariables.timestamp,
+      blockNumber: globalVariables.blockNumber,
     }),
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),

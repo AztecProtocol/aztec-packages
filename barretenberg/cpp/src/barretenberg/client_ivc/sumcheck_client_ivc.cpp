@@ -187,7 +187,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
         info("Accumulator hash from IO: ", kernel_input.output_pg_accum_hash);
-        ASSERT(prev_accum_hash.has_value());
+        BB_ASSERT(prev_accum_hash.has_value());
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
         if (!is_hiding_kernel) {
@@ -358,7 +358,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
                  num_circuits,
                  "SumcheckClientIVC: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
+    BB_ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);

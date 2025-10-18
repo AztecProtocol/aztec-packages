@@ -323,6 +323,10 @@ tests:
     error_regex: "✕ attempts to cancel timed out blob transactions with correct parameters"
     owners:
       - *palla
+  - regex: "ethereum/src/l1_tx_utils/l1_tx_utils.test.ts"
+    error_regex: "nonce too low"
+    owners:
+      - *palla
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
