@@ -1,8 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { numToInt32BE } from '@aztec/foundation/serialize';
 
-import { concatenateUint8Arrays } from '../serialize.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';
@@ -32,9 +30,8 @@ export class Schnorr {
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
-    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const response = api.schnorrConstructSignature({
-      message: messageArray,
+      message: msg,
       privateKey: privateKey.toBuffer(),
     });
     return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
@@ -50,9 +47,8 @@ export class Schnorr {
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
-    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const response = api.schnorrVerifySignature({
-      message: messageArray,
+      message: msg,
       publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
       s: sig.s,
       e: sig.e,

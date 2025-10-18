@@ -606,6 +606,17 @@ ${methods}
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
 
+    // For tracing all calls to bb.
+    // const msgpackCallHelper =
+    //   `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {\n` +
+    //   `  const commandName = input[0]?.[0] || 'unknown';\n` +
+    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName}\\n\`);\n` +
+    //   `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);\n` +
+    //   `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);\n` +
+    //   `  const result = new Decoder({ useRecords: false }).unpack(encodedResult);\n` +
+    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName} => completed\\n\`);\n` +
+    //   `  return result;\n` +
+    //   `}\n`;
     const msgpackCallHelper =
       `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {` +
       `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);` +
