@@ -17,6 +17,7 @@
 #include "barretenberg/stdlib/primitives/databus/databus.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include <algorithm>
@@ -318,7 +319,7 @@ class SumcheckClientIVC : public IVCBase {
     VerificationKey get_vk() const;
 
   private:
-#ifdef NDEBUG
+#ifndef NDEBUG
     /**
      * @brief Update native verifier accumulator. Useful for debugging.
      *

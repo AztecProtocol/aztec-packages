@@ -459,7 +459,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         // We expect this function to only be used when the transcript has just been exported.
         BB_ASSERT_EQ(prover_transcript->num_frs_written, 0UL, "Expected to be empty");
         auto verifier_transcript = std::make_shared<BaseTranscript>(*prover_transcript);
-        verifier_transcript->num_frs_read = 0;
+        verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
         verifier_transcript->proof_start = 0;
         return verifier_transcript;
     }
