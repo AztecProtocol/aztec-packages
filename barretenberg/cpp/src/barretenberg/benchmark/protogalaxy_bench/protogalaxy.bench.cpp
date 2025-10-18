@@ -56,21 +56,28 @@ void fold(State& state) noexcept
 
     auto log2_num_gates = static_cast<size_t>(state.range(0));
 
-    const auto construct_inst = [&]() {
-        Builder builder;
-        MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
-        return std::make_shared<ProverInstance>(builder);
-    };
+    std::vector<Builder> builders(NUM_INSTANCES);
+    parallel_for([&builders, &log2_num_gates](const ThreadChunk& chunk) {
+        for (size_t idx : chunk.range(NUM_INSTANCES)) {
+            Builder builder;
+            MockCircuits::construct_arithmetic_circuit(builder, log2_num_gates);
+            builders[idx] = std::move(builder);
+        }
+    });
+
+    // The following loop cannot be parallelized because the construction of a ProverInstance already has a
+    // parallel_for call and nested parallel_for calls are not allowed
     std::array<std::shared_ptr<ProverInstance>, NUM_INSTANCES> prover_insts;
     std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES> verifier_insts;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/938): Parallelize this loop
-    for (size_t i = 0; i < NUM_INSTANCES; ++i) {
-        std::shared_ptr<ProverInstance> prover_inst = construct_inst();
+    for (size_t idx = 0; idx < NUM_INSTANCES; idx++) {
+        auto prover_inst = std::make_shared<ProverInstance>(builders[idx]);
         auto honk_vk = std::make_shared<Flavor::VerificationKey>(prover_inst->get_precomputed());
-        std::shared_ptr<VerifierInstance> verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
-        prover_insts[i] = prover_inst;
-        verifier_insts[i] = verifier_inst;
+        auto verifier_inst = std::make_shared<VerifierInstance>(honk_vk);
+
+        prover_insts[idx] = prover_inst;
+        verifier_insts[idx] = verifier_inst;
     }
+
     std::shared_ptr<typename ProtogalaxyProver::Transcript> transcript =
         std::make_shared<typename ProtogalaxyProver::Transcript>();
 

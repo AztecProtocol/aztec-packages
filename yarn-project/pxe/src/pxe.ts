@@ -36,7 +36,6 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type ContractOverrides,
   PrivateExecutionResult,
@@ -266,6 +265,7 @@ export class PXE {
       selector: await FunctionSelector.fromNameAndParameters(functionDao.name, functionDao.parameters),
       type: functionDao.functionType,
       to,
+      hideMsgSender: false,
       isStatic: functionDao.isStatic,
       returnTypes: functionDao.returnTypes,
     };
@@ -383,20 +383,6 @@ export class PXE {
   }
 
   // Public API
-
-  /** Returns an estimate of the db size in bytes. */
-  public async estimateDbSize() {
-    const treeRootsSize = Object.keys(MerkleTreeId).length * Fr.SIZE_IN_BYTES;
-    const dbSizes = await Promise.all([
-      this.addressDataProvider.getSize(),
-      this.capsuleDataProvider.getSize(),
-      this.contractDataProvider.getSize(),
-      this.noteDataProvider.getSize(),
-      this.syncDataProvider.getSize(),
-      this.taggingDataProvider.getSize(),
-    ]);
-    return [...dbSizes, treeRootsSize].reduce((sum, size) => sum + size, 0);
-  }
 
   public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     return this.contractDataProvider.getContractInstance(address);
@@ -666,12 +652,18 @@ export class PXE {
   }
 
   /**
-   * Gets notes registered in this PXE based on the provided filter.
+   * A debugging utility to get notes based on the provided filter.
+   *
+   * Note that this should not be used in production code because the structure of notes is considered to be
+   * an implementation detail of contracts. This is only meant to be used for debugging purposes. If you need to obtain
+   * note-related information in production code, please implement a custom utility function on your contract and call
+   * that function instead (e.g. `get_balance(owner: AztecAddress) -> u128` utility function on a Token contract).
+   *
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
   public async getNotes(filter: NotesFilter): Promise<UniqueNote[]> {
-    // We need to manually trigger private state sync to have a guarantee that all the events are available.
+    // We need to manually trigger private state sync to have a guarantee that all the notes are available.
     await this.simulateUtility('sync_private_state', [], filter.contractAddress);
 
     const noteDaos = await this.noteDataProvider.getNotes(filter);
@@ -745,10 +737,23 @@ export class PXE {
         };
 
         this.log.debug(`Proving completed in ${totalTime}ms`, { timings });
-        return new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
+
+        const txProvingResult = new TxProvingResult(privateExecutionResult, publicInputs, clientIvcProof!, {
           timings,
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
+
+        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
+        if (preTagsUsedInTheTx.length > 0) {
+          await this.taggingDataProvider.setLastUsedIndexesAsSender(preTagsUsedInTheTx);
+          this.log.debug(`Stored used pre tags as sender for the tx`, {
+            preTagsUsedInTheTx,
+          });
+        } else {
+          this.log.debug(`No pre tags used in the tx`);
+        }
+
+        return txProvingResult;
       } catch (err: any) {
         throw this.#contextualizeError(err, inspect(txRequest), inspect(privateExecutionResult));
       }
@@ -1024,7 +1029,6 @@ export class PXE {
         const syncTimer = new Timer();
         await this.synchronizer.sync();
         const syncTime = syncTimer.ms();
-        // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
         const functionTimer = new Timer();
         const contractFunctionSimulator = this.#getSimulatorForTx();
@@ -1096,10 +1100,6 @@ export class PXE {
     const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
 
     return decodedEvents;
-  }
-
-  async resetNoteSyncData() {
-    return await this.taggingDataProvider.resetNoteSyncData();
   }
 
   /**

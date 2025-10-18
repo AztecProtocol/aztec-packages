@@ -3,22 +3,23 @@ import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/c
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';
 import { omit, pick } from '@aztec/foundation/collection';
+import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
-import type { TypedEventEmitter } from '@aztec/foundation/types';
+import { type TypedEventEmitter, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import {
-  type CommitteeAttestation,
+  CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   type L2BlockSource,
   type ValidateBlockResult,
 } from '@aztec/stdlib/block';
-import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, getSlotAtTimestamp, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type IFullNodeBlockBuilder,
@@ -45,8 +46,9 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { Action, InvalidateBlockRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
 import type { SequencerConfig } from './config.js';
+import { SequencerInterruptedError, SequencerTooSlowError } from './errors.js';
 import { SequencerMetrics } from './metrics.js';
-import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
+import { SequencerTimetable } from './timetable.js';
 import { SequencerState, type SequencerStateWithSlot } from './utils.js';
 
 export { SequencerState };
@@ -223,6 +225,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    */
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
+    this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.publisher?.interrupt();
     await this.runningPromise?.stop();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
@@ -524,6 +527,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     opts?: { force?: boolean },
   ): void;
   setState(proposedState: SequencerState, slotNumber: bigint | undefined, opts: { force?: boolean } = {}): void {
+    if (this.state === SequencerState.STOPPING && proposedState !== SequencerState.STOPPED && !opts.force) {
+      this.log.warn(`Cannot set sequencer to ${proposedState} as it is stopping.`);
+      throw new SequencerInterruptedError();
+    }
     if (this.state === SequencerState.STOPPED && !opts.force) {
       this.log.warn(`Cannot set sequencer from ${this.state} to ${proposedState} as it is stopped.`);
       return;
@@ -723,7 +730,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.setState(SequencerState.COLLECTING_ATTESTATIONS, slotNumber);
 
     this.log.debug('Creating block proposal for validators');
-    const blockProposalOptions: BlockProposalOptions = { publishFullTxs: !!this.config.publishTxsWithProposals };
+    const blockProposalOptions: BlockProposalOptions = {
+      publishFullTxs: !!this.config.publishTxsWithProposals,
+      broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+    };
     const proposal = await this.validatorClient.createBlockProposal(
       block.header.globalVariables.blockNumber,
       block.getCheckpointHeader(),
@@ -766,7 +776,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       collectedAttestationsCount = attestations.length;
 
       // note: the smart contract requires that the signatures are provided in the order of the committee
-      return orderAttestations(attestations, committee);
+      const sorted = orderAttestations(attestations, committee);
+      if (this.config.injectFakeAttestation) {
+        const nonEmpty = sorted.filter(a => !a.signature.isEmpty());
+        const randomIndex = randomInt(nonEmpty.length);
+        this.log.warn(`Injecting fake attestation in block ${block.number}`);
+        unfreeze(nonEmpty[randomIndex]).signature = Signature.random();
+      }
+      return sorted;
     } catch (err) {
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestationsCount = err.collectedCount;
@@ -954,11 +971,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   private getSlotStartBuildTimestamp(slotNumber: number | bigint): number {
-    return (
-      Number(this.l1Constants.l1GenesisTime) +
-      Number(slotNumber) * this.l1Constants.slotDuration -
-      this.l1Constants.ethereumSlotDuration
-    );
+    return getSlotStartBuildTimestamp(slotNumber, this.l1Constants);
   }
 
   private getSecondsIntoSlot(slotNumber: number | bigint): number {

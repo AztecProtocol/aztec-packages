@@ -85,7 +85,7 @@ pub contract TokenBlacklist {
 
     #[public]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
 
         storage.roles.at(user).schedule_value_change(roles);
@@ -96,7 +96,7 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let new_balance = storage.public_balances.at(to).read().add(amount);
@@ -108,7 +108,7 @@ pub contract TokenBlacklist {
 
     #[public]
     fn mint_private(amount: u128, secret_hash: Field) {
-        let caller_roles = storage.roles.at(context.msg_sender()).get_current_value();
+        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
         let pending_shields = storage.pending_shields;
@@ -270,7 +270,6 @@ pub contract TokenBlacklist {
         storage.balances.balance_of(owner).to_field()
     }
 
-    // docs:start:deliver_note_contract_method
     // We cannot replace this function with the standard `process_message` function because the transparent note
     // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
     // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
@@ -285,8 +284,6 @@ pub contract TokenBlacklist {
         first_nullifier_in_tx: Field,
         recipient: AztecAddress,
     ) {
-        // docs:end:deliver_note_contract_method
-
         let note = TransparentNote::new(amount, secret_hash);
         let storage_slot = TokenBlacklist::storage_layout().pending_shields.slot;
         let note_type_id = TransparentNote::get_id();

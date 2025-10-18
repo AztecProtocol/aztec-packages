@@ -5,6 +5,8 @@
 #include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_public_data_squash.hpp"
 #include "barretenberg/vm2/generated/relations/perms_public_data_check.hpp"
+#include "barretenberg/vm2/generated/relations/perms_sstore.hpp"
+#include "barretenberg/vm2/generated/relations/perms_tx.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/tracegen/lib/discard_reconstruction.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -41,16 +43,19 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
         const bool discard = events_with_metadata[i].discard;
 
         bool exists = event.low_leaf_preimage.leaf.slot == event.leaf_slot;
-        FF slot_low_leaf_slot_diff_inv = exists ? 0 : (event.leaf_slot - event.low_leaf_preimage.leaf.slot).invert();
+        FF slot_low_leaf_slot_diff = event.leaf_slot - event.low_leaf_preimage.leaf.slot;
 
         bool next_slot_is_nonzero = false;
-        FF next_slot_inv = 0;
+        FF next_slot = 0;
         if (!exists) {
             next_slot_is_nonzero = event.low_leaf_preimage.nextKey != 0;
-            next_slot_inv = next_slot_is_nonzero ? event.low_leaf_preimage.nextKey.invert() : 0;
+            next_slot = event.low_leaf_preimage.nextKey;
         }
 
         bool write = event.write_data.has_value();
+        // Note: the protocol_write and non_protocol_write are set by the MultiPermutationBuilder, but I also set them
+        // here for clarity/testing. Can remove, but would need to change the NegativeSetProtocolWrite test.
+        bool protocol_write = event.execution_id == std::numeric_limits<uint32_t>::max();
         bool should_insert = !exists && write;
         bool nondiscarded_write = write && !discard;
         bool should_write_to_public_inputs =
@@ -90,6 +95,8 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
                       { C::public_data_check_tree_size_after_write, next_snapshot.nextAvailableLeafIndex },
                       { C::public_data_check_write, write },
+                      { C::public_data_check_protocol_write, protocol_write },
+                      { C::public_data_check_non_protocol_write, write && !protocol_write },
                       { C::public_data_check_clk, clk },
                       { C::public_data_check_discard, discard },
                       { C::public_data_check_low_leaf_slot, event.low_leaf_preimage.leaf.slot },
@@ -105,12 +112,14 @@ void process_public_data_tree_check_trace(const std::vector<EventWithDiscard>& e
                       { C::public_data_check_leaf_slot, event.leaf_slot },
                       { C::public_data_check_siloing_separator, GENERATOR_INDEX__PUBLIC_LEAF_INDEX },
                       { C::public_data_check_leaf_not_exists, !exists },
-                      { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
+                      { C::public_data_check_leaf_slot_low_leaf_slot_diff_inv,
+                        slot_low_leaf_slot_diff }, // Will be inverted in batch later
                       { C::public_data_check_next_slot_is_nonzero, next_slot_is_nonzero },
-                      { C::public_data_check_next_slot_inv, next_slot_inv },
+                      { C::public_data_check_next_slot_inv, next_slot }, // Will be inverted in batch later
                       { C::public_data_check_low_leaf_hash, event.low_leaf_hash },
                       { C::public_data_check_intermediate_root, intermediate_root },
                       { C::public_data_check_tree_height, PUBLIC_DATA_TREE_HEIGHT },
+                      { C::public_data_check_const_two, 2 },
                       { C::public_data_check_updated_low_leaf_hash, updated_low_leaf_hash },
                       { C::public_data_check_should_insert, should_insert },
                       { C::public_data_check_new_leaf_hash, new_leaf_hash },
@@ -232,6 +241,10 @@ void PublicDataTreeTraceBuilder::process(
                       });
 
     process_squashing_trace(nondiscarded_writes, first_write_per_slot, last_value_per_slot, trace);
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { Column::public_data_check_leaf_slot_low_leaf_slot_diff_inv, Column::public_data_check_next_slot_inv } });
 }
 
 const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
@@ -248,6 +261,8 @@ const InteractionDefinition PublicDataTreeTraceBuilder::interactions =
         .add<lookup_public_data_check_new_leaf_poseidon2_0_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_new_leaf_poseidon2_1_settings, InteractionType::LookupGeneric>()
         .add<lookup_public_data_check_new_leaf_merkle_check_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::MultiPermutation, perm_sstore_storage_write_settings, perm_tx_balance_update_settings>(
+            Column::public_data_check_write)
         .add<perm_public_data_check_squashing_settings, InteractionType::Permutation>()
         .add<lookup_public_data_check_write_writes_length_to_public_inputs_settings,
              InteractionType::LookupIntoIndexedByClk>()

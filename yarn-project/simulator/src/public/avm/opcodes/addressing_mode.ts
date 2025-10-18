@@ -2,6 +2,8 @@ import { AVM_MAX_OPERANDS } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
 
+import { strict as assert } from 'assert';
+
 import { MemoryValue, TaggedMemory, type TaggedMemoryInterface, TypeTag } from '../avm_memory_types.js';
 import { RelativeAddressOutOfRangeError, TagCheckError } from '../errors.js';
 
@@ -20,9 +22,7 @@ export class Addressing {
   ) {}
 
   public static fromModes(modes: AddressingMode[]): Addressing {
-    if (modes.length > AVM_MAX_OPERANDS) {
-      throw new Error('Too many operands for addressing mode');
-    }
+    assert(modes.length <= AVM_MAX_OPERANDS, 'Too many operands for addressing mode');
     return new Addressing(padArrayEnd(modes, AddressingMode.DIRECT, AVM_MAX_OPERANDS));
   }
 

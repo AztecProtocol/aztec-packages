@@ -596,6 +596,8 @@ TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
  */
 TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(/*num_circuits*/ 5, trace_settings);
 

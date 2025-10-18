@@ -19,6 +19,7 @@ namespace bb::avm2::tracegen {
 
 namespace {
 
+using simulation::PhaseLengths;
 using simulation::TxContextEvent;
 
 // helper type for the visitor #4
@@ -27,6 +28,33 @@ template <class... Ts> struct overloaded : Ts... {
 };
 // explicit deduction guide (not needed as of C++20)
 template <class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
+// Helper to get phase length from PhaseLengths struct
+uint32_t get_phase_length(const PhaseLengths& phase_lengths, TransactionPhase phase)
+{
+    switch (phase) {
+    case TransactionPhase::NR_NULLIFIER_INSERTION:
+        return phase_lengths.nr_nullifier_insertion;
+    case TransactionPhase::NR_NOTE_INSERTION:
+        return phase_lengths.nr_note_insertion;
+    case TransactionPhase::NR_L2_TO_L1_MESSAGE:
+        return phase_lengths.nr_l2_to_l1_message;
+    case TransactionPhase::SETUP:
+        return phase_lengths.setup;
+    case TransactionPhase::R_NULLIFIER_INSERTION:
+        return phase_lengths.r_nullifier_insertion;
+    case TransactionPhase::R_NOTE_INSERTION:
+        return phase_lengths.r_note_insertion;
+    case TransactionPhase::R_L2_TO_L1_MESSAGE:
+        return phase_lengths.r_l2_to_l1_message;
+    case TransactionPhase::APP_LOGIC:
+        return phase_lengths.app_logic;
+    case TransactionPhase::TEARDOWN:
+        return phase_lengths.teardown;
+    default:
+        return 1; // One-shot phases (COLLECT_GAS_FEES, TREE_PADDING, CLEANUP)
+    }
+}
 
 constexpr size_t NUM_PHASES = static_cast<size_t>(TransactionPhase::LAST);
 
@@ -180,16 +208,14 @@ std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32
     auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
 
     auto remaining_length = phase_length - read_counter;
-    auto remaining_length_inv = remaining_length == 0 ? 0 : FF(remaining_length).invert();
-    auto remaining_length_minus_one_inv = remaining_length - 1 == 0 ? 0 : FF(remaining_length - 1).invert();
 
     return {
         { Column::tx_read_pi_offset, read_offset + read_counter },
         { Column::tx_read_pi_length_offset, length_offset - read_counter },
 
         { Column::tx_remaining_phase_counter, remaining_length },
-        { Column::tx_remaining_phase_inv, remaining_length_inv },
-        { Column::tx_remaining_phase_minus_one_inv, remaining_length_minus_one_inv },
+        { Column::tx_remaining_phase_inv, remaining_length },               // Will be inverted in batch later
+        { Column::tx_remaining_phase_minus_one_inv, remaining_length - 1 }, // Will be inverted in batch later
     };
 }
 
@@ -227,6 +253,7 @@ std::vector<std::pair<Column, FF>> handle_enqueued_call_event(TransactionPhase p
              { Column::tx_contract_addr, event.contract_address },
              { Column::tx_fee, event.transaction_fee },
              { Column::tx_is_static, event.is_static },
+             { Column::tx_calldata_size, event.calldata_size },
              { Column::tx_calldata_hash, event.calldata_hash },
              { Column::tx_reverted, !event.success },
              { Column::tx_prev_da_gas_used_sent_to_enqueued_call, event.start_gas.daGas },
@@ -248,7 +275,7 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_note_hash, phase == TransactionPhase::NR_NOTE_INSERTION },
         { Column::tx_sel_revertible_append_note_hash, phase == TransactionPhase::R_NOTE_INSERTION },
         { Column::tx_should_try_note_hash_append, 1 },
@@ -267,7 +294,7 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_nullifier, phase == TransactionPhase::NR_NULLIFIER_INSERTION },
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
         { Column::tx_should_try_nullifier_append, 1 },
@@ -300,8 +327,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_sel_revertible_append_l2_l1_msg, phase == TransactionPhase::R_L2_TO_L1_MESSAGE },
         { Column::tx_sel_non_revertible_append_l2_l1_msg, phase == TransactionPhase::NR_L2_TO_L1_MESSAGE },
         { Column::tx_should_try_l2_l1_msg_append, 1 },
-        { Column::tx_remaining_side_effects_inv,
-          remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
         { Column::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 },
         { Column::tx_l2_l1_msg_contract_address, event.scoped_msg.contractAddress },
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
@@ -502,12 +528,14 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                                                              TransactionPhase::CLEANUP };
 
     std::optional<simulation::TxStartupEvent> startup_event;
+    PhaseLengths phase_lengths{}; // Will be populated from startup event
 
     bool r_insertion_or_app_logic_failure = false;
     bool teardown_failure = false;
     for (const auto& tx_event : events) {
         if (std::holds_alternative<simulation::TxStartupEvent>(tx_event)) {
             startup_event = std::get<simulation::TxStartupEvent>(tx_event);
+            phase_lengths = startup_event.value().phase_lengths;
         } else {
             const simulation::TxPhaseEvent& tx_phase_event = std::get<simulation::TxPhaseEvent>(tx_event);
             // Minus 1 since the enum is 1-indexed
@@ -570,7 +598,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
         // Count the number of steps in this phase
         uint32_t phase_counter = 0;
-        uint32_t phase_length = static_cast<uint32_t>(phase_events.size());
+        // Get the phase length from the startup event's phase_lengths
+        // This represents how many items were specified for this phase in the transaction itself.
+        // In case of a revert, we may process less items in a phase as we'll stop at the revert.
+        uint32_t phase_length = get_phase_length(phase_lengths, phase);
 
         // We have events to process in this phase
         for (const auto& tx_phase_event : phase_events) {
@@ -653,6 +684,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         // In case we encounter another skip row
         propagated_state = phase_events.back()->state_after;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::tx_remaining_phase_inv, C::tx_remaining_phase_minus_one_inv, C::tx_remaining_side_effects_inv } });
 }
 
 const InteractionDefinition TxTraceBuilder::interactions =
@@ -661,6 +696,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_read_phase_table_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_phase_jump_on_revert_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_read_phase_length_settings, InteractionType::LookupGeneric>()
+        .add<lookup_tx_read_calldata_hash_settings, InteractionType::LookupSequential>()
         .add<lookup_tx_read_public_call_request_phase_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_start_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_dispatch_exec_end_settings, InteractionType::LookupGeneric>()
@@ -673,7 +709,6 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()

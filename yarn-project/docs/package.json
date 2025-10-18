@@ -8,6 +8,6 @@
     "serve": "vite preview --port 8080 --host 0.0.0.0"
   },
   "devDependencies": {
-    "vite": "^4.2.3"
+    "vite": "^7.1.7"
   }
 }

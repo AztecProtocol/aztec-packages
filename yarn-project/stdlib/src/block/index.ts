@@ -10,3 +10,4 @@ export * from './published_l2_block.js';
 export * from './proposal/index.js';
 export * from './validate_block_result.js';
 export * from './l2_block_info.js';
+export * from './attestation_info.js';

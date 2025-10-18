@@ -46,6 +46,7 @@ describe('Discv5Service', () => {
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
+    queryForIp: false,
     ...emptyChainConfig,
   };
 

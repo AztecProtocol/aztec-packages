@@ -1,4 +1,5 @@
 import {
+  AztecAddress,
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
@@ -14,8 +15,7 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 
 import { exec } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
@@ -108,8 +108,8 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = await wallet.createSchnorrAccount(privateKey, Fr.ZERO, deriveSigningKey(privateKey));
-    const l2AccountAddress = l2Account.getAddress();
+    const l2AccountManager = await wallet.createSchnorrAccount(privateKey, Fr.ZERO, deriveSigningKey(privateKey));
+    const l2AccountAddress = l2AccountManager.address;
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
@@ -125,7 +125,7 @@ describe('End-to-end tests for devnet', () => {
       claimAmount: string;
       claimSecret: { value: string };
       messageLeafIndex: string;
-    }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
+    }>('bridge-fee-juice', [amount, l2AccountManager.address], {
       'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       'l1-private-key': l1Account.privateKey,
@@ -138,8 +138,11 @@ describe('End-to-end tests for devnet', () => {
       await waitForL1MessageToArrive();
     }
 
-    const txReceipt = await l2Account
-      .deploy({
+    const l2AccountDeployMethod = await l2AccountManager.getDeployMethod();
+
+    const txReceipt = await l2AccountDeployMethod
+      .send({
+        from: AztecAddress.ZERO,
         fee: {
           paymentMethod: new FeeJuicePaymentMethodWithClaim(l2AccountAddress, {
             claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
@@ -156,7 +159,7 @@ describe('End-to-end tests for devnet', () => {
     //   payment: `method=fee_juice,claimSecret=${claimSecret.value},claimAmount=${claimAmount}`,
     //   wait: false,
     // });
-    // expect(address).toEqual(l2Account.getAddress().toString());
+    // expect(address).toEqual(l2Account.address.toString());
     // const txReceipt = await retryUntil(
     //   async () => {
     //     const receipt = await pxe.getTxReceipt(txHash);
@@ -172,9 +175,7 @@ describe('End-to-end tests for devnet', () => {
 
     expect(txReceipt.status).toBe(TxStatus.SUCCESS);
     const feeJuice = await FeeJuiceContract.at((await node.getNodeInfo()).protocolContractAddresses.feeJuice, wallet);
-    const balance = await feeJuice.methods
-      .balance_of_public(l2Account.getAddress())
-      .simulate({ from: l2AccountAddress });
+    const balance = await feeJuice.methods.balance_of_public(l2AccountAddress).simulate({ from: l2AccountAddress });
     expect(balance).toEqual(amount - txReceipt.transactionFee!);
   });
 

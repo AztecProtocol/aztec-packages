@@ -139,7 +139,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         }
 
         // Check that the size of the recursive verifier is consistent with historical expectation
-        uint32_t NUM_GATES_EXPECTED = 216360;
+        uint32_t NUM_GATES_EXPECTED = 216315;
         ASSERT_EQ(static_cast<uint32_t>(outer_circuit.get_num_finalized_gates()), NUM_GATES_EXPECTED)
             << "Ultra-arithmetized ECCVM Recursive verifier gate count changed! Update this value if you are sure this "
                "is expected.";
@@ -257,6 +257,7 @@ TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailure)
 
 TEST_F(ECCVMRecursiveTests, SingleRecursiveVerificationFailureTamperedProof)
 {
+    BB_DISABLE_ASSERTS(); // Avoid on_curve assertion failure in cycle_group constructor
     ECCVMRecursiveTests::test_recursive_verification_failure_tampered_proof();
 };
 

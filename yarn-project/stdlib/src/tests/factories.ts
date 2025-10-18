@@ -1,4 +1,4 @@
-import { BlobAccumulatorPublicInputs, FinalBlobAccumulatorPublicInputs } from '@aztec/blob-lib';
+import { BlobAccumulator, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
@@ -68,7 +68,6 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
-  AvmProtocolContractAddressHint,
   AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
@@ -89,6 +88,7 @@ import {
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
+import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas, GasFees, GasSettings, type GasUsed } from '../gas/index.js';
 import { computeCalldataHash } from '../hash/hash.js';
 import type { MerkleTreeReadOperations } from '../interfaces/merkle_tree_operations.js';
@@ -160,6 +160,7 @@ import { FunctionData } from '../tx/function_data.js';
 import { GlobalVariables } from '../tx/global_variables.js';
 import { PartialStateReference } from '../tx/partial_state_reference.js';
 import { makeProcessedTxFromPrivateOnlyTx, makeProcessedTxFromTxWithPublicCalls } from '../tx/processed_tx.js';
+import { ProtocolContracts } from '../tx/protocol_contracts.js';
 import { PublicCallRequestWithCalldata } from '../tx/public_call_request_with_calldata.js';
 import { StateReference } from '../tx/state_reference.js';
 import { TreeSnapshots } from '../tx/tree_snapshots.js';
@@ -193,7 +194,7 @@ function makeNoteHash(seed: number) {
 }
 
 function makeNullifier(seed: number) {
-  return new Nullifier(fr(seed), seed + 1, fr(seed + 2));
+  return new Nullifier(fr(seed), fr(seed + 1), seed + 2);
 }
 
 function makePrivateLog(seed: number) {
@@ -420,6 +421,10 @@ export function makePublicTubePublicInputs(seed = 1) {
   return new PublicTubePublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
 }
 
+export function makeProtocolContracts(seed = 1) {
+  return new ProtocolContracts(makeTuple(MAX_PROTOCOL_CONTRACTS, makeAztecAddress, seed));
+}
+
 /**
  * Creates arbitrary public kernel circuit public inputs.
  * @param seed - The seed to use for generating the kernel circuit public inputs.
@@ -441,13 +446,14 @@ export function makePrivateToRollupKernelCircuitPublicInputs(
 function makeAvmCircuitPublicInputs(seed = 1) {
   return new AvmCircuitPublicInputs(
     makeGlobalVariables(seed),
-    fr(seed + 0x100),
+    makeProtocolContracts(seed + 0x100),
     makeTreeSnapshots(seed + 0x10),
     makeGas(seed + 0x20),
     makeGasSettings(),
     makeGasFees(seed + 0x30),
     makeAztecAddress(seed + 0x40),
-    makePublicCallRequestArrayLengths(seed + 0x40),
+    fr(seed + 0x50),
+    makePublicCallRequestArrayLengths(seed + 0x60),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x100),
     makeTuple(MAX_ENQUEUED_CALLS_PER_TX, makePublicCallRequest, seed + 0x200),
     makePublicCallRequest(seed + 0x300),
@@ -752,8 +758,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(startBlobAccumulator),
-    BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
+    BlobAccumulator.fromBatchedBlobAccumulator(startBlobAccumulator),
+    BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
     startBlobAccumulator.finalBlobChallenges,
   );
 }
@@ -789,7 +795,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    FinalBlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
+    FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
   );
 }
 
@@ -1428,13 +1434,6 @@ export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   );
 }
 
-export function makeAvmProtocolContractDerivedAddressesHint(seed = 0): AvmProtocolContractAddressHint {
-  return new AvmProtocolContractAddressHint(
-    /*canonicalAddress=*/ new AztecAddress(new Fr(seed + 1)),
-    /*derivedAddress=*/ new AztecAddress(new Fr(seed + 0x1001)),
-  );
-}
-
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1451,11 +1450,7 @@ export async function makeAvmExecutionHints(
   const fields = {
     globalVariables: makeGlobalVariables(seed + 0x4000),
     tx: await makeAvmTxHint(seed + 0x4100),
-    protocolContractDerivedAddresses: makeArray(
-      MAX_PROTOCOL_CONTRACTS,
-      makeAvmProtocolContractDerivedAddressesHint,
-      seed + 0x4600,
-    ),
+    protocolContracts: new ProtocolContracts(makeTuple(MAX_PROTOCOL_CONTRACTS, makeAztecAddress, seed + 0x4600)),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
@@ -1489,7 +1484,7 @@ export async function makeAvmExecutionHints(
   return new AvmExecutionHints(
     fields.globalVariables,
     fields.tx,
-    fields.protocolContractDerivedAddresses,
+    fields.protocolContracts,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
@@ -1545,11 +1540,13 @@ export async function makeBloatedProcessedTx({
   version = Fr.ZERO,
   gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) }),
   vkTreeRoot = Fr.ZERO,
-  protocolContractTreeRoot = Fr.ZERO,
+  protocolContracts = makeProtocolContracts(seed + 0x100),
   globalVariables = GlobalVariables.empty(),
   newL1ToL2Snapshot = AppendOnlyTreeSnapshot.empty(),
   feePayer,
   feePaymentPublicDataWrite,
+  // The default gasUsed is the tx overhead.
+  gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS }),
   privateOnly = false,
 }: {
   seed?: number;
@@ -1561,9 +1558,10 @@ export async function makeBloatedProcessedTx({
   vkTreeRoot?: Fr;
   globalVariables?: GlobalVariables;
   newL1ToL2Snapshot?: AppendOnlyTreeSnapshot;
-  protocolContractTreeRoot?: Fr;
+  protocolContracts?: ProtocolContracts;
   feePayer?: AztecAddress;
   feePaymentPublicDataWrite?: PublicDataWrite;
+  gasUsed?: Gas;
   privateOnly?: boolean;
 } = {}) {
   seed *= 0x1000; // Avoid clashing with the previous mock values if seed only increases by 1.
@@ -1576,25 +1574,24 @@ export async function makeBloatedProcessedTx({
   txConstantData.txContext.version = version;
   txConstantData.txContext.gasSettings = gasSettings;
   txConstantData.vkTreeRoot = vkTreeRoot;
-  txConstantData.protocolContractTreeRoot = protocolContractTreeRoot;
+  txConstantData.protocolContractsHash = await protocolContracts.hash();
 
   const tx = !privateOnly
-    ? await mockTx(seed, { feePayer })
+    ? await mockTx(seed, { feePayer, gasUsed })
     : await mockTx(seed, {
         numberOfNonRevertiblePublicCallRequests: 0,
         numberOfRevertiblePublicCallRequests: 0,
         feePayer,
+        gasUsed,
       });
   tx.data.constants = txConstantData;
 
-  // No side effects were created in mockTx. The default gasUsed is the tx overhead.
-  tx.data.gasUsed = Gas.from({ daGas: FIXED_DA_GAS, l2Gas: FIXED_L2_GAS });
+  const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
 
   if (privateOnly) {
     const data = makePrivateToRollupAccumulatedData(seed + 0x1000);
     clearContractClassLogs(data);
 
-    const transactionFee = tx.data.gasUsed.computeFee(globalVariables.gasFees);
     feePaymentPublicDataWrite ??= new PublicDataWrite(Fr.random(), Fr.random());
 
     tx.data.forRollup!.end = data;
@@ -1615,9 +1612,10 @@ export async function makeBloatedProcessedTx({
     // Create avm output.
     const avmOutput = AvmCircuitPublicInputs.empty();
     // Assign data from hints.
-    avmOutput.protocolContractTreeRoot = protocolContractTreeRoot;
+    avmOutput.protocolContracts = protocolContracts;
     avmOutput.startTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
     avmOutput.endTreeSnapshots.l1ToL2MessageTree = newL1ToL2Snapshot;
+    avmOutput.effectiveGasFees = computeEffectiveGasFees(globalVariables.gasFees, gasSettings);
     // Assign data from private.
     avmOutput.globalVariables = globalVariables;
     avmOutput.startGasUsed = tx.data.gasUsed;
@@ -1660,6 +1658,9 @@ export async function makeBloatedProcessedTx({
     );
     avmOutput.accumulatedDataArrayLengths = avmOutput.accumulatedData.getArrayLengths();
     avmOutput.gasSettings = gasSettings;
+    // Note: The fee is computed from the tx's gas used, which only includes the gas used in private. But this shouldn't
+    // be a problem for the tests.
+    avmOutput.transactionFee = transactionFee;
 
     const avmCircuitInputs = await makeAvmCircuitInputs(seed + 0x3000, { publicInputs: avmOutput });
     avmCircuitInputs.hints.startingTreeRoots.l1ToL2MessageTree = newL1ToL2Snapshot;

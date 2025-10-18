@@ -32,6 +32,7 @@
         "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
         {
           "address": "0xffffffffffffffffffffffffffffffffffffffff",
+          "remoteSignerUrl": "https://localhost:9100",
           "certPass": "optional"
         },
         {
@@ -61,6 +62,13 @@
       },
       "feeRecipient": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd",
       "fundingAccount": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "attester": {
+        "eth": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bls": "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "feeRecipient": "0x9999999999999999999999999999999999999999999999999999999999999999"
     }
   ],
   "prover": {

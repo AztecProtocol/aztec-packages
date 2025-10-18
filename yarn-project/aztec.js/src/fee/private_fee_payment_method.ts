@@ -1,4 +1,3 @@
-import type { FeePaymentMethod } from '@aztec/entrypoints/interfaces';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { type FunctionAbi, FunctionSelector, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
@@ -7,7 +6,7 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 import type { Wallet } from '../wallet/wallet.js';
-import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
  * Holds information about how the fee for a transaction is to be paid.
@@ -22,7 +21,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
     private paymentContract: AztecAddress,
 
     /**
-     * An auth witness provider to authorize fee payments
+     * Address of the account that will pay the fee
      */
     private sender: AztecAddress,
 
@@ -30,6 +29,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
      * A wallet to perform the simulation to get the accepted asset
      */
     private wallet: Wallet,
+    /**
+     * Gas settings used to compute the maximum fee the user is willing to pay
+     */
+    protected gasSettings: GasSettings,
     /**
      * If true, the max fee will be set to 1.
      * TODO(#7694): Remove this param once the lacking feature in TXE is implemented.
@@ -73,7 +76,6 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         .simulateTx(executionPayload, {
           from: AztecAddress.ZERO,
           skipFeeEnforcement: true,
-          fee: { paymentMethod: new FeeJuicePaymentMethod(AztecAddress.ZERO) },
         })
         .then(simulationResult => {
           const rawReturnValues = simulationResult.getPrivateReturnValues().nested[0].values;
@@ -92,10 +94,10 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
    * @param gasSettings - The gas settings.
    * @returns An execution payload that contains the required function calls and auth witnesses.
    */
-  async getExecutionPayload(gasSettings: GasSettings): Promise<ExecutionPayload> {
+  async getExecutionPayload(): Promise<ExecutionPayload> {
     // We assume 1:1 exchange rate between fee juice and token. But in reality you would need to convert feeLimit
     // (maxFee) to be in token denomination.
-    const maxFee = this.setMaxFeeToOne ? Fr.ONE : gasSettings.getFeeLimit();
+    const maxFee = this.setMaxFeeToOne ? Fr.ONE : this.gasSettings.getFeeLimit();
     const txNonce = Fr.random();
 
     const witness = await this.wallet.createAuthWit(this.sender, {
@@ -105,6 +107,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
         args: [this.sender.toField(), this.paymentContract.toField(), maxFee, txNonce],
         selector: await FunctionSelector.fromSignature('transfer_to_public((Field),(Field),u128,Field)'),
         type: FunctionType.PRIVATE,
+        hideMsgSender: false,
         isStatic: false,
         to: await this.getAsset(),
         returnTypes: [],
@@ -118,6 +121,7 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_private(u128,Field)'),
           type: FunctionType.PRIVATE,
+          hideMsgSender: false,
           isStatic: false,
           args: [maxFee, txNonce],
           returnTypes: [],
@@ -126,5 +130,9 @@ export class PrivateFeePaymentMethod implements FeePaymentMethod {
       [witness],
       [],
     );
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return this.gasSettings;
   }
 }

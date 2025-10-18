@@ -124,7 +124,7 @@ TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
         //         }
 
         //         const uint256_t new_input_u256 = input_u256 + (uint256_t(slice) << shift);
-        //         //   ASSERT(new_input_u256 < fr::modulus);
+        //         //   BB_ASSERT(new_input_u256 < fr::modulus);
         //         if (new_input_u256 < fr::modulus) {
         //             input_u256 = new_input_u256;
         //             slices[i] = slice;
@@ -133,7 +133,7 @@ TYPED_TEST(ScalarMultiplicationTest, GetScalarSlice)
         //     }
         // }
 
-        // ASSERT(input_u256 < fr::modulus);
+        // BB_ASSERT(input_u256 < fr::modulus);
         // while (input_u256 > fr::modulus) {
         //     input_u256 -= fr::modulus;
         // }
@@ -538,7 +538,7 @@ TYPED_TEST(ScalarMultiplicationTest, BenchBatchMsm)
         all_commitments.push_back(TestFixture::naive_msm(all_scalars.back(), all_points.back()));
     }
     auto func = [&]<bb::detail::OperationLabel thread_prefix>(size_t num_threads) {
-        set_hardware_concurrency(num_threads);
+        set_parallel_for_concurrency(num_threads);
         // Strategy 1: Individual MSMs
         {
             BB_BENCH_NAME((bb::detail::concat<thread_prefix, "IndividualMSMs">()));

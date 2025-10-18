@@ -47,10 +47,10 @@ class ClientIVCTests : public ::testing::Test {
     static void tamper_with_proof(FoldProof& proof, size_t public_inputs_offset)
     {
         // Tamper with the commitment in the proof
-        Commitment commitment = bb::field_conversion::convert_from_bn254_frs<Commitment>(
-            std::span{ proof }.subspan(public_inputs_offset, bb::field_conversion::calc_num_bn254_frs<Commitment>()));
+        Commitment commitment = FrCodec::deserialize_from_fields<Commitment>(
+            std::span{ proof }.subspan(public_inputs_offset, FrCodec::template calc_num_fields<Commitment>()));
         commitment = commitment + Commitment::one();
-        auto commitment_frs = bb::field_conversion::convert_to_bn254_frs<Commitment>(commitment);
+        auto commitment_frs = FrCodec::serialize_to_fields<Commitment>(commitment);
         for (size_t idx = 0; idx < 4; ++idx) {
             proof[public_inputs_offset + idx] = commitment_frs[idx];
         }
@@ -92,6 +92,8 @@ TEST_F(ClientIVCTests, BasicStructured)
  */
 TEST_F(ClientIVCTests, BadProofFailure)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+
     const size_t NUM_APP_CIRCUITS = 2;
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     // Confirm that the IVC verifies if nothing is tampered with
@@ -404,6 +406,8 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
  */
 TEST_F(ClientIVCTests, DatabusFailure)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };

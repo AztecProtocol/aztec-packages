@@ -1,4 +1,4 @@
-import { AztecAddress, type AztecNode, type SimulateMethodOptions, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, type SimulateInteractionOptions, type Wallet } from '@aztec/aztec.js';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -58,7 +58,7 @@ describe('Deployment benchmark', () => {
 
           it(`${accountType} contract deploys a TokenContract, pays using ${benchmarkingPaymentMethod}`, async () => {
             const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-            const options: SimulateMethodOptions = {
+            const options: SimulateInteractionOptions = {
               from: benchysAddress,
               fee: { paymentMethod: await paymentMethod.forWallet(userWallet, benchysAddress) },
             };

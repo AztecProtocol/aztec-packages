@@ -27,7 +27,7 @@ pub contract CardGame {
     fn buy_pack(
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
-        let buyer = context.msg_sender();
+        let buyer = context.msg_sender().unwrap();
         let mut cards = get_pack_cards(seed, buyer, &mut context);
 
         let mut collection = storage.collections.at(buyer);
@@ -38,7 +38,7 @@ pub contract CardGame {
     fn join_game(game: u32, cards_fields: [Field; 2]) {
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
-        let player = context.msg_sender();
+        let player = context.msg_sender().unwrap();
 
         let mut collection = storage.collections.at(player);
         collection.remove_cards(cards);
@@ -75,16 +75,14 @@ pub contract CardGame {
 
     #[private]
     fn play_card(game: u32, card: Card) {
-        let player = context.msg_sender();
+        let player = context.msg_sender().unwrap();
 
         let mut game_deck = storage.game_decks.at(game as Field).at(player);
         game_deck.remove_cards([card]);
 
-        // docs:start:call_public_function
         CardGame::at(context.this_address()).on_card_played(game, player, card.to_field()).enqueue(
             &mut context,
         );
-        // docs:end:call_public_function
     }
 
     #[public]
@@ -104,7 +102,7 @@ pub contract CardGame {
 
     #[private]
     fn claim_cards(game: u32, cards_fields: [Field; PLAYABLE_CARDS]) {
-        let player = context.msg_sender();
+        let player = context.msg_sender().unwrap();
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
         let mut collection = storage.collections.at(player);

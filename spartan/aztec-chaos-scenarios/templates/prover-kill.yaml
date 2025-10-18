@@ -3,7 +3,7 @@
 apiVersion: chaos-mesh.org/v1alpha1
 kind: PodChaos
 metadata:
-  name: {{ .Values.global.targetNamespace }}-prover-kill
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-prover-kill
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}

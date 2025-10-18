@@ -730,7 +730,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     }
     Fq x_out = previous_x;
 
-    ASSERT(!previous_y.is_negative);
+    BB_ASSERT(!previous_y.is_negative);
 
     Fq y_out = Fq::mult_madd(previous_y.mul_left, previous_y.mul_right, previous_y.add);
     return element(x_out, y_out);

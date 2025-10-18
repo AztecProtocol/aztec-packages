@@ -224,67 +224,6 @@ struct MultiTable {
     bool operator==(const MultiTable& other) const = default;
 };
 
-// struct PlookupLargeKeyTable {
-//     struct KeyEntry {
-//         uint256_t key;
-//         std::array<bb::fr, 2> value{ bb::fr(0), bb::fr(0) };
-//         bool operator<(const KeyEntry& other) const { return key < other.key; }
-
-//         std::array<bb::fr, 3> to_table_components(const bool use_two_keys) const
-//         {
-//             return {
-//                 key[0],
-//                 value[0],
-//                 value[1],
-//             };
-//         }
-//     };
-
-//     BasicTableId id;
-//     size_t table_index;
-//     size_t size;
-//     bool use_twin_keys;
-
-//     bb::fr column_1_step_size = bb::fr(0);
-//     bb::fr column_2_step_size = bb::fr(0);
-//     bb::fr column_3_step_size = bb::fr(0);
-//     std::vector<bb::fr> column_1;
-//     std::vector<bb::fr> column_3;
-//     std::vector<bb::fr> column_2;
-//     std::vector<KeyEntry> lookup_gates;
-
-//     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
-// };
-
-// struct PlookupFatKeyTable {
-//     struct KeyEntry {
-//         bb::fr key;
-//         std::array<bb::fr, 2> values{ 0, 0 };
-//         bool operator<(const KeyEntry& other) const
-//         {
-//             return (key.from_montgomery_form() < other.key.from_montgomery_form());
-//         }
-
-//         std::array<bb::fr, 3> to_table_components() const { return { key, values[0], values[0] }; }
-//     }
-
-//     BasicTableId id;
-//     size_t table_index;
-//     size_t size;
-//     bool use_twin_keys;
-
-//     bb::fr column_1_step_size = bb::fr(0);
-//     bb::fr column_2_step_size = bb::fr(0);
-//     bb::fr column_3_step_size = bb::fr(0);
-//     std::vector<bb::fr> column_1;
-//     std::vector<bb::fr> column_3;
-//     std::vector<bb::fr> column_2;
-//     std::vector<KeyEntry> lookup_gates;
-
-//     std::array<bb::fr, 2> (*get_values_from_key)(const std::array<uint64_t, 2>);
-
-// }
-
 /**
  * @brief A map from 'entry' to 'index' where entry is a row in a BasicTable and index is the row at which that entry
  * exists in the table
@@ -333,7 +272,7 @@ struct LookupHashTable {
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
-        ASSERT(it != index_map.end(), "LookupHashTable: Key not found!");
+        BB_ASSERT_DEBUG(it != index_map.end(), "LookupHashTable: Key not found!");
         return it->second;
     }
 
@@ -394,8 +333,8 @@ struct BasicTable {
 
     size_t size() const
     {
-        BB_ASSERT_EQ(column_1.size(), column_2.size());
-        BB_ASSERT_EQ(column_2.size(), column_3.size());
+        BB_ASSERT_DEBUG(column_1.size() == column_2.size());
+        BB_ASSERT_DEBUG(column_2.size() == column_3.size());
         return column_1.size();
     }
 };

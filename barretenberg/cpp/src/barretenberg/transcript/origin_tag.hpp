@@ -23,10 +23,6 @@
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1532): Re-enable this once we resolve these issues.
 #define DISABLE_CHILD_TAG_CHECKS
 
-// Disable origin tags in release builds
-#ifdef NDEBUG
-#define AZTEC_NO_ORIGIN_TAGS
-#endif
 #define STANDARD_TESTING_TAGS /*Tags reused in tests*/                                                                 \
     const size_t parent_id = 0;                                                                                        \
     [[maybe_unused]] const auto clear_tag = OriginTag();                                                               \

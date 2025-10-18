@@ -44,6 +44,15 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         return PeerErrorSeverity.MidToleranceError;
       }
 
+      // Validate tx hashes for all txs embedded in the proposal
+      if (!(await Promise.all(block.txs?.map(tx => tx.validateTxHash()) ?? [])).every(v => v)) {
+        this.logger.warn(`Penalizing peer for invalid tx hashes in block proposal`, {
+          proposer,
+          slotNumber: slotNumberBigInt,
+        });
+        return PeerErrorSeverity.LowToleranceError;
+      }
+
       return undefined;
     } catch (e) {
       // People shouldn't be sending us block proposals if the committee doesn't exist

@@ -362,10 +362,16 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  utilityDebugLog(message: ACVMField[], _ignoredFieldsSize: ACVMField[], fields: ACVMField[]): Promise<ACVMField[]> {
+  utilityDebugLog(
+    level: ACVMField[],
+    message: ACVMField[],
+    _ignoredFieldsSize: ACVMField[],
+    fields: ACVMField[],
+  ): Promise<ACVMField[]> {
+    const levelFr = Fr.fromString(level[0]);
     const messageStr = message.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
     const fieldsFr = fields.map(Fr.fromString);
-    this.handlerAsMisc().utilityDebugLog(messageStr, fieldsFr);
+    this.handlerAsMisc().utilityDebugLog(levelFr.toNumber(), messageStr, fieldsFr);
     return Promise.resolve([]);
   }
 
@@ -427,23 +433,12 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async utilityGetIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
-    const taggingSecret = await this.handlerAsUtility().utilityGetIndexedTaggingSecretAsSender(
+  async privateGetNextAppTagAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
+    const tag = await this.handlerAsPrivate().privateGetNextAppTagAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
-    return taggingSecret.toFields().map(toACVMField);
-  }
-
-  async privateIncrementAppTaggingSecretIndexAsSender(
-    [sender]: ACVMField[],
-    [recipient]: ACVMField[],
-  ): Promise<ACVMField[]> {
-    await this.handlerAsPrivate().privateIncrementAppTaggingSecretIndexAsSender(
-      AztecAddress.fromString(sender),
-      AztecAddress.fromString(recipient),
-    );
-    return [];
+    return [toACVMField(tag.value)];
   }
 
   async utilityFetchTaggedLogs([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {

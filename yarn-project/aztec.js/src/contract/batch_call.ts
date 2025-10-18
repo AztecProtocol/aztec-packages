@@ -3,13 +3,17 @@ import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/ab
 
 import type { Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
-import type { RequestMethodOptions, SimulateMethodOptions } from './interaction_options.js';
+import {
+  type RequestInteractionOptions,
+  type SimulateInteractionOptions,
+  toSimulateOptions,
+} from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
   constructor(
     wallet: Wallet,
-    protected calls: BaseContractInteraction[],
+    protected interactions: BaseContractInteraction[],
   ) {
     super(wallet);
   }
@@ -27,15 +31,15 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.
    */
-  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
+  public async request(options: RequestInteractionOptions = {}): Promise<ExecutionPayload> {
     const requests = await this.getRequests();
-    const combinedPayload = mergeExecutionPayloads(requests);
-    return new ExecutionPayload(
-      combinedPayload.calls,
-      combinedPayload.authWitnesses.concat(options.authWitnesses ?? []),
-      combinedPayload.capsules.concat(options.capsules ?? []),
-      combinedPayload.extraHashedArgs,
-    );
+    const feeExecutionPayload = options.fee?.paymentMethod
+      ? await options.fee.paymentMethod.getExecutionPayload()
+      : undefined;
+    const finalExecutionPayload = feeExecutionPayload
+      ? mergeExecutionPayloads([feeExecutionPayload, ...requests])
+      : mergeExecutionPayloads([...requests]);
+    return finalExecutionPayload;
   }
 
   /**
@@ -47,7 +51,7 @@ export class BatchCall extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
-  public async simulate(options: SimulateMethodOptions): Promise<any> {
+  public async simulate(options: SimulateInteractionOptions): Promise<any> {
     const { indexedExecutionPayloads, utility } = (await this.getRequests()).reduce<{
       /** Keep track of the number of private calls to retrieve the return values */
       privateIndex: 0;
@@ -90,7 +94,7 @@ export class BatchCall extends BaseContractInteraction {
 
     const [utilityResults, simulatedTx] = await Promise.all([
       Promise.all(utilityCalls),
-      this.wallet.simulateTx(executionPayload, options),
+      this.wallet.simulateTx(executionPayload, await toSimulateOptions(options)),
     ]);
 
     const results: any[] = [];
@@ -113,7 +117,7 @@ export class BatchCall extends BaseContractInteraction {
     return results;
   }
 
-  private async getRequests() {
-    return await Promise.all(this.calls.map(c => c.request()));
+  protected async getRequests() {
+    return await Promise.all(this.interactions.map(i => i.request()));
   }
 }

@@ -27,7 +27,6 @@ const config = {
   baseUrl: "/",
   trailingSlash: false,
   onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
   favicon: "img/Aztec_Symbol_Dark.png",
 
   // GitHub pages deployment config.
@@ -44,6 +43,9 @@ const config = {
   },
   markdown: {
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
+    }
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
@@ -243,6 +245,11 @@ const config = {
                 type: "html",
                 value: '<span class="dropdown-subtitle">Other Docs</span>',
                 className: "dropdown-subtitle",
+              },
+              {
+                to: "/developers/docs/reference/glossary",
+                label: "Glossary",
+                className: "no-external-icon",
               },
               {
                 to: "/developers/migration_notes",

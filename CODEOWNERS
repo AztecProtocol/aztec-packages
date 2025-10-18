@@ -4,10 +4,6 @@
 /release-image/ @charlielye
 /build-images/ @charlielye
 /ci3/ @charlielye
-**/bootstrap.sh @charlielye
-**/run_test.sh @charlielye
-/release-please-config @charlielye
-/.test_patterns.yml @charlielye
 
 # Notify the Noir team of divergences to upstream
 /noir/noir-repo.patch @TomAFrench
@@ -39,3 +35,6 @@
 
 # Notify the circuit team of changes to the protocol circuits
 /noir-projects/noir-protocol-circuits @LeilaWang
+
+# Notify devrel of changes to docs examples
+/docs/examples @AztecProtocol/devrel

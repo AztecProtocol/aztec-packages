@@ -17,7 +17,6 @@ members = [
     "crates/private-kernel-tail-simulated",
     "crates/private-kernel-tail-to-public",
     "crates/private-kernel-tail-to-public-simulated",
-    "crates/reset-kernel-lib",
     "crates/hiding-kernel-to-rollup",
     "crates/hiding-kernel-to-public",
     "crates/tube-public",

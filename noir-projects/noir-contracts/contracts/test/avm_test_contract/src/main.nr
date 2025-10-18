@@ -29,6 +29,7 @@ pub contract AvmTest {
     };
     use dep::aztec::protocol_types::{
         constants::{
+            CANONICAL_AUTH_REGISTRY_ADDRESS, CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
             FEE_JUICE_ADDRESS, GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y,
             MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS,
         },
@@ -43,7 +44,9 @@ pub contract AvmTest {
     use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
 
+    use dep::auth_contract::AuthRegistry;
     use dep::fee_juice::FeeJuice;
+    use dep::instance_contract::ContractInstanceRegistry;
     use std::ops::Add;
 
     #[storage]
@@ -271,13 +274,14 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn divide_by_zero() -> u8 {
-        1 / 0
+    // Must be called with `denominator == 0`
+    fn divide_by_zero(denominator: u8) -> u8 {
+        1 / denominator
     }
 
     #[public]
     fn external_call_to_divide_by_zero() {
-        let _ = AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+        let _ = AvmTest::at(context.this_address()).divide_by_zero(0).call(&mut context);
     }
 
     #[public]
@@ -289,14 +293,14 @@ pub contract AvmTest {
         // since it will all be consumed on exceptional halt.
         let l2_gas_left = context.l2_gas_left();
         let da_gas_left = context.da_gas_left();
-        let selector = FunctionSelector::from_signature("divide_by_zero()");
+        let selector = FunctionSelector::from_signature("divide_by_zero(u8)");
 
         // Call without capturing a return value since call no longer returns success
         call(
             l2_gas_left - 200_000,
             da_gas_left - 200_000,
             context.this_address(),
-            &[selector.to_field()],
+            &[selector.to_field(), 0],
         );
 
         // Use SUCCESSCOPY to get the success status
@@ -315,6 +319,15 @@ pub contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log_format("whole array: {}", [1, 2, 3, 4]);
         dep::aztec::oracle::debug_log::debug_log("tabs and newlines\n\t- first\n\t- second");
+        dep::aztec::oracle::debug_log::debug_log_with_level(
+            dep::aztec::oracle::debug_log::FATAL_LOG_LEVEL,
+            "fatal error",
+        );
+        dep::aztec::oracle::debug_log::debug_log_format_with_level(
+            dep::aztec::oracle::debug_log::TRACE_LOG_LEVEL,
+            "trace format: {}",
+            [1, 3, 3, 7],
+        );
     }
 
     #[public]
@@ -324,9 +337,16 @@ pub contract AvmTest {
     }
 
     #[public]
-    fn assert_calldata_copy(args: [Field; 3]) {
-        let offset = 0;
+    fn assert_calldata_copy(args: [Field; 3], with_selector: bool) {
+        let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
+        assert(cd == args, "Calldata copy failed");
+    }
+
+    #[public]
+    fn assert_calldata_copy_large(args: [Field; 300], with_selector: bool) {
+        let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
+        let cd: [Field; 300] = dep::aztec::context::public_context::calldata_copy(offset, 300);
         assert(cd == args, "Calldata copy failed");
     }
 
@@ -416,7 +436,7 @@ pub contract AvmTest {
 
     #[public]
     fn get_sender() -> AztecAddress {
-        context.msg_sender()
+        context.msg_sender_unsafe()
     }
 
     #[public]
@@ -675,13 +695,27 @@ pub contract AvmTest {
     }
 
     /************************************************************************
-     * Protocol Contract Call
+     * Protocol Contract Calls
      ************************************************************************/
     #[public]
     fn call_fee_juice() {
         let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(context.this_address()).view(
             &mut context,
         );
+    }
+
+    #[public]
+    fn call_auth_registry() {
+        let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS)
+            .is_reject_all(context.this_address())
+            .view(&mut context);
+    }
+
+    #[public]
+    fn call_instance_registry() {
+        let _ = ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
+            .get_update_delay()
+            .view(&mut context);
     }
 
     /************************************************************************

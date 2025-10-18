@@ -9,13 +9,17 @@
 #include <vector>
 
 namespace bb {
+#ifdef __wasm__
+// Fixed number of workers in WASM environment
+constexpr size_t PARALLEL_FOR_MAX_NESTING = 1;
+#else
+constexpr size_t PARALLEL_FOR_MAX_NESTING = 2;
+#endif
 
 // Useful for programatically benching different thread counts
-void set_hardware_concurrency(size_t num_cores);
-inline size_t get_num_cpus()
-{
-    return env_hardware_concurrency();
-}
+// Note this is threadsafe and affects parallel_for's just in that thread if so.
+void set_parallel_for_concurrency(size_t num_cores);
+size_t get_num_cpus();
 
 // For algorithms that need to be divided amongst power of 2 threads.
 inline size_t get_num_cpus_pow2()

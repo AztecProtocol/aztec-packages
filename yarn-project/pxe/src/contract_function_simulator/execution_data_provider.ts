@@ -5,7 +5,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
@@ -215,30 +215,36 @@ export interface ExecutionDataProvider {
   assertCompatibleOracleVersion(version: number): void;
 
   /**
-   * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * Includes the next index to be used used for tagging with this secret.
+   * Calculates the directional app tagging secret for a given contract, sender and recipient.
    * @param contractAddress - The contract address to silo the secret for
    * @param sender - The address sending the note
    * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
+   * @returns The directional app tagging secret
    */
-  getIndexedTaggingSecretAsSender(
+  calculateDirectionalAppTaggingSecret(
     contractAddress: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret>;
+  ): Promise<DirectionalAppTaggingSecret>;
 
   /**
-   * Increments the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.
-   * @param contractAddress - The contract address to silo the secret for
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
+   * Updates the local index of the shared tagging secret of a (sender, recipient, contract) tuple if a log with
+   * a larger index is found from the node.
+   * @param secret - The secret that's unique for (sender, recipient, contract) tuple while the direction
+   * of sender -> recipient matters.
+   * @param contractAddress - The address of the contract that the logs are tagged for. Needs to be provided to store
+   * because the function performs second round of siloing which is necessary because kernels do it as well (they silo
+   * first field of the private log which corresponds to the tag).
    */
-  incrementAppTaggingSecretIndexAsSender(
-    contractAddress: AztecAddress,
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<void>;
+  syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
+
+  /**
+   * Returns the last used index when sending a log with a given secret.
+   * @param secret - The directional app tagging secret.
+   * @returns The last used index for the given directional app tagging secret, or undefined if we never sent a log
+   * from this sender to a recipient in a given contract (implicitly included in the secret).
+   */
+  getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found
@@ -277,9 +283,9 @@ export interface ExecutionDataProvider {
   ): Promise<void>;
 
   /**
-   * Removes all of a contract's notes that have been nullified from the note database.
+   * Looks for nullifiers of active contract notes and marks them as nullified in the db if a nullifier is found.
    */
-  removeNullifiedNotes(contractAddress: AztecAddress): Promise<void>;
+  syncNoteNullifiers(contractAddress: AztecAddress): Promise<void>;
 
   /**
    * Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`.

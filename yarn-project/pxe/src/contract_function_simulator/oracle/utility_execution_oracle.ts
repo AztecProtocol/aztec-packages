@@ -1,12 +1,11 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
-import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import { LogLevels, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
@@ -22,6 +21,8 @@ import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interface
 export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOracle {
   isMisc = true as const;
   isUtility = true as const;
+
+  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
 
   constructor(
     protected readonly contractAddress: AztecAddress,
@@ -256,29 +257,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return values;
   }
 
-  public utilityDebugLog(message: string, fields: Fr[]): void {
-    this.log.verbose(`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
-  }
-
-  /**
-   * Returns the tagging secret for a given sender and recipient pair, siloed to the current contract address.
-   * Includes the next index to be used used for tagging with this secret.
-   * For this to work, the ivsk_m of the sender must be known.
-   * @param sender - The address sending the note
-   * @param recipient - The address receiving the note
-   * @returns A tagging secret that can be used to tag notes.
-   */
-  public async utilityGetIndexedTaggingSecretAsSender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-  ): Promise<IndexedTaggingSecret> {
-    return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
+  public utilityDebugLog(level: number, message: string, fields: Fr[]): void {
+    if (!LogLevels[level]) {
+      throw new Error(`Invalid debug log level: ${level}`);
+    }
+    const levelName = LogLevels[level];
+    this.aztecNrDebugLog[levelName](`${applyStringFormatting(message, fields)}`);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {
     await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
-    await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
+    await this.executionDataProvider.syncNoteNullifiers(this.contractAddress);
   }
 
   public async utilityValidateEnqueuedNotesAndEvents(

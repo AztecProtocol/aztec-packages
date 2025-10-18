@@ -79,10 +79,11 @@ std::shared_ptr<ClientIVC::RecursiveVerifierInstance> ClientIVC::perform_oink_re
     const std::shared_ptr<RecursiveTranscript>& transcript,
     const StdlibProof& proof)
 {
-    OinkRecursiveVerifier verifier{ &circuit, verifier_instance, transcript };
-    verifier.verify_proof(proof);
+    transcript->load_proof(proof);
+    OinkRecursiveVerifier verifier{ verifier_instance, transcript };
+    verifier.verify();
 
-    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx);
+    verifier_instance->target_sum = StdlibFF::from_witness_index(&circuit, circuit.zero_idx());
     // Get the gate challenges for sumcheck/combiner computation
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<StdlibFF>("gate_challenge", CONST_PG_LOG_N);
@@ -214,8 +215,8 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
         kernel_input.reconstruct_from_public(public_inputs);
         nested_pairing_points = kernel_input.pairing_inputs;
         // Perform databus consistency checks
-        kernel_input.kernel_return_data.assert_equal(witness_commitments.calldata);
-        kernel_input.app_return_data.assert_equal(witness_commitments.secondary_calldata);
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
 
         // T_prev is read by the public input of the previous kernel K_{i-1} at the beginning of the recursive
         // verification of of the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app). This verification
@@ -228,7 +229,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
         info("PG accum hash from IO: ", kernel_input.output_pg_accum_hash);
-        ASSERT(prev_accum_hash.has_value());
+        BB_ASSERT(prev_accum_hash.has_value());
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
         if (!is_hiding_kernel) {
@@ -446,7 +447,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
+    BB_ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit, trace_settings);

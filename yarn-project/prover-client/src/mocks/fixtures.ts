@@ -4,9 +4,10 @@ import { randomBytes } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -106,30 +107,39 @@ export const updateExpectedTreesFromTxs = async (db: MerkleTreeWriteOperations, 
   }
 };
 
-export const makeGlobals = (blockNumber: number, slotNumber = blockNumber) => {
-  const checkpointConstants = makeCheckpointConstants(slotNumber);
-  return new GlobalVariables(
-    checkpointConstants.chainId,
-    checkpointConstants.version,
+export const makeGlobals = (
+  blockNumber: number,
+  slotNumber = blockNumber,
+  overrides: Partial<FieldsOf<GlobalVariables> & FieldsOf<CheckpointConstantData>> = {},
+) => {
+  const checkpointConstants = makeCheckpointConstants(slotNumber, overrides);
+  return GlobalVariables.from({
+    chainId: checkpointConstants.chainId,
+    version: checkpointConstants.version,
     blockNumber /** block number */,
-    new Fr(slotNumber) /** slot number */,
-    BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
-    checkpointConstants.coinbase,
-    checkpointConstants.feeRecipient,
-    checkpointConstants.gasFees,
-  );
+    slotNumber: new Fr(slotNumber) /** slot number */,
+    timestamp: BigInt(blockNumber) /** block number as pseudo-timestamp for testing */,
+    coinbase: checkpointConstants.coinbase,
+    feeRecipient: checkpointConstants.feeRecipient,
+    gasFees: checkpointConstants.gasFees,
+    ...overrides,
+  });
 };
 
-export const makeCheckpointConstants = (slotNumber: number) => {
+export const makeCheckpointConstants = (
+  slotNumber: number,
+  overrides: Partial<FieldsOf<CheckpointConstantData>> = {},
+) => {
   return CheckpointConstantData.from({
     chainId: Fr.ZERO,
     version: Fr.ZERO,
     vkTreeRoot: getVKTreeRoot(),
-    protocolContractTreeRoot,
+    protocolContractsHash,
     proverId: Fr.ZERO,
     slotNumber: new Fr(slotNumber),
     coinbase: EthAddress.ZERO,
     feeRecipient: AztecAddress.ZERO,
     gasFees: GasFees.empty(),
+    ...overrides,
   });
 };

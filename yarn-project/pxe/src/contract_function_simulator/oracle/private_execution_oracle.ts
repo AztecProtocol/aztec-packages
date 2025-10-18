@@ -12,9 +12,9 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeUniqueNoteHash, siloNoteHash } from '@aztec/stdlib/hash';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
-import type { ContractClassLog } from '@aztec/stdlib/logs';
+import type { ContractClassLog, DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -26,8 +26,10 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import { Tag } from '../../tagging/tag.js';
 import type { ExecutionDataProvider } from '../execution_data_provider.js';
 import type { ExecutionNoteCache } from '../execution_note_cache.js';
+import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle, NoteData } from './interfaces.js';
@@ -63,7 +65,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private contractClassLogs: CountedContractClassLog[] = [];
   private offchainEffects: { data: Fr[] }[] = [];
   private nestedExecutionResults: PrivateCallExecutionResult[] = [];
-  private senderForTags?: AztecAddress;
 
   constructor(
     private readonly argsHash: Fr,
@@ -76,16 +77,20 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     capsules: Capsule[],
     private readonly executionCache: HashedValuesCache,
     private readonly noteCache: ExecutionNoteCache,
+    private readonly taggingIndexCache: ExecutionTaggingIndexCache,
     executionDataProvider: ExecutionDataProvider,
-    private simulator: CircuitSimulator,
-    private totalPublicCalldataCount: number,
+    private totalPublicCalldataCount: number = 0,
     protected sideEffectCounter: number = 0,
     log = createLogger('simulator:client_execution_context'),
     scopes?: AztecAddress[],
-    senderForTags?: AztecAddress,
+    private senderForTags?: AztecAddress,
+    private simulator?: CircuitSimulator,
   ) {
     super(callContext.contractAddress, authWitnesses, capsules, executionDataProvider, log, scopes);
-    this.senderForTags = senderForTags;
+  }
+
+  public getPrivateContextInputs(): PrivateContextInputs {
+    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -104,13 +109,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Invalid arguments size: expected ${argumentsSize}, got ${args?.length}`);
     }
 
-    const privateContextInputs = new PrivateContextInputs(
-      this.callContext,
-      this.anchorBlockHeader,
-      this.txContext,
-      this.sideEffectCounter,
-    );
-    const privateContextInputsAsFields = privateContextInputs.toFields();
+    const privateContextInputsAsFields = this.getPrivateContextInputs().toFields();
     if (privateContextInputsAsFields.length !== PRIVATE_CONTEXT_INPUTS_LENGTH) {
       throw new Error('Invalid private context inputs size');
     }
@@ -153,6 +152,13 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Returns the pre tags that were used in this execution (and that need to be stored in the db).
+   */
+  public getUsedPreTags(): PreTag[] {
+    return this.taggingIndexCache.getUsedPreTags();
+  }
+
+  /**
    * Return the nested execution results during this execution.
    */
   public getNestedExecutionResults() {
@@ -190,6 +196,46 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Returns the next app tag for a given sender and recipient pair.
+   * @param sender - The address sending the log
+   * @param recipient - The address receiving the log
+   * @returns An app tag to be used in a log.
+   */
+  public async privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag> {
+    const secret = await this.executionDataProvider.calculateDirectionalAppTaggingSecret(
+      this.contractAddress,
+      sender,
+      recipient,
+    );
+
+    const index = await this.#getIndexToUseForSecret(secret);
+    this.log.debug(
+      `Incrementing tagging index for sender: ${sender}, recipient: ${recipient}, contract: ${this.contractAddress} to ${index}`,
+    );
+    this.taggingIndexCache.setLastUsedIndex(secret, index);
+
+    return Tag.compute({ secret, index });
+  }
+
+  async #getIndexToUseForSecret(secret: DirectionalAppTaggingSecret): Promise<number> {
+    // If we have the tagging index in the cache, we use it. If not we obtain it from the execution data provider.
+    const lastUsedIndexInTx = this.taggingIndexCache.getLastUsedIndex(secret);
+
+    if (lastUsedIndexInTx !== undefined) {
+      return lastUsedIndexInTx + 1;
+    } else {
+      // This is a tagging secret we've not yet used in this tx, so first sync our store to make sure its indices
+      // are up to date. We do this here because this store is not synced as part of the global sync because
+      // that'd be wasteful as most tagging secrets are not used in each tx.
+      await this.executionDataProvider.syncTaggedLogsAsSender(secret, this.contractAddress);
+      const lastUsedIndex = await this.executionDataProvider.getLastUsedIndexAsSender(secret);
+      // If lastUsedIndex is undefined, we've never used this secret, so start from 0
+      // Otherwise, the next index to use is one past the last used index
+      return lastUsedIndex === undefined ? 0 : lastUsedIndex + 1;
+    }
+  }
+
+  /**
    * Store values in the execution cache.
    * @param values - Values to store.
    * @returns The hash of the values.
@@ -209,6 +255,23 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Preimage for hash ${hash.toString()} not found in cache`);
     }
     return Promise.resolve(preimage);
+  }
+
+  override async utilityCheckNullifierExists(innerNullifier: Fr): Promise<boolean> {
+    // This oracle must be overridden because while utility execution can only meaningfully check if a nullifier exists
+    // in the synched block, during private execution there's also the possibility of it being pending, i.e. created
+    // in the current transaction.
+
+    this.log.debug(`Checking existence of inner nullifier ${innerNullifier}`, {
+      contractAddress: this.contractAddress,
+    });
+
+    const nullifier = (await siloNullifier(this.contractAddress, innerNullifier)).toBigInt();
+
+    return (
+      this.noteCache.getNullifiers(this.contractAddress).has(nullifier) ||
+      (await super.utilityCheckNullifierExists(innerNullifier))
+    );
   }
 
   /**
@@ -362,6 +425,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param noteHash - A hash of the new note.
    */
   public privateNotifyCreatedNullifier(innerNullifier: Fr) {
+    this.log.debug(`Notified of new inner nullifier ${innerNullifier}`, { contractAddress: this.contractAddress });
     return this.noteCache.nullifierCreated(this.callContext.contractAddress, innerNullifier);
   }
 
@@ -408,6 +472,12 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sideEffectCounter: number,
     isStaticCall: boolean,
   ) {
+    if (!this.simulator) {
+      // In practice it is only when creating inline private contexts in a Noir test using TXE that we create an
+      // instance of this class without a simulator.
+      throw new Error('No simulator provided, cannot perform a nested private call');
+    }
+
     const simulatorSetupTimer = new Timer();
     this.log.debug(
       `Calling private function ${targetContractAddress}:${functionSelector} from ${this.callContext.contractAddress}`,
@@ -435,13 +505,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.capsules,
       this.executionCache,
       this.noteCache,
+      this.taggingIndexCache,
       this.executionDataProvider,
-      this.simulator,
       this.totalPublicCalldataCount,
       sideEffectCounter,
       this.log,
       this.scopes,
       this.senderForTags,
+      this.simulator,
     );
 
     const setupTime = simulatorSetupTimer.ms();
@@ -545,10 +616,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   public getDebugFunctionName() {
     return this.executionDataProvider.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
-  }
-
-  public async privateIncrementAppTaggingSecretIndexAsSender(sender: AztecAddress, recipient: AztecAddress) {
-    await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
   public utilityEmitOffchainEffect(data: Fr[]): Promise<void> {

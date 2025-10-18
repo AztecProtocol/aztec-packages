@@ -80,7 +80,7 @@ pub contract FPC {
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
         let accepted_asset = storage.config.read().accepted_asset;
 
-        let user = context.msg_sender();
+        let user = context.msg_sender().unwrap();
         let token = Token::at(accepted_asset);
 
         // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
@@ -101,6 +101,8 @@ pub contract FPC {
 
         // Set the FPC as the fee payer of the tx.
         context.set_as_fee_payer();
+        // End the setup phase, from now on all side effects are revertible
+        context.end_setup();
     }
     // docs:end:fee_entrypoint_private
 
@@ -157,15 +159,23 @@ pub contract FPC {
         // We pull the max fee from the user's balance of the accepted asset to this contract.
         // docs:start:public_call
         Token::at(config.accepted_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, authwit_nonce
-                )
+            .transfer_in_public(
+                context.msg_sender().unwrap(),
+                context.this_address(),
+                max_fee,
+                authwit_nonce,
+            )
             .enqueue(&mut context);
         // docs:end:public_call
 
-        context.set_as_fee_payer();
         FPC::at(context.this_address())
-            ._pay_refund(context.msg_sender(), max_fee, config.accepted_asset)
+            ._pay_refund(context.msg_sender().unwrap(), max_fee, config.accepted_asset)
             .set_as_teardown(&mut context);
+
+        // Set the FPC as the fee payer of the tx.
+        context.set_as_fee_payer();
+        // End the setup phase, from now on all side effects are revertible
+        context.end_setup();
     }
 
     /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
@@ -191,7 +201,7 @@ pub contract FPC {
     fn pull_funds(to: AztecAddress) {
         let config = storage.config.read();
 
-        assert(context.msg_sender() == config.admin, "Only admin can pull funds");
+        assert(context.msg_sender().unwrap() == config.admin, "Only admin can pull funds");
 
         let token = Token::at(config.accepted_asset);
 

@@ -14,7 +14,7 @@ struct Sha256CompressionException : public std::runtime_error {
 
 struct Sha256CompressionEvent {
     uint32_t execution_clk;
-    uint32_t space_id;
+    uint16_t space_id;
     MemoryAddress state_addr;
     MemoryAddress input_addr;
     MemoryAddress output_addr;

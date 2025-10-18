@@ -254,7 +254,6 @@ unconstrained fn emit_authorization_as_offchain_effect<let N: u32>(
  *
  * @param on_behalf_of The address that has allegedly authorized the current call
  */
-// docs:start:assert_current_call_valid_authwit
 pub fn assert_current_call_valid_authwit<let N: u32>(
     context: &mut PrivateContext,
     on_behalf_of: AztecAddress,
@@ -262,7 +261,7 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
     let args_hash: Field = context.get_args_hash();
 
     let authorization = CallAuthorization {
-        msg_sender: context.msg_sender(),
+        msg_sender: context.msg_sender().unwrap(),
         selector: context.selector(),
         args_hash,
     };
@@ -273,7 +272,6 @@ pub fn assert_current_call_valid_authwit<let N: u32>(
 
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
-// docs:end:assert_current_call_valid_authwit
 
 /**
  * Assert that a specific `inner_hash` is valid for the `on_behalf_of` address
@@ -315,19 +313,17 @@ pub fn assert_inner_hash_valid_authwit(
  *
  * @param on_behalf_of The address that has allegedly authorized the current call
  */
-// docs:start:assert_current_call_valid_authwit_public
 pub unconstrained fn assert_current_call_valid_authwit_public(
     context: &mut PublicContext,
     on_behalf_of: AztecAddress,
 ) {
     let inner_hash = compute_inner_authwit_hash([
-        (*context).msg_sender().to_field(),
+        (*context).msg_sender().unwrap().to_field(),
         (*context).selector().to_field(),
         (*context).get_args_hash(),
     ]);
     assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
 }
-// docs:end:assert_current_call_valid_authwit_public
 
 /**
  * Assert that `on_behalf_of` has authorized a specific `inner_hash` in the authentication registry
@@ -369,7 +365,6 @@ pub unconstrained fn assert_inner_hash_valid_authwit_public(
  * @param selector The function selector of the function that is being called
  * @param args The arguments of the function that is being called
  */
-// docs:start:compute_authwit_message_hash_from_call
 pub fn compute_authwit_message_hash_from_call<let N: u32>(
     caller: AztecAddress,
     consumer: AztecAddress,
@@ -383,7 +378,6 @@ pub fn compute_authwit_message_hash_from_call<let N: u32>(
         compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     compute_authwit_message_hash(consumer, chain_id, version, inner_hash)
 }
-// docs:end:compute_authwit_message_hash_from_call
 
 /**
  * Computes the `inner_hash` of the authentication witness

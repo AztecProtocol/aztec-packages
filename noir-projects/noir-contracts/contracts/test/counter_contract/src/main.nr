@@ -87,14 +87,11 @@ pub contract Counter {
     }
 
     mod test {
-        // docs:start:test_imports
         use crate::Counter;
         use aztec::{
             protocol_types::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
         };
-        // docs:end:test_imports
 
-        // docs:start:txe_test_increment
         pub unconstrained fn setup(
             initial_value: Field,
         ) -> (TestEnvironment, AztecAddress, AztecAddress) {
@@ -133,7 +130,6 @@ pub contract Counter {
                 f"Expected {expected_current_value} but got {incremented_counter}",
             );
         }
-        // docs:end:txe_test_increment
 
         #[test]
         unconstrained fn extended_incrementing_and_decrementing() {

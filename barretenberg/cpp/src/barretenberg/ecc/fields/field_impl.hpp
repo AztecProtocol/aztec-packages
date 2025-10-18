@@ -378,18 +378,29 @@ template <class T> constexpr field<T> field<T>::pow(const uint64_t exponent) con
 template <class T> constexpr field<T> field<T>::invert() const noexcept
 {
     if (*this == zero()) {
-        throw_or_abort("Trying to invert zero in the field");
+        bb::assert_failure("Trying to invert zero in the field");
     }
     return pow(modulus_minus_two);
 }
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(field* coeffs, const size_t n) noexcept
 {
     batch_invert(std::span{ coeffs, n });
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1166)
 template <class T> void field<T>::batch_invert(std::span<field> coeffs) noexcept
+{
+    batch_invert<decltype(coeffs)>(coeffs);
+}
+
+template <class T>
+template <typename C>
+    requires requires(C& c) {
+        { c.size() } -> std::convertible_to<size_t>;
+        { c[0] };
+    }
+void field<T>::batch_invert(C& coeffs) noexcept
 {
     const size_t n = coeffs.size();
 
@@ -566,7 +577,7 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
             }
         }
 
-        ASSERT_IN_CONSTEXPR(count != table_size);
+        BB_ASSERT(count != table_size);
         e_slices[table_index] = count;
     }
 

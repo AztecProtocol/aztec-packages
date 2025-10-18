@@ -78,7 +78,7 @@ where
             leaves_to_append[value_index] = Leaf::build_insertion_leaf(value, low_leaf_preimage);
 
             // Point the low leaf to the new leaf and update it in the tree.
-            let new_leaf_insertion_index = start_insertion_index + value_index;
+            let new_leaf_insertion_index = start_insertion_index + value_index as Field;
             let updated_low_leaf =
                 low_leaf_preimage.update_pointers(value_key, new_leaf_insertion_index);
             current_tree_root = root_from_sibling_path(

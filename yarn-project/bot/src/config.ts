@@ -13,7 +13,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { type ZodFor, schemas } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
@@ -44,8 +44,6 @@ export type BotConfig = {
   senderPrivateKey: SecretValue<Fr> | undefined;
   /** Optional salt to use to instantiate the sender account */
   senderSalt: Fr | undefined;
-  /** Encryption secret for a recipient account. */
-  recipientEncryptionSecret: SecretValue<Fr>;
   /** Salt for the token contract instantiation. */
   tokenSalt: Fr;
   /** Every how many seconds should a new tx be sent. */
@@ -56,6 +54,8 @@ export type BotConfig = {
   publicTransfersPerTx: number;
   /** How to handle fee payments. */
   feePaymentMethod: 'fee_juice';
+  /** 'How much is the bot willing to overpay vs. the current base fee' */
+  baseFeePadding: number;
   /** True to not automatically setup or start the bot on initialization. */
   noStart: boolean;
   /** How long to wait for a tx to be mined before reporting an error. */
@@ -90,12 +90,12 @@ export const BotConfigSchema = z
     l1ToL2MessageTimeoutSeconds: z.number(),
     senderPrivateKey: schemas.SecretValue(schemas.Fr).optional(),
     senderSalt: schemas.Fr.optional(),
-    recipientEncryptionSecret: schemas.SecretValue(schemas.Fr),
     tokenSalt: schemas.Fr,
     txIntervalSeconds: z.number(),
     privateTransfersPerTx: z.number().int().nonnegative(),
     publicTransfersPerTx: z.number().int().nonnegative(),
     feePaymentMethod: z.literal('fee_juice'),
+    baseFeePadding: z.number().int().nonnegative(),
     noStart: z.boolean(),
     txMinedWaitSeconds: z.number(),
     followChain: z.enum(BotFollowChain),
@@ -161,18 +161,12 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   },
   senderSalt: {
     env: 'BOT_ACCOUNT_SALT',
-    description: 'The salt to use to deploys the sender account.',
+    description: 'The salt to use to deploy the sender account.',
     parseEnv: (val: string) => (val ? Fr.fromHexString(val) : undefined),
-  },
-  recipientEncryptionSecret: {
-    env: 'BOT_RECIPIENT_ENCRYPTION_SECRET',
-    description: 'Encryption secret for a recipient account.',
-    printDefault: sv => sv?.getValue(),
-    ...secretFrConfigHelper(Fr.fromHexString('0xcafecafe')),
   },
   tokenSalt: {
     env: 'BOT_TOKEN_SALT',
-    description: 'Salt for the token contract deployment.',
+    description: 'The salt to use to deploy the token contract.',
     parseEnv: (val: string) => Fr.fromHexString(val),
     defaultValue: Fr.fromHexString('1'),
   },
@@ -196,6 +190,11 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'How to handle fee payments. (Options: fee_juice)',
     parseEnv: val => (val as 'fee_juice') || undefined,
     defaultValue: 'fee_juice',
+  },
+  baseFeePadding: {
+    env: 'BOT_BASE_FEE_PADDING',
+    description: 'How much is the bot willing to overpay vs. the current base fee',
+    ...numberConfigHelper(3),
   },
   noStart: {
     env: 'BOT_NO_START',
@@ -281,7 +280,7 @@ export function getBotDefaultConfig(): BotConfig {
 
 export function getVersions(): Partial<ComponentsVersions> {
   return {
-    l2ProtocolContractsTreeRoot: protocolContractTreeRoot.toString(),
+    l2ProtocolContractsHash: protocolContractsHash.toString(),
     l2CircuitsVkTreeRoot: getVKTreeRoot().toString(),
   };
 }

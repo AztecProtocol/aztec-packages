@@ -24,7 +24,7 @@ use crate::{
         note_interface::{NoteHash, NoteType},
         note_metadata::SettledNoteMetadata,
         retrieved_note::RetrievedNote,
-        utils::compute_note_hash_for_nullify,
+        utils::compute_note_hash_for_nullification,
     },
     oracle::version::assert_compatible_oracle_version,
     test::helpers::{txe_oracles, utils::ContractDeployment},
@@ -600,7 +600,28 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
-            from,
+            Option::some(from),
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            false,
+        );
+        T::deserialize(serialized_return_values)
+    }
+
+    /// Performs a public contract function call, including the processing of any nested public calls. Returns the
+    /// result of the called function.
+    /// Variant of `call_public`, but the `from` address (`msg_sender`) is set to "null".
+    pub unconstrained fn call_public_incognito<T, let M: u32>(
+        _self: Self,
+        from: AztecAddress,
+        call_interface: PublicCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized_return_values = txe_oracles::public_call_new_flow(
+            Option::some(from),
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             call_interface.get_args(),
@@ -622,7 +643,29 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
-            AztecAddress::zero(),
+            Option::some(AztecAddress::zero()),
+            call_interface.get_contract_address(),
+            call_interface.get_selector(),
+            call_interface.get_args(),
+            true,
+        );
+
+        T::deserialize(serialized_return_values)
+    }
+
+    /// Variant of `view_public`, but the `from` address (`msg_sender`) is set to "null"
+    ///
+    /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
+    /// executable in a static context, and these produce no side effects).
+    pub unconstrained fn view_public_incognito<T, let M: u32>(
+        _self: Self,
+        call_interface: PublicStaticCallInterface<M, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized_return_values = txe_oracles::public_call_new_flow(
+            Option::none(),
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             call_interface.get_args(),
@@ -738,7 +781,7 @@ impl TestEnvironment {
             let note = Note::unpack(subarray(packed_note.storage(), 0));
 
             let note_hash = note.compute_note_hash(storage_slot);
-            let note_hash_for_nullify = compute_note_hash_for_nullify(
+            let note_hash_for_nullification = compute_note_hash_for_nullification(
                 RetrievedNote {
                     note,
                     contract_address,
@@ -747,7 +790,7 @@ impl TestEnvironment {
                 storage_slot,
             );
 
-            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
+            let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullification);
 
             Option::some(NoteHashAndNullifier { note_hash, inner_nullifier })
         };

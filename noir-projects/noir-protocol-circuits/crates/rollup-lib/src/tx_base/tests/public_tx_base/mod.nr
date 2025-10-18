@@ -2,7 +2,7 @@ mod child_proof_vk_tests;
 mod end_blob_sponge_tests;
 mod out_hash_tests;
 mod validate_private_tail_to_public_tests;
-mod validate_private_tail_against_avm_tests;
+mod validate_public_tube_against_avm_tests;
 
 use crate::{
     abis::{PublicTubePublicInputs, TxRollupPublicInputs},
@@ -18,8 +18,9 @@ use dep::types::{
     },
     constants::{
         ARCHIVE_HEIGHT, AVM_VK_INDEX, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-        MAX_CONTRACT_CLASS_LOGS_PER_TX, PUBLIC_TUBE_VK_INDEX,
+        MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX, PUBLIC_TUBE_VK_INDEX,
     },
+    hash::silo_l2_to_l1_message,
     tests::fixture_builder::FixtureBuilder,
 };
 
@@ -38,8 +39,11 @@ struct TestBuilder {
 
 impl TestBuilder {
     pub fn new() -> Self {
+        let prover_id = 42;
         // --- Build things at tx level ---
         let mut builder = FixtureBuilder::new();
+
+        builder.prover_id = prover_id;
 
         builder.gas_used.l2_gas = 111;
         builder.start_gas_used.l2_gas = builder.gas_used.l2_gas;
@@ -67,6 +71,7 @@ impl TestBuilder {
         // --- Build things at rollup level ---
 
         let rollup_fixture_builder = RollupFixtureBuilder::new();
+
         let block_number = rollup_fixture_builder.start_block_number;
 
         let start_sponge_blob = rollup_fixture_builder.get_sponge_blob(block_number);
@@ -83,15 +88,23 @@ impl TestBuilder {
         TestBuilder {
             private_tail,
             public_tube_vk_index: PUBLIC_TUBE_VK_INDEX,
-            public_tube_prover_id: rollup_fixture_builder.prover_id,
+            public_tube_prover_id: prover_id,
             avm,
             avm_vk_index: AVM_VK_INDEX,
             start_sponge_blob,
             last_archive,
             anchor_block_archive_sibling_path,
             contract_class_log_fields,
-            prover_id: rollup_fixture_builder.prover_id,
+            prover_id,
         }
+    }
+
+    pub fn get_siloed_l2_to_l1_msgs(self) -> [Field; MAX_L2_TO_L1_MSGS_PER_TX] {
+        self.avm.accumulated_data.l2_to_l1_msgs.map(|msg| silo_l2_to_l1_message(
+            msg,
+            self.avm.global_variables.version,
+            self.avm.global_variables.chain_id,
+        ))
     }
 
     pub fn update_private_tail_accumulated_data(&mut self, fixture_builder: FixtureBuilder) {
@@ -156,7 +169,7 @@ impl TestBuilder {
             last_archive: self.last_archive,
             l1_to_l2_tree_snapshot: self.avm.end_tree_snapshots.l1_to_l2_message_tree,
             vk_tree_root: self.private_tail.constants.vk_tree_root,
-            protocol_contract_tree_root: self.avm.protocol_contract_tree_root,
+            protocol_contracts_hash: self.private_tail.constants.protocol_contracts_hash,
             prover_id: self.prover_id,
             global_variables: self.avm.global_variables,
         };

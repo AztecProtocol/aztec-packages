@@ -274,7 +274,7 @@ aztec-wallet deploy-account [options]
 ```bash
 $ aztec-wallet create-account --register-only -a master_yoda
 ...
-$ aztec-wallet deploy-account -f master_yoda
+$ aztec-wallet deploy-account master_yoda
 ```
 
 When you are deploying an account on testnet, you need to either bridge fee juice or pay for the account deployment with an FPC to pay for the deployment. When using an FPC, you need to create an account, regsiter the FPC, and then you can use it. For example:
@@ -282,7 +282,7 @@ When you are deploying an account on testnet, you need to either bridge fee juic
 ```bash
 aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
 aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc
-aztec-wallet deploy-account -n $AZTEC_NODE_URL --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
+aztec-wallet deploy-account main -n $AZTEC_NODE_URL --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
 ## Contracts Actions

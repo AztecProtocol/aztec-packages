@@ -119,7 +119,6 @@ describe('SequencerPublisher', () => {
         rollupAddress: EthAddress.ZERO.toString(),
         governanceProposerAddress: mockGovernanceProposerAddress,
       },
-      l1PublishRetryIntervalMS: 1,
       ethereumSlotDuration: getL1ContractsConfigEnvVars().ethereumSlotDuration,
 
       ...defaultL1TxUtilsConfig,
@@ -160,7 +159,7 @@ describe('SequencerPublisher', () => {
 
     l1TxUtils.sendAndMonitorTransaction.mockResolvedValue({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+      state: { gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } } as any,
     });
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
@@ -241,8 +240,6 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const kzg = Blob.getViemKzgInstance();
-
     const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
@@ -268,7 +265,6 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: undefined,
     });
 
@@ -311,18 +307,26 @@ describe('SequencerPublisher', () => {
         gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
-      { blobs: expectedBlobs.map(b => b.data), kzg },
+      expect.objectContaining({
+        blobs: expect.any(Array),
+      }),
       mockRollupAddress,
       expect.anything(), // the logger
     );
 
     expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
+
+    // Verify blob data (Buffer comparison requires manual content check)
+    const actualBlobConfig = forwardSpy.mock.calls[0][3];
+    expect(actualBlobConfig!.blobs).toHaveLength(expectedBlobs.length);
+    expectedBlobs.forEach((expectedBlob, i) => {
+      expect(Buffer.from(actualBlobConfig!.blobs[i]).equals(expectedBlob.data)).toBe(true);
+    });
   });
 
   it('errors if forwarder tx fails', async () => {
     forwardSpy.mockRejectedValueOnce(new Error()).mockResolvedValueOnce({
       receipt: proposeTxReceipt,
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: undefined,
     });
 
@@ -353,7 +357,6 @@ describe('SequencerPublisher', () => {
   it('returns errorMsg if forwarder tx reverts', async () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
-      gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
       errorMsg: 'Test error',
     });
 

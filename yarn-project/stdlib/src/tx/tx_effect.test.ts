@@ -10,13 +10,13 @@ describe('TxEffect', () => {
     expect(TxEffect.fromBuffer(buf)).toEqual(txEffect);
   });
 
-  it('converts to and from fields', async () => {
+  it('converts to and from blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
   });
 
-  it('converts empty to and from fields', () => {
+  it('converts empty to and from blob fields', () => {
     const txEffect = TxEffect.empty();
     const fields = txEffect.toBlobFields();
     expect(TxEffect.fromBlobFields(fields)).toEqual(txEffect);
@@ -28,7 +28,7 @@ describe('TxEffect', () => {
     expect(parsed).toEqual(txEffect);
   });
 
-  it('fails with invalid fields', async () => {
+  it('fails with invalid blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     // Replace the initial field with an invalid encoding
@@ -36,14 +36,14 @@ describe('TxEffect', () => {
     expect(() => TxEffect.fromBlobFields(fields)).toThrow('Invalid fields');
   });
 
-  it('fails with too few remaining fields', async () => {
+  it('fails with too few remaining blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     fields.pop();
     expect(() => TxEffect.fromBlobFields(fields)).toThrow('Not enough fields');
   });
 
-  it('ignores extra fields', async () => {
+  it('ignores extra blob fields', async () => {
     const txEffect = await TxEffect.random();
     const fields = txEffect.toBlobFields();
     fields.push(new Fr(7));

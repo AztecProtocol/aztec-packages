@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "examples/contracts/counter_contract",
+    "examples/contracts/bob_token_contract"
+]

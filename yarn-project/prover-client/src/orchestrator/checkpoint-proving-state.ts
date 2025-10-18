@@ -1,9 +1,4 @@
-import {
-  BatchedBlobAccumulator,
-  BlobAccumulatorPublicInputs,
-  type FinalBlobBatchingChallenges,
-  SpongeBlob,
-} from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, BlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -245,7 +240,7 @@ export class CheckpointProvingState {
     const hints = CheckpointRootRollupHints.from({
       previousBlockHeader: this.headerOfLastBlockInPreviousCheckpoint,
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
-      startBlobAccumulator: BlobAccumulatorPublicInputs.fromBatchedBlobAccumulator(this.startBlobAccumulator),
+      startBlobAccumulator: BlobAccumulator.fromBatchedBlobAccumulator(this.startBlobAccumulator),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
       blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),

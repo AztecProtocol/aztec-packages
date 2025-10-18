@@ -50,7 +50,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 Go to `main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
-#include_code setup /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr raw
+#include_code setup /docs/examples/contracts/counter_contract/src/main.nr raw
 }
 ```
 
@@ -68,7 +68,7 @@ pub contract Counter {
 }
 ```
 
-#include_code imports /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
+#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
 
 - `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
   Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
@@ -86,7 +86,7 @@ pub contract Counter {
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-#include_code storage_struct /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
+#include_code storage_struct /docs/examples/contracts/counter_contract/src/main.nr rust
 
 ## Keep the counter private
 
@@ -94,7 +94,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-#include_code constructor /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
+#include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
@@ -104,7 +104,7 @@ We have annotated this and other functions with `#[private]` which are ABI macro
 
 Now let’s implement the `increment` function we defined in the first step.
 
-#include_code increment /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
+#include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
 
@@ -112,7 +112,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-#include_code get_counter /noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr rust
+#include_code get_counter /docs/examples/contracts/counter_contract/src/main.nr rust
 
 This is a `utility` function which is used to obtain the counter information outside of a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
@@ -140,26 +140,6 @@ aztec codegen -o src/artifacts target
 ```
 
 You can now use the artifact and/or the TS class in your Aztec.js!
-
-## Investigate the `increment` function
-
-Private functions in Aztec contracts are executed client-side, to maintain privacy. Developers need to be mindful of how computationally expensive it is to generate client side proofs for the private functions in the contract they write. To help understand the cost, we can use the Aztec flamegraph tool. The tool takes a contract artifact and function and generates an SVG file that shows the constraint count of each step in the function.
-
-Run it for the `increment` function:
-
-```bash
-SERVE=1 aztec flamegraph target/counter-Counter.json increment
-```
-
-`SERVE=1` will start a local server to view the flamegraph in the browser. You can also run it without this flag and open the generated SVG file in your browser manually.
-
-<Image img={require('/img/flamegraph-counter.png')} />
-
-Note the total gate count at the bottom of the image. The image is interactive; you can hover over different parts of the graph to see the full function name of the execution step and its gate count. This tool also provides insight into the low-level operations that are performed in the private function. Don't worry about the details of the internals of the function right now, just be aware that the more complex the function, the more gates it will use and try out the flamegraph tool on your own functions.
-
-Read more about [profiling transactions with the flamegraph tool](../../guides/smart_contracts/advanced/how_to_profile_transactions.md).
-
-For more information about writing efficient private functions, see [this page](https://noir-lang.org/docs/explainers/explainer-writing-noir) of the Noir documentation.
 
 ## Next Steps
 

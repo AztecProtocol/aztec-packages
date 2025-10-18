@@ -283,55 +283,6 @@ TEST(polynomials, fft_coset_ifft_cross_consistency)
     }
 }
 
-TEST(polynomials, compute_kate_opening_coefficients)
-{
-    // generate random polynomial F(X) = coeffs
-    constexpr size_t n = 256;
-    fr* coeffs = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    fr* W = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    for (size_t i = 0; i < n; ++i) {
-        coeffs[i] = fr::random_element();
-        coeffs[i + n] = fr::zero();
-    }
-    polynomial_arithmetic::copy_polynomial(coeffs, W, 2 * n, 2 * n);
-
-    // generate random evaluation point z
-    fr z = fr::random_element();
-
-    // compute opening polynomial W(X), and evaluation f = F(z)
-    fr f = polynomial_arithmetic::compute_kate_opening_coefficients(W, W, z, n);
-
-    // validate that W(X)(X - z) = F(X) - F(z)
-    // compute (X - z) in coefficient form
-    fr* multiplicand = static_cast<fr*>(aligned_alloc(64, sizeof(fr) * 2 * n));
-    multiplicand[0] = -z;
-    multiplicand[1] = fr::one();
-    for (size_t i = 2; i < 2 * n; ++i) {
-        multiplicand[i] = fr::zero();
-    }
-
-    // set F(X) = F(X) - F(z)
-    coeffs[0] -= f;
-
-    // compute fft of polynomials
-    auto domain = evaluation_domain(2 * n);
-    domain.compute_lookup_table();
-    polynomial_arithmetic::coset_fft(coeffs, domain);
-    polynomial_arithmetic::coset_fft(W, domain);
-    polynomial_arithmetic::coset_fft(multiplicand, domain);
-
-    // validate that, at each evaluation, W(X)(X - z) = F(X) - F(z)
-    fr result;
-    for (size_t i = 0; i < domain.size; ++i) {
-        result = W[i] * multiplicand[i];
-        EXPECT_EQ((result == coeffs[i]), true);
-    }
-
-    aligned_free(coeffs);
-    aligned_free(W);
-    aligned_free(multiplicand);
-}
-
 TEST(polynomials, barycentric_weight_evaluations)
 {
     constexpr size_t n = 16;
@@ -426,27 +377,6 @@ TYPED_TEST(PolynomialTests, evaluation_domain_roots)
         EXPECT_EQ(roots[i] * domain.root, roots[i + 1]);
         EXPECT_EQ(inverse_roots[i] * domain.root_inverse, inverse_roots[i + 1]);
         EXPECT_EQ(roots[i] * inverse_roots[i], FF::one());
-    }
-}
-
-TYPED_TEST(PolynomialTests, compute_interpolation)
-{
-    using FF = TypeParam;
-    constexpr size_t n = 100;
-    FF src[n], poly[n], x[n];
-
-    for (size_t i = 0; i < n; ++i) {
-        poly[i] = FF::random_element();
-    }
-
-    for (size_t i = 0; i < n; ++i) {
-        x[i] = FF::random_element();
-        src[i] = polynomial_arithmetic::evaluate(poly, x[i], n);
-    }
-    polynomial_arithmetic::compute_interpolation(src, src, x, n);
-
-    for (size_t i = 0; i < n; ++i) {
-        EXPECT_EQ(src[i], poly[i]);
     }
 }
 
@@ -623,39 +553,6 @@ TYPED_TEST(PolynomialTests, evaluate_mle_legacy)
  * @brief Test the function for partially evaluating MLE polynomials
  *
  */
-TYPED_TEST(PolynomialTests, partial_evaluate_mle)
-{
-    // Initialize a random polynomial
-    using FF = TypeParam;
-    size_t N = 32;
-    Polynomial<FF> poly(N);
-    for (size_t i = 0; i < N; i++) {
-        poly.at(i) = FF::random_element();
-    }
-
-    // Define a random multivariate evaluation point u = (u_0, u_1, u_2, u_3, u_4)
-    auto u_0 = FF::random_element();
-    auto u_1 = FF::random_element();
-    auto u_2 = FF::random_element();
-    auto u_3 = FF::random_element();
-    auto u_4 = FF::random_element();
-    std::vector<FF> u_challenge = { u_0, u_1, u_2, u_3, u_4 };
-
-    // Show that directly computing v = p(u_0,...,u_4) yields the same result as first computing the partial evaluation
-    // in the last 3 variables g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
-
-    // Compute v = p(u_0,...,u_4)
-    auto v_expected = poly.evaluate_mle(u_challenge);
-
-    // Compute g(X_0,X_1) = p(X_0,X_1,u_2,u_3,u_4), then v = g(u_0,u_1)
-    std::vector<FF> u_part_1 = { u_0, u_1 };
-    std::vector<FF> u_part_2 = { u_2, u_3, u_4 };
-    auto partial_evaluated_poly = poly.partial_evaluate_mle(u_part_2);
-    auto v_result = partial_evaluated_poly.evaluate_mle(u_part_1);
-
-    EXPECT_EQ(v_result, v_expected);
-}
-
 TYPED_TEST(PolynomialTests, move_construct_and_assign)
 {
     using FF = TypeParam;

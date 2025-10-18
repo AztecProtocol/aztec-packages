@@ -31,7 +31,7 @@ void DataCopyTraceBuilder::process(
 
         // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
         bool is_top_level = event.read_context_id == 0;
-        FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id).invert();
+        FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id); // Will be inverted in batch later
 
         // While we know at this point data copy size and data offset are guaranteed to be U32
         // we cast to a wider integer type to detect overflows
@@ -111,7 +111,6 @@ void DataCopyTraceBuilder::process(
                           { C::data_copy_sel_start_no_err, 1 },
                           { C::data_copy_sel_end, 1 },
                           { C::data_copy_sel_write_count_is_zero, 1 },
-                          { C::data_copy_write_count_zero_inv, copy_size == 0 ? 0 : FF(copy_size).invert() },
                       } });
             row++;
             continue; // Go to the next event
@@ -134,52 +133,58 @@ void DataCopyTraceBuilder::process(
             // Read from memory if this is not a padding row and we are either RD_COPY-ing or a nested CD_COPY
             bool sel_mem_read = !is_padding_row && (is_rd_copy || event.read_context_id != 0);
             FF value = is_padding_row ? 0 : event.calldata[i];
-            FF reads_left_inv = is_padding_row ? 0 : FF(reads_left).invert();
 
-            FF write_count_mins_one_inv = end ? 0 : FF(current_copy_size - 1).invert();
+            trace.set(
+                row,
+                { {
+                    { C::data_copy_clk, event.execution_clk },
+                    { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
+                    { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
+                    { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
-            trace.set(row,
-                      { {
-                          { C::data_copy_clk, event.execution_clk },
-                          { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
-                          { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
-                          { C::data_copy_thirty_two, 32 }, // Need this for range checks
+                    { C::data_copy_src_context_id, event.read_context_id },
+                    { C::data_copy_dst_context_id, event.write_context_id },
+                    { C::data_copy_dst_addr, event.dst_addr + i },
 
-                          { C::data_copy_src_context_id, event.read_context_id },
-                          { C::data_copy_dst_context_id, event.write_context_id },
-                          { C::data_copy_dst_addr, event.dst_addr + i },
+                    { C::data_copy_sel_start_no_err, start ? 1 : 0 },
+                    { C::data_copy_sel_end, end ? 1 : 0 },
+                    { C::data_copy_copy_size, current_copy_size },
+                    { C::data_copy_write_count_minus_one_inv,
+                      current_copy_size - 1 }, // Will be inverted in batch later
 
-                          { C::data_copy_sel_start_no_err, start ? 1 : 0 },
-                          { C::data_copy_sel_end, end ? 1 : 0 },
-                          { C::data_copy_copy_size, current_copy_size },
-                          { C::data_copy_write_count_minus_one_inv, write_count_mins_one_inv },
+                    { C::data_copy_sel_mem_write, 1 },
 
-                          { C::data_copy_sel_mem_write, 1 },
+                    { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
+                    { C::data_copy_parent_id_inv, parent_id_inv },
 
-                          { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
-                          { C::data_copy_parent_id_inv, parent_id_inv },
+                    { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
+                    { C::data_copy_read_addr, read_addr },
+                    { C::data_copy_read_addr_plus_one, read_cd_col ? read_addr + 1 : 0 },
 
-                          { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
-                          { C::data_copy_read_addr, read_addr },
+                    { C::data_copy_reads_left_inv, reads_left }, // Will be inverted in batch later
+                    { C::data_copy_padding, is_padding_row ? 1 : 0 },
+                    { C::data_copy_value, value },
 
-                          { C::data_copy_reads_left_inv, reads_left_inv },
-                          { C::data_copy_padding, is_padding_row ? 1 : 0 },
-                          { C::data_copy_value, value },
+                    { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
 
-                          { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
+                    // Reads Left
+                    { C::data_copy_reads_left, reads_left },
+                    { C::data_copy_offset_gt_max_read_index, (start && data_offset > max_read_index) ? 1 : 0 },
 
-                          // Reads Left
-                          { C::data_copy_reads_left, reads_left },
-                          { C::data_copy_offset_gt_max_read_index, (start && data_offset > max_read_index) ? 1 : 0 },
-
-                          // Non-zero Copy Size
-                          { C::data_copy_write_count_zero_inv, start ? FF(copy_size).invert() : 0 },
-                      } });
+                    // Non-zero Copy Size
+                    { C::data_copy_write_count_zero_inv, start ? FF(copy_size) : 0 }, // Will be inverted in batch later
+                } });
 
             reads_left = reads_left == 0 ? 0 : reads_left - 1;
             row++;
         }
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::data_copy_parent_id_inv,
+                             C::data_copy_write_count_zero_inv,
+                             C::data_copy_reads_left_inv,
+                             C::data_copy_write_count_minus_one_inv } });
 }
 
 const InteractionDefinition DataCopyTraceBuilder::interactions =
@@ -190,8 +195,5 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        // Permutations
-        .add<perm_data_copy_dispatch_cd_copy_settings, InteractionType::Permutation>()
-        .add<perm_data_copy_dispatch_rd_copy_settings, InteractionType::Permutation>();
+        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel);
 } // namespace bb::avm2::tracegen

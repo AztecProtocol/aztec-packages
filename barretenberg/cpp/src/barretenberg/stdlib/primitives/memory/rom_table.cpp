@@ -46,7 +46,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     if (initialized) {
         return;
     }
-    ASSERT(context != nullptr);
+    BB_ASSERT(context != nullptr);
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         if (entry.is_constant()) {
@@ -122,7 +122,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {
     if (index >= length) {
-        ASSERT(context != nullptr);
+        BB_ASSERT(context != nullptr);
         context->failure("rom_rable: ROM array access out of bounds");
     }
 

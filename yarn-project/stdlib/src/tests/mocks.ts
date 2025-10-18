@@ -14,6 +14,7 @@ import { computeContractAddressFromInstance } from '../contract/contract_address
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
+import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { Nullifier } from '../kernel/nullifier.js';
@@ -84,10 +85,11 @@ export const mockTx = async (
     feePayer,
     clientIvcProof = ClientIvcProof.random(),
     maxPriorityFeesPerGas,
+    gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
-    protocolContractTreeRoot = Fr.ZERO,
+    protocolContractsHash = Fr.ZERO,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
@@ -97,10 +99,11 @@ export const mockTx = async (
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
     maxPriorityFeesPerGas?: GasFees;
+    gasUsed?: Gas;
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
-    protocolContractTreeRoot?: Fr;
+    protocolContractsHash?: Fr;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -109,16 +112,17 @@ export const mockTx = async (
     (hasPublicTeardownCallRequest ? 1 : 0);
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
-  const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
+  const firstNullifier = new Nullifier(new Fr(seed + 1), Fr.ZERO, 0);
   data.constants.txContext.gasSettings = GasSettings.default({
     maxFeesPerGas: new GasFees(10, 10),
     maxPriorityFeesPerGas,
   });
   data.feePayer = feePayer ?? (await AztecAddress.random());
+  data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
   data.constants.txContext.version = version;
   data.constants.vkTreeRoot = vkTreeRoot;
-  data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+  data.constants.protocolContractsHash = protocolContractsHash;
 
   // Set includeByTimestamp to the maximum allowed duration from the current time.
   data.includeByTimestamp = BigInt(Math.floor(Date.now() / 1000) + MAX_INCLUDE_BY_TIMESTAMP_DURATION);
@@ -151,7 +155,7 @@ export const mockTx = async (
       .build();
 
     for (let i = 0; i < numberOfRevertibleNullifiers; i++) {
-      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), 0, Fr.ZERO);
+      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), Fr.ZERO, 0);
       revertibleBuilder.pushNullifier(revertibleNullifier.value);
     }
 
@@ -180,6 +184,7 @@ const emptyPrivateCallExecutionResult = () =>
     new Map(),
     [],
     new Map(),
+    [],
     [],
     [],
     [],
@@ -241,6 +246,8 @@ export const randomDeployedContract = async () => {
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
+  attesterSigner?: Secp256k1Signer;
+  proposerSigner?: Secp256k1Signer;
   header?: L2BlockHeader;
   archive?: Fr;
   stateReference?: StateReference;
@@ -289,21 +296,58 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
-    SignatureDomainSeparator.blockAttestation,
-    options,
-  );
-  return new BlockAttestation(blockNumber, payload, signature);
+  const header = options?.header ?? makeL2BlockHeader(1);
+  const {
+    signer,
+    attesterSigner = signer ?? Secp256k1Signer.random(),
+    proposerSigner = signer ?? Secp256k1Signer.random(),
+    archive = Fr.random(),
+    stateReference = header.state,
+  } = options ?? {};
+
+  const payload = ConsensusPayload.fromFields({
+    header: header.toCheckpointHeader(),
+    archive,
+    stateReference,
+  });
+
+  // Sign as attester
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSignature = attesterSigner.sign(attestationHash);
+
+  // Sign as proposer
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposerSignature = proposerSigner.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };
 
-export const makeBlockAttestationFromBlock = (block: L2Block, signer?: Secp256k1Signer): BlockAttestation => {
-  return makeBlockAttestation({
-    signer,
-    header: block.header,
-    archive: block.archive.root,
-    stateReference: block.header.state,
-    txHashes: block.body.txEffects.map(tx => tx.txHash),
+export const makeBlockAttestationFromBlock = (
+  block: L2Block,
+  attesterSigner?: Secp256k1Signer,
+  proposerSigner?: Secp256k1Signer,
+): BlockAttestation => {
+  const header = block.header;
+  const archive = block.archive.root;
+  const stateReference = block.header.state;
+
+  const payload = ConsensusPayload.fromFields({
+    header: header.toCheckpointHeader(),
+    archive,
+    stateReference,
   });
+
+  // Sign as attester
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
+  const attestationSignature = attestationSigner.sign(attestationHash);
+
+  // Sign as proposer
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
+  const proposerSignature = proposalSignerToUse.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };
 
 export async function randomPublishedL2Block(
