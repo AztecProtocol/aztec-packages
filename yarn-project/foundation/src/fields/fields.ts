@@ -1,4 +1,4 @@
-import { Barretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { inspect } from 'util';
 
@@ -321,8 +321,9 @@ export class Fr extends BaseField {
    * @returns A square root of the field element (null if it does not exist).
    */
   async sqrt(): Promise<Fr | null> {
-    const api = await Barretenberg.initSingleton();
-    const response = await api.bn254FrSqrt({ input: this.toBuffer() });
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FrSqrt({ input: this.toBuffer() });
     if (!response.isSquareRoot) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
