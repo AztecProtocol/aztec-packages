@@ -190,11 +190,14 @@ export class UltraHonkBackend {
   }
 
   /** @description Returns a solidity verifier */
-  // async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
-  //   await this.instantiate();
-  //   const vkBuf = vk ?? (await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode));
-  //   return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
-  // }
+  async getSolidityVerifier(vk: Uint8Array, options?: UltraHonkBackendOptions): Promise<string> {
+    await this.instantiate();
+    const result = await this.api.circuitWriteSolidityVerifier({
+      verificationKey: vk,
+      settings: getProofSettingsFromOptions(options),
+    });
+    return result.solidityCode;
+  }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
   async generateRecursiveProofArtifacts(

@@ -9,7 +9,7 @@ function bootstrap_all {
   ./cpp/bootstrap.sh $@
   ./ts/bootstrap.sh $@
   ./acir_tests/bootstrap.sh $@
-  # ./docs/bootstrap.sh $@
+  ./docs/bootstrap.sh $@
   ./sol/bootstrap.sh $@
 }
 
