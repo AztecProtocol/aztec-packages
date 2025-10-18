@@ -20,9 +20,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   private nextThreadId = 1;
 
   // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
-  private msgpackInputScratch: number = 0; // 1MB input buffer
-  private msgpackOutputScratch: number = 0; // 1MB output buffer
-  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024 * 128; // 128MB
+  private msgpackInputScratch: number = 0; // 8MB input buffer
+  private msgpackOutputScratch: number = 0; // 8MB output buffer
+  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024 * 8; // 8MB
 
   public getNumThreads() {
     return this.workers.length + 1;
@@ -151,23 +151,31 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   }
 
   cbindCall(cbind: string, inputBuffer: Uint8Array): any {
-    // Validate input size against scratch buffer
-    if (inputBuffer.length > this.MSGPACK_SCRATCH_SIZE) {
-      throw new Error(
-        `Msgpack input exceeds scratch buffer size: ${inputBuffer.length} > ${this.MSGPACK_SCRATCH_SIZE}. ` +
-          `This is a bug - msgpack messages should not be this large.`,
-      );
+    const needsCustomInputBuffer = inputBuffer.length > this.MSGPACK_SCRATCH_SIZE;
+    let inputPtr: number;
+
+    if (needsCustomInputBuffer) {
+      // Allocate temporary buffer for oversized input
+      inputPtr = this.call('bbmalloc', inputBuffer.length);
+    } else {
+      // Use pre-allocated scratch buffer
+      inputPtr = this.msgpackInputScratch;
     }
 
-    // Write input directly to scratch buffer (NO malloc)
-    this.writeMemory(this.msgpackInputScratch, inputBuffer);
+    // Write input to buffer
+    this.writeMemory(inputPtr, inputBuffer);
 
-    // Use scratch buffer for output pointers (NO malloc)
+    // Use scratch buffer for output metadata (pointers/sizes)
     const outputSizePtr = this.msgpackOutputScratch;
     const outputMsgpackPtr = this.msgpackOutputScratch + 4;
 
-    // Call WASM with scratch buffer pointers
-    this.call(cbind, this.msgpackInputScratch, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+    // Call WASM
+    this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+
+    // Free custom input buffer if allocated
+    if (needsCustomInputBuffer) {
+      this.call('bbfree', inputPtr);
+    }
 
     const readPtr32 = (ptr32: number) => {
       const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
@@ -177,17 +185,12 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     const outputDataPtr = readPtr32(outputMsgpackPtr);
     const outputSize = readPtr32(outputSizePtr);
 
-    // Validate output size (defensive check)
-    if (outputSize > this.MSGPACK_SCRATCH_SIZE - 8) {
-      throw new Error(
-        `Msgpack output exceeds scratch buffer size: ${outputSize} > ${this.MSGPACK_SCRATCH_SIZE - 8}. ` +
-          `This is a bug - msgpack responses should not be this large.`,
-      );
-    }
-
+    // Copy output data from WASM memory
     const encodedResult = this.getMemorySlice(outputDataPtr, outputDataPtr + outputSize);
 
-    // NO bbfree calls - scratch buffers are reused!
+    // Free the output buffer allocated by WASM
+    this.call('bbfree', outputDataPtr);
+
     return encodedResult;
   }
 }
