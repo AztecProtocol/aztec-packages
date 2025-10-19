@@ -1,16 +1,12 @@
+import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-// Importing directly from 'c-kzg' does not work:
-import cKzg from 'c-kzg';
-import type { Blob as BlobBuffer } from 'c-kzg';
-
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './deserialize.js';
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
-
-const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
+import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 export const VERSIONED_HASH_VERSION_KZG = 0x01;
@@ -21,7 +17,7 @@ export const VERSIONED_HASH_VERSION_KZG = 0x01;
 export class Blob {
   constructor(
     /** The blob to be broadcast on L1 in bytes form. */
-    public readonly data: BlobBuffer,
+    public readonly data: Uint8Array,
     /** The hash of all tx effects inside the blob. Used in generating the challenge z and proving that we have included all required effects. */
     public readonly fieldsHash: Fr,
     /** Challenge point z (= H(H(tx_effects), kzgCommmitment). Used such that p(z) = y for a single blob, used as z_i in batching (see ./blob_batching.ts). */
@@ -43,7 +39,7 @@ export class Blob {
    *
    * @throws If unable to deserialize the blob.
    */
-  static fromEncodedBlobBuffer(blob: BlobBuffer, multiBlobFieldsHash?: Fr): Promise<Blob> {
+  static fromEncodedBlobBuffer(blob: Uint8Array, multiBlobFieldsHash?: Fr): Promise<Blob> {
     try {
       const fields: Fr[] = deserializeEncodedBlobToFields(blob);
       return Blob.fromFields(fields, multiBlobFieldsHash);
@@ -62,17 +58,15 @@ export class Blob {
    * @returns A Blob created from the array of fields.
    */
   static async fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Promise<Blob> {
-    if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
-      throw new Error(
-        `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
-      );
+    if (fields.length > FIELDS_PER_BLOB) {
+      throw new Error(`Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELDS_PER_BLOB}`);
     }
 
     const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
     const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
-    const commitment = Buffer.from(blobToKzgCommitment(data));
+    const commitment = Buffer.from(kzg.blobToKzgCommitment(data));
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
 
     return new Blob(data, fieldsHash, challengeZ, commitment);
@@ -208,8 +202,8 @@ export class Blob {
    */
   evaluate(challengeZ?: Fr) {
     const z = challengeZ || this.challengeZ;
-    const res = computeKzgProof(this.data, z.toBuffer());
-    if (!verifyKzgProof(this.commitment, z.toBuffer(), res[1], res[0])) {
+    const res = kzg.computeKzgProof(this.data, z.toBuffer());
+    if (!kzg.verifyKzgProof(this.commitment, z.toBuffer(), res[1], res[0])) {
       throw new Error(`KZG proof did not verify.`);
     }
     const proof = Buffer.from(res[0]);
@@ -277,9 +271,12 @@ export class Blob {
 
   static getViemKzgInstance() {
     return {
-      blobToKzgCommitment: cKzg.blobToKzgCommitment,
-      computeBlobKzgProof: cKzg.computeBlobKzgProof,
-      computeCellsAndKzgProofs: cKzg.computeCellsAndKzgProofs,
+      blobToKzgCommitment: kzg.blobToKzgCommitment.bind(kzg),
+      computeBlobKzgProof: kzg.computeBlobKzgProof.bind(kzg),
+      computeCellsAndKzgProofs: (b: Uint8Array): [Uint8Array[], Uint8Array[]] => {
+        const result = kzg.computeCellsAndKzgProofs(b);
+        return [result.cells, result.proofs];
+      },
     };
   }
 
@@ -289,12 +286,12 @@ export class Blob {
    * @dev Assumes we share the fields hash between all blobs which can only be done for ONE BLOCK because the hash is calculated in block root.
    */
   static async getBlobsPerBlock(fields: Fr[]): Promise<Blob[]> {
-    const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
+    const numBlobs = Math.max(Math.ceil(fields.length / FIELDS_PER_BLOB), 1);
     const multiBlobFieldsHash = await poseidon2Hash(fields);
     const res = [];
     for (let i = 0; i < numBlobs; i++) {
-      const end = fields.length < (i + 1) * FIELD_ELEMENTS_PER_BLOB ? fields.length : (i + 1) * FIELD_ELEMENTS_PER_BLOB;
-      res.push(await Blob.fromFields(fields.slice(i * FIELD_ELEMENTS_PER_BLOB, end), multiBlobFieldsHash));
+      const end = fields.length < (i + 1) * FIELDS_PER_BLOB ? fields.length : (i + 1) * FIELDS_PER_BLOB;
+      res.push(await Blob.fromFields(fields.slice(i * FIELDS_PER_BLOB, end), multiBlobFieldsHash));
     }
     return res;
   }

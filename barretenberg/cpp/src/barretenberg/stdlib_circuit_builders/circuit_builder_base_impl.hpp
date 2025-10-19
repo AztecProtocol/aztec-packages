@@ -69,7 +69,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index
             break;
         }
     }
-    ASSERT(result != static_cast<uint32_t>(-1));
+    BB_ASSERT(result != static_cast<uint32_t>(-1));
     return result;
 }
 
@@ -94,7 +94,7 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
 // AUDITTODO: is this used?
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    ASSERT_DEBUG(variables.size() > index);
+    BB_ASSERT_DEBUG(variables.size() > index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {

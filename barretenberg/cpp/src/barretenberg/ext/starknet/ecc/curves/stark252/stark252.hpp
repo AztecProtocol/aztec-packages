@@ -2,6 +2,7 @@
 #pragma once
 
 #include "barretenberg/ecc/fields/field.hpp"
+#include "barretenberg/honk/types/public_inputs_type.hpp"
 
 namespace bb::starknet::stark252 {
 
@@ -47,6 +48,10 @@ struct FqParams {
     static constexpr uint64_t r_inv_wasm_6 = 0x0043ffff;
     static constexpr uint64_t r_inv_wasm_7 = 0x1ff80000;
     static constexpr uint64_t r_inv_wasm_8 = 0x0007ffff;
+
+    // For consistency with bb::fq, if we ever represent an element of bb::stark252::fq in the public inputs, we do so
+    // as a bigfield element, so with 4 public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
 };
 
 using fq = field<FqParams>;

@@ -62,7 +62,7 @@ template <typename T> class RefVector {
 
     T& operator[](std::size_t idx) const
     {
-        ASSERT_DEBUG(idx < storage.size());
+        BB_ASSERT_DEBUG(idx < storage.size());
         return *storage[idx];
     }
 

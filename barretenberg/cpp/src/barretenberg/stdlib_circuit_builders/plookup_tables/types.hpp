@@ -272,7 +272,7 @@ struct LookupHashTable {
     Value operator[](const Key& key) const
     {
         auto it = index_map.find(key);
-        ASSERT_DEBUG(it != index_map.end(), "LookupHashTable: Key not found!");
+        BB_ASSERT_DEBUG(it != index_map.end(), "LookupHashTable: Key not found!");
         return it->second;
     }
 
@@ -333,8 +333,8 @@ struct BasicTable {
 
     size_t size() const
     {
-        ASSERT_DEBUG(column_1.size() == column_2.size());
-        ASSERT_DEBUG(column_2.size() == column_3.size());
+        BB_ASSERT_DEBUG(column_1.size() == column_2.size());
+        BB_ASSERT_DEBUG(column_2.size() == column_3.size());
         return column_1.size();
     }
 };

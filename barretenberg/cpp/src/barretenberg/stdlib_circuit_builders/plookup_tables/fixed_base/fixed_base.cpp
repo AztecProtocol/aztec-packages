@@ -223,7 +223,7 @@ BasicTable table::generate_basic_fixed_base_table(BasicTableId id, size_t basic_
 
     constexpr function_ptr_table get_values_from_key_table = make_function_pointer_table();
     table.get_values_from_key = get_values_from_key_table[multitable_index][table_index];
-    ASSERT(table.get_values_from_key != nullptr);
+    BB_ASSERT(table.get_values_from_key != nullptr);
 
     table.column_1_step_size = table_size;
     table.column_2_step_size = COLUMN_2_STEP_SIZE;

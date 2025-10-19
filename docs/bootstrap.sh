@@ -53,16 +53,22 @@ function test {
   test_cmds | parallelize
 }
 
+function build_examples {
+  echo_header "Building examples"
+  (cd examples && ./bootstrap.sh "$@")
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
   "ci")
-    DOCS_WORKING_DIR="$(pwd)" ../noir-projects/noir-contracts/bootstrap.sh compile
+    build_examples
     build_docs
     test
     ;;
   ""|"full"|"fast")
+    build_examples
     build_docs
     ;;
   "hash")
@@ -70,7 +76,7 @@ case "$cmd" in
     ;;
   "compile")
     shift
-    DOCS_WORKING_DIR="$(pwd)" ../noir-projects/noir-contracts/bootstrap.sh compile
+    build_examples compile "$@"
     ;;
   test|test_cmds)
     $cmd

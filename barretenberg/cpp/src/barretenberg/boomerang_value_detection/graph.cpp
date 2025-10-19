@@ -340,7 +340,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_memory_gat
         auto q_3 = block.q_3()[index];
         auto q_4 = block.q_4()[index];
         if (q_1 == FF::one() && q_4 == FF::one()) {
-            ASSERT(q_3.is_zero());
+            BB_ASSERT(q_3.is_zero());
             // ram timestamp check
             if (index < block.size() - 1) {
                 gate_variables.insert(gate_variables.end(),
@@ -351,7 +351,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_memory_gat
                                         block.w_o()[index] });
             }
         } else if (q_1 == FF::one() && q_2 == FF::one()) {
-            ASSERT(q_3.is_zero());
+            BB_ASSERT(q_3.is_zero());
             // rom constitency check
             if (index < block.size() - 1) {
                 gate_variables.insert(
@@ -429,14 +429,14 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_non_native
                 };
                 if (q_3 == FF::one()) {
                     // bigfield product 1
-                    ASSERT(q_4.is_zero() && q_m.is_zero());
+                    BB_ASSERT(q_4.is_zero() && q_m.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(), { w_o, w_4 });
                 }
                 if (q_4 == FF::one()) {
                     // bigfield product 2
-                    ASSERT(q_3.is_zero() && q_m.is_zero());
+                    BB_ASSERT(q_3.is_zero() && q_m.is_zero());
                     std::vector<uint32_t> non_native_field_gate_2 = { w_l, w_4, w_r, w_o, block.w_o()[index + 1] };
                     gate_variables.insert(
                         gate_variables.end(), non_native_field_gate_2.begin(), non_native_field_gate_2.end());
@@ -446,7 +446,7 @@ inline std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_non_native
                 }
                 if (q_m == FF::one()) {
                     // bigfield product 3
-                    ASSERT(q_4.is_zero() && q_3.is_zero());
+                    BB_ASSERT(q_4.is_zero() && q_3.is_zero());
                     gate_variables.insert(
                         gate_variables.end(), limb_subproduct_vars.begin(), limb_subproduct_vars.end());
                     gate_variables.insert(gate_variables.end(),
@@ -673,7 +673,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             };
             auto non_empty_count =
                 std::count_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
-            ASSERT(non_empty_count < 2U);
+            BB_ASSERT(non_empty_count < 2U);
             auto not_empty_cc_it =
                 std::find_if(all_cc.begin(), all_cc.end(), [](const auto& vec) { return !vec.empty(); });
             if (not_empty_cc_it != all_cc.end() && connect_variables) {

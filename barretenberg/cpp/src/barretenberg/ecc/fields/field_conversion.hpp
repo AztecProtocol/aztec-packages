@@ -104,7 +104,7 @@ class FrCodec {
             if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
                 val.self_set_infinity();
             }
-            ASSERT(val.on_curve());
+            BB_ASSERT(val.on_curve());
             return val;
         } else {
             // Array or Univariate
@@ -230,7 +230,7 @@ class U256Codec {
             if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
                 val.self_set_infinity();
             }
-            ASSERT(val.on_curve());
+            BB_ASSERT(val.on_curve());
             return val;
         } else {
             // Array or Univariate
