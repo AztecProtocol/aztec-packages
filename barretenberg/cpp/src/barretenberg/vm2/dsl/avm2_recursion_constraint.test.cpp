@@ -1,11 +1,9 @@
-#include "barretenberg/srs/global_crs.hpp"
-#ifndef DISABLE_AZTEC_VM
-
+#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
-#include "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -187,5 +185,3 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     // Compare the VK constructed via running the IVC with the one constructed via mocking
     EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }
-
-#endif // DISABLE_AZTEC_VM

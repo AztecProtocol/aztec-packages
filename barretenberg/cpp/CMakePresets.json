@@ -19,22 +19,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "skylake"
-      }
-    },
-    {
-      "name": "default-pic",
-      "displayName": "Build with Clang with Position Independent Code",
-      "description": "Build with globally installed Clang with Position Independent Code",
-      "binaryDir": "build-pic",
-      "generator": "Ninja",
-      "environment": {
-        "CC": "clang",
-        "CXX": "clang++",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
-      },
-      "cacheVariables": {
         "TARGET_ARCH": "skylake",
         "ENABLE_PIC": "ON"
       }
@@ -86,16 +70,6 @@
         "CC": "clang-20",
         "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
-      }
-    },
-    {
-      "name": "clang20-pic",
-      "displayName": "Release build with Position Independent Code",
-      "description": "Build with globally installed Clang-20 using Position Independent Code",
-      "inherits": "clang20",
-      "binaryDir": "build-pic",
-      "cacheVariables": {
-        "ENABLE_PIC": "ON"
       }
     },
     {
@@ -240,7 +214,6 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
@@ -253,7 +226,6 @@
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
@@ -268,7 +240,6 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "FUZZING_SHOW_INFORMATION": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
@@ -285,7 +256,6 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
       "environment": {
@@ -357,8 +327,7 @@
       "cacheVariables": {
         "COVERAGE": "ON",
         "DISABLE_ASM": "ON",
-        "AVM_TRANSPILER_LIB": "",
-        "DISABLE_AZTEC_VM": "ON"
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
@@ -398,7 +367,6 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
@@ -449,7 +417,6 @@
       "cacheVariables": {
         "ENABLE_PIC": "ON",
         "CMAKE_BUILD_TYPE": "Release",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
         "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh"
       }
@@ -462,8 +429,8 @@
       "generator": "Ninja",
       "inherits": "zig-base",
       "environment": {
-      "CC": "zig cc -target x86_64-macos -mcpu=baseline",
-      "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
+        "CC": "zig cc -target x86_64-macos -mcpu=baseline",
+        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
@@ -581,16 +548,6 @@
       "configurePreset": "tracy-time-sampled"
     },
     {
-      "name": "clang20-pic",
-      "inherits": "default",
-      "configurePreset": "clang20-pic"
-    },
-    {
-      "name": "default-pic",
-      "inherits": "default",
-      "configurePreset": "default-pic"
-    },
-    {
       "name": "tracy-gates",
       "inherits": "default",
       "configurePreset": "tracy-gates"
@@ -683,14 +640,20 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "bb"]
+      "targets": [
+        "barretenberg.wasm",
+        "bb"
+      ]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": [
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz"
+      ]
     },
     {
       "name": "xray",
@@ -701,25 +664,33 @@
       "name": "zig-node-amd64-linux",
       "configurePreset": "zig-node-amd64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
+      "targets": [
+        "nodejs_module"
+      ]
     },
     {
       "name": "zig-node-arm64-linux",
       "configurePreset": "zig-node-arm64-linux",
       "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
+      "targets": [
+        "nodejs_module"
+      ]
     },
     {
       "name": "zig-node-amd64-macos",
       "configurePreset": "zig-node-amd64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
+      "targets": [
+        "nodejs_module"
+      ]
     },
     {
       "name": "zig-node-arm64-macos",
       "configurePreset": "zig-node-arm64-macos",
       "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
+      "targets": [
+        "nodejs_module"
+      ]
     },
     {
       "name": "zig-arm64-macos",

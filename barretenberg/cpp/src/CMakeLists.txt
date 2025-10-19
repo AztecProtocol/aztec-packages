@@ -109,6 +109,7 @@ add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
+add_subdirectory(barretenberg/vm2)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
 
@@ -119,7 +120,6 @@ endif()
 
 if(NOT FUZZING AND NOT WASM)
     add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
 endif()
 
 if(SMT)
