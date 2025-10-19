@@ -1,4 +1,6 @@
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "spsc_shm.hpp"
+#include "futex.hpp"
+#include "utilities.hpp"
 #include <atomic>
 #include <cerrno>
 #include <cstdint>
@@ -8,38 +10,11 @@
 #include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
-
-// Platform-specific includes and declarations for futex/os_sync
-#ifdef __APPLE__
-// Darwin's os_sync API (available since macOS 10.12 / iOS 10)
-// Forward declarations to avoid header dependency
-extern "C" {
-int os_sync_wait_on_address(void* addr, uint64_t value, size_t size, uint32_t flags);
-int os_sync_wake_by_address_any(void* addr, size_t size, uint32_t flags);
-}
-#define OS_SYNC_WAIT_ON_ADDRESS_SHARED 1u
-#define OS_SYNC_WAKE_BY_ADDRESS_SHARED 1u
-#else
-// Linux futex
-#include <linux/futex.h>
-#include <sys/syscall.h>
-#endif
-
-#if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
-#define SPSC_PAUSE() _mm_pause()
-#else
-#define SPSC_PAUSE()                                                                                                   \
-    do {                                                                                                               \
-    } while (0)
-#endif
 
 namespace bb::ipc {
 
 namespace {
-// ----- Utilities -----
 
 inline uint64_t pow2_ceil_u64(uint64_t x)
 {
@@ -56,41 +31,6 @@ inline uint64_t pow2_ceil_u64(uint64_t x)
     return x + 1;
 }
 
-inline uint64_t mono_ns_now()
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0;
-    }
-    return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
-}
-
-// Futex/ulock helpers - platform abstraction layer
-inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
-{
-#ifdef __APPLE__
-    // macOS: Use os_sync_wait_on_address with SHARED flag for cross-process
-    return os_sync_wait_on_address(
-        const_cast<uint32_t*>(addr), static_cast<uint64_t>(expect), sizeof(uint32_t), OS_SYNC_WAIT_ON_ADDRESS_SHARED);
-#else
-    // Linux futex
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
-#endif
-}
-
-inline int futex_wake(volatile uint32_t* addr, int n)
-{
-#ifdef __APPLE__
-    // macOS: Use os_sync_wake_by_address with SHARED flag for cross-process
-    (void)n;
-    return os_sync_wake_by_address_any(const_cast<uint32_t*>(addr), sizeof(uint32_t), OS_SYNC_WAKE_BY_ADDRESS_SHARED);
-#else
-    // Linux futex
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
-#endif
-}
 } // anonymous namespace
 
 // ----- SpscShm Implementation -----
@@ -421,7 +361,7 @@ bool SpscShm::wait_for_data(uint32_t spin_ns)
             if (available() > 0) {
                 return true;
             }
-            SPSC_PAUSE();
+            IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_ns);
     }
 
@@ -449,7 +389,7 @@ bool SpscShm::wait_for_space(size_t need, uint32_t spin_ns)
             if (free_space() >= need) {
                 return true;
             }
-            SPSC_PAUSE();
+            IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_ns);
     }
 

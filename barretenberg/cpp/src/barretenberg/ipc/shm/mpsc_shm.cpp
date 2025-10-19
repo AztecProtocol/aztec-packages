@@ -1,4 +1,6 @@
-#include "barretenberg/ipc/shm/mpsc_shm.hpp"
+#include "mpsc_shm.hpp"
+#include "futex.hpp"
+#include "utilities.hpp"
 #include <atomic>
 #include <cerrno>
 #include <cstdint>
@@ -7,77 +9,11 @@
 #include <stdexcept>
 #include <string>
 #include <sys/mman.h>
-#include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
 #include <utility>
 #include <vector>
 
-// Platform-specific includes and declarations for futex/os_sync
-#ifdef __APPLE__
-// Darwin's os_sync API (available since macOS 10.12 / iOS 10)
-// Forward declarations to avoid header dependency
-extern "C" {
-int os_sync_wait_on_address(void* addr, uint64_t value, size_t size, uint32_t flags);
-int os_sync_wake_by_address_any(void* addr, size_t size, uint32_t flags);
-}
-#define OS_SYNC_WAIT_ON_ADDRESS_SHARED 1u
-#define OS_SYNC_WAKE_BY_ADDRESS_SHARED 1u
-#else
-// Linux futex
-#include <linux/futex.h>
-#include <sys/syscall.h>
-#endif
-
-#if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
-#define MPSC_PAUSE() _mm_pause()
-#else
-#define MPSC_PAUSE()                                                                                                   \
-    do {                                                                                                               \
-    } while (0)
-#endif
-
 namespace bb::ipc {
-
-namespace {
-// ----- Utilities -----
-
-inline uint64_t mpsc_mono_ns_now()
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0;
-    }
-    return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
-}
-
-inline int mpsc_futex_wait(volatile uint32_t* addr, uint32_t expect)
-{
-#ifdef __APPLE__
-    // macOS: Use os_sync_wait_on_address with SHARED flag for cross-process
-    return os_sync_wait_on_address(
-        const_cast<uint32_t*>(addr), static_cast<uint64_t>(expect), sizeof(uint32_t), OS_SYNC_WAIT_ON_ADDRESS_SHARED);
-#else
-    // Linux futex
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
-#endif
-}
-
-inline int mpsc_futex_wake(volatile uint32_t* addr, int n)
-{
-#ifdef __APPLE__
-    // macOS: Use os_sync_wake_by_address with SHARED flag for cross-process
-    // Wake one waiter (similar to futex FUTEX_WAKE with n=1)
-    (void)n;
-    return os_sync_wake_by_address_any(const_cast<uint32_t*>(addr), sizeof(uint32_t), OS_SYNC_WAKE_BY_ADDRESS_SHARED);
-#else
-    // Linux futex
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
-#endif
-}
-} // anonymous namespace
 
 // ----- MpscConsumer Implementation -----
 
@@ -225,7 +161,7 @@ int MpscConsumer::wait_for_data(uint32_t spin_ns)
 
     // Phase 2: Spin phase
     if (spin_ns > 0) {
-        uint64_t start = mpsc_mono_ns_now();
+        uint64_t start = mono_ns_now();
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             for (size_t i = 0; i < num_rings; i++) {
@@ -235,8 +171,8 @@ int MpscConsumer::wait_for_data(uint32_t spin_ns)
                     return static_cast<int>(idx);
                 }
             }
-            MPSC_PAUSE();
-        } while ((mpsc_mono_ns_now() - start) < spin_ns);
+            IPC_PAUSE();
+        } while ((mono_ns_now() - start) < spin_ns);
     }
 
     // Phase 3: Sleep on doorbell
@@ -251,7 +187,7 @@ int MpscConsumer::wait_for_data(uint32_t spin_ns)
         }
     }
 
-    mpsc_futex_wait(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq);
+    futex_wait(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq);
 
     // After waking, poll again
     for (size_t i = 0; i < num_rings; i++) {
@@ -388,7 +324,7 @@ void MpscProducer::publish(size_t n)
     // Ring doorbell to wake consumer
     // Note: We always ring the doorbell - see spsc_shm.cpp for explanation
     doorbell_->seq.fetch_add(1, std::memory_order_release);
-    mpsc_futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
 }
 
 bool MpscProducer::wait_for_space(size_t need, uint32_t spin_ns)
