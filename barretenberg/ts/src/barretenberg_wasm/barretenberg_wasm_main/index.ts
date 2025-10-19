@@ -165,31 +165,44 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     // Write input to buffer
     this.writeMemory(inputPtr, inputBuffer);
 
-    // Use scratch buffer for output metadata (pointers/sizes)
-    const outputSizePtr = this.msgpackOutputScratch;
-    const outputMsgpackPtr = this.msgpackOutputScratch + 4;
+    // Setup output scratch buffer with IN-OUT parameter pattern:
+    // Reserve 8 bytes for metadata (pointer + size), rest is scratch data space
+    const METADATA_SIZE = 8;
+    const outputPtrLocation = this.msgpackOutputScratch;
+    const outputSizeLocation = this.msgpackOutputScratch + 4;
+    const scratchDataPtr = this.msgpackOutputScratch + METADATA_SIZE;
+    const scratchDataSize = this.MSGPACK_SCRATCH_SIZE - METADATA_SIZE;
+
+    // Get memory once and create DataView for all reads/writes (avoids creating multiple typed arrays)
+    const mem = this.getMemory();
+    const view = new DataView(mem.buffer);
+
+    // Write IN values: provide scratch buffer pointer and size to C++
+    view.setUint32(outputPtrLocation, scratchDataPtr, true);
+    view.setUint32(outputSizeLocation, scratchDataSize, true);
 
     // Call WASM
-    this.call(cbind, inputPtr, inputBuffer.length, outputMsgpackPtr, outputSizePtr);
+    this.call(cbind, inputPtr, inputBuffer.length, outputPtrLocation, outputSizeLocation);
 
     // Free custom input buffer if allocated
     if (needsCustomInputBuffer) {
       this.call('bbfree', inputPtr);
     }
 
-    const readPtr32 = (ptr32: number) => {
-      const dataView = new DataView(this.getMemorySlice(ptr32, ptr32 + 4).buffer);
-      return dataView.getUint32(0, true);
-    };
+    // Read OUT values: C++ returns actual buffer pointer and size
+    const outputDataPtr = view.getUint32(outputPtrLocation, true);
+    const outputSize = view.getUint32(outputSizeLocation, true);
 
-    const outputDataPtr = readPtr32(outputMsgpackPtr);
-    const outputSize = readPtr32(outputSizePtr);
+    // Check if C++ used scratch (pointer unchanged) or allocated (pointer changed)
+    const usedScratch = outputDataPtr === scratchDataPtr;
 
     // Copy output data from WASM memory
     const encodedResult = this.getMemorySlice(outputDataPtr, outputDataPtr + outputSize);
 
-    // Free the output buffer allocated by WASM
-    this.call('bbfree', outputDataPtr);
+    // Only free if C++ allocated beyond scratch
+    if (!usedScratch) {
+      this.call('bbfree', outputDataPtr);
+    }
 
     return encodedResult;
   }

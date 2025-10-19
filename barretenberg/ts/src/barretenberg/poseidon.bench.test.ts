@@ -13,8 +13,8 @@ import { BackendType } from './index.js';
  * - Better performance for native backend compared to sync API
  */
 describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
-  const ITERATIONS = 3000;
-  const SIZES = [2, 4, 8, 16, 32];
+  const ITERATIONS = 10000;
+  const SIZES = [2, 4, 8];
 
   let wasmApi: Barretenberg | null = null;
   let nativeSocketApi: Barretenberg | null = null;
