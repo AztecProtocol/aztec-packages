@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { TxArray } from '@aztec/stdlib/tx';
+import type { BlockProposal } from '@aztec/stdlib/p2p';
+import { TxArray, TxHash } from '@aztec/stdlib/tx';
 
 import { BitVector } from './bitvector.js';
 
@@ -14,6 +15,37 @@ export class BlockTxsRequest {
     // 1 means we want the tx, 0 means we don't
     readonly txIndices: BitVector,
   ) {}
+
+  /**
+   * Crates new BlockTxsRequest given proposal and missing tx hashes
+   *
+   * @param: blockProposal - The block proposal for which we are making request
+   * @param: missingTxHashes - Tx hashes from the proposal we are missing
+   *
+   * @returns undefined if there were no missingTxHashes matching BlockProposal hashes, otherwise
+   * returns new BlockTxsRequest*/
+  static fromBlockProposalAndMissingTxs(
+    blockProposal: BlockProposal,
+    missingTxHashes: TxHash[],
+  ): BlockTxsRequest | undefined {
+    if (missingTxHashes.length === 0) {
+      return undefined; // No missing txs to request
+    }
+
+    const missingHashesSet = new Set(missingTxHashes.map(t => t.toString()));
+
+    const missingIndices = blockProposal.txHashes
+      .map((hash, idx) => (missingHashesSet.has(hash.toString()) ? idx : -1))
+      .filter(i => i != -1);
+
+    if (missingIndices.length === 0) {
+      return undefined; // No indices found for missing tx hashes
+    }
+
+    const requestBitVector = BitVector.init(blockProposal.txHashes.length, missingIndices);
+
+    return new BlockTxsRequest(blockProposal.archive, requestBitVector);
+  }
 
   /**
    * Deserializes the BlockTxRequest object from a Buffer
