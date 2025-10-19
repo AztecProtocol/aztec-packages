@@ -3,11 +3,6 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 import { Aes128 } from './index.js';
 
 describe('aes128', () => {
-  let aes128!: Aes128;
-
-  beforeAll(() => {
-    aes128 = new Aes128();
-  });
 
   // PKCS#7 padding
   const pad = (data: Buffer): Buffer => {
@@ -37,7 +32,7 @@ describe('aes128', () => {
     cipher.setAutoPadding(false);
     const expected = Buffer.concat([cipher.update(paddedData), cipher.final()]);
 
-    const result: Buffer = await aes128.encryptBufferCBC(data, iv, key);
+    const result: Buffer = await Aes128.encryptBufferCBC(data, iv, key);
 
     expect(result).toEqual(expected);
   });
@@ -57,7 +52,7 @@ describe('aes128', () => {
     decipher.setAutoPadding(false);
     const expected = removePadding(Buffer.concat([decipher.update(ciphertext), decipher.final()]));
 
-    const result: Buffer = await aes128.decryptBufferCBC(ciphertext, iv, key);
+    const result: Buffer = await Aes128.decryptBufferCBC(ciphertext, iv, key);
 
     expect(result).toEqual(expected);
   });
