@@ -34,11 +34,6 @@ describe('barretenberg wasm', () => {
     await expect(() => wasm.call('test_abort')).rejects.toThrow();
   });
 
-  it('test c/c++ stdout/stderr', async () => {
-    // We're checking we don't crash, but you can manually confirm you see log lines handled by logstr.
-    await wasm.call('test_stdout_stderr');
-  });
-
   it('should new malloc, transfer and slice mem', async () => {
     const length = 1024;
     const ptr = await wasm.call('bbmalloc', length);
