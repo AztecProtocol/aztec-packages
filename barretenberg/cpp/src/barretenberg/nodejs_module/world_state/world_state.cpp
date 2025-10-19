@@ -150,13 +150,13 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         thread_pool_size = info[thread_pool_size_index].As<Napi::Number>().Uint32Value();
     }
 
-    _ws = bb::world_state::WorldStateManager::initialise_world_state(thread_pool_size,
-                                                                     data_dir,
-                                                                     map_size,
-                                                                     tree_height,
-                                                                     tree_prefill,
-                                                                     prefilled_public_data,
-                                                                     initial_header_generator_point);
+    bb::world_state::WorldStateManager::initialise_world_state(thread_pool_size,
+                                                               data_dir,
+                                                               map_size,
+                                                               tree_height,
+                                                               tree_prefill,
+                                                               prefilled_public_data,
+                                                               initial_header_generator_point);
 
     _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,
@@ -288,7 +288,7 @@ Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
         deferred->Reject(Napi::TypeError::New(env, "Wrong number of arguments").Value());
     } else if (!info[0].IsBuffer()) {
         deferred->Reject(Napi::TypeError::New(env, "Argument must be a buffer").Value());
-    } else if (!_ws) {
+    } else if (!WorldStateManager::has_world_state()) {
         deferred->Reject(Napi::TypeError::New(env, "World state has been closed").Value());
     } else {
         auto buffer = info[0].As<Napi::Buffer<char>>();
@@ -316,7 +316,7 @@ bool WorldStateWrapper::get_tree_info(msgpack::object& obj, msgpack::sbuffer& bu
 {
     TypedMessage<GetTreeInfoRequest> request;
     obj.convert(request);
-    auto info = _ws->get_tree_info(request.value.revision, request.value.treeId);
+    auto info = WorldStateManager::get_world_state()->get_tree_info(request.value.revision, request.value.treeId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetTreeInfoResponse> resp_msg(
@@ -333,7 +333,7 @@ bool WorldStateWrapper::get_state_reference(msgpack::object& obj, msgpack::sbuff
 {
     TypedMessage<GetStateReferenceRequest> request;
     obj.convert(request);
-    auto state = _ws->get_state_reference(request.value.revision);
+    auto state = WorldStateManager::get_world_state()->get_state_reference(request.value.revision);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetStateReferenceResponse> resp_msg(
@@ -348,7 +348,7 @@ bool WorldStateWrapper::get_initial_state_reference(msgpack::object& obj, msgpac
 {
     HeaderOnlyMessage request;
     obj.convert(request);
-    auto state = _ws->get_initial_state_reference();
+    auto state = WorldStateManager::get_world_state()->get_initial_state_reference();
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<GetInitialStateReferenceResponse> resp_msg(
@@ -368,7 +368,8 @@ bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& b
     case MerkleTreeId::NOTE_HASH_TREE:
     case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
     case MerkleTreeId::ARCHIVE: {
-        auto leaf = _ws->get_leaf<bb::fr>(request.value.revision, request.value.treeId, request.value.leafIndex);
+        auto leaf = WorldStateManager::get_world_state()->get_leaf<bb::fr>(
+            request.value.revision, request.value.treeId, request.value.leafIndex);
 
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<bb::fr>> resp_msg(WorldStateMessageType::GET_LEAF_VALUE, header, leaf);
@@ -377,7 +378,7 @@ bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& b
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto leaf = _ws->get_leaf<crypto::merkle_tree::PublicDataLeafValue>(
+        auto leaf = WorldStateManager::get_world_state()->get_leaf<crypto::merkle_tree::PublicDataLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<PublicDataLeafValue>> resp_msg(
@@ -387,7 +388,7 @@ bool WorldStateWrapper::get_leaf_value(msgpack::object& obj, msgpack::sbuffer& b
     }
 
     case MerkleTreeId::NULLIFIER_TREE: {
-        auto leaf = _ws->get_leaf<crypto::merkle_tree::NullifierLeafValue>(
+        auto leaf = WorldStateManager::get_world_state()->get_leaf<crypto::merkle_tree::NullifierLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<std::optional<NullifierLeafValue>> resp_msg(
@@ -412,7 +413,7 @@ bool WorldStateWrapper::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer
 
     switch (request.value.treeId) {
     case MerkleTreeId::NULLIFIER_TREE: {
-        auto leaf = _ws->get_indexed_leaf<NullifierLeafValue>(
+        auto leaf = WorldStateManager::get_world_state()->get_indexed_leaf<NullifierLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
         messaging::TypedMessage<std::optional<IndexedLeaf<NullifierLeafValue>>> resp_msg(
             WorldStateMessageType::GET_LEAF_PREIMAGE, header, leaf);
@@ -421,7 +422,7 @@ bool WorldStateWrapper::get_leaf_preimage(msgpack::object& obj, msgpack::sbuffer
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
-        auto leaf = _ws->get_indexed_leaf<PublicDataLeafValue>(
+        auto leaf = WorldStateManager::get_world_state()->get_indexed_leaf<PublicDataLeafValue>(
             request.value.revision, request.value.treeId, request.value.leafIndex);
 
         messaging::TypedMessage<std::optional<IndexedLeaf<PublicDataLeafValue>>> resp_msg(
@@ -442,7 +443,8 @@ bool WorldStateWrapper::get_sibling_path(msgpack::object& obj, msgpack::sbuffer&
     TypedMessage<GetSiblingPathRequest> request;
     obj.convert(request);
 
-    fr_sibling_path path = _ws->get_sibling_path(request.value.revision, request.value.treeId, request.value.leafIndex);
+    fr_sibling_path path = WorldStateManager::get_world_state()->get_sibling_path(
+        request.value.revision, request.value.treeId, request.value.leafIndex);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<fr_sibling_path> resp_msg(WorldStateMessageType::GET_SIBLING_PATH, header, path);
@@ -458,7 +460,7 @@ bool WorldStateWrapper::get_block_numbers_for_leaf_indices(msgpack::object& obj,
     obj.convert(request);
 
     GetBlockNumbersForLeafIndicesResponse response;
-    _ws->get_block_numbers_for_leaf_indices(
+    WorldStateManager::get_world_state()->get_block_numbers_for_leaf_indices(
         request.value.revision, request.value.treeId, request.value.leafIndices, response.blockNumbers);
 
     MsgHeader header(request.header.messageId);
@@ -483,7 +485,7 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<FindLeafIndicesRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->find_leaf_indices<bb::fr>(
+        WorldStateManager::get_world_state()->find_leaf_indices<bb::fr>(
             request.value.revision, request.value.treeId, r1.value.leaves, response.indices, r1.value.startIndex);
         break;
     }
@@ -491,14 +493,14 @@ bool WorldStateWrapper::find_leaf_indices(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->find_leaf_indices<PublicDataLeafValue>(
+        WorldStateManager::get_world_state()->find_leaf_indices<PublicDataLeafValue>(
             request.value.revision, request.value.treeId, r2.value.leaves, response.indices, r2.value.startIndex);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<FindLeafIndicesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->find_leaf_indices<NullifierLeafValue>(
+        WorldStateManager::get_world_state()->find_leaf_indices<NullifierLeafValue>(
             request.value.revision, request.value.treeId, r3.value.leaves, response.indices, r3.value.startIndex);
         break;
     }
@@ -525,21 +527,22 @@ bool WorldStateWrapper::find_sibling_paths(msgpack::object& obj, msgpack::sbuffe
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<FindLeafPathsRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->find_sibling_paths<bb::fr>(request.value.revision, request.value.treeId, r1.value.leaves, response.paths);
+        WorldStateManager::get_world_state()->find_sibling_paths<bb::fr>(
+            request.value.revision, request.value.treeId, r1.value.leaves, response.paths);
         break;
     }
 
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->find_sibling_paths<PublicDataLeafValue>(
+        WorldStateManager::get_world_state()->find_sibling_paths<PublicDataLeafValue>(
             request.value.revision, request.value.treeId, r2.value.leaves, response.paths);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<FindLeafPathsRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->find_sibling_paths<NullifierLeafValue>(
+        WorldStateManager::get_world_state()->find_sibling_paths<NullifierLeafValue>(
             request.value.revision, request.value.treeId, r3.value.leaves, response.paths);
         break;
     }
@@ -558,8 +561,8 @@ bool WorldStateWrapper::find_low_leaf(msgpack::object& obj, msgpack::sbuffer& bu
     TypedMessage<FindLowLeafRequest> request;
     obj.convert(request);
 
-    GetLowIndexedLeafResponse low_leaf_info =
-        _ws->find_low_leaf_index(request.value.revision, request.value.treeId, request.value.key);
+    GetLowIndexedLeafResponse low_leaf_info = WorldStateManager::get_world_state()->find_low_leaf_index(
+        request.value.revision, request.value.treeId, request.value.key);
 
     MsgHeader header(request.header.messageId);
     TypedMessage<FindLowLeafResponse> response(
@@ -580,19 +583,21 @@ bool WorldStateWrapper::append_leaves(msgpack::object& obj, msgpack::sbuffer& bu
     case MerkleTreeId::ARCHIVE: {
         TypedMessage<AppendLeavesRequest<bb::fr>> r1;
         obj.convert(r1);
-        _ws->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves, r1.value.forkId);
+        WorldStateManager::get_world_state()->append_leaves<bb::fr>(r1.value.treeId, r1.value.leaves, r1.value.forkId);
         break;
     }
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::PublicDataLeafValue>> r2;
         obj.convert(r2);
-        _ws->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(r2.value.treeId, r2.value.leaves, r2.value.forkId);
+        WorldStateManager::get_world_state()->append_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+            r2.value.treeId, r2.value.leaves, r2.value.forkId);
         break;
     }
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<AppendLeavesRequest<crypto::merkle_tree::NullifierLeafValue>> r3;
         obj.convert(r3);
-        _ws->append_leaves<crypto::merkle_tree::NullifierLeafValue>(r3.value.treeId, r3.value.leaves, r3.value.forkId);
+        WorldStateManager::get_world_state()->append_leaves<crypto::merkle_tree::NullifierLeafValue>(
+            r3.value.treeId, r3.value.leaves, r3.value.forkId);
         break;
     }
     }
@@ -613,8 +618,9 @@ bool WorldStateWrapper::batch_insert(msgpack::object& obj, msgpack::sbuffer& buf
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<BatchInsertRequest<PublicDataLeafValue>> r1;
         obj.convert(r1);
-        auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
-            request.value.treeId, r1.value.leaves, r1.value.subtreeDepth, r1.value.forkId);
+        auto result =
+            WorldStateManager::get_world_state()->batch_insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+                request.value.treeId, r1.value.leaves, r1.value.subtreeDepth, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<PublicDataLeafValue>> resp_msg(
             WorldStateMessageType::BATCH_INSERT, header, result);
@@ -625,8 +631,9 @@ bool WorldStateWrapper::batch_insert(msgpack::object& obj, msgpack::sbuffer& buf
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<BatchInsertRequest<NullifierLeafValue>> r2;
         obj.convert(r2);
-        auto result = _ws->batch_insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
-            request.value.treeId, r2.value.leaves, r2.value.subtreeDepth, r2.value.forkId);
+        auto result =
+            WorldStateManager::get_world_state()->batch_insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+                request.value.treeId, r2.value.leaves, r2.value.subtreeDepth, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<BatchInsertionResult<NullifierLeafValue>> resp_msg(
             WorldStateMessageType::BATCH_INSERT, header, result);
@@ -649,8 +656,9 @@ bool WorldStateWrapper::sequential_insert(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::PUBLIC_DATA_TREE: {
         TypedMessage<InsertRequest<PublicDataLeafValue>> r1;
         obj.convert(r1);
-        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
-            request.value.treeId, r1.value.leaves, r1.value.forkId);
+        auto result =
+            WorldStateManager::get_world_state()->insert_indexed_leaves<crypto::merkle_tree::PublicDataLeafValue>(
+                request.value.treeId, r1.value.leaves, r1.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<PublicDataLeafValue>> resp_msg(
             WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
@@ -661,8 +669,9 @@ bool WorldStateWrapper::sequential_insert(msgpack::object& obj, msgpack::sbuffer
     case MerkleTreeId::NULLIFIER_TREE: {
         TypedMessage<InsertRequest<NullifierLeafValue>> r2;
         obj.convert(r2);
-        auto result = _ws->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
-            request.value.treeId, r2.value.leaves, r2.value.forkId);
+        auto result =
+            WorldStateManager::get_world_state()->insert_indexed_leaves<crypto::merkle_tree::NullifierLeafValue>(
+                request.value.treeId, r2.value.leaves, r2.value.forkId);
         MsgHeader header(request.header.messageId);
         messaging::TypedMessage<SequentialInsertionResult<NullifierLeafValue>> resp_msg(
             WorldStateMessageType::SEQUENTIAL_INSERT, header, result);
@@ -681,7 +690,8 @@ bool WorldStateWrapper::update_archive(msgpack::object& obj, msgpack::sbuffer& b
     TypedMessage<UpdateArchiveRequest> request;
     obj.convert(request);
 
-    _ws->update_archive(request.value.blockStateRef, request.value.blockHeaderHash, request.value.forkId);
+    WorldStateManager::get_world_state()->update_archive(
+        request.value.blockStateRef, request.value.blockHeaderHash, request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::UPDATE_ARCHIVE, header, {});
@@ -696,7 +706,7 @@ bool WorldStateWrapper::commit(msgpack::object& obj, msgpack::sbuffer& buf)
     obj.convert(request);
 
     WorldStateStatusFull status;
-    _ws->commit(status);
+    WorldStateManager::get_world_state()->commit(status);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT, header, { status });
@@ -710,7 +720,7 @@ bool WorldStateWrapper::rollback(msgpack::object& obj, msgpack::sbuffer& buf)
     HeaderOnlyMessage request;
     obj.convert(request);
 
-    _ws->rollback();
+    WorldStateManager::get_world_state()->rollback();
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::ROLLBACK, header, {});
@@ -724,12 +734,12 @@ bool WorldStateWrapper::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<SyncBlockRequest> request;
     obj.convert(request);
 
-    WorldStateStatusFull status = _ws->sync_block(request.value.blockStateRef,
-                                                  request.value.blockHeaderHash,
-                                                  request.value.paddedNoteHashes,
-                                                  request.value.paddedL1ToL2Messages,
-                                                  request.value.paddedNullifiers,
-                                                  request.value.publicDataWrites);
+    WorldStateStatusFull status = WorldStateManager::get_world_state()->sync_block(request.value.blockStateRef,
+                                                                                   request.value.blockHeaderHash,
+                                                                                   request.value.paddedNoteHashes,
+                                                                                   request.value.paddedL1ToL2Messages,
+                                                                                   request.value.paddedNullifiers,
+                                                                                   request.value.publicDataWrites);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });
@@ -746,7 +756,7 @@ bool WorldStateWrapper::create_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     std::optional<block_number_t> blockNumber =
         request.value.latest ? std::nullopt : std::optional<block_number_t>(request.value.blockNumber);
 
-    uint64_t forkId = _ws->create_fork(blockNumber);
+    uint64_t forkId = WorldStateManager::get_world_state()->create_fork(blockNumber);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<CreateForkResponse> resp_msg(WorldStateMessageType::CREATE_FORK, header, { forkId });
@@ -760,7 +770,7 @@ bool WorldStateWrapper::delete_fork(msgpack::object& obj, msgpack::sbuffer& buf)
     TypedMessage<DeleteForkRequest> request;
     obj.convert(request);
 
-    _ws->delete_fork(request.value.forkId);
+    WorldStateManager::get_world_state()->delete_fork(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<EmptyResponse> resp_msg(WorldStateMessageType::DELETE_FORK, header, {});
@@ -787,7 +797,8 @@ bool WorldStateWrapper::set_finalized(msgpack::object& obj, msgpack::sbuffer& bu
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
-    WorldStateStatusSummary status = _ws->set_finalized_blocks(request.value.toBlockNumber);
+    WorldStateStatusSummary status =
+        WorldStateManager::get_world_state()->set_finalized_blocks(request.value.toBlockNumber);
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(
         WorldStateMessageType::FINALIZE_BLOCKS, header, { status });
@@ -801,7 +812,7 @@ bool WorldStateWrapper::unwind(msgpack::object& obj, msgpack::sbuffer& buf) cons
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
 
-    WorldStateStatusFull status = _ws->unwind_blocks(request.value.toBlockNumber);
+    WorldStateStatusFull status = WorldStateManager::get_world_state()->unwind_blocks(request.value.toBlockNumber);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::UNWIND_BLOCKS, header, { status });
@@ -814,7 +825,8 @@ bool WorldStateWrapper::remove_historical(msgpack::object& obj, msgpack::sbuffer
 {
     TypedMessage<BlockShiftRequest> request;
     obj.convert(request);
-    WorldStateStatusFull status = _ws->remove_historical_blocks(request.value.toBlockNumber);
+    WorldStateStatusFull status =
+        WorldStateManager::get_world_state()->remove_historical_blocks(request.value.toBlockNumber);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(
@@ -829,7 +841,7 @@ bool WorldStateWrapper::checkpoint(msgpack::object& obj, msgpack::sbuffer& buffe
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->checkpoint(request.value.forkId);
+    WorldStateManager::get_world_state()->checkpoint(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::CREATE_CHECKPOINT, header, {});
@@ -843,7 +855,7 @@ bool WorldStateWrapper::commit_checkpoint(msgpack::object& obj, msgpack::sbuffer
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->commit_checkpoint(request.value.forkId);
+    WorldStateManager::get_world_state()->commit_checkpoint(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_CHECKPOINT, header, {});
@@ -857,7 +869,7 @@ bool WorldStateWrapper::revert_checkpoint(msgpack::object& obj, msgpack::sbuffer
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->revert_checkpoint(request.value.forkId);
+    WorldStateManager::get_world_state()->revert_checkpoint(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_CHECKPOINT, header, {});
@@ -871,7 +883,7 @@ bool WorldStateWrapper::commit_all_checkpoints(msgpack::object& obj, msgpack::sb
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->commit_all_checkpoints(request.value.forkId);
+    WorldStateManager::get_world_state()->commit_all_checkpoints(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COMMIT_ALL_CHECKPOINTS, header, {});
@@ -885,7 +897,7 @@ bool WorldStateWrapper::revert_all_checkpoints(msgpack::object& obj, msgpack::sb
     TypedMessage<ForkIdOnlyRequest> request;
     obj.convert(request);
 
-    _ws->revert_all_checkpoints(request.value.forkId);
+    WorldStateManager::get_world_state()->revert_all_checkpoints(request.value.forkId);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::REVERT_ALL_CHECKPOINTS, header, {});
@@ -900,7 +912,7 @@ bool WorldStateWrapper::get_status(msgpack::object& obj, msgpack::sbuffer& buf) 
     obj.convert(request);
 
     WorldStateStatusSummary status;
-    _ws->get_status_summary(status);
+    WorldStateManager::get_world_state()->get_status_summary(status);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusSummary> resp_msg(WorldStateMessageType::GET_STATUS, header, { status });
@@ -914,7 +926,7 @@ bool WorldStateWrapper::copy_stores(msgpack::object& obj, msgpack::sbuffer& buff
     TypedMessage<CopyStoresRequest> request;
     obj.convert(request);
 
-    _ws->copy_stores(request.value.dstPath, request.value.compact.value_or(false));
+    WorldStateManager::get_world_state()->copy_stores(request.value.dstPath, request.value.compact.value_or(false));
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::COPY_STORES, header, {});

@@ -23,7 +23,7 @@ class WorldStateManager {
                                               const std::vector<PublicDataLeafValue>& prefilled_public_data,
                                               uint32_t initial_header_generator_point)
     {
-        ASSERT(ws == nullptr);
+        BB_ASSERT(ws == nullptr);
         ws = std::make_unique<WorldState>(thread_pool_size,
                                           data_dir,
                                           map_size,
@@ -36,14 +36,16 @@ class WorldStateManager {
 
     static WorldState* get_world_state()
     {
-        ASSERT(ws != nullptr);
+        BB_ASSERT(ws != nullptr);
         return ws.get();
     };
+
+    static bool has_world_state() { return ws != nullptr; }
 
     static void reset_world_state() { ws.reset(); }
 
   private:
-    static std::unique_ptr<WorldState> ws;
+    inline static std::unique_ptr<WorldState> ws = nullptr;
 };
 
 } // namespace bb::world_state
