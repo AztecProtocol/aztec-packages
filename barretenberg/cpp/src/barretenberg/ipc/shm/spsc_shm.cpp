@@ -11,14 +11,16 @@
 #include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
 
-// Platform-specific includes and declarations for futex/ulock
+// Platform-specific includes and declarations for futex/os_sync
 #ifdef __APPLE__
-// Darwin's private ulock API (stable since macOS 10.12)
+// Darwin's os_sync API (available since macOS 10.12 / iOS 10)
+// Forward declarations to avoid header dependency
 extern "C" {
-int __ulock_wait(uint32_t operation, void* addr, uint64_t value, uint32_t timeout_us);
-int __ulock_wake(uint32_t operation, void* addr, uint64_t wake_value);
+int os_sync_wait_on_address(void* addr, uint64_t value, size_t size, uint32_t flags);
+int os_sync_wake_by_address_any(void* addr, size_t size, uint32_t flags);
 }
-#define UL_COMPARE_AND_WAIT 1
+#define OS_SYNC_WAIT_ON_ADDRESS_SHARED 1u
+#define OS_SYNC_WAKE_BY_ADDRESS_SHARED 1u
 #else
 // Linux futex
 #include <linux/futex.h>
@@ -67,8 +69,9 @@ inline uint64_t mono_ns_now()
 inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
 {
 #ifdef __APPLE__
-    // Darwin ulock: addr must be 4-byte aligned, value is compared as uint64_t
-    return __ulock_wait(UL_COMPARE_AND_WAIT, const_cast<uint32_t*>(addr), static_cast<uint64_t>(expect), 0);
+    // macOS: Use os_sync_wait_on_address with SHARED flag for cross-process
+    return os_sync_wait_on_address(
+        const_cast<uint32_t*>(addr), static_cast<uint64_t>(expect), sizeof(uint32_t), OS_SYNC_WAIT_ON_ADDRESS_SHARED);
 #else
     // Linux futex
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
@@ -79,9 +82,9 @@ inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
 inline int futex_wake(volatile uint32_t* addr, int n)
 {
 #ifdef __APPLE__
-    // Darwin ulock: wake_value parameter is ignored for COMPARE_AND_WAIT
-    (void)n; // Darwin ulock wakes all waiters
-    return __ulock_wake(UL_COMPARE_AND_WAIT, const_cast<uint32_t*>(addr), 0);
+    // macOS: Use os_sync_wake_by_address with SHARED flag for cross-process
+    (void)n;
+    return os_sync_wake_by_address_any(const_cast<uint32_t*>(addr), sizeof(uint32_t), OS_SYNC_WAKE_BY_ADDRESS_SHARED);
 #else
     // Linux futex
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
