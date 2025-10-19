@@ -1,5 +1,4 @@
-#ifndef DISABLE_AZTEC_VM
-#include "barretenberg/api/api_avm.hpp"
+#include "api_avm.hpp"
 
 #include <filesystem>
 
@@ -10,6 +9,10 @@
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb {
+
+// AVM is enabled in this build
+const bool avm_enabled = true;
+
 namespace {
 
 void print_avm_stats()
@@ -88,4 +91,3 @@ void avm_simulate(const std::filesystem::path& inputs_path)
 }
 
 } // namespace bb
-#endif

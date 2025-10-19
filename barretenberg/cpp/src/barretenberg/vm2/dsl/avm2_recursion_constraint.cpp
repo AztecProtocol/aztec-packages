@@ -4,10 +4,9 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#ifndef DISABLE_AZTEC_VM
-
 #include "avm2_recursion_constraint.hpp"
+
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 
 #include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -152,4 +151,3 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
 }
 
 } // namespace acir_format
-#endif // DISABLE_AZTEC_VM

@@ -94,10 +94,6 @@ add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
-if(NOT WASM)
-    add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/lmdblib)
-endif()
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
@@ -113,11 +109,16 @@ add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
+add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-if(NOT FUZZING)
-    if(NOT WASM)
-        add_subdirectory(barretenberg/world_state)
-    endif()
+
+if(NOT WASM)
+    add_subdirectory(barretenberg/ipc)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
+
+if(NOT FUZZING AND NOT WASM)
+    add_subdirectory(barretenberg/world_state)
     add_subdirectory(barretenberg/vm2)
 endif()
 
@@ -189,11 +190,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:transcript_objects>
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
-
-if(NOT DISABLE_AZTEC_VM AND NOT FUZZING)
-    # enable AVM
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
-endif()
 
 if(NOT WASM AND NOT FUZZING)
     # enable merkle trees and lmdb

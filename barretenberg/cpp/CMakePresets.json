@@ -202,54 +202,6 @@
       }
     },
     {
-      "name": "clang20-no-avm",
-      "displayName": "Optimized build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 excluding the Aztec VM",
-      "inherits": "clang20",
-      "binaryDir": "build-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
-      "name": "debug-fast-no-avm",
-      "displayName": "Optimized debug build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
-      "inherits": "debug-fast",
-      "binaryDir": "build-debug-fast-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
-      "name": "debug-no-avm",
-      "displayName": "Debug build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
-      "inherits": "debug",
-      "binaryDir": "build-debug-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
-      "name": "asan-fast",
-      "displayName": "Debugging build with address sanitizer on Clang-20 in optimized debug mode",
-      "description": "Build with address sanitizer on clang20 in optimized debug mode",
-      "inherits": "debug-fast",
-      "binaryDir": "build-asan-fast",
-      "cacheVariables": {
-        "ENABLE_ASAN": "ON",
-        "DISABLE_AZTEC_VM": "ON",
-        "DISABLE_ASM": "ON",
-        "ENABLE_STACKTRACES": "OFF"
-      }
-    },
-    {
       "name": "asan",
       "displayName": "Debugging build with address sanitizer on Clang-20",
       "description": "Build with address sanitizer on clang20 with debugging information",
@@ -614,21 +566,6 @@
       "configurePreset": "debug"
     },
     {
-      "name": "clang20-no-avm",
-      "inherits": "default",
-      "configurePreset": "clang20-no-avm"
-    },
-    {
-      "name": "debug-fast-no-avm",
-      "inherits": "default",
-      "configurePreset": "debug-fast-no-avm"
-    },
-    {
-      "name": "debug-no-avm",
-      "inherits": "default",
-      "configurePreset": "debug-no-avm"
-    },
-    {
       "name": "tracy-memory",
       "inherits": "default",
       "configurePreset": "tracy-memory"
@@ -667,11 +604,6 @@
       "name": "debug-fast-notraces",
       "inherits": "default",
       "configurePreset": "debug-fast-notraces"
-    },
-    {
-      "name": "asan-fast",
-      "inherits": "default",
-      "configurePreset": "asan-fast"
     },
     {
       "name": "asan",

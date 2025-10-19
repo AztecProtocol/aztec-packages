@@ -9,10 +9,6 @@ set(DSL_DEPENDENCIES
     stdlib_honk_verifier
     stdlib_client_ivc_verifier)
 
-if (NOT DISABLE_AZTEC_VM)
-    list(APPEND DSL_DEPENDENCIES vm2)
-endif()
-
 barretenberg_module(
     dsl
     ${DSL_DEPENDENCIES}
