@@ -1,5 +1,4 @@
 #include "generator_data.hpp"
-#include "barretenberg/crypto/pedersen_commitment/c_bind.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
 #include <vector>

@@ -90,6 +90,31 @@ function(barretenberg_module MODULE_NAME)
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
+    else()
+        # For header-only modules (no source files), create an INTERFACE library
+        # Only create if there are actual header files (not just test/bench modules)
+        if(HEADER_FILES)
+            # INTERFACE libraries provide headers and dependencies without compiled objects
+            add_library(${MODULE_NAME} INTERFACE)
+
+            # INTERFACE libraries need include directories for their headers
+            target_include_directories(
+                ${MODULE_NAME}
+                INTERFACE
+                ${CMAKE_CURRENT_SOURCE_DIR}
+            )
+
+            # Link dependencies passed as arguments with INTERFACE scope
+            target_link_libraries(
+                ${MODULE_NAME}
+                INTERFACE
+                ${ARGN}
+            )
+
+            list(APPEND lib_targets ${MODULE_NAME})
+
+            set(MODULE_LINK_NAME ${MODULE_NAME})
+        endif()
     endif()
 
     file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
