@@ -122,6 +122,8 @@ std::shared_ptr<VerifierInstance> ProtogalaxyRecursiveVerifier_<VerifierInstance
      */
 
     // New transcript for challenge generation
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1556): Remove `branch_transcript()` method once PG is
+    // gone.
     Transcript batch_mul_transcript = transcript->branch_transcript();
 
     // Prepare accumulator and instance commitments for MSM calculation

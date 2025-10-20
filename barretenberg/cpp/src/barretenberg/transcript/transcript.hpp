@@ -553,6 +553,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      *
      * @return BaseTranscript
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1556): Remove `branch_transcript()` method once PG is
+    // gone.
     BaseTranscript branch_transcript()
     {
         ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
