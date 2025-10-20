@@ -183,15 +183,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
-    // These are variables that we have used a gate on, to enforce that they are
-    // equal to a defined value.
+    // The set of variables which have been constrained to a particular value via an arithmetic gate
     std::map<FF, uint32_t> constant_variable_indices;
 
     // The set of lookup tables used by the circuit, plus the gate data for the lookups from each table
     std::vector<plookup::BasicTable> lookup_tables;
 
     // Rom/Ram logic
-    RomRamLogic rom_ram_logic = RomRamLogic();
+    RomRamLogic rom_ram_logic;
 
     // Stores gate index of ROM/RAM reads (required by proving key)
     std::vector<uint32_t> memory_read_records;
