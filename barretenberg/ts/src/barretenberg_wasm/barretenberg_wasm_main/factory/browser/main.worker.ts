@@ -9,5 +9,26 @@ addEventListener('message', e => {
   }
 });
 
+addEventListener('error', e => {
+  console.error('Main worker error:', e.error || e.message);
+  console.error('Error details:', {
+    message: e.message,
+    filename: e.filename,
+    lineno: e.lineno,
+    colno: e.colno,
+    error: e.error
+  });
+  if (e.error?.stack) {
+    console.error('Stack trace:', e.error.stack);
+  }
+});
+
+addEventListener('unhandledrejection', e => {
+  console.error('Main worker unhandled rejection:', e.reason);
+  if (e.reason?.stack) {
+    console.error('Stack trace:', e.reason.stack);
+  }
+});
+
 expose(new BarretenbergWasmMain());
 postMessage(Ready);

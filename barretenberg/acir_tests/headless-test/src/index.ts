@@ -119,35 +119,76 @@ program
 
       await provingPage.goto(`http://localhost:${PORT}`);
 
-      const {
-        publicInputs,
-        proof,
-        verificationKey,
-      }: {
-        publicInputs: string[];
-        proof: number[];
-        verificationKey: number[];
-      } = await provingPage.evaluate(
-        async ([acir, witnessData, threads]: [string, number[], number]) => {
-          // Convert the input data to Uint8Arrays within the browser context
-          const witnessUint8Array = new Uint8Array(witnessData);
+      let publicInputs: string[];
+      let proof: number[];
+      let verificationKey: number[];
 
-          // Call the desired function and return the result
-          const {
-            proofData,
-            verificationKey,
-          }: { proofData: ProofData; verificationKey: Uint8Array } = await (
-            window as any
-          ).prove(acir, witnessUint8Array, threads);
+      try {
+        const result = await provingPage.evaluate(
+          async (arg: any) => {
+            try {
+              // Convert the input data to Uint8Arrays within the browser context
+              const acir = arg[0];
+              const witnessData = arg[1];
+              const threads = arg[2];
+              const witnessUint8Array = new Uint8Array(witnessData);
 
-          return {
-            publicInputs: proofData.publicInputs,
-            proof: Array.from(proofData.proof),
-            verificationKey: Array.from(verificationKey),
-          };
-        },
-        [acir, Array.from(witness), threads]
-      );
+              // Call the desired function and return the result
+              const {
+                proofData,
+                verificationKey,
+              }: { proofData: ProofData; verificationKey: Uint8Array } = await (
+                window as any
+              ).prove(acir, witnessUint8Array, threads);
+
+              return {
+                publicInputs: proofData.publicInputs,
+                proof: Array.from(proofData.proof),
+                verificationKey: Array.from(verificationKey),
+              };
+            } catch (error: any) {
+              // Capture error details from browser context
+              return {
+                error: true,
+                message: error.message || String(error),
+                stack: error.stack || "",
+                name: error.name || "Error",
+              };
+            }
+          },
+          [acir, Array.from(witness), threads]
+        );
+
+        if ((result as any).error) {
+          const errorInfo = result as any;
+          console.error(chalk.red("Error during proof generation:"));
+          console.error(chalk.red(`  ${errorInfo.name}: ${errorInfo.message}`));
+          if (errorInfo.stack) {
+            console.error(chalk.red("Stack trace:"));
+            console.error(chalk.gray(errorInfo.stack));
+          }
+          await provingPage.close();
+          await browser.close();
+          process.exit(1);
+        }
+
+        ({ publicInputs, proof, verificationKey } = result as {
+          publicInputs: string[];
+          proof: number[];
+          verificationKey: number[];
+        });
+      } catch (error: any) {
+        console.error(chalk.red("Playwright error during proof generation:"));
+        console.error(chalk.red(`  ${error.message || String(error)}`));
+        if (error.stack) {
+          console.error(chalk.red("Stack trace:"));
+          console.error(chalk.gray(error.stack));
+        }
+        await provingPage.close();
+        await browser.close();
+        process.exit(1);
+      }
+
       await provingPage.close();
 
       // Creating a new page to verify the proof, so this bug is avoided
@@ -159,21 +200,57 @@ program
 
       setupPageLogging(verificationPage, context);
 
-      const verificationResult: boolean = await verificationPage.evaluate(
-        ([publicInputs, proof, verificationKey]: [
-          string[],
-          number[],
-          number[]
-        ]) => {
-          const verificationKeyUint8Array = new Uint8Array(verificationKey);
-          const proofData: ProofData = {
-            publicInputs,
-            proof: new Uint8Array(proof),
-          };
-          return (window as any).verify(proofData, verificationKeyUint8Array);
-        },
-        [publicInputs, proof, verificationKey]
-      );
+      let verificationResult: boolean;
+      try {
+        const result = await verificationPage.evaluate(
+          async (arg: any) => {
+            try {
+              const publicInputs = arg[0];
+              const proof = arg[1];
+              const verificationKey = arg[2];
+              const verificationKeyUint8Array = new Uint8Array(verificationKey);
+              const proofData: ProofData = {
+                publicInputs,
+                proof: new Uint8Array(proof),
+              };
+              return {
+                result: await (window as any).verify(proofData, verificationKeyUint8Array),
+              };
+            } catch (error: any) {
+              return {
+                error: true,
+                message: error.message || String(error),
+                stack: error.stack || "",
+                name: error.name || "Error",
+              };
+            }
+          },
+          [publicInputs, proof, verificationKey]
+        );
+
+        if ((result as any).error) {
+          const errorInfo = result as any;
+          console.error(chalk.red("Error during verification:"));
+          console.error(chalk.red(`  ${errorInfo.name}: ${errorInfo.message}`));
+          if (errorInfo.stack) {
+            console.error(chalk.red("Stack trace:"));
+            console.error(chalk.gray(errorInfo.stack));
+          }
+          await browser.close();
+          process.exit(1);
+        }
+
+        verificationResult = (result as any).result;
+      } catch (error: any) {
+        console.error(chalk.red("Playwright error during verification:"));
+        console.error(chalk.red(`  ${error.message || String(error)}`));
+        if (error.stack) {
+          console.error(chalk.red("Stack trace:"));
+          console.error(chalk.gray(error.stack));
+        }
+        await browser.close();
+        process.exit(1);
+      }
 
       await browser.close();
 
@@ -214,15 +291,52 @@ program
       setupPageLogging(provingPage, context);
 
       await provingPage.goto(`http://localhost:${PORT}`);
-      const verificationResult: boolean = await provingPage.evaluate(
-        async ([ivcInputsData, threads]: [number[], number]) => {
-          const ivcInputsUint8Array = new Uint8Array(ivcInputsData);
-          return await (
-            window as any
-          ).proveClientIvc(ivcInputsUint8Array, threads);
-        },
-        [Array.from(ivcInputs), threads]
-      );
+
+      let verificationResult: boolean;
+      try {
+        const result = await provingPage.evaluate(
+          async (arg: any) => {
+            try {
+              const ivcInputsUint8Array = new Uint8Array(arg[0]);
+              const threads = arg[1];
+              return {
+                result: await (window as any).proveClientIvc(ivcInputsUint8Array, threads),
+              };
+            } catch (error: any) {
+              return {
+                error: true,
+                message: error.message || String(error),
+                stack: error.stack || "",
+                name: error.name || "Error",
+              };
+            }
+          },
+          [Array.from(ivcInputs), threads]
+        );
+
+        if ((result as any).error) {
+          const errorInfo = result as any;
+          console.error(chalk.red("Error during ClientIVC proof generation:"));
+          console.error(chalk.red(`  ${errorInfo.name}: ${errorInfo.message}`));
+          if (errorInfo.stack) {
+            console.error(chalk.red("Stack trace:"));
+            console.error(chalk.gray(errorInfo.stack));
+          }
+          await browser.close();
+          process.exit(1);
+        }
+
+        verificationResult = (result as any).result;
+      } catch (error: any) {
+        console.error(chalk.red("Playwright error during ClientIVC proof generation:"));
+        console.error(chalk.red(`  ${error.message || String(error)}`));
+        if (error.stack) {
+          console.error(chalk.red("Stack trace:"));
+          console.error(chalk.gray(error.stack));
+        }
+        await browser.close();
+        process.exit(1);
+      }
 
       await browser.close();
       if (!verificationResult) {

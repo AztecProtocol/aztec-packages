@@ -355,9 +355,6 @@ template <typename Fr> class Polynomial {
      */
     operator PolynomialSpan<const Fr>() const { return { start_index(), coeffs() }; }
 
-    auto indices() const { return std::ranges::iota_view(start_index(), end_index()); }
-    auto indexed_values() { return zip_view(indices(), coeffs()); }
-    auto indexed_values() const { return zip_view(indices(), coeffs()); }
     /**
      * @brief Is this index valid for a set? i.e. calling poly.at(index) = value
      */
@@ -524,17 +521,4 @@ template <typename Fr> inline std::ostream& operator<<(std::ostream& os, const P
               << "]";
 }
 
-template <typename Poly, typename... Polys> auto zip_polys(Poly&& poly, Polys&&... polys)
-{
-    // Ensure all polys have the same start_index() and end_index() as poly
-    // Use fold expression to check all polys exactly match our size
-    // Wrap BB_ASSERT_EQ_RELEASE in a lambda to make it usable in a fold expression
-    auto check_indices = [&](const auto& other) {
-        BB_ASSERT_EQ(poly.start_index(), other.start_index());
-        BB_ASSERT_EQ(poly.end_index(), other.end_index());
-    };
-    // Apply the lambda to each poly in the parameter pack
-    (check_indices(polys), ...);
-    return zip_view(poly.indices(), poly.coeffs(), polys.coeffs()...);
-}
 } // namespace bb

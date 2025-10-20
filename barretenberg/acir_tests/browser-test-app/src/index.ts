@@ -7,6 +7,21 @@ const logger = pino({
   name: "browser-test-app",
 });
 
+// Add global error handlers to catch any unhandled errors
+window.addEventListener("unhandledrejection", (event) => {
+  console.error("Unhandled promise rejection:", event.reason);
+  if (event.reason?.stack) {
+    console.error("Stack trace:", event.reason.stack);
+  }
+});
+
+window.addEventListener("error", (event) => {
+  console.error("Unhandled error:", event.error || event.message);
+  if (event.error?.stack) {
+    console.error("Stack trace:", event.error.stack);
+  }
+});
+
 function installUltraHonkGlobals() {
   async function prove(
     bytecode: string,
