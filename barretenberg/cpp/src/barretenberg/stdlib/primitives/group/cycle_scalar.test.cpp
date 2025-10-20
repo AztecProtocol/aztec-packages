@@ -54,7 +54,7 @@ TYPED_TEST(CycleScalarTest, TestFromWitness)
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
 
-    check_circuit_and_gate_count(builder, 0);
+    check_circuit_and_gate_count(builder, 2761);
 }
 
 /**
@@ -101,7 +101,6 @@ TYPED_TEST(CycleScalarTest, TestCreateFromBn254Scalar)
 
     EXPECT_EQ(scalar.get_value(), ScalarField(uint256_t(native_val)));
     EXPECT_FALSE(scalar.is_constant());
-    EXPECT_TRUE(scalar.use_bn254_scalar_field_for_primality_test());
 
     // Check that lo and hi reconstruct to the original value
     uint256_t lo_val = uint256_t(scalar.lo.get_value());
@@ -139,7 +138,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
         uint256_t reconstructed = lo_val + (hi_val << cycle_scalar::LO_BITS);
         EXPECT_EQ(ScalarField(reconstructed), value);
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test with constant BigScalarField
@@ -161,25 +160,6 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructor)
 
         check_circuit_and_gate_count(builder, 0);
     }
-}
-
-/**
- * @brief Test scalar field validation
- */
-TYPED_TEST(CycleScalarTest, TestScalarFieldValidation)
-{
-    using cycle_scalar = typename TestFixture::cycle_scalar;
-    using ScalarField = typename TestFixture::ScalarField;
-
-    TypeParam builder;
-
-    // Test with a valid scalar
-    auto valid_scalar = ScalarField::random_element(&engine);
-    auto scalar = cycle_scalar::from_witness(&builder, valid_scalar);
-    scalar.validate_scalar_is_in_field();
-    EXPECT_FALSE(builder.failed());
-
-    check_circuit_and_gate_count(builder, 2761);
 }
 
 /**
@@ -216,14 +196,9 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         auto lo = field_t::from_witness(&builder, NativeField(lo_val));
         auto hi = field_t::from_witness(&builder, NativeField(hi_val));
 
-        // Construct cycle_scalar directly WITHOUT BN254 scalar field validation flag
+        // Construct cycle_scalar directly which will validate against Grumpkin scalar field
+        // This should pass because value < BN254::fq modulus (Grumpkin scalar field)
         auto scalar = cycle_scalar(lo, hi);
-
-        // This should NOT use BN254 scalar field for primality test
-        EXPECT_FALSE(scalar.use_bn254_scalar_field_for_primality_test());
-
-        // Validate - this should pass because value < BN254::fq modulus (Grumpkin scalar field)
-        scalar.validate_scalar_is_in_field();
 
         // The builder should NOT have failed
         EXPECT_FALSE(builder.failed());
@@ -231,8 +206,7 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
     }
 
     // Test 2: Validate with BN254 scalar field (smaller modulus)
-    // Note: Since we can't set the use_bn254_scalar_field_for_primality_test flag directly with the public constructor,
-    // we'll test the underlying validate_split_in_field directly to achieve what would be achieved internally
+    // We'll test the underlying validate_split_in_field directly with BN254::fr modulus
     {
         TypeParam builder;
 
@@ -240,7 +214,7 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
         auto lo = field_t::from_witness(&builder, NativeField(lo_val));
         auto hi = field_t::from_witness(&builder, NativeField(hi_val));
 
-        // Construct cycle_scalar with the public constructor
+        // Construct cycle_scalar directly (validation against Grumpkin scalar field will pass)
         auto scalar = cycle_scalar(lo, hi);
 
         // Verify the reconstructed value matches what we expect
@@ -277,7 +251,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         EXPECT_EQ(scalar.lo.get_value(), 0);
         EXPECT_EQ(scalar.hi.get_value(), 0);
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 2: BigScalarField with only first limb set (value < 2^68)
@@ -291,7 +265,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         EXPECT_EQ(scalar.lo.get_value(), small_value);
         EXPECT_EQ(scalar.hi.get_value(), 0);
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 3: BigScalarField with value exactly at first limb boundary (2^68)
@@ -303,7 +277,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb_boundary));
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 4: BigScalarField with value that puts zero in limb1
@@ -316,7 +290,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb0_full));
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 5: BigScalarField with value exactly 2^136 (limb0=0, limb1=0, limb2=1)
@@ -328,7 +302,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
 
         EXPECT_EQ(scalar.get_value(), ScalarField(val_136));
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 6: BigScalarField with value that genuinely has limb1 = 0
@@ -341,7 +315,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
 
         EXPECT_EQ(scalar.get_value(), ScalarField(special_value));
 
-        check_circuit_and_gate_count(builder, 3498);
+        check_circuit_and_gate_count(builder, 3523);
     }
 
     // Test case 7: BigScalarField where limb0 exceeds NUM_LIMB_BITS after addition
@@ -369,6 +343,6 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         EXPECT_EQ(scalar.get_value(), ScalarField(expected));
 
         // Extra gates due to a self reduction of the bigfield input
-        check_circuit_and_gate_count(builder, 3555);
+        check_circuit_and_gate_count(builder, 3575);
     }
 }

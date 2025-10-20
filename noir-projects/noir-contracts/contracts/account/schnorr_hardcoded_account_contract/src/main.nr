@@ -17,7 +17,7 @@ pub contract SchnorrHardcodedAccount {
         is_infinite: false,
     };
 
-    // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
     #[private]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.

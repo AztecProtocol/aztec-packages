@@ -61,6 +61,9 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
 template <typename T>
 concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 
+template <typename T>
+concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
+
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor>;
 template <typename Container, typename Element>

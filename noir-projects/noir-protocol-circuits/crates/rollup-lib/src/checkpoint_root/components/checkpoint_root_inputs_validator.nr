@@ -84,6 +84,15 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
             "The start timestamp must be after the previous block's timestamp",
         );
 
+        // `in_hash` must be set using the **first** block root rollup circuit for the first block in a checkpoint.
+        // In `validate_consecutive_block_rollups`, it ensures that the hash only propagates through all merge steps
+        // exclusively via the left rollup. The value in the left rollup must not be 0 when it reaches the checkpoint
+        // root (this point).
+        assert(
+            first_rollup.in_hash != 0,
+            "in_hash must be set via the first block root in the checkpoint",
+        );
+
         // `previous_block_header` is provided as a private input and is used to validate the values above.
         // Here we make sure it's indeed the header of the previous block by checking it against the previous archive.
         // The previous archive will be validated on L1.

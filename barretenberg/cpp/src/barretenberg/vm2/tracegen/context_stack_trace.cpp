@@ -20,7 +20,7 @@ void ContextStackTraceBuilder::process(
             row,
             { {
                 { C::context_stack_sel, 1 },
-                { C::context_stack_context_id_inv, FF(event.id).invert() },
+                { C::context_stack_context_id_inv, event.id }, // Will be inverted in batch later
                 { C::context_stack_context_id, event.id },
                 { C::context_stack_parent_id, event.parent_id },
                 { C::context_stack_entered_context_id, event.entered_context_id },
@@ -53,6 +53,9 @@ void ContextStackTraceBuilder::process(
             } });
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::context_stack_context_id_inv } });
 }
 
 } // namespace bb::avm2::tracegen

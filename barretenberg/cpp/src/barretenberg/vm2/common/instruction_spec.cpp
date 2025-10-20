@@ -11,7 +11,9 @@ namespace {
 
 // This structure is code-generated (but manually set) by the test:
 // DecompositionSelectors.CodeGen (op_decomposition.test.cpp)
+// Ordered to match WireOpCode enum
 const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> WireOpCode_DC_SELECTORS = {
+    // Compute
     { WireOpCode::ADD_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
     { WireOpCode::ADD_16, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::SUB_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
@@ -42,15 +44,22 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> W
     { WireOpCode::SHR_16, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::CAST_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
     { WireOpCode::CAST_16, { 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Execution Environment
     { WireOpCode::GETENVVAR_16, { 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0 } },
+    // Execution Environment - Calldata
     { WireOpCode::CALLDATACOPY, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::SUCCESSCOPY, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::RETURNDATASIZE, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::RETURNDATACOPY, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Machine State
+    // Machine State - Internal Control Flow
     { WireOpCode::JUMP_32, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
     { WireOpCode::JUMPI_32, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1 } },
     { WireOpCode::INTERNALCALL, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 } },
     { WireOpCode::INTERNALRETURN, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+    // Machine State - Memory
     { WireOpCode::SET_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0 } },
     { WireOpCode::SET_16, { 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0 } },
     { WireOpCode::SET_32, { 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0 } },
@@ -59,6 +68,8 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> W
     { WireOpCode::SET_FF, { 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::MOV_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::MOV_16, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // World State
     { WireOpCode::SLOAD, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::SSTORE, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::NOTEHASHEXISTS, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
@@ -67,24 +78,35 @@ const std::unordered_map<WireOpCode, std::array<uint8_t, NUM_OP_DC_SELECTORS>> W
     { WireOpCode::EMITNULLIFIER, { 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::L1TOL2MSGEXISTS, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::GETCONTRACTINSTANCE, { 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Accrued Substate
     { WireOpCode::EMITUNENCRYPTEDLOG, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::SENDL2TOL1MSG, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Control Flow - Contract Calls
     { WireOpCode::CALL, { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::STATICCALL, { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::RETURN, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::REVERT_8, { 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::REVERT_16, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Misc
     { WireOpCode::DEBUGLOG, { 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+
+    // Gadgets
     { WireOpCode::POSEIDON2PERM, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::SHA256COMPRESSION, { 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::KECCAKF1600, { 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
     { WireOpCode::ECADD, { 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
+    // Conversions
     { WireOpCode::TORADIXBE, { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } },
 };
 
 } // namespace
 
+// Ordered to match WireOpCode enum
 const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC = {
+    // Compute
     { WireOpCode::ADD_8,
       { .exec_opcode = ExecutionOpCode::ADD,
         .size_in_bytes = 5,
@@ -211,10 +233,13 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
           .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::CAST_16),
           .tag_operand_idx = 3, // op3
       } },
+
+    // Execution Environment
     { WireOpCode::GETENVVAR_16,
       { .exec_opcode = ExecutionOpCode::GETENVVAR,
         .size_in_bytes = 5,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::GETENVVAR_16) } },
+    // Execution Environment - Calldata
     { WireOpCode::CALLDATACOPY,
       { .exec_opcode = ExecutionOpCode::CALLDATACOPY,
         .size_in_bytes = 8,
@@ -231,6 +256,9 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::RETURNDATACOPY,
         .size_in_bytes = 8,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::RETURNDATACOPY) } },
+
+    // Machine State
+    // Machine State - Internal Control Flow
     { WireOpCode::JUMP_32,
       { .exec_opcode = ExecutionOpCode::JUMP,
         .size_in_bytes = 5,
@@ -247,6 +275,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::INTERNALRETURN,
         .size_in_bytes = 1,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::INTERNALRETURN) } },
+    // Machine State - Memory
     { WireOpCode::SET_8,
       {
           .exec_opcode = ExecutionOpCode::SET,
@@ -297,6 +326,8 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::MOV,
         .size_in_bytes = 6,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::MOV_16) } },
+
+    // World State
     { WireOpCode::SLOAD,
       { .exec_opcode = ExecutionOpCode::SLOAD,
         .size_in_bytes = 6,
@@ -329,6 +360,8 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::GETCONTRACTINSTANCE,
         .size_in_bytes = 7,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::GETCONTRACTINSTANCE) } },
+
+    // Accrued Substate
     { WireOpCode::EMITUNENCRYPTEDLOG,
       { .exec_opcode = ExecutionOpCode::EMITUNENCRYPTEDLOG,
         .size_in_bytes = 6,
@@ -337,6 +370,8 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::SENDL2TOL1MSG,
         .size_in_bytes = 6,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::SENDL2TOL1MSG) } },
+
+    // Control Flow - Contract Calls
     { WireOpCode::CALL,
       { .exec_opcode = ExecutionOpCode::CALL,
         .size_in_bytes = 13,
@@ -357,10 +392,14 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::REVERT,
         .size_in_bytes = 6,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::REVERT_16) } },
+
+    // Misc
     { WireOpCode::DEBUGLOG,
       { .exec_opcode = ExecutionOpCode::DEBUGLOG,
         .size_in_bytes = 12,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::DEBUGLOG) } },
+
+    // Gadgets
     { WireOpCode::POSEIDON2PERM,
       { .exec_opcode = ExecutionOpCode::POSEIDON2PERM,
         .size_in_bytes = 6,
@@ -377,6 +416,7 @@ const std::unordered_map<WireOpCode, WireInstructionSpec> WIRE_INSTRUCTION_SPEC 
       { .exec_opcode = ExecutionOpCode::ECADD,
         .size_in_bytes = 17,
         .op_dc_selectors = WireOpCode_DC_SELECTORS.at(WireOpCode::ECADD) } },
+    // Conversions
     { WireOpCode::TORADIXBE,
       { .exec_opcode = ExecutionOpCode::TORADIXBE,
         .size_in_bytes = 13,
@@ -423,6 +463,7 @@ std::optional<ValueTag> RegisterInfo::expected_tag(size_t index) const
     return index < inputs.size() ? inputs.at(index) : std::nullopt;
 }
 
+// Ordered to match ExecutionOpCode enum
 const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_SPEC = {
     { ExecutionOpCode::ADD,
       { .num_addresses = 3,
@@ -480,6 +521,27 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                              .add_inputs({ /*a*/ RegisterInfo::ANY_TAG,
                                            /*b*/ RegisterInfo::ANY_TAG })
                              .add_output(/*c*/) } },
+    { ExecutionOpCode::AND,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::OR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
+    { ExecutionOpCode::XOR,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
+        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+        .register_info = RegisterInfo()
+                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
+                             .add_output(/*c*/) } },
     { ExecutionOpCode::NOT,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_NOT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -506,40 +568,6 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_GETENVVAR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
-    { ExecutionOpCode::SET,
-      { .num_addresses = 1,
-        .gas_cost = { .opcode_gas = AVM_SET_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_output(/*dst*/) } },
-    { ExecutionOpCode::MOV,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_MOV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*src*/).add_output(/*dst*/) } },
-    { ExecutionOpCode::CALL,
-      { .num_addresses = 5,
-        .gas_cost = { .opcode_gas = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_inputs({ /*l2_gas*/ ValueTag::U32,
-                                                     /*da_gas*/ ValueTag::U32,
-                                                     /*contract_address*/ ValueTag::FF,
-                                                     /*cd_size*/ ValueTag::U32 }) } },
-    { ExecutionOpCode::STATICCALL,
-      { .num_addresses = 5,
-        .gas_cost = { .opcode_gas = AVM_STATICCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_inputs({ /*l2_gas*/ ValueTag::U32,
-                                                     /*da_gas*/ ValueTag::U32,
-                                                     /*contract_address*/ ValueTag::FF,
-                                                     /*cd_size*/ ValueTag::U32 }) } },
-
-    { ExecutionOpCode::RETURN,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_RETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*rd_size*/ ValueTag::U32) } },
-    { ExecutionOpCode::JUMP,
-      { .num_addresses = 0,
-        .gas_cost = { .opcode_gas = AVM_JUMP_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
-    { ExecutionOpCode::JUMPI,
-      { .num_addresses = 1,
-        .gas_cost = { .opcode_gas = AVM_JUMPI_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*cond*/ ValueTag::U1) } },
     { ExecutionOpCode::CALLDATACOPY,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_CALLDATACOPY_BASE_L2_GAS,
@@ -553,6 +581,10 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
       { .num_addresses = 1,
         .gas_cost = { .opcode_gas = AVM_SUCCESSCOPY_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
+    { ExecutionOpCode::RETURNDATASIZE,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_output(/*dst*/) } },
     { ExecutionOpCode::RETURNDATACOPY,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_RETURNDATACOPY_BASE_L2_GAS,
@@ -562,6 +594,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .dyn_gas_id = AVM_DYN_GAS_ID_RETURNDATACOPY,
         .register_info =
             RegisterInfo().add_inputs({ /*rd_copy_size*/ ValueTag::U32, /*rd_offset_read*/ ValueTag::U32 }) } },
+    { ExecutionOpCode::JUMP,
+      { .num_addresses = 0,
+        .gas_cost = { .opcode_gas = AVM_JUMP_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::JUMPI,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_JUMPI_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*cond*/ ValueTag::U1) } },
     { ExecutionOpCode::INTERNALCALL,
       {
           .num_addresses = 0,
@@ -570,47 +609,14 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
     { ExecutionOpCode::INTERNALRETURN,
       { .num_addresses = 0,
         .gas_cost = { .opcode_gas = AVM_INTERNALRETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
-    { ExecutionOpCode::STATICCALL,
-      { .num_addresses = 5,
-        .gas_cost = { .opcode_gas = AVM_STATICCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
-    { ExecutionOpCode::REVERT,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_REVERT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*rev_size*/ ValueTag::U32) } },
-    { ExecutionOpCode::KECCAKF1600,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_KECCAKF1600_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
-    { ExecutionOpCode::RETURNDATASIZE,
+    { ExecutionOpCode::SET,
       { .num_addresses = 1,
-        .gas_cost = { .opcode_gas = AVM_RETURNDATASIZE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .gas_cost = { .opcode_gas = AVM_SET_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo().add_output(/*dst*/) } },
-    { ExecutionOpCode::DEBUGLOG,
-      { .num_addresses = 4,
-        .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        // We don't set the right inputs for debuglog because we make it a noop.
-        .register_info = RegisterInfo() } },
-    // Bitwise
-    { ExecutionOpCode::AND,
-      { .num_addresses = 3,
-        .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
-        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
-        .register_info = RegisterInfo()
-                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
-                             .add_output(/*c*/) } },
-    { ExecutionOpCode::OR,
-      { .num_addresses = 3,
-        .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
-        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
-        .register_info = RegisterInfo()
-                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
-                             .add_output(/*c*/) } },
-    { ExecutionOpCode::XOR,
-      { .num_addresses = 3,
-        .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = AVM_BITWISE_DYN_L2_GAS, .dyn_da = 0 },
-        .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
-        .register_info = RegisterInfo()
-                             .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
-                             .add_output(/*c*/) } },
+    { ExecutionOpCode::MOV,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_MOV_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*src*/).add_output(/*dst*/) } },
     { ExecutionOpCode::SLOAD,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_SLOAD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -629,6 +635,13 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
         .register_info = RegisterInfo()
                              .add_inputs({ /*unique_note_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
                              .add_output(/*exists*/) } },
+    { ExecutionOpCode::EMITNOTEHASH,
+      { .num_addresses = 1,
+        .gas_cost = { .opcode_gas = AVM_EMITNOTEHASH_BASE_L2_GAS,
+                      .base_da = AVM_EMITNOTEHASH_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*note_hash*/ ValueTag::FF) } },
     { ExecutionOpCode::NULLIFIEREXISTS,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_NULLIFIEREXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -643,26 +656,67 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                       .dyn_l2 = 0,
                       .dyn_da = 0 },
         .register_info = RegisterInfo().add_input(/*nullifier*/ ValueTag::FF) } },
-    { ExecutionOpCode::GETCONTRACTINSTANCE,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
-    { ExecutionOpCode::EMITNOTEHASH,
-      { .num_addresses = 1,
-        .gas_cost = { .opcode_gas = AVM_EMITNOTEHASH_BASE_L2_GAS,
-                      .base_da = AVM_EMITNOTEHASH_BASE_DA_GAS,
-                      .dyn_l2 = 0,
-                      .dyn_da = 0 },
-        .register_info = RegisterInfo().add_input(/*note_hash*/ ValueTag::FF) } },
     { ExecutionOpCode::L1TOL2MSGEXISTS,
       { .num_addresses = 3,
         .gas_cost = { .opcode_gas = AVM_L1TOL2MSGEXISTS_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
         .register_info = RegisterInfo()
                              .add_inputs({ /*msg_hash*/ ValueTag::FF, /*leaf_index*/ ValueTag::U64 })
                              .add_output(/*exists*/) } },
+    { ExecutionOpCode::GETCONTRACTINSTANCE,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_GETCONTRACTINSTANCE_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*contract_address*/ ValueTag::FF) } },
+    { ExecutionOpCode::EMITUNENCRYPTEDLOG,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+                      .base_da = AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
+                      .dyn_l2 = AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+                      .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
+        .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
+        .register_info = RegisterInfo().add_inputs({ ValueTag::U32 }) } },
+    { ExecutionOpCode::SENDL2TOL1MSG,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_SENDL2TOL1MSG_BASE_L2_GAS,
+                      .base_da = AVM_SENDL2TOL1MSG_BASE_DA_GAS,
+                      .dyn_l2 = 0,
+                      .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /* recipient */ ValueTag::FF, /* content */ ValueTag::FF }) } },
+    { ExecutionOpCode::CALL,
+      { .num_addresses = 5,
+        .gas_cost = { .opcode_gas = AVM_CALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*l2_gas*/ ValueTag::U32,
+                                                     /*da_gas*/ ValueTag::U32,
+                                                     /*contract_address*/ ValueTag::FF,
+                                                     /*cd_size*/ ValueTag::U32 }) } },
+    { ExecutionOpCode::STATICCALL,
+      { .num_addresses = 5,
+        .gas_cost = { .opcode_gas = AVM_STATICCALL_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_inputs({ /*l2_gas*/ ValueTag::U32,
+                                                     /*da_gas*/ ValueTag::U32,
+                                                     /*contract_address*/ ValueTag::FF,
+                                                     /*cd_size*/ ValueTag::U32 }) } },
+    { ExecutionOpCode::RETURN,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_RETURN_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*rd_size*/ ValueTag::U32) } },
+    { ExecutionOpCode::REVERT,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_REVERT_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        .register_info = RegisterInfo().add_input(/*rev_size*/ ValueTag::U32) } },
+    { ExecutionOpCode::DEBUGLOG,
+      { .num_addresses = 4,
+        .gas_cost = { .opcode_gas = AVM_DEBUGLOG_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
+        // We don't set the right inputs for debuglog because we make it a noop.
+        .register_info = RegisterInfo() } },
     { ExecutionOpCode::POSEIDON2PERM,
       { .num_addresses = 2,
         .gas_cost = { .opcode_gas = AVM_POSEIDON2_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::SHA256COMPRESSION,
+      { .num_addresses = 3,
+        .gas_cost = { .opcode_gas = AVM_SHA256COMPRESSION_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
+    { ExecutionOpCode::KECCAKF1600,
+      { .num_addresses = 2,
+        .gas_cost = { .opcode_gas = AVM_KECCAKF1600_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } } },
     { ExecutionOpCode::ECADD,
       { .num_addresses = 7,
         .gas_cost = { .opcode_gas = AVM_ECADD_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
@@ -683,27 +737,6 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec> EXEC_INSTRUCTION_
                                                      /*radix*/ ValueTag::U32,
                                                      /*num_limbs*/ ValueTag::U32,
                                                      /*is_output_bit*/ ValueTag::U1 }) } },
-    { ExecutionOpCode::EMITUNENCRYPTEDLOG,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
-                      .base_da = AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
-                      .dyn_l2 = AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
-                      .dyn_da = AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS },
-        .dyn_gas_id = AVM_DYN_GAS_ID_EMITUNENCRYPTEDLOG,
-        .register_info = RegisterInfo().add_inputs({ ValueTag::U32 }) } },
-    { ExecutionOpCode::SENDL2TOL1MSG,
-      { .num_addresses = 2,
-        .gas_cost = { .opcode_gas = AVM_SENDL2TOL1MSG_BASE_L2_GAS,
-                      .base_da = AVM_SENDL2TOL1MSG_BASE_DA_GAS,
-                      .dyn_l2 = 0,
-                      .dyn_da = 0 },
-        .register_info = RegisterInfo().add_inputs({ /* recipient */ ValueTag::FF, /* content */ ValueTag::FF }) } },
-
-    {
-        ExecutionOpCode::SHA256COMPRESSION,
-        { .num_addresses = 3,
-          .gas_cost = { .opcode_gas = AVM_SHA256COMPRESSION_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 } },
-    },
 };
 
 } // namespace bb::avm2

@@ -23,8 +23,6 @@ MultilinearBatchingProver::MultilinearBatchingProver(
     BB_BENCH();
     ProverPolynomials polynomials;
     size_t virtual_circuit_size = 1 << Flavor::VIRTUAL_LOG_N;
-    info("accumulator: ", accumulator_claim->dyadic_size);
-    info("instance: ", instance_claim->dyadic_size);
     size_t max_dyadic_size = std::max(accumulator_claim->dyadic_size, instance_claim->dyadic_size);
     polynomials.w_non_shifted_accumulator = accumulator_claim->non_shifted_polynomial;
     polynomials.w_shifted_accumulator = accumulator_claim->shifted_polynomial.shifted();
@@ -92,19 +90,12 @@ void MultilinearBatchingProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(Flavor::VIRTUAL_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = FF(1);
-    }
-
     const size_t circuit_size = key->proving_key->circuit_size;
 
     Sumcheck sumcheck(circuit_size,
                       key->proving_key->polynomials,
                       transcript,
                       alpha,
-                      gate_challenges,
-                      relation_parameters,
                       Flavor::VIRTUAL_LOG_N,
                       key->proving_key->accumulator_challenge,
                       key->proving_key->instance_challenge);

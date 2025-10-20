@@ -11,7 +11,6 @@
 #include "barretenberg/protogalaxy/constants.hpp"
 #include "barretenberg/protogalaxy/folding_result.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
@@ -24,7 +23,7 @@ template <class VerifierInstance> class ProtogalaxyRecursiveVerifier_ {
     using VerifierInstances = std::array<std::shared_ptr<VerifierInstance>, NUM_INSTANCES>;
 
     using Builder = typename Flavor::CircuitBuilder;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
 
     static constexpr size_t EXTENDED_LENGTH = computed_extended_length<Flavor>();
     static constexpr size_t BATCHED_EXTENDED_LENGTH = computed_batched_extended_length<Flavor>();

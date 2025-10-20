@@ -149,6 +149,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
     ...booleanConfigHelper(false),
   },
+  injectFakeAttestation: {
+    description: 'Inject a fake attestation (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 

@@ -59,7 +59,7 @@ pub fn create_tx_start_marker(
     num_blob_fields: u32,
     array_lengths: TxEffectArrayLengths,
     public_logs_length: u32,
-    contract_class_log_length: u32,
+    contract_class_log_length: u32, // Assumed to be a u16, checked on tail to be less than CONTRACT_CLASS_LOG_SIZE_IN_FIELDS
     revert_code: u8,
 ) -> Field {
     let mut marker = num_blob_fields as Field;
@@ -98,6 +98,7 @@ pub fn append_tx_effect_to_sponge_blob(
     // base_rollup_inputs.start when using a fresh sponge. These only appeared when simulating via wasm.
     let mut end_sponge_blob = start_sponge_blob;
 
+    // The sponge blob will only absorb up to num_blob_fields.
     end_sponge_blob.absorb(tx_effects_hash_input, num_blob_fields);
 
     end_sponge_blob

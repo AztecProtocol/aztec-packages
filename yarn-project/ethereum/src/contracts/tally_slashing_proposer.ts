@@ -85,11 +85,20 @@ export class TallySlashingProposerContract {
    */
   public async getRound(round: bigint): Promise<{
     isExecuted: boolean;
-    readyToExecute: boolean;
     voteCount: bigint;
   }> {
-    const [isExecuted, readyToExecute, voteCount] = await this.contract.read.getRound([round]);
-    return { isExecuted, readyToExecute, voteCount };
+    const [isExecuted, voteCount] = await this.contract.read.getRound([round]);
+    return { isExecuted, voteCount };
+  }
+
+  /**
+   * Check if a round is ready to execute at a given slot
+   * @param round - The round number to check
+   * @param slot - The slot number to check at
+   * @returns Whether the round is ready to execute
+   */
+  public async isRoundReadyToExecute(round: bigint, slot: bigint): Promise<boolean> {
+    return await this.contract.read.isRoundReadyToExecute([round, slot]);
   }
 
   /** Returns the slash actions and payload address for a given round (zero if no slash actions) */

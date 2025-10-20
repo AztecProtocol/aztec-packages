@@ -5,7 +5,9 @@
 // =====================
 
 #pragma once
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
+#include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -14,9 +16,6 @@
 #include "sumcheck_round.hpp"
 
 namespace bb {
-// To know if a flavor is Multilinear Batching, without including the flavor.
-template <typename Flavor>
-concept isMultilinearBatchingFlavor = std::convertible_to<decltype(Flavor::IS_MULTILINEAR_BATCHING), bool>;
 
 /*! \brief The implementation of the sumcheck Prover for statements of the form \f$\sum_{\vec \ell \in \{0,1\}^d}
 pow_{\beta}(\vec \ell) \cdot F \left(P_1(\vec \ell),\ldots, P_N(\vec \ell) \right)  = 0 \f$ for multilinear polynomials
@@ -137,6 +136,7 @@ template <typename Flavor> class SumcheckProver {
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
+    static constexpr bool isMultilinearBatchingFlavor = IsAnyOf<Flavor, MultilinearBatchingFlavor>;
     /**
      * @brief The total algebraic degree of the Sumcheck relation \f$ F \f$ as a polynomial in Prover Polynomials
      * \f$P_1,\ldots, P_N\f$.
@@ -193,6 +193,25 @@ template <typename Flavor> class SumcheckProver {
     */
     PartiallyEvaluatedMultivariates partially_evaluated_polynomials;
 
+    // SumcheckProver constructor for MultilinearBatchingFlavor.
+    SumcheckProver(size_t multivariate_n,
+                   ProverPolynomials& prover_polynomials,
+                   std::shared_ptr<Transcript> transcript,
+                   const FF& relation_separator,
+                   const size_t virtual_log_n,
+                   const std::vector<FF>& accumulator_challenge,
+                   const std::vector<FF>& instance_challenge)
+        : multivariate_n(multivariate_n)
+        , multivariate_d(numeric::get_msb(multivariate_n))
+        , full_polynomials(prover_polynomials)
+        , transcript(std::move(transcript))
+        , round(multivariate_n)
+        , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(relation_separator))
+        , gate_challenges({})
+        , virtual_log_n(virtual_log_n)
+        , accumulator_challenge(accumulator_challenge)
+        , instance_challenge(instance_challenge) {};
+
     // SumcheckProver constructor for the Flavors that generate NUM_SUBRELATIONS - 1 subrelation separator challenges.
     SumcheckProver(size_t multivariate_n,
                    ProverPolynomials& prover_polynomials,
@@ -200,9 +219,7 @@ template <typename Flavor> class SumcheckProver {
                    const SubrelationSeparators& relation_separator,
                    const std::vector<FF>& gate_challenges,
                    const RelationParameters<FF>& relation_parameters,
-                   const size_t virtual_log_n,
-                   const std::vector<FF>& accumulator_challenge = {},
-                   const std::vector<FF>& instance_challenge = {})
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -211,9 +228,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(relation_separator)
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n)
-        , accumulator_challenge(accumulator_challenge)
-        , instance_challenge(instance_challenge) {};
+        , virtual_log_n(virtual_log_n) {};
 
     // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -223,9 +238,7 @@ template <typename Flavor> class SumcheckProver {
                    const FF& alpha,
                    const std::vector<FF>& gate_challenges,
                    const RelationParameters<FF>& relation_parameters,
-                   const size_t virtual_log_n,
-                   const std::vector<FF>& accumulator_challenge = {},
-                   const std::vector<FF>& instance_challenge = {})
+                   const size_t virtual_log_n)
         : multivariate_n(multivariate_n)
         , multivariate_d(numeric::get_msb(multivariate_n))
         , full_polynomials(prover_polynomials)
@@ -234,9 +247,7 @@ template <typename Flavor> class SumcheckProver {
         , alphas(initialize_relation_separator<FF, Flavor::NUM_SUBRELATIONS - 1>(alpha))
         , gate_challenges(gate_challenges)
         , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n)
-        , accumulator_challenge(accumulator_challenge)
-        , instance_challenge(instance_challenge) {};
+        , virtual_log_n(virtual_log_n) {};
     /**
      * @brief Non-ZK version: Compute round univariate, place it in transcript, compute challenge, partially evaluate.
      * Repeat until final round, then get full evaluations of prover polynomials, and place them in transcript.
@@ -297,7 +308,7 @@ template <typename Flavor> class SumcheckProver {
         // If required, extend prover's multilinear polynomials in `multivariate_d` variables by zero to get multilinear
         // polynomials in `virtual_log_n` variables.
         for (size_t k = multivariate_d; k < virtual_log_n; ++k) {
-            if constexpr (isMultilinearBatchingFlavor<Flavor>) {
+            if constexpr (isMultilinearBatchingFlavor) {
                 // We need to specify the evaluation at index 1 for eq polynomials
                 std::vector<FF> index_1_challenge(virtual_log_n);
                 for (size_t i = 0; i < k; i++) {
@@ -320,9 +331,9 @@ template <typename Flavor> class SumcheckProver {
                     partially_evaluated_polynomials.w_evaluations_instance = new_polynomial;
                 }
                 partially_evaluated_polynomials.w_evaluations_accumulator.at(1) =
-                    EqVerifierPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
+                    VerifierEqPolynomial<FF>::eval(accumulator_challenge, index_1_challenge);
                 partially_evaluated_polynomials.w_evaluations_instance.at(1) =
-                    EqVerifierPolynomial<FF>::eval(instance_challenge, index_1_challenge);
+                    VerifierEqPolynomial<FF>::eval(instance_challenge, index_1_challenge);
                 index_1_challenge[k] = FF(0);
             }
             // Compute the contribution from the extensions by zero. It is sufficient to evaluate the main constraint at
@@ -768,14 +779,19 @@ template <typename Flavor> class SumcheckVerifier {
      * @param relation_parameters
      * @param transcript
      */
-    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
-                                  std::vector<FF>& gate_challenges,
-                                  const std::vector<FF>& padding_indicator_array)
+    SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters = {},
+                                  const std::vector<FF>& gate_challenges = {},
+                                  const std::vector<FF>& padding_indicator = {})
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
+
+        // Initialize padding indicator to all 1s if not provided
+        std::vector<FF> padding_indicator_array =
+            padding_indicator.empty() ? std::vector<FF>(virtual_log_n, FF(1)) : padding_indicator;
+
         // All but final round.
         // target_total_sum is initialized to zero then mutated in place.
 

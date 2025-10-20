@@ -78,7 +78,7 @@ export class Signature {
   }
 
   static random(): Signature {
-    return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2));
+    return new Signature(Buffer32.random(), Buffer32.random(), 1);
   }
 
   static empty(): Signature {

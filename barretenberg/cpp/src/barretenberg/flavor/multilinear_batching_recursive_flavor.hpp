@@ -20,7 +20,7 @@ class MultilinearBatchingRecursiveFlavor {
     using PCS = KZG<Curve>;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::Element;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in
     // the CIVC context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
@@ -42,7 +42,9 @@ class MultilinearBatchingRecursiveFlavor {
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
-    template <typename FF> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF>>;
+    template <typename FF>
+    using Relations_ =
+        std::tuple<bb::MultilinearBatchingAccumulatorRelation<FF>, bb::MultilinearBatchingInstanceRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;

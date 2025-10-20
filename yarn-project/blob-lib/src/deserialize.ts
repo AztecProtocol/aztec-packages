@@ -1,8 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
-import type { Blob as BlobBuffer } from 'c-kzg';
-
 import { getNumBlobFieldsFromTxStartMarker, isBlockEndMarker } from './encoding.js';
 
 /**
@@ -37,7 +35,7 @@ import { getNumBlobFieldsFromTxStartMarker, isBlockEndMarker } from './encoding.
  * @param blob - The blob buffer to deserialize.
  * @returns An array of field elements.
  */
-export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
+export function deserializeEncodedBlobToFields(blob: Uint8Array): Fr[] {
   // Convert blob buffer to array of field elements
   const reader = BufferReader.asReader(blob);
   const array = reader.readArray(blob.length >> 5, Fr); // >> 5 = / 32 (bytes per field)
@@ -80,7 +78,7 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
  *                                                |
  * Function reads until here ----------------------
  */
-export function extractBlobFieldsFromBuffer(blob: BlobBuffer): Fr[] {
+export function extractBlobFieldsFromBuffer(blob: Uint8Array): Fr[] {
   const reader = BufferReader.asReader(blob);
   const array = reader.readArray(blob.length >> 5, Fr);
 

@@ -87,7 +87,6 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -181,7 +180,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     static size_t calc_num_data_types()
     {
-        using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size =
             PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
@@ -201,7 +199,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
-        using namespace bb::field_conversion;
 
         auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
             std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
@@ -232,7 +229,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
     {
-        using namespace bb::field_conversion;
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -309,7 +305,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -330,10 +326,10 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<FF> to_field_elements() const
     {
-        using namespace bb::stdlib::field_conversion;
+        using Codec = stdlib::StdlibCodec<FF>;
 
         auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
+            std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 

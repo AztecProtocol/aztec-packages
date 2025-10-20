@@ -47,11 +47,13 @@ class MultilinearBatchingFlavor {
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 4;
     // The number of shifted witness entities including derived witness entities
-    static constexpr size_t NUM_SHIFTED_WITNESSES = 2;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 2;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
-    template <typename FF> using Relations_ = std::tuple<bb::MultilinearBatchingRelation<FF>>;
+    template <typename FF>
+    using Relations_ =
+        std::tuple<bb::MultilinearBatchingAccumulatorRelation<FF>, bb::MultilinearBatchingInstanceRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();

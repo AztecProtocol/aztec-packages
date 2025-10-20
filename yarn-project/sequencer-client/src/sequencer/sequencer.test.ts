@@ -98,7 +98,12 @@ describe('sequencer', () => {
 
   const getAttestations = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
-    const attestation = new BlockAttestation(block.header.globalVariables.blockNumber, consensusPayload, mockedSig);
+    const attestation = new BlockAttestation(
+      block.header.globalVariables.blockNumber,
+      consensusPayload,
+      mockedSig,
+      mockedSig,
+    );
     (attestation as any).sender = committee[0];
     return [attestation];
   };

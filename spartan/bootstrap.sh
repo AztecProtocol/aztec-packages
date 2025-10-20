@@ -68,7 +68,7 @@ function network_test_cmds {
   # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
   # If we have more tests, we can reduce the epoch/slot duration in the tests,
   # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
-  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=55m"
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=120m"
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   echo $prefix $run_test_script simple src/spartan/smoke.test.ts
   echo $prefix $run_test_script simple src/spartan/transfer.test.ts

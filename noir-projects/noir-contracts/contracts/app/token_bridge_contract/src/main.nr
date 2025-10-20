@@ -83,9 +83,9 @@ pub contract TokenBridge {
         context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(config.token).burn_public(context.msg_sender(), amount, authwit_nonce).call(
-            &mut context,
-        );
+        Token::at(config.token)
+            .burn_public(context.msg_sender().unwrap(), amount, authwit_nonce)
+            .call(&mut context);
     }
     // docs:end:exit_to_l1_public
 
@@ -135,7 +135,9 @@ pub contract TokenBridge {
         context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(token).burn_private(context.msg_sender(), amount, authwit_nonce).call(&mut context);
+        Token::at(token).burn_private(context.msg_sender().unwrap(), amount, authwit_nonce).call(
+            &mut context,
+        );
     }
     // docs:end:exit_to_l1_private
 }

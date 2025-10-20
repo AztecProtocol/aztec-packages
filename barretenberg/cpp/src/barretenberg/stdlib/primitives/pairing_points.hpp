@@ -9,7 +9,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -59,7 +58,7 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        ASSERT(other.has_data, "Cannot aggregate null pairing points.");
+        BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
 
         // If LHS is empty, simply set it equal to the incoming pairing points
         if (!this->has_data && other.has_data) {
@@ -67,7 +66,7 @@ template <typename Builder_> struct PairingPoints {
             return;
         }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
-        BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
+        StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
 
         transcript.add_to_hash_buffer("Accumulator_P0", P0);
@@ -97,7 +96,7 @@ template <typename Builder_> struct PairingPoints {
      */
     uint32_t set_public()
     {
-        ASSERT(this->has_data, "Calling set_public on empty pairing points.");
+        BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
