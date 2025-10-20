@@ -6,6 +6,7 @@ set -eu
 # representing a list of circuit reports for a program.
 # The ACIR tests in barretenberg also expect every target bytecode to have the name `acir.gz` while this script expects the same name of the package
 MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' client_ivc_circuits.json)
+HIDING_CIRCUIT_PATTERNS=$(jq -r '.[]' client_ivc_tail_circuits.json)
 ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' rollup_honk_circuits.json)
 
 cd noir-protocol-circuits
@@ -26,6 +27,13 @@ for pathname in "$PROTOCOL_CIRCUITS_DIR/target"/*.json; do
     # Check if the current artifact is a mega honk circuit
     IS_MEGA_HONK_CIRCUIT="false"
     for pattern in $MEGA_HONK_CIRCUIT_PATTERNS; do
+        if echo "$ARTIFACT_NAME" | grep -qE "$pattern"; then
+            IS_MEGA_HONK_CIRCUIT="true"
+            break
+        fi
+    done
+
+    for pattern in $HIDING_CIRCUIT_PATTERNS; do
         if echo "$ARTIFACT_NAME" | grep -qE "$pattern"; then
             IS_MEGA_HONK_CIRCUIT="true"
             break
