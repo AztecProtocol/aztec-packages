@@ -127,6 +127,9 @@ template <typename Curve_> class KZG {
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
+        // This challenge is used to compute offset generators in the batch_mul call below
+        const Fr masking_challenge = transcript->template get_challenge<Fr>("KZG:masking_challenge");
+
         // The pairing check can be expressed as
         // e(C + [W]₁ ⋅ z, [1]₂) * e(−[W]₁, [X]₂) = 1, where C = ∑ commitmentsᵢ ⋅ scalarsᵢ.
         GroupElement P_0;
@@ -139,7 +142,8 @@ template <typename Curve_> class KZG {
             P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
                                           batch_opening_claim.scalars,
                                           /*max_num_bits=*/0,
-                                          /*with_edgecases=*/true);
+                                          /*with_edgecases=*/true,
+                                          /*masking_scalar=*/masking_challenge);
         } else {
             P_0 = batch_mul_native(batch_opening_claim.commitments, batch_opening_claim.scalars);
         }

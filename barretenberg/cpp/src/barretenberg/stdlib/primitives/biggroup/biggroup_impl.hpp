@@ -697,7 +697,8 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
                                                        const std::vector<Fr>& _scalars,
                                                        const size_t max_num_bits,
-                                                       const bool with_edgecases)
+                                                       const bool with_edgecases,
+                                                       const Fr& masking_scalar)
 {
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
     OriginTag tag{};
@@ -719,7 +720,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 
     // Perform goblinized batched mul if available; supported only for BN254
     if (with_edgecases) {
-        std::tie(points, scalars) = mask_points(points, scalars);
+        std::tie(points, scalars) = mask_points(points, scalars, masking_scalar);
     }
     const size_t num_points = points.size();
     BB_ASSERT_EQ(scalars.size(), num_points);
