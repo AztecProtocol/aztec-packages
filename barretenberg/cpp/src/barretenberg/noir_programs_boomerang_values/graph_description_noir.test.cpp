@@ -1,6 +1,8 @@
-#include "barretenberg/acir_formal_proofs/acir_loader.hpp"
+// #include "barretenberg/acir_formal_proofs/acir_loader.hpp"
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 
 using namespace bb;
 using namespace cdg;
