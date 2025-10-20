@@ -14,9 +14,9 @@ template <typename FF_> class data_copyImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3,
+    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3,
                                                                             3, 3, 3, 4, 5, 4, 6, 3, 5, 3, 4, 5,
-                                                                            4, 5, 5, 6, 5, 5, 6, 3, 3, 3 };
+                                                                            4, 5, 5, 3, 6, 5, 5, 6, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -51,9 +51,9 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static constexpr size_t SR_INIT_READ_ADDR = 24;
     static constexpr size_t SR_INCR_READ_ADDR = 25;
     static constexpr size_t SR_DECR_READ_COUNT = 26;
-    static constexpr size_t SR_PADDING_CONDITION = 27;
-    static constexpr size_t SR_PAD_VALUE = 29;
-    static constexpr size_t SR_CD_COPY_COLUMN = 30;
+    static constexpr size_t SR_PADDING_CONDITION = 28;
+    static constexpr size_t SR_PAD_VALUE = 30;
+    static constexpr size_t SR_CD_COPY_COLUMN = 31;
 
     static std::string get_subrelation_label(size_t index)
     {

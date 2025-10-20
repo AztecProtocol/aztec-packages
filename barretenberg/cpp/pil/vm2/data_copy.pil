@@ -2,7 +2,6 @@ include "memory.pil";
 include "calldata.pil";
 include "precomputed.pil";
 include "constants_gen.pil";
-include "range_check.pil";
 include "context.pil";
 
 /** This trace handles CALLDATACOPY and RETURNDATACOPY
@@ -18,26 +17,26 @@ include "context.pil";
  * context (using dst_context_id).
  * - M[src_addr]: aka value[0] (the first value read from the src context)
  *     - the memory tag is ignored for these reads
- * - M[src_addr + max_read_index]: aka value[max_read_index] (the last value read from the src context)
- *     - max_read_index is derived from the copy_size, see pil relations for an explanation
+ * - M[src_addr + data_index_upper_bound - 1]: aka value[data_index_upper_bound - 1] (the last value read from the src context)
+ *     - data_index_upper_bound is derived from the copy_size, see pil relations for an explanation
  *     - the memory tag is ignored for these reads
  * - M[dst_addr]: aka output[0] (the first value written to the dst context)
  *     - guaranteed by this gadget to be FF
- * - M[dst_addr + copy_size]: aka output[copy_size] (the last value written to the dst context)
+ * - M[dst_addr + copy_size - 1]: aka output[copy_size - 1] (the last value written to the dst context)
  *     - guaranteed by this gadget to be FF
  *
  * ERROR HANDLING:
- * There is one potential errors that is checked: memory out of range accesses
+ * There is one type of potential errors that is checked: memory out of range accesses
  * If there are no errors, we read and write the calldata/returndata from the parent/child context to the current context
  * COMPUTING AMOUNT OF DATA TO READ
  * We need to ensure that we do not read outside the bounds designated by the parent/child context for their respective data.
- * this max_read_index is computed via min(data_size, copy_size + copy_offset).
+ * this data_index_upper_bound is computed via min(data_size, copy_size + copy_offset).
  *
  * READING / WRITING DATA
  * At each row, the i-th data is simultaneously read from the parent/child and written into the current context
  * For top level calldatacopy, the data is retrieved from the calldata column.
- * the number of reads that are performed is (max_read_index - copy_offset), while the number of writes is copy_size
- * If the max_read_index < copy_offset, the number of reads is constrained to be 0.
+ * the number of reads that are performed is (data_index_upper_bound - copy_offset), while the number of writes is copy_size
+ * If the data_index_upper_bound < copy_offset, the number of reads is constrained to be 0.
  * If num_reads < copy_size, the remaining (copy_size - num_reads) rows are designated as padding rows.
  * padding rows are constrained to have the value = 0.
  *
@@ -107,7 +106,6 @@ include "context.pil";
 namespace data_copy;
 
     pol SEL = sel_rd_copy + sel_cd_copy;
-    pol MAX_MEM_ADDR = constants.AVM_HIGHEST_MEM_ADDRESS;
 
     #[skippable_if]
     SEL = 0;
@@ -156,28 +154,28 @@ namespace data_copy;
     #[TOP_LEVEL_COND]
     sel_cd_copy * (src_context_id * (is_top_level * (1 - parent_id_inv) + parent_id_inv) - 1 + is_top_level) = 0;
 
-    ////////////////////////////////////////////////
-    // Computing the max src index that can be read
-    ////////////////////////////////////////////////
+    //////////////////////////////////////
+    // Computing the src index upper bound
+    //////////////////////////////////////
     // Computing the read count, i.e. the number of elements that will be read from the src data.
-    // We compute the max read index using min(offset + copy_size, src_data_size)
+    // We compute the data index upper bound using min(offset + copy_size, src_data_size)
     // This ensures that we cannot read pass the designated data address assigned by the parent/child
     // The min operation is essentially checking the comparison of the following
     // 1) (offset + copy_size) > src_data_size or
     // 2) (offset + copy_size) <= src_data_size
-    // if (1) then max_read_index = src_data_size, otherwise max_read_index = (offset + copy_size)
+    // if (1) then data_index_upper_bound = src_data_size, otherwise data_index_upper_bound = (offset + copy_size)
     pol commit offset_plus_size;
     offset_plus_size = sel_start * (offset + copy_size);
     pol commit offset_plus_size_is_gt;
 
-    #[MAX_READ_INDEX_GT]
+    #[DATA_INDEX_UPPER_BOUND_GT]
     sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    // Set max_read_index based on the conditions (1) or (2) from above
-    pol commit max_read_index;
-    max_read_index = sel_start * ((src_data_size - offset_plus_size) * offset_plus_size_is_gt + offset_plus_size);
+    // Set data_index_upper_bound based on the conditions (1) or (2) from above
+    pol commit data_index_upper_bound;
+    data_index_upper_bound = sel_start * ((src_data_size - offset_plus_size) * offset_plus_size_is_gt + offset_plus_size);
 
     //////////////////////////////
     // Error Handling
@@ -186,24 +184,24 @@ namespace data_copy;
     pol commit src_out_of_range_err; // Read slices should be in MEM range
     pol commit dst_out_of_range_err; // Write slices should be in MEM range
 
-    pol commit max_mem_addr; // todo: While we do not support constants
-    sel_start * (max_mem_addr - constants.AVM_HIGHEST_MEM_ADDRESS) = 0;
+    pol commit mem_size; // todo: While we do not support constants
+    sel_start * (mem_size - constants.AVM_HIGHEST_MEM_ADDRESS - 1) = 0;
 
-    // MAX_READ_ADDR = 0 if this is a top level call since there aren't any memory reads at the top level
+    // READ_ADDR_UPPER_BOUND = 0 if this is a top level call since there aren't any memory reads at the top level
     // conceptually cd copy and rd copy don't perform reads at the top level.
-    pol MAX_READ_ADDR = src_addr + max_read_index;
-    pol commit max_read_addr;
-    max_read_addr = sel_start * MAX_READ_ADDR;
+    pol READ_ADDR_UPPER_BOUND = src_addr + data_index_upper_bound;
+    pol commit read_addr_upper_bound;
+    read_addr_upper_bound = sel_start * READ_ADDR_UPPER_BOUND;
     #[CHECK_SRC_ADDR_IN_RANGE]
-    sel_start { max_read_addr, max_mem_addr, src_out_of_range_err }
+    sel_start { read_addr_upper_bound, mem_size, src_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    pol MAX_WRITE_ADDR = dst_addr + copy_size;
-    pol commit max_write_addr;
-    max_write_addr = sel_start * MAX_WRITE_ADDR;
+    pol WRITE_ADDR_UPPER_BOUND = dst_addr + copy_size;
+    pol commit write_addr_upper_bound;
+    write_addr_upper_bound = sel_start * WRITE_ADDR_UPPER_BOUND;
     #[CHECK_DST_ADDR_IN_RANGE]
-    sel_start { max_write_addr, max_mem_addr, dst_out_of_range_err }
+    sel_start { write_addr_upper_bound, mem_size, dst_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
@@ -242,19 +240,19 @@ namespace data_copy;
     err * (sel_end - 1) = 0;
 
     pol commit reads_left; // Number of reads of the src data, if reads_left = 0 but copy_size != 0 then it is a padding row
-    // src data elements are read from indicies [offset, max_read_index], therefore reads_left = max_read_index - offset
-    // We need to be careful that max_read_index - offset does not underflow (i.e. when offset > max_read_index, reads_left = 0)
+    // src data elements are read from indices [offset, data_index_upper_bound), therefore reads_left = data_index_upper_bound - offset
+    // We need to be careful that data_index_upper_bound - offset does not underflow (i.e. when offset > data_index_upper_bound, reads_left = 0)
     // We test that condition here
-    pol commit offset_gt_max_read_index;
-    #[OFFSET_GT_MAX_READ_INDEX]
-    sel_start_no_err { offset, max_read_index, offset_gt_max_read_index }
+    pol commit offset_gt_data_index_upper_bound;
+    #[OFFSET_GT_DATA_INDEX_UPPER_BOUND]
+    sel_start_no_err { offset, data_index_upper_bound, offset_gt_data_index_upper_bound }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    // If sel_offset_gt_max_read = 1 (i.e. when offset > MAX_READ_INDEX, reads_left = 0)
-    // otherwise, reads_left = MAX_READ_INDEX - offset
+    // If sel_offset_gt_max_read = 1 (i.e. when offset > data_index_upper_bound, reads_left = 0)
+    // otherwise, reads_left = data_index_upper_bound - offset
     #[INIT_READS_LEFT]
-    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (max_read_index - offset) * (1 - offset_gt_max_read_index)) = 0;
+    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (data_index_upper_bound - offset) * (1 - offset_gt_data_index_upper_bound)) = 0;
 
     //////////////////////////////
     // Execute Data Copy
@@ -286,7 +284,8 @@ namespace data_copy;
     // Read count decrements
     #[DECR_READ_COUNT]
     SEL * (1 - padding) * (1 - sel_end) * (reads_left' - reads_left + 1) = 0;
-    pol commit padding; // Padding = 1 if reads_left = 0
+    pol commit padding; // If we write, padding = 1 iff reads_left = 0
+    padding * (1 - padding) = 0;
     pol commit reads_left_inv;
     #[PADDING_CONDITION]
     SEL_PERFORM_COPY * (reads_left * (padding * (1 - reads_left_inv) + reads_left_inv) - 1 + padding) = 0;

@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/gadgets/data_copy.hpp"
 
+#include <cstdint>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -11,6 +12,7 @@
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
 #include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
@@ -20,7 +22,6 @@
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/calldata_trace.hpp"
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
@@ -94,8 +95,8 @@ TEST_F(NestedCdConstrainingBuilderTest, CdZeroCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -117,8 +118,8 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -144,8 +145,8 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -170,8 +171,56 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(NestedCdConstrainingBuilderTest, ZeroCopySizeOffsetOOB)
+{
+    uint32_t offset = static_cast<uint32_t>(data.size()) + 1;
+    uint32_t size = 0;
+
+    // No call to get_calldata since offset is out of bounds
+    // Therefore, no need for an EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(NestedCdConstrainingBuilderTest, NonZeroCopySizeOffsetOOB)
+{
+    uint32_t offset = static_cast<uint32_t>(data.size()) + 1;
+    uint32_t size = 4;
+
+    // No call to get_calldata since offset is out of bounds
+    // Therefore, no need for an EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -182,7 +231,8 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
     uint32_t size = 4;
 
     uint32_t big_dst_addr = AVM_HIGHEST_MEM_ADDRESS - 1;
-    EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, size, offset, big_dst_addr), "Error during CD/RD copy");
+    EXPECT_THROW_WITH_MESSAGE(copy_data.cd_copy(context, size, offset, big_dst_addr),
+                              "Attempting to access out of bounds memory");
 
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
@@ -192,8 +242,129 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_max_read_index_gt_settings,
-                      lookup_data_copy_offset_gt_max_read_index_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
+{
+    uint32_t offset = static_cast<uint32_t>(data.size() - 1); // Last offset in calldata valid range
+    uint32_t size = 5;                                        // Some padding will be needed
+
+    uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
+
+    std::vector<FF> result_cd(size, FF(0));
+    result_cd.at(0) = data.at(offset);
+
+    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, high_dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
+{
+    uint32_t offset = 0;
+    uint32_t size = static_cast<uint32_t>(data.size()) - 2;
+
+    uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
+    std::vector<FF> result_cd(data.begin(), data.begin() + size);
+
+    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, high_dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+class HighCdAddressConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
+  protected:
+    HighCdAddressConstrainingBuilderTest()
+    {
+        // Set up parent context
+        EXPECT_CALL(context, has_parent).WillRepeatedly(Return(true));
+        EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(1));
+        EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(2));
+        EXPECT_CALL(context, get_parent_cd_size).WillRepeatedly(Return(data.size()));
+        EXPECT_CALL(context, get_parent_cd_addr).WillRepeatedly(Return(AVM_HIGHEST_MEM_ADDRESS - data.size()));
+    }
+};
+
+TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
+{
+    uint32_t offset = static_cast<uint32_t>(data.size() - 1); // Last offset in calldata valid range
+    uint32_t size = 5;                                        // Some padding will be needed
+
+    uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
+
+    std::vector<FF> result_cd(size, FF(0));
+    result_cd.at(0) = data.at(offset);
+
+    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, high_dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
+{
+    uint32_t offset = 0;
+    uint32_t size = static_cast<uint32_t>(data.size()) - 2;
+
+    uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
+    std::vector<FF> result_cd(data.begin(), data.begin() + size);
+
+    EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, size, offset, high_dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_data_index_upper_bound_gt_settings,
+                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -593,7 +764,7 @@ TEST(DataCopyWithExecutionPerm, ErrorPropagation)
     });
 
     EXPECT_THROW_WITH_MESSAGE(copy_data.rd_copy(context, copy_size, rd_offset, big_dst_addr),
-                              "Error during CD/RD copy");
+                              "Attempting to access out of bounds memory");
 
     DataCopyTraceBuilder builder;
     builder.process(event_emitter.dump_events(), trace);
