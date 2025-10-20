@@ -13,57 +13,90 @@ import { NoteDao } from './note_dao.js';
  *
  * Notes can be active or nullified. This class processes new notes, nullifications,
  * and performs rollback handling in the case of a reorg.
- **/
+ */
 export class NoteDataProvider {
   #store: AztecAsyncKVStore;
   #notes: AztecAsyncMap<string, Buffer>;
+
+  /** Per-scope indexes of active notes by contract and storage slot. */
+  #notesByScope: Map<
+    string,
+    {
+      byContract: AztecAsyncMultiMap<string, string>;
+      byStorageSlot: AztecAsyncMultiMap<string, string>;
+    }
+  >;
+
+  #notesToScope: AztecAsyncMultiMap<string, string>;
   #nullifiedNotes: AztecAsyncMap<string, Buffer>;
+
+  /** Per-scope indexes of nullified notes by contract and storage slot. */
+  #nullifiedNotesByScope: Map<
+    string,
+    {
+      byContract: AztecAsyncMultiMap<string, string>;
+      byStorageSlot: AztecAsyncMultiMap<string, string>;
+    }
+  >;
+
+  #nullifiedNotesToScope: AztecAsyncMultiMap<string, string>;
+  #nullifiedNotesByNullifier: AztecAsyncMap<string, string>;
+
   #nullifierToNoteId: AztecAsyncMap<string, string>;
   #nullifiersByBlockNumber: AztecAsyncMultiMap<number, string>;
 
-  #nullifiedNotesToScope: AztecAsyncMultiMap<string, string>;
-  #nullifiedNotesByContract: AztecAsyncMultiMap<string, string>;
-  #nullifiedNotesByStorageSlot: AztecAsyncMultiMap<string, string>;
-  #nullifiedNotesByNullifier: AztecAsyncMap<string, string>;
-
   #scopes: AztecAsyncMap<string, true>;
-  #notesToScope: AztecAsyncMultiMap<string, string>;
-  #notesByContractAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
-  #notesByStorageSlotAndScope: Map<string, AztecAsyncMultiMap<string, string>>;
 
   private constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#notes = store.openMap('notes');
     this.#nullifiedNotes = store.openMap('nullified_notes');
+
     this.#nullifierToNoteId = store.openMap('nullifier_to_note');
     this.#nullifiersByBlockNumber = store.openMultiMap('nullifier_to_block_number');
-
-    this.#nullifiedNotesToScope = store.openMultiMap('nullified_notes_to_scope');
-    this.#nullifiedNotesByContract = store.openMultiMap('nullified_notes_by_contract');
-    this.#nullifiedNotesByStorageSlot = store.openMultiMap('nullified_notes_by_storage_slot');
     this.#nullifiedNotesByNullifier = store.openMap('nullified_notes_by_nullifier');
 
     this.#scopes = store.openMap('scopes');
     this.#notesToScope = store.openMultiMap('notes_to_scope');
-    this.#notesByContractAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
-    this.#notesByStorageSlotAndScope = new Map<string, AztecAsyncMultiMap<string, string>>();
+    this.#nullifiedNotesToScope = store.openMultiMap('nullified_notes_to_scope');
+
+    this.#notesByScope = new Map<
+      string,
+      { byContract: AztecAsyncMultiMap<string, string>; byStorageSlot: AztecAsyncMultiMap<string, string> }
+    >();
+
+    this.#nullifiedNotesByScope = new Map<
+      string,
+      { byContract: AztecAsyncMultiMap<string, string>; byStorageSlot: AztecAsyncMultiMap<string, string> }
+    >();
   }
 
   /**
    * Creates and initializes a new NoteDataProvider instance.
    *
    * This factory method creates a NoteDataProvider and restores any existing
-   * scope-specific indexes from the database.
+   * scope-specific indexes from the database for both active and nullified notes.
    *
    * @param store - The key-value store to use for persistence
-   * @returns Promise resolving to a fully initialized NoteDataProvider instance
+   * @returns Returns a fully initialized instance
    */
   public static async create(store: AztecAsyncKVStore): Promise<NoteDataProvider> {
     const pxeDB = new NoteDataProvider(store);
+
     for await (const scope of pxeDB.#scopes.keysAsync()) {
-      pxeDB.#notesByContractAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_contract`));
-      pxeDB.#notesByStorageSlotAndScope.set(scope, store.openMultiMap(`${scope}:notes_by_storage_slot`));
+      const scopeStr = scope.toString();
+
+      pxeDB.#notesByScope.set(scopeStr, {
+        byContract: store.openMultiMap(`${scopeStr}:notes_by_contract`),
+        byStorageSlot: store.openMultiMap(`${scopeStr}:notes_by_storage_slot`),
+      });
+
+      pxeDB.#nullifiedNotesByScope.set(scopeStr, {
+        byContract: store.openMultiMap(`${scopeStr}:nullified_notes_by_contract`),
+        byStorageSlot: store.openMultiMap(`${scopeStr}:nullified_notes_by_storage_slot`),
+      });
     }
+
     return pxeDB;
   }
 
@@ -71,10 +104,11 @@ export class NoteDataProvider {
    * Adds a new scope to the note data provider.
    *
    * Scopes provide privacy isolation by creating separate indexes for each user.
-   * Each scope gets its own set of indexes for efficient note retrieval by various criteria.
+   * Each scope gets its own set of indexes for both active and nullified notes
+   * to allow efficient note retrieval by contract or storageSlot.
    *
    * @param scope - The AztecAddress representing the scope/user to add
-   * @returns Promise resolving to true if scope was added, false if it already existed
+   * @returns Returns true if the scope was added, false if it already existed.
    */
   public async addScope(scope: AztecAddress): Promise<boolean> {
     const scopeString = scope.toString();
@@ -84,8 +118,16 @@ export class NoteDataProvider {
     }
 
     await this.#scopes.set(scopeString, true);
-    this.#notesByContractAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_contract`));
-    this.#notesByStorageSlotAndScope.set(scopeString, this.#store.openMultiMap(`${scopeString}:notes_by_storage_slot`));
+
+    this.#notesByScope.set(scopeString, {
+      byContract: this.#store.openMultiMap(`${scopeString}:notes_by_contract`),
+      byStorageSlot: this.#store.openMultiMap(`${scopeString}:notes_by_storage_slot`),
+    });
+
+    this.#nullifiedNotesByScope.set(scopeString, {
+      byContract: this.#store.openMultiMap(`${scopeString}:nullified_notes_by_contract`),
+      byStorageSlot: this.#store.openMultiMap(`${scopeString}:nullified_notes_by_storage_slot`),
+    });
 
     return true;
   }
@@ -93,27 +135,31 @@ export class NoteDataProvider {
   /**
    * Adds multiple notes to the data provider under the specified scope.
    *
-   * Notes are stored using their index from the notes hash tree as the key, which provides
-   * uniqueness and maintains creation order. Each note is indexed by multiple criteria
-   * for efficient retrieval.
+   * Stores a batch of notes under a specific scope, creating scope indexes if needed.
    *
    * @param notes - Notes to store
    * @param scope - The scope (user/account) under which to store the notes
    */
   addNotes(notes: NoteDao[], scope: AztecAddress): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      if (!(await this.#scopes.hasAsync(scope.toString()))) {
+      const scopeString = scope.toString();
+
+      // Ensure scope is registered
+      if (!(await this.#scopes.hasAsync(scopeString))) {
         await this.addScope(scope);
       }
 
+      const scopeMaps = this.#notesByScope.get(scopeString)!;
+
       for (const dao of notes) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+
         await this.#notes.set(noteIndex, dao.toBuffer());
-        await this.#notesToScope.set(noteIndex, scope.toString());
+        await this.#notesToScope.set(noteIndex, scopeString);
         await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-        await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
+        await scopeMaps.byContract.set(dao.contractAddress.toString(), noteIndex);
+        await scopeMaps.byStorageSlot.set(dao.storageSlot.toString(), noteIndex);
       }
     });
   }
@@ -134,10 +180,7 @@ export class NoteDataProvider {
   }
 
   /**
-   * Deletes (removes) all active notes created after the specified block number.
-   *
-   * Permanently delete notes from the active notes store, e.g. during a reorg.
-   * Note: This only affects #notes (active notes), not #nullifiedNotes.
+   * Deletes all active notes created after the specified block number.
    *
    * @param blockNumber - Notes created after this block number will be deleted
    */
@@ -151,10 +194,15 @@ export class NoteDataProvider {
           await this.#notes.delete(noteIndex);
           await this.#notesToScope.delete(noteIndex);
           await this.#nullifierToNoteId.delete(noteDao.siloedNullifier.toString());
+
+          // Remove from per-scope indexes
           const scopes = await toArray(this.#scopes.keysAsync());
           for (const scope of scopes) {
-            await this.#notesByContractAndScope.get(scope)!.deleteValue(noteDao.contractAddress.toString(), noteIndex);
-            await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(noteDao.storageSlot.toString(), noteIndex);
+            const scopeMaps = this.#notesByScope.get(scope);
+            if (scopeMaps) {
+              await scopeMaps.byContract.deleteValue(noteDao.contractAddress.toString(), noteIndex);
+              await scopeMaps.byStorageSlot.deleteValue(noteDao.storageSlot.toString(), noteIndex);
+            }
           }
         }
       }
@@ -181,36 +229,46 @@ export class NoteDataProvider {
       const notesIndexesToReinsert = await Promise.all(
         nullifiersToUndo.map(nullifier => this.#nullifiedNotesByNullifier.getAsync(nullifier)),
       );
-      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex != undefined);
+      const notNullNoteIndexes = notesIndexesToReinsert.filter(noteIndex => noteIndex !== undefined);
       const nullifiedNoteBuffers = await Promise.all(
         notNullNoteIndexes.map(noteIndex => this.#nullifiedNotes.getAsync(noteIndex!)),
       );
       const noteDaos = nullifiedNoteBuffers
-        .filter(buffer => buffer != undefined)
+        .filter(buffer => buffer !== undefined)
         .map(buffer => NoteDao.fromBuffer(buffer!));
 
       for (const dao of noteDaos) {
         const noteIndex = toBufferBE(dao.index, 32).toString('hex');
+
+        // Restore to active notes
         await this.#notes.set(noteIndex, dao.toBuffer());
         await this.#nullifierToNoteId.set(dao.siloedNullifier.toString(), noteIndex);
 
-        let scopes = (await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteIndex))) ?? [];
-
-        if (scopes.length === 0) {
+        let scopes = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteIndex));
+        if (!scopes || scopes.length === 0) {
           scopes = [dao.recipient.toString()];
         }
 
         for (const scope of scopes) {
-          await this.#notesByContractAndScope.get(scope.toString())!.set(dao.contractAddress.toString(), noteIndex);
-          await this.#notesByStorageSlotAndScope.get(scope.toString())!.set(dao.storageSlot.toString(), noteIndex);
-          await this.#notesToScope.set(noteIndex, scope);
+          const activeScopeMaps = this.#notesByScope.get(scope);
+          if (activeScopeMaps) {
+            await activeScopeMaps.byContract.set(dao.contractAddress.toString(), noteIndex);
+            await activeScopeMaps.byStorageSlot.set(dao.storageSlot.toString(), noteIndex);
+            await this.#notesToScope.set(noteIndex, scope);
+          }
         }
 
+        // Remove from nullified notes
         await this.#nullifiedNotes.delete(noteIndex);
         await this.#nullifiedNotesToScope.delete(noteIndex);
         await this.#nullifiersByBlockNumber.deleteValue(dao.l2BlockNumber, dao.siloedNullifier.toString());
-        await this.#nullifiedNotesByContract.deleteValue(dao.contractAddress.toString(), noteIndex);
-        await this.#nullifiedNotesByStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
+
+        const nullifiedScopeMaps = this.#nullifiedNotesByScope.get(scopes[0]);
+        if (nullifiedScopeMaps) {
+          await nullifiedScopeMaps.byContract.deleteValue(dao.contractAddress.toString(), noteIndex);
+          await nullifiedScopeMaps.byStorageSlot.deleteValue(dao.storageSlot.toString(), noteIndex);
+        }
+
         await this.#nullifiedNotesByNullifier.delete(dao.siloedNullifier.toString());
       }
     });
@@ -228,97 +286,141 @@ export class NoteDataProvider {
    * @throws If filtering by an empty scopes array. Scopes have to be set to undefined or to a non-empty array.
    */
   async getNotes(filter: NotesFilter): Promise<NoteDao[]> {
-    filter.status = filter.status ?? NoteStatus.ACTIVE;
+    const preparedFilter = await this.#prepareFilter(filter);
 
-    // throw early if scopes is an empty array
-    if (filter.scopes !== undefined && filter.scopes.length === 0) {
+    const activeCandidates = await this.#getActiveCandidateIds(preparedFilter);
+
+    const nullifiedCandidates =
+      preparedFilter.status === NoteStatus.ACTIVE_OR_NULLIFIED
+        ? await this.#getNullifiedCandidateIds(preparedFilter)
+        : [];
+
+    // combine sources and de-duplicate
+    const allCandidateSources = [
+      { ids: new Set(activeCandidates), notes: this.#notes },
+      ...(nullifiedCandidates.length > 0 ? [{ ids: new Set(nullifiedCandidates), notes: this.#nullifiedNotes }] : []),
+    ];
+
+    // Fetch note data and apply filtering
+    return this.#loadAndFilterNotes(allCandidateSources, preparedFilter);
+  }
+
+  /**
+   * Prepares and validates a NotesFilter for internal use
+   * by filling in missing defaults and resolving undefined scopes.
+   *
+   * @param filter - The original NotesFilter provided by the caller
+   * @returns A fully resolved and validated filter ready for querying notes
+   * @throws If `filter.scopes` is an empty array
+   */
+  async #prepareFilter(filter: NotesFilter): Promise<Required<NotesFilter>> {
+    const resolved = { ...filter };
+
+    resolved.status ??= NoteStatus.ACTIVE;
+
+    if (resolved.scopes !== undefined && resolved.scopes.length === 0) {
       throw new Error(
         'Trying to get notes with an empty scopes array. Scopes have to be set to undefined if intending on not filtering by scopes.',
       );
     }
 
-    const candidateNoteSources = [];
-
-    filter.scopes ??= (await toArray(this.#scopes.keysAsync())).map(addressString =>
-      AztecAddress.fromString(addressString),
-    );
-
-    const activeNoteIdsPerScope: string[][] = [];
-
-    for (const scope of new Set(filter.scopes)) {
-      const formattedScopeString = scope.toString();
-      if (!(await this.#scopes.hasAsync(formattedScopeString))) {
-        throw new Error('Trying to get incoming notes of a scope that is not in the PXE database');
-      }
-
-      activeNoteIdsPerScope.push(
-        filter.storageSlot
-          ? await toArray(
-              this.#notesByStorageSlotAndScope.get(formattedScopeString)!.getValuesAsync(filter.storageSlot.toString()),
-            )
-          : await toArray(
-              this.#notesByContractAndScope
-                .get(formattedScopeString)!
-                .getValuesAsync(filter.contractAddress.toString()),
-            ),
-      );
+    if (!resolved.scopes) {
+      const allScopes = await toArray(this.#scopes.keysAsync());
+      resolved.scopes = allScopes.map(AztecAddress.fromString);
     }
 
-    candidateNoteSources.push({
-      ids: new Set(activeNoteIdsPerScope.flat()),
-      notes: this.#notes,
-    });
+    return resolved as Required<NotesFilter>;
+  }
 
-    // If status is ACTIVE_OR_NULLIFIED we add nullified notes as candidates on top of the default active ones.
-    if (filter.status === NoteStatus.ACTIVE_OR_NULLIFIED) {
-      const nullifiedIds = filter.storageSlot
-        ? await toArray(this.#nullifiedNotesByStorageSlot.getValuesAsync(filter.storageSlot.toString()))
-        : await toArray(this.#nullifiedNotesByContract.getValuesAsync(filter.contractAddress.toString()));
+  /**
+   * Retrieves active note IDs matching the filter across all specified scopes.
+   *
+   * @param filter - Fully prepared NotesFilter object
+   * @returns Promise resolving to array of unique note IDs
+   * @throws If any scope is not registered in the PXE database
+   */
+  async #getActiveCandidateIds(filter: Required<NotesFilter>): Promise<string[]> {
+    const ids = new Set<string>();
 
-      const setOfScopes = new Set(filter.scopes.map(s => s.toString() as string));
-      const filteredNullifiedIds = new Set<string>();
+    for (const scopeObj of filter.scopes) {
+      const scope = scopeObj.toString();
 
-      for (const noteId of nullifiedIds) {
-        const scopeList = await toArray(this.#nullifiedNotesToScope.getValuesAsync(noteId));
-        if (scopeList.some(scope => setOfScopes.has(scope))) {
-          filteredNullifiedIds.add(noteId);
-        }
+      // Validate scope exists
+      if (!(await this.#scopes.hasAsync(scope))) {
+        throw new Error(`Trying to get incoming notes of a scope that is not in the PXE database`);
       }
 
-      if (filteredNullifiedIds.size > 0) {
-        candidateNoteSources.push({
-          ids: filteredNullifiedIds,
-          notes: this.#nullifiedNotes,
-        });
-      }
+      const scopeMaps = this.#notesByScope.get(scope)!;
+      const map = filter.storageSlot ? scopeMaps.byStorageSlot : scopeMaps.byContract;
+      const key = (filter.storageSlot ?? filter.contractAddress).toString();
+
+      (await toArray(map.getValuesAsync(key))).forEach(id => ids.add(id));
     }
 
-    const result: NoteDao[] = [];
-    for (const { ids, notes } of candidateNoteSources) {
+    return Array.from(ids);
+  }
+
+  /**
+   * Same as #getActiveCandidateIds but operates on nullified notes.
+   */
+  async #getNullifiedCandidateIds(filter: Required<NotesFilter>): Promise<string[]> {
+    const ids = new Set<string>();
+
+    for (const scopeObj of filter.scopes) {
+      const scope = scopeObj.toString();
+
+      // Validate scope exists
+      if (!(await this.#scopes.hasAsync(scope))) {
+        throw new Error(`Trying to get incoming notes of a scope that is not in the PXE database`);
+      }
+
+      const scopeMaps = this.#nullifiedNotesByScope.get(scope)!;
+      const map = filter.storageSlot ? scopeMaps.byStorageSlot : scopeMaps.byContract;
+      const key = (filter.storageSlot ?? filter.contractAddress).toString();
+
+      (await toArray(map.getValuesAsync(key))).forEach(id => ids.add(id));
+    }
+
+    return Array.from(ids);
+  }
+
+  /**
+   * Converts note IDs from candidate sources into NoteDao objects
+   *
+   * @param candidateSources - Array of objects containing note ID sets and their corresponding storage maps
+   * @param filter - The fully-resolved NotesFilter to apply during filtering
+   * @returns Promise resolving to an array of NoteDao objects that match the filter
+   */
+  async #loadAndFilterNotes(
+    candidateSources: { ids: Set<string>; notes: AztecAsyncMap<string, Buffer> }[],
+    filter: Required<NotesFilter>,
+  ): Promise<NoteDao[]> {
+    const results: NoteDao[] = [];
+
+    for (const { ids, notes } of candidateSources) {
       for (const id of ids) {
-        const serializedNote = await notes.getAsync(id);
-        if (!serializedNote) {
+        const serialized = await notes.getAsync(id);
+        if (!serialized) {
           continue;
         }
 
-        const note = NoteDao.fromBuffer(serializedNote);
+        const note = NoteDao.fromBuffer(serialized);
+
         if (!note.contractAddress.equals(filter.contractAddress)) {
           continue;
         }
-
-        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot!)) {
+        if (filter.storageSlot && !note.storageSlot.equals(filter.storageSlot)) {
           continue;
         }
-
         if (filter.siloedNullifier && !note.siloedNullifier.equals(filter.siloedNullifier)) {
           continue;
         }
 
-        result.push(note);
+        results.push(note);
       }
     }
 
-    return result;
+    return results;
   }
 
   /**
@@ -332,62 +434,95 @@ export class NoteDataProvider {
    * @returns Promise resolving to array of nullified NoteDao objects
    * @throws Error if any nullifier is not found in the active notes
    */
-  applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
+  async applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
     if (nullifiers.length === 0) {
-      return Promise.resolve([]);
+      return [];
     }
 
-    return this.#store.transactionAsync(async () => {
+    return await this.#store.transactionAsync(async () => {
       const nullifiedNotes: NoteDao[] = [];
 
-      for (const blockScopedNullifier of nullifiers) {
-        const { data: nullifier, l2BlockNumber: blockNumber } = blockScopedNullifier;
-        const nullifierKey = nullifier.toString();
-
-        const noteIndex = await this.#nullifierToNoteId.getAsync(nullifierKey);
-        if (!noteIndex) {
-          // Check if already nullified?
-          const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
-          if (alreadyNullified) {
-            throw new Error(`Nullifier already applied in applyNullifiers`);
-          }
-          throw new Error('Nullifier not found in applyNullifiers');
-        }
-
-        const noteBuffer = noteIndex ? await this.#notes.getAsync(noteIndex) : undefined;
-
-        if (!noteBuffer) {
-          throw new Error('Note not found in applyNullifiers');
-        }
-        const noteScopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [];
-        const note = NoteDao.fromBuffer(noteBuffer);
-
+      for (const { data: nullifier, l2BlockNumber: blockNumber } of nullifiers) {
+        const { noteIndex, note } = await this.#fetchActiveNoteByNullifier(nullifier);
         nullifiedNotes.push(note);
 
-        await this.#notes.delete(noteIndex);
-        await this.#notesToScope.delete(noteIndex);
+        const scopes = (await toArray(this.#notesToScope.getValuesAsync(noteIndex))) ?? [note.recipient.toString()];
 
-        const scopes = await toArray(this.#scopes.keysAsync());
-
-        for (const scope of scopes) {
-          await this.#notesByContractAndScope.get(scope)!.deleteValue(note.contractAddress.toString(), noteIndex);
-          await this.#notesByStorageSlotAndScope.get(scope)!.deleteValue(note.storageSlot.toString(), noteIndex);
-        }
-
-        if (noteScopes !== undefined) {
-          for (const scope of noteScopes) {
-            await this.#nullifiedNotesToScope.set(noteIndex, scope);
-          }
-        }
-        await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
-        await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
-        await this.#nullifiedNotesByContract.set(note.contractAddress.toString(), noteIndex);
-        await this.#nullifiedNotesByStorageSlot.set(note.storageSlot.toString(), noteIndex);
-        await this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
-
-        await this.#nullifierToNoteId.delete(nullifier.toString());
+        await this.#removeActiveNote(noteIndex, note, scopes);
+        await this.#insertNullifiedNote(noteIndex, note, scopes, nullifier, blockNumber);
       }
+
       return nullifiedNotes;
     });
+  }
+
+  /**
+   * Fetches the active note corresponding to a given nullifier.
+   *
+   * @param nullifier - The nullifier to look up
+   * @returns Promise resolving to an object containing the note index and the NoteDao
+   * @throws Error if the nullifier does not exist or the note is already nullified
+   */
+  async #fetchActiveNoteByNullifier(nullifier: Fr): Promise<{ noteIndex: string; note: NoteDao }> {
+    const nullifierKey = nullifier.toString();
+    const noteIndex = await this.#nullifierToNoteId.getAsync(nullifierKey);
+    if (!noteIndex) {
+      // Check if already nullified?
+      const alreadyNullified = await this.#nullifiedNotesByNullifier.getAsync(nullifierKey);
+      if (alreadyNullified) {
+        throw new Error(`Nullifier already applied in applyNullifiers`);
+      }
+      throw new Error('Nullifier not found in applyNullifiers');
+    }
+
+    const noteBuffer = await this.#notes.getAsync(noteIndex);
+    if (!noteBuffer) {
+      throw new Error('Note not found in applyNullifiers');
+    }
+
+    return { noteIndex, note: NoteDao.fromBuffer(noteBuffer) };
+  }
+
+  /**
+   * Removes a note and its indexes from active storage.
+   */
+  async #removeActiveNote(noteIndex: string, note: NoteDao, scopes: string[]): Promise<void> {
+    await this.#notes.delete(noteIndex);
+    await this.#notesToScope.delete(noteIndex);
+    await this.#nullifierToNoteId.delete(note.siloedNullifier.toString());
+
+    for (const scope of scopes) {
+      const activeScopeMap = this.#notesByScope.get(scope);
+      if (!activeScopeMap) {
+        continue;
+      }
+      await activeScopeMap.byContract.deleteValue(note.contractAddress.toString(), noteIndex);
+      await activeScopeMap.byStorageSlot.deleteValue(note.storageSlot.toString(), noteIndex);
+    }
+  }
+
+  /**
+   * Inserts a note into nullified storage and updates related indexes.
+   */
+  async #insertNullifiedNote(
+    noteIndex: string,
+    note: NoteDao,
+    scopes: string[],
+    nullifier: Fr,
+    blockNumber: number,
+  ): Promise<void> {
+    await this.#nullifiedNotes.set(noteIndex, note.toBuffer());
+    await this.#nullifiedNotesByNullifier.set(nullifier.toString(), noteIndex);
+    await this.#nullifiersByBlockNumber.set(blockNumber, nullifier.toString());
+
+    for (const scope of scopes) {
+      await this.#nullifiedNotesToScope.set(noteIndex, scope);
+      const nullifiedScopeMap = this.#nullifiedNotesByScope.get(scope);
+      if (!nullifiedScopeMap) {
+        continue;
+      }
+      await nullifiedScopeMap.byContract.set(note.contractAddress.toString(), noteIndex);
+      await nullifiedScopeMap.byStorageSlot.set(note.storageSlot.toString(), noteIndex);
+    }
   }
 }
