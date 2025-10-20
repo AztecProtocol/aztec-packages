@@ -66,7 +66,7 @@ const config = {
           include: ["**/*.{md,mdx}"],
           exclude: ["protocol-specs/**"],
           // Don't show latest since nightlies are published
-          includeCurrentVersion: process.env.ENV === "dev",
+          includeCurrentVersion: process.env.ENV !== "netlify",
           // There should be 2 versions, nightly and stable
           // The stable version is second in the list
           lastVersion: versions[1],
@@ -74,7 +74,7 @@ const config = {
             [versions[0]]: {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
-            ...(process.env.ENV === "dev" && {
+            ...(process.env.ENV !== "netlify" && {
               current: {
                 label: "dev",
                 path: "dev",
