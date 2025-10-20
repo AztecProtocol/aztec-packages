@@ -20,12 +20,12 @@ esac
 target="$arch-$os"
 
 if [ -z "$SKIP_CPP_BUILD" ] && [ "${CI:-0}" -eq 0 ]; then
-  parallel --line-buffered --tag 'eval ../cpp/bootstrap.sh build_preset {}' ::: 'clang20 --target bb-no-avm' "zig-node-$target"
+  parallel --line-buffered --tag 'eval ../cpp/bootstrap.sh build_preset {}' ::: 'clang20 --target bb' "zig-node-$target"
 fi
 
 mkdir -p ./build/$target
 
-cp ../cpp/build/bin/bb-no-avm ./build/$target/bb
+cp ../cpp/build/bin/bb ./build/$target/bb
 cp ../cpp/build-zig-node-$target/lib/nodejs_module.node ./build/$target
 
 llvm-strip-20 ./build/$target/bb

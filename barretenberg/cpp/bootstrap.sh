@@ -8,11 +8,6 @@ export native_preset=${NATIVE_PRESET:-clang20}
 export pic_preset=${PIC_PRESET:-clang20-pic}
 export hash=$(cache_content_hash .rebuild_patterns)
 
-if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-  # Make sure the different envs don't read from each other's caches.
-  export hash="$hash-no-avm"
-fi
-
 function ensure_zig {
   if command -v zig &>/dev/null; then
     return
@@ -56,12 +51,7 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
-  local cmake_args=()
-  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-    cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
-  fi
-  cmake --fresh --preset "$preset" "${cmake_args[@]}"
+  cmake --fresh --preset "$preset"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -145,7 +135,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  cmake --preset gcc -DSYNTAX_ONLY=1 -DDISABLE_AZTEC_VM=ON
+  cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
@@ -386,12 +376,12 @@ case "$cmd" in
     # TODO currently does nothing! to reinstate in cache_download
     export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
     # make sure that disabling the aztec VM does not interfere with cache results from CI.
-    DISABLE_AZTEC_VM="" BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+    BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
     rm -rf bench-out
 
     # Recreation of logic from bench.
-    DISABLE_AZTEC_VM="" ../../yarn-project/end-to-end/bootstrap.sh build_bench
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench
 
     # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {
