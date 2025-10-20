@@ -96,7 +96,7 @@ template <typename Builder> class FieldSponge {
         Builder* builder = validate_context<Builder>(input);
 
         // Ensure that the pointer is not a `nullptr`
-        ASSERT(builder);
+        BB_ASSERT(builder);
 
         // Initialize the sponge state. Input length is used for domain separation.
         const size_t in_len = input.size();

@@ -44,7 +44,11 @@ describe('TxCollection', () => {
     return node;
   };
 
-  const makeTx = (txHash?: string | TxHash) => Tx.random({ txHash }) as Tx;
+  const makeTx = async (txHash?: string | TxHash) => {
+    const tx = Tx.random({ txHash }) as Tx;
+    await tx.recomputeHash();
+    return tx;
+  };
 
   const makeL2Block = (blockNumber = 1, slotNumber?: number) =>
     L2Block.random(blockNumber, 0, 0, 0, undefined, slotNumber ?? blockNumber);
@@ -115,7 +119,7 @@ describe('TxCollection', () => {
       txCollectionFastNodeIntervalMs: 100,
     };
 
-    txs = [makeTx(), makeTx(), makeTx()];
+    txs = await Promise.all([makeTx(), makeTx(), makeTx()]);
     txHashes = txs.map(tx => tx.txHash);
     block = await makeL2Block();
     deadline = new Date(dateProvider.now() + 60 * 60 * 1000);
@@ -168,7 +172,7 @@ describe('TxCollection', () => {
     });
 
     it('collects tx from nodes in batches', async () => {
-      txs = times(8, () => makeTx());
+      txs = await Promise.all(times(8, () => makeTx()));
       txHashes = txs.map(tx => tx.txHash);
       txCollection.startCollecting(block, txHashes);
 
@@ -363,7 +367,7 @@ describe('TxCollection', () => {
     });
 
     it('collects from nodes distributing batches', async () => {
-      txs = times(20, () => makeTx());
+      txs = await Promise.all(times(20, () => makeTx()));
       txHashes = txs.map(tx => tx.txHash);
       setNodeTxs(nodes[0], txs);
       setNodeTxs(nodes[1], txs.slice(15, 20));
@@ -425,7 +429,7 @@ describe('TxCollection', () => {
 
     it('stops collecting a tx from nodes when found', async () => {
       deadline = new Date(dateProvider.now() + 4000);
-      txs = times(4, () => makeTx());
+      txs = await Promise.all(times(4, () => makeTx()));
       txHashes = txs.map(tx => tx.txHash);
 
       const reqRespPromise = promiseWithResolvers<TxArray[]>();

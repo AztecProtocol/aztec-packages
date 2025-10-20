@@ -17,6 +17,15 @@ fn propagate_right_out_hash_when_left_is_zero() {
     assert_eq(checkpoint_header.content_commitment.out_hash, 123);
 }
 
+#[test(should_fail_with = "Right rollup must not carry in_hash")]
+fn non_zero_in_hash_in_right_rollup() {
+    let mut builder = TestBuilder::default();
+
+    builder.right_rollup.in_hash = 123;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Mismatched constants in block rollups")]
 fn mismatch_constants() {
     let mut builder = TestBuilder::default();

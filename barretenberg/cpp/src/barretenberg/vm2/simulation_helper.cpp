@@ -91,7 +91,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     EventEmitter<ExecutionEvent> execution_emitter;
     DeduplicatingEventEmitter<AluEvent> alu_emitter;
-    EventEmitter<BitwiseEvent> bitwise_emitter;
+    DeduplicatingEventEmitter<BitwiseEvent> bitwise_emitter;
     EventEmitter<DataCopyEvent> data_copy_emitter;
     EventEmitter<MemoryEvent> memory_emitter;
     EventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;

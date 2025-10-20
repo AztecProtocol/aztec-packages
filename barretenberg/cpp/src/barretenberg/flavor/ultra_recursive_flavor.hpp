@@ -5,21 +5,8 @@
 // =====================
 
 #pragma once
-#include "barretenberg/commitment_schemes/commitment_key.hpp"
-#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/srs/factories/crs_factory.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <array>
 #include <concepts>
@@ -30,7 +17,6 @@
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb {
 
@@ -58,7 +44,7 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using FF = typename Curve::ScalarField;
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
 
     static constexpr size_t VIRTUAL_LOG_N = UltraFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
@@ -142,16 +128,16 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
          */
         VerificationKey(std::span<FF> elements)
         {
-            using namespace bb::stdlib::field_conversion;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(elements, num_frs_read);
+            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(elements, num_frs_read);
+                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
         }
 

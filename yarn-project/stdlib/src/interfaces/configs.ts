@@ -54,6 +54,8 @@ export interface SequencerConfig {
   skipInvalidateBlockAsProposer?: boolean;
   /** Broadcast invalid block proposals with corrupted state (for testing only) */
   broadcastInvalidBlockProposal?: boolean;
+  /** Inject a fake attestation (for testing only) */
+  injectFakeAttestation?: boolean;
 }
 
 export const SequencerConfigSchema = z.object({
@@ -78,4 +80,5 @@ export const SequencerConfigSchema = z.object({
   secondsBeforeInvalidatingBlockAsCommitteeMember: z.number(),
   secondsBeforeInvalidatingBlockAsNonCommitteeMember: z.number(),
   broadcastInvalidBlockProposal: z.boolean().optional(),
+  injectFakeAttestation: z.boolean().optional(),
 }) satisfies ZodFor<SequencerConfig>;

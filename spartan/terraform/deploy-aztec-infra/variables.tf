@@ -470,3 +470,9 @@ variable "PROVER_FAILED_PROOF_STORE" {
   nullable    = false
   default     = ""
 }
+
+variable "RPC_REPLICAS" {
+  description = "The number of RPC replicas"
+  type        = string
+  default     = 1
+}

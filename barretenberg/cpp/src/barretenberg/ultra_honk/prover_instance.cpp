@@ -40,6 +40,8 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
 {
     BB_BENCH_NAME("allocate_wires");
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555):Wires can be allocated based on final active row
+    // rather than dyadic size.
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(dyadic_size());
     }
@@ -49,6 +51,8 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Sigma and id polynomials can be allocated based
+    // on final active row rather than dyadic size.
     for (auto& sigma : polynomials.get_sigmas()) {
         sigma = Polynomial(dyadic_size());
     }
@@ -79,16 +83,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/914): q_arith is currently used
-        // in memory block.
-        if (&block == &circuit.blocks.arithmetic) {
-            size_t arith_size = circuit.blocks.memory.trace_offset() - circuit.blocks.arithmetic.trace_offset() +
-                                circuit.blocks.memory.get_fixed_size(is_structured);
-            selector = Polynomial(arith_size, dyadic_size(), circuit.blocks.arithmetic.trace_offset());
-        } else {
-            selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
-        }
+        selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
     }
 
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
@@ -103,7 +98,8 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): can potentially improve memory footprint
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Can allocate table polynomials based on genuine
+    // lookup table sizes in all cases. Same applies to read_counts/tags, except for ZK case.
     const size_t max_tables_size = dyadic_size() - table_offset;
     BB_ASSERT_GT(dyadic_size(), max_tables_size);
 
@@ -150,15 +146,18 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     requires HasDataBus<Flavor>
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
-    polynomials.calldata = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.secondary_calldata = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.return_data = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(MAX_DATABUS_SIZE, dyadic_size());
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Each triple of databus polynomials can be
+    // allocated based on the size of the corresponding column (except for ZK case).
+    const size_t poly_size = std::min(static_cast<size_t>(MAX_DATABUS_SIZE), dyadic_size());
+    polynomials.calldata = Polynomial(poly_size, dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(poly_size, dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(poly_size, dyadic_size());
+    polynomials.secondary_calldata = Polynomial(poly_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(poly_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(poly_size, dyadic_size());
+    polynomials.return_data = Polynomial(poly_size, dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(poly_size, dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(poly_size, dyadic_size());
 
     // Allocate log derivative lookup argument inverse polynomials
     const size_t q_busread_end =
@@ -167,8 +166,13 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
-    polynomials.databus_id = Polynomial(
-        std::max({ calldata_size, secondary_calldata_size, return_data_size, q_busread_end }), dyadic_size());
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Size of databus_id can always be set to max size
+    // between the three databus columns. It currently uses dyadic_size because its values are later set based on its
+    // size(). This means when we naively construct all ProverPolynomials with dyadic size (e.g. for ZK), we get a
+    // different databus_id polynomial and therefore a different VK.
+    polynomials.databus_id = Polynomial(dyadic_size(), dyadic_size());
+    // polynomials.databus_id = Polynomial(std::max({ calldata_size, secondary_calldata_size, return_data_size,
+    // q_busread_end }), dyadic_size());
 
     polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =

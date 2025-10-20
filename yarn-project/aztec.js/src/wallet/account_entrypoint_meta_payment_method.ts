@@ -78,6 +78,7 @@ export class AccountEntrypointMetaPaymentMethod implements FeePaymentMethod {
       this.accountAddress,
       await FunctionSelector.fromNameAndParameters(feePaymentArtifact.name, feePaymentArtifact.parameters),
       feePaymentArtifact.functionType,
+      false /** hideMsgSender -- set to `false`, because it's not applicable for an entrypoint function (only for enqueued public calls) */,
       feePaymentArtifact.isStatic,
       encodeArguments(feePaymentArtifact, args),
       feePaymentArtifact.returnTypes,

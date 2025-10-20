@@ -39,7 +39,7 @@ pub contract StateVars {
 
     #[public]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: context.msg_sender(), value };
+        let mut new_mock_struct = MockStruct { account: context.msg_sender().unwrap(), value };
         storage.public_immutable.initialize(new_mock_struct);
     }
 
@@ -99,22 +99,22 @@ pub contract StateVars {
 
     #[private]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, context.msg_sender());
+        let new_note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_note).emit(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[private]
     fn initialize_private(randomness: Field, value: Field) {
-        let private_mutable = ValueNote::new(value, context.msg_sender());
+        let private_mutable = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_mutable.initialize(private_mutable).emit(
             &mut context,
-            context.msg_sender(),
+            context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
@@ -123,8 +123,8 @@ pub contract StateVars {
     fn update_private_mutable(randomness: Field, value: Field) {
         storage
             .private_mutable
-            .replace(|_old_note| ValueNote::new(value, context.msg_sender()))
-            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .replace(|_old_note| ValueNote::new(value, context.msg_sender().unwrap()))
+            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[private]
@@ -134,9 +134,9 @@ pub contract StateVars {
             .private_mutable
             .replace(|old_note| {
                 let new_value = old_note.value() + 1;
-                ValueNote::new(new_value, context.msg_sender())
+                ValueNote::new(new_value, context.msg_sender().unwrap())
             })
-            .emit(&mut context, context.msg_sender(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[utility]

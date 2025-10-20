@@ -1,13 +1,12 @@
 import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum';
-import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
+import type { NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
-import path, { join } from 'path';
+import path from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
-import { cachedFetch } from './cached_fetch.js';
 import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
 const SNAPSHOTS_URL = 'https://aztec-labs-snapshots.com';
@@ -410,22 +409,7 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   ...DefaultNetworkDBMapSizeConfig,
 };
 
-const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
-
-export async function getBootnodes(networkName: NetworkNames, cacheDir?: string) {
-  const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
-  const data = await cachedFetch(url, {
-    cacheDurationMs: BOOTNODE_CACHE_DURATION_MS,
-    cacheFile: cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined,
-  });
-
-  return data?.bootnodes;
-}
-
-export async function getL2ChainConfig(
-  networkName: NetworkNames,
-  cacheDir?: string,
-): Promise<L2ChainConfig | undefined> {
+export function getL2ChainConfig(networkName: NetworkNames): L2ChainConfig | undefined {
   let config: L2ChainConfig | undefined;
   if (networkName === 'staging-public') {
     config = { ...stagingPublicL2ChainConfig };
@@ -438,14 +422,6 @@ export async function getL2ChainConfig(
   } else if (networkName === 'next-net') {
     config = { ...nextNetL2ChainConfig };
   }
-  if (!config) {
-    return undefined;
-  }
-  // If the bootnodes are not set, get them from the network
-  const bootnodeKey: EnvVar = 'BOOTSTRAP_NODES';
-  if (!process.env[bootnodeKey]) {
-    config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
-  }
   return config;
 }
 
@@ -453,14 +429,13 @@ function getDefaultDataDir(networkName: NetworkNames): string {
   return path.join(process.env.HOME || '~', '.aztec', networkName, 'data');
 }
 
-export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
+export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   if (networkName === 'local') {
     return;
   }
 
   enrichVar('DATA_DIRECTORY', getDefaultDataDir(networkName));
-  const cacheDir = process.env.DATA_DIRECTORY ? join(process.env.DATA_DIRECTORY, 'cache') : undefined;
-  const config = await getL2ChainConfig(networkName, cacheDir);
+  const config = getL2ChainConfig(networkName);
 
   if (!config) {
     throw new Error(`Unknown network name: ${networkName}`);

@@ -64,7 +64,7 @@ void ipa_verify(State& state) noexcept
 
         state.ResumeTiming();
         auto result = IPA<Curve>::reduce_verify(vk, opening_claim, verifier_transcript);
-        ASSERT(result);
+        BB_ASSERT(result);
     }
 }
 } // namespace

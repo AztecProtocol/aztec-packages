@@ -138,14 +138,15 @@ where
     let maybe_length = unsafe { find_index_hint(array, |elem: T| elem.is_empty()) };
 
     let mut length = N;
+
     if maybe_length.is_some() {
         length = maybe_length.unwrap_unchecked();
 
         array[length].assert_empty("Expected array empty");
+    }
 
-        if length != 0 {
-            assert(!array[length - 1].is_empty());
-        }
+    if length != 0 {
+        assert(!array[length - 1].is_empty());
     }
 
     length
@@ -245,7 +246,7 @@ pub fn check_permutation<T, let N: u32>(
     original_indexes: [u32; N],
 )
 where
-    T: Empty,
+    T: Eq,
 {
     let mut seen_value = [false; N];
     for i in 0..N {

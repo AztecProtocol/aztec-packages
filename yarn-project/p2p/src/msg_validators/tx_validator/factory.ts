@@ -20,6 +20,7 @@ import { DoubleSpendTxValidator } from './double_spend_validator.js';
 import { GasTxValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { PhasesTxValidator } from './phases_validator.js';
+import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
 
@@ -59,12 +60,17 @@ export function createTxMessageValidators(
         validator: new MetadataTxValidator({
           l1ChainId: new Fr(l1ChainId),
           rollupVersion: new Fr(rollupVersion),
-          timestamp,
-          blockNumber,
           protocolContractsHash,
           vkTreeRoot: getVKTreeRoot(),
         }),
         severity: PeerErrorSeverity.HighToleranceError,
+      },
+      timestampValidator: {
+        validator: new TimestampTxValidator<Tx>({
+          timestamp,
+          blockNumber,
+        }),
+        severity: PeerErrorSeverity.MidToleranceError,
       },
       doubleSpendValidator: {
         validator: new DoubleSpendTxValidator({

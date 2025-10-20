@@ -105,7 +105,8 @@ function compile {
   local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1")
-  local contract=${contract_path#*/}
+  local contract=${contract_path##*/}
+
   # Calculate filename because nargo...
   contract_name=$(cat $folder_name/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"

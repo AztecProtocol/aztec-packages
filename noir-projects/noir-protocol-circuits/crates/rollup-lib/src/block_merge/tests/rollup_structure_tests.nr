@@ -20,7 +20,7 @@ fn with_both_roots_left_is_first() {
     }
 }
 
-#[test(should_fail_with = "in_hash must be set on the left rollup when merging blocks")]
+#[test(should_fail_with = "Vk index not in allowed list")]
 fn with_both_roots_right_is_first() {
     TestBuilder::new(
         // Left rollup is not a first block root.
@@ -33,7 +33,7 @@ fn with_both_roots_right_is_first() {
         .execute_and_fail();
 }
 
-#[test(should_fail_with = "Right rollup must not carry in_hash")]
+#[test(should_fail_with = "Vk index not in allowed list")]
 fn with_both_first_roots() {
     TestBuilder::new(
         // Left rollup is a first block root.

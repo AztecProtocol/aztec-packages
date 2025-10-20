@@ -37,8 +37,8 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
      */
     void set(size_t index, const T& value)
     {
-        ASSERT_DEBUG(index >= start_);
-        ASSERT_DEBUG(index < end_);
+        BB_ASSERT_DEBUG(index >= start_);
+        BB_ASSERT_DEBUG(index < end_);
         data()[index - start_] = value;
     }
 
@@ -56,7 +56,7 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
     const T& get(size_t index, size_t virtual_padding = 0) const
     {
         static const T zero{};
-        ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
+        BB_ASSERT_DEBUG(index < virtual_size_ + virtual_padding);
         if (index >= start_ && index < end_) {
             return data()[index - start_];
         }
@@ -85,15 +85,15 @@ template <typename T> struct SharedShiftedVirtualZeroesArray {
 
     T& operator[](size_t index)
     {
-        ASSERT_DEBUG(index >= start_);
-        ASSERT_DEBUG(index < end_);
+        BB_ASSERT_DEBUG(index >= start_);
+        BB_ASSERT_DEBUG(index < end_);
         return data()[index - start_];
     }
     // get() is more useful, but for completeness with the non-const operator[]
     const T& operator[](size_t index) const
     {
-        ASSERT_DEBUG(index >= start_);
-        ASSERT_DEBUG(index < end_);
+        BB_ASSERT_DEBUG(index >= start_);
+        BB_ASSERT_DEBUG(index < end_);
         return data()[index - start_];
     }
 

@@ -22,6 +22,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   isMisc = true as const;
   isUtility = true as const;
 
+  private aztecNrDebugLog = createLogger('aztec-nr:debug_log');
+
   constructor(
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
@@ -260,7 +262,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Invalid debug log level: ${level}`);
     }
     const levelName = LogLevels[level];
-    this.log[levelName](`${applyStringFormatting(message, fields)}`, { module: `${this.log.module}:debug_log` });
+    this.aztecNrDebugLog[levelName](`${applyStringFormatting(message, fields)}`);
   }
 
   public async utilityFetchTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr) {

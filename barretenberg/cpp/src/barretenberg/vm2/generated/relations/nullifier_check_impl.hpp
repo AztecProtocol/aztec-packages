@@ -15,7 +15,7 @@ void nullifier_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_NULLIFIER_TREE_HEIGHT = FF(40);
+    const auto constants_NULLIFIER_TREE_HEIGHT = FF(42);
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX = FF(450);
     const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
     const auto nullifier_check_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF =

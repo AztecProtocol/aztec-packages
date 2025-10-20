@@ -1,4 +1,3 @@
-include "execution.pil";
 include "precomputed.pil";
 include "constants_gen.pil";
 
@@ -183,26 +182,7 @@ in
 precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
 
 
-/**************************************************
-* Dispatch From Execution Trace To Bitwise Trace
-**************************************************/
-// This can be moved to execution.pil if the number of dispatches don't clutter that file
-#[DISPATCH_EXEC_BITWISE]
-execution.sel_execute_bitwise {
-    execution.subtrace_operation_id, execution.sel_opcode_error,
-    execution.register[0], execution.mem_tag_reg[0],
-    execution.register[1], execution.mem_tag_reg[1],
-    execution.register[2], execution.mem_tag_reg[2]
-}
-in
-sel {
-    op_id, err,
-    acc_ia, tag_a,
-    acc_ib, tag_b,
-    acc_ic, tag_c
-};
-
-// TODOs: See the following paragraphs
+// Potential improvements: See the following paragraphs
 
 // ################################################
 // Alternative implementation as potential speed-up
@@ -218,7 +198,6 @@ sel {
 // remains valid as the last row will be empty with our witness generator.
 //
 // It might be worth to measure the difference among both approaches.
-
 
 // ################################################
 // Recycling of bitwise operations of prefixes
