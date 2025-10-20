@@ -367,19 +367,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     }
 
     /**
-     * @brief Get total number of lookups used in circuit
-     *
-     */
-    size_t get_lookups_size() const
-    {
-        size_t lookups_size = 0;
-        for (const auto& table : lookup_tables) {
-            lookups_size += table.lookup_gates.size();
-        }
-        return lookups_size;
-    }
-
-    /**
      * @brief Get the actual finalized size of a circuit. Assumes the circuit is finalized already.
      *
      * @details This method calculates the size of the circuit without rounding up to the next power of 2. It takes into
@@ -454,10 +441,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Plookup Methods
      **/
-    void initialize_precomputed_table(const plookup::BasicTableId id,
-                                      bool (*generator)(std::vector<FF>&, std::vector<FF>&, std::vector<FF>&),
-                                      std::array<FF, 2> (*get_values_from_key)(const std::array<uint64_t, 2>));
-
     plookup::BasicTable& get_table(const plookup::BasicTableId id);
     plookup::MultiTable& get_multitable(const plookup::MultiTableId id);
 
