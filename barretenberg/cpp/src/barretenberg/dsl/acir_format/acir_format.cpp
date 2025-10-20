@@ -159,12 +159,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         uint32_t range = constraint.num_bits;
         if (constraint_system.minimal_range.contains(constraint.witness)) {
             range = constraint_system.minimal_range[constraint.witness];
-            builder.create_range_constraint(constraint.witness, range, "");
-            gate_counter.track_diff(constraint_system.gates_per_opcode,
-                                    constraint_system.original_opcode_indices.range_constraints.at(i));
-            // no need to add more range constraints for this witness.
+            // no need to add more range constraints for this witness later.
             constraint_system.minimal_range.erase(constraint.witness);
         }
+        builder.create_range_constraint(constraint.witness, range, "");
+        gate_counter.track_diff(constraint_system.gates_per_opcode,
+                                constraint_system.original_opcode_indices.range_constraints.at(i));
     }
 
     // Add aes128 constraints
