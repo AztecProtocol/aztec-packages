@@ -12,4 +12,5 @@ environments/*
 !environments/testnet.env
 !environments/next-net.env
 !environments/next-scenario.env
+!environments/ignition-fisherman.env
 *.tfvars
