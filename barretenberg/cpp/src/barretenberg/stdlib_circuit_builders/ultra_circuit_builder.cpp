@@ -383,12 +383,12 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
  *      | q_ecc | w1  | w2  | w3  | w4  |
  *      |-------|-----|-----|-----|-----|
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
- *      |    0  | x2  | x3  | y3  | y2  | --> unconstrained (read into by previous gate via shifts)
+ *      |    0  | x2  | x3  | y3  | y2  | --> "unconstrained" (utilized by previous gate via shifts)
  *
  * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
  * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
  * and q_1 = sign_coefficient (which in the relation translates to q_sign). We take advantage of this frequently when
- * performing chained additions/doubling operations.
+ * performing chained additions or doubling operations.
  *
  * @param in Elliptic curve point addition gate parameters
  */
@@ -432,12 +432,12 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
  *      | q_ecc | w1  | w2  | w3  | w4  |
  *      |-------|-----|-----|-----|-----|
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
- *      |    0  |  -  | x3  | y3  |  -  | --> unconstrained (read into by previous gate via shifts)
+ *      |    0  |  -  | x3  | y3  |  -  | --> "unconstrained" (utilized by previous gate via shifts)
  *
  * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
  * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
  * and q_m = 1 (which in the relation translates to q_is_double = 1). We take advantage of this frequently when
- * performing chained additions/doubling operations.
+ * performing chained additions or doubling operations.
  *
  * @param in Elliptic curve point doubling gate parameters
  */
@@ -451,8 +451,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
     // Determine whether we can fuse this doubling operation into the previous gate in the block
     bool can_fuse_into_previous_gate =
         block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* and output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* and output y coord of previous gate is input of this one */
+        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
+        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
     // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {

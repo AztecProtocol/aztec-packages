@@ -247,7 +247,6 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
-        input_elements.q_l = FF(1); // q_l (which becomes q_sign) can be +1 or -1
 
         const auto& x_1 = input_elements.w_r;
         const auto& y_1 = input_elements.w_o;
@@ -257,6 +256,10 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         const auto& x_3 = input_elements.w_r_shift;
         const auto& y_3 = input_elements.w_o_shift;
 
+        // In the EllipticRelation, q_l is interpreted as q_sign and can be +1 or -1. Here we explicitly set it to -1
+        // (arbitrary, could also be +1) because the relation algebra makes use of the assumption that q_sign^2 = 1.
+        // This allows writing the simplified constraint algebra in this test in a more straightforward way.
+        input_elements.q_l = FF(-1);
         const auto& q_sign = input_elements.q_l;
         const auto& q_elliptic = input_elements.q_elliptic;
         const auto& q_is_double = input_elements.q_m;
@@ -310,7 +313,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
-    // run_test(/*random_inputs=*/false);
+    run_test(/*random_inputs=*/false);
     run_test(/*random_inputs=*/true);
 };
 
