@@ -70,13 +70,13 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
-        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
+        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "W_4", frs_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
@@ -149,7 +149,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
-        manifest_expected.add_challenge(round); // no challenge
 
         return manifest_expected;
     }

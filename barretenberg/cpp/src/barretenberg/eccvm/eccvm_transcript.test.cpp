@@ -124,7 +124,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_NOT_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);

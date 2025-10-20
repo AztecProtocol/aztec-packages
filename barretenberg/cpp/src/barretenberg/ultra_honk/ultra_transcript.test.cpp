@@ -92,13 +92,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
-        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
+        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
         manifest_expected.add_entry(round, "W_4", data_types_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
@@ -169,7 +169,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", data_types_per_G);
-        manifest_expected.add_challenge(round); // no challenge
 
         return manifest_expected;
     }
