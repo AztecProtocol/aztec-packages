@@ -123,4 +123,13 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
     fi
 done
 
+# Construct STORE_SNAPSHOT_URL from the r2-account-id secret and SNAPSHOT_BUCKET_DIRECTORY
+# This happens after secret replacement so the R2 account ID is available
+if [[ -n "${SNAPSHOT_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "STORE_SNAPSHOT_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export STORE_SNAPSHOT_URL="s3://testnet-bucket/${SNAPSHOT_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com&publicBaseUrl=https://aztec-labs-snapshots.com"
+fi
+
 echo "Successfully set up GCP secrets for $NETWORK"
