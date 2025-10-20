@@ -17,7 +17,6 @@ import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { SignableENR } from '@chainsafe/enr';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -27,6 +26,7 @@ import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
+import { SignableENR } from '@nethermindeth/enr';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
