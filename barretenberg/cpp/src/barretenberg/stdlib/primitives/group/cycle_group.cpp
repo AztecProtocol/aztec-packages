@@ -101,7 +101,6 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
  * @tparam Builder
  * @param _in
  */
-// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder>
 cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : x(_in.is_point_at_infinity() ? 0 : _in.x)
@@ -673,9 +672,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const cycle_group dbl_result = dbl();
 
     // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
-    // AUDITTODO: The assumption here is that is y1 != y2 implies y1 == -y2. This is only true if the points are
-    // guaranteed to be on the curve. Ideally we can ensure that on-curve checks are applied to all cycle_group
-    // elements, otherwise we may need to be more precise with these predicates.
+    // Note: The assumption here is that x1 == x2 && y1 != y2 implies y1 == -y2 which is true assuming that the points
+    // are both on the curve.
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match);
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result_x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result_y);
