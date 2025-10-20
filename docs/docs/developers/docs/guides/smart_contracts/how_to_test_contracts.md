@@ -68,7 +68,7 @@ unconstrained fn test_basic_flow() {
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
 - See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/test/helpers/test_environment.nr)
-  :::
+:::
 
 :::tip Organizing test files
 You can organize tests in separate files:
@@ -77,7 +77,7 @@ You can organize tests in separate files:
 - Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
 - Import the test module in `src/main.nr` with `mod test;`
 - Share setup functions in `src/test/utils.nr`
-  :::
+:::
 
 ## Deploying contracts
 
@@ -201,7 +201,7 @@ let owner = env.create_contract_account();
 - Support account abstraction features
 - Slower to create (deploys account contract)
 - Needed for cross-contract authorization
-  :::
+:::
 
 :::tip Choosing account types
 
@@ -260,7 +260,7 @@ unconstrained fn test_private_authwit() {
 
 ### Public authwits
 
-````rust
+```rust
 #[test]
 unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
@@ -288,7 +288,7 @@ env.advance_next_block_timestamp_by(duration);
 
 // Mines an empty block at a given timestamp, causing the next public execution to occur at this time (like `set_next_block_timestamp`), but also allowing for private execution to happen using this empty block as the anchor block.
 env.mine_block_at(block_timestamp);
-````
+```
 
 ## Testing failure cases
 
