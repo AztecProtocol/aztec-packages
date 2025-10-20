@@ -7,12 +7,14 @@
 using namespace bb;
 using namespace cdg;
 
-void test_acir_circuit_builder(const std::vector<uint8_t>& acir_program_buf)
+void test_acir_circuit_builder(std::vector<uint8_t>& acir_program_buf)
 {
-    acir_format::AcirFormat constraint_system = acir_format::program_buf_to_acir_format(acir_program_buf, false).at(0);
-    bb::UltraCircuitBuilder builder = acir_format::create_circuit(constraint_system, false);
+    auto constraint_systems = acir_format::program_buf_to_acir_format(std::move(acir_program_buf));
+    const acir_format::AcirFormat constraint_system = constraint_systems.at(0);
+    acir_format::AcirProgram program{ constraint_system };
+    bb::UltraCircuitBuilder builder = acir_format::create_circuit(program);
     auto tool = StaticAnalyzer(builder);
-    auto test_result = tool.analyzer_circuit();
+    auto test_result = tool.analyze_circuit();
     EXPECT_EQ(test_result.first.size(), 1);
     EXPECT_EQ(test_result.second.size(), 0);
 }
