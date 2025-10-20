@@ -29,6 +29,8 @@ void test_acir(std::vector<uint8_t>& bytecode) {
         }
 
     }
+}
+
 void test_acir_circuit_builder(std::vector<uint8_t>& acir_program_buf)
 {
     auto constraint_systems = acir_format::program_buf_to_acir_format(std::move(acir_program_buf));
