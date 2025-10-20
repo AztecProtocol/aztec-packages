@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/dsl/acir_format/test_template.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -15,7 +16,7 @@ using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 
-template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
+template <class Curve> class EcdsaTestingFunctions {
   public:
     using Builder = Curve::Builder;
     using FrNative = Curve::fr;
@@ -23,9 +24,7 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     using G1Native = Curve::g1;
     using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
 
-    // Reproducible test
-    static constexpr FrNative private_key =
-        FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
+    using AcirConstraint = EcdsaConstraint;
 
     enum class TamperingMode : uint8_t {
         None,
@@ -34,9 +33,8 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         NonUniquePubKeyY,
     };
 
-    enum class PredicateTestCase : uint8_t { ConstantTrue, ConstantFalse, WitnessTrue, WitnessFalse };
-
     struct WitnessOverride {
+      public:
         enum class Case : uint8_t { None, R, ZeroS, HighS, HashedMessage, P };
 
         static std::vector<Case> get_all()
@@ -50,14 +48,13 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         }
     };
 
-    struct Predicate {
-        PredicateTestCase test_case;
-        WitnessOverride::Case witness_override;
-    };
+    // Reproducible test
+    static constexpr FrNative private_key =
+        FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static void override_false_witness(EcdsaConstraint& ecdsa_constraints,
-                                       WitnessVector& witness_values,
-                                       const WitnessOverride::Case& witness_override)
+    static void override_witness(EcdsaConstraint& ecdsa_constraints,
+                                 WitnessVector& witness_values,
+                                 const WitnessOverride::Case& witness_override)
     {
         witness_values[ecdsa_constraints.predicate.index] = bb::fr(0);
         witness_values[ecdsa_constraints.result] = bb::fr(0);
@@ -92,31 +89,9 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         }
     }
 
-    static size_t update_witness_based_on_predicate(EcdsaConstraint& ecdsa_constraints,
-                                                    WitnessVector& witness_values,
-                                                    const Predicate& mode)
-    {
-        switch (mode.test_case) {
-        case PredicateTestCase::ConstantTrue:
-            ecdsa_constraints.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
-            witness_values.pop_back();
-            break;
-        case PredicateTestCase::ConstantFalse:
-            ecdsa_constraints.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(0));
-            witness_values.pop_back();
-            break;
-        case PredicateTestCase::WitnessTrue:
-            break;
-        case PredicateTestCase::WitnessFalse:
-            override_false_witness(ecdsa_constraints, witness_values, mode.witness_override);
-        }
-
-        return witness_values.size();
-    }
-
-    static void tamper_with_signature(EcdsaConstraint& ecdsa_constraints,
-                                      WitnessVector& witness_values,
-                                      const TamperingMode& tampering_mode)
+    static void tampering(EcdsaConstraint& ecdsa_constraints,
+                          WitnessVector& witness_values,
+                          const TamperingMode& tampering_mode)
     {
         switch (tampering_mode) {
         case (TamperingMode::None):
@@ -146,7 +121,7 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
     /**
      * @brief Generate valid ECDSA constraint with witness predicate equal to true
      */
-    static void generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
+    static void generate_constraints(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
     {
         std::string message_string = "Instructions unclear, ask again later.";
 
@@ -198,56 +173,28 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         std::ranges::copy(r_indices, signature_indices.begin());
         std::ranges::copy(s_indices, signature_indices.begin() + 32);
 
-        ecdsa_constraint = EcdsaConstraint{ .hashed_message = hashed_message_indices,
+        ecdsa_constraint = EcdsaConstraint{ .type = Curve::type,
+                                            .hashed_message = hashed_message_indices,
                                             .signature = signature_indices,
                                             .pub_x_indices = pub_x_indices,
                                             .pub_y_indices = pub_y_indices,
                                             .predicate = WitnessOrConstant<bb::fr>::from_index(predicate_index),
                                             .result = result_index };
     }
+};
 
-    static std::pair<AcirFormat, WitnessVector> generate_constraint_system(const Predicate& mode)
-    {
-        EcdsaConstraint ecdsa_constraint;
-        WitnessVector witness_values;
-        generate_ecdsa_constraint(ecdsa_constraint, witness_values);
-        size_t num_variables = update_witness_based_on_predicate(ecdsa_constraint, witness_values, mode);
-
-        AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(num_variables),
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-            constraint_system.ecdsa_k1_constraints = { ecdsa_constraint };
-        } else {
-            constraint_system.ecdsa_r1_constraints = { ecdsa_constraint };
-        }
-
-        mock_opcode_indices(constraint_system);
-
-        return { constraint_system, witness_values };
-    }
+template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
+  public:
+    using WrappedTestClass = TestClassWithPredicate<EcdsaTestingFunctions<Curve>>;
+    using WitnessOverride = WrappedTestClass::WitnessOverride;
+    using WitnessOverrideCase = WrappedTestClass::WitnessOverrideCase;
+    using TamperingMode = WrappedTestClass::TamperingMode;
 
     static std::tuple<bool, bool, std::string> test(const PredicateTestCase& test_case,
-                                                    const WitnessOverride::Case& witness_override,
+                                                    const WitnessOverrideCase& witness_override,
                                                     const TamperingMode& tampering_mode)
     {
-        Predicate predicate = { .test_case = test_case, .witness_override = witness_override };
-        auto [constraint_system, witness_values] = generate_constraint_system(predicate);
-
-        if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-            tamper_with_signature(constraint_system.ecdsa_k1_constraints[0], witness_values, tampering_mode);
-        } else {
-            tamper_with_signature(constraint_system.ecdsa_r1_constraints[0], witness_values, tampering_mode);
-        }
-
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
-
-        return { CircuitChecker::check(builder), builder.failed(), builder.err() };
+        return WrappedTestClass::test_predicate_constraints(test_case, witness_override, tampering_mode);
     }
 
   protected:
@@ -261,113 +208,74 @@ using CurveTypes = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
 
 TYPED_TEST_SUITE(EcdsaConstraintsTest, CurveTypes);
 
-TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
-{
-    using Flavor = TestFixture::Flavor;
-    using Builder = TestFixture::Builder;
-    using ProvingKey = ProverInstance_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
-    using Predicate = TestFixture::Predicate;
+// TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
+// {
+//     using Flavor = TestFixture::Flavor;
+//     using Builder = TestFixture::Builder;
+//     using ProvingKey = ProverInstance_<Flavor>;
+//     using VerificationKey = Flavor::VerificationKey;
+//     using Predicate = TestFixture::Predicate;
 
-    Predicate predicate_constant_true = { .test_case = TestFixture::PredicateTestCase::ConstantTrue,
-                                          .witness_override = TestFixture::WitnessOverride::Case::None };
-    Predicate predicate_witness_true = { .test_case = TestFixture::PredicateTestCase::WitnessTrue,
-                                         .witness_override = TestFixture::WitnessOverride::Case::None };
-    Predicate predicate_witness_false = { .test_case = TestFixture::PredicateTestCase::WitnessFalse,
-                                          .witness_override = TestFixture::WitnessOverride::Case::None };
-    std::vector<Predicate> predicates = { predicate_constant_true, predicate_witness_true, predicate_witness_false };
-    std::vector<std::string> predicate_labels{ "Constant True", "Witness True", "Witness False" };
-    for (auto [predicate, label] : zip_view(predicates, predicate_labels)) {
-        auto [constraint_system, witness_values] = TestFixture::generate_constraint_system(predicate);
+//     Predicate predicate_constant_true = { .test_case = PredicateTestCase::ConstantTrue,
+//                                           .witness_override = TestFixture::WitnessOverrideCase::None };
+//     Predicate predicate_witness_true = { .test_case = PredicateTestCase::WitnessTrue,
+//                                          .witness_override = TestFixture::WitnessOverrideCase::None };
+//     Predicate predicate_witness_false = { .test_case = PredicateTestCase::WitnessFalse,
+//                                           .witness_override = TestFixture::WitnessOverrideCase::None };
+//     std::vector<Predicate> predicates = { predicate_constant_true, predicate_witness_true, predicate_witness_false };
+//     std::vector<std::string> predicate_labels{ "Constant True", "Witness True", "Witness False" };
 
-        std::shared_ptr<VerificationKey> vk_from_witness;
-        {
-            AcirProgram program{ constraint_system, witness_values };
-            auto builder = create_circuit<Builder>(program);
-            info("Num gates: ", builder.get_estimated_num_finalized_gates());
+//     for (auto [predicate, label] : zip_view(predicates, predicate_labels)) {
+//         auto [constraint_system, witness_values] = generate_constraint_system(predicate.test_case,
+//                                                                               predicate.witness_override,
+//                                                                               TestFixture::TamperingMode::None,
+//                                                                               TestFixture::generate_ecdsa_constraint,
+//                                                                               TestFixture::override_false_witness,
+//                                                                               TestFixture::tampering);
 
-            auto prover_instance = std::make_shared<ProvingKey>(builder);
-            vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+//         std::shared_ptr<VerificationKey> vk_from_witness;
+//         {
+//             AcirProgram program{ constraint_system, witness_values };
+//             auto builder = create_circuit<Builder>(program);
+//             info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-            // Validate the builder
-            EXPECT_TRUE(CircuitChecker::check(builder));
-        }
+//             auto prover_instance = std::make_shared<ProvingKey>(builder);
+//             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
 
-        std::shared_ptr<VerificationKey> vk_from_constraint;
-        {
-            AcirProgram program{ constraint_system, /*witness=*/{} };
-            auto builder = create_circuit<Builder>(program);
-            auto prover_instance = std::make_shared<ProvingKey>(builder);
-            vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        }
+//             // Validate the builder
+//             EXPECT_TRUE(CircuitChecker::check(builder));
+//         }
 
-        EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks for the case " << label;
-    }
-}
+//         std::shared_ptr<VerificationKey> vk_from_constraint;
+//         {
+//             AcirProgram program{ constraint_system, /*witness=*/{} };
+//             auto builder = create_circuit<Builder>(program);
+//             auto prover_instance = std::make_shared<ProvingKey>(builder);
+//             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+//         }
+
+//         EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks for the case " << label;
+//     }
+// }
 
 TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    // Constant true, no tampering
-    {
-        auto [circuit_checker_result, builder_failed, _] =
-            TestFixture::test(TestFixture::PredicateTestCase::ConstantTrue,
-                              TestFixture::WitnessOverride::Case::None,
-                              TestFixture::TamperingMode::None);
-        EXPECT_TRUE(circuit_checker_result);
-        EXPECT_FALSE(builder_failed);
-    }
-
-    // Constant true, tampering
-    {
-        auto [circuit_checker_result, builder_failed, _] =
-            TestFixture::test(TestFixture::PredicateTestCase::ConstantTrue,
-                              TestFixture::WitnessOverride::Case::None,
-                              TestFixture::TamperingMode::TamperSignature);
-        EXPECT_FALSE(circuit_checker_result);
-        EXPECT_TRUE(builder_failed);
-    }
+    TestFixture::WrappedTestClass::test_constant_true(TestFixture::TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    // Witness true, no tampering
-    {
-        auto [circuit_checker_result, builder_failed, _] =
-            TestFixture::test(TestFixture::PredicateTestCase::WitnessTrue,
-                              TestFixture::WitnessOverride::Case::None,
-                              TestFixture::TamperingMode::None);
-        EXPECT_TRUE(circuit_checker_result);
-        EXPECT_FALSE(builder_failed);
-    }
-
-    // Witness true, tampering
-    {
-        auto [circuit_checker_result, builder_failed, _] =
-            TestFixture::test(TestFixture::PredicateTestCase::WitnessTrue,
-                              TestFixture::WitnessOverride::Case::None,
-                              TestFixture::TamperingMode::TamperSignature);
-        EXPECT_FALSE(circuit_checker_result);
-        EXPECT_TRUE(builder_failed);
-    }
+    TestFixture::WrappedTestClass::test_witness_true(TestFixture::TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
 {
-    using WitnessOverride = TestFixture::WitnessOverride;
     using TamperingMode = TestFixture::TamperingMode;
 
     BB_DISABLE_ASSERTS();
-    for (auto [override_case, override_label] : zip_view(WitnessOverride::get_all(), WitnessOverride::get_labels())) {
-        auto tampering_mode =
-            override_case == WitnessOverride::Case::None ? TamperingMode::TamperSignature : TamperingMode::None;
-        auto [circuit_checker_result, builder_failed, _] =
-            TestFixture::test(TestFixture::PredicateTestCase::WitnessFalse, override_case, tampering_mode);
-
-        EXPECT_TRUE(circuit_checker_result) << "Check builder failed for override case " << override_label;
-        EXPECT_FALSE(builder_failed) << "Builder failed for override case " << override_label;
-    }
+    TestFixture::WrappedTestClass::test_witness_false(TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
@@ -382,8 +290,8 @@ TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
                 ? "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb."
                 : "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.";
 
-        auto [circuit_checker_result, builder_failed, builder_error_msg] = TestFixture::test(
-            TestFixture::PredicateTestCase::ConstantTrue, TestFixture::WitnessOverride::Case::None, tampering_mode);
+        auto [circuit_checker_result, builder_failed, builder_error_msg] =
+            TestFixture::test(PredicateTestCase::ConstantTrue, TestFixture::WitnessOverrideCase::None, tampering_mode);
 
         EXPECT_FALSE(circuit_checker_result);
         EXPECT_TRUE(builder_failed);

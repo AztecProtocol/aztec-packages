@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
@@ -35,7 +36,14 @@ static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std
     return result;
 }
 
-// Lambda to convert std::vector<field_ct> to byte_array_ct
+/**
+ * @brief Convert a vector of field_t elements to a byte_array enforcing each element to be a boolean
+ *
+ * @tparam Builder
+ * @param builder
+ * @param fields
+ * @return byte_array<Builder>
+ */
 template <typename Builder> byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields)
 {
     byte_array<Builder> result(&builder);

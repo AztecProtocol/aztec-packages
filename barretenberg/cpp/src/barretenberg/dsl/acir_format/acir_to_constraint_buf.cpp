@@ -662,6 +662,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
+                    .type = bb::CurveType::SECP256K1,
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -677,6 +678,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
+                    .type = bb::CurveType::SECP256R1,
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
