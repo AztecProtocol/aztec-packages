@@ -20,7 +20,8 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
     } catch (const std::exception& e) {
         deserialized_data = FuzzerData();
     }
-    std::cout << "Deserialized data: " << deserialized_data << std::endl;
+    // std::cout << "Deserialized data: " << deserialized_data << std::endl;
+    std::cout << "HUI\n";
     auto res = fuzz(deserialized_data);
 
     return res;

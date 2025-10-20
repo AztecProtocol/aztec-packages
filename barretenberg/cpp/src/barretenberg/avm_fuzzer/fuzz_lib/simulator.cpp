@@ -8,14 +8,34 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
+#include <nlohmann/json.hpp>
 
 using bb::avm2::GlobalVariables;
 using namespace bb::avm2;
 using namespace bb::avm2::simulation;
 using namespace bb::avm2::testing;
+using json = nlohmann::json;
+
+// Helper function to serialize bytecode and calldata to JSON and print to stdout
+void print_bytecode_and_calldata_json(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
+{
+    json j;
+    j["bytecode"] = bytecode;
+
+    // Convert FF values to strings for JSON serialization
+    std::vector<std::string> calldata_strings;
+    calldata_strings.reserve(calldata.size());
+    for (const auto& field : calldata) {
+        calldata_strings.push_back(field_to_string(field));
+    }
+    j["calldata"] = calldata_strings;
+
+    std::cout << j.dump() << std::endl;
+}
 
 // Helper function to create default global variables for testing
 GlobalVariables create_default_globals()
@@ -59,8 +79,10 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
 // TODO(defkit) implement communication with the javascript simulator
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
+    print_bytecode_and_calldata_json(bytecode, calldata);
     TestSimulator simulator;
     auto result = simulator.simulate(bytecode, calldata);
+
     return { .reverted = result.reverted, .output = result.output };
 }
 
