@@ -29,15 +29,14 @@ using namespace bb;
  *     coordinates.
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is false. This
  *     ensures that the circuit is satisfied when the predicate is false. We set:
- *      - We set the first byte of r and s to 1 (NOTE: This only works when numbers smaller than
- *        1 << 241 are smaller than the order of the curve divided by two).
+ *      - The first byte of r and s to 1 (NOTE: This only works when numbers smaller than 1 << 241 are smaller than the
+ *        order of the curve divided by two).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
- *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either all constant or all
- *        witness.
+ *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
  *      - The first byte of the hash of the message to be 1 (NOTE: This only works when numbers smaller than 1 <<
  *        241 are smaller than the order of the curve).
  *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
- * \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
+ *     \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
  *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
  *     whether the signature verification was successfull or not.
  *  6. Enforce that the result of the signature verification matches the expected result.
@@ -84,7 +83,8 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
     byte_array_ct r = fields_to_bytes(builder, r_fields);
     byte_array_ct s = fields_to_bytes(builder, s_fields);
-    bool_ct result = static_cast<bool_ct>(result_field); // Constructor enforces result_field = 0 or 1
+    bool_ct result = static_cast<bool_ct>(result_field); // Constructor enforces result = 0 or 1
+    bool_ct predicate;
 
     // Step 2.
     // Reconstruct the public key from the byte representations of its coordinates
@@ -94,7 +94,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
     // Step 3.
     // Update values depending on the predicate
     if (!input.predicate.is_constant) {
-        bool_ct predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces result_field = 0 or 1
+        predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
         // 0 < r < n
         r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1));
         // 0 < s < n/2
@@ -116,8 +116,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
             }
         }
     } else {
-        BB_ASSERT_EQ(
-            input.predicate.value, true, "Creating ECDSA constraints with a constant predicate equal to false.");
+        BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
     }
 
     G1 public_key(pub_x, pub_y);
@@ -135,7 +134,11 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
 
     // Step 6.
     // Assert that signature verification returned the expected result
-    signature_result.assert_equal(result);
+    if (input.predicate.is_constant) {
+        signature_result.assert_equal(result);
+    } else {
+        signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
+    }
 }
 
 /**
