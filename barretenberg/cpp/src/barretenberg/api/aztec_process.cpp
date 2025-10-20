@@ -11,9 +11,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
-#include <thread>
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <thread>
 
 #ifdef ENABLE_AVM_TRANSPILER
 // Include avm_transpiler header
