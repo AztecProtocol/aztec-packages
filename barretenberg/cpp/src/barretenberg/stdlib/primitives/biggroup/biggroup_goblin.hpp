@@ -295,7 +295,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
                                     const std::vector<Fr>& scalars,
                                     const size_t max_num_bits = 0,
-                                    const bool handle_edge_cases = false);
+                                    const bool handle_edge_cases = false,
+                                    const Fr& masking_scalar = Fr(1));
 
     // we use this data structure to add together a sequence of points.
     // By tracking the previous values of x_1, y_1, \lambda, we can avoid

@@ -38,7 +38,8 @@ template <typename C, class Fq, class Fr, class G>
 goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::vector<goblin_element>& points,
                                                                      const std::vector<Fr>& scalars,
                                                                      [[maybe_unused]] const size_t max_num_bits,
-                                                                     [[maybe_unused]] const bool handle_edge_cases)
+                                                                     [[maybe_unused]] const bool handle_edge_cases,
+                                                                     [[maybe_unused]] const Fr& masking_scalar)
 {
     auto builder = points[0].get_context();
 

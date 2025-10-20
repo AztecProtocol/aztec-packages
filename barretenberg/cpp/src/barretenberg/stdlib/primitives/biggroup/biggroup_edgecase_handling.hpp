@@ -33,42 +33,51 @@ typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator
 /**
  * @brief Given two lists of points that need to be multiplied by scalars, create a new list of length +1 with original
  * points masked, but the same scalar product sum
- * @details Add +1G, +2G, +4G etc to the original points and adds a new point 2ⁿ⋅G and scalar x to the lists. By
- * doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases, unless
- * the points are deliberately constructed to trigger it.
+ * @details Add (δ)G, (δ²)G, (δ³)G etc to the original points and adds a new point (δⁿ⁺¹)⋅G and scalar x to the lists.
+ * By doubling the point every time, we ensure that no +-1 combination of 6 sequential elements run into edgecases.
+ * Since the challenge δ not known to the prover ahead of time, it is not possible to create points that cancel out
+ * the offset generators.
  */
 template <typename C, class Fq, class Fr, class G>
 std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(
-    const std::vector<element>& _points, const std::vector<Fr>& _scalars)
+    const std::vector<element>& _points, const std::vector<Fr>& _scalars, const Fr& masking_scalar)
 {
     std::vector<element> points;
     std::vector<Fr> scalars;
     BB_ASSERT_EQ(_points.size(), _scalars.size());
-    using NativeFr = typename Fr::native;
-    auto running_scalar = NativeFr::one();
+
     // Get the offset generator G_offset in native and in-circuit form
-    auto native_offset_generator = element::compute_table_offset_generator();
+    const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
+    C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
+    const element offset_generator_element = element::from_witness(builder, native_offset_generator);
+    offset_generator_element.set_origin_tag(OriginTag());
+
+    // Start the running scalar at δ
+    Fr running_scalar = masking_scalar;
     Fr last_scalar = Fr(0);
-    NativeFr generator_coefficient = NativeFr(2).pow(_points.size());
-    auto generator_coefficient_inverse = generator_coefficient.invert();
+
     // For each point and scalar
     for (size_t i = 0; i < _points.size(); i++) {
         scalars.push_back(_scalars[i]);
-        // Convert point into point + 2ⁱ⋅G_offset
-        points.push_back(_points[i] + (native_offset_generator * running_scalar));
+        // Convert point into point + (δⁱ⁺¹)⋅G_offset
+        points.push_back(_points[i] + (offset_generator_element * running_scalar));
         // Add \frac{2ⁱ⋅scalar}{2ⁿ} to the last scalar
-        last_scalar += _scalars[i] * (running_scalar * generator_coefficient_inverse);
+        last_scalar += _scalars[i] * running_scalar;
         // Double the running scalar
-        running_scalar += running_scalar;
+        running_scalar *= running_scalar;
     }
 
-    // Add a scalar -(<(1,2,4,...,2ⁿ⁻¹ ),(scalar₀,...,scalarₙ₋₁)> / 2ⁿ)
+    // Add a scalar -(<(δ, δ², δ³,...,δⁿ),(scalar₀,...,scalarₙ₋₁)> / δⁿ⁺¹)
+    const uint32_t n = static_cast<uint32_t>(_points.size());
+    const Fr masking_coefficient = masking_scalar.pow(n + 1);
+    const Fr masking_coefficient_inverse = masking_coefficient.invert();
+    last_scalar *= masking_coefficient_inverse;
     scalars.push_back(-last_scalar);
     if constexpr (Fr::is_composite) {
         scalars.back().self_reduce();
     }
     // Add in-circuit G_offset to points
-    points.push_back(element(native_offset_generator * generator_coefficient));
+    points.push_back(element(offset_generator_element * masking_coefficient));
 
     return { points, scalars };
 }
