@@ -2,7 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
-#include "barretenberg/dsl/acir_format/test_template.hpp"
+#include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -22,15 +22,26 @@ template <class Curve> class EcdsaTestingFunctions {
     using FrNative = Curve::fr;
     using FqNative = Curve::fq;
     using G1Native = Curve::g1;
-    using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
-
     using AcirConstraint = EcdsaConstraint;
 
-    enum class TamperingMode : uint8_t {
-        None,
-        TamperSignature,
-        NonUniquePubKeyX,
-        NonUniquePubKeyY,
+    struct Tampering {
+      public:
+        enum class Mode : uint8_t {
+            None,
+            TamperSignature,
+            NonUniquePubKeyX,
+            NonUniquePubKeyY,
+        };
+
+        static std::vector<Mode> get_all()
+        {
+            return { Mode::None, Mode::TamperSignature, Mode::NonUniquePubKeyX, Mode::NonUniquePubKeyY };
+        }
+
+        static std::vector<std::string> get_labels()
+        {
+            return { "None", "Tamper Signature", "Non-unique PubKey X", "Non-unique PubKey Y" };
+        }
     };
 
     struct WitnessOverride {
@@ -91,15 +102,15 @@ template <class Curve> class EcdsaTestingFunctions {
 
     static void tampering(EcdsaConstraint& ecdsa_constraints,
                           WitnessVector& witness_values,
-                          const TamperingMode& tampering_mode)
+                          const Tampering::Mode& tampering_mode)
     {
         switch (tampering_mode) {
-        case (TamperingMode::None):
+        case (Tampering::Mode::None):
             break;
-        case (TamperingMode::TamperSignature):
+        case (Tampering::Mode::TamperSignature):
             witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
             witness_values[ecdsa_constraints.result] = bb::fr(0);
-        case (TamperingMode::NonUniquePubKeyX): {
+        case (Tampering::Mode::NonUniquePubKeyX): {
             std::vector<uint8_t> modulus_plus_one = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                                       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                                       0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x30 };
@@ -107,7 +118,7 @@ template <class Curve> class EcdsaTestingFunctions {
                 witness_values[byte_idx] = tweaked_byte;
             }
         }
-        case (TamperingMode::NonUniquePubKeyY): {
+        case (Tampering::Mode::NonUniquePubKeyY): {
             std::vector<uint8_t> modulus_plus_one = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                                       0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                                                       0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x30 };
@@ -183,20 +194,8 @@ template <class Curve> class EcdsaTestingFunctions {
     }
 };
 
-template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
-  public:
-    using WrappedTestClass = TestClassWithPredicate<EcdsaTestingFunctions<Curve>>;
-    using WitnessOverride = WrappedTestClass::WitnessOverride;
-    using WitnessOverrideCase = WrappedTestClass::WitnessOverrideCase;
-    using TamperingMode = WrappedTestClass::TamperingMode;
-
-    static std::tuple<bool, bool, std::string> test(const PredicateTestCase& test_case,
-                                                    const WitnessOverrideCase& witness_override,
-                                                    const TamperingMode& tampering_mode)
-    {
-        return WrappedTestClass::test_predicate_constraints(test_case, witness_override, tampering_mode);
-    }
-
+template <class Curve>
+class EcdsaConstraintsTest : public ::testing::Test, public TestClassWithPredicate<EcdsaTestingFunctions<Curve>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -208,93 +207,33 @@ using CurveTypes = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
 
 TYPED_TEST_SUITE(EcdsaConstraintsTest, CurveTypes);
 
-// TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
-// {
-//     using Flavor = TestFixture::Flavor;
-//     using Builder = TestFixture::Builder;
-//     using ProvingKey = ProverInstance_<Flavor>;
-//     using VerificationKey = Flavor::VerificationKey;
-//     using Predicate = TestFixture::Predicate;
-
-//     Predicate predicate_constant_true = { .test_case = PredicateTestCase::ConstantTrue,
-//                                           .witness_override = TestFixture::WitnessOverrideCase::None };
-//     Predicate predicate_witness_true = { .test_case = PredicateTestCase::WitnessTrue,
-//                                          .witness_override = TestFixture::WitnessOverrideCase::None };
-//     Predicate predicate_witness_false = { .test_case = PredicateTestCase::WitnessFalse,
-//                                           .witness_override = TestFixture::WitnessOverrideCase::None };
-//     std::vector<Predicate> predicates = { predicate_constant_true, predicate_witness_true, predicate_witness_false };
-//     std::vector<std::string> predicate_labels{ "Constant True", "Witness True", "Witness False" };
-
-//     for (auto [predicate, label] : zip_view(predicates, predicate_labels)) {
-//         auto [constraint_system, witness_values] = generate_constraint_system(predicate.test_case,
-//                                                                               predicate.witness_override,
-//                                                                               TestFixture::TamperingMode::None,
-//                                                                               TestFixture::generate_ecdsa_constraint,
-//                                                                               TestFixture::override_false_witness,
-//                                                                               TestFixture::tampering);
-
-//         std::shared_ptr<VerificationKey> vk_from_witness;
-//         {
-//             AcirProgram program{ constraint_system, witness_values };
-//             auto builder = create_circuit<Builder>(program);
-//             info("Num gates: ", builder.get_estimated_num_finalized_gates());
-
-//             auto prover_instance = std::make_shared<ProvingKey>(builder);
-//             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-
-//             // Validate the builder
-//             EXPECT_TRUE(CircuitChecker::check(builder));
-//         }
-
-//         std::shared_ptr<VerificationKey> vk_from_constraint;
-//         {
-//             AcirProgram program{ constraint_system, /*witness=*/{} };
-//             auto builder = create_circuit<Builder>(program);
-//             auto prover_instance = std::make_shared<ProvingKey>(builder);
-//             vk_from_constraint = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-//         }
-
-//         EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks for the case " << label;
-//     }
-// }
+TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
+{
+    using Flavor =
+        std::conditional_t<std::is_same_v<typename TypeParam::Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
 
 TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::WrappedTestClass::test_constant_true(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_constant_true(TestFixture::TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::WrappedTestClass::test_witness_true(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_witness_true(TestFixture::TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
 {
-    using TamperingMode = TestFixture::TamperingMode;
-
     BB_DISABLE_ASSERTS();
-    TestFixture::WrappedTestClass::test_witness_false(TamperingMode::TamperSignature);
+    TestFixture::test_witness_false(TestFixture::TamperingMode::TamperSignature);
 }
 
-TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
+TYPED_TEST(EcdsaConstraintsTest, Tampering)
 {
     BB_DISABLE_ASSERTS();
-    using TamperingMode = TestFixture::TamperingMode;
-
-    for (size_t idx = 0; idx < 2; idx++) {
-        TamperingMode tampering_mode = idx == 0 ? TamperingMode::NonUniquePubKeyX : TamperingMode::NonUniquePubKeyY;
-        std::string failure_msg =
-            idx == 0
-                ? "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb."
-                : "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.";
-
-        auto [circuit_checker_result, builder_failed, builder_error_msg] =
-            TestFixture::test(PredicateTestCase::ConstantTrue, TestFixture::WitnessOverrideCase::None, tampering_mode);
-
-        EXPECT_FALSE(circuit_checker_result);
-        EXPECT_TRUE(builder_failed);
-        EXPECT_EQ(builder_error_msg, failure_msg);
-    }
+    TestFixture::test_tampering();
 }
