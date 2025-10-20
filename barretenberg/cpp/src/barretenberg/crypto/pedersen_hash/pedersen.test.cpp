@@ -1,5 +1,6 @@
 #include "pedersen.hpp"
 #include "barretenberg/crypto/generators/generator_data.hpp"
+#include "barretenberg/crypto/pedersen_commitment/c_bind.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include <gtest/gtest.h>
 
