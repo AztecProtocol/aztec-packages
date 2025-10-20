@@ -552,25 +552,30 @@ contract TallySlashingProposer is EIP712 {
    * @notice Get information about a specific slashing round's status and voting data
    * @param _round The round number to retrieve information for
    * @return isExecuted True if the round has already been executed and slashing has occurred
-   * @return readyToExecute True if the round is currently ready for execution (past execution delay but within
-   * lifetime)
    * @return voteCount The total number of votes that have been cast in this round by proposers
    */
-  function getRound(SlashRound _round) external view returns (bool isExecuted, bool readyToExecute, uint256 voteCount) {
+  function getRound(SlashRound _round) external view returns (bool isExecuted, uint256 voteCount) {
     SlashRound currentRound = getCurrentRound();
 
     // Load round data from the circular storage
     RoundData memory roundData = _getRoundData(_round, currentRound);
 
-    // Check if the round is ready to execute based on current round number
-    bool isReady = _isRoundReadyToExecute(_round, currentRound);
-
     // If we have not written to this round yet, return fresh round data
     if (roundData.roundNumber != _round) {
-      return (false, isReady, 0);
+      return (false, 0);
     }
 
-    return (roundData.executed, isReady, roundData.voteCount);
+    return (roundData.executed, roundData.voteCount);
+  }
+
+  /**
+   * @notice Check if a specific slashing round is ready for execution
+   * @param _round The round number to check
+   * @param _slot The slot number at which to evaluate readiness (typically current or slot)
+   */
+  function isRoundReadyToExecute(SlashRound _round, Slot _slot) external view returns (bool) {
+    SlashRound currentRound = _computeRound(_slot);
+    return _isRoundReadyToExecute(_round, currentRound);
   }
 
   /**

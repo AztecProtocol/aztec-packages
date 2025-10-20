@@ -114,7 +114,7 @@ template <typename Builder> class bool_t {
     bool is_inverted() const
     {
         if (is_constant()) {
-            ASSERT(!witness_inverted);
+            BB_ASSERT(!witness_inverted);
         }
         return witness_inverted;
     }
@@ -131,8 +131,8 @@ template <typename Builder> class bool_t {
     void unset_free_witness_tag() { tag.unset_free_witness(); }
     void fix_witness()
     {
-        ASSERT(!is_constant());
-        ASSERT(context);
+        BB_ASSERT(!is_constant());
+        BB_ASSERT(context);
         context->fix_witness(witness_index, get_value());
         unset_free_witness_tag();
     }

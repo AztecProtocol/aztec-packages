@@ -141,7 +141,7 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     void push_back(const FF& value) override
     {
-        ASSERT(value.is_zero());
+        BB_ASSERT(value.is_zero());
         size_++;
     }
 
@@ -153,14 +153,14 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     void set(size_t idx, int value) override
     {
-        ASSERT_DEBUG(idx < size_);
+        BB_ASSERT_DEBUG(idx < size_);
         BB_ASSERT_EQ(value, 0, "Calling ZeroSelector::set with a non zero value.");
     }
 
     void set(size_t idx, const FF& value) override
     {
-        ASSERT_DEBUG(idx < size_);
-        ASSERT(value.is_zero());
+        BB_ASSERT_DEBUG(idx < size_);
+        BB_ASSERT(value.is_zero());
         size_++;
     }
 
@@ -170,7 +170,7 @@ template <typename FF> class ZeroSelector : public Selector<FF> {
 
     const FF& operator[](size_t index) const override
     {
-        ASSERT_DEBUG(index < size_);
+        BB_ASSERT_DEBUG(index < size_);
         return zero;
     }
 
@@ -258,7 +258,7 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
 
     uint32_t trace_offset() const
     {
-        ASSERT(trace_offset_ != std::numeric_limits<uint32_t>::max());
+        BB_ASSERT(trace_offset_ != std::numeric_limits<uint32_t>::max());
         return trace_offset_;
     }
 

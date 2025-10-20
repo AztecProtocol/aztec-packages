@@ -236,7 +236,7 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
         bool is_calldata_read = (values.q_l == 1);
         bool is_secondary_calldata_read = (values.q_r == 1);
         bool is_return_data_read = (values.q_o == 1);
-        ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
+        BB_ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
 
         // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;

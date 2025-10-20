@@ -35,8 +35,11 @@ export const mockAttestation = (
   const header = makeL2BlockHeader(1, 2, slot);
   const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
 
-  const hash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
-  const signature = signer.sign(hash);
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSignature = signer.sign(attestationHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, signature);
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposerSignature = signer.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };

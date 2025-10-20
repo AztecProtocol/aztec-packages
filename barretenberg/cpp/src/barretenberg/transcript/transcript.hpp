@@ -533,7 +533,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      *      what happens before and after the transcript is branched.
      *  4. To ensure soundness:
      *      a. We add to the hash buffer of `branched_transcript` the value `transcript.previous_challenge`
-     *      b. We enforce ASSERT(current_round_data.empty())
+     *      b. We enforce BB_ASSERT(current_round_data.empty())
      *
      * @note We could remove 4.b and add to the hash buffer of `branched_transcript` both
      * `transcript.previous_challenge` and `transcript.current_round_data`. However, this would conflict with 3 (as the
@@ -563,7 +563,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     // gone.
     BaseTranscript branch_transcript()
     {
-        ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
+        BB_ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");
 
         BaseTranscript branched_transcript;
 

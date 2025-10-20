@@ -82,7 +82,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
     RomTranscript& rom_array = rom_arrays[rom_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_array.state.size(), index);
-    ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(rom_array.state[index][0]);
     const uint32_t value_witness = builder->add_variable(value);
     RomRecord new_record{
@@ -111,8 +111,8 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
     BB_ASSERT_GT(rom_array.state.size(), index);
-    ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
-    ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
     const auto value1 = builder->get_variable(rom_array.state[index][0]);
     const auto value2 = builder->get_variable(rom_array.state[index][1]);
     value_witnesses[0] = builder->add_variable(value1);
@@ -301,7 +301,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(ram_array.state[index]);
     const uint32_t value_witness = builder->add_variable(value);
 
@@ -333,7 +333,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
 
     RamRecord new_record{ .index_witness = index_witness,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),

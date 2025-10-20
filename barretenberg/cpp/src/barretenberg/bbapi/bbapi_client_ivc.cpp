@@ -59,9 +59,26 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-    if (!request.loaded_circuit_vk.empty()) {
-        // Deserialize directly from buffer
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+
+    if (request.vk_policy == VkPolicy::RECOMPUTE) {
+        precomputed_vk = nullptr;
+    } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
+        if (!request.loaded_circuit_vk.empty()) {
+            precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+
+            if (request.vk_policy == VkPolicy::CHECK) {
+                auto prover_instance = std::make_shared<ClientIVC::ProverInstance>(circuit, request.trace_settings);
+                auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+
+                // Dereference to compare VK contents
+                if (*precomputed_vk != *computed_vk) {
+                    throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
+                                   "': provided VK does not match computed VK");
+                }
+            }
+        }
+    } else {
+        throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");

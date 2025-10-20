@@ -450,7 +450,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_num_finalized_gates() const override
     {
-        ASSERT(circuit_finalized);
+        BB_ASSERT(circuit_finalized);
         return this->num_gates;
     }
 
@@ -521,7 +521,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     size_t get_finalized_total_circuit_size() const
     {
-        ASSERT(circuit_finalized);
+        BB_ASSERT(circuit_finalized);
         auto num_filled_gates = get_num_finalized_gates() + this->num_public_inputs();
         return std::max(get_tables_size(), num_filled_gates);
     }

@@ -19,13 +19,54 @@ L1_NETWORK=${L1_NETWORK:-sepolia}
 
 echo "Setting up GCP secrets for network: $NETWORK"
 
-# Function to get secret from GCP Secret Manager
+# Create secure temporary directory for secrets
+SECRETS_TMP_DIR=$(mktemp -d)
+chmod 700 "$SECRETS_TMP_DIR"
+trap "rm -rf '$SECRETS_TMP_DIR'" EXIT
+
+# Function to get secret from GCP Secret Manager and write to temp file
+# Returns the path to the temp file containing the secret
 get_secret() {
     local secret_name="$1"
-    gcloud secrets versions access latest --secret="$secret_name" --project="$GCP_PROJECT_ID" 2>/dev/null || {
+    local temp_file="$SECRETS_TMP_DIR/${secret_name}.secret"
+
+    gcloud secrets versions access latest --secret="$secret_name" --project="$GCP_PROJECT_ID" --out-file="$temp_file" 2>/dev/null || {
         echo "Failed to read secret: $secret_name" >&2
         exit 1
     }
+
+    echo "$temp_file"
+}
+
+# Function to mask secret values from file - handles both plain strings and JSON
+# Reads secret from temp file, masks it, and returns the value
+mask_secret_value() {
+    local env_var="$1"
+    local secret_file="$2"
+
+    # Read secret from file
+    local secret_value
+    secret_value=$(cat "$secret_file")
+
+    # Always mask the full value first as a safety net
+    echo "::add-mask::$secret_value"
+
+    # Check if this environment variable contains JSON that should be individually masked
+    local is_json_secret=false
+    for json_var in "${JSON_SECRETS[@]}"; do
+        if [[ "$env_var" == "$json_var" ]]; then
+            is_json_secret=true
+            break
+        fi
+    done
+
+    if [[ "$is_json_secret" == "true" ]]; then
+        jq -r '.[]' "$secret_file" | while IFS= read -r element; do
+            echo "::add-mask::$element"
+        done
+    fi
+
+    echo "$secret_value"
 }
 
 # Map of environment variables to GCP secret names
@@ -45,6 +86,14 @@ declare -A SECRET_MAPPINGS=(
     ["R2_SECRET_ACCESS_KEY"]="r2-secret-access-key"
 )
 
+# List of environment variables that contain JSON and should have individual values masked
+JSON_SECRETS=(
+    "ETHEREUM_RPC_URLS"
+    "ETHEREUM_CONSENSUS_HOST_URLS"
+    "ETHEREUM_CONSENSUS_HOST_API_KEYS"
+    "ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS"
+)
+
 # Replace placeholders with actual secrets
 for env_var in "${!SECRET_MAPPINGS[@]}"; do
     secret_name="${SECRET_MAPPINGS[$env_var]}"
@@ -52,14 +101,14 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
 
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Export the secret value
-        secret_value=$(get_secret "$secret_name")
-        echo "::add-mask::$secret_value"
+        secret_file=$(get_secret "$secret_name")
+        secret_value=$(mask_secret_value "$env_var" "$secret_file")
         export $env_var="${secret_value}"
     elif grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE"; then
         # Handle cases like STORE_SNAPSHOT_URL=REPLACE_WITH_GCP_SECRET/network/
         suffix=$(grep "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE" | cut -d'/' -f2-)
-        secret_value=$(get_secret "$secret_name")
-        echo "::add-mask::$secret_value"
+        secret_file=$(get_secret "$secret_name")
+        secret_value=$(mask_secret_value "$env_var" "$secret_file")
         export $env_var='${secret_value}/'$suffix
     elif grep -q "^${env_var}=.*REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Replace inline occurrences within the value, preserving surrounding content
@@ -68,8 +117,8 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
         if [[ "$full_value" == \"*\" && "$full_value" == *\" ]]; then
             full_value="${full_value:1:-1}"
         fi
-        secret_value=$(get_secret "$secret_name")
-        echo "::add-mask::$secret_value"
+        secret_file=$(get_secret "$secret_name")
+        secret_value=$(mask_secret_value "$env_var" "$secret_file")
         replaced_value="${full_value//REPLACE_WITH_GCP_SECRET/$secret_value}"
         export $env_var="$replaced_value"
     fi

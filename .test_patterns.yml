@@ -299,7 +299,7 @@ tests:
     error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
-  - regex: "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+  - regex: "src/client/test/p2p_client.integration_status_handshake.test.ts"
     error_regex: "Expected number of calls"
     owners:
       - *palla
@@ -321,6 +321,10 @@ tests:
       - *esau
   - regex: "ethereum/src/l1_tx_utils.test.ts"
     error_regex: "✕ attempts to cancel timed out blob transactions with correct parameters"
+    owners:
+      - *palla
+  - regex: "ethereum/src/l1_tx_utils/l1_tx_utils.test.ts"
+    error_regex: "nonce too low"
     owners:
       - *palla
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
