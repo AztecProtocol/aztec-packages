@@ -580,12 +580,13 @@ class ECCVMFlavor {
 
             const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
                                     NUM_DISABLED_ROWS_IN_SUMCHECK;
+            vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
-            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
-                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
-                               std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
-            }
+            BB_ASSERT_LTE(dyadic_num_rows,
+                          ECCVM_FIXED_SIZE,
+                          "The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
+                              std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
 
 #ifdef FUZZING
             // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.

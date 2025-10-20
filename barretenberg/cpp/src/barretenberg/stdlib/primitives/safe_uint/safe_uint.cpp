@@ -43,7 +43,7 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
                                                     std::string const& description) const
 {
     BB_ASSERT_LTE(difference_bit_size, MAX_BIT_NUM);
-    ASSERT(!(this->value.is_constant() && other.value.is_constant()));
+    BB_ASSERT(!(this->value.is_constant() && other.value.is_constant()));
 
     field_ct difference_val = this->value - other.value;
     // Creates the range constraint that difference_val is in [0, (1<<difference_bit_size) - 1].
@@ -74,8 +74,8 @@ safe_uint_t<Builder> safe_uint_t<Builder>::subtract(const safe_uint_t& other,
 template <typename Builder> safe_uint_t<Builder> safe_uint_t<Builder>::operator-(const safe_uint_t& other) const
 {
     // If both are constants and the operation is an underflow, throw an error since circuit itself underflows
-    ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
-             static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
+    BB_ASSERT(!(this->value.is_constant() && other.value.is_constant() &&
+                static_cast<uint256_t>(value.get_value()) < static_cast<uint256_t>(other.value.get_value())));
 
     field_ct difference_val = this->value - other.value;
 

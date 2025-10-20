@@ -18,7 +18,7 @@ import {
   L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
-  getAttestationsFromPublishedL2Block,
+  getAttestationInfoFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
@@ -91,7 +91,9 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
         this.slotNumberToBlock.set(block.block.header.getSlot(), {
           blockNumber: block.block.number,
           archive: block.block.archive.root.toString(),
-          attestors: getAttestationsFromPublishedL2Block(block).map(att => att.getSender()),
+          attestors: getAttestationInfoFromPublishedL2Block(block)
+            .filter(a => a.status === 'recovered-from-signature')
+            .map(a => a.address!),
         });
       }
 
@@ -319,8 +321,10 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     // (contains the ones synced from mined blocks, which we may have missed from p2p).
     const block = this.slotNumberToBlock.get(slot);
     const p2pAttested = await this.p2p.getAttestationsForSlot(slot, block?.archive);
+    // Filter out attestations with invalid signatures
+    const p2pAttestors = p2pAttested.map(a => a.getSender()).filter((s): s is EthAddress => s !== undefined);
     const attestors = new Set(
-      [...p2pAttested.map(a => a.getSender().toString()), ...(block?.attestors.map(a => a.toString()) ?? [])].filter(
+      [...p2pAttestors.map(a => a.toString()), ...(block?.attestors.map(a => a.toString()) ?? [])].filter(
         addr => proposer.toString() !== addr, // Exclude the proposer from the attestors
       ),
     );

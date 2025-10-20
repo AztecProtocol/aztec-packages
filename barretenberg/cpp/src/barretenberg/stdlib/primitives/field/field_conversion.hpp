@@ -69,8 +69,8 @@ template <typename Field> class StdlibCodec {
                          "field_conversion: convert_challenge");
             Builder* builder = challenge.get_context();
             // All challenges must be circuit witnesses.
-            ASSERT(builder);
-            ASSERT(!challenge.is_constant());
+            BB_ASSERT(builder);
+            BB_ASSERT(!challenge.is_constant());
             return T(challenge, fr::from_witness_index(builder, builder->zero_idx()));
         }
     }
@@ -150,7 +150,7 @@ template <typename Field> class StdlibCodec {
         constexpr size_t expected_size = calc_num_fields<T>();
         BB_ASSERT_EQ(fr_vec.size(), expected_size);
 
-        ASSERT(validate_context<Builder>(fr_vec));
+        BB_ASSERT(validate_context<Builder>(fr_vec));
 
         if constexpr (IsAnyOf<T, field_ct>) {
             // Case 1: input type matches the output type

@@ -52,7 +52,7 @@
     "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",

@@ -6,7 +6,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { makeBlockProposal, makeL2BlockHeader, mockTx } from '@aztec/stdlib/testing';
+import { makeBlockProposal, makeL2BlockHeader } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
@@ -21,6 +21,7 @@ import { BitVector } from '../../services/reqresp/protocols/block_txs/bitvector.
 import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protocols/block_txs/block_txs_reqresp.js';
 import { ReqRespStatus } from '../../services/reqresp/status.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/make-test-p2p-clients.js';
+import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
 
 const TEST_TIMEOUT = 120000;
 jest.setTimeout(TEST_TIMEOUT);
@@ -92,7 +93,7 @@ describe('p2p client integration block txs protocol ', () => {
     await sleep(5000);
     logger.info('Finished waiting for clients to connect');
 
-    txs = await Promise.all(times(5, () => mockTx()));
+    txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     const blockProposal = createBlockProposal(blockNumber, blockHash, txHashes);
     attestationPool.getBlockProposal.mockResolvedValue(blockProposal);

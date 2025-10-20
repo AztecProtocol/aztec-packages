@@ -82,7 +82,7 @@ template <typename Fr> Polynomial<Fr>::Polynomial(size_t size, size_t virtual_si
     parallel_for(num_threads, [&](size_t j) {
         size_t offset = j * range_per_thread;
         size_t range = (j == num_threads - 1) ? range_per_thread + leftovers : range_per_thread;
-        ASSERT(offset < size || size == 0);
+        BB_ASSERT(offset < size || size == 0);
         BB_ASSERT_LTE((offset + range), size);
         memset(static_cast<void*>(coefficients_.data() + offset), 0, sizeof(Fr) * range);
     });
@@ -192,13 +192,13 @@ template <typename Fr> Polynomial<Fr>& Polynomial<Fr>::operator+=(PolynomialSpan
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z, const size_t target_size) const
 {
-    ASSERT(size() == virtual_size());
+    BB_ASSERT(size() == virtual_size());
     return polynomial_arithmetic::evaluate(data(), z, target_size);
 }
 
 template <typename Fr> Fr Polynomial<Fr>::evaluate(const Fr& z) const
 {
-    ASSERT(size() == virtual_size());
+    BB_ASSERT(size() == virtual_size());
     return polynomial_arithmetic::evaluate(data(), z, size());
 }
 

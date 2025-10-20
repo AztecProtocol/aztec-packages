@@ -36,14 +36,14 @@ template <typename Fr> struct PolynomialSpan {
     size_t size() const { return span.size(); }
     Fr& operator[](size_t index)
     {
-        ASSERT_DEBUG(index >= start_index);
-        ASSERT_DEBUG(index < end_index());
+        BB_ASSERT_DEBUG(index >= start_index);
+        BB_ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     const Fr& operator[](size_t index) const
     {
-        ASSERT_DEBUG(index >= start_index);
-        ASSERT_DEBUG(index < end_index());
+        BB_ASSERT_DEBUG(index >= start_index);
+        BB_ASSERT_DEBUG(index < end_index());
         return span[index - start_index];
     }
     PolynomialSpan subspan(size_t offset, size_t length)
@@ -367,7 +367,7 @@ template <typename Fr> class Polynomial {
      */
     void set_if_valid_index(size_t index, const Fr& value)
     {
-        ASSERT(value.is_zero() || is_valid_set_index(index));
+        BB_ASSERT(value.is_zero() || is_valid_set_index(index));
         if (is_valid_set_index(index)) {
             at(index) = value;
         }
@@ -436,7 +436,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 {
     constexpr bool is_native = IsAnyOf<Fr_, bb::fr, grumpkin::fr>;
     // shift ==> native
-    ASSERT(!shift || is_native);
+    BB_ASSERT(!shift || is_native);
 
     if (coefficients.size() == 0) {
         return Fr_(0);

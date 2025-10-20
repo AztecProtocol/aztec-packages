@@ -29,4 +29,4 @@ docs/.yarn/install-state.gz
 docs/docs/protocol-specs/public-vm/gen/
 
 # for those who use Claude Code
-.claude
+/.claude

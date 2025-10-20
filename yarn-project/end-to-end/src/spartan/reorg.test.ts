@@ -15,7 +15,13 @@ import {
   deploySponsoredTestAccounts,
   performTransfers,
 } from './setup_test_wallets.js';
-import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
+import {
+  applyProverFailure,
+  getGitProjectRoot,
+  setupEnvironment,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
+} from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 const debugLogger = createLogger('e2e:spartan-test:reorg');
@@ -46,6 +52,8 @@ describe('reorg test', () => {
   const forwardProcesses: ChildProcess[] = [];
   let rpcUrl: string;
   let wallet: TestWallet;
+  let spartanDir: string;
+
   let testAccounts: TestAccounts;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
@@ -63,6 +71,7 @@ describe('reorg test', () => {
 
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    spartanDir = `${getGitProjectRoot()}/spartan`;
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
     testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
@@ -89,7 +98,7 @@ describe('reorg test', () => {
     // kill the provers
     const stdout = await applyProverFailure({
       namespace: config.NAMESPACE,
-      spartanDir: `/workspaces/aztec-packages/spartan`,
+      spartanDir,
       durationSeconds: Number(epochDuration * slotDuration) * 2,
       logger: debugLogger,
     });

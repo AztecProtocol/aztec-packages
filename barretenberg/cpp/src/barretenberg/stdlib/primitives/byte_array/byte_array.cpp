@@ -35,7 +35,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, std::vector<uint8_t> co
     : context(parent_context)
     , values(input.size())
 {
-    ASSERT(context);
+    BB_ASSERT(context);
     for (size_t i = 0; i < input.size(); ++i) {
         uint8_t c = input[i];
         field_t<Builder> value(witness_t(context, c));
@@ -239,7 +239,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {
     const size_t bytes = values.size();
-    ASSERT(bytes < 32);
+    BB_ASSERT(bytes < 32);
     static constexpr uint256_t one(1);
     std::vector<field_t<Builder>> scaled_values;
 
@@ -277,7 +277,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(b
  */
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset) const
 {
-    ASSERT_DEBUG(offset < values.size());
+    BB_ASSERT_DEBUG(offset < values.size());
     return byte_array(context, bytes_t(values.begin() + static_cast<ptrdiff_t>(offset), values.end()));
 }
 
@@ -287,9 +287,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_t offset, size_t length) const
 {
-    ASSERT_DEBUG(offset < values.size());
+    BB_ASSERT_DEBUG(offset < values.size());
     // it's <= cause vector constructor doesn't include end point
-    ASSERT_DEBUG(length <= values.size() - offset);
+    BB_ASSERT_DEBUG(length <= values.size() - offset);
     auto start = values.begin() + static_cast<ptrdiff_t>(offset);
     auto end = values.begin() + static_cast<ptrdiff_t>((offset + length));
     return byte_array(context, bytes_t(start, end));

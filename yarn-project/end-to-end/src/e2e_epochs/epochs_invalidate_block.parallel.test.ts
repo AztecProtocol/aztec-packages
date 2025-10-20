@@ -177,7 +177,7 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
   // Slot S:   Block N is proposed with invalid attestations
   // Slot S+1: Block N is invalidated, and block N' (same number) is proposed instead, but also has invalid attestations
   // Slot S+2: Proposer tries to invalidate block N, when they should invalidate block N' instead, and fails
-  it('chain progresses if an invalid block is invalidated with an invalid one', async () => {
+  it('chain progresses if a block with insufficient attestations is invalidated with an invalid one', async () => {
     // Configure all sequencers to skip collecting attestations before starting and always build blocks
     logger.warn('Configuring all sequencers to skip attestation collection');
     const sequencers = nodes.map(node => node.getSequencer()!);
@@ -207,6 +207,63 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
     // Disable skipCollectingAttestations
     sequencers.forEach(sequencer => {
       sequencer.updateConfig({ skipCollectingAttestations: false });
+    });
+
+    // Ensure chain progresses
+    const targetBlock = lastInvalidatedBlockNumber! + 2n;
+    logger.warn(`Waiting until block ${targetBlock} has been mined`);
+    await test.monitor.waitUntilL2Block(targetBlock);
+
+    // Wait for all nodes to sync the new block
+    logger.warn(`Waiting for all nodes to sync to block ${targetBlock}`);
+    await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        logger.info(`Node synced block numbers: ${blockNumbers.join(', ')}`);
+        return blockNumbers.every(bn => bn > targetBlock);
+      },
+      'Node sync check',
+      test.L2_SLOT_DURATION_IN_S * 5,
+      0.5,
+    );
+
+    logger.warn(`Test succeeded '${expect.getState().currentTestName}'`);
+  });
+
+  // Regression for Joe's Q42025 London attack. Same as above but with an invalid signature instead of insufficient ones.
+  it('chain progresses if a block with an invalid attestation is invalidated with an invalid one', async () => {
+    // Configure all sequencers to skip collecting attestations before starting and always build blocks
+    logger.warn('Configuring all sequencers to inject one invalid attestation');
+    const sequencers = nodes.map(node => node.getSequencer()!);
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ injectFakeAttestation: true, minTxsPerBlock: 0 });
+    });
+
+    // Start all sequencers
+    await Promise.all(sequencers.map(s => s.start()));
+    logger.warn(`Started all sequencers with injectFakeAttestation=true`);
+
+    // Wait until we see two invalidations, both should be for the same block
+    let lastInvalidatedBlockNumber: bigint | undefined;
+    const invalidatePromise = promiseWithResolvers<void>();
+    const unsubscribe = rollupContract.listenToBlockInvalidated(data => {
+      logger.warn(`Block ${data.blockNumber} has been invalidated`, data);
+      if (lastInvalidatedBlockNumber === undefined) {
+        lastInvalidatedBlockNumber = data.blockNumber;
+      } else {
+        expect(data.blockNumber).toEqual(lastInvalidatedBlockNumber);
+        invalidatePromise.resolve();
+        unsubscribe();
+      }
+    });
+    await Promise.race([
+      timeoutPromise(1000 * test.L2_SLOT_DURATION_IN_S * 8, 'Invalidating blocks'),
+      invalidatePromise.promise,
+    ]);
+
+    // Disable injectFakeAttestation
+    sequencers.forEach(sequencer => {
+      sequencer.updateConfig({ injectFakeAttestation: false });
     });
 
     // Ensure chain progresses

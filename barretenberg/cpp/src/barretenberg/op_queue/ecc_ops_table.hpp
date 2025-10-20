@@ -121,8 +121,8 @@ template <typename OpFormat> class EccOpsTable {
   public:
     size_t size() const
     {
-        ASSERT(current_subtable.empty(),
-               "Current subtable should be merged before computing the size of the full table of ecc ops.");
+        BB_ASSERT(current_subtable.empty(),
+                  "Current subtable should be merged before computing the size of the full table of ecc ops.");
         size_t total = 0;
         for (const auto& subtable : table) {
             total += subtable.size();
@@ -145,15 +145,15 @@ template <typename OpFormat> class EccOpsTable {
 
     void create_new_subtable(size_t size_hint = 0)
     {
-        ASSERT(current_subtable.empty(), "Cannot create a new subtable until the current subtable has been merged.");
+        BB_ASSERT(current_subtable.empty(), "Cannot create a new subtable until the current subtable has been merged.");
         current_subtable.reserve(size_hint);
     }
 
     // const version of operator[]
     const OpFormat& operator[](size_t index) const
     {
-        ASSERT(current_subtable.empty(),
-               "Current subtable should be merged before attempting to index into the full table.");
+        BB_ASSERT(current_subtable.empty(),
+                  "Current subtable should be merged before attempting to index into the full table.");
         BB_ASSERT_LT(index, size());
         // simple linear search to find the correct subtable
         for (const auto& subtable : table) {
@@ -168,8 +168,8 @@ template <typename OpFormat> class EccOpsTable {
     // highly inefficient copy-based reconstruction of the table for use in ECCVM/Translator
     std::vector<OpFormat> get_reconstructed() const
     {
-        ASSERT(current_subtable.empty(),
-               "current subtable should be merged before reconstructing the full table of operations.");
+        BB_ASSERT(current_subtable.empty(),
+                  "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<OpFormat> reconstructed_table;
         reconstructed_table.reserve(size());
@@ -195,7 +195,7 @@ template <typename OpFormat> class EccOpsTable {
         }
 
         current_subtable.clear(); // clear the current subtable after merging
-        ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
+        BB_ASSERT(current_subtable.empty(), "current subtable should be empty after merging. Check the merge logic.");
     }
 };
 
@@ -261,7 +261,7 @@ class UltraEccOpsTable {
     {
         if (settings == MergeSettings::APPEND) {
             // All appends are treated as fixed-location for ultra ops
-            ASSERT(!has_fixed_append, "Can only perform fixed-location append once");
+            BB_ASSERT(!has_fixed_append, "Can only perform fixed-location append once");
             // Set fixed location at which to append ultra ops. If nullopt --> append right after prepended tables
             fixed_append_offset = offset;
             has_fixed_append = true;
@@ -285,8 +285,8 @@ class UltraEccOpsTable {
     std::vector<UltraOp> get_reconstructed_with_fixed_append() const
     {
 
-        ASSERT(get_current_subtable_size() == 0,
-               "current subtable should be merged before reconstructing the full table of operations.");
+        BB_ASSERT(get_current_subtable_size() == 0,
+                  "current subtable should be merged before reconstructing the full table of operations.");
 
         std::vector<UltraOp> reconstructed_table;
         reconstructed_table.reserve(1 << CONST_OP_QUEUE_LOG_SIZE);

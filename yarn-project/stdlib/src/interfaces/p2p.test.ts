@@ -55,6 +55,10 @@ describe('P2PApiSchema', () => {
     const peers = await context.client.getPeers(true);
     expect(peers).toEqual(peers);
   });
+
+  it('deleteAttestation', async () => {
+    await context.client.deleteAttestation(BlockAttestation.empty());
+  });
 });
 
 const peers: PeerInfo[] = [
@@ -89,6 +93,11 @@ class MockP2P implements P2PApi {
 
   addAttestations(attestations: BlockAttestation[]): Promise<void> {
     expect(attestations).toEqual([BlockAttestation.empty(), BlockAttestation.empty()]);
+    return Promise.resolve();
+  }
+
+  deleteAttestation(attestation: BlockAttestation): Promise<void> {
+    expect(attestation).toEqual(BlockAttestation.empty());
     return Promise.resolve();
   }
 }

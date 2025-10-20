@@ -57,6 +57,9 @@ export interface P2PApiWithAttestations extends P2PApiWithoutAttestations {
    * @returns BlockAttestations
    */
   getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]>;
+
+  /** Deletes a given attestation manually from the p2p client attestation pool. */
+  deleteAttestation(attestation: BlockAttestation): Promise<void>;
 }
 
 export interface P2PClient extends P2PApiWithAttestations {
@@ -85,4 +88,5 @@ export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getPendingTxCount: z.function().returns(schemas.Integer),
   getEncodedEnr: z.function().returns(z.string().optional()),
   getPeers: z.function().args(optional(z.boolean())).returns(z.array(PeerInfoSchema)),
+  deleteAttestation: z.function().args(BlockAttestation.schema).returns(z.void()),
 };
