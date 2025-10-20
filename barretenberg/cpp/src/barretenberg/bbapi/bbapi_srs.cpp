@@ -11,10 +11,8 @@
 
 namespace bb::bbapi {
 
-SrsInitSrs::Response SrsInitSrs::execute(BBApiRequest& request) &&
+SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    (void)request;
-
     // Parse G1 points from buffer (64 bytes each)
     std::vector<g1::affine_element> g1_points(num_points);
     for (size_t i = 0; i < num_points; ++i) {
@@ -30,10 +28,8 @@ SrsInitSrs::Response SrsInitSrs::execute(BBApiRequest& request) &&
     return {};
 }
 
-SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BBApiRequest& request) &&
+SrsInitGrumpkinSrs::Response SrsInitGrumpkinSrs::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    (void)request;
-
     // Parse Grumpkin affine elements from buffer
     std::vector<curve::Grumpkin::AffineElement> points(num_points);
     for (uint32_t i = 0; i < num_points; ++i) {
