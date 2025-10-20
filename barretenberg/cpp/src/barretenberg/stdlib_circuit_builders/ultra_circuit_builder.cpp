@@ -55,7 +55,6 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         if (ensure_nonzero) {
             add_gates_to_ensure_all_polys_are_non_zero();
         }
-        process_non_native_field_multiplications();
 #ifndef ULTRA_FUZZ
         this->rom_ram_logic.process_ROM_arrays(this);
         this->rom_ram_logic.process_RAM_arrays(this);
@@ -1515,43 +1514,6 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
 }
 
 /**
- * @brief Called in `compute_prover_instance` when finalizing circuit.
- * Iterates over the cached_non_native_field_multiplication objects,
- * removes duplicates, and instantiates the remainder as constraints`
- */
-template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::process_non_native_field_multiplications()
-{
-    for (size_t i = 0; i < cached_partial_non_native_field_multiplications.size(); ++i) {
-        auto& c = cached_partial_non_native_field_multiplications[i];
-        for (size_t j = 0; j < c.a.size(); ++j) {
-            c.a[j] = this->real_variable_index[c.a[j]];
-            c.b[j] = this->real_variable_index[c.b[j]];
-        }
-    }
-    cached_partial_non_native_field_multiplication::deduplicate(cached_partial_non_native_field_multiplications, this);
-
-    // iterate over the cached items and create constraints
-    for (const auto& input : cached_partial_non_native_field_multiplications) {
-
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.lo_0);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
-        ++this->num_gates;
-
-        blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
-        ++this->num_gates;
-
-        blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), input.hi_0);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
-        ++this->num_gates;
-
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.hi_1);
-        apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
-        ++this->num_gates;
-    }
-}
-
-/**
  * Compute the limb-multiplication part of a non native field mul
  *
  * i.e. compute the low 204 and high 204 bit components of `a * b` where `a, b` are nnf elements composed of 4
@@ -1588,16 +1550,24 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
     const uint32_t hi_0_idx = this->add_variable(hi_0);
     const uint32_t hi_1_idx = this->add_variable(hi_1);
 
-    // Add witnesses into the multiplication cache
-    // (when finalising the circuit, we will remove duplicates; several dups produced by biggroup.hpp methods)
-    cached_partial_non_native_field_multiplication cache_entry{
-        .a = input.a,
-        .b = input.b,
-        .lo_0 = lo_0_idx,
-        .hi_0 = hi_0_idx,
-        .hi_1 = hi_1_idx,
-    };
-    cached_partial_non_native_field_multiplications.emplace_back(cache_entry);
+    // Create gates immediately instead of caching for later processing
+    // Note: This may create duplicate gates for repeated multiplications, but simplifies the codebase
+    blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), lo_0_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
+    ++this->num_gates;
+
+    blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
+    ++this->num_gates;
+
+    blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), hi_0_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
+    ++this->num_gates;
+
+    blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), hi_1_idx);
+    apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
+    ++this->num_gates;
+
     return std::array<uint32_t, 2>{ lo_0_idx, hi_1_idx };
 }
 

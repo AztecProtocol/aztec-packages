@@ -85,101 +85,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         }
     };
 
-    // AUDITTODO: this is not a large optimization (~0.5% reduction for ultra rec verifier); consider removing
-    /**
-     * @brief Used to store instructions to create partial_non_native_field_multiplication gates.
-     * @details We want to cache these (and remove duplicates) as the stdlib code can end up multiplying the same inputs
-     * repeatedly.
-     */
-    struct cached_partial_non_native_field_multiplication {
-        std::array<uint32_t, 4> a;
-        std::array<uint32_t, 4> b;
-        uint32_t lo_0;
-        uint32_t hi_0;
-        uint32_t hi_1;
-
-        bool operator==(const cached_partial_non_native_field_multiplication& other) const
-        {
-            bool valid = true;
-            for (size_t i = 0; i < 4; ++i) {
-                valid = valid && (a[i] == other.a[i]);
-                valid = valid && (b[i] == other.b[i]);
-            }
-            return valid;
-        }
-
-        /**
-         * @brief Dedupilcate cache entries which represent multiplication of the same witnesses
-         *
-         * @details While a and b witness vectors are the same, lo_0, hi_0 and hi_1 can vary, so we have to connect them
-         * or there is a vulnerability
-         *
-         * @param vec
-         * @param circuit_builder
-         */
-        static void deduplicate(std::vector<cached_partial_non_native_field_multiplication>& vec,
-                                UltraCircuitBuilder_<ExecutionTrace>* circuit_builder)
-        {
-            std::unordered_set<cached_partial_non_native_field_multiplication, Hash, std::equal_to<>> seen;
-
-            std::vector<cached_partial_non_native_field_multiplication> uniqueVec;
-
-            for (const auto& item : vec) {
-                auto [existing_element, not_in_set] = seen.insert(item);
-                // Memorize if not in set yet
-                if (not_in_set) {
-                    uniqueVec.push_back(item);
-                } else {
-                    // If we already have a representative, we need to connect the outputs together
-                    circuit_builder->assert_equal(item.lo_0, (*existing_element).lo_0);
-                    circuit_builder->assert_equal(item.hi_0, (*existing_element).hi_0);
-                    circuit_builder->assert_equal(item.hi_1, (*existing_element).hi_1);
-                }
-            }
-
-            vec.swap(uniqueVec);
-        }
-
-        bool operator<(const cached_partial_non_native_field_multiplication& other) const
-        {
-            if (a < other.a) {
-                return true;
-            }
-            if (other.a < a) {
-                return false;
-            }
-            if (b < other.b) {
-                return true;
-            }
-            return other.b < b;
-        }
-
-        struct Hash {
-            size_t operator()(const cached_partial_non_native_field_multiplication& obj) const
-            {
-                size_t combined_hash = 0;
-
-                // C++ does not have a standard way to hash values, so we use the
-                // common algorithm that boot uses.
-                // You can search for 'cpp hash_combine' to find more information.
-                // Here is one reference:
-                // https://stackoverflow.com/questions/2590677/how-do-i-combine-hash-values-in-c0x
-                auto hash_combiner = [](size_t lhs, size_t rhs) {
-                    return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
-                };
-
-                for (const auto& elem : obj.a) {
-                    combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
-                }
-                for (const auto& elem : obj.b) {
-                    combined_hash = hash_combiner(combined_hash, std::hash<uint32_t>()(elem));
-                }
-
-                return combined_hash;
-            }
-        };
-    };
-
     // Storage for wires and selectors for all gate types
     ExecutionTrace blocks;
 
@@ -204,15 +109,12 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // Witnesses that appear in finalize method (used in boomerang catcher). Need to check
     // that all variables from some connected component were created after finalize method was called
     std::unordered_set<uint32_t> finalize_witnesses;
-    std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
 
     std::vector<fr> ipa_proof;
 
     void populate_public_inputs_block();
-
-    void process_non_native_field_multiplications();
 
     UltraCircuitBuilder_(const size_t size_hint = 0)
         : CircuitBuilderBase<FF>(size_hint)
@@ -364,8 +266,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
         static constexpr size_t NUMBER_OF_GATES_PER_RAM_ACCESS = 2;
         static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
-        // number of gates created per non-native field operation in process_non_native_field_multiplications
-        static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
         count = this->num_gates;
 
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
@@ -434,14 +334,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                 rangecount += ram_range_sizes[i];
             }
         }
-        std::vector<cached_partial_non_native_field_multiplication> nnf_copy(
-            cached_partial_non_native_field_multiplications);
-        // update nnfcount
-        std::sort(nnf_copy.begin(), nnf_copy.end());
-
-        auto last = std::unique(nnf_copy.begin(), nnf_copy.end());
-        const size_t num_nnf_ops = static_cast<size_t>(std::distance(nnf_copy.begin(), last));
-        nnfcount = num_nnf_ops * GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC;
+        // Note: nnfcount is not estimated here since gates are created immediately in
+        // queue_partial_non_native_field_multiplication and already counted in this->num_gates
+        nnfcount = 0;
     }
 
     /**
