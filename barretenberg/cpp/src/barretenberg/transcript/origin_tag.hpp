@@ -252,10 +252,10 @@ template <bool in_circuit, typename T> inline void check_origin_tag(T& elem, con
     if constexpr (in_circuit) {
         if constexpr (is_iterable_v<T>) {
             for (auto& e : elem) {
-                ASSERT(e.get_origin_tag() == tag);
+                BB_ASSERT(e.get_origin_tag() == tag);
             };
         } else {
-            ASSERT(elem.get_origin_tag() == tag);
+            BB_ASSERT(elem.get_origin_tag() == tag);
         }
     }
 }

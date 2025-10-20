@@ -108,7 +108,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         } else {
             // Prevent challenge generation if this is the first challenge we're generating,
             // AND nothing was sent by the prover.
-            ASSERT(!current_round_data.empty());
+            BB_ASSERT(!current_round_data.empty());
             // Update is_first_challenge for the future
             is_first_challenge = false;
         }
