@@ -81,8 +81,7 @@ template <typename Builder_> struct PairingPoints {
             P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
             P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
         } else {
-            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
-            // recursion_separator} directly to avoid edge cases.
+            // Save gates using short scalars.
             Group point_to_aggregate = other.P0.scalar_mul(recursion_separator, 128);
             P0 += point_to_aggregate;
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);

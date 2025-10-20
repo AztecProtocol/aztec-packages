@@ -119,14 +119,14 @@ jobs:
             echo "NAMESPACE=ignition-fisherman-sepolia" >> $GITHUB_ENV
             echo "ETHEREUM_CHAIN_ID=11155111" >> $GITHUB_ENV
             echo "L1_NETWORK=sepolia" >> $GITHUB_ENV
-            echo "SNAPSHOT_BUCKET=testnet-bucket" >> $GITHUB_ENV
+            echo "SNAPSHOT_BUCKET_DIRECTORY=ignition-sepolia" >> $GITHUB_ENV
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           elif [[ "${{ inputs.l1_network }}" == "mainnet" ]]; then
             echo "NETWORK=mainnet" >> $GITHUB_ENV
             echo "NAMESPACE=ignition-fisherman-mainnet" >> $GITHUB_ENV
             echo "ETHEREUM_CHAIN_ID=1" >> $GITHUB_ENV
             echo "L1_NETWORK=mainnet" >> $GITHUB_ENV
-            echo "SNAPSHOT_BUCKET=mainnet-bucket" >> $GITHUB_ENV
+            echo "SNAPSHOT_BUCKET_DIRECTORY=ignition-mainnet" >> $GITHUB_ENV
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           fi
 
@@ -149,7 +149,7 @@ jobs:
           echo "Namespace: $NAMESPACE"
           echo "Ethereum Chain ID: $ETHEREUM_CHAIN_ID"
           echo "L1 Network: $L1_NETWORK"
-          echo "Snapshot Bucket: $SNAPSHOT_BUCKET"
+          echo "Snapshot Bucket Directory: $SNAPSHOT_BUCKET_DIRECTORY"
           echo "Use Network Config: $USE_NETWORK_CONFIG"
 
           cd spartan
