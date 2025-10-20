@@ -175,10 +175,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
-            // use), allocate full size polys
-            // is_structured = false;
-            if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
+            // If ZK or if using structured trace with overflow, allocate full size polys
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
+            // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
+            if ((Flavor::HasZK) || (is_structured && circuit.blocks.has_overflow)) {
                 // Allocate full size polynomials
                 polynomials = ProverPolynomials(dyadic_size());
             } else { // Allocate only a correct amount of memory for each polynomial

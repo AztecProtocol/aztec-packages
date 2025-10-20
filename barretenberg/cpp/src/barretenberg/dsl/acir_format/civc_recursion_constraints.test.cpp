@@ -1,4 +1,4 @@
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -29,23 +29,22 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
     struct ClientIVCData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        ClientIVC::Proof proof;
+        SumcheckClientIVC::Proof proof;
     };
 
-    static ClientIVCData get_civc_data(TraceSettings trace_settings)
+    static ClientIVCData get_civc_data()
     {
-        static constexpr size_t NUM_APP_CIRCUITS = 2;
+        static constexpr size_t NUM_APP_CIRCUITS = 1;
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+        const size_t num_circuits = circuit_producer.total_num_circuits;
+        SumcheckClientIVC ivc{ num_circuits };
 
-        ClientIVC ivc(circuit_producer.total_num_circuits, trace_settings);
-
-        for (size_t idx = 0; idx < circuit_producer.total_num_circuits; idx++) {
+        for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        ClientIVC::Proof proof = ivc.prove();
-
+        SumcheckClientIVC::Proof proof = ivc.prove();
         return { ivc.get_vk().mega, proof };
     }
 
@@ -106,7 +105,7 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
     using VerificationKey = CivcRecursionConstraintTest::VerificationKey;
     using ClientIVCData = CivcRecursionConstraintTest::ClientIVCData;
 
-    ClientIVCData civc_data = CivcRecursionConstraintTest::get_civc_data(TraceSettings());
+    ClientIVCData civc_data = CivcRecursionConstraintTest::get_civc_data();
 
     std::shared_ptr<VerificationKey> vk_from_valid_witness;
     {

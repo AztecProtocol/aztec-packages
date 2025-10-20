@@ -415,6 +415,10 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     }
     case QUEUE_TYPE::MEGA:
         vinfo("Generating proof for hiding kernel");
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Method for constructing hiding kernel proof
+        // constructs a new ProverInstance (with ZK Flavor). For now just do a hacky shared ptr deallocation to avoid
+        // double memory for storing two instances.
+        prover_instance.reset();
         proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
     }
