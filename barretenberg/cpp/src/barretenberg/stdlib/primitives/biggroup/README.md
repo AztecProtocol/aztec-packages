@@ -280,12 +280,12 @@ a &= \sum_{i=0}^{n-1} a_{i} \cdot \windex{2^{i}} \\
 &= a_0 + \sum_{i=1}^{n-1} (2 \cdot a_{i}) \cdot \windex{2^{i - 1}} \\
 &= a_0 + \sum_{i=1}^{n-1} (2 \cdot a_{i} - 1) \cdot \windex{2^{i - 1}}  + \underbrace{\sum_{i=1}^{n-1} \windex{2^{i - 1}}}_{\textsf{adjusted offset}} \\
 &= a_0 + \sum_{i=1}^{n-1} (1 - 2 \cdot (1 - a_{i})) \cdot \windex{2^{i - 1}}  + \underbrace{(2^{n-1} - 1)}_{\textsf{adjusted offset}} \\
-&= (a_0 - 1) + \sum_{i=1}^{n} (1 - 2 \cdot a'_{i}) \cdot \windex{2^{i - 1}}  \qquad \textsf{s.t. } a'_{n} = 1 \\
-&= -(1 - a_0) + \sum_{i=0}^{n-1} \underbrace{(1 - 2 \cdot a'_{i+1})}_{b_i} \cdot \windex{2^{i}}  \qquad \textsf{s.t. } a'_{n} = 1 \\
+&= (a_0 - 1) + \sum_{i=1}^{n} (1 - 2 \cdot a'_{i}) \cdot \windex{2^{i - 1}}  \qquad \textsf{s.t. } a'_{n} = 0 \\
+&= -(1 - a_0) + \sum_{i=0}^{n-1} \underbrace{(1 - 2 \cdot a'_{i+1})}_{b_i} \cdot \windex{2^{i}}  \qquad \textsf{s.t. } a'_{n} = 0 \\
 \end{aligned}
 $$
 
-Here, $a'_{i + 1} \in \{0, 1\}$ are the signed digit representation of the scalar $a$ with the most significant digit $a'_n = 1$. Therefore, the new digits $b_i := (1 - 2 \cdot a'_{i + 1})$ can take values in $\{-1, 1\}$.
+Here, $a'_{i + 1} \in \{0, 1\}$ are the signed digit representation of the scalar $a$ with the most significant digit $a'_n = 0$. Therefore, the new digits $b_i := (1 - 2 \cdot a'_{i + 1})$ can take values in $\{-1, 1\}$.
 The term $(1 - a_0)$ is the skew factor $\mathfrak{s}_a \in \{0, 1\}$ which is 1 for even scalars and 0 for odd scalars. Thus, the final representation of an $n$-bit odd scalar $a$ in signed digit form is:
 
 $$
