@@ -176,7 +176,7 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    (static_cast<View>(in.get(C::data_copy_reads_left)) -
                     (static_cast<View>(in.get(C::data_copy_data_index_upper_bound)) -
                      static_cast<View>(in.get(C::data_copy_offset))) *
-                        (FF(1) - static_cast<View>(in.get(C::data_copy_offset_gt_data_index_upper_bound))));
+                        static_cast<View>(in.get(C::data_copy_data_index_upper_bound_gt_offset)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
     {

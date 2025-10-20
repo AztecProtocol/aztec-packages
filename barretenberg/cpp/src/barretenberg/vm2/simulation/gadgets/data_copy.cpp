@@ -132,8 +132,8 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     // If we get to this point, we know we will be error free
     std::vector<FF> padded_calldata(copy_size, 0); // Initialize with zeros
     // Calldata is retrieved from [offset, data_index_upper_bound)
-    // if offset > data_index_upper_bound, we will read nothing
-    if (!gt.gt(static_cast<uint64_t>(offset), data_index_upper_bound)) {
+    // If data_index_upper_bound > offset, we read the data.
+    if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
         padded_calldata = context.get_calldata(offset, copy_size);
     }
 
@@ -182,10 +182,10 @@ void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
 
     // This is typically handled by the loop within get_returndata(), but we need to emit a range check in circuit
     // so we need to be explicit about it.
-    // Returndata is retrieved from [offset, data_index_upper_bound), if offset > data_index_upper_bound, we will read
-    // nothing.
+    // Returndata is retrieved from [offset, data_index_upper_bound), if data_index_upper_bound > offset, we will read
+    // the data.
     std::vector<FF> padded_returndata(copy_size, 0); // Initialize with zeros
-    if (!gt.gt(static_cast<uint64_t>(offset), data_index_upper_bound)) {
+    if (gt.gt(data_index_upper_bound, static_cast<uint64_t>(offset))) {
         padded_returndata = context.get_returndata(offset, copy_size);
     }
 

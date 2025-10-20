@@ -70,9 +70,6 @@ TEST_F(NestedCdCopySimulationTest, CdZero)
     uint32_t cd_copy_size = 0;
     uint32_t cd_offset = 0;
 
-    EXPECT_CALL(context, get_calldata(cd_offset, cd_copy_size))
-        .WillOnce(Return(std::vector<FF>{})); // Should return empty vector
-
     data_copy.cd_copy(context, cd_copy_size, cd_offset, dst_addr);
 
     auto c = mem.get(dst_addr);
@@ -179,9 +176,6 @@ TEST_F(RdCopySimulationTest, RdZero)
     // Copy zero returndata from the last executed context to memory
     uint32_t rd_copy_size = 0;
     uint32_t rd_offset = 0;
-
-    EXPECT_CALL(context, get_returndata(rd_offset, rd_copy_size))
-        .WillOnce(Return(std::vector<FF>{})); // Should return empty vector
 
     data_copy.rd_copy(context, rd_copy_size, rd_offset, dst_addr);
 

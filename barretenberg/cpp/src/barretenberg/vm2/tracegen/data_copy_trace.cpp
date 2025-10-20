@@ -115,7 +115,7 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_sel_start_no_err, 1 },
                     { C::data_copy_sel_end, 1 },
                     { C::data_copy_sel_write_count_is_zero, 1 },
-                    { C::data_copy_offset_gt_data_index_upper_bound, data_offset > data_index_upper_bound ? 1 : 0 },
+                    { C::data_copy_data_index_upper_bound_gt_offset, data_index_upper_bound > data_offset ? 1 : 0 },
                 } });
             row++;
             continue; // Go to the next event
@@ -177,8 +177,8 @@ void DataCopyTraceBuilder::process(
 
                     // Reads Left
                     { C::data_copy_reads_left, reads_left },
-                    { C::data_copy_offset_gt_data_index_upper_bound,
-                      (start && data_offset > data_index_upper_bound) ? 1 : 0 },
+                    { C::data_copy_data_index_upper_bound_gt_offset,
+                      (start && data_index_upper_bound > data_offset) ? 1 : 0 },
 
                     // Non-zero Copy Size
                     { C::data_copy_write_count_zero_inv, start ? FF(copy_size) : 0 }, // Will be inverted in batch later
@@ -204,9 +204,9 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         // Enqueued Call Col Read
         .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
         // GT checks
-        .add<lookup_data_copy_data_index_upper_bound_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_data_copy_offset_plus_size_is_gt_data_size_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_offset_gt_data_index_upper_bound_settings, InteractionType::LookupGeneric>(
+        .add<lookup_data_copy_data_index_upper_bound_gt_offset_settings, InteractionType::LookupGeneric>(
             Column::gt_sel);
 } // namespace bb::avm2::tracegen

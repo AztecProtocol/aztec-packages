@@ -83,8 +83,6 @@ TEST_F(NestedCdConstrainingBuilderTest, CdZeroCopy)
     uint32_t copy_size = 0;
     uint32_t cd_offset = 0; // Offset into calldata
 
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
-
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
     tracegen::DataCopyTraceBuilder builder;
@@ -95,8 +93,8 @@ TEST_F(NestedCdConstrainingBuilderTest, CdZeroCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -118,8 +116,8 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -145,8 +143,8 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -171,8 +169,8 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -195,8 +193,8 @@ TEST_F(NestedCdConstrainingBuilderTest, ZeroCopySizeOffsetOOB)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -219,8 +217,8 @@ TEST_F(NestedCdConstrainingBuilderTest, NonZeroCopySizeOffsetOOB)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -242,8 +240,8 @@ TEST_F(NestedCdConstrainingBuilderTest, OutofRangeError)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -270,8 +268,8 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -296,8 +294,8 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -337,8 +335,8 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -363,8 +361,8 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
 
     check_relation<data_copy>(trace);
     check_interaction<DataCopyTraceBuilder,
-                      lookup_data_copy_data_index_upper_bound_gt_settings,
-                      lookup_data_copy_offset_gt_data_index_upper_bound_settings,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
                       lookup_data_copy_check_src_addr_in_range_settings,
                       lookup_data_copy_check_dst_addr_in_range_settings>(trace);
 }
@@ -395,8 +393,6 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, CdZeroCopy)
 {
     uint32_t copy_size = 0;
     uint32_t cd_offset = 0; // Offset into calldata
-
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -500,8 +496,6 @@ TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, CdZeroCopy)
     uint32_t copy_size = 0;
     uint32_t cd_offset = 0; // Offset into calldata
 
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
-
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
     tracegen::DataCopyTraceBuilder builder;
@@ -518,8 +512,6 @@ TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 {
     uint32_t copy_size = 4;
     uint32_t cd_offset = 0;
-
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(std::vector<FF>{ 0, 0, 0, 0 }));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -539,8 +531,6 @@ TEST_F(EnqueuedEmptyCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
     std::vector<FF> result_cd = {};
     result_cd.resize(10, 0);                                  // Pad with zeros to 10 elements
     auto copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
-
-    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
@@ -640,8 +630,6 @@ TEST_F(NestedRdConstrainingBuilderTest, RdZeroCopy)
 {
     uint32_t copy_size = 0;
     uint32_t rd_offset = 0; // Offset into calldata
-
-    EXPECT_CALL(context, get_returndata(rd_offset, copy_size)).WillOnce(::testing::Return(std::vector<FF>{}));
 
     copy_data.rd_copy(context, copy_size, rd_offset, dst_addr);
 

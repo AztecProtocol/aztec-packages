@@ -11,16 +11,16 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_data_copy_data_index_upper_bound_gt ///////////////////
+/////////////////// lookup_data_copy_offset_plus_size_is_gt_data_size ///////////////////
 
-struct lookup_data_copy_data_index_upper_bound_gt_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_DATA_INDEX_UPPER_BOUND_GT";
+struct lookup_data_copy_offset_plus_size_is_gt_data_size_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_OFFSET_PLUS_SIZE_IS_GT_DATA_SIZE";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start;
     static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_data_copy_data_index_upper_bound_gt_counts;
-    static constexpr Column INVERSES = Column::lookup_data_copy_data_index_upper_bound_gt_inv;
+    static constexpr Column COUNTS = Column::lookup_data_copy_offset_plus_size_is_gt_data_size_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_offset_plus_size_is_gt_data_size_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::data_copy_offset_plus_size,
         ColumnAndShifts::data_copy_src_data_size,
@@ -31,11 +31,11 @@ struct lookup_data_copy_data_index_upper_bound_gt_settings_ {
                                                                                     ColumnAndShifts::gt_res };
 };
 
-using lookup_data_copy_data_index_upper_bound_gt_settings =
-    lookup_settings<lookup_data_copy_data_index_upper_bound_gt_settings_>;
+using lookup_data_copy_offset_plus_size_is_gt_data_size_settings =
+    lookup_settings<lookup_data_copy_offset_plus_size_is_gt_data_size_settings_>;
 template <typename FF_>
-using lookup_data_copy_data_index_upper_bound_gt_relation =
-    lookup_relation_base<FF_, lookup_data_copy_data_index_upper_bound_gt_settings>;
+using lookup_data_copy_offset_plus_size_is_gt_data_size_relation =
+    lookup_relation_base<FF_, lookup_data_copy_offset_plus_size_is_gt_data_size_settings>;
 
 /////////////////// lookup_data_copy_check_src_addr_in_range ///////////////////
 
@@ -89,31 +89,31 @@ template <typename FF_>
 using lookup_data_copy_check_dst_addr_in_range_relation =
     lookup_relation_base<FF_, lookup_data_copy_check_dst_addr_in_range_settings>;
 
-/////////////////// lookup_data_copy_offset_gt_data_index_upper_bound ///////////////////
+/////////////////// lookup_data_copy_data_index_upper_bound_gt_offset ///////////////////
 
-struct lookup_data_copy_offset_gt_data_index_upper_bound_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_OFFSET_GT_DATA_INDEX_UPPER_BOUND";
+struct lookup_data_copy_data_index_upper_bound_gt_offset_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_DATA_COPY_DATA_INDEX_UPPER_BOUND_GT_OFFSET";
     static constexpr std::string_view RELATION_NAME = "data_copy";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
     static constexpr Column SRC_SELECTOR = Column::data_copy_sel_start_no_err;
     static constexpr Column DST_SELECTOR = Column::gt_sel_others;
-    static constexpr Column COUNTS = Column::lookup_data_copy_offset_gt_data_index_upper_bound_counts;
-    static constexpr Column INVERSES = Column::lookup_data_copy_offset_gt_data_index_upper_bound_inv;
+    static constexpr Column COUNTS = Column::lookup_data_copy_data_index_upper_bound_gt_offset_counts;
+    static constexpr Column INVERSES = Column::lookup_data_copy_data_index_upper_bound_gt_offset_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::data_copy_offset,
         ColumnAndShifts::data_copy_data_index_upper_bound,
-        ColumnAndShifts::data_copy_offset_gt_data_index_upper_bound
+        ColumnAndShifts::data_copy_offset,
+        ColumnAndShifts::data_copy_data_index_upper_bound_gt_offset
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
                                                                                     ColumnAndShifts::gt_res };
 };
 
-using lookup_data_copy_offset_gt_data_index_upper_bound_settings =
-    lookup_settings<lookup_data_copy_offset_gt_data_index_upper_bound_settings_>;
+using lookup_data_copy_data_index_upper_bound_gt_offset_settings =
+    lookup_settings<lookup_data_copy_data_index_upper_bound_gt_offset_settings_>;
 template <typename FF_>
-using lookup_data_copy_offset_gt_data_index_upper_bound_relation =
-    lookup_relation_base<FF_, lookup_data_copy_offset_gt_data_index_upper_bound_settings>;
+using lookup_data_copy_data_index_upper_bound_gt_offset_relation =
+    lookup_relation_base<FF_, lookup_data_copy_data_index_upper_bound_gt_offset_settings>;
 
 /////////////////// lookup_data_copy_col_read ///////////////////
 

@@ -22,13 +22,13 @@ std::vector<FF> BaseContext::get_returndata(uint32_t rd_offset, uint32_t rd_copy
         std::min(static_cast<uint64_t>(rd_offset) + rd_copy_size, static_cast<uint64_t>(last_child_rd_size)));
 
     std::vector<FF> padded_returndata;
-    padded_returndata.reserve(data_index_upper_bound - rd_offset);
+    padded_returndata.reserve(rd_copy_size);
 
     for (uint32_t i = rd_offset; i < data_index_upper_bound; i++) {
         padded_returndata.push_back(child_memory.get(get_last_rd_addr() + i));
     }
-    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
-    padded_returndata.resize(rd_copy_size, 0);
+    // If we have some padding (read goes beyond the end of the returndata), fill the rest of the vector with zeros.
+    padded_returndata.resize(rd_copy_size, FF(0));
 
     return padded_returndata;
 };
@@ -51,13 +51,13 @@ std::vector<FF> EnqueuedCallContext::get_calldata(uint32_t cd_offset, uint32_t c
     uint64_t data_index_upper_bound = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, calldata_size);
 
     std::vector<FF> padded_calldata;
-    padded_calldata.reserve(data_index_upper_bound - cd_offset);
+    padded_calldata.reserve(cd_copy_size);
 
     for (size_t i = cd_offset; i < data_index_upper_bound; i++) {
         padded_calldata.push_back(calldata[i]);
     }
-    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
-    padded_calldata.resize(cd_copy_size, 0);
+    // If we have some padding (read goes beyond the end of the calldata), fill the rest of the vector with zeros.
+    padded_calldata.resize(cd_copy_size, FF(0));
 
     return padded_calldata;
 };
@@ -111,13 +111,15 @@ std::vector<FF> NestedContext::get_calldata(uint32_t cd_offset, uint32_t cd_copy
     uint64_t data_index_upper_bound = std::min(static_cast<uint64_t>(cd_offset) + cd_copy_size, parent_cd_size_u64);
 
     std::vector<FF> padded_calldata;
-    padded_calldata.reserve(data_index_upper_bound - cd_offset);
+    padded_calldata.reserve(cd_copy_size);
 
     for (uint32_t i = cd_offset; i < data_index_upper_bound; i++) {
         padded_calldata.push_back(parent_context.get_memory().get(parent_cd_addr + i));
     }
-    // Resize because relying on default initialization of FF (in reserve) is a potential footgun
-    padded_calldata.resize(cd_copy_size, 0);
+
+    // If we have some padding (read goes beyond the end of the parent calldata), fill the rest of the vector with
+    // zeros.
+    padded_calldata.resize(cd_copy_size, FF(0));
 
     return padded_calldata;
 };

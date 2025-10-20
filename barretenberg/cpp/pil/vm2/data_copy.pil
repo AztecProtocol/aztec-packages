@@ -168,7 +168,7 @@ namespace data_copy;
     offset_plus_size = sel_start * (offset + copy_size);
     pol commit offset_plus_size_is_gt;
 
-    #[DATA_INDEX_UPPER_BOUND_GT]
+    #[OFFSET_PLUS_SIZE_IS_GT_DATA_SIZE]
     sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
@@ -243,16 +243,16 @@ namespace data_copy;
     // src data elements are read from indices [offset, data_index_upper_bound), therefore reads_left = data_index_upper_bound - offset
     // We need to be careful that data_index_upper_bound - offset does not underflow (i.e. when offset > data_index_upper_bound, reads_left = 0)
     // We test that condition here
-    pol commit offset_gt_data_index_upper_bound;
-    #[OFFSET_GT_DATA_INDEX_UPPER_BOUND]
-    sel_start_no_err { offset, data_index_upper_bound, offset_gt_data_index_upper_bound }
+    pol commit data_index_upper_bound_gt_offset;
+    #[DATA_INDEX_UPPER_BOUND_GT_OFFSET]
+    sel_start_no_err { data_index_upper_bound, offset, data_index_upper_bound_gt_offset }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
-    // If sel_offset_gt_max_read = 1 (i.e. when offset > data_index_upper_bound, reads_left = 0)
+    // If data_index_upper_bound_gt_offset = 0 (i.e. when offset >= data_index_upper_bound), reads_left = 0
     // otherwise, reads_left = data_index_upper_bound - offset
     #[INIT_READS_LEFT]
-    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (data_index_upper_bound - offset) * (1 - offset_gt_data_index_upper_bound)) = 0;
+    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (data_index_upper_bound - offset) * data_index_upper_bound_gt_offset) = 0;
 
     //////////////////////////////
     // Execute Data Copy
