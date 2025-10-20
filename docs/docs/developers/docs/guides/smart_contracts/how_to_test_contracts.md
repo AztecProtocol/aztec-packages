@@ -11,7 +11,6 @@ This guide shows you how to test your Aztec smart contracts using Noir's `TestEn
 ## Prerequisites
 
 - An Aztec contract project with functions to test
-- Aztec sandbox running (required for `aztec test` command)
 - Basic understanding of Noir syntax
 
 :::tip
@@ -39,8 +38,7 @@ aztec test
 ### Test execution process
 
 1. Compile contracts
-2. Start the sandbox
-3. Run `aztec test`
+2. Run `aztec test`
 
 :::warning
 Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
@@ -66,10 +64,11 @@ unconstrained fn test_basic_flow() {
 ```
 
 :::info Test execution notes
+
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
 - See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/smart-contracts/aztec/src/test/helpers/test_environment.nr)
-:::
+  :::
 
 :::tip Organizing test files
 You can organize tests in separate files:
@@ -78,7 +77,7 @@ You can organize tests in separate files:
 - Split tests into modules like `src/test/transfer_tests.nr`, `src/test/auth_tests.nr`
 - Import the test module in `src/main.nr` with `mod test;`
 - Share setup functions in `src/test/utils.nr`
-:::
+  :::
 
 ## Deploying contracts
 
@@ -159,6 +158,7 @@ let total = env.simulate_utility(Token::at(token_address).balance_of_private(own
 
 :::tip Helper function pattern
 Create helper functions for common assertions:
+
 ```rust
 pub unconstrained fn check_balance(
     env: TestEnvironment,
@@ -172,6 +172,7 @@ pub unconstrained fn check_balance(
     );
 }
 ```
+
 :::
 
 ## Creating accounts
@@ -188,19 +189,22 @@ let owner = env.create_contract_account();
 
 :::info Account type comparison
 **Light accounts:**
+
 - Fast to create
 - Work for simple transfers and tests
 - Cannot process authwits
 - No account contract deployed
 
 **Contract accounts:**
+
 - Required for authwit testing
 - Support account abstraction features
 - Slower to create (deploys account contract)
 - Needed for cross-contract authorization
-:::
+  :::
 
 :::tip Choosing account types
+
 ```rust
 pub unconstrained fn setup(with_authwits: bool) -> (TestEnvironment, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -213,6 +217,7 @@ pub unconstrained fn setup(with_authwits: bool) -> (TestEnvironment, AztecAddres
     (env, owner, recipient)
 }
 ```
+
 :::
 
 ## Testing with authwits
@@ -255,7 +260,7 @@ unconstrained fn test_private_authwit() {
 
 ### Public authwits
 
-```rust
+````rust
 #[test]
 unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
@@ -283,7 +288,7 @@ env.advance_next_block_timestamp_by(duration);
 
 // Mines an empty block at a given timestamp, causing the next public execution to occur at this time (like `set_next_block_timestamp`), but also allowing for private execution to happen using this empty block as the anchor block.
 env.mine_block_at(block_timestamp);
-```
+````
 
 ## Testing failure cases
 
