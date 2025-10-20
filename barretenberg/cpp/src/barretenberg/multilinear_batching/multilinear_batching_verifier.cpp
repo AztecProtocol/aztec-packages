@@ -62,8 +62,12 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     // Construct new claim
     auto claim_batching_challenge = transcript->template get_challenge<FF>("claim_batching_challenge");
     VerifierClaim verifier_claim;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1558): perform a single MSM to batch incoming instance
+    // commitments and accumulator commitment
     verifier_claim.non_shifted_commitment =
         non_shifted_accumulator_commitment + non_shifted_instance_commitment * claim_batching_challenge;
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1558): perform a single MSM to batch incoming instance
+    // commitments and accumulator commitment
     verifier_claim.shifted_commitment =
         shifted_accumulator_commitment + shifted_instance_commitment * claim_batching_challenge;
     verifier_claim.shifted_evaluation =
