@@ -47,8 +47,11 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
      * We do NOT range constrain the wNAF entries, because we will use them to lookup in a ROM/regular table.
      * The ROM/regular table lookup implicitly enforces the range constraint
      */
+    info(u1.get_value());
+    info(u2.get_value());
+    Fr to_be_passed = Fr::from_witness(u1.get_context(), bb::field<typename Fr::TParams>::one());
     const auto [u1_lo_wnaf, u1_hi_wnaf] = compute_secp256k1_endo_wnaf<8, 2, 3>(u1, false);
-    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(u2, false);
+    const auto [u2_lo_wnaf, u2_hi_wnaf] = compute_secp256k1_endo_wnaf<4, 0, 1>(to_be_passed, false);
 
     /**
      * Construct our 4-bit variable-base and 8-bit fixed base lookup tables

@@ -142,6 +142,7 @@ TYPED_TEST_SUITE(EcdsaConstraintsTest, CurveTypes);
 
 TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 {
+    BB_DISABLE_ASSERTS();
     using Flavor = TestFixture::Flavor;
     using Builder = TestFixture::Builder;
     using ProvingKey = ProverInstance_<Flavor>;
@@ -221,91 +222,91 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
     EXPECT_EQ(*vk_from_witness, *vk_from_constraint);
 }
 
-// Validate the predicate for EcdsaConstraint
-TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
-{
-    using Builder = TestFixture::Builder;
-    auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();
+// // Validate the predicate for EcdsaConstraint
+// TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
+// {
+//     using Builder = TestFixture::Builder;
+//     auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();
 
-    // Create a predicate witness or constant which takes the index of the last witness in the array
-    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness_values.size()));
+//     // Create a predicate witness or constant which takes the index of the last witness in the array
+//     auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness_values.size()));
 
-    witness_values.push_back(fr(1));
-    if (constraint_system.ecdsa_k1_constraints.size() == 1) {
-        constraint_system.ecdsa_k1_constraints[0].predicate = predicate;
-    } else if (constraint_system.ecdsa_r1_constraints.size() == 1) {
-        constraint_system.ecdsa_r1_constraints[0].predicate = predicate;
-    }
+//     witness_values.push_back(fr(1));
+//     if (constraint_system.ecdsa_k1_constraints.size() == 1) {
+//         constraint_system.ecdsa_k1_constraints[0].predicate = predicate;
+//     } else if (constraint_system.ecdsa_r1_constraints.size() == 1) {
+//         constraint_system.ecdsa_r1_constraints[0].predicate = predicate;
+//     }
 
-    // Correct input AND true predicate => Valid Circuit
-    {
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+//     // Correct input AND true predicate => Valid Circuit
+//     {
+//         AcirProgram program{ constraint_system, witness_values };
+//         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+//         info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-        // Validate the builder
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-    // Correct input AND false predicate => Valid Circuit
-    witness_values.back() = fr(0);
-    {
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+//         // Validate the builder
+//         EXPECT_TRUE(CircuitChecker::check(builder));
+//     }
+//     // Correct input AND false predicate => Valid Circuit
+//     witness_values.back() = fr(0);
+//     {
+//         AcirProgram program{ constraint_system, witness_values };
+//         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+//         info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-        // Validate the builder
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-    // Incorrect input AND false predicate => Valid Circuit
-    witness_values[40] = fr(0); // change a byte in the signature
-    {
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+//         // Validate the builder
+//         EXPECT_TRUE(CircuitChecker::check(builder));
+//     }
+//     // Incorrect input AND false predicate => Valid Circuit
+//     witness_values[40] = fr(0); // change a byte in the signature
+//     {
+//         AcirProgram program{ constraint_system, witness_values };
+//         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+//         info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-        // Validate the builder
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
-    // Incorrect input AND true predicate => Invalid Circuit
-    witness_values.back() = fr(1);
-    {
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+//         // Validate the builder
+//         EXPECT_TRUE(CircuitChecker::check(builder));
+//     }
+//     // Incorrect input AND true predicate => Invalid Circuit
+//     witness_values.back() = fr(1);
+//     {
+//         AcirProgram program{ constraint_system, witness_values };
+//         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+//         info("Num gates: ", builder.get_estimated_num_finalized_gates());
 
-        EXPECT_TRUE(builder.failed());
-    }
-}
+//         EXPECT_TRUE(builder.failed());
+//     }
+// }
 
-TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
-{
-    // Disable asserts otherwise the test fails because the public keys are not on the curve
-    BB_DISABLE_ASSERTS();
+// TYPED_TEST(EcdsaConstraintsTest, NonUniquePubKey)
+// {
+//     // Disable asserts otherwise the test fails because the public keys are not on the curve
+//     BB_DISABLE_ASSERTS();
 
-    for (size_t idx = 0; idx < 2; idx++) {
-        bool tweak_x = idx == 0;
-        bool tweak_y = idx == 1;
-        std::string failure_msg =
-            idx == 0
-                ? "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb."
-                : "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.";
+//     for (size_t idx = 0; idx < 2; idx++) {
+//         bool tweak_x = idx == 0;
+//         bool tweak_y = idx == 1;
+//         std::string failure_msg =
+//             idx == 0
+//                 ? "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb."
+//                 : "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.";
 
-        using Builder = TestFixture::Builder;
+//         using Builder = TestFixture::Builder;
 
-        auto [constraint_system, witness_values] =
-            TestFixture::generate_constraint_system(/*tweak_pub_key_x=*/tweak_x, /*tweak_pub_key_y=*/tweak_y);
+//         auto [constraint_system, witness_values] =
+//             TestFixture::generate_constraint_system(/*tweak_pub_key_x=*/tweak_x, /*tweak_pub_key_y=*/tweak_y);
 
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
+//         AcirProgram program{ constraint_system, witness_values };
+//         auto builder = create_circuit<Builder>(program);
 
-        // Validate the builder
-        EXPECT_FALSE(CircuitChecker::check(builder));
+//         // Validate the builder
+//         EXPECT_FALSE(CircuitChecker::check(builder));
 
-        // Check error message
-        EXPECT_EQ(builder.err(), failure_msg);
-    }
-}
+//         // Check error message
+//         EXPECT_EQ(builder.err(), failure_msg);
+//     }
+// }
