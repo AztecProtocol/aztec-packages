@@ -361,7 +361,6 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     BB_ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
-    // WORKTODO: this gets constructed but never used for hiding kernel; results in duplicate instance in memory.
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
     // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
@@ -416,8 +415,9 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     }
     case QUEUE_TYPE::MEGA:
         vinfo("Generating proof for hiding kernel");
-        // WORKTODO: correct thing to do is not construct this at all since below method constructs a new one (with ZK
-        // flavor). For now just do a hacky shared ptr deallocation to avoid double memory for storing two instances.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Method for constructing hiding kernel proof
+        // constructs a new ProverInstance (with ZK Flavor). For now just do a hacky shared ptr deallocation to avoid
+        // double memory for storing two instances.
         prover_instance.reset();
         proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
