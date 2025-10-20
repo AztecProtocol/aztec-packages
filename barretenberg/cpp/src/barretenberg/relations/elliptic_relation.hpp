@@ -61,7 +61,7 @@ template <typename FF_> class EllipticRelationImpl {
      *
      * Point doubling constraints:
      * ---------------------------
-     * Subrelation 0 (x-coordinate) (using x1^3 = y1^2 - b):
+     * Subrelation 0 (x-coordinate):
      *   Formula: x3 = lambda^2 - 2*x1, where lambda = (3*x1^2) / (2*y1)
      *   Constraint (via cancellation of denominator and using x1^3 = y1^2 - b):
      *      (x3 + 2*x1)*4*y1^2 - 9*x1*(y1^2 - b) = 0
