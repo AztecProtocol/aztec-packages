@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, tryRecoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -73,29 +73,17 @@ export class BlockAttestation extends Gossipable {
 
   /**
    * Lazily evaluate and cache the signer of the attestation
-   * @returns The signer of the attestation
+   * @returns The signer of the attestation, or undefined if signature recovery fails
    */
-  getSender(): EthAddress {
+  getSender(): EthAddress | undefined {
     if (!this.sender) {
       // Recover the sender from the attestation
       const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockAttestation);
       // Cache the sender for later use
-      this.sender = recoverAddress(hashed, this.signature);
+      this.sender = tryRecoverAddress(hashed, this.signature);
     }
 
     return this.sender;
-  }
-
-  /**
-   * Tries to get the sender of the attestation
-   * @returns The sender of the attestation or undefined if it fails during recovery
-   */
-  tryGetSender(): EthAddress | undefined {
-    try {
-      return this.getSender();
-    } catch {
-      return undefined;
-    }
   }
 
   /**
@@ -107,7 +95,7 @@ export class BlockAttestation extends Gossipable {
       // Recover the proposer from the proposal signature
       const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
       // Cache the proposer for later use
-      this.proposer = recoverAddress(hashed, this.proposerSignature);
+      this.proposer = tryRecoverAddress(hashed, this.proposerSignature)!;
     }
 
     return this.proposer;

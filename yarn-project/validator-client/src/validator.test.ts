@@ -318,9 +318,10 @@ describe('ValidatorClient', () => {
 
       // We should emit WANT_TO_SLASH_EVENT
       const proposer = proposal.getSender();
+      expect(proposer).toBeDefined();
       expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
         {
-          validator: proposer,
+          validator: proposer!,
           amount: config.slashBroadcastedInvalidBlockPenalty,
           offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
           epochOrSlot: expect.any(BigInt),
