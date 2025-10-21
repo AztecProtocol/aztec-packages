@@ -18,6 +18,27 @@ std::optional<ContractClass> PureContractDB::get_contract_class(const ContractCl
     return raw_contract_db.get_contract_class(class_id);
 }
 
+void PureContractDB::add_new_non_revertibles(const Tx& tx)
+{
+    raw_contract_db.add_new_non_revertibles(tx);
+}
+
+void PureContractDB::add_new_revertibles(const Tx& tx)
+{
+    raw_contract_db.add_new_revertibles(tx);
+}
+
+std::optional<FF> PureContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    return raw_contract_db.get_bytecode_commitment(class_id);
+}
+
+std::optional<std::string> PureContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                   const FF& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
 // Merkle DB starts.
 TreeStates PureMerkleDB::get_tree_state() const
 {

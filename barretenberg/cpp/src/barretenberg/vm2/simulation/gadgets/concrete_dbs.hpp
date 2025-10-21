@@ -36,6 +36,14 @@ class ContractDB final : public ContractDBInterface {
     // Silo the class id and use the MerkleDB to prove that.
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
+    // Pass-through state management methods
+    void add_new_non_revertibles(const Tx& tx) override;
+    void add_new_revertibles(const Tx& tx) override;
+
+    // Pass-through query methods
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address, const FF& selector) const override;
+
   private:
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;

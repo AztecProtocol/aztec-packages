@@ -18,8 +18,18 @@ class ContractDBInterface {
   public:
     virtual ~ContractDBInterface() = default;
 
+    // Existing query methods
     virtual std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const = 0;
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
+
+    // New state management methods
+    virtual void add_new_non_revertibles(const Tx& tx) = 0;
+    virtual void add_new_revertibles(const Tx& tx) = 0;
+
+    // New query methods
+    virtual std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const = 0;
+    virtual std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                               const FF& selector) const = 0;
 };
 
 // Aliases.

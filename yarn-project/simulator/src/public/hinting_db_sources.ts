@@ -10,6 +10,7 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
+  AvmDebugFunctionNameHint,
   type AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -108,7 +109,11 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<string | undefined> {
-    return await this.db.getDebugFunctionName(contractAddress, selector);
+    const name = await this.db.getDebugFunctionName(contractAddress, selector);
+    if (name) {
+      this.hints.debugFunctionNames.push(new AvmDebugFunctionNameHint(contractAddress, selector.toField(), name));
+    }
+    return name;
   }
 }
 

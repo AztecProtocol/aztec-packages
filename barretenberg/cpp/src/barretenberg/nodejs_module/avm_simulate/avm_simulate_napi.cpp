@@ -59,8 +59,22 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "contractProvider must have getContractInstance and getContractClass methods");
     }
 
+    if (!contract_provider.Has("addNewNonRevertibles") || !contract_provider.Has("addNewRevertibles")) {
+        throw Napi::TypeError::New(env,
+                                   "contractProvider must have addNewNonRevertibles and addNewRevertibles methods");
+    }
+
+    if (!contract_provider.Has("getBytecodeCommitment") || !contract_provider.Has("getDebugFunctionName")) {
+        throw Napi::TypeError::New(env,
+                                   "contractProvider must have getBytecodeCommitment and getDebugFunctionName methods");
+    }
+
     auto get_instance_fn = contract_provider.Get("getContractInstance").As<Napi::Function>();
     auto get_class_fn = contract_provider.Get("getContractClass").As<Napi::Function>();
+    auto add_non_rev_fn = contract_provider.Get("addNewNonRevertibles").As<Napi::Function>();
+    auto add_rev_fn = contract_provider.Get("addNewRevertibles").As<Napi::Function>();
+    auto get_bytecode_fn = contract_provider.Get("getBytecodeCommitment").As<Napi::Function>();
+    auto get_debug_name_fn = contract_provider.Get("getDebugFunctionName").As<Napi::Function>();
 
     // Create thread-safe function wrappers for callbacks
     // These allow us to call TypeScript from the C++ worker thread
@@ -70,6 +84,18 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
     auto class_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
         Napi::ThreadSafeFunction::New(env, get_class_fn, "getContractClass", 0, 1));
 
+    auto add_non_rev_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, add_non_rev_fn, "addNewNonRevertibles", 0, 1));
+
+    auto add_rev_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, add_rev_fn, "addNewRevertibles", 0, 1));
+
+    auto bytecode_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, get_bytecode_fn, "getBytecodeCommitment", 0, 1));
+
+    auto debug_name_tsfn = std::make_shared<Napi::ThreadSafeFunction>(
+        Napi::ThreadSafeFunction::New(env, get_debug_name_fn, "getDebugFunctionName", 0, 1));
+
     // Extract WorldState handle (3rd argument)
     auto external = info[2].As<Napi::External<world_state::WorldState>>();
     world_state::WorldState* ws_ptr = external.Data();
@@ -78,8 +104,11 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
     auto deferred = std::make_shared<Napi::Promise::Deferred>(env);
 
     // Create async operation that will run on a worker thread
-    auto* op =
-        new AsyncOperation(env, deferred, [data, instance_tsfn, class_tsfn, ws_ptr](msgpack::sbuffer& result_buffer) {
+    auto* op = new AsyncOperation(
+        env,
+        deferred,
+        [data, instance_tsfn, class_tsfn, add_non_rev_tsfn, add_rev_tsfn, bytecode_tsfn, debug_name_tsfn, ws_ptr](
+            msgpack::sbuffer& result_buffer) {
             // Deserialize inputs from msgpack
             avm2::AvmFastSimulationInputs inputs;
             msgpack::object_handle obj_handle =
@@ -88,7 +117,8 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
             obj.convert(inputs);
 
             // Create TsCallbackContractDB with TypeScript callbacks
-            TsCallbackContractDB contract_db(*instance_tsfn, *class_tsfn);
+            TsCallbackContractDB contract_db(
+                *instance_tsfn, *class_tsfn, *add_non_rev_tsfn, *add_rev_tsfn, *bytecode_tsfn, *debug_name_tsfn);
 
             // Create AVM API and run simulation with the callback-based contracts DB and WorldState reference
             avm2::AvmSimAPI avm;
@@ -99,6 +129,10 @@ Napi::Value AvmSimulateNapi::simulate(const Napi::CallbackInfo& info)
             // Clean up thread-safe functions
             instance_tsfn->Release();
             class_tsfn->Release();
+            add_non_rev_tsfn->Release();
+            add_rev_tsfn->Release();
+            bytecode_tsfn->Release();
+            debug_name_tsfn->Release();
 
             // Serialize the simulation result with msgpack into the return buffer to TS.
             // TODO(dbanks12): return PublicTxResult as the TS PublicTxSimulator returns.

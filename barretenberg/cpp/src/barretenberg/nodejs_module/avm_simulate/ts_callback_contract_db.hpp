@@ -33,8 +33,21 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
      *        Expected signature: (address: string) => Promise<Buffer | undefined>
      * @param classCallback Thread-safe function to fetch contract classes from TypeScript
      *        Expected signature: (classId: string) => Promise<Buffer | undefined>
+     * @param addNonRevCallback Thread-safe function to add non-revertible contracts
+     *        Expected signature: (tx: Buffer) => Promise<void>
+     * @param addRevCallback Thread-safe function to add revertible contracts
+     *        Expected signature: (tx: Buffer) => Promise<void>
+     * @param bytecodeCommitmentCallback Thread-safe function to fetch bytecode commitments
+     *        Expected signature: (classId: string) => Promise<Buffer | undefined>
+     * @param debugNameCallback Thread-safe function to fetch debug function names
+     *        Expected signature: (address: string, selector: string) => Promise<string | undefined>
      */
-    TsCallbackContractDB(Napi::ThreadSafeFunction instanceCallback, Napi::ThreadSafeFunction classCallback);
+    TsCallbackContractDB(Napi::ThreadSafeFunction instanceCallback,
+                         Napi::ThreadSafeFunction classCallback,
+                         Napi::ThreadSafeFunction addNonRevCallback,
+                         Napi::ThreadSafeFunction addRevCallback,
+                         Napi::ThreadSafeFunction bytecodeCommitmentCallback,
+                         Napi::ThreadSafeFunction debugNameCallback);
 
     /**
      * @brief Fetches a contract instance by address
@@ -60,6 +73,38 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
     std::optional<bb::avm2::ContractClass> get_contract_class(const bb::avm2::ContractClassId& class_id) const override;
 
     /**
+     * @brief Adds non-revertible contracts from a transaction
+     *
+     * @param tx The transaction containing contract deployments
+     */
+    void add_new_non_revertibles(const bb::avm2::Tx& tx) override;
+
+    /**
+     * @brief Adds revertible contracts from a transaction
+     *
+     * @param tx The transaction containing contract deployments
+     */
+    void add_new_revertibles(const bb::avm2::Tx& tx) override;
+
+    /**
+     * @brief Fetches bytecode commitment for a contract class
+     *
+     * @param class_id The contract class ID
+     * @return std::optional<FF> The bytecode commitment if found, nullopt otherwise
+     */
+    std::optional<bb::avm2::FF> get_bytecode_commitment(const bb::avm2::ContractClassId& class_id) const override;
+
+    /**
+     * @brief Fetches debug function name for a contract function
+     *
+     * @param address The contract address
+     * @param selector The function selector
+     * @return std::optional<std::string> The function name if found, nullopt otherwise
+     */
+    std::optional<std::string> get_debug_function_name(const bb::avm2::AztecAddress& address,
+                                                       const bb::avm2::FF& selector) const override;
+
+    /**
      * @brief Releases the thread-safe function handles
      *
      * Must be called before destruction to properly clean up NAPI resources.
@@ -68,19 +113,12 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
     void release();
 
   private:
-    /**
-     * @brief Helper to get bytecode commitment for a contract class
-     *
-     * Currently not implemented via callback - assumes commitment is embedded in ContractClassHint.
-     * May be extended in the future if separate bytecode commitment lookups are needed.
-     *
-     * @param class_id The contract class ID
-     * @return FF The bytecode commitment
-     */
-    bb::avm2::FF get_bytecode_commitment(const bb::avm2::ContractClassId& class_id) const;
-
     Napi::ThreadSafeFunction contract_instance_callback_;
     Napi::ThreadSafeFunction contract_class_callback_;
+    Napi::ThreadSafeFunction add_non_rev_callback_;
+    Napi::ThreadSafeFunction add_rev_callback_;
+    Napi::ThreadSafeFunction bytecode_commitment_callback_;
+    Napi::ThreadSafeFunction debug_name_callback_;
 
     // Track whether TSFNs have been released to avoid double-release
     mutable bool released_ = false;

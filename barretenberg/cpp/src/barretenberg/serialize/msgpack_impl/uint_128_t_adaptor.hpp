@@ -39,4 +39,32 @@ template <> struct convert<uint128_t> {
     }
 };
 
+template <> struct pack<uint128_t> {
+    template <typename Stream> msgpack::packer<Stream>& operator()(msgpack::packer<Stream>& o, const uint128_t& v) const
+    {
+        // If the value fits in a uint64_t, pack it as an integer
+        if (v <= UINT64_MAX) {
+            o.pack_uint64(static_cast<uint64_t>(v));
+        } else {
+            // Otherwise, pack it as a decimal string (to match the TypeScript side's largeBigIntToString: true)
+            // Convert uint128_t to decimal string
+            char buffer[40]; // 2**128 is at most 39 digits
+            int pos = 39;
+            buffer[pos] = '\0';
+
+            uint128_t tmp = v;
+            do {
+                --pos;
+                buffer[pos] = '0' + static_cast<char>(tmp % 10);
+                tmp /= 10;
+            } while (tmp > 0);
+
+            uint32_t str_length = static_cast<uint32_t>(39 - pos);
+            o.pack_str(str_length);
+            o.pack_str_body(&buffer[pos], str_length);
+        }
+        return o;
+    }
+};
+
 } // namespace msgpack::adaptor

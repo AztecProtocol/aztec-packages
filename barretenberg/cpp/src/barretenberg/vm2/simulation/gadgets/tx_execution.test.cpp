@@ -28,6 +28,7 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockContextProvider> context_provider;
     EventEmitter<TxEvent> tx_event_emitter;
     NiceMock<MockHighLevelMerkleDB> merkle_db;
+    NiceMock<MockContractDB> contract_db;
     NiceMock<MockExecution> execution;
     NiceMock<MockFieldGreaterThan> field_gt;
     NiceMock<MockPoseidon2> poseidon2;
@@ -36,6 +37,7 @@ class TxExecutionTest : public ::testing::Test {
     TxExecution tx_execution = TxExecution(execution,
                                            context_provider,
                                            merkle_db,
+                                           contract_db,
                                            written_public_data_slots_tree_check,
                                            retrieved_bytecodes_tree_check,
                                            field_gt,

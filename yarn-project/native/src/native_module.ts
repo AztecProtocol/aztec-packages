@@ -54,6 +54,35 @@ export interface ContractProvider {
    * @returns Promise resolving to msgpack-serialized ContractClassHint buffer, or undefined if not found
    */
   getContractClass(classId: string): Promise<Buffer | undefined>;
+
+  /**
+   * Add non-revertible contracts from a transaction.
+   * @param txBuffer - Msgpack-serialized Tx buffer
+   * @returns Promise that resolves when contracts are added
+   */
+  addNewNonRevertibles(txBuffer: Buffer): Promise<void>;
+
+  /**
+   * Add revertible contracts from a transaction.
+   * @param txBuffer - Msgpack-serialized Tx buffer
+   * @returns Promise that resolves when contracts are added
+   */
+  addNewRevertibles(txBuffer: Buffer): Promise<void>;
+
+  /**
+   * Fetch the bytecode commitment for a contract class.
+   * @param classId - The contract class ID as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized Fr buffer, or undefined if not found
+   */
+  getBytecodeCommitment(classId: string): Promise<Buffer | undefined>;
+
+  /**
+   * Fetch the debug function name for a contract function.
+   * @param address - The contract address as a string (hex format)
+   * @param selector - The function selector as a string (hex format)
+   * @returns Promise resolving to function name string, or undefined if not found
+   */
+  getDebugFunctionName(address: string, selector: string): Promise<string | undefined>;
 }
 
 /**

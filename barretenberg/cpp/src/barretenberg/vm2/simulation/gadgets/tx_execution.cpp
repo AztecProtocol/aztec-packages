@@ -89,7 +89,8 @@ void TxExecution::simulate(const Tx& tx)
         emit_empty_phase(TransactionPhase::SETUP);
     } else {
         for (const auto& call : tx.setupEnqueuedCalls) {
-            vinfo("[SETUP] Executing enqueued call to ", call.request.contractAddress);
+            std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
+            vinfo("[SETUP] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
             Gas start_gas = tx_context.gas_used;
             auto context = context_provider.make_enqueued_context(call.request.contractAddress,
@@ -135,7 +136,8 @@ void TxExecution::simulate(const Tx& tx)
             emit_empty_phase(TransactionPhase::APP_LOGIC);
         } else {
             for (const auto& call : tx.appLogicEnqueuedCalls) {
-                vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
+                std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
+                vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
                 TxContextEvent state_before = tx_context.serialize_tx_context_event();
                 Gas start_gas = tx_context.gas_used;
                 auto context = context_provider.make_enqueued_context(call.request.contractAddress,
@@ -188,7 +190,12 @@ void TxExecution::simulate(const Tx& tx)
         if (!tx.teardownEnqueuedCall) {
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
-            vinfo("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
+            std::string fn_name = get_debug_function_name(tx.teardownEnqueuedCall->request.contractAddress,
+                                                          tx.teardownEnqueuedCall->calldata);
+            vinfo("[TEARDOWN] Executing enqueued call to ",
+                  tx.teardownEnqueuedCall->request.contractAddress,
+                  "::",
+                  fn_name);
             // Teardown has its own gas limit and usage.
             Gas start_gas = { 0, 0 };
             gas_limit = teardown_gas_limit;
@@ -373,6 +380,7 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
             emit_l2_to_l1_message(false, l2_to_l1_msg);
         }
     }
+    contract_db.add_new_non_revertibles(tx);
 }
 
 // TODO: Error Handling
@@ -413,6 +421,8 @@ void TxExecution::insert_revertibles(const Tx& tx)
             emit_l2_to_l1_message(true, l2_to_l1_msg);
         }
     }
+
+    contract_db.add_new_revertibles(tx);
 }
 
 void TxExecution::pay_fee(const FF& fee_payer,
@@ -472,6 +482,29 @@ void TxExecution::emit_empty_phase(TransactionPhase phase)
                               .state_after = current_state,
                               .reverted = false,
                               .event = EmptyPhaseEvent{} });
+}
+
+std::string TxExecution::get_debug_function_name(const AztecAddress& contract_address,
+                                                 const std::vector<FF>& calldata) const
+{
+    // Public function is dispatched and therefore the target function is passed in the first argument.
+    if (calldata.empty()) {
+        std::ostringstream oss;
+        oss << "<calldata[0] undefined> (Contract Address: " << contract_address << ")";
+        return oss.str();
+    }
+
+    const FF& selector = calldata[0];
+    auto debug_name = contract_db.get_debug_function_name(contract_address, selector);
+
+    if (debug_name.has_value()) {
+        return debug_name.value();
+    }
+
+    // Return selector as hex string if debug name not found
+    std::ostringstream oss;
+    oss << selector;
+    return oss.str();
 }
 
 } // namespace bb::avm2::simulation

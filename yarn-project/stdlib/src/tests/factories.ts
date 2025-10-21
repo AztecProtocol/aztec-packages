@@ -62,6 +62,7 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
+  AvmDebugFunctionNameHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -1384,6 +1385,15 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   );
 }
 
+/**
+ * Makes arbitrary AvmDebugFunctionNameHint.
+ * @param seed - The seed to use for generating the hint.
+ * @returns AvmDebugFunctionNameHint.
+ */
+export function makeAvmDebugFunctionNameHint(seed = 0): AvmDebugFunctionNameHint {
+  return new AvmDebugFunctionNameHint(new AztecAddress(new Fr(seed)), new Fr(seed + 0x2), `function-${seed}`);
+}
+
 /* Makes arbitrary AvmContractClassHint.
  * @param seed - The seed to use for generating the state reference.
  * @returns AvmContractClassHint.
@@ -1454,6 +1464,7 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
@@ -1488,6 +1499,7 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
+    fields.debugFunctionNames,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,

@@ -20,6 +20,7 @@ class TxExecution final {
     TxExecution(ExecutionInterface& call_execution,
                 ContextProviderInterface& context_provider,
                 HighLevelMerkleDBInterface& merkle_db,
+                ContractDBInterface& contract_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                 RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
                 FieldGreaterThanInterface& field_gt,
@@ -28,6 +29,7 @@ class TxExecution final {
         : call_execution(call_execution)
         , context_provider(context_provider)
         , merkle_db(merkle_db)
+        , contract_db(contract_db)
         , field_gt(field_gt)
         , poseidon2(poseidon2)
         , events(event_emitter)
@@ -40,6 +42,7 @@ class TxExecution final {
     ExecutionInterface& call_execution;
     ContextProviderInterface& context_provider;
     HighLevelMerkleDBInterface& merkle_db;
+    ContractDBInterface& contract_db;
     FieldGreaterThanInterface& field_gt;
     Poseidon2Interface& poseidon2;
     EventEmitterInterface<TxEvent>& events;
@@ -69,6 +72,8 @@ class TxExecution final {
     void cleanup();
 
     void emit_empty_phase(TransactionPhase phase);
+
+    std::string get_debug_function_name(const AztecAddress& contract_address, const std::vector<FF>& calldata) const;
 };
 
 } // namespace bb::avm2::simulation

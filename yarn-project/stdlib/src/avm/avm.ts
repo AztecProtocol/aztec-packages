@@ -113,6 +113,24 @@ export class AvmContractInstanceHint {
   }
 }
 
+export class AvmDebugFunctionNameHint {
+  constructor(
+    public readonly address: AztecAddress,
+    public readonly selector: Fr,
+    public readonly name: string,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        address: AztecAddress.schema,
+        selector: schemas.Fr,
+        name: z.string(),
+      })
+      .transform(({ address, selector, name }) => new AvmDebugFunctionNameHint(address, selector, name));
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
@@ -523,6 +541,7 @@ export class AvmExecutionHints {
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
     public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
+    public readonly debugFunctionNames: AvmDebugFunctionNameHint[] = [],
     // Merkle DB hints.
     public startingTreeRoots: TreeSnapshots = TreeSnapshots.empty(),
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
@@ -551,6 +570,7 @@ export class AvmExecutionHints {
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
+        debugFunctionNames: AvmDebugFunctionNameHint.schema.array(),
         startingTreeRoots: TreeSnapshots.schema,
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
@@ -572,6 +592,7 @@ export class AvmExecutionHints {
           contractInstances,
           contractClasses,
           bytecodeCommitments,
+          debugFunctionNames,
           startingTreeRoots,
           getSiblingPathHints,
           getPreviousValueIndexHints,
@@ -592,6 +613,7 @@ export class AvmExecutionHints {
             contractInstances,
             contractClasses,
             bytecodeCommitments,
+            debugFunctionNames,
             startingTreeRoots,
             getSiblingPathHints,
             getPreviousValueIndexHints,

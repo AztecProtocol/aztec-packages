@@ -77,7 +77,9 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
           "\n * contractClasses: ",
           hints.contractClasses.size(),
           "\n * bytecodeCommitments: ",
-          hints.bytecodeCommitments.size());
+          hints.bytecodeCommitments.size(),
+          "\n * debugFunctionNames: ",
+          hints.debugFunctionNames.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
         // TODO(fcarreiro): We are currently generating duplicates in TS.
@@ -95,6 +97,11 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
         // TODO(fcarreiro): We are currently generating duplicates in TS.
         // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
         bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
+    }
+
+    for (const auto& debug_function_name_hint : hints.debugFunctionNames) {
+        auto key = std::make_pair(debug_function_name_hint.address, debug_function_name_hint.selector);
+        debug_function_names[key] = debug_function_name_hint.name;
     }
 }
 
@@ -136,19 +143,48 @@ std::optional<ContractClass> HintedRawContractDB::get_contract_class(const Contr
     }
     const auto& contract_class_hint = it->second;
 
+    auto bytecode_commitment = get_bytecode_commitment(class_id);
+    if (!bytecode_commitment.has_value()) {
+        throw std::runtime_error("Bytecode commitment not found for class id");
+    }
+
     return std::make_optional<ContractClass>({
         .artifact_hash = contract_class_hint.artifactHash,
         .private_function_root = contract_class_hint.privateFunctionsRoot,
         // We choose to embed the bytecode commitment in the contract class.
-        .public_bytecode_commitment = get_bytecode_commitment(class_id),
+        .public_bytecode_commitment = bytecode_commitment.value(),
         .packed_bytecode = contract_class_hint.packedBytecode,
     });
 }
 
-FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+void HintedRawContractDB::add_new_non_revertibles([[maybe_unused]] const Tx& tx)
 {
-    assert(bytecode_commitments.contains(class_id));
-    return bytecode_commitments.at(class_id);
+    vinfo("HintedRawContractDB::add_new_non_revertibles - no-op in hinted mode");
+}
+
+void HintedRawContractDB::add_new_revertibles([[maybe_unused]] const Tx& tx)
+{
+    vinfo("HintedRawContractDB::add_new_revertibles - no-op in hinted mode");
+}
+
+std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    auto it = bytecode_commitments.find(class_id);
+    if (it != bytecode_commitments.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> HintedRawContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                        const FF& selector) const
+{
+    auto key = std::make_pair(address, selector);
+    auto it = debug_function_names.find(key);
+    if (it != debug_function_names.end()) {
+        return it->second;
+    }
+    return std::nullopt;
 }
 
 // Hinted MerkleDB starts.

@@ -1,14 +1,19 @@
+import { CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE, CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
+import { LogHash } from '@aztec/stdlib/kernel';
+import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
-import { mockTx } from '@aztec/stdlib/testing';
+import { makeContractClassPublic, mockTx } from '@aztec/stdlib/testing';
 import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -23,7 +28,7 @@ import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
   let merkleTree: MockProxy<MerkleTreeWriteOperations>;
-  let contractsDB: MockProxy<PublicContractsDB>;
+  let contractsDB: PublicContractsDB;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
   let mockedEnqueuedCallsResult: PublicTxResult;
@@ -39,9 +44,41 @@ describe('public_processor', () => {
   const mockTxWithPublicCalls = ({ seed = 1, feePayer }: { seed?: number; feePayer?: AztecAddress } = {}) =>
     mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1, numberOfRevertiblePublicCallRequests: 1, feePayer });
 
+  const mockContractClassForTx = async (tx: Tx, revertible = true) => {
+    const publicContractClass = await makeContractClassPublic(42);
+    const contractClassLogFields = [
+      new Fr(CONTRACT_CLASS_PUBLISHED_MAGIC_VALUE),
+      publicContractClass.id,
+      new Fr(publicContractClass.version),
+      publicContractClass.artifactHash,
+      publicContractClass.privateFunctionsRoot,
+      ...bufferAsFields(
+        publicContractClass.packedBytecode,
+        Math.ceil(publicContractClass.packedBytecode.length / 31) + 1,
+      ),
+    ];
+    const contractAddress = new AztecAddress(new Fr(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS));
+    const emittedLength = contractClassLogFields.length;
+    const logFields = ContractClassLogFields.fromEmittedFields(contractClassLogFields);
+
+    tx.contractClassLogFields.push(logFields);
+
+    const contractClassLogHash = LogHash.from({
+      value: await logFields.hash(),
+      length: emittedLength,
+    }).scope(contractAddress);
+    if (revertible) {
+      tx.data.forPublic!.revertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    } else {
+      tx.data.forPublic!.nonRevertibleAccumulatedData.contractClassLogsHashes[0] = contractClassLogHash;
+    }
+
+    return publicContractClass.id;
+  };
+
   beforeEach(() => {
     merkleTree = mock<MerkleTreeWriteOperations>();
-    contractsDB = mock<PublicContractsDB>();
+    contractsDB = new PublicContractsDB(mock<ContractDataSource>());
     publicTxSimulator = mock();
 
     const stateReference = StateReference.empty();
@@ -280,6 +317,44 @@ describe('public_processor', () => {
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
       expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
       expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('contract class logs', () => {
+    it.each([
+      [' not', 'revertible'],
+      ['', 'non-revertible'],
+    ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
+      const tx = await mockTxWithPublicCalls();
+
+      const contractClassId = await mockContractClassForTx(tx, kind === 'revertible');
+
+      // Mock the simulator to return a reverted result
+      mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
+      mockedEnqueuedCallsResult.revertReason = new SimulationError('Simulation Failed in app logic', []);
+
+      // Mock the simulator to add contracts to the DB (simulating what the real simulator does)
+      // The real PublicTxSimulator calls addNewNonRevertibleContracts and addNewRevertibleContracts
+      publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
+        // Add contracts from the tx to the contractsDB, just like the real simulator does
+        await contractsDB.addNewNonRevertibleContracts(simulatedTx);
+        await contractsDB.addNewRevertibleContracts(simulatedTx);
+        return Promise.resolve(mockedEnqueuedCallsResult);
+      });
+
+      const [processed, failed] = await processor.process([tx]);
+
+      // Transaction should be processed but with revert
+      expect(processed.length).toBe(1);
+      expect(failed).toEqual([]);
+
+      // Check whether the contract class is in the DB based on whether it was revertible
+      const contractClass = await contractsDB.getContractClass(contractClassId);
+      if (kind === 'revertible') {
+        expect(contractClass).toBeUndefined();
+      } else {
+        expect(contractClass).toBeDefined();
+      }
     });
   });
 });

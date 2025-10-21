@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type ContractProvider, avmSimulate, avmSimulateWithHintedDbs } from '@aztec/native';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AvmFastSimulationInputs, deserializeFromMessagePack, serializeWithMessagePack } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -63,17 +64,10 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     // create checkpoint for ws
     await this.merkleTree.createCheckpoint();
-    let tsResult: PublicTxResult;
-    try {
-      // Run the full TypeScript simulation using the parent class
-      // This will modify the merkle tree with the transaction's state changes
-      tsResult = await super.simulate(tx);
-      this.log.debug(`Phase 1 complete: TS simulation succeeded for tx ${txHash}`);
-    } catch (error: any) {
-      // If TS simulation fails, clear any partial contract additions and propagate the error
-      this.contractsDB.clearContractsForTx();
-      throw error;
-    }
+    // Run the full TypeScript simulation using the parent class
+    // This will modify the merkle tree with the transaction's state changes
+    const tsResult: PublicTxResult = await super.simulate(tx);
+    this.log.debug(`Phase 1 complete: TS simulation succeeded for tx ${txHash}`);
 
     // revert checkpoint for ws
     await this.merkleTree.revertCheckpoint();
@@ -230,6 +224,63 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
         // TODO(dbanks12): For now, just manually craft a ContractClassPublic in C++ to match this type.
         // Eventually, this should become a class in TS too, not some 'type' that uses pick and omit.
         return serializeWithMessagePack(contractClassForAVM);
+      },
+
+      addNewNonRevertibles: async (txBuffer: Buffer) => {
+        this.log.debug(`Contract provider callback: addNewNonRevertibles`);
+
+        // Deserialize the Tx from msgpack
+        const tx = deserializeFromMessagePack<Tx>(txBuffer);
+
+        // Add non-revertible contracts to the contracts DB
+        await this.contractsDB.addNewNonRevertibleContracts(tx);
+      },
+
+      addNewRevertibles: async (txBuffer: Buffer) => {
+        this.log.debug(`Contract provider callback: addNewRevertibles`);
+
+        // Deserialize the Tx from msgpack
+        const tx = deserializeFromMessagePack<Tx>(txBuffer);
+
+        // Add revertible contracts to the contracts DB
+        await this.contractsDB.addNewRevertibleContracts(tx);
+      },
+
+      getBytecodeCommitment: async (classId: string) => {
+        this.log.debug(`Contract provider callback: getBytecodeCommitment(${classId})`);
+
+        // Parse classId string to Fr
+        const classIdFr = this.parseFr(classId);
+
+        // Fetch bytecode commitment from the contracts DB
+        const commitment = await this.contractsDB.getBytecodeCommitment(classIdFr);
+
+        if (!commitment) {
+          this.log.debug(`Bytecode commitment not found: ${classId}`);
+          return undefined;
+        }
+
+        // Serialize the Fr to buffer
+        return serializeWithMessagePack(commitment);
+      },
+
+      getDebugFunctionName: async (address: string, selector: string) => {
+        this.log.debug(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
+
+        // Parse address and selector strings
+        const aztecAddr = this.parseAddress(address);
+        const selectorFr = this.parseFr(selector);
+        const functionSelector = FunctionSelector.fromField(selectorFr);
+
+        // Fetch debug function name from the contracts DB
+        const name = await this.contractsDB.getDebugFunctionName(aztecAddr, functionSelector);
+
+        if (!name) {
+          this.log.debug(`Debug function name not found for ${address}:${selector}`);
+          return undefined;
+        }
+
+        return name;
       },
     };
   }
