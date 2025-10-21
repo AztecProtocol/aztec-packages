@@ -446,7 +446,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         DEBUG_LOG(label, element);
 
         // Ensure that the element got assigned an origin tag
-        // If the element is iterable, then we need to check origin tags to all the elements
         bb::check_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 
         return element;
