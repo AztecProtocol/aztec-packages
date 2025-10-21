@@ -636,6 +636,19 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     };
   }
 
+  /**
+   * Verifies a proof using bb.js msgpack API - NO FILE I/O!
+   */
+  private async verifyWithKeyMsgpack(
+    proof: Proof,
+    verificationKey: { keyAsBytes: Buffer },
+    flavor: UltraHonkFlavor,
+  ): Promise<void> {
+    // Verify via msgpack API - ALL IN MEMORY!
+    await this.bbMsgpackProver.verifyCircuit(proof, verificationKey.keyAsBytes, flavor);
+    logger.debug('Successfully verified proof via msgpack API');
+  }
+
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
@@ -685,6 +698,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   /**
    * Executes a circuit and returns its outputs and corresponding proof with embedded aggregation object
+   * NOW USES MSGPACK API - NO FILE I/O for proving!
    * @param witnessMap - The input witness
    * @param circuitType - The type of circuit to be executed
    * @param proofLength - The length of the proof to be generated. This is a dummy parameter to aid in type checking
@@ -703,38 +717,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     convertInput: (input: CircuitInputType) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
-    // this probably is gonna need to call client ivc
+    // Use msgpack API - eliminates file I/O for proving!
     const operation = async (bbWorkingDirectory: string) => {
-      const { provingResult, circuitOutput: output } = await this.generateProofWithBB(
+      const { proof, circuitOutput: output } = await this.generateProofWithBBMsgpack(
         input,
         circuitType,
+        proofLength,
         convertInput,
         convertOutput,
         bbWorkingDirectory,
-      );
-
-      const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      // Read the proof as fields
-      const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vkData, proofLength, logger);
-
-      const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-      this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
-      this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
-      this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
-      this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
-      logger.info(
-        `Generated proof for ${circuitType} in ${Math.ceil(provingResult.durationMs)} ms, size: ${
-          proof.proof.length
-        } fields`,
-        {
-          circuitName,
-          circuitSize: vkData.circuitSize,
-          duration: provingResult.durationMs,
-          inputSize: output.toBuffer().length,
-          proofSize: proof.binaryProof.buffer.length,
-          eventName: 'circuit-proving',
-          numPublicInputs: vkData.numPublicInputs,
-        } satisfies CircuitProvingStats,
       );
 
       return {
@@ -747,6 +738,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   /**
    * Verifies a proof, will generate the verification key if one is not cached internally
+   * NOW USES MSGPACK API - NO FILE I/O!
    * @param circuitType - The type of circuit whose proof is to be verified
    * @param proof - The proof to be verified
    */
@@ -760,15 +752,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     verificationKey: VerificationKeyData,
     publicInputs: AvmCircuitPublicInputs,
   ) {
+    // TODO: Migrate AVM verification to msgpack
     return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
       verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
     );
   }
 
   public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyProof(this.config.bbBinaryPath, proofPath, vkPath, flavor, logger),
-    );
+    // Use msgpack API - NO FILE I/O!
+    return await this.verifyWithKeyMsgpack(proof, verificationKey, flavor);
   }
 
   private async verifyWithKeyInternal(
