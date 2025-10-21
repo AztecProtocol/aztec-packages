@@ -182,9 +182,12 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      * @brief Read a single element from ROM
      *
      * @param builder
-     * @param rom_id The index of the array to read from
+     * @param rom_id ROM array id
      * @param index_witness The witness with the index inside the array
      * @return uint32_t Cell value witness index
+     *
+     * @note If the entry in the index had two entries (i.e., was initialized with `set_ROM_element_pair`), then calling
+     * this method will cause a non-satisfying witness (unless we happened to have set the second entry to `FF:zero()`).
      */
     uint32_t read_ROM_array(CircuitBuilder* builder, const size_t rom_id, const uint32_t index_witness);
     /**

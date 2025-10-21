@@ -174,7 +174,9 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, const size_t rom_id)
 {
     auto& rom_array = rom_arrays[rom_id];
-
+    // when we process a given ROM array, we apply a "multiset equality check" between the records of the gates and then
+    // the records of the sorted gates. at the time of witness generation, the prover certainly knows the permutation;
+    // however, incarnating this with copy constraints would make the circuit (i.e., the VK) _witness dependent_.
     const auto read_tag = builder->get_new_tag();        // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
     builder->create_tag(read_tag, sorted_list_tag);
@@ -213,29 +215,32 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             .record_witness = 0,
             .gate_index = 0,
         };
+        // the position of the sorted ROM gate in the execution trace depends on the witness data.
         create_sorted_ROM_gate(builder, sorted_record);
 
         builder->assign_tag(record.record_witness, read_tag);
         builder->assign_tag(sorted_record.record_witness, sorted_list_tag);
 
         // For ROM/RAM gates, the 'record' wire value (wire column 4) is a linear combination of the first 3 wire
-        // values. However...the record value uses the random challenge 'eta', generated after the first 3 wires are
-        // committed to. i.e. we can't compute the record witness here because we don't know what `eta` is! Take the
+        // values. However, the record value uses the random challenge 'eta', generated after the first 3 wires are
+        // committed to. i.e., we can't compute the record witness here because we don't know what `eta` is! Take the
         // gate indices of the two rom gates (original read gate + sorted gate) and store in `memory_records`. Once we
         // generate the `eta` challenge, we'll use `memory_records` to figure out which gates need a record wire value
         // to be computed.
+        //
         // `record` (w4) = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag (0 for reads, 1 for writes)
         // Separate containers used to store gate indices of reads and writes. Need to differentiate because of
         // `read_write_flag` (N.B. all ROM accesses are considered reads. Writes are for RAM operations)
         builder->memory_read_records.push_back(static_cast<uint32_t>(sorted_record.gate_index));
         builder->memory_read_records.push_back(static_cast<uint32_t>(record.gate_index));
     }
-    // One of the checks we run on the sorted list, is to validate the difference between the index field across two
-    // gates is either 0 or 1. If we add a dummy gate at the end of the sorted list, where we force the first wire to
-    // equal `m + 1`, where `m` is the maximum allowed index in the sorted list, we have validated that all ROM reads
-    // are correctly constrained
+    // One of the checks we run on the sorted list is to validate the difference between the index field across two
+    // adjacent gates is either 0 or 1. To make this work with the last gate, we add a dummy gate at the end of the
+    // sorted list, where we input the first wire to equal `m + 1`, where `m` is the maximum allowed index in the sorted
+    // list, then all of the sorted ROM checks have passed. Moreover, as `m + 1` is a circuit constant, this ensures
+    // that the checks correctly constrain the sorted ROM gate chunks.
     FF max_index_value((uint64_t)rom_array.state.size());
-    uint32_t max_index = builder->add_variable(max_index_value);
+    uint32_t max_index = builder->put_constant_variable(max_index_value);
 
     builder->create_unconstrained_gate(
         builder->blocks.memory, max_index, builder->zero_idx(), builder->zero_idx(), builder->zero_idx());
@@ -438,7 +443,9 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     RamTranscript& ram_array = ram_arrays[ram_id];
     const auto access_tag = builder->get_new_tag();      // current_tag + 1;
     const auto sorted_list_tag = builder->get_new_tag(); // current_tag + 2;
-    // set up the copy constraints
+    // when we process a given RAM array, we apply a "multiset equality check" between the records of the gates and then
+    // the records of the sorted gates. at the time of witness generation, the prover certainly knows the permutation;
+    // however, incarnating this with copy constraints would make the circuit (i.e., the VK) _witness dependent_.
     builder->create_tag(access_tag, sorted_list_tag);
     builder->create_tag(sorted_list_tag, access_tag);
 
@@ -552,7 +559,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         ++builder->num_gates;
 
         // store timestamp offsets for later. Need to apply range checks to them, but calling
-        // `create_new_range_constraint` can add gates. Would ruin the structure of our sorted timestamp list.
+        // `create_new_range_constraint` can add gates, which could ruin the structure of our sorted timestamp list.
         timestamp_deltas.push_back(timestamp_delta_witness);
     }
 
