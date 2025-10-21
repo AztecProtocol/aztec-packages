@@ -39,6 +39,7 @@ function(barretenberg_module MODULE_NAME)
         add_library(
             ${MODULE_NAME}_objects
             OBJECT
+            EXCLUDE_FROM_ALL
             ${SOURCE_FILES}
         )
         list(APPEND lib_targets ${MODULE_NAME}_objects)
