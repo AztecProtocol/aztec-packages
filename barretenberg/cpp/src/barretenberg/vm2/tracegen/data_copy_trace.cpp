@@ -85,7 +85,7 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_dst_addr, event.dst_addr },
 
                       { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
-                      { C::data_copy_parent_id_inv, parent_id_inv },
+                      { C::data_copy_parent_id_inv, parent_id_inv }, // Will be inverted in batch later
 
                       // Compute Data Index Upper Bound
                       { C::data_copy_offset_plus_size, data_offset + copy_size },
@@ -182,7 +182,7 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_sel_mem_write, 1 },
 
                     { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
-                    { C::data_copy_parent_id_inv, parent_id_inv },
+                    { C::data_copy_parent_id_inv, parent_id_inv }, // Will be inverted in batch later
 
                     { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
                     { C::data_copy_read_addr, read_addr },
@@ -191,6 +191,7 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_reads_left_inv, reads_left }, // Will be inverted in batch later
                     { C::data_copy_padding, is_padding_row ? 1 : 0 },
                     { C::data_copy_value, value },
+                    { C::data_copy_tag, static_cast<uint8_t>(MemoryTag::FF) }, // TODO: Fails with non-FF tags.
 
                     { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
 

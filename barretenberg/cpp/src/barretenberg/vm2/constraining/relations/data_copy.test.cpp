@@ -60,7 +60,12 @@ class DataCopyConstrainingBuilderTest : public ::testing::Test {
 
     MemoryStore mem;
 
-    TestTraceContainer trace;
+    TestTraceContainer trace = TestTraceContainer({
+        {
+            { C::precomputed_first_row, 1 },
+        },
+    });
+
     uint32_t dst_addr = 0; // Destination address in memory for the data.
     const std::vector<FF> data = { 1, 2, 3, 4, 5, 6, 7, 8 };
 };
@@ -105,6 +110,55 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
     uint32_t cd_offset = 0; // Offset into calldata
 
     EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(data));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+// Copying one element tests the case where the trace populates a single row
+// where both sel_start and sel_end are toggled on but is a different code path
+// in tracegen than with copy_size == 0.
+TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
+{
+    uint32_t copy_size = 1;
+    uint32_t cd_offset = static_cast<uint32_t>(data.size() - 1);
+
+    std::vector<FF> result_cd = { data.begin() + cd_offset, data.begin() + cd_offset + copy_size };
+
+    EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
+
+    copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
+
+    DataCopyTraceBuilder builder;
+    builder.process(event_emitter.dump_events(), trace);
+
+    tracegen::GreaterThanTraceBuilder gt_builder;
+    gt_builder.process(gt_event_emitter.dump_events(), trace);
+
+    check_relation<data_copy>(trace);
+    check_interaction<DataCopyTraceBuilder,
+                      lookup_data_copy_offset_plus_size_is_gt_data_size_settings,
+                      lookup_data_copy_data_index_upper_bound_gt_offset_settings,
+                      lookup_data_copy_check_src_addr_in_range_settings,
+                      lookup_data_copy_check_dst_addr_in_range_settings>(trace);
+}
+
+TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneWithPadding)
+{
+    uint32_t copy_size = 1;
+    uint32_t cd_offset = static_cast<uint32_t>(data.size());
 
     copy_data.cd_copy(context, copy_size, cd_offset, dst_addr);
 
