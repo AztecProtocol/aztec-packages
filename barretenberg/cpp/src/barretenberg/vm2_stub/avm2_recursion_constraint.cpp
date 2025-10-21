@@ -20,7 +20,8 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     [[maybe_unused]] const RecursionConstraint& input,
     [[maybe_unused]] bool has_valid_witness_assignments)
 {
-    throw_or_abort("AVM recursion is not supported in this build. Please use the 'bb' binary with full AVM support.");
+    throw_or_abort(
+        "AVM recursion is not supported in this build. Please use the 'bb-avm' binary with full AVM support.");
 }
 
 } // namespace acir_format
