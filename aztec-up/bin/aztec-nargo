@@ -2,7 +2,10 @@
 set -euo pipefail
 
 export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
-export VERSION="${VERSION:-$(cat "$AZTEC_PATH/default_version")}"
+if [[ -z "${VERSION:-}" ]]; then
+  VERSION=$(cat "$AZTEC_PATH/default_version" 2>/dev/null || echo "latest")
+fi
+export VERSION
 export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
 
 if [[ $PWD != ${HOME}* ]]; then
