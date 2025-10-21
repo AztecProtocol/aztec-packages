@@ -126,6 +126,13 @@ AvmProvingInputs AvmProvingInputs::from(const std::vector<uint8_t>& data)
     return inputs;
 }
 
+AvmFastSimulationInputs AvmFastSimulationInputs::from(const std::vector<uint8_t>& data)
+{
+    AvmFastSimulationInputs inputs;
+    msgpack::unpack(reinterpret_cast<const char*>(data.data()), data.size()).get().convert(inputs);
+    return inputs;
+}
+
 /////////////////////////////////////////////////////////
 /// Serialization to columns
 /////////////////////////////////////////////////////////
