@@ -553,7 +553,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
                 };
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
-                    .index = 0,
+                    .index = bb::stdlib::IS_CONSTANT,
                     .value = from_be_bytes(e.value),
                     .is_constant = true,
                 };
@@ -561,7 +561,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
                 throw_or_abort("Unrecognized Acir::ConstantOrWitnessEnum variant.");
             }
             return WitnessOrConstant<bb::fr>{
-                .index = 0,
+                .index = bb::stdlib::IS_CONSTANT,
                 .value = bb::fr::zero(),
                 .is_constant = true,
             };

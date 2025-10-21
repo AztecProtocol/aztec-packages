@@ -68,7 +68,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
     std::vector<field_ct> pub_x_fields = fields_from_witnesses(builder, input.pub_x_indices);
     std::vector<field_ct> pub_y_fields = fields_from_witnesses(builder, input.pub_y_indices);
     field_ct result_field = field_ct::from_witness_index(&builder, input.result);
-    field_ct predicate_field = field_ct::from_witness_index(&builder, input.predicate.index);
+    field_ct predicate_field = to_field_ct(input.predicate, builder);
 
     if (!has_valid_witness_assignments) {
         // Fill builder variables in case of empty witness assignment
