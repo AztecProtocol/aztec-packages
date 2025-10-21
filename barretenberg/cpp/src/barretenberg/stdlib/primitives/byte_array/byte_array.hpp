@@ -67,7 +67,7 @@ template <typename Builder> class byte_array {
 
     field_t<Builder> operator[](const size_t index) const
     {
-        assert(values.size() > 0);
+        BB_ASSERT_LT(index, values.size());
         return values[index];
     }
 
