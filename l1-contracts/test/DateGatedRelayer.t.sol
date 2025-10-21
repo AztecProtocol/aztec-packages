@@ -35,7 +35,8 @@ contract DateGatedRelayerTest is Test {
     uint256 gatedUntil = bound(_gatedUntil, block.timestamp + 1, type(uint32).max);
 
     TestERC20 testERC20 = new TestERC20("test", "TEST", address(this));
-    CoinIssuer coinIssuer = new CoinIssuer(testERC20, 100, address(this));
+    testERC20.mint(address(this), 1e18);
+    CoinIssuer coinIssuer = new CoinIssuer(testERC20, 100e18, address(this));
     testERC20.transferOwnership(address(coinIssuer));
     coinIssuer.acceptTokenOwnership();
 
@@ -45,11 +46,15 @@ contract DateGatedRelayerTest is Test {
     uint256 warp = bound(_warp, gatedUntil, type(uint32).max);
 
     vm.expectRevert();
-    coinIssuer.mint(address(this), 100);
+    coinIssuer.mint(address(this), 1);
 
     vm.warp(warp);
-    dateGatedRelayer.relay(address(coinIssuer), abi.encodeWithSelector(CoinIssuer.mint.selector, address(this), 100));
+    uint256 mintAvailable = coinIssuer.mintAvailable();
+    dateGatedRelayer.relay(
+      address(coinIssuer), abi.encodeWithSelector(CoinIssuer.mint.selector, address(this), mintAvailable)
+    );
 
-    assertEq(testERC20.balanceOf(address(this)), 100);
+    assertEq(testERC20.balanceOf(address(this)), mintAvailable + 1e18, "balanceOf");
+    assertEq(testERC20.totalSupply(), mintAvailable + 1e18, "totalSupply");
   }
 }
