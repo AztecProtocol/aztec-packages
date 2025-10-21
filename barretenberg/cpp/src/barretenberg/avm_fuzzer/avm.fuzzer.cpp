@@ -15,9 +15,13 @@ using FuzzInstruction = ::FuzzInstruction;
 
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
-    std::string simulator_path =
-        "/home/defkit/aztec-packages/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.cjs";
-    JsSimulator::initialize(simulator_path);
+
+    const char* simulator_path = std::getenv("AVM_SIMULATOR_BIN");
+    if (simulator_path == nullptr) {
+        throw std::runtime_error("AVM_SIMULATOR_BIN is not set");
+    }
+    std::string simulator_path_str(simulator_path);
+    JsSimulator::initialize(simulator_path_str);
     return 0;
 }
 
