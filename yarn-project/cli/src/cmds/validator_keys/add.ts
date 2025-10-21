@@ -1,7 +1,7 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 
-import { wordlist } from '@scure/bip39/wordlists/english';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { readFile } from 'fs/promises';
 import { dirname, isAbsolute, join } from 'path';
 import { generateMnemonic } from 'viem/accounts';
