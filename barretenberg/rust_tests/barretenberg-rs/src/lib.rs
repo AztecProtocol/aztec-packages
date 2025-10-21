@@ -8,6 +8,11 @@ pub mod types;
 pub mod api;
 pub mod error;
 
+// Generated types from msgpack schema
+// Run: cd ../ts && npm run generate
+#[allow(dead_code)]
+mod generated_types;
+
 pub use backend::{MsgpackBackend, MsgpackBackendSync, MsgpackBackendAsync};
 pub use types::*;
 pub use api::{BarretenbergApi, BarretenbergApiSync};

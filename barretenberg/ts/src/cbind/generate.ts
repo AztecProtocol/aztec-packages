@@ -13,6 +13,7 @@ import {
   createAsyncApiCompiler,
   type SchemaCompiler,
 } from './schema_compiler.js';
+import { createRustCompiler, type RustSchemaCompiler } from './rust_schema_compiler.js';
 
 const execAsync = promisify(exec);
 
@@ -20,6 +21,12 @@ interface GeneratorConfig {
   name: string;
   outputFile: string;
   createCompiler: () => SchemaCompiler;
+}
+
+interface RustGeneratorConfig {
+  name: string;
+  outputFile: string;
+  createCompiler: () => RustSchemaCompiler;
 }
 
 const GENERATORS: GeneratorConfig[] = [
@@ -37,6 +44,14 @@ const GENERATORS: GeneratorConfig[] = [
     name: 'Async API',
     outputFile: 'generated/async.ts',
     createCompiler: createAsyncApiCompiler,
+  },
+];
+
+const RUST_GENERATORS: RustGeneratorConfig[] = [
+  {
+    name: 'Rust types',
+    outputFile: '../../rust_tests/barretenberg-rs/src/generated_types.rs',
+    createCompiler: createRustCompiler,
   },
 ];
 
@@ -61,13 +76,30 @@ async function generate() {
   const outputDir = join(__dirname, 'generated');
   mkdirSync(outputDir, { recursive: true });
 
-  // Generate each output file
+  // Generate TypeScript files
   for (const config of GENERATORS) {
     const compiler = config.createCompiler();
     compiler.processApiSchema(schema.commands, schema.responses);
 
     const outputPath = join(__dirname, config.outputFile);
     const content = compiler.compile();
+    writeFileSync(outputPath, content);
+
+    console.log(`✓ ${config.name}: ${outputPath}`);
+  }
+
+  console.log('\nGenerating Rust bindings...\n');
+
+  // Generate Rust files
+  for (const config of RUST_GENERATORS) {
+    const compiler = config.createCompiler();
+    compiler.processApiSchema(schema.commands, schema.responses);
+
+    const outputPath = join(__dirname, config.outputFile);
+    const content = compiler.compile();
+
+    // Ensure Rust output directory exists
+    mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(outputPath, content);
 
     console.log(`✓ ${config.name}: ${outputPath}`);

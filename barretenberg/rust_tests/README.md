@@ -252,6 +252,39 @@ The library supports conditional compilation via features:
 - `wasm`: WASM backend support
 - `async`: Asynchronous API support
 
+## Code Generation
+
+### Automatic Type Generation from Schema
+
+The Rust types can be automatically generated from the BB msgpack schema, just like the TypeScript bindings:
+
+```bash
+# Generate types from schema
+cd ../ts
+npm run generate
+```
+
+This generates:
+- TypeScript bindings → `ts/src/cbind/generated/`
+- **Rust bindings** → `rust_tests/barretenberg-rs/src/generated_types.rs`
+
+See [README_CODEGEN.md](./README_CODEGEN.md) for detailed documentation.
+
+### Current Status
+
+- ✅ **Rust schema compiler** implemented in TypeScript
+- ✅ **Command/Response enums** auto-generated
+- ✅ **Type definitions** auto-generated with serde support
+- ⚠️ **API methods** not yet generated (coming soon)
+- ⚠️ **Build integration** manual for now
+
+### How It Works
+
+1. `bb msgpack schema` outputs JSON schema
+2. TypeScript compiler (`rust_schema_compiler.ts`) processes schema
+3. Generates Rust code with proper types and serde annotations
+4. Output written to `generated_types.rs`
+
 ## Future Work
 
 ### Shared Memory Backend
@@ -264,10 +297,11 @@ The library supports conditional compilation via features:
 - Implement memory management for WASM calls
 - Support Web Workers for async operations
 
-### Code Generation
-- Create Rust code generator from msgpack schema (paralleling TypeScript generator)
-- Auto-generate types and API methods from `bb msgpack schema`
-- Update types automatically when schema changes
+### Code Generation Enhancements
+- ✅ ~~Create Rust code generator from msgpack schema~~ **DONE**
+- ⚠️ Generate full API methods (like TypeScript SyncApi/AsyncApi)
+- ⚠️ Integrate with cargo build via build.rs
+- ⚠️ Add schema validation tests
 
 ## Contributing
 
