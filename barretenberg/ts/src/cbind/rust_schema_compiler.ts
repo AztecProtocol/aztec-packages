@@ -86,6 +86,25 @@ export class RustSchemaCompiler {
       '',
       'use serde::{Deserialize, Serialize};',
       '',
+      '// Helper module for efficient binary serialization',
+      'mod serde_bytes {',
+      '    use serde::{Deserialize, Deserializer, Serializer};',
+      '',
+      '    pub fn serialize<S>(bytes: &Vec<u8>, serializer: S) -> Result<S::Ok, S::Error>',
+      '    where',
+      '        S: Serializer,',
+      '    {',
+      '        serializer.serialize_bytes(bytes)',
+      '    }',
+      '',
+      '    pub fn deserialize<\'de, D>(deserializer: D) -> Result<Vec<u8>, D::Error>',
+      '    where',
+      '        D: Deserializer<\'de>,',
+      '    {',
+      '        <Vec<u8>>::deserialize(deserializer)',
+      '    }',
+      '}',
+      '',
     ];
 
     // Generate type definitions
@@ -267,10 +286,26 @@ export class RustSchemaCompiler {
       .filter(([key]) => key !== '__typename')
       .map(([key, value]) => {
         const typeInfo = this.processSchema(value);
-        return `    pub ${toSnakeCase(key)}: ${typeInfo.rustType},`;
+        const fieldName = toSnakeCase(key);
+
+        // Add serde attributes
+        let serdeAttrs = '';
+
+        // If field name differs from original key, add rename attribute
+        if (fieldName !== key) {
+          serdeAttrs += `    #[serde(rename = "${key}")]\n`;
+        }
+
+        // For Vec<u8> types, use efficient binary serialization
+        if (typeInfo.rustType === 'Vec<u8>') {
+          serdeAttrs += `    #[serde(with = "serde_bytes")]\n`;
+        }
+
+        return `${serdeAttrs}    pub ${fieldName}: ${typeInfo.rustType},`;
       });
 
-    return `#[derive(Debug, Clone, Serialize, Deserialize)]
+    return `/// ${typeName} type from msgpack schema
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ${typeName} {
 ${fields.join('\n')}
 }`;
@@ -278,7 +313,13 @@ ${fields.join('\n')}
 
   private generateCommandEnum(): string {
     const variants = this.functionMetadata.map(m => {
-      return `    ${m.commandType}(${m.commandType}),`;
+      // Keep original casing for the variant name tag
+      const originalName = m.name.split('_').map((part, i) =>
+        i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) :
+        part.charAt(0).toUpperCase() + part.slice(1)
+      ).join('');
+
+      return `    #[serde(rename = "${m.commandType}")]\n    ${m.commandType}(${m.commandType}),`;
     });
 
     return `/// Command enum wrapping all possible commands
@@ -291,7 +332,7 @@ ${variants.join('\n')}
 
   private generateResponseEnum(): string {
     const variants = this.functionMetadata.map(m => {
-      return `    ${m.responseType}(${m.responseType}),`;
+      return `    #[serde(rename = "${m.responseType}")]\n    ${m.responseType}(${m.responseType}),`;
     });
 
     return `/// Response enum wrapping all possible responses
