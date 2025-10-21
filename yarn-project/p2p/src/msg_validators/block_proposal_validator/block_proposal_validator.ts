@@ -14,6 +14,13 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
 
   async validate(block: BlockProposal): Promise<PeerErrorSeverity | undefined> {
     try {
+      // Check signature validity first - invalid signatures are a high-severity issue
+      const proposer = block.getSender();
+      if (!proposer) {
+        this.logger.debug(`Penalizing peer for block proposal with invalid signature`);
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
       const { currentProposer, nextProposer, currentSlot, nextSlot } =
         await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
@@ -25,12 +32,11 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       // Check that the block proposal is from the current or next proposer
-      const proposer = block.getSender();
       if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
         this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
-          proposer,
+          proposer: proposer.toString(),
         });
         return PeerErrorSeverity.MidToleranceError;
       }
@@ -39,7 +45,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
-          proposer,
+          proposer: proposer.toString(),
         });
         return PeerErrorSeverity.MidToleranceError;
       }

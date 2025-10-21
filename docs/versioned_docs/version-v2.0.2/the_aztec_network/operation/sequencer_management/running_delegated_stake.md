@@ -13,49 +13,51 @@ This guide covers running a sequencer with delegated stake on the Aztec network.
 
 ## Prerequisites
 
-Before proceeding, you should:
+Before proceeding, ensure you have:
 
-- Know how to run a sequencer node (see [Sequencer Setup Guide](../../setup/sequencer_management))
-- Have an Ethereum wallet with sufficient ETH for gas fees
-- Understand basic Aztec staking mechanics
-- Have Foundry installed for `cast` commands
+- Knowledge of running a sequencer node (see [Sequencer Setup Guide](../../setup/sequencer_management))
+- An Ethereum wallet with sufficient ETH for gas fees
+- Understanding of basic Aztec staking mechanics
+- Foundry installed for `cast` commands
 
 ## How Delegated Stake Works
 
-As a provider, you register with the StakingRegistry contract and add sequencer identities (keystores) to a queue. When delegators stake to your provider, the system:
+You register with the StakingRegistry contract and add sequencer identities (keystores) to a queue. When delegators stake to your provider, the system:
 
 1. Dequeues one keystore from your provider queue
 2. Creates a [Split contract](https://docs.splits.org/core/split) for reward distribution
-3. Registers the sequencer into the queue using the dequeued keystore
+3. Registers the sequencer into the staking queue using the dequeued keystore
 
 ### Reward Distribution
 
-When a delegator stakes to your provider, a new Split contract is automatically created to manage reward distribution between you and the delegator. You then configure your sequencer node to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)). When configured correctly, staking rewards are sent to the Split contract, which distributes them according to your agreed commission rate:
+When a delegator stakes to your provider, a Split contract is automatically created to manage reward distribution. You configure your sequencer to use the Split contract address as the coinbase (see [After Delegation: Configure Sequencer Coinbase](#after-delegation-configure-sequencer-coinbase)).
 
-- **Provider commission**: Sent to your `providerRewardsRecipient` address (set during registration) at your specified commission rate (e.g., 5% for 500 basis points)
-- **Delegator rewards**: The delegator's Aztec Token Position (ATP) receives the remaining percentage
+Rewards are distributed according to your agreed commission rate:
+- **Provider commission**: Your `providerRewardsRecipient` address receives your commission rate (e.g., 5% for 500 basis points)
+- **Delegator rewards**: The delegator's Aztec Token Vault (ATV) receives the remaining percentage
 
-This design ensures delegators maintain control of their rewards while you earn commission for operating the sequencer infrastructure. The rewards flow works as follows:
-
+**Rewards flow:**
 1. Rewards accumulate in the rollup under the coinbase address (the Split contract)
-2. Once rewards are unlocked via a governance vote, anyone can release them from the rollup to the coinbase address
-3. In the Split contract, anyone can disperse the rewards to both the ATP and the `providerRewardsRecipient`
+2. After governance unlocks rewards, anyone can release them from the rollup to the `coinbase` address.
+3. Anyone can then disperse the rewards from the Split contract to both the ATV and your `providerRewardsRecipient`
+
+This design ensures delegators maintain control of their rewards while you earn commission for operating the sequencer infrastructure.
 
 ## Setup Process
 
 Before starting these steps, ensure your sequencer node infrastructure is set up (see [Prerequisites](#prerequisites)).
 
-Follow these steps to configure delegated stake:
+Follow these steps to set up delegated stake:
 
 1. Register your provider with the Staking Registry
 2. Add sequencer identities to your provider queue
-3. (Optional) Add provider metadata with a PR
+3. (Optional) Add provider metadata via pull request
 
 **After a delegator stakes:** Configure your sequencer's coinbase (see [After Delegation](#after-delegation-configure-sequencer-coinbase))
 
 ### Step 1: Register Your Provider
 
-Register with the `StakingRegistry` contract as a provider for delegated staking. Registration is permissionless and is open to anyone.
+Register with the `StakingRegistry` contract as a provider for delegated staking. Registration is permissionless and open to anyone.
 
 **Function signature:**
 
@@ -154,26 +156,26 @@ Where the tuple structure represents:
 
 ### Step 3: Add Provider Metadata (Optional)
 
-To be featured on the staking dashboard, you will have to submit metadata about your provider via a GitHub pull request. You'll need to provide:
+To be featured on the staking dashboard, submit metadata about your provider via a GitHub pull request. You'll need to provide:
 
 1. Provider name and description
 2. Logo image
 3. Website and social media URLs
 4. Your `providerIdentifier`
 
-Good metadata helps delegators understand your offering and builds trust. The exact submission workflow is still being finalized. Check the [Aztec Discord](https://discord.gg/aztec) for the latest instructions.
+Good metadata helps delegators understand your offering and builds trust. Check the [Aztec Discord](https://discord.gg/aztec) for the latest submission instructions.
 
 ## After Delegation: Configure Sequencer Coinbase
 
-Once a delegator stakes to your provider, the system creates a Split contract for that specific delegation and activates the corresponding sequencer. **Configure the sequencer to use the Split contract address as the coinbase recipient.**
+Once a delegator stakes to your provider, the system creates a Split contract for that delegation and activates the corresponding sequencer. **Configure the sequencer to use the Split contract address as the coinbase.**
 
 ### Why This Matters
 
-The coinbase address determines where your sequencer's block rewards are sent. By setting it to the Split contract address, rewards flow through the Split contract and are distributed according to your agreed commission rate. This is critical for maintaining trust with your delegators.
+The coinbase address determines where your sequencer's block rewards are sent. Setting it to the Split contract address ensures rewards are distributed according to your agreed commission rate, which is critical for maintaining trust with your delegators.
 
 ### How to Configure the Coinbase
 
-You need to update the `coinbase` field in your sequencer node's keystore configuration. The coinbase should be set to the Split contract address that was created for this delegation.
+Update the `coinbase` field in your sequencer node's keystore configuration to the Split contract address created for this delegation.
 
 **Example keystore configuration:**
 
@@ -181,8 +183,7 @@ You need to update the `coinbase` field in your sequencer node's keystore config
 {
   "attester": "0x...",  // Your sequencer's address / identity (from Step 2)
   "publisher": "0x...",  // Address that submits blocks to L1
-  "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]",  // Split contract for this delegation
-  "feeRecipient": "0x..."  // Aztec address for L2 fees
+  "coinbase": "0x[SPLIT_CONTRACT_ADDRESS]"  // Split contract for this delegation
 }
 ```
 
@@ -199,6 +200,94 @@ You can retrieve the Split contract address for a specific delegation through th
 - Configure the coinbase immediately after each delegation to ensure rewards flow correctly from the start
 - Each delegation creates a unique Split contract—configure each sequencer with its specific Split contract address
 - Restart your sequencer node after updating the keystore for changes to take effect
+
+## Monitoring Keystore Availability
+
+As a provider, you must maintain sufficient sequencer identities (keystores) in your queue to handle incoming delegations. When a delegator stakes to your provider and your queue is empty, they cannot activate a sequencer—this results in a poor delegator experience and lost opportunity.
+
+### Why Monitoring Matters
+
+Each time a delegator stakes to your provider:
+1. One keystore is dequeued from your provider queue
+2. A sequencer is activated using that keystore
+3. Your available keystore count decreases by one
+
+If your queue runs empty, new delegations cannot activate sequencers until you add more keystores. This could cause delegators to choose other providers.
+
+### Checking Available Keystores
+
+Check your current keystore queue with this call:
+
+```bash
+# Check provider queue length
+cast call [STAKING_REGISTRY_ADDRESS] \
+  "getProviderQueueLength(uint256) (uint256)" \
+  [YOUR_PROVIDER_IDENTIFIER] \
+  --rpc-url [RPC_URL]
+
+This returns your provider's queue length, which is the number of keystores currently available.
+
+### Setting Up Automated Monitoring
+
+Implement automated monitoring to alert you when your keystore queue runs low.
+
+#### Cron Job Example
+
+The following script monitors your keystore queue and alerts when it drops below a threshold. Replace the placeholder values and uncomment your preferred alert method (webhook or email):
+
+```bash
+#!/bin/bash
+# check-keystores.sh
+
+THRESHOLD=5  # Alert when fewer than 5 keystores remain
+REGISTRY_ADDRESS="[STAKING_REGISTRY_ADDRESS]"
+PROVIDER_ID="[YOUR_PROVIDER_IDENTIFIER]"
+RPC_URL="[YOUR_RPC_URL]"
+WEBHOOK_URL="[YOUR_WEBHOOK_URL]"  # Optional: for Slack/Discord notifications
+
+# Gets current queue length
+QUEUE_LENGTH=$(cast call "$REGISTRY_ADDRESS" \
+  "getProviderQueueLength(uint256)" \
+  "$PROVIDER_ID" \
+  --rpc-url "$RPC_URL")
+
+echo "Queue length: $QUEUE_LENGTH"
+
+# Check if queue is running low
+if [ "$QUEUE_LENGTH" -lt "$THRESHOLD" ]; then
+  echo "WARNING: Keystore queue running low! Only $QUEUE_LENGTH keystores remaining."
+
+  # Send alert (uncomment and configure your preferred method)
+  # Slack/Discord webhook:
+  # curl -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" \
+  #   -d "{\"text\":\"⚠️ Keystore queue low: $QUEUE_LENGTH remaining (threshold: $THRESHOLD)\"}"
+
+  # Email via mail command:
+  # echo "Keystore queue has $QUEUE_LENGTH keys remaining" | mail -s "Low Keystore Alert" your-email@example.com
+fi
+```
+
+Make the script executable and schedule it with cron:
+
+```bash
+# Make the script executable
+chmod +x /path/to/check-keystores.sh
+
+# Edit crontab
+crontab -e
+
+# Add this line to check every 4 hours
+0 */4 * * * /path/to/check-keystores.sh >> /var/log/keystore-monitor.log 2>&1
+```
+
+### When to Add More Keystores
+
+Add keystores proactively before running out:
+- Monitor your delegation growth rate
+- Add in batches (max 100 per transaction)
+- Stay ahead of demand during high-activity periods
+
+See [Step 2: Add Sequencer Identities](#step-2-add-sequencer-identities) for instructions.
 
 ## Managing Your Provider
 
@@ -243,11 +332,13 @@ cast send [STAKING_REGISTRY_ADDRESS] \
   --private-key [ADMIN_PRIVATE_KEY]
 ```
 
-**Note:** Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::note
+Rate changes only apply to new delegations. Existing delegations retain the original commission rate they agreed to.
+:::
 
 ## Verification
 
-Verify your setup is working correctly:
+Verify your setup is working correctly.
 
 ### Check Provider Registration
 
@@ -255,16 +346,19 @@ Query the StakingRegistry to confirm your provider details:
 
 ```bash
 cast call [STAKING_REGISTRY_ADDRESS] \
-  "getProvider(uint256)" \
+  "providerConfigurations(uint256) (address,uint16,address)" \
   [YOUR_PROVIDER_IDENTIFIER] \
   --rpc-url [RPC_URL]
 ```
 
-This returns your provider configuration including admin address, commission rate, and rewards recipient.
+This returns:
+1. The provider's admin address
+2. The provider's commission rate in bps
+3. The provider's rewards recipient
 
-### Verify Sequencer Identities
+### Verify Queue Length
 
-Check how many keystores are in your provider queue:
+Check your provider queue length:
 
 ```bash
 cast call [STAKING_REGISTRY_ADDRESS] \
@@ -275,7 +369,7 @@ cast call [STAKING_REGISTRY_ADDRESS] \
 
 ### Monitor Delegations
 
-Check the staking dashboard to see:
+View these metrics on the staking dashboard:
 - Total stake delegated to your provider
 - Number of active sequencers
 - Commission earned
@@ -308,7 +402,7 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 - Check that the attester addresses aren't already registered elsewhere
 - Reduce batch size if hitting gas limits (max 100 keystores per transaction)
 
-### Delegators not appearing
+### No delegators appearing
 
 **Issue**: No delegators are staking to your provider.
 
@@ -332,22 +426,20 @@ Ensure your sequencer nodes are running and synced. See [Useful Commands](./usef
 
 ## Best Practices
 
-**Maintain Sufficient Keystores**: Keep your provider queue stocked with keystores. When delegators stake and your queue is empty, they can't activate sequencers.
+**Maintain Sufficient Keystores**: Set up automated monitoring to ensure your keystore queue never runs empty. See [Monitoring Keystore Availability](#monitoring-keystore-availability) for guidance on implementing alerts.
 
-**Communicate Changes**: Inform your delegators about commission rate changes, planned maintenance, or infrastructure updates. Good communication builds trust.
+**Communicate Changes**: Inform delegators about commission rate changes, planned maintenance, or infrastructure updates. Good communication builds trust.
 
 **Monitor Performance**: Track your sequencers' attestation rates, block proposals, and uptime. Poor performance may cause delegators to withdraw.
 
 **Secure Your Keys**: The `providerAdmin` key controls your provider configuration. Store it securely and consider using a hardware wallet or multisig.
-
-**Set Reasonable Commission Rates**: Balance profitability with competitiveness. Too high, and delegators choose other providers. Too low, and you can't sustain operations.
 
 ## Next Steps
 
 After completing this setup:
 
 1. Monitor your provider's performance through the staking dashboard
-2. Keep your sequencer nodes operational with high uptime
-3. Maintain open communication with delegators
-4. Regularly add new keystores to your provider queue
+2. Maintain high uptime for your sequencer nodes
+3. Keep open communication with delegators
+4. Regularly add new keystores to your provider queue (see [Monitoring Keystore Availability](#monitoring-keystore-availability))
 5. Join the [Aztec Discord](https://discord.gg/aztec) for provider support and community discussions

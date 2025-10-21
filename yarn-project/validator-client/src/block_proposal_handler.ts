@@ -100,6 +100,12 @@ export class BlockProposalHandler {
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
+    // Reject proposals with invalid signatures
+    if (!proposer) {
+      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
+      return { isValid: false, reason: 'invalid_proposal' };
+    }
+
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
     this.log.info(`Processing proposal for slot ${slotNumber}`, {
       ...proposalInfo,

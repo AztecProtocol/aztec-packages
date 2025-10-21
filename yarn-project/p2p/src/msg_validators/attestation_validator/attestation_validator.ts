@@ -26,8 +26,14 @@ export class AttestationValidator implements P2PValidator<BlockAttestation> {
         return PeerErrorSeverity.HighToleranceError;
       }
 
-      // Verify the attester is in the committee for this slot
+      // Verify the signature is valid
       const attester = message.getSender();
+      if (attester === undefined) {
+        this.logger.warn(`Invalid signature in attestation for slot ${slotNumberBigInt}`);
+        return PeerErrorSeverity.LowToleranceError;
+      }
+
+      // Verify the attester is in the committee for this slot
       if (!(await this.epochCache.isInCommittee(slotNumberBigInt, attester))) {
         this.logger.warn(`Attester ${attester.toString()} is not in committee for slot ${slotNumberBigInt}`);
         return PeerErrorSeverity.HighToleranceError;

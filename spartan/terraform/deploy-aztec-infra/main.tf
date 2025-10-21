@@ -177,22 +177,23 @@ locals {
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "node.mnemonic"                           = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                 = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"              = var.PROVER_REAL_PROOFS
-        "node.web3signerUrl"                      = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "node.node.env.NETWORK"                   = var.NETWORK
-        "node.node.env.PROVER_FAILED_PROOF_STORE" = var.PROVER_FAILED_PROOF_STORE
-        "node.node.env.KEY_INDEX_START"           = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHER_KEY_INDEX_START" = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHERS_PER_PROVER"     = var.PROVER_PUBLISHERS_PER_PROVER
-        "broker.node.proverRealProofs"            = var.PROVER_REAL_PROOFS
-        "broker.node.env.NETWORK"                 = var.NETWORK
-        "broker.node.env.BOOTSTRAP_NODES"         = "asdf"
-        "agent.node.proverRealProofs"             = var.PROVER_REAL_PROOFS
-        "agent.node.env.NETWORK"                  = var.NETWORK
-        "agent.replicaCount"                      = var.PROVER_REPLICAS
-        "agent.node.env.BOOTSTRAP_NODES"          = "asdf"
+        "node.mnemonic"                                   = var.PROVER_MNEMONIC
+        "node.mnemonicStartIndex"                         = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+        "node.web3signerUrl"                              = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        "node.node.env.NETWORK"                           = var.NETWORK
+        "node.node.env.PROVER_FAILED_PROOF_STORE"         = var.PROVER_FAILED_PROOF_STORE
+        "node.node.env.KEY_INDEX_START"                   = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHER_KEY_INDEX_START"         = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHERS_PER_PROVER"             = var.PROVER_PUBLISHERS_PER_PROVER
+        "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH" = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+        "broker.node.proverRealProofs"                    = var.PROVER_REAL_PROOFS
+        "broker.node.env.NETWORK"                         = var.NETWORK
+        "broker.node.env.BOOTSTRAP_NODES"                 = "asdf"
+        "agent.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
+        "agent.node.env.NETWORK"                          = var.NETWORK
+        "agent.replicaCount"                              = var.PROVER_REPLICAS
+        "agent.node.env.BOOTSTRAP_NODES"                  = "asdf"
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"

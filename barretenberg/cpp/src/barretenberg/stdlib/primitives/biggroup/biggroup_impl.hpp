@@ -494,113 +494,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
 }
 
 /**
- * @brief Compute 4.P + to_add[0] + ... + to_add[to_add.size() - 1]
- *
- * @details Used in wnaf_batch_mul method. Combining operations requires fewer bigfield reductions.
- *
- * Method computes R[i] = (2P + A[0]) + (2P + A[1]) + A[2] + ... + A[n-1]
- *
- * @tparam C
- * @tparam Fq
- * @tparam Fr
- * @tparam G
- * @param to_add
- * @return element<C, Fq, Fr, G>
- */
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::quadruple_and_add(const std::vector<element>& to_add) const
-{
-    const Fq two_x = x + x;
-    Fq x_1;
-    Fq minus_lambda_dbl;
-    if constexpr (G::has_a) {
-        Fq a(get_context(), uint256_t(G::curve_a));
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
-        x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
-    } else {
-        // TODO(): handle y = 0 case.
-        minus_lambda_dbl = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
-        x_1 = minus_lambda_dbl.sqradd({ -(two_x) });
-    }
-
-    BB_ASSERT_GT(to_add.size(), 0);
-    to_add[0].x.assert_is_not_equal(x_1);
-
-    const Fq x_minus_x_1 = x - x_1;
-
-    const Fq lambda_1 =
-        Fq::msub_div({ minus_lambda_dbl },
-                     { x_minus_x_1 },
-                     (x_1 - to_add[0].x),
-                     { to_add[0].y, y },
-                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x1 != to_add[0].x is enforced
-
-    const Fq x_3 = lambda_1.sqradd({ -to_add[0].x, -x_1 });
-
-    // TODO(): analyse if (x3 - x1) can be zero.
-    const Fq half_minus_lambda_2_minus_lambda_1 =
-        Fq::msub_div({ minus_lambda_dbl },
-                     { x_minus_x_1 },
-                     (x_3 - x_1),
-                     { y },
-                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x3 != x1 is enforced
-
-    const Fq minus_lambda_2_minus_lambda_1 = half_minus_lambda_2_minus_lambda_1 + half_minus_lambda_2_minus_lambda_1;
-    const Fq minus_lambda_2 = minus_lambda_2_minus_lambda_1 + lambda_1;
-
-    const Fq x_4 = minus_lambda_2.sqradd({ -x_1, -x_3 });
-
-    const Fq x_4_sub_x_1 = x_4 - x_1;
-
-    if (to_add.size() == 1) {
-        const Fq y_4 = Fq::dual_madd(minus_lambda_2, x_4_sub_x_1, minus_lambda_dbl, x_minus_x_1, { y });
-        return element(x_4, y_4);
-    }
-    to_add[1].x.assert_is_not_equal(to_add[0].x);
-
-    // TODO(): analyse if (x4 - x1) can be zero.
-    Fq minus_lambda_3 = Fq::msub_div({ minus_lambda_dbl, minus_lambda_2 },
-                                     { x_minus_x_1, x_4_sub_x_1 },
-                                     (x_4 - to_add[1].x),
-                                     { y, -(to_add[1].y) },
-                                     /*enable_divisor_nz_check*/ false);
-
-    // X5 = L3.L3 - X4 - XB
-    const Fq x_5 = minus_lambda_3.sqradd({ -x_4, -to_add[1].x });
-
-    if (to_add.size() == 2) {
-        // Y5 = L3.(XB - X5) - YB
-        const Fq y_5 = minus_lambda_3.madd(x_5 - to_add[1].x, { -to_add[1].y });
-        return element(x_5, y_5);
-    }
-
-    Fq x_prev = x_5;
-    Fq minus_lambda_prev = minus_lambda_3;
-
-    for (size_t i = 2; i < to_add.size(); ++i) {
-
-        to_add[i].x.assert_is_not_equal(to_add[i - 1].x);
-        // Lambda = Yprev - Yadd[i] / Xprev - Xadd[i]
-        //        = -Lprev.(Xprev - Xadd[i-1]) - Yadd[i - 1] - Yadd[i] / Xprev - Xadd[i]
-        const Fq minus_lambda =
-            Fq::msub_div({ minus_lambda_prev },
-                         { to_add[i - 1].x - x_prev },
-                         (to_add[i].x - x_prev),
-                         { to_add[i - 1].y, to_add[i].y },
-                         /*enable_divisor_nz_check*/ false); // divisor is non-zero as x_prev != to_add[i].x is enforced
-
-        // X = Lambda * Lambda - Xprev - Xadd[i]
-        const Fq x_out = minus_lambda.sqradd({ -x_prev, -to_add[i].x });
-
-        x_prev = x_out;
-        minus_lambda_prev = minus_lambda;
-    }
-    const Fq y_out = minus_lambda_prev.madd(x_prev - to_add[to_add.size() - 1].x, { -to_add[to_add.size() - 1].y });
-
-    return element(x_prev, y_out);
-}
-
-/**
  * @brief Perform repeated iterations of the montgomery ladder algorithm.
  *
  * For points P, Q, montgomery ladder computes R = (P + Q) + P
@@ -789,9 +682,6 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 /**
  * @brief Generic batch multiplication that works for all elliptic curve types.
  *
- * @details Implementation is identical to `bn254_endo_batch_mul` but WITHOUT the endomorphism transforms OR
- * support for short scalars See `bn254_endo_batch_mul` for description of algorithm.
- *
  * @tparam C The circuit builder type.
  * @tparam Fq The field of definition of the points in `_points`.
  * @tparam Fr The field of scalars acting on `_points`.
@@ -864,9 +754,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     }
     for (size_t i = 0; i < num_points; ++i) {
         element skew = accumulator - points[i];
-        Fq out_x = accumulator.x.conditional_select(skew.x, naf_entries[i][num_rounds]);
-        Fq out_y = accumulator.y.conditional_select(skew.y, naf_entries[i][num_rounds]);
-        accumulator = element(out_x, out_y);
+        accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
     accumulator = accumulator - offset_generators.second;
 
@@ -923,16 +811,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
 
     bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    element result;
-    if (max_num_bits != 0) {
-        // The case of short scalars
-        result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
-    } else {
-        // The case of arbitrary length scalars
-        result = element::bn254_endo_batch_mul({ *this }, { scalar }, {}, {}, num_rounds);
-    };
+    element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
 
     // Handle point at infinity
     result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);

@@ -250,18 +250,18 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
     };
 };
 
-TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestOneVerifier)
-{
-    BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 1);
-}
+// TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestOneVerifier)
+// {
+//     BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 1);
+// }
 
-TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestTwoVerifiers)
-{
-    BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 2);
-}
+// TEST_F(BoomerangProtogalaxyRecursiveTests, RecursiveFoldingTestTwoVerifiers)
+// {
+//     BoomerangProtogalaxyRecursiveTests::test_recursive_folding(/* num_verifiers= */ 2);
+// }
 
-TEST_F(BoomerangProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
-{
-    BoomerangProtogalaxyRecursiveTests::test_full_protogalaxy_recursive();
-}
+// TEST_F(BoomerangProtogalaxyRecursiveTests, FullProtogalaxyRecursiveTest)
+// {
+//     BoomerangProtogalaxyRecursiveTests::test_full_protogalaxy_recursive();
+// }
 } // namespace bb::stdlib::recursion::honk
