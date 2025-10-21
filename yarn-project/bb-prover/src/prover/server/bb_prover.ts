@@ -95,24 +95,12 @@ import * as path from 'path';
 
 import { Barretenberg } from '@aztec/bb.js';
 
-import {
-  type BBFailure,
-  type BBSuccess,
-  BB_RESULT,
-  PROOF_FILENAME,
-  PUBLIC_INPUTS_FILENAME,
-  VK_FILENAME,
-  generateAvmProof,
-  generateProof,
-  verifyAvmProof,
-  verifyProof,
-} from '../../bb/execute.js';
+import { type BBFailure, type BBSuccess, BB_RESULT } from '../../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
 import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
 import { BBMsgpackProver } from '../../bb/msgpack_api.js';
-import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
 
@@ -476,74 +464,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return makePublicInputsAndRecursiveProof(circuitOutput, proof, verificationKey);
   }
 
-  private async generateProofWithBB<
-    Input extends { toBuffer: () => Buffer },
-    Output extends { toBuffer: () => Buffer },
-  >(
-    input: Input,
-    circuitType: ServerProtocolArtifact,
-    convertInput: (input: Input) => WitnessMap,
-    convertOutput: (outputWitness: WitnessMap) => Output,
-    workingDirectory: string,
-  ): Promise<{ circuitOutput: Output; provingResult: BBSuccess }> {
-    // Have the ACVM write the partial witness here
-    const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
-
-    // Generate the partial witness using the ACVM
-    // A further temp directory will be created beneath ours and then cleaned up after the partial witness has been copied to our specified location
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-    );
-
-    const artifact = getServerCircuitArtifact(circuitType);
-
-    logger.debug(`Generating witness data for ${circuitType}`);
-
-    const inputWitness = convertInput(input);
-    const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
-    const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
-    const output = convertOutput(witnessResult.witness);
-
-    const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-    this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
-    this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
-    this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
-
-    logger.info(`Generated witness`, {
-      circuitName,
-      duration: witnessResult.duration,
-      inputSize: input.toBuffer().length,
-      outputSize: output.toBuffer().length,
-      eventName: 'circuit-witness-generation',
-    } satisfies CircuitWitnessGenerationStats);
-
-    // Now prove the circuit from the generated witness
-    logger.debug(`Proving ${circuitType}...`);
-
-    const provingResult = await generateProof(
-      this.config.bbBinaryPath,
-      workingDirectory,
-      circuitType,
-      Buffer.from(artifact.bytecode, 'base64'),
-      this.getVerificationKeyDataForCircuit(circuitType).keyAsBytes,
-      outputWitnessFile,
-      getUltraHonkFlavorForCircuit(circuitType),
-      logger,
-    );
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate proof for ${circuitType}: ${provingResult.reason}`);
-      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
-    }
-
-    return {
-      circuitOutput: output,
-      provingResult,
-    };
-  }
-
   /**
    * Generates a proof using bb.js msgpack API - NO FILE I/O for proving!
    * ACVM still writes witness file (different binary), but BB proving happens entirely in memory.
@@ -647,19 +567,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Verify via msgpack API - ALL IN MEMORY!
     await this.bbMsgpackProver.verifyCircuit(proof, verificationKey.keyAsBytes, flavor);
     logger.debug('Successfully verified proof via msgpack API');
-  }
-
-  private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
-    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
-
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
-      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
-    }
-
-    return provingResult;
   }
 
   /**
@@ -845,33 +752,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return await this.verifyWithKeyMsgpack(proof, verificationKey, flavor);
   }
 
-  private async verifyWithKeyInternal(
-    proof: Proof,
-    verificationKey: { keyAsBytes: Buffer },
-    verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
-  ) {
-    const operation = async (bbWorkingDirectory: string) => {
-      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
-      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
-      await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
-
-      const result = await verificationFunction(proofFileName, verificationKeyPath!);
-
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to verify proof from key!`;
-        throw new ProvingError(errorMessage, result, result.retry);
-      }
-
-      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
-    };
-
-    await this.runInDirectory(operation);
-  }
-
   /**
    * Returns the verification key data for a circuit.
    * @param circuitType - The type of circuit for which the verification key is required
@@ -883,29 +763,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       throw new Error('Could not find VK for server artifact ' + circuitType);
     }
     return vk;
-  }
-
-  private async readAvmProofAsFields(
-    proofFilename: string,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const rawProofBuffer = await fs.readFile(proofFilename);
-    const reader = BufferReader.asReader(rawProofBuffer);
-    const proofFields = reader.readArray(rawProofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
-
-    // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
-    // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
-    // TODO(#13390): Revive a non-padded AVM proof
-    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-      throw new Error(
-        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
-      );
-    }
-    const proofFieldsPadded = proofFields.concat(
-      Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
-    );
-
-    const proof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
-    return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
