@@ -1,9 +1,9 @@
 import { mod } from '@noble/curves/abstract/modular';
 import { bytesToNumberBE } from '@noble/curves/abstract/utils';
 import { bn254 } from '@noble/curves/bn254';
+import { hmac } from '@noble/hashes/hmac';
+import { sha512 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync } from '@scure/bip39';
-
-import { sha512 as sha512Hash } from '../sha512/index.js';
 
 // Re-export BN254 point operations
 export {
@@ -42,38 +42,13 @@ function deriveBn254ScalarFromData(data: Buffer): bigint {
   const domainKey = Buffer.from('Aztec bn254 key', 'utf8');
   for (let counter = 0; ; counter = (counter + 1) & 0xff) {
     const msg = counter === 0 ? data : Buffer.concat([data, Buffer.from([counter])]);
-    const digest = hmacSha512(domainKey, msg); // 64 bytes
+    const digest = hmac(sha512, domainKey, msg); // 64 bytes
     const x = bytesToNumberBE(digest);
     const sk = mod(x, bn254.fields.Fr.ORDER);
     if (sk !== 0n) {
       return sk;
     }
   }
-}
-
-function hmacSha512(key: Buffer, msg: Buffer): Buffer {
-  // HMAC over SHA-512 (block size 128 bytes)
-  const blockSize = 128;
-  let k = key;
-  if (k.length > blockSize) {
-    k = sha512Hash(k);
-  }
-  if (k.length < blockSize) {
-    k = Buffer.concat([k, Buffer.alloc(blockSize - k.length, 0)]);
-  }
-
-  const ipad = Buffer.alloc(blockSize, 0x36);
-  const opad = Buffer.alloc(blockSize, 0x5c);
-  const kIpad = Buffer.alloc(blockSize);
-  const kOpad = Buffer.alloc(blockSize);
-  for (let i = 0; i < blockSize; i++) {
-    kIpad[i] = k[i] ^ ipad[i];
-    kOpad[i] = k[i] ^ opad[i];
-  }
-
-  const inner = sha512Hash(Buffer.concat([kIpad, msg]));
-  const outer = sha512Hash(Buffer.concat([kOpad, inner]));
-  return outer;
 }
 
 function parseIkm(ikm: string): Buffer {
