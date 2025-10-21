@@ -454,7 +454,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                 this->reference_value.insert(this->reference_value.end(), other_ref.begin(), other_ref.end());
 
                 return ExecutionHandler(std::vector<uint8_t>(this->reference_value),
-                                        this->byte_array.write(other.byte_array));
+                                        this->byte_array.write_unconstrained(other.byte_array));
             }
         }
         /* Explicit re-instantiation using the various byte_array constructors */
@@ -486,13 +486,15 @@ template <typename Builder> class ByteArrayFuzzBase {
                 std::cout << "e.bytes();" << std::cout;
 #endif
                 /* Construct via bytes_t */
-                return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.bytes()));
+                return ExecutionHandler(
+                    ref, byte_array_t::from_field_elements_unconstrained(builder, this->byte_array.bytes()));
             case 4:
 #ifdef SHOW_INFORMATION
                 std::cout << "std::move(e.bytes());" << std::cout;
 #endif
                 /* Construct via bytes_t move constructor */
-                return ExecutionHandler(ref, byte_array_t(builder, std::move(this->byte_array.bytes())));
+                return ExecutionHandler(
+                    ref, byte_array_t::from_field_elements_unconstrained(builder, std::move(this->byte_array.bytes())));
             case 5: {
                 const auto field = to_field_t();
 

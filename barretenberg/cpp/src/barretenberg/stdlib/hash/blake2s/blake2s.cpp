@@ -122,7 +122,7 @@ template <typename Builder> void Blake2s<Builder>::blake2s(blake2s_state& S, byt
     // Combine remaining bytes and padding
     std::vector<field_ct> final_bytes;
     final_bytes.reserve(BLAKE2S_BLOCKBYTES);
-    const auto& remaining_bytes = remaining.bytes();
+    const std::vector<field_ct>& remaining_bytes = remaining.bytes();
     final_bytes.insert(final_bytes.end(), remaining_bytes.begin(), remaining_bytes.end());
     final_bytes.insert(final_bytes.end(), padding_vec.begin(), padding_vec.end());
 
