@@ -14,9 +14,10 @@ import {
   deriveBlsPrivateKey,
   deriveEthAttester,
   logValidatorSummaries,
-  maybePrintJson,
   resolveKeystoreOutputPath,
   withValidatorIndex,
+  writeBlsEip2335ToFile,
+  writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
 
@@ -237,6 +238,54 @@ describe('validator keys utilities', () => {
           log,
         ),
       ).rejects.toThrow(/Using --remote-signer requires a deterministic key source/);
+    });
+
+    it('writes keys to files when password is provided', async () => {
+      const path = join(tmp, 'created-files.json');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'created-files.json',
+          count: 1,
+          publisherCount: 1,
+          mnemonic: TEST_MNEMONIC,
+          password: '',
+          outDir: tmp,
+          feeRecipient: ('0x' + '77'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+      const json = JSON.parse(readFileSync(path, 'utf-8')) as any;
+      const v = json.validators[0];
+      // attester may be plain object or contain eth+bls
+      const att = v.attester.eth ? v.attester : { eth: v.attester };
+      expect(typeof att.eth.path).toBe('string');
+      if (att.bls) {
+        expect(typeof att.bls.path).toBe('string');
+      }
+    });
+  });
+
+  describe('materialization helpers (invoked directly)', () => {
+    it('replaces plaintext keys with file references', async () => {
+      const validators = [
+        { attester: '0x' + 'aa'.repeat(32), feeRecipient: ('0x' + '99'.repeat(32)) as unknown as AztecAddress },
+        {
+          attester: { eth: '0x' + 'bb'.repeat(32), bls: '0x' + 'cc'.repeat(32) },
+          feeRecipient: ('0x' + '88'.repeat(32)) as unknown as AztecAddress,
+        },
+      ];
+      const dirA = mkdtempSync(join(tmpdir(), 'aztec-mat-a-'));
+      await writeEthJsonV3ToFile(validators as any, { outDir: dirA, password: '' });
+      await writeBlsEip2335ToFile(validators as any, { outDir: dirA, password: '' });
+      const a0 = validators[0] as any;
+      const a1 = validators[1] as any;
+      expect(typeof a0.attester.path === 'string' || typeof a0.attester.eth?.path === 'string').toBeTruthy();
+      expect(typeof a1.attester.eth.path).toBe('string');
+      expect(typeof a1.attester.bls.path).toBe('string');
+      rmSync(dirA, { recursive: true, force: true });
     });
   });
 

@@ -41,6 +41,11 @@ describe('bn254 bls key derivation', () => {
     expect(k1).toEqual(k2);
   });
 
+  it('produces a 32-byte hex scalar with 0x prefix', () => {
+    const k = deriveBlsKeyFromMnemonic(mnemonic, pathA, passphrase);
+    expect(k).toMatch(/^0x[0-9a-fA-F]{64}$/);
+  });
+
   it('outputs are valid BN254 scalars and non-zero', () => {
     const k = deriveBlsKeyFromMnemonic(mnemonic, pathA, passphrase);
     const fr = Fr.fromHexString(k);
