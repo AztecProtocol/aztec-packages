@@ -49,7 +49,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
     EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 0);
     Fr received_a = verifier_transcript.receive_from_prover<Fr>("a");
     // receiving is reading frs input and writing them to an internal proof_data buffer
-    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.size_proof_data());
+    EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1, prover_transcript.get_proof_size());
     EXPECT_EQ(received_a, elt_a);
 
     { // send grumpkin::fr
@@ -61,7 +61,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         // load proof is not an action by a prover or verifier, so it does not change read/write counts
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 1);
         Fq received_b = verifier_transcript.receive_from_prover<Fq>("b");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3, prover_transcript.get_proof_size());
         EXPECT_EQ(received_b, elt_b);
     }
     { // send uint32_t
@@ -72,7 +72,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 4, /*written*/ 0);
         EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 3);
         auto received_c = verifier_transcript.receive_from_prover<uint32_t>("c");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 4, prover_transcript.get_proof_size());
         EXPECT_EQ(received_c, elt_c);
     }
     { // send curve::BN254::AffineElement
@@ -82,7 +82,7 @@ TEST(NativeTranscript, TwoProversTwoFields)
         verifier_transcript.load_proof(prover_transcript.export_proof());
         EXPECT_PROVER_STATE(prover_transcript, /*start*/ 8, /*written*/ 0);
         auto received_d = verifier_transcript.receive_from_prover<curve::BN254::AffineElement>("d");
-        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.size_proof_data());
+        EXPECT_VERIFIER_STATE(verifier_transcript, /*read*/ 8, prover_transcript.get_proof_size());
         EXPECT_EQ(received_d, elt_d);
     }
     { // send std::array<bb::fr, 4>
@@ -233,4 +233,50 @@ TEST(NativeTranscript, MultipleProversWithAddToHashBuffer)
     TestTranscript verifier_transcript;
     simulate_transcript_interaction_with_multiple_provers(
         /*num_proof_exports=*/2, prover_transcript, verifier_transcript, true);
+}
+
+/**
+ * @brief Test convert_prover_transcript_to_verifier_transcript with multiple exports
+ * @details This test checks the behavior when multiple proofs are exported before conversion.
+ */
+TEST(NativeTranscript, ConvertProverToVerifierMultipleExports)
+{
+    // Create a prover transcript
+    auto prover_transcript = std::make_shared<NativeTranscript>();
+
+    // First export
+    Fr elt_a = 100;
+    prover_transcript->send_to_verifier("a", elt_a);
+    [[maybe_unused]] auto proof1 = prover_transcript->export_proof();
+
+    // After first export: proof_start = 1, num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 1);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Second export
+    Fr elt_b = 200;
+    prover_transcript->send_to_verifier("b", elt_b);
+    [[maybe_unused]] auto proof2 = prover_transcript->export_proof();
+
+    // After second export: proof_start = 2, num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 2);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Third export
+    Fq elt_c = 300;
+    prover_transcript->send_to_verifier("c", elt_c);
+    [[maybe_unused]] auto proof3 = prover_transcript->export_proof();
+
+    // After third export: proof_start = 4 (Fq uses 2 field elements), num_frs_written = 0
+    EXPECT_EQ(prover_transcript->proof_start, 4);
+    EXPECT_EQ(prover_transcript->num_frs_written, 0UL);
+
+    // Convert to verifier transcript
+    auto verifier_transcript = NativeTranscript::convert_prover_transcript_to_verifier_transcript(prover_transcript);
+
+    // The verifier should start reading from position 0, not from proof_start (which is 4)
+    EXPECT_EQ(verifier_transcript->proof_start, 0);
+
+    EXPECT_EQ(prover_transcript->template get_challenge<Fr>("test_challenge"),
+              verifier_transcript->template get_challenge<Fr>("test_challenge"));
 }
