@@ -31,17 +31,6 @@ void test_acir(std::vector<uint8_t>& bytecode) {
     }
 }
 
-void test_acir_circuit_builder(std::vector<uint8_t>& acir_program_buf)
-{
-    auto constraint_systems = acir_format::program_buf_to_acir_format(std::move(acir_program_buf));
-    const acir_format::AcirFormat constraint_system = constraint_systems.at(0);
-    acir_format::AcirProgram program{ constraint_system };
-    bb::UltraCircuitBuilder builder = acir_format::create_circuit(program);
-    auto tool = StaticAnalyzer(builder);
-    auto test_result = tool.analyze_circuit();
-    EXPECT_EQ(test_result.first.size(), 1);
-    EXPECT_EQ(test_result.second.size(), 0);
-}
 
 TEST(BoomerangAcirCircuitBuilder, InitCase)
 {
@@ -79,3 +68,4 @@ TEST(BoomerangAcirCircuitBuilder, FibCase) {
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
     test_acir(vector_bytecode);
 }
+
