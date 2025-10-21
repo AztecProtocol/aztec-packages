@@ -104,4 +104,16 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness,
     return indices;
 };
 
+/**
+ * @brief Populate fields in the builder with the given values. To be used in mocking situations.
+ *
+ */
+template <typename Builder>
+void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values)
+{
+    for (auto [field, value] : zip_view(fields, values)) {
+        builder.set_variable(field.witness_index, value);
+    }
+};
+
 } // namespace acir_format

@@ -21,7 +21,7 @@ using namespace bb;
  * is smaller than the scalar field of the curve, which means an honest prover has a negligible probability of not being
  * able to generate a proof for a valid witness.
  *
- * @details Given and ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
+ * @details Given an ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
  * perform the following operations:
  *  1. Reconstruct byte arrays from builder variables (we enforce that each variable fits in one byte and stack them in
  *     a vector) and the boolean result from the corresponding builder variable
@@ -29,12 +29,12 @@ using namespace bb;
  *     coordinates.
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is false. This
  *     ensures that the circuit is satisfied when the predicate is false. We set:
- *      - The first byte of r and s to 1 (NOTE: This only works when numbers smaller than 1 << 241 are smaller than the
- *        order of the curve divided by two).
+ *      - The first byte of r and s to 1 (NOTE: This only works when the order of the curve divided by two is bigger
+ *        than 2^241).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
- *      - The first byte of the hash of the message to be 1 (NOTE: This only works when numbers smaller than 1 <<
- *        241 are smaller than the order of the curve).
+ *      - The first byte of the hash of the message to be 1 (NOTE: This only works the order of the curve is
+ *        bigger than 2^241)
  *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
  *     \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
  *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -134,10 +134,10 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
 
     // Step 6.
     // Assert that signature verification returned the expected result
-    if (input.predicate.is_constant) {
-        signature_result.assert_equal(result);
-    } else {
+    if (!input.predicate.is_constant) {
         signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
+    } else {
+        signature_result.assert_equal(result);
     }
 }
 
@@ -155,27 +155,18 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
                                    const std::vector<stdlib::field_t<typename Curve::Builder>>& pub_y_fields,
                                    const stdlib::field_t<typename Curve::Builder>& result_field)
 {
-    using Builder = Curve::Builder;
     using FqNative = Curve::fq;
     using G1Native = Curve::g1;
-    using field_ct = stdlib::field_t<Builder>;
-
-    // Lambda to populate builder variables from vector of field values
-    auto populate_fields = [&builder](const std::vector<field_ct>& fields, const std::vector<bb::fr>& values) {
-        for (auto [field, value] : zip_view(fields, values)) {
-            builder.set_variable(field.witness_index, value);
-        }
-    };
 
     // Vector of 32 copies of bb::fr::zero()
     std::vector<bb::fr> mock_zeros(32, bb::fr::zero());
 
     // Hashed message
-    populate_fields(hashed_message_fields, mock_zeros);
+    populate_fields(builder, hashed_message_fields, mock_zeros);
 
     // Signature
-    populate_fields(r_fields, mock_zeros);
-    populate_fields(s_fields, mock_zeros);
+    populate_fields(builder, r_fields, mock_zeros);
+    populate_fields(builder, s_fields, mock_zeros);
 
     // Pub key
     std::array<uint8_t, 32> buffer_x;
@@ -188,8 +179,8 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
         mock_pub_x.emplace_back(bb::fr(byte_x));
         mock_pub_y.emplace_back(bb::fr(byte_y));
     }
-    populate_fields(pub_x_fields, mock_pub_x);
-    populate_fields(pub_y_fields, mock_pub_y);
+    populate_fields(builder, pub_x_fields, mock_pub_x);
+    populate_fields(builder, pub_y_fields, mock_pub_y);
 
     // Result
     builder.set_variable(result_field.witness_index, bb::fr::one());
