@@ -1,9 +1,12 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { toBufferBE } from '../../bigint-buffer/index.js';
 import { setupCustomSnapshotSerializers } from '../../testing/index.js';
 import { pedersenCommit, pedersenHash, pedersenHashBuffer } from './index.js';
 
 describe('pedersen', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
+    await BarretenbergSync.initSingleton({ threads: 1 });
     setupCustomSnapshotSerializers(expect);
   });
 

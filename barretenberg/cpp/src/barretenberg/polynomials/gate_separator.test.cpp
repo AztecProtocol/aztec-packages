@@ -34,5 +34,5 @@ TEST(GateSeparatorPolynomial, GateSeparatorPolynomialsOnPowers)
     std::vector<fr> betas{ 2, 4, 16 };
     GateSeparatorPolynomial<fr> poly(betas, betas.size());
     std::vector<fr> expected_values{ 1, 2, 4, 8, 16, 32, 64, 128 };
-    EXPECT_EQ(expected_values, poly.beta_products);
+    EXPECT_EQ(bb::Polynomial<fr>(expected_values), bb::Polynomial<fr>(poly.beta_products));
 }

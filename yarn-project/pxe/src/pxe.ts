@@ -669,18 +669,15 @@ export class PXE {
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
-      let recipient = filter.recipient;
-      if (recipient === undefined) {
-        const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-        const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
-          completeAddress.address.equals(dao.recipient),
-        );
-        const completeAddress = completeAddresses[completeAddressIndex];
-        if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
-        }
-        recipient = completeAddress.address;
+      const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
+      const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
+        completeAddress.address.equals(dao.recipient),
+      );
+      const completeAddress = completeAddresses[completeAddressIndex];
+      if (completeAddress === undefined) {
+        throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
       }
+      const recipient = completeAddress.address;
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
     return Promise.all(extendedNotes);
@@ -743,14 +740,14 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        const indexedTaggingSecretsIncrementedInTheTx = privateExecutionResult.entrypoint.indexedTaggingSecrets;
-        if (indexedTaggingSecretsIncrementedInTheTx.length > 0) {
-          await this.taggingDataProvider.setNextIndexesAsSender(indexedTaggingSecretsIncrementedInTheTx);
-          this.log.debug(`Incremented next tagging secret indexes as sender for the tx`, {
-            indexedTaggingSecretsIncrementedInTheTx,
+        const preTagsUsedInTheTx = privateExecutionResult.entrypoint.preTags;
+        if (preTagsUsedInTheTx.length > 0) {
+          await this.taggingDataProvider.setLastUsedIndexesAsSender(preTagsUsedInTheTx);
+          this.log.debug(`Stored used pre tags as sender for the tx`, {
+            preTagsUsedInTheTx,
           });
         } else {
-          this.log.debug(`No next tagging secret indexes incremented in the tx`);
+          this.log.debug(`No pre tags used in the tx`);
         }
 
         return txProvingResult;

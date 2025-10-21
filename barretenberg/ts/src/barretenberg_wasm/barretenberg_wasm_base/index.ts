@@ -121,11 +121,11 @@ export class BarretenbergWasmBase {
     mem.set(arr, offset);
   }
 
-  // PRIVATE METHODS
-
-  private getMemory() {
+  public getMemory() {
     return new Uint8Array(this.memory.buffer);
   }
+
+  // PRIVATE METHODS
 
   private stringFromAddress(addr: number) {
     addr = addr >>> 0;

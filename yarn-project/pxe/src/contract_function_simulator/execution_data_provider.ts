@@ -239,11 +239,12 @@ export interface ExecutionDataProvider {
   syncTaggedLogsAsSender(secret: DirectionalAppTaggingSecret, contractAddress: AztecAddress): Promise<void>;
 
   /**
-   * Returns the next index to be used to compute a tag when sending a log.
+   * Returns the last used index when sending a log with a given secret.
    * @param secret - The directional app tagging secret.
-   * @returns The next index to be used to compute a tag for the given directional app tagging secret.
+   * @returns The last used index for the given directional app tagging secret, or undefined if we never sent a log
+   * from this sender to a recipient in a given contract (implicitly included in the secret).
    */
-  getNextIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number>;
+  getLastUsedIndexAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined>;
 
   /**
    * Synchronizes the private logs tagged with scoped addresses and all the senders in the address book. Stores the found

@@ -1,4 +1,4 @@
-import { BarretenbergSync, Fr as FrBarretenberg } from '@aztec/bb.js';
+import { BarretenbergSync } from '@aztec/bb.js';
 
 import { Fr } from '../../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../../serialize/serialize.js';
@@ -10,10 +10,11 @@ import { type Fieldable, serializeToFields } from '../../../serialize/serialize.
  */
 export function poseidon2Hash(input: Fieldable[]): Fr {
   const inputFields = serializeToFields(input);
-  const hash = BarretenbergSync.getSingleton().poseidon2Hash(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-  );
-  return Fr.fromBuffer(Buffer.from(hash.toBuffer()));
+  const api = BarretenbergSync.getSingleton();
+  const response = api.poseidon2Hash({
+    inputs: inputFields.map(i => i.toBuffer()),
+  });
+  return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
 /**
@@ -26,18 +27,20 @@ export function poseidon2HashWithSeparator(input: Fieldable[], separator: number
   const inputFields = serializeToFields(input);
   inputFields.unshift(new Fr(separator));
 
-  const hash = BarretenbergSync.getSingleton().poseidon2Hash(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-  );
-  return Fr.fromBuffer(Buffer.from(hash.toBuffer()));
+  const api = BarretenbergSync.getSingleton();
+  const response = api.poseidon2Hash({
+    inputs: inputFields.map(i => i.toBuffer()),
+  });
+  return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
 export function poseidon2HashAccumulate(input: Fieldable[]): Fr {
   const inputFields = serializeToFields(input);
-  const result = BarretenbergSync.getSingleton().poseidon2HashAccumulate(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())),
-  );
-  return Fr.fromBuffer(Buffer.from(result.toBuffer()));
+  const api = BarretenbergSync.getSingleton();
+  const response = api.poseidon2HashAccumulate({
+    inputs: inputFields.map(i => i.toBuffer()),
+  });
+  return Fr.fromBuffer(Buffer.from(response.hash));
 }
 
 /**
@@ -49,12 +52,13 @@ export function poseidon2Permutation(input: Fieldable[]): Fr[] {
   const inputFields = serializeToFields(input);
   // We'd like this assertion but it's not possible to use it in the browser.
   // assert(input.length === 4, 'Input state must be of size 4');
-  const res = BarretenbergSync.getSingleton().poseidon2Permutation(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())),
-  );
+  const api = BarretenbergSync.getSingleton();
+  const response = api.poseidon2Permutation({
+    inputs: inputFields.map(i => i.toBuffer()),
+  });
   // We'd like this assertion but it's not possible to use it in the browser.
-  // assert(res.length === 4, 'Output state must be of size 4');
-  return res.map(o => Fr.fromBuffer(Buffer.from(o.toBuffer())));
+  // assert(response.outputs.length === 4, 'Output state must be of size 4');
+  return response.outputs.map(o => Fr.fromBuffer(Buffer.from(o)));
 }
 
 export function poseidon2HashBytes(input: Buffer): Fr {
@@ -68,9 +72,10 @@ export function poseidon2HashBytes(input: Buffer): Fr {
     inputFields.push(Fr.fromBuffer(fieldBytes));
   }
 
-  const res = BarretenbergSync.getSingleton().poseidon2Hash(
-    inputFields.map(i => new FrBarretenberg(i.toBuffer())), // TODO(#4189): remove this stupid conversion
-  );
+  const api = BarretenbergSync.getSingleton();
+  const response = api.poseidon2Hash({
+    inputs: inputFields.map(i => i.toBuffer()),
+  });
 
-  return Fr.fromBuffer(Buffer.from(res.toBuffer()));
+  return Fr.fromBuffer(Buffer.from(response.hash));
 }

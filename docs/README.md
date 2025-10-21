@@ -248,6 +248,41 @@ Each migration item should include:
 + new_code()
 ```
 
+## Automated Review Requests
+
+The documentation system includes automated workflows to ensure documentation stays synchronized with code changes.
+
+### DevRel Review Automation
+
+When documentation references source code files, the CI system can automatically request reviews from the DevRel team when those files change.
+
+**How it works:**
+
+1. **Mark Referenced Files**: Add a `references` field to your documentation frontmatter with paths to source files (from repository root):
+   ```yaml
+   ---
+   title: Node JSON RPC API reference
+   references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts"]
+   ---
+   ```
+
+2. **Automatic Detection**: During CI builds (`bootstrap.sh`), the system:
+   - Extracts all referenced files from documentation frontmatter
+   - Checks if any referenced files changed in the current PR
+   - Automatically requests `@AztecProtocol/devrel` as reviewers if:
+     - The PR is not a draft
+     - DevRel team is not already requested
+     - No DevRel team member has already approved
+
+3. **Graceful Failures**: If the automated request fails:
+   - The build continues without blocking
+   - A comment is added to the PR notifying about the failure
+   - Manual review request may be needed
+
+**Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which runs as part of the docs CI pipeline.
+
+**Path Format**: Reference paths must be absolute from the repository root (e.g., `yarn-project/...`, not `../../../../yarn-project/...`).
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.

@@ -84,7 +84,7 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
     if (_ram_table_generated_in_builder) {
         return;
     }
-    ASSERT(_context != nullptr);
+    BB_ASSERT(_context != nullptr);
     _ram_id = _context->create_RAM_array(_length);
 
     if (_raw_entries.size() > 0) {

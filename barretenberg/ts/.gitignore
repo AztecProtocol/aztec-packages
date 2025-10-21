@@ -4,6 +4,7 @@
 node_modules
 dest
 .tsbuildinfo*
+*.tsbuildinfo
 *.log
 /crs
 package.tgz

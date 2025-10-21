@@ -80,9 +80,9 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
 
     root_inverse = root.invert();
 
-    ASSERT((1UL << log2_size) == size || (size == 0));
-    ASSERT((1UL << log2_thread_size) == thread_size || (size == 0));
-    ASSERT((1UL << log2_num_threads) == num_threads || (size == 0));
+    BB_ASSERT((1UL << log2_size) == size || (size == 0));
+    BB_ASSERT((1UL << log2_thread_size) == thread_size || (size == 0));
+    BB_ASSERT((1UL << log2_num_threads) == num_threads || (size == 0));
 }
 
 template <typename Fr>
@@ -102,9 +102,9 @@ EvaluationDomain<Fr>::EvaluationDomain(const EvaluationDomain& other)
     , generator_inverse(other.generator_inverse)
     , four_inverse(other.four_inverse)
 {
-    ASSERT((1UL << log2_size) == size);
-    ASSERT((1UL << log2_thread_size) == thread_size);
-    ASSERT((1UL << log2_num_threads) == num_threads);
+    BB_ASSERT((1UL << log2_size) == size);
+    BB_ASSERT((1UL << log2_thread_size) == thread_size);
+    BB_ASSERT((1UL << log2_num_threads) == num_threads);
     if (other.roots != nullptr) {
         const size_t mem_size = sizeof(Fr) * size * 2;
         roots = std::static_pointer_cast<Fr[]>(get_mem_slab(mem_size));

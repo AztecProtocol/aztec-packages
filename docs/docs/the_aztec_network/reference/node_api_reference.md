@@ -3,6 +3,7 @@ id: node_api_reference
 sidebar_position: 2
 title: Node JSON RPC API reference
 description: Complete reference for the Aztec Node JSON RPC API, including block queries, transaction submission, world state access, and administrative operations.
+references: ["yarn-project/stdlib/src/interfaces/aztec-node.ts"]
 ---
 
 This document provides a complete reference for the Aztec Node JSON RPC API. All methods are exposed via JSON RPC on the node's configured port (default: 8080).

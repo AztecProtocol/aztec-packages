@@ -1,6 +1,5 @@
 use crate::{
     constants::{SPONGE_BLOB_LENGTH, TWO_POW_64},
-    hash::poseidon2_absorb_chunks_existing_sponge,
     poseidon2::Poseidon2Sponge,
     traits::{Deserialize, Empty, Serialize},
 };
@@ -46,7 +45,12 @@ impl SpongeBlob {
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
         // We omit the zero check here since for all use cases of this, we don't care about extra values being present in the input after the length.
         // Even if non zero values are present in the input after the length, we only absorb up to in_len items.
-        self.sponge = poseidon2_absorb_chunks_existing_sponge(self.sponge, input, in_len, true);
+        self.sponge = crate::hash::poseidon2_absorb_in_chunks_existing_sponge(
+            self.sponge,
+            input,
+            in_len,
+            true,
+        );
         self.fields += in_len;
     }
 

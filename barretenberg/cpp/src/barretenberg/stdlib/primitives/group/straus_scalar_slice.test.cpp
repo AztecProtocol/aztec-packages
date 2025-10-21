@@ -59,5 +59,5 @@ TYPED_TEST(StrausScalarSliceTest, TestSliceReadAndReconstruction)
     }
 
     EXPECT_EQ(ScalarField(reconstructed), scalar_val);
-    check_circuit_and_gate_count(builder, 51);
+    check_circuit_and_gate_count(builder, 2806);
 }

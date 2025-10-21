@@ -13,10 +13,15 @@
 namespace bb::stdlib {
 
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
+cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation)
     : lo(_lo)
     , hi(_hi)
-{}
+{
+    // Unless explicitly skipped, validate the scalar is in the Grumpkin scalar field
+    if (!skip_validation) {
+        validate_scalar_is_in_field();
+    }
+}
 
 /**
  * @brief Construct a circuit-constant cycle scalar from a value in the Grumpkin scalar field
@@ -34,7 +39,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarFiel
 
 /**
  * @brief Construct a cycle scalar from a witness value in the Grumpkin scalar field
- * @note Sets the free witness tag on the two limbs since they are not constrained in any way
+ * @details Creates a cycle_scalar from a witness and validates it is in the Grumpkin scalar field.
+ * @note Sets the free witness tag on the two limbs initially, but it is unset in `validate_scalar_is_in_field`.
  *
  * @tparam Builder
  * @param context
@@ -50,14 +56,17 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_witness(Builder* context, cons
     field_t hi = witness_t<Builder>(context, hi_v);
     lo.set_free_witness_tag();
     hi.set_free_witness_tag();
-    return cycle_scalar(lo, hi);
+
+    cycle_scalar result{ lo, hi };
+    result._num_bits = NUM_BITS;
+
+    return result;
 }
 
 /**
  * @brief Construct a cycle scalar from a uint256_t witness bitstring
  * @details Used when we want to multiply a group element by a string of bits of known size, e.g. for Schnorr
- * signatures.
- * @note This constructor method will make our scalar multiplication methods not perform primality tests.
+ * signatures. No primality test is performed.
  *
  * @tparam Builder
  * @param context
@@ -72,15 +81,15 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context,
     const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
     auto lo = field_t::from_witness(context, lo_v);
     auto hi = field_t::from_witness(context, hi_v);
-    return cycle_scalar{
-        lo, hi, num_bits, /*skip_primality_test=*/true, /*use_bn254_scalar_field_for_primality_test=*/false
-    };
+    cycle_scalar result{ lo, hi, /*skip_validation=*/true };
+    result._num_bits = num_bits;
+    return result;
 }
 
 /**
  * @brief Construct a cycle scalar (grumpkin scalar field element) from a bn254 scalar field element
  * @details This method ensures that the input is constrained to be less than the bn254 scalar field modulus to ensure
- * unique representation in the grumpkin scalar field.
+ * unique representation in the grumpkin scalar field. The validation is performed by split_unique.
  *
  * @tparam Builder
  * @param in a field_t representing a bn254 scalar field element
@@ -90,13 +99,10 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
 {
     // Use split_unique with skip_range_constraints=true since the range constraints are implicit
     // in the lookup arguments used in scalar multiplication and thus do not need to be applied here.
+    // Note: split_unique validates the value is less than bn254::fr::modulus
     auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
-    // AUDITTODO: we skip the primality test in the constructor here since its done in split_unique. Eventually
-    // the skip_primality_test logic will be removed entirely and constraints will always be applied immediately on
-    // construction.
-    return cycle_scalar{
-        lo, hi, NUM_BITS, /*skip_primality_test=*/true, /*use_bn254_scalar_field_for_primality_test=*/true
-    };
+    // Note: we skip validation here since it is redundant with `split_unique`
+    return cycle_scalar{ lo, hi, /*skip_validation=*/true };
 }
 
 /**
@@ -124,6 +130,7 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
  * 3. Slice limb1 into two parts: limb1_lo (LO_BITS - NUM_LIMB_BITS bits), and limb1_hi (the remaining high bits)
  * 4. Construct lo out of limb0 and limb1_lo
  * 5. Construct hi out of limb1_hi, limb2 and limb3
+ * 6. Validate the scalar is in the Grumpkin scalar field
  *
  * @note To efficiently convert a bigfield into a cycle scalar we rely on the fact that `scalar.lo` and `scalar.hi` are
  * implicitly range-constrained to be respectively 128 and 126 bits when they are further decomposed into slices for the
@@ -200,6 +207,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     // Manually propagate the origin tag of the scalar to the lo/hi limbs
     lo.set_origin_tag(scalar.get_origin_tag());
     hi.set_origin_tag(scalar.get_origin_tag());
+
+    validate_scalar_is_in_field();
 };
 
 template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
@@ -208,21 +217,14 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 }
 
 /**
- * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
- * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags. If
- * _skip_primality_test is true, no validation is performed.
- * @note: Implies (lo + hi * 2^LO_BITS) < field_modulus as integers when combined with appropriate range constraints on
- * lo and hi.
+ * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
+ * @details Delegates to `validate_split_in_field`
  *
  * @tparam Builder
  */
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
-    if (!_skip_primality_test) {
-        const uint256_t& field_modulus =
-            _use_bn254_scalar_field_for_primality_test ? field_t::native::modulus : ScalarField::modulus;
-        validate_split_in_field(lo, hi, LO_BITS, field_modulus);
-    }
+    validate_split_in_field(lo, hi, LO_BITS, ScalarField::modulus);
 }
 
 template <typename Builder> typename cycle_scalar<Builder>::ScalarField cycle_scalar<Builder>::get_value() const

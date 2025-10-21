@@ -97,8 +97,8 @@ class AvmFlavor {
 
     static constexpr bool has_zero_row = true;
 
-    static constexpr size_t NUM_FRS_COM = field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.

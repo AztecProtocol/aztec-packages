@@ -26,6 +26,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
 
@@ -33,8 +34,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
     struct secp256k1_wnaf {
         std::vector<field_t<Builder>> wnaf;
-        field_t<Builder> positive_skew;
-        field_t<Builder> negative_skew;
+        bool_ct positive_skew;
+        bool_ct negative_skew;
         field_t<Builder> least_significant_wnaf_fragment;
         bool has_wnaf_fragment = false;
     };
@@ -124,7 +125,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             out.x = x;
             out.y = y;
         }
-        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
@@ -354,7 +355,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element montgomery_ladder(const element& other) const;
     element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
-    element quadruple_and_add(const std::vector<element>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
     {
@@ -373,56 +373,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
         const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
-    // compute a multi-scalar-multiplication by creating a precomputed lookup table for each point,
-    // splitting each scalar multiplier up into a 4-bit sliding window wNAF.
-    // more efficient than batch_mul if num_points < 4
-    // only works with Plookup!
-    template <size_t max_num_bits = 0>
-    static element wnaf_batch_mul(const std::vector<element>& points, const std::vector<Fr>& scalars);
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = false);
-
-    // we want to conditionally compile this method iff our curve params are the BN254 curve.
-    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
-    // template
-    // && the compiler can't perform partial template specialization on member functions of class templates
-    // => our template parameter cannot be a value but must instead by a type
-    // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
-    // resolves to either `true/false`.
-    // If `std::enable_if` resolves to `true`, it resolves to a `typedef` that equals `void`
-    // If `std::enable_if` resolves to `false`, there is no member typedef
-    // We want to take the *type* of the output typedef of `std::enable_if`
-    // i.e. for the bn254 curve, the template param is `typename = void`
-    // for any other curve, there is no template param
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul(const std::vector<element>& big_points,
-                                        const std::vector<Fr>& big_scalars,
-                                        const std::vector<element>& small_points,
-                                        const std::vector<Fr>& small_scalars,
-                                        const size_t max_num_small_bits);
-
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
-                                                       const std::vector<Fr>& big_scalars,
-                                                       const std::vector<element>& small_points,
-                                                       const std::vector<Fr>& small_scalars,
-                                                       const Fr& generator_scalar,
-                                                       const size_t max_num_small_bits);
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
-    template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
-    static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
-
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
-    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar);
+    static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
     Builder* get_context() const
     {
@@ -497,6 +459,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq x;
     Fq y;
 
+    // For testing purposes only
+    friend class element_test_accessor;
+
   private:
     bool_ct _is_infinity;
 
@@ -515,8 +480,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * setting `is_negative = true`.
      */
     template <size_t num_bits, size_t wnaf_size, size_t lo_stagger, size_t hi_stagger>
-    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(
-        Builder* builder, const secp256k1::fr& scalar, size_t stagger, bool is_negative, bool is_lo = false);
+    static std::pair<Fr, secp256k1_wnaf> compute_secp256k1_single_wnaf(Builder* builder,
+                                                                       const secp256k1::fr& scalar,
+                                                                       size_t stagger,
+                                                                       bool is_negative,
+                                                                       const bool range_constrain_wnaf = true,
+                                                                       bool is_lo = false);
 
     /**
      * @brief Compute the stagger-related part of wNAF and the final skew
@@ -528,10 +497,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      *
      */
     template <size_t wnaf_size>
-    static std::pair<uint64_t, bool> compute_secp256k1_staggered_wnaf_fragment(const uint64_t fragment_u64,
-                                                                               const uint64_t stagger,
-                                                                               bool is_negative,
-                                                                               bool wnaf_skew);
+    static std::pair<uint64_t, bool> get_staggered_wnaf_fragment_value(const uint64_t fragment_u64,
+                                                                       const uint64_t stagger,
+                                                                       bool is_negative,
+                                                                       bool wnaf_skew);
 
     /**
      * @brief Convert wNAF values to witness values
@@ -548,9 +517,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          uint64_t* wnaf_values,
+                                                                          const uint64_t* wnaf_values,
                                                                           bool is_negative,
-                                                                          size_t rounds);
+                                                                          size_t rounds,
+                                                                          const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit
@@ -566,7 +536,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <size_t wnaf_size>
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
                                              const std::vector<field_t<Builder>>& wnaf,
-                                             const field_t<Builder>& positive_skew,
+                                             const bool_ct& positive_skew,
+                                             const bool_ct& negative_skew,
                                              const field_t<Builder>& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);
@@ -980,6 +951,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     using batch_lookup_table = batch_lookup_table_plookup;
 };
 
+// For testing purposes only
+class element_test_accessor {
+  public:
+    template <typename C, typename Fq, typename Fr, typename G, size_t wnaf_size>
+    static auto get_staggered_wnaf_fragment_value(uint64_t fragment_u64,
+                                                  uint64_t stagger,
+                                                  bool is_negative,
+                                                  bool wnaf_skew)
+    {
+        return element<C, Fq, Fr, G>::template get_staggered_wnaf_fragment_value<wnaf_size>(
+            fragment_u64, stagger, is_negative, wnaf_skew);
+    }
+};
+
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
@@ -1006,8 +991,7 @@ using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
                                    element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
                                    element_default::element<C, Fq, Fr, G>>;
 } // namespace bb::stdlib
-#include "biggroup_batch_mul.hpp"
-#include "biggroup_bn254.hpp"
+#include "biggroup_edgecase_handling.hpp"
 #include "biggroup_goblin.hpp"
 #include "biggroup_impl.hpp"
 #include "biggroup_nafs.hpp"

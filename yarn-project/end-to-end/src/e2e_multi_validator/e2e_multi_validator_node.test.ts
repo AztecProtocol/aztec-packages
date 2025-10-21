@@ -19,6 +19,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -134,11 +135,11 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature));
+      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
@@ -191,11 +192,11 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature));
+      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
   });
