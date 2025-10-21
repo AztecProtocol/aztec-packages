@@ -223,7 +223,6 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 /**
  * @brief Convert a byte array into a field element.
  *
- * @details The transformation is injective when the size of the byte array is < 32, which covers all the use cases.
  **/
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {

@@ -168,9 +168,9 @@ void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Build
     if (take > input_len) {
         take = input_len;
     }
-    for (size_t i = 0; i < take; i++) {
-        self->buf[self->buf_len + i] = input[i + start_counter];
-    }
+    // Copy bytes from input to buf using write_at_unconstrained
+    byte_array<Builder> input_slice = input.slice(start_counter, take);
+    self->buf.write_at_unconstrained(input_slice, self->buf_len);
 
     self->buf_len = static_cast<uint8_t>(self->buf_len + (uint8_t)take);
     input_len -= take;
@@ -185,9 +185,8 @@ template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_
     const std::vector<field_ct> wide_zeros(BLAKE3_BLOCK_LEN, field_ct(0));
     byte_array_ct wide_buf = byte_array_ct::from_field_elements_unconstrained(out.get_context(), wide_zeros);
     compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
-    for (size_t i = 0; i < BLAKE3_OUT_LEN; i++) {
-        out[i] = wide_buf[i];
-    }
+    // Extract the output bytes by slicing
+    out = wide_buf.slice(0, BLAKE3_OUT_LEN);
 }
 
 template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byte_array<Builder>& input)

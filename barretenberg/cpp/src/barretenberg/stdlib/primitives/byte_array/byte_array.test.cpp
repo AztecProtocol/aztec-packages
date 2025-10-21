@@ -245,14 +245,15 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         for (size_t arr_length = 1; arr_length < 32; arr_length++) {
 
             Builder builder;
-            byte_array_ct test_array(&builder, arr_length);
 
+            // Generate random bytes
             std::vector<uint8_t> native_bytes(arr_length);
             for (size_t idx = 0; idx < arr_length; idx++) {
-                uint8_t byte = engine.get_random_uint8();
-                native_bytes[idx] = byte;
-                test_array[idx] = witness_ct(&builder, byte);
+                native_bytes[idx] = engine.get_random_uint8();
             }
+
+            // Create byte_array from vector (this creates witnesses for each byte)
+            byte_array_ct test_array(&builder, native_bytes);
 
             // Convert to field_t using the byte_array conversion
             field_ct represented_field_elt = static_cast<field_ct>(test_array);

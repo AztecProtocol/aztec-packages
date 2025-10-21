@@ -33,11 +33,13 @@ template <typename Builder> class byte_array {
     bytes_t values;
 
   public:
-    byte_array(Builder* parent_context, std::string const& input);
-    byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
-    byte_array(const field_t<Builder>& input,
-               const size_t num_bytes = 32,
-               std::optional<uint256_t> test_val = std::nullopt);
+    explicit byte_array(Builder* parent_context, std::string const& input);
+    // Explicit to prevent implicit conversion from size_t to std::vector<uint8_t>
+    explicit byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
+    // Explicit to prevent implicit conversions from size_t/int to field_t
+    explicit byte_array(const field_t<Builder>& input,
+                        const size_t num_bytes = 32,
+                        std::optional<uint256_t> test_val = std::nullopt);
 
     byte_array(const byte_array& other);
     byte_array(byte_array&& other);
@@ -71,12 +73,8 @@ template <typename Builder> class byte_array {
         return values[index];
     }
 
-    field_t<Builder>& operator[](const size_t index)
-    {
-        BB_ASSERT_LT(index, values.size());
-
-        return values[index];
-    }
+    // Non-const operator[] removed to prevent assigning unconstrained values into the array
+    // Internal operations that need to modify use write_at_unconstrained() or direct values access
 
     // WARNING: These methods do NOT add range constraints. Only use if the appended byte_array is already constrained!
     byte_array& write_unconstrained(byte_array const& other);

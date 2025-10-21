@@ -581,25 +581,33 @@ template <typename Builder> std::vector<field_t<Builder>> keccak<Builder>::forma
     // Similarly, the final byte of the final padded block must be 0x80.
     const auto terminating_byte = input_size;
     const auto terminating_block_byte = block_bytes.size() - 1;
-    block_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
-    block_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
+
+    // Extract bytes into a mutable vector to modify them
+    std::vector<field_ct> modified_bytes = block_bytes.bytes();
+
+    // Set terminating bytes
+    modified_bytes[terminating_byte] = witness_ct::create_constant_witness(ctx, 0x1);
+    modified_bytes[terminating_block_byte] = witness_ct::create_constant_witness(ctx, 0x80);
 
     // keccak lanes interpret memory as little-endian integers,
     // means we need to swap our byte ordering...
-    for (size_t i = 0; i < block_bytes.size(); i += 8) {
+    for (size_t i = 0; i < modified_bytes.size(); i += 8) {
         std::array<field_ct, 8> temp;
         for (size_t j = 0; j < 8; ++j) {
-            temp[j] = block_bytes[i + j];
+            temp[j] = modified_bytes[i + j];
         }
-        block_bytes[i] = temp[7];
-        block_bytes[i + 1] = temp[6];
-        block_bytes[i + 2] = temp[5];
-        block_bytes[i + 3] = temp[4];
-        block_bytes[i + 4] = temp[3];
-        block_bytes[i + 5] = temp[2];
-        block_bytes[i + 6] = temp[1];
-        block_bytes[i + 7] = temp[0];
+        modified_bytes[i] = temp[7];
+        modified_bytes[i + 1] = temp[6];
+        modified_bytes[i + 2] = temp[5];
+        modified_bytes[i + 3] = temp[4];
+        modified_bytes[i + 4] = temp[3];
+        modified_bytes[i + 5] = temp[2];
+        modified_bytes[i + 6] = temp[1];
+        modified_bytes[i + 7] = temp[0];
     }
+
+    // Create new byte_array from modified bytes
+    block_bytes = byte_array_ct::from_field_elements_unconstrained(ctx, std::move(modified_bytes));
     const size_t byte_size = block_bytes.size();
 
     const size_t num_limbs = byte_size / WORD_SIZE;
