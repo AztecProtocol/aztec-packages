@@ -68,7 +68,7 @@ describe('e2e_p2p_governance_proposer', () => {
     }
   });
 
-  it('Should cast votes to upgrade governanceProposer', async () => {
+  it('should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
