@@ -113,8 +113,20 @@ template <typename Builder> void Blake2s<Builder>::blake2s(blake2s_state& S, byt
     // Set last block.
     S.f[0] = field_t<Builder>(uint256_t((uint32_t)-1));
 
-    byte_array_ct final(in.get_context());
-    final.write(in.slice(offset)).write(byte_array_ct(in.get_context(), BLAKE2S_BLOCKBYTES - size));
+    // Build final block: remaining input + padding
+    Builder* ctx = in.get_context();
+    auto remaining = in.slice(offset);
+    // Create padding bytes (all constant zeros)
+    const std::vector<field_ct> padding_vec(BLAKE2S_BLOCKBYTES - size, field_ct(0));
+
+    // Combine remaining bytes and padding
+    std::vector<field_ct> final_bytes;
+    final_bytes.reserve(BLAKE2S_BLOCKBYTES);
+    const auto& remaining_bytes = remaining.bytes();
+    final_bytes.insert(final_bytes.end(), remaining_bytes.begin(), remaining_bytes.end());
+    final_bytes.insert(final_bytes.end(), padding_vec.begin(), padding_vec.end());
+
+    byte_array_ct final = byte_array_ct::from_field_elements_unconstrained(ctx, final_bytes);
     increment_counter(S, static_cast<uint32_t>(size));
     compress(S, final);
 }
@@ -129,12 +141,17 @@ template <typename Builder> byte_array<Builder> Blake2s<Builder>::hash(const byt
 
     blake2s(S, input);
 
-    byte_array_ct result(input.get_context());
-    for (auto h : S.h) {
+    // Build result from state values
+    std::vector<field_ct> result_bytes;
+    result_bytes.reserve(32);
+    for (const auto& h : S.h) {
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
         byte_array_ct v(h, 4);
-        result.write(v.reverse());
+        auto reversed = v.reverse();
+        const auto& bytes = reversed.bytes();
+        result_bytes.insert(result_bytes.end(), bytes.begin(), bytes.end());
     }
-    return result;
+    return byte_array_ct::from_field_elements_unconstrained(input.get_context(), result_bytes);
 }
 
 template class Blake2s<UltraCircuitBuilder>;

@@ -211,10 +211,19 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         field_ct b = witness_ct(&builder, slice_to_n_bytes(b_expected, 31));
         b.set_origin_tag(challenge_origin_tag);
 
-        byte_array_ct arr(&builder);
+        // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
+        byte_array_ct a_bytes(a, 31);
+        byte_array_ct b_bytes(b, 31);
 
-        arr.write(byte_array_ct(a, 31));
-        arr.write(byte_array_ct(b, 31));
+        // Combine the constrained bytes
+        std::vector<field_ct> all_bytes;
+        all_bytes.reserve(62);
+        const auto& a_vec = a_bytes.bytes();
+        const auto& b_vec = b_bytes.bytes();
+        all_bytes.insert(all_bytes.end(), a_vec.begin(), a_vec.end());
+        all_bytes.insert(all_bytes.end(), b_vec.begin(), b_vec.end());
+
+        byte_array_ct arr = byte_array_ct::from_field_elements_unconstrained(&builder, all_bytes);
 
         EXPECT_EQ(arr.size(), 62UL);
 

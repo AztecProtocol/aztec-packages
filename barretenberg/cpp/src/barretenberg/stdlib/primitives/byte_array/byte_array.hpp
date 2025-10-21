@@ -33,11 +33,8 @@ template <typename Builder> class byte_array {
     bytes_t values;
 
   public:
-    byte_array(Builder* parent_context = nullptr);
     byte_array(Builder* parent_context, std::string const& input);
     byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
-    byte_array(Builder* parent_context, bytes_t const& input);
-    byte_array(Builder* parent_context, bytes_t&& input);
     byte_array(const field_t<Builder>& input,
                const size_t num_bytes = 32,
                std::optional<uint256_t> test_val = std::nullopt);
@@ -47,6 +44,24 @@ template <typename Builder> class byte_array {
 
     byte_array& operator=(const byte_array& other);
     byte_array& operator=(byte_array&& other);
+
+  private:
+    // Private constructors used internally by slice(), reverse(), etc.
+    // These do NOT add constraints - the field_t elements must already be constrained to be bytes
+    byte_array(Builder* parent_context, bytes_t const& input);
+    byte_array(Builder* parent_context, bytes_t&& input);
+
+  public:
+    // Static factory method for explicit unconstrained construction from field elements
+    // WARNING: This does NOT add range constraints. Only use if field_t elements are already constrained to be bytes!
+    static byte_array from_field_elements_unconstrained(Builder* parent_context, bytes_t const& input)
+    {
+        return byte_array(parent_context, input);
+    }
+    static byte_array from_field_elements_unconstrained(Builder* parent_context, bytes_t&& input)
+    {
+        return byte_array(parent_context, std::move(input));
+    }
 
     explicit operator field_t<Builder>() const;
 
@@ -63,8 +78,9 @@ template <typename Builder> class byte_array {
         return values[index];
     }
 
-    byte_array& write(byte_array const& other);
-    byte_array& write_at(byte_array const& other, size_t index);
+    // WARNING: These methods do NOT add range constraints. Only use if the appended byte_array is already constrained!
+    byte_array& write_unconstrained(byte_array const& other);
+    byte_array& write_at_unconstrained(byte_array const& other, size_t index);
 
     byte_array slice(size_t offset) const;
     byte_array slice(size_t offset, size_t length) const;

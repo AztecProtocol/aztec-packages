@@ -55,16 +55,17 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
 
     // Lambda to convert std::vector<field_ct> to byte_array_ct
     auto fields_to_bytes = [](Builder& builder, std::vector<field_ct>& fields) -> byte_array_ct {
-        byte_array_ct result(&builder);
+        std::vector<field_ct> all_bytes;
+        all_bytes.reserve(fields.size());
         for (auto& field : fields) {
             // Construct byte array of length 1 from the field element
-            // The constructor enforces that `field` fits in one byte
+            // The constructor enforces that `field` fits in one byte and adds range constraints
             byte_array_ct byte_to_append(field, /*num_bytes=*/1);
-            // Append the new byte to the result
-            result.write(byte_to_append);
+            // Extract the already-constrained byte
+            all_bytes.push_back(byte_to_append.bytes()[0]);
         }
-
-        return result;
+        // Create byte_array from the constrained bytes
+        return byte_array_ct::from_field_elements_unconstrained(&builder, all_bytes);
     };
 
     // Define builder variables based on the witness indices

@@ -773,8 +773,10 @@ TYPED_TEST(SafeUintTest, TestByteArrayConversion)
                              0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                              0x00, 0x00, 0x7f, 0x6f, 0x5f, 0x4f, 0x00, 0x01, 0x02, 0x03 };
 
-    byte_array_ct arr(&builder);
-    arr.write(static_cast<byte_array_ct>(safe));
+    // safe_uint conversion to byte_array adds range constraints
+    byte_array_ct safe_bytes = static_cast<byte_array_ct>(safe);
+    // Use the constrained bytes directly (no need for empty constructor)
+    byte_array_ct arr = safe_bytes;
     EXPECT_EQ(arr.get_string(), expected);
     // Conversion to byte_array preserves tags
     for (const auto& single_byte : arr.bytes()) {

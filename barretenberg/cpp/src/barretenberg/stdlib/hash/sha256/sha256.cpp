@@ -372,8 +372,8 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
             output.push_back(word_byte_decomposition[i]);
         }
     }
-    //
-    return byte_array<Builder>(ctx, output);
+    // Safe to use from_field_elements_unconstrained: all bytes constrained by word_byte_decomposition constructor above
+    return byte_array<Builder>::from_field_elements_unconstrained(ctx, output);
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;

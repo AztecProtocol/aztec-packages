@@ -540,7 +540,9 @@ template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(
         little_endian_limb_bytes[5] = limb_bytes[2];
         little_endian_limb_bytes[6] = limb_bytes[1];
         little_endian_limb_bytes[7] = limb_bytes[0];
-        result.write(little_endian_limb_bytes);
+        // Safe to use write_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which constrains each
+        // byte
+        result.write_unconstrained(little_endian_limb_bytes);
     }
     return result;
 }
@@ -572,7 +574,8 @@ template <typename Builder> std::vector<field_t<Builder>> keccak<Builder>::forma
     for (size_t i = 0; i < byte_difference; ++i) {
         padding_bytes[i] = witness_ct::create_constant_witness(ctx, 0);
     }
-    block_bytes.write(padding_bytes);
+    // Safe to use write_unconstrained: padding bytes are constants (0x00) created via create_constant_witness
+    block_bytes.write_unconstrained(padding_bytes);
 
     // Keccak requires that 0x1 is appended after the final byte of input data.
     // Similarly, the final byte of the final padded block must be 0x80.
@@ -779,7 +782,9 @@ stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opco
         little_endian_limb_bytes[5] = limb_bytes[2];
         little_endian_limb_bytes[6] = limb_bytes[1];
         little_endian_limb_bytes[7] = limb_bytes[0];
-        result.write(little_endian_limb_bytes);
+        // Safe to use write_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which constrains each
+        // byte
+        result.write_unconstrained(little_endian_limb_bytes);
     }
     return result;
 }

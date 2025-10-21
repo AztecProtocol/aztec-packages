@@ -13,11 +13,6 @@ using namespace bb;
 
 namespace bb::stdlib {
 
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context)
-    : context(parent_context)
-{}
-
 /**
  * @brief Create a byte array out of a vector of uint8_t bytes.
  *
@@ -246,8 +241,9 @@ template <typename Builder> byte_array<Builder>::operator field_t<Builder>() con
 }
 /**
  * @brief Appends the contents of another `byte_array` (`other`) to the end of this one.
+ * @warning This does NOT add range constraints. Only use if `other` is already constrained!
  */
-template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte_array const& other)
+template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_unconstrained(byte_array const& other)
 {
     values.insert(values.end(), other.bytes().begin(), other.bytes().end());
     return *this;
@@ -256,8 +252,10 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte
 /**
  * @brief Overwrites this byte_array starting at index with the contents of other. Asserts that the write does not
  * exceed the current size.
+ * @warning This does NOT add range constraints. Only use if `other` is already constrained!
  */
-template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
+template <typename Builder>
+byte_array<Builder>& byte_array<Builder>::write_at_unconstrained(byte_array const& other, size_t index)
 {
     BB_ASSERT_LTE(index + other.values.size(), values.size());
     for (size_t i = 0; i < other.values.size(); i++) {

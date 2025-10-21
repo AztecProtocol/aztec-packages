@@ -293,7 +293,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                                          TamperingMode mode)
     {
         stdlib::byte_array<Builder> message(&builder, message_bytes);
-        stdlib::byte_array<Builder> hashed_message;
 
         if (mode == TamperingMode::OutOfBoundsHash) {
             // In this case the message is already hashed, so we mock the hashing constraints for consistency but
@@ -308,13 +307,10 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FqNative fr_hash = FqNative(FrNative::modulus + 1);
             FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
 
-            hashed_message = stdlib::byte_array<Builder>(
+            return stdlib::byte_array<Builder>(
                 &builder, std::vector<uint8_t>(hashed_message_witness.begin(), hashed_message_witness.end()));
-        } else {
-            hashed_message = static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
         }
-
-        return hashed_message;
+        return static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
     }
 
     void test_verify_signature(bool random_signature, TamperingMode mode)

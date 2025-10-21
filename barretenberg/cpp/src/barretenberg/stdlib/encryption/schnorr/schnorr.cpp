@@ -54,7 +54,8 @@ std::array<field_t<C>, 2> schnorr_verify_signature_internal(const byte_array<C>&
     // build input (pedersen(([s]g + [e]pub).x | pub.x | pub.y) | message) to hash function
     // pedersen hash ([r].x | pub.x) to make sure the size of `hash_input` is <= 64 bytes for a 32 byte message
     byte_array<C> hash_input(pedersen_hash<C>::hash({ x_3, pub_key.x, pub_key.y }));
-    hash_input.write(message);
+    // Safe to use write_unconstrained: message is passed by the user as constrained byte_array
+    hash_input.write_unconstrained(message);
 
     // compute  e' = hash(([s]g + [e]pub).x | message)
     byte_array<C> output = stdlib::Blake2s<C>::hash(hash_input);
