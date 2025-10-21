@@ -30,7 +30,7 @@ contract StakingAssetHandlerScript is Test {
   bytes32 public constant DEPOSIT_MERKLE_ROOT = bytes32(0);
 
   ZKPassportVerifier internal constant zkPassportVerifier =
-    ZKPassportVerifier(0xf7480fd0A9289c062C52532f11D31e0b7A30ABe3);
+    ZKPassportVerifier(0x3101Bad9eA5fACadA5554844a1a88F7Fe48D4DE0);
 
   TestERC20 public constant stakingAsset = TestERC20(0x6732CEDafCBF85Afa9B5C83f0385967840BBCe47);
   IRegistry public constant registry = IRegistry(0xc2F24280F5c7F4897370dFDEb30f79Ded14f1c81);

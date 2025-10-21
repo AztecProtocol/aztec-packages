@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: aztec-chain-monitor
-          image: aztecprotocol/aztec-block-height-monitor:latest
+          image: spypsy/block-height-monitor:latest
           imagePullPolicy: Always
           ports:
             - name: http

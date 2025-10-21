@@ -318,7 +318,7 @@ class SumcheckClientIVC : public IVCBase {
     VerificationKey get_vk() const;
 
   private:
-#ifdef NDEBUG
+#ifndef NDEBUG
     /**
      * @brief Update native verifier accumulator. Useful for debugging.
      *

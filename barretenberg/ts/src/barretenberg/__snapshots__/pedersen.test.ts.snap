@@ -1,7 +1,7 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`pedersen sync pedersenCommit 1`] = `
-Point {
+{
   "x": Fr {
     "value": Uint8Array [
       40,

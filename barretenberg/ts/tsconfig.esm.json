@@ -3,5 +3,6 @@
   "compilerOptions": {
     "outDir": "dest/node",
     "tsBuildInfoFile": "/dev/null",
+    "noEmit": false,
   }
 }

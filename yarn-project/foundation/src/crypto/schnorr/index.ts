@@ -1,8 +1,6 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 import { type GrumpkinScalar, Point } from '@aztec/foundation/fields';
-import { numToInt32BE } from '@aztec/foundation/serialize';
 
-import { concatenateUint8Arrays } from '../serialize.js';
 import { SchnorrSignature } from './signature.js';
 
 export * from './signature.js';
@@ -17,9 +15,10 @@ export class Schnorr {
    * @returns A grumpkin public key.
    */
   public async computePublicKey(privateKey: GrumpkinScalar): Promise<Point> {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api.getWasm().callWasmExport('schnorr_compute_public_key', [privateKey.toBuffer()], [64]);
-    return Point.fromBuffer(Buffer.from(result));
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.schnorrComputePublicKey({ privateKey: privateKey.toBuffer() });
+    return Point.fromBuffer(Buffer.concat([Buffer.from(response.publicKey.x), Buffer.from(response.publicKey.y)]));
   }
 
   /**
@@ -29,12 +28,13 @@ export class Schnorr {
    * @returns A Schnorr signature of the form (s, e).
    */
   public async constructSignature(msg: Uint8Array, privateKey: GrumpkinScalar) {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [s, e] = api
-      .getWasm()
-      .callWasmExport('schnorr_construct_signature', [messageArray, privateKey.toBuffer()], [32, 32]);
-    return new SchnorrSignature(Buffer.from([...s, ...e]));
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.schnorrConstructSignature({
+      message: msg,
+      privateKey: privateKey.toBuffer(),
+    });
+    return new SchnorrSignature(Buffer.from([...response.s, ...response.e]));
   }
 
   /**
@@ -45,11 +45,14 @@ export class Schnorr {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Point, sig: SchnorrSignature) {
-    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
-    const [result] = api
-      .getWasm()
-      .callWasmExport('schnorr_verify_signature', [messageArray, pubKey.toBuffer(), sig.s, sig.e], [1]);
-    return result[0] === 1;
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.schnorrVerifySignature({
+      message: msg,
+      publicKey: { x: pubKey.x.toBuffer(), y: pubKey.y.toBuffer() },
+      s: sig.s,
+      e: sig.e,
+    });
+    return response.verified;
   }
 }

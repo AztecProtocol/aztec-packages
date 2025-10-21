@@ -80,7 +80,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     BB_BENCH_NAME("ECCVMProver::execute_log_derivative_commitments_round");
 
     // Compute and add beta to relation parameters
-    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
     auto beta_sqr = beta * beta;

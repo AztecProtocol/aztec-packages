@@ -92,13 +92,13 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "W_L", data_types_per_G);
         manifest_expected.add_entry(round, "W_R", data_types_per_G);
         manifest_expected.add_entry(round, "W_O", data_types_per_G);
-        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
+        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", data_types_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", data_types_per_G);
         manifest_expected.add_entry(round, "W_4", data_types_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
@@ -169,7 +169,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", data_types_per_G);
-        manifest_expected.add_challenge(round); // no challenge
 
         return manifest_expected;
     }
@@ -316,7 +315,8 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
     // initialized with random value sent to verifier
     auto transcript = TypeParam::Transcript::prover_init_empty();
     // test a bunch of challenges
-    auto challenges = transcript->template get_challenges<FF>("a", "b", "c", "d", "e", "f");
+    std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
+    auto challenges = transcript->template get_challenges<FF>(challenge_labels);
     // check they are not 0
     for (size_t i = 0; i < challenges.size(); ++i) {
         ASSERT_NE(challenges[i], 0) << "Challenge " << i << " is 0";
@@ -324,10 +324,11 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
     constexpr uint32_t random_val{ 17 }; // arbitrary
     transcript->send_to_verifier("random val", random_val);
     // test more challenges
-    auto [a, b, c] = transcript->template get_challenges<FF>("a", "b", "c");
-    ASSERT_NE(a, 0) << "Challenge a is 0";
-    ASSERT_NE(b, 0) << "Challenge b is 0";
-    ASSERT_NE(c, 0) << "Challenge c is 0";
+    challenge_labels = { "a", "b", "c" };
+    challenges = transcript->template get_challenges<FF>(challenge_labels);
+    ASSERT_NE(challenges[0], 0) << "Challenge a is 0";
+    ASSERT_NE(challenges[1], 0) << "Challenge b is 0";
+    ASSERT_NE(challenges[2], 0) << "Challenge c is 0";
 }
 
 TYPED_TEST(UltraTranscriptTests, StructureTest)

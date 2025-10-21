@@ -262,6 +262,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const slotNumber = proposal.slotNumber.toBigInt();
     const proposer = proposal.getSender();
 
+    // Reject proposals with invalid signatures
+    if (!proposer) {
+      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
+      return undefined;
+    }
+
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
@@ -337,6 +343,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private slashInvalidBlock(proposal: BlockProposal) {
     const proposer = proposal.getSender();
+
+    // Skip if signature is invalid (shouldn't happen since we validate earlier)
+    if (!proposer) {
+      this.log.warn(`Cannot slash proposal with invalid signature`);
+      return;
+    }
 
     // Trim the set if it's too big.
     if (this.proposersOfInvalidBlocks.size > MAX_PROPOSERS_OF_INVALID_BLOCKS) {
@@ -426,7 +438,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         attestation => {
           if (!attestation.payload.equals(proposal.payload)) {
             this.log.warn(
-              `Received attestation for slot ${slot} with mismatched payload from ${attestation.getSender().toString()}`,
+              `Received attestation for slot ${slot} with mismatched payload from ${attestation.getSender()?.toString()}`,
               { attestationPayload: attestation.payload, proposalPayload: proposal.payload },
             );
             return false;
@@ -439,9 +451,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
         const collectedSender = collected.getSender();
+        // Skip attestations with invalid signatures
+        if (!collectedSender) {
+          this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);
+          continue;
+        }
         if (
           !myAddresses.some(address => address.equals(collectedSender)) &&
-          !oldSenders.some(sender => sender.equals(collectedSender))
+          !oldSenders.some(sender => sender?.equals(collectedSender))
         ) {
           this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
         }
