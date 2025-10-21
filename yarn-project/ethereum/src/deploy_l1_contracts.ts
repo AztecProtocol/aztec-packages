@@ -279,6 +279,8 @@ export const deploySharedContracts = async (
     const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
     stakingAssetAddress = deployedStaking.address;
     logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+
+    await deployer.waitForDeployments();
   }
 
   const gseAddress = (
@@ -352,7 +354,7 @@ export const deploySharedContracts = async (
   const coinIssuerAddress = (
     await deployer.deploy(CoinIssuerArtifact, [
       feeAssetAddress.toString(),
-      (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
+      2n * 10n ** 17n, // hard cap of 20% per year
       l1Client.account.address,
     ])
   ).address;
