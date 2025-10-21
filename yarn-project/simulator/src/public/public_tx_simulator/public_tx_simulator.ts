@@ -110,7 +110,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   constructor(
     protected merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
-    private globalVariables: GlobalVariables,
+    protected globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ) {
     this.config = {
