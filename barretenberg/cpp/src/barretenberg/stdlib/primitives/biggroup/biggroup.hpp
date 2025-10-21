@@ -757,35 +757,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
         }
 
-        element get_initial_entry() const
-        {
-            std::vector<element> add_accumulator;
-            for (size_t i = 0; i < num_sixes; ++i) {
-                add_accumulator.push_back(six_tables[i][0]);
-            }
-            for (size_t i = 0; i < num_fives; ++i) {
-                add_accumulator.push_back(five_tables[i][0]);
-            }
-            if (has_quad) {
-                add_accumulator.push_back(quad_tables[0][0]);
-            }
-            if (has_twin) {
-                add_accumulator.push_back(twin_tables[0][0]);
-            }
-            if (has_triple) {
-                add_accumulator.push_back(triple_tables[0][0]);
-            }
-            if (has_singleton) {
-                add_accumulator.push_back(singletons[0]);
-            }
-
-            element accumulator = add_accumulator[0];
-            for (size_t i = 1; i < add_accumulator.size(); ++i) {
-                accumulator = accumulator + add_accumulator[i];
-            }
-            return accumulator;
-        }
-
         chain_add_accumulator get_chain_initial_entry() const
         {
             std::vector<element> add_accumulator;
@@ -855,7 +826,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
             }
 
-            element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return element::chain_add_accumulator(round_accumulator[0]);
             }
@@ -865,7 +835,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
 
             // Use chain add for at least 3 elements
-            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            element::chain_add_accumulator accumulator =
+                element::chain_add_start(round_accumulator[0], round_accumulator[1]);
             for (size_t j = 2; j < round_accumulator.size(); ++j) {
                 accumulator = element::chain_add(round_accumulator[j], accumulator);
             }

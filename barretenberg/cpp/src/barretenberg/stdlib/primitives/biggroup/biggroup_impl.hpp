@@ -725,6 +725,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     const size_t num_points = points.size();
     BB_ASSERT_EQ(scalars.size(), num_points);
 
+    // TODO: problem if there is a point at infinity, size of NAF(0) => 254 but rest of scalars will be < 254
+    // TODO: problem if get_chain_initial_entry itself is point at infinity (example: (+1).6P + (-1).2P + (-1).3P = O)
     batch_lookup_table point_table(points);
     const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 

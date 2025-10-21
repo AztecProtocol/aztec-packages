@@ -883,6 +883,180 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    static void test_twin_mul_edge_case()
+    {
+        Builder builder;
+        affine_element input_a(element::random_element());
+        affine_element input_b(element::random_element());
+
+        fr scalar_a(fr::random_element());
+        fr scalar_b(fr::random_element());
+        if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
+            scalar_a -= fr(1); // skew bit is 1
+        }
+        if ((uint256_t(scalar_b).get_bit(0) & 1) == 0) {
+            scalar_b += fr(1); // skew bit is 0
+        }
+
+        // [+1, ....]
+        // [+1, ....]
+        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);   // s_1
+        scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);   // s_2
+        element_ct P_a = element_ct::from_witness(&builder, input_a);  // A
+        element_ct P_b = element_ct::from_witness(&builder, -input_a); // -A
+
+        // Set tags
+        P_a.set_origin_tag(submitted_value_origin_tag);
+        x_a.set_origin_tag(challenge_origin_tag);
+        P_b.set_origin_tag(next_submitted_value_origin_tag);
+        x_b.set_origin_tag(next_challenge_tag);
+
+        element_ct c = element_ct::batch_mul({ P_a, P_b }, { x_a, x_b });
+
+        // Check that the resulting tag is a union of all tags
+        EXPECT_EQ(c.get_origin_tag(), first_to_fourth_merged_tag);
+        element input_c = (element(input_a) * scalar_a);
+        element input_d = (element(input_b) * scalar_b);
+        affine_element expected(input_c + input_d);
+        fq c_x_result(c.x.get_value().lo);
+        fq c_y_result(c.y.get_value().lo);
+
+        std::cout << "builder err = " << builder.err() << std::endl;
+
+        EXPECT_EQ(c_x_result, expected.x);
+        EXPECT_EQ(c_y_result, expected.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_twin_mul_with_infinity()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            input_b.self_set_infinity();
+
+            // Get two 128-bit scalars
+            const size_t max_num_bits = 128;
+            uint256_t scalar_raw_a = engine.get_random_uint256();
+            scalar_raw_a = scalar_raw_a >> (256 - max_num_bits);
+            fr scalar_a = fr(scalar_raw_a);
+
+            uint256_t scalar_raw_b = engine.get_random_uint256();
+            scalar_raw_b = scalar_raw_b >> (256 - max_num_bits);
+            fr scalar_b = fr(scalar_raw_b);
+
+            element_ct P_a = element_ct::from_witness(&builder, input_a); // A
+            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
+            element_ct P_b = element_ct::from_witness(&builder, input_b); // ∞
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
+
+            // (A, s_1), (G, 0)
+            // batch_mul: (A, s_1), (G, 1), (-G, 1)
+            // later subtract -G
+
+            std::cout << "P_b is infinity: " << P_b.is_point_at_infinity().get_value() << std::endl;
+
+            // Set tags
+            P_a.set_origin_tag(submitted_value_origin_tag);
+            x_a.set_origin_tag(challenge_origin_tag);
+            P_b.set_origin_tag(next_submitted_value_origin_tag);
+            x_b.set_origin_tag(next_challenge_tag);
+
+            element_ct c = element_ct::batch_mul({ P_a, P_b }, { x_a, x_b }, 128);
+
+            // Check that the resulting tag is a union of all tags
+            EXPECT_EQ(c.get_origin_tag(), first_to_fourth_merged_tag);
+            element input_c = (element(input_a) * scalar_a);
+            element input_d = (element(input_b) * scalar_b);
+            affine_element expected(input_c + input_d);
+            fq c_x_result(c.x.get_value().lo);
+            fq c_y_result(c.y.get_value().lo);
+
+            std::cout << "builder err = " << builder.err() << std::endl;
+
+            EXPECT_EQ(c_x_result, expected.x);
+            EXPECT_EQ(c_y_result, expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_triple_edge_case()
+    {
+        Builder builder;
+        affine_element input_P(element::random_element());
+
+        affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
+        affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
+        affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+
+        // Choose scalars such that their NAF representations are:
+        //    skew msd          lsd
+        // a: 0    [+1, +1, -1, +1] = -0 + 2^3 + 2^2 - 2^1 + 2^0 = 11
+        // b: 1    [+1, +1, +1, +1] = -1 + 2^3 + 2^2 + 2^1 + 2^0 = 14
+        // c: 1    [+1, -1, +1, +1] = -1 + 2^3 - 2^2 + 2^1 + 2^0 = 6
+        fr scalar_a(11);
+        fr scalar_b(14);
+        fr scalar_c(6);
+
+        // A, B, C
+        // 0: A + B + C
+        // 1: A + B - C
+        // 2: A - B + C
+        // 3: A - B - C
+
+        OriginTag tag_union{};
+
+        element_ct P_a = element_ct::from_witness(&builder, input_P_a);
+        // Set all element tags to submitted tags from sequential rounds
+        P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_a.get_origin_tag());
+
+        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
+        // Set all scalar tags to challenge tags from sequential rounds
+        x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_a.get_origin_tag());
+
+        element_ct P_b = element_ct::from_witness(&builder, input_P_b);
+        P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_b.get_origin_tag());
+
+        scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
+        x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_b.get_origin_tag());
+
+        element_ct P_c = element_ct::from_witness(&builder, input_P_c);
+        P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_c.get_origin_tag());
+
+        scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
+        x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_c.get_origin_tag());
+
+        std::cout << "builder err = " << builder.err() << std::endl;
+
+        element_ct c = element_ct::batch_mul({ P_a, P_b, P_c }, { x_a, x_b, x_c }, 4);
+
+        std::cout << "builder err = " << builder.err() << std::endl;
+
+        // Check that the result tag is a union of inputs' tags
+        EXPECT_EQ(c.get_origin_tag(), tag_union);
+        element input_e = (element(input_P_a) * scalar_a);
+        element input_f = (element(input_P_b) * scalar_b);
+        element input_g = (element(input_P_c) * scalar_c);
+
+        affine_element expected(input_e + input_f + input_g);
+        fq c_x_result(c.x.get_value().lo);
+        fq c_y_result(c.y.get_value().lo);
+
+        EXPECT_EQ(c_x_result, expected.x);
+        EXPECT_EQ(c_y_result, expected.y);
+
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
     static void test_triple_mul()
     {
         Builder builder;
@@ -1730,6 +1904,34 @@ HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
         TestFixture::test_twin_mul();
     };
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_edge_case)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_twin_mul_edge_case();
+    };
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_with_infinity)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_twin_mul_with_infinity();
+    };
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, triple_edge_case)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_triple_edge_case();
+    };
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
