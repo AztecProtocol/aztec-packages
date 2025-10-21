@@ -118,10 +118,6 @@ namespace data_copy;
 
     pol commit clk;
 
-    // Things are range checked to 32 bits
-    pol commit thirty_two; // todo: while we do not support constants in lookups
-    SEL * (thirty_two - 32) = 0;
-
     ///////////////////////////////
     // Inputs from execution trace
     ///////////////////////////////
@@ -290,17 +286,23 @@ namespace data_copy;
     #[PADDING_CONDITION]
     SEL_PERFORM_COPY * (reads_left * (padding * (1 - reads_left_inv) + reads_left_inv) - 1 + padding) = 0;
 
+    // Once we enter into padding region, we do not get out of it until the end.
+    #[PADDING_PROPAGATION]
+    (1 - sel_end) * padding * (1 - padding') = 0;
+
     // Read from memory if we are not the top level call and not a padding row
     pol commit sel_mem_read; // If the current row is a memory op read
-    sel_mem_read = SEL_PERFORM_COPY * (1 - is_top_level) * (1 - padding);
+    sel_mem_read = SEL_PERFORM_COPY * (1 - is_top_level * sel_cd_copy) * (1 - padding);
 
     // === Value Padding ===
     pol commit value;
     #[PAD_VALUE]
     SEL_PERFORM_COPY * padding * value = 0;
 
+    pol commit tag; // We keep the memory tag unconstrained as each value is implicitly upcasted to FF.
+    // We need to pass the tag as the memory multipermutation mandates that the tuple has 6 columns.
     #[MEM_READ]
-    sel_mem_read { clk, src_context_id, read_addr, value, /*mem_tag=*/precomputed.zero/*FF*/, /*rw=*/precomputed.zero/*(read)*/ }
+    sel_mem_read { clk, src_context_id, read_addr, value, tag, /*rw=*/precomputed.zero/*(read)*/ }
     is
     memory.sel_data_copy_read { memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw };
 

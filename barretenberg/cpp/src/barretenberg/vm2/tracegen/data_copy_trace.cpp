@@ -1,17 +1,12 @@
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <memory>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
-#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
-#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
-#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -52,7 +47,6 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
-                      { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
                       { C::data_copy_src_context_id, event.read_context_id },
                       { C::data_copy_dst_context_id, event.write_context_id },
@@ -67,12 +61,12 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
                       { C::data_copy_parent_id_inv, parent_id_inv },
 
-                      // Compute Max Read Index
+                      // Compute Data Index Upper Bound
                       { C::data_copy_offset_plus_size, data_offset + copy_size },
                       { C::data_copy_offset_plus_size_is_gt, data_offset + copy_size > event.src_data_size ? 1 : 0 },
                       { C::data_copy_data_index_upper_bound, data_index_upper_bound },
 
-                      // Max Addresses
+                      // Addresses Upper Bounds
                       { C::data_copy_mem_size, MAX_MEM_ADDR + 1 },
                       { C::data_copy_read_addr_upper_bound, read_addr_upper_bound },
                       { C::data_copy_write_addr_upper_bound, write_addr_upper_bound },
@@ -139,7 +133,7 @@ void DataCopyTraceBuilder::process(
             bool read_cd_col = is_cd_copy && is_top_level && !is_padding_row;
 
             // Read from memory if this is not a padding row and we are either RD_COPY-ing or a nested CD_COPY
-            bool sel_mem_read = !is_padding_row && (is_rd_copy || event.read_context_id != 0);
+            bool sel_mem_read = !is_padding_row && (is_rd_copy || !is_top_level);
             FF value = is_padding_row ? 0 : event.copying_data[i];
 
             trace.set(
@@ -148,7 +142,6 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_clk, event.execution_clk },
                     { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                     { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
-                    { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
                     { C::data_copy_src_context_id, event.read_context_id },
                     { C::data_copy_dst_context_id, event.write_context_id },

@@ -14,9 +14,9 @@ template <typename FF_> class data_copyImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3,
-                                                                            3, 3, 3, 4, 5, 4, 6, 3, 5, 3, 4, 5,
-                                                                            4, 5, 5, 3, 6, 5, 5, 6, 3, 3, 3 };
+    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3, 3,
+                                                                            3, 3, 4, 5, 4, 6, 3, 5, 3, 4, 5, 4,
+                                                                            5, 5, 3, 6, 4, 6, 5, 6, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -39,19 +39,20 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static constexpr const std::string_view NAME = "data_copy";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TOP_LEVEL_COND = 6;
-    static constexpr size_t SR_START_AFTER_END = 15;
-    static constexpr size_t SR_ZERO_SIZED_WRITE = 16;
-    static constexpr size_t SR_END_IF_WRITE_IS_ZERO = 17;
-    static constexpr size_t SR_END_WRITE_CONDITION = 18;
-    static constexpr size_t SR_END_ON_ERR = 19;
-    static constexpr size_t SR_INIT_READS_LEFT = 20;
-    static constexpr size_t SR_DECR_COPY_SIZE = 22;
-    static constexpr size_t SR_INCR_WRITE_ADDR = 23;
-    static constexpr size_t SR_INIT_READ_ADDR = 24;
-    static constexpr size_t SR_INCR_READ_ADDR = 25;
-    static constexpr size_t SR_DECR_READ_COUNT = 26;
-    static constexpr size_t SR_PADDING_CONDITION = 28;
+    static constexpr size_t SR_TOP_LEVEL_COND = 5;
+    static constexpr size_t SR_START_AFTER_END = 14;
+    static constexpr size_t SR_ZERO_SIZED_WRITE = 15;
+    static constexpr size_t SR_END_IF_WRITE_IS_ZERO = 16;
+    static constexpr size_t SR_END_WRITE_CONDITION = 17;
+    static constexpr size_t SR_END_ON_ERR = 18;
+    static constexpr size_t SR_INIT_READS_LEFT = 19;
+    static constexpr size_t SR_DECR_COPY_SIZE = 21;
+    static constexpr size_t SR_INCR_WRITE_ADDR = 22;
+    static constexpr size_t SR_INIT_READ_ADDR = 23;
+    static constexpr size_t SR_INCR_READ_ADDR = 24;
+    static constexpr size_t SR_DECR_READ_COUNT = 25;
+    static constexpr size_t SR_PADDING_CONDITION = 27;
+    static constexpr size_t SR_PADDING_PROPAGATION = 28;
     static constexpr size_t SR_PAD_VALUE = 30;
     static constexpr size_t SR_CD_COPY_COLUMN = 31;
 
@@ -84,6 +85,8 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
             return "DECR_READ_COUNT";
         case SR_PADDING_CONDITION:
             return "PADDING_CONDITION";
+        case SR_PADDING_PROPAGATION:
+            return "PADDING_PROPAGATION";
         case SR_PAD_VALUE:
             return "PAD_VALUE";
         case SR_CD_COPY_COLUMN:
