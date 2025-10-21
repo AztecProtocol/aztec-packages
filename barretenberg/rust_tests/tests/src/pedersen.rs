@@ -1,0 +1,144 @@
+//! Pedersen hash and commit tests
+//!
+//! Parallels barretenberg/ts/src/barretenberg/pedersen.test.ts
+
+#[cfg(test)]
+use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApiSync, Fr};
+#[cfg(test)]
+use crate::utils::{get_bb_binary_path, get_test_socket_path, Timer};
+
+#[test]
+fn test_pedersen_hash() {
+    let bb_path = get_bb_binary_path();
+    let socket_path = get_test_socket_path("pedersen_hash");
+
+    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+        .expect("Failed to create backend");
+    let mut api = BarretenbergApiSync::new(backend);
+
+    let inputs = vec![
+        Fr::from_u64(4).to_buffer(),
+        Fr::from_u64(8).to_buffer(),
+    ];
+
+    let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
+    let result = Fr::from_buffer_reduce(&response.hash);
+
+    // Print result for snapshot comparison
+    println!("Pedersen hash result: {:?}", hex::encode(&result.0));
+
+    api.destroy().expect("Failed to destroy backend");
+}
+
+#[test]
+fn test_pedersen_hash_buffer() {
+    let bb_path = get_bb_binary_path();
+    let socket_path = get_test_socket_path("pedersen_hash_buffer");
+
+    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+        .expect("Failed to create backend");
+    let mut api = BarretenbergApiSync::new(backend);
+
+    let mut input = vec![0u8; 123];
+    input[0..4].copy_from_slice(&321u32.to_be_bytes());
+    input[119..123].copy_from_slice(&456u32.to_be_bytes());
+
+    let response = api
+        .pedersen_hash_buffer(&input, 0)
+        .expect("PedersenHashBuffer failed");
+    let result = Fr::from_buffer_reduce(&response.hash);
+
+    // Print result for snapshot comparison
+    println!("Pedersen hash buffer result: {:?}", hex::encode(&result.0));
+
+    api.destroy().expect("Failed to destroy backend");
+}
+
+#[test]
+fn test_pedersen_commit() {
+    let bb_path = get_bb_binary_path();
+    let socket_path = get_test_socket_path("pedersen_commit");
+
+    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+        .expect("Failed to create backend");
+    let mut api = BarretenbergApiSync::new(backend);
+
+    let inputs = vec![
+        Fr::from_u64(4).to_buffer(),
+        Fr::from_u64(8).to_buffer(),
+        Fr::from_u64(12).to_buffer(),
+    ];
+
+    let response = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
+
+    let x = Fr::from_buffer_reduce(&response.point.x);
+    let y = Fr::from_buffer_reduce(&response.point.y);
+
+    // Print result for snapshot comparison
+    println!("Pedersen commit point.x: {:?}", hex::encode(&x.0));
+    println!("Pedersen commit point.y: {:?}", hex::encode(&y.0));
+
+    api.destroy().expect("Failed to destroy backend");
+}
+
+#[test]
+#[ignore] // Performance test - run with --ignored
+fn test_pedersen_hash_perf() {
+    let bb_path = get_bb_binary_path();
+    let socket_path = get_test_socket_path("pedersen_hash_perf");
+
+    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+        .expect("Failed to create backend");
+    let mut api = BarretenbergApiSync::new(backend);
+
+    let loops = 1000;
+    let mut fields = Vec::with_capacity(loops * 2);
+    for _ in 0..loops * 2 {
+        fields.push(Fr::random());
+    }
+
+    let timer = Timer::new();
+    for i in 0..loops {
+        let inputs = vec![
+            fields[i * 2].to_buffer(),
+            fields[i * 2 + 1].to_buffer(),
+        ];
+        let _ = api.pedersen_hash(inputs, 0).expect("PedersenHash failed");
+    }
+    let us = timer.us() / loops as u128;
+
+    println!("Executed {} hashes at an average {}us / hash", loops, us);
+
+    api.destroy().expect("Failed to destroy backend");
+}
+
+#[test]
+#[ignore] // Performance test - run with --ignored
+fn test_pedersen_commit_perf() {
+    let bb_path = get_bb_binary_path();
+    let socket_path = get_test_socket_path("pedersen_commit_perf");
+
+    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+        .expect("Failed to create backend");
+    let mut api = BarretenbergApiSync::new(backend);
+
+    let loops = 1000;
+    let mut fields = Vec::with_capacity(loops * 2);
+    for _ in 0..loops * 2 {
+        fields.push(Fr::random());
+    }
+
+    let timer = Timer::new();
+    for i in 0..loops {
+        let inputs = vec![
+            fields[i * 2].to_buffer(),
+            fields[i * 2 + 1].to_buffer(),
+        ];
+        let _ = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
+    }
+    let us = timer.us() / loops as u128;
+
+    println!("Executed {} commits at an average {}us / commit", loops, us);
+
+    api.destroy().expect("Failed to destroy backend");
+}
