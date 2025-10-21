@@ -69,12 +69,12 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
-  add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/bbapi)
+add_subdirectory(barretenberg/benchmark)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)
@@ -116,6 +116,7 @@ add_subdirectory(barretenberg/wasi)
 if(NOT WASM)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/lmdblib)
+    add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 if(NOT FUZZING AND NOT WASM)
@@ -124,13 +125,10 @@ endif()
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
+    if(ACIR_FORMAL_PROOFS)
+        add_subdirectory(barretenberg/acir_formal_proofs)
+    endif()
 endif()
-
-if(SMT AND ACIR_FORMAL_PROOFS)
-    add_subdirectory(barretenberg/acir_formal_proofs)
-endif()
-
-add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -215,6 +213,7 @@ if(WASM)
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
+        $<TARGET_OBJECTS:vm2_stub_objects>
     )
 
     target_link_options(

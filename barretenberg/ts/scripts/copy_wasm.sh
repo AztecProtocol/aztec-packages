@@ -1,11 +1,11 @@
 #!/bin/sh
 # Builds the wasm and copies it into it's location in dest.
-# If you want to build the wasm with debug info for stack traces, use NO_STRIP=1.
+# If you want to build the wasm with debug info for stack traces, use NO_STRIP=1 BUILD_CPP=1.
 set -e
 
 cd $(dirname $0)/..
 
-if [ -z "$SKIP_CPP_BUILD" ] && [ "${CI:-0}" -eq 0 ]; then
+if [ "${BUILD_CPP:-0}" -eq 1 ]; then
   parallel --line-buffered --tag '../cpp/bootstrap.sh {}' ::: build_wasm build_wasm_threads
 fi
 
