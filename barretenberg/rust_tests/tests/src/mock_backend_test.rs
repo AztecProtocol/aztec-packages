@@ -1,28 +1,27 @@
 //! Mock backend tests to verify infrastructure without BB binary
 
-#[cfg(test)]
 use barretenberg_rs::{
-    backend::MsgpackBackendSync,
+    backend::{MsgpackBackend, MsgpackBackendSync},
     error::Result,
-    BarretenbergApiSync,
     types::*,
 };
 
-/// Mock backend for testing without BB binary
 #[cfg(test)]
+use barretenberg_rs::BarretenbergApiSync;
+
+/// Mock backend for testing without BB binary
 struct MockBackend {
     #[allow(dead_code)]
     call_count: usize,
 }
 
-#[cfg(test)]
 impl MockBackend {
     fn new() -> Self {
         Self { call_count: 0 }
     }
 }
 
-impl barretenberg_rs::backend::MsgpackBackend for MockBackend {
+impl MsgpackBackend for MockBackend {
     fn call(&mut self, _input_buffer: &[u8]) -> Result<Vec<u8>> {
         self.call_count += 1;
 

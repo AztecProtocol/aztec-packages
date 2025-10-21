@@ -46,6 +46,8 @@ rust_tests/
 
 Communicates with the BB binary via Unix domain sockets using a 4-byte little-endian length prefix protocol.
 
+**File**: `barretenberg-rs/src/backends/unix_socket.rs`
+
 ```rust
 use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApiSync};
 
@@ -56,24 +58,71 @@ let response = api.blake2s(data)?;
 ```
 
 **Features:**
-- Spawns BB process automatically
+- Spawns BB process automatically with socket file
 - Synchronous and asynchronous variants
 - Proper cleanup on drop
-- Timeout handling
+- Timeout handling for connection
+- Requires `.sock` file extension
 
-#### 2. Shared Memory Backend (Placeholder)
+**Usage:**
+```rust
+let backend = UnixSocketBackend::new("path/to/bb", "/tmp/bb.sock", Some(1))?;
+```
+
+#### 2. Pipe Backend (Fully Implemented)
+
+Communicates with the BB binary via stdin/stdout pipes using a 4-byte little-endian length prefix protocol.
+
+**File**: `barretenberg-rs/src/backends/pipe.rs`
+
+**Features:**
+- Spawns BB process with piped stdin/stdout
+- Synchronous and asynchronous variants
+- Direct process communication (no socket file)
+- Automatic cleanup on drop
+- Simpler setup than Unix sockets
+
+**Usage:**
+```rust
+let backend = PipeBackend::new("path/to/bb", Some(1))?;
+```
+
+**When to use:**
+- No socket file creation needed
+- Simpler deployment (no file permissions issues)
+- Single client communication
+- Cross-platform pipe support
+
+#### 3. Shared Memory Backend (Placeholder)
 
 Designed to communicate via shared memory IPC. Requires FFI bindings to the C++ `MsgpackClient`.
 
-**Status:** Architecture defined, requires native implementation
-**Use case:** High-performance synchronous operations
+**File**: `barretenberg-rs/src/backends/shared_memory.rs`
 
-#### 3. WASM Backend (Placeholder)
+**Status:** Architecture defined, requires FFI implementation
+**Use case:** High-performance synchronous operations with multiple concurrent clients
+
+#### 4. WASM Backend (Placeholder)
 
 Designed to interface with Barretenberg compiled to WASM.
 
+**File**: `barretenberg-rs/src/backends/wasm.rs`
+
 **Status:** Architecture defined, requires WASM module integration
 **Use case:** Browser/WASM environments
+
+### Backend Comparison
+
+| Feature | Unix Socket | Pipe | Shared Memory | WASM |
+|---------|-------------|------|---------------|------|
+| Status | ✅ Complete | ✅ Complete | ⚠️ Placeholder | ⚠️ Placeholder |
+| Transport | Socket file | stdin/stdout | Shared mem | WASM imports |
+| Clients | Multiple | Single | Multiple | N/A |
+| Async | ✅ | ✅ | ❌ | ✅ |
+| Sync | ✅ | ✅ | ✅ | ❌ |
+| File Required | Yes (.sock) | No | No | N/A |
+| Performance | Good | Good | Best | N/A |
+| Setup Complexity | Medium | Low | High | High |
 
 ## Usage
 

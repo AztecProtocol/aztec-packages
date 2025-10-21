@@ -17,9 +17,11 @@ pub use error::{BarretenbergError, Result};
 pub mod backends {
     pub mod shared_memory;
     pub mod unix_socket;
+    pub mod pipe;
 
     pub use shared_memory::SharedMemoryBackend;
     pub use unix_socket::UnixSocketBackend;
+    pub use pipe::PipeBackend;
 }
 
 #[cfg(feature = "wasm")]
