@@ -5,6 +5,16 @@ import { mnemonicToSeedSync } from '@scure/bip39';
 
 import { sha512 as sha512Hash } from '../sha512/index.js';
 
+// Re-export BN254 point operations
+export {
+  computeBn254G1PublicKeyCompressed,
+  computeBn254G1PublicKey,
+  computeBn254G2PublicKey,
+  compressBn254G1Point,
+  decompressBn254G1Point,
+  isOnBn254Curve,
+} from './bn254_point.js';
+
 /**
  * Deterministically derive a BN254 BLS private key from mnemonic and derivation path.
  * Returns a 0x-prefixed 32-byte hex string representing an Fr in [1, r-1].

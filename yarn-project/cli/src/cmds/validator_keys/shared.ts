@@ -1,7 +1,10 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
-import { deriveBlsKeyFromEntropy, deriveBlsKeyFromMnemonic } from '@aztec/foundation/crypto';
+import {
+  computeBn254G1PublicKeyCompressed,
+  deriveBlsKeyFromEntropy,
+  deriveBlsKeyFromMnemonic,
+} from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { BLS12Fr, BLS12Point } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import type { EthAccount, EthPrivateKey } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -50,8 +53,13 @@ export function deriveBlsPrivateKey(mnemonic: string | undefined, ikm: string | 
   return deriveBlsKeyFromMnemonic(mnemonic, path);
 }
 
-export function computeBlsPublicKeyCompressed(privateKeyHex: string) {
-  return '0x' + BLS12Point.ONE.mul(BLS12Fr.fromHexString(privateKeyHex)).compress().toString('hex');
+/**
+ * Compute a compressed BN254 G1 public key from a private key.
+ * @param privateKeyHex - Private key as 0x-prefixed hex string
+ * @returns Compressed G1 point (32 bytes with sign bit in MSB)
+ */
+export function computeBlsPublicKeyCompressed(privateKeyHex: string): string {
+  return computeBn254G1PublicKeyCompressed(privateKeyHex);
 }
 
 export function deriveEthAttester(
