@@ -98,6 +98,9 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   private governanceProposerPayload: EthAddress | undefined;
 
+  /** The last slot for which we attempted to vote when sync failed, to prevent duplicate attempts. */
+  private lastSlotForVoteWhenSyncFailed: bigint | undefined;
+
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
   protected timetable!: SequencerTimetable;
   protected enforceTimeTable: boolean = false;
@@ -256,6 +259,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Do not go forward with new block if the previous one has not been mined and processed
     if (!syncedTo) {
+      // If we're past the max time for synchronizing but have slashing actions to vote on, try to vote
+      await this.tryVoteWhenSyncFails();
       return;
     }
 
@@ -308,33 +313,30 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     // Check that we are a proposer for the next slot
     let proposerInNextSlot: EthAddress | undefined;
+    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
+
     try {
-      proposerInNextSlot = await this.epochCache.getProposerAttesterAddressInNextSlot();
+      proposerInNextSlot = await this.checkWeAreProposer();
     } catch (e) {
       if (e instanceof NoCommitteeError) {
         this.log.warn(
           `Cannot propose block ${newBlockNumber} at next L2 slot ${slot} since the committee does not exist on L1`,
         );
         return;
+      } else if (e instanceof Error && e.message === 'NotProposer') {
+        this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
+          us: validatorAddresses,
+          ...syncLogData,
+        });
+        // If the pending chain is invalid, we may need to invalidate the block if no one else is doing it.
+        if (!syncedTo.pendingChainValidationStatus.valid) {
+          // We pass undefined here to get any available publisher.
+          const { publisher } = await this.publisherFactory.create(undefined);
+          await this.considerInvalidatingBlock(syncedTo, slot, validatorAddresses, publisher);
+        }
+        return;
       }
-    }
-
-    // If get proposer in next slot is undefined, then the committee is empty and anyone may propose.
-    // If the committee is defined and not empty, but none of our validators are the proposer, then stop.
-    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
-    if (proposerInNextSlot !== undefined && !validatorAddresses.some(addr => addr.equals(proposerInNextSlot))) {
-      this.log.debug(`Cannot propose block ${newBlockNumber} since we are not a proposer`, {
-        us: validatorAddresses,
-        proposer: proposerInNextSlot,
-        ...syncLogData,
-      });
-      // If the pending chain is invalid, we may need to invalidate the block if no one else is doing it.
-      if (!syncedTo.pendingChainValidationStatus.valid) {
-        // We pass i undefined here to get any available publisher.
-        const { publisher } = await this.publisherFactory.create(undefined);
-        await this.considerInvalidatingBlock(syncedTo, slot, validatorAddresses, publisher);
-      }
-      return;
+      throw e;
     }
 
     // Check with the rollup if we can indeed propose at the next L2 slot. This check should not fail
@@ -397,28 +399,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     );
 
     const { timestamp } = newGlobalVariables;
-    const signerFn = (msg: TypedDataDefinition) =>
-      this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString());
 
-    const enqueueGovernanceSignalPromise =
-      this.governanceProposerPayload && !this.governanceProposerPayload.isZero()
-        ? publisher
-            .enqueueGovernanceCastSignal(this.governanceProposerPayload, slot, timestamp, attestorAddress, signerFn)
-            .catch(err => {
-              this.log.error(`Error enqueuing governance vote`, err, { blockNumber: newBlockNumber, slot });
-              return false;
-            })
-        : Promise.resolve(false);
-
-    const enqueueSlashingActionsPromise = this.slasherClient
-      ? this.slasherClient
-          .getProposerActions(slot)
-          .then(actions => publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn))
-          .catch(err => {
-            this.log.error(`Error enqueuing slashing actions`, err, { blockNumber: newBlockNumber, slot });
-            return false;
-          })
-      : Promise.resolve(false);
+    // Enqueue governance and slashing votes (returns promises that will be awaited later)
+    const votesPromise = this.enqueueGovernanceAndSlashingVotes(publisher, attestorAddress, slot, timestamp, {
+      blockNumber: newBlockNumber,
+    });
+    const enqueueGovernanceSignalPromise = votesPromise.then(([governance]) => governance);
+    const enqueueSlashingActionsPromise = votesPromise.then(([, slashing]) => slashing);
 
     if (invalidateBlock && !this.config.skipInvalidateBlockAsProposer) {
       publisher.enqueueInvalidateBlock(invalidateBlock);
@@ -895,6 +882,169 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     } else {
       const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
       return { blockNumber: INITIAL_L2_BLOCK_NUM - 1, archive, l1Timestamp, pendingChainValidationStatus };
+    }
+  }
+
+  /**
+   * Enqueues governance and slashing votes with the publisher.
+   * @param publisher - The publisher to enqueue votes with
+   * @param attestorAddress - The attestor address to use for signing
+   * @param slot - The slot number
+   * @param timestamp - The timestamp for the votes
+   * @param context - Optional context for logging (e.g., block number)
+   * @returns A tuple of [governanceEnqueued, slashingEnqueued]
+   */
+  protected async enqueueGovernanceAndSlashingVotes(
+    publisher: SequencerPublisher,
+    attestorAddress: EthAddress,
+    slot: bigint,
+    timestamp: bigint,
+    context?: { blockNumber?: number },
+  ): Promise<[boolean, boolean]> {
+    const signerFn = (msg: TypedDataDefinition) =>
+      this.validatorClient!.signWithAddress(attestorAddress, msg).then(s => s.toString());
+
+    const enqueueGovernancePromise =
+      this.governanceProposerPayload && !this.governanceProposerPayload.isZero()
+        ? publisher
+            .enqueueGovernanceCastSignal(this.governanceProposerPayload, slot, timestamp, attestorAddress, signerFn)
+            .catch(err => {
+              this.log.error(`Error enqueuing governance vote`, err, { ...context, slot });
+              return false;
+            })
+        : Promise.resolve(false);
+
+    const enqueueSlashingPromise = this.slasherClient
+      ? this.slasherClient
+          .getProposerActions(slot)
+          .then(actions => {
+            if (actions.length === 0) {
+              return false;
+            }
+            return publisher.enqueueSlashingActions(actions, slot, timestamp, attestorAddress, signerFn);
+          })
+          .catch(err => {
+            this.log.error(`Error enqueuing slashing actions`, err, { ...context, slot });
+            return false;
+          })
+      : Promise.resolve(false);
+
+    return await Promise.all([enqueueGovernancePromise, enqueueSlashingPromise]);
+  }
+
+  /**
+   * Checks if we are the proposer for the next slot.
+   * @returns The proposer address if we are the proposer, undefined if the committee is empty (anyone can propose),
+   *          or throws NoCommitteeError if the committee doesn't exist on L1.
+   * @throws {NoCommitteeError} if the committee does not exist on L1
+   */
+  protected async checkWeAreProposer(): Promise<EthAddress | undefined> {
+    let proposerInNextSlot: EthAddress | undefined;
+    try {
+      proposerInNextSlot = await this.epochCache.getProposerAttesterAddressInNextSlot();
+    } catch (e) {
+      if (e instanceof NoCommitteeError) {
+        // Rethrow NoCommitteeError so caller can handle it
+        throw e;
+      }
+      this.log.debug(`Could not get proposer for next slot`, { error: e });
+      throw e;
+    }
+
+    // If proposer is undefined, then the committee is empty and anyone may propose
+    if (proposerInNextSlot === undefined) {
+      return undefined;
+    }
+
+    const validatorAddresses = this.validatorClient!.getValidatorAddresses();
+    const weAreProposer = validatorAddresses.some(addr => addr.equals(proposerInNextSlot));
+
+    if (!weAreProposer) {
+      this.log.debug(`We are not a proposer in next slot`, {
+        us: validatorAddresses,
+        proposer: proposerInNextSlot,
+      });
+      // Return a special marker to indicate we checked but are not the proposer
+      // Caller should check for this and handle appropriately
+      throw new Error('NotProposer');
+    }
+
+    return proposerInNextSlot;
+  }
+
+  /**
+   * Tries to vote on slashing actions and governance when the sync check fails but we're past the max time for initializing a proposal.
+   * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
+   */
+  protected async tryVoteWhenSyncFails(): Promise<void> {
+    // Check if we're past the max time for initializing a proposal
+    const { slot, ts } = this.epochCache.getEpochAndSlotInNextL1Slot();
+
+    // Prevent duplicate attempts in the same slot
+    if (this.lastSlotForVoteWhenSyncFailed === slot) {
+      this.log.debug(`Already attempted to vote in slot ${slot}, skipping`);
+      return;
+    }
+
+    const secondsIntoSlot = this.getSecondsIntoSlot(slot);
+    const maxAllowedTime = this.timetable.getMaxAllowedTime(SequencerState.INITIALIZING_PROPOSAL);
+
+    // If we haven't exceeded the time limit for initializing a proposal, don't proceed with voting
+    // We use INITIALIZING_PROPOSAL time limit because if we're past that, we can't build a block anyway
+    if (maxAllowedTime === undefined || secondsIntoSlot <= maxAllowedTime) {
+      this.log.debug(`Not attempting to vote when sync fails: still within time limit for block building`, {
+        secondsIntoSlot,
+        maxAllowedTime,
+      });
+      return;
+    }
+
+    this.log.debug(`Sync check failed but past max time for synchronizing, checking for voting opportunities`, {
+      secondsIntoSlot,
+      maxAllowedTime,
+      slot,
+    });
+
+    // Check if we're a proposer (or if there's no proposer yet)
+    let proposerInNextSlot: EthAddress | undefined;
+    try {
+      proposerInNextSlot = await this.checkWeAreProposer();
+    } catch (e) {
+      // If we're not the proposer or there's no committee, we can't vote
+      this.log.debug(`Cannot vote when sync fails: not a proposer or no committee`, { error: e, slot });
+      return;
+    }
+
+    // Mark this slot as attempted
+    this.lastSlotForVoteWhenSyncFailed = slot;
+
+    // Get a publisher for voting
+    const { attestorAddress, publisher } = await this.publisherFactory.create(proposerInNextSlot);
+
+    this.log.verbose(`Attempting to vote despite sync failure`, {
+      attestorAddress,
+      slot,
+      secondsIntoSlot,
+    });
+
+    // Enqueue governance and slashing votes using the shared helper method
+    const [governanceEnqueued, slashingEnqueued] = await this.enqueueGovernanceAndSlashingVotes(
+      publisher,
+      attestorAddress,
+      slot,
+      ts,
+    );
+
+    if (governanceEnqueued || slashingEnqueued) {
+      this.log.info(`Enqueued votes despite sync failure`, {
+        slot,
+        governance: governanceEnqueued,
+        slashing: slashingEnqueued,
+      });
+      // Send the requests
+      await publisher.sendRequests();
+    } else {
+      this.log.debug(`No votes to enqueue`, { slot });
     }
   }
 

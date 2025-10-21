@@ -636,6 +636,219 @@ describe('sequencer', () => {
       }
     });
   });
+
+  describe('voting when sync fails', () => {
+    it('should vote on slashing and governance when sync fails and past initialize deadline', async () => {
+      // Mock that sync fails (getChainTip returns undefined)
+      // We need different hashes to make the sync check fail
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash, // Different hash causes sync check to fail
+        } as WorldStateSyncStatus,
+      });
+
+      // Set time to be past the initializeDeadline (which is 1s based on test config)
+      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
+      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2 seconds after build start, past the 1s deadline
+
+      // Mock slashing actions
+      const mockActions = [
+        {
+          type: 'vote-offenses' as const,
+          round: 1n,
+          votes: [],
+          committees: [],
+        },
+      ];
+      slasherClient.getProposerActions.mockResolvedValue(mockActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValue(signer.address);
+
+      // Mock governance payload
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+
+      // Mock publisher methods to return true
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.doRealWork();
+
+      // We're testing the new behavior - that we try to vote even when sync fails
+      // when we're past the time we could build a block
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(1n);
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
+        governancePayload,
+        1n,
+        1000n,
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should not vote when sync fails and within time limit', async () => {
+      // Mock that sync fails (getChainTip returns undefined)
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash, // Different hash causes sync check to fail
+        } as WorldStateSyncStatus,
+      });
+
+      // Set time to be within the max allowed time
+      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
+      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
+      // initializeDeadline is 1s, so we need to be less than 1s after the build start
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 0.5) * 1000); // 0.5s after build start, within 1s deadline
+
+      // Mock slashing actions
+      const mockActions = [
+        {
+          type: 'vote-offenses' as const,
+          round: 1n,
+          votes: [],
+          committees: [],
+        },
+      ];
+      slasherClient.getProposerActions.mockResolvedValue(mockActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValue(signer.address);
+
+      await sequencer.doRealWork();
+
+      // Should not attempt to enqueue slashing actions when within time limit
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+    });
+
+    it('should not vote when sync fails but not a proposer', async () => {
+      // Mock that sync fails
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash,
+        } as WorldStateSyncStatus,
+      });
+
+      // Set time to be past the max allowed time
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+
+      // Mock slashing actions
+      const mockActions = [
+        {
+          type: 'vote-offenses' as const,
+          round: 1n,
+          votes: [],
+          committees: [],
+        },
+      ];
+      slasherClient.getProposerActions.mockResolvedValue(mockActions);
+
+      // Set us as NOT the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([EthAddress.random()]);
+      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValue(signer.address); // Different address
+
+      await sequencer.doRealWork();
+
+      // Should not vote when not a proposer
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+    });
+
+    it('should not vote when sync fails but no slashing actions', async () => {
+      // Mock that sync fails
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash,
+        } as WorldStateSyncStatus,
+      });
+
+      // Set time to be past the max allowed time
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+
+      // No slashing actions
+      slasherClient.getProposerActions.mockResolvedValue([]);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValue(signer.address);
+
+      await sequencer.doRealWork();
+
+      // Should not vote when there are no slashing actions
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+    });
+
+    it('should not attempt to vote twice in the same slot', async () => {
+      // Mock that sync fails
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash,
+        } as WorldStateSyncStatus,
+      });
+
+      // Set time to be past the max allowed time
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+
+      // Mock slashing actions
+      const mockActions = [
+        {
+          type: 'vote-offenses' as const,
+          round: 1n,
+          votes: [],
+          committees: [],
+        },
+      ];
+      slasherClient.getProposerActions.mockResolvedValue(mockActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValue(signer.address);
+
+      // Mock publisher methods
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+      // First attempt should succeed
+      await sequencer.doRealWork();
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+
+      // Reset mocks
+      publisher.enqueueSlashingActions.mockClear();
+      publisher.sendRequests.mockClear();
+      slasherClient.getProposerActions.mockClear();
+
+      // Second attempt in the same slot should be skipped
+      await sequencer.doRealWork();
+      expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
+    });
+  });
 });
 
 class TestSubject extends Sequencer {
