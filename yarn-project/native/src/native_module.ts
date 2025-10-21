@@ -31,7 +31,48 @@ function loadNativeModule(): Record<string, NativeClassCtor> {
   }
 }
 
-const nativeModule: Record<string, NativeClassCtor> = loadNativeModule();
+const nativeModule: Record<string, NativeClassCtor | Function> = loadNativeModule();
 
-export const NativeWorldState: NativeClassCtor = nativeModule.WorldState;
-export const NativeLMDBStore: NativeClassCtor = nativeModule.LMDBStore;
+export const NativeWorldState: NativeClassCtor = nativeModule.WorldState as NativeClassCtor;
+export const NativeLMDBStore: NativeClassCtor = nativeModule.LMDBStore as NativeClassCtor;
+
+/**
+ * Contract provider interface for callbacks to fetch contract data.
+ * These callbacks are invoked by C++ during simulation when contract data is needed.
+ */
+export interface ContractProvider {
+  /**
+   * Fetch a contract instance by address.
+   * @param address - The contract address as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized ContractInstanceHint buffer, or undefined if not found
+   */
+  getContractInstance(address: string): Promise<Buffer | undefined>;
+
+  /**
+   * Fetch a contract class by class ID.
+   * @param classId - The contract class ID as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized ContractClassHint buffer, or undefined if not found
+   */
+  getContractClass(classId: string): Promise<Buffer | undefined>;
+}
+
+/**
+ * AVM simulation function that takes serialized inputs and a contract provider.
+ * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
+ * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
+ * @param contractProvider - Object with callbacks for fetching contract instances and classes
+ * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
+ */
+export const avmSimulate: (inputs: Buffer, contractProvider: ContractProvider) => Promise<Buffer> =
+  nativeModule.avmSimulate as (inputs: Buffer, contractProvider: ContractProvider) => Promise<Buffer>;
+
+/**
+ * AVM simulation function that uses pre-collected hints from TypeScript simulation.
+ * All contract data and merkle tree hints are included in the AvmCircuitInputs, so no runtime
+ * callbacks to TypeScript are needed.
+ * @param inputs - Msgpack-serialized AvmCircuitInputs (AvmProvingInputs in C++) buffer
+ * @returns Promise resolving to msgpack-serialized simulation results buffer
+ */
+export const avmSimulateWithHintedDbs: (inputs: Buffer) => Promise<Buffer> = nativeModule.avmSimulateWithHintedDbs as (
+  inputs: Buffer,
+) => Promise<Buffer>;

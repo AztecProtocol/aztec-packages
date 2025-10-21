@@ -82,6 +82,30 @@ struct PublicKeys {
     bool operator==(const PublicKeys& other) const = default;
 };
 
+struct PublicKeysFromTs {
+    AffinePoint masterNullifierPublicKey;
+    AffinePoint masterIncomingViewingPublicKey;
+    AffinePoint masterOutgoingViewingPublicKey;
+    AffinePoint masterTaggingPublicKey;
+
+    bool operator==(const PublicKeysFromTs& other) const = default;
+
+    MSGPACK_FIELDS(masterNullifierPublicKey,
+                   masterIncomingViewingPublicKey,
+                   masterOutgoingViewingPublicKey,
+                   masterTaggingPublicKey);
+
+    PublicKeys to_public_keys() const
+    {
+        return {
+            .nullifier_key = masterNullifierPublicKey,
+            .incoming_viewing_key = masterIncomingViewingPublicKey,
+            .outgoing_viewing_key = masterOutgoingViewingPublicKey,
+            .tagging_key = masterTaggingPublicKey,
+        };
+    }
+};
+
 struct ContractInstance {
     FF salt;
     AztecAddress deployer_addr;
@@ -93,11 +117,59 @@ struct ContractInstance {
     bool operator==(const ContractInstance& other) const = default;
 };
 
+struct ContractInstanceFromTs {
+    FF salt;
+    AztecAddress deployer;
+    ContractClassId currentClassId;
+    ContractClassId originalClassId;
+    FF initializationHash;
+    PublicKeysFromTs publicKeys;
+
+    bool operator==(const ContractInstanceFromTs& other) const = default;
+
+    MSGPACK_FIELDS(salt, deployer, currentClassId, originalClassId, initializationHash, publicKeys);
+
+    ContractInstance to_contract_instance() const
+    {
+        return {
+            .salt = salt,
+            .deployer_addr = deployer,
+            .current_class_id = currentClassId,
+            .original_class_id = originalClassId,
+            .initialisation_hash = initializationHash,
+            .public_keys = publicKeys.to_public_keys(),
+        };
+    }
+};
+
 struct ContractClass {
     FF artifact_hash;
     FF private_function_root;
     FF public_bytecode_commitment;
     std::vector<uint8_t> packed_bytecode;
+
+    bool operator==(const ContractClass& other) const = default;
+};
+
+struct ContractClassFromTs {
+    FF artifactHash;
+    FF privateFunctionsRoot;
+    FF publicBytecodeCommitment;
+    std::vector<uint8_t> packedBytecode;
+
+    bool operator==(const ContractClassFromTs& other) const = default;
+
+    MSGPACK_FIELDS(artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode);
+
+    ContractClass to_contract_class() const
+    {
+        return {
+            .artifact_hash = artifactHash,
+            .private_function_root = privateFunctionsRoot,
+            .public_bytecode_commitment = publicBytecodeCommitment,
+            .packed_bytecode = packedBytecode,
+        };
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////////
