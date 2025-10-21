@@ -7,6 +7,17 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
+void AvmAPI::simulate(const FastSimulationInputs& inputs,
+                      simulation::ContractDBInterface& contract_db,
+                      world_state::WorldState& ws)
+{
+    info("Simulating...");
+    AvmSimulationHelper simulation_helper;
+    AVM_TRACK_TIME("simulation/all",
+                   simulation_helper.simulate_fast_with_existing_ws(
+                       contract_db, inputs.wsRevision, ws, inputs.tx, inputs.globalVariables, inputs.protocolContracts));
+}
+
 void AvmAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
 {
     info("Simulating...");

@@ -14,6 +14,7 @@ class AvmAPI {
     using AvmProof = AvmProvingHelper::Proof;
     using AvmVerificationKey = std::vector<uint8_t>;
     using ProvingInputs = AvmProvingInputs;
+    using FastSimulationInputs = AvmFastSimulationInputs;
 
     AvmAPI() = default;
 
@@ -21,6 +22,10 @@ class AvmAPI {
     std::pair<AvmProof, AvmVerificationKey> prove(const ProvingInputs& inputs);
     bool check_circuit(const ProvingInputs& inputs);
     bool verify(const AvmProof& proof, const PublicInputs& pi, const AvmVerificationKey& vk_data);
+
+    void simulate(const FastSimulationInputs& inputs,
+                  simulation::ContractDBInterface& contract_db,
+                  world_state::WorldState& ws);
 
     void simulate_with_hinted_dbs(const ProvingInputs& inputs);
 };
