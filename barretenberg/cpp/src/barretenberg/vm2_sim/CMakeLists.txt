@@ -6,12 +6,13 @@
 file(GLOB_RECURSE SOURCE_FILES
   ../vm2/simulation/*.cpp
   ../vm2/common/*.cpp
+  ../vm2/tooling/*.cpp
 )
 
 # Add top-level vm2 files needed for simulation
 list(APPEND SOURCE_FILES
   ../vm2/simulation_helper.cpp
-  ../vm2/avm_api.cpp
+  ../vm2/avm_api_sim.cpp
 )
 
 # Exclude test, bench, and fuzzer files
@@ -21,6 +22,7 @@ list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 file(GLOB_RECURSE HEADER_FILES
   ../vm2/simulation/*.hpp
   ../vm2/common/*.hpp
+  ../vm2/tooling/*.hpp
   ../vm2/simulation_helper.hpp
   ../vm2/avm_api.hpp
 )
