@@ -42,6 +42,10 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.initialHeader;
   }
 
+  getRevision(): WorldStateRevision {
+    return this.revision;
+  }
+
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
     return this.findLeafIndicesAfter(treeId, values, 0n);
   }
