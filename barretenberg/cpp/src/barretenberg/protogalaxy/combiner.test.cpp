@@ -308,7 +308,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
 TEST(Protogalaxy, CombinerOptimizationConsistency)
 {
     using ProverInstance = ProverInstance_<Flavor>;
-    using UltraArithmeticRelation = UltraArithmeticRelation<FF>;
+    using ArithmeticRelation = ArithmeticRelation<FF>;
 
     constexpr size_t UNIVARIATE_LENGTH = 12;
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
@@ -354,10 +354,10 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
 
             // Accumulate arithmetic relation over 2 rows on the second key
             for (size_t i = 0; i < 2; i++) {
-                UltraArithmeticRelation::accumulate(std::get<0>(temporary_accumulator),
-                                                    keys[bb::NUM_INSTANCES - 1]->polynomials.get_row(i),
-                                                    relation_parameters,
-                                                    gate_separators[i]);
+                ArithmeticRelation::accumulate(std::get<0>(temporary_accumulator),
+                                               keys[bb::NUM_INSTANCES - 1]->polynomials.get_row(i),
+                                               relation_parameters,
+                                               gate_separators[i]);
             }
             // Get the result of the 0th subrelation of the arithmetic relation
             FF key_offset = std::get<0>(temporary_accumulator)[0];
@@ -389,17 +389,17 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 TupleOfArraysOfValues accumulator{};
                 if (idx < bb::NUM_INSTANCES) {
                     for (size_t i = 0; i < 2; i++) {
-                        UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
-                                                            keys[idx]->polynomials.get_row(i),
-                                                            relation_parameters,
-                                                            gate_separators[i]);
+                        ArithmeticRelation::accumulate(std::get<0>(accumulator),
+                                                       keys[idx]->polynomials.get_row(i),
+                                                       relation_parameters,
+                                                       gate_separators[i]);
                     }
                 } else {
                     for (size_t i = 0; i < 2; i++) {
-                        UltraArithmeticRelation::accumulate(std::get<0>(accumulator),
-                                                            extended_polynomials[idx - bb::NUM_INSTANCES].get_row(i),
-                                                            relation_parameters,
-                                                            gate_separators[i]);
+                        ArithmeticRelation::accumulate(std::get<0>(accumulator),
+                                                       extended_polynomials[idx - bb::NUM_INSTANCES].get_row(i),
+                                                       relation_parameters,
+                                                       gate_separators[i]);
                     }
                 }
                 precomputed_result[idx] = std::get<0>(accumulator)[0];

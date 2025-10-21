@@ -108,10 +108,10 @@ class UltraRelationConsistency : public testing::Test {
     };
 };
 
-TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
+TEST_F(UltraRelationConsistency, ArithmeticRelation)
 {
     const auto run_test = [](bool random_inputs, const FF& q_arith_value = FF::random_element()) {
-        using Relation = UltraArithmeticRelation<FF>;
+        using Relation = ArithmeticRelation<FF>;
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
@@ -140,14 +140,14 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
         if (q_arith == FF(1)) {
             // Contribution 1
             contribution_1 = (q_m * w_2 * w_1) + (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
-            // Contribution 2: None
 
+            // Contribution 2: None
         } else if (q_arith == FF(2)) {
             // Contribution 1
             contribution_1 = (q_m * w_2 * w_1);
             contribution_1 += ((q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + w_4_shift + q_c) * FF(2);
-            // Contribution 2: None
 
+            // Contribution 2: None
         } else if (q_arith == FF(3)) {
             // Contribution 1
             contribution_1 = (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c;
@@ -156,7 +156,6 @@ TEST_F(UltraRelationConsistency, UltraArithmeticRelation)
 
             // Contribution 2
             contribution_2 = (w_1 + w_4 - w_1_shift + q_m) * FF(6);
-
         } else {
             // Contribution 1
             contribution_1 = (q_arith - 3) * (q_m * w_2 * w_1) * neg_half;
