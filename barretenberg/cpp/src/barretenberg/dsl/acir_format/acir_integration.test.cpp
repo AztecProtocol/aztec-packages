@@ -51,7 +51,7 @@ class AcirIntegrationTest : public ::testing::Test {
         Prover prover{ prover_instance, verification_key };
 #ifdef LOG_SIZES
         builder.blocks.summarize();
-        info("num gates          = ", builder.get_estimated_num_finalized_gates());
+        info("num gates          = ", builder.get_num_finalized_gates_inefficient());
         info("total circuit size = ", builder.get_estimated_total_circuit_size());
         info("circuit size       = ", prover.prover_instance->dyadic_size());
         info("log circuit size   = ", prover.prover_instance->log_dyadic_size());

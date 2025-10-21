@@ -355,6 +355,21 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     }
 
     /**
+     * @brief Get the number of gates in the finalized version of the circuit.
+     * @warning This method makes a copy then finalizes it and returns the
+     * number of gates. It is therefore inefficient and should only be used in testing/debugging scenarios.
+     *
+     * @param ensure_nonzero Whether or not to add gates to ensure all polynomials are non-zero during finalization.
+     * @return size_t
+     */
+    size_t get_num_finalized_gates_inefficient(bool ensure_nonzero = true) const
+    {
+        UltraCircuitBuilder_ builder_copy = *this;
+        builder_copy.finalize_circuit(ensure_nonzero);
+        return builder_copy.get_num_finalized_gates();
+    }
+
+    /**
      * @brief Get combined size of all tables used in circuit
      *
      */

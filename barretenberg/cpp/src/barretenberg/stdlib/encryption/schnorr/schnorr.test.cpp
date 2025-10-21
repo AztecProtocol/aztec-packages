@@ -48,7 +48,7 @@ TEST(stdlib_schnorr, schnorr_verify_signature)
         byte_array_ct message(&builder, message_string);
         schnorr_verify_signature(message, pub_key, sig);
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -90,7 +90,7 @@ TEST(stdlib_schnorr, verify_signature_failure)
     byte_array_ct message(&builder, message_string);
     schnorr_verify_signature(message, pub_key2_ct, sig);
 
-    info("num gates = ", builder.get_estimated_num_finalized_gates());
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
     bool verification_result = CircuitChecker::check(builder);
     EXPECT_EQ(verification_result, false);
@@ -125,7 +125,7 @@ TEST(stdlib_schnorr, schnorr_signature_verification_result)
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key, sig);
     EXPECT_EQ(signature_result.get_value(), true);
 
-    info("num gates = ", builder.get_estimated_num_finalized_gates());
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -168,7 +168,7 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key2_ct, sig);
     EXPECT_EQ(signature_result.get_value(), false);
 
-    info("num gates = ", builder.get_estimated_num_finalized_gates());
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
     bool verification_result = CircuitChecker::check(builder);
     EXPECT_EQ(verification_result, true);

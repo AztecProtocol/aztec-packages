@@ -26,7 +26,9 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
     // Ensure the circuit is filled but finalisation doesn't make the circuit size go to the next power of two
     size_t target_gate_count = (1UL << log2_num_gates);
     const size_t GATE_COUNT_BUFFER = 1000; // Since we're using an estimate, let's add an error term in case.
-    size_t passes = (target_gate_count - builder.get_estimated_num_finalized_gates() - GATE_COUNT_BUFFER) / 4;
+    size_t passes = (target_gate_count - builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false) -
+                     GATE_COUNT_BUFFER) /
+                    4;
     if (static_cast<int>(passes) <= 0) {
         throw_or_abort("We don't support low values of log2_num_gates.");
     }
@@ -38,7 +40,7 @@ template <typename Builder> void generate_basic_arithmetic_circuit(Builder& buil
         b = c * c;
     }
 
-    size_t est_gate_count = builder.get_estimated_num_finalized_gates();
+    size_t est_gate_count = builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
     BB_ASSERT_LTE(est_gate_count,
                   (1UL << log2_num_gates) - GATE_COUNT_BUFFER,
                   "Check that the finalized gate count won't exceed the desired gate count.");

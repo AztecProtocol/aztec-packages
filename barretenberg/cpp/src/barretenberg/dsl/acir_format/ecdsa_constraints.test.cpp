@@ -153,7 +153,7 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
     {
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+        info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
         auto prover_instance = std::make_shared<ProvingKey>(builder);
         vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
@@ -194,7 +194,7 @@ TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+        info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
         // Validate the builder
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -205,7 +205,7 @@ TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+        info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
         // Validate the builder
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -216,7 +216,7 @@ TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+        info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
         // Validate the builder
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -227,7 +227,7 @@ TYPED_TEST(EcdsaConstraintsTest, EcdsaPredicate)
         AcirProgram program{ constraint_system, witness_values };
         auto builder = create_circuit<Builder>(program);
 
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+        info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
         EXPECT_TRUE(builder.failed());
     }

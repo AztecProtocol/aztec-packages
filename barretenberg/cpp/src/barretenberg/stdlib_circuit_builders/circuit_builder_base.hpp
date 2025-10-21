@@ -84,8 +84,6 @@ template <typename FF_> class CircuitBuilderBase {
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
-    virtual size_t get_estimated_num_finalized_gates() const;
-    virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
 
     // Non-owning getter for the index at which a fixed witness 0 is stored
