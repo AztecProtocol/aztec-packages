@@ -16,8 +16,10 @@ import {
   getFunctionSelector,
 } from '../avm/fixtures/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
+import { MeasuredCppPublicTxSimulatorHintedDbs } from '../public_tx_simulator/cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
+import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
 import { type TestPrivateInsertions, createTxForPublicCalls } from './utils.js';
@@ -40,7 +42,7 @@ export type TestEnqueuedCall = {
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   protected txCount: number = 0;
-  private simulator: MeasuredPublicTxSimulator;
+  private simulator: MeasuredPublicTxSimulatorInterface;
   private metricsPrefix?: string;
 
   constructor(
@@ -48,25 +50,30 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables = defaultGlobals(),
     private metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    useCppSimulator: boolean = false,
   ) {
     super(contractDataSource, merkleTree);
 
     const contractsDB = new PublicContractsDB(contractDataSource);
-    this.simulator = new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, {
+    const config = {
       doMerkleOperations: true,
       skipFeeEnforcement: false,
       clientInitiatedSimulation: true,
-    });
+    };
+    this.simulator = useCppSimulator
+      ? new MeasuredCppPublicTxSimulatorHintedDbs(merkleTree, contractsDB, globals, this.metrics, config)
+      : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
   }
 
   public static async create(
     worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
     metrics: TestExecutorMetrics = new TestExecutorMetrics(),
+    useCppSimulator = false,
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics);
+    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, useCppSimulator);
   }
 
   public setMetricsPrefix(prefix: string) {

@@ -19,16 +19,3 @@ export class WorldStateRevision {
     });
   }
 }
-
-// TODO(dbanks12): consider moving back to world-state module
-export function worldStateRevision(
-  includeUncommitted: boolean,
-  forkId: number | undefined,
-  blockNumber: number | undefined,
-): WorldStateRevision {
-  return {
-    forkId: forkId ?? 0,
-    blockNumber: blockNumber ?? 0,
-    includeUncommitted,
-  };
-}

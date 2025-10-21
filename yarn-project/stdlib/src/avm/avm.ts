@@ -1,7 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
-import { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import { z } from 'zod';
 
@@ -638,35 +637,5 @@ export class AvmCircuitInputs {
   }
   static fromBuffer(buf: Buffer) {
     return jsonParseWithSchema(buf.toString(), this.schema);
-  }
-}
-
-export class AvmFastSimulationInputs {
-  constructor(
-    public readonly hints: AvmExecutionHints,
-    public publicInputs: AvmCircuitPublicInputs,
-    public wsRevision: WorldStateRevision,
-  ) {}
-
-  static empty() {
-    return new AvmFastSimulationInputs(
-      AvmExecutionHints.empty(),
-      AvmCircuitPublicInputs.empty(),
-      WorldStateRevision.empty(),
-    );
-  }
-
-  static get schema() {
-    return z
-      .object({
-        hints: AvmExecutionHints.schema,
-        publicInputs: AvmCircuitPublicInputs.schema,
-        wsRevision: WorldStateRevision.schema,
-      })
-      .transform(({ hints, publicInputs, wsRevision }) => new AvmFastSimulationInputs(hints, publicInputs, wsRevision));
-  }
-
-  public serializeWithMessagePack(): Buffer {
-    return serializeWithMessagePack(this);
   }
 }
