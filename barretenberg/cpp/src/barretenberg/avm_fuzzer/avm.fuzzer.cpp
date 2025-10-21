@@ -15,7 +15,6 @@ using FuzzInstruction = ::FuzzInstruction;
 
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
-    // TODO(defkit) init
     std::string simulator_path =
         "/home/defkit/aztec-packages/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.cjs";
     JsSimulator::initialize(simulator_path);
@@ -30,7 +29,6 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
     } catch (const std::exception& e) {
         deserialized_data = FuzzerData();
     }
-    // std::cout << "Deserialized data: " << deserialized_data << std::endl;
     auto res = fuzz(deserialized_data);
 
     return res;
@@ -53,7 +51,6 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
     mutate_fuzzer_data(deserialized_data, rng);
     auto [mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size] =
         msgpack_encode_buffer(deserialized_data);
-    // std::cout << "Mutated serialized fuzzer data: " << deserialized_data << std::endl;
     if (mutated_serialized_fuzzer_data_size > max_size) {
         //???
         return 0;
