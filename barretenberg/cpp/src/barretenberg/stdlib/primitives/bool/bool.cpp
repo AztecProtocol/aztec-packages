@@ -526,7 +526,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
     bb::fr q_o = bb::fr::neg_one();
     bb::fr q_m = bb::fr::zero();
     bb::fr q_r = bb::fr::zero();
-    context->create_poly_gate({ witness_index, witness_index, new_witness, q_m, q_l, q_r, q_o, q_c });
+    context->create_poly_gate({ witness_index, context->zero_idx(), new_witness, q_m, q_l, q_r, q_o, q_c });
 
     witness_index = new_witness;
     witness_bool = value;
