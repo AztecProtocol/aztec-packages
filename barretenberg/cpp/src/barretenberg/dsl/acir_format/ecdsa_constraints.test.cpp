@@ -81,12 +81,12 @@ template <class Curve> class EcdsaTestingFunctions {
             break;
         case WitnessOverride::Case::HighS:
             for (size_t idx = 32; idx < 64; idx++) {
-                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(15);
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(255);
             };
             break;
         case WitnessOverride::Case::HashedMessage:
             for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(15);
+                witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(255);
             };
             break;
         case WitnessOverride::Case::P:
@@ -115,12 +115,12 @@ template <class Curve> class EcdsaTestingFunctions {
             witness_values[ecdsa_constraints.result] = bb::fr(0);
         case (Tampering::Mode::NonUniquePubKeyX): {
             for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.pub_x_indices[idx]] = bb::fr(15);
+                witness_values[ecdsa_constraints.pub_x_indices[idx]] = bb::fr(255);
             }
         }
         case (Tampering::Mode::NonUniquePubKeyY): {
             for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.pub_y_indices[idx]] = bb::fr(15);
+                witness_values[ecdsa_constraints.pub_y_indices[idx]] = bb::fr(255);
             }
         }
         }
@@ -227,6 +227,15 @@ TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false(TestFixture::TamperingMode::TamperSignature);
+}
+
+TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
+{
+    // This test is equal to WitnessFalse but also checks that each configuration would have failed if the
+    // predicate were witness true. It can be useful for debugging.
+    GTEST_SKIP();
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::TamperSignature);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, Tampering)
