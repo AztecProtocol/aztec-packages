@@ -9,6 +9,7 @@ barretenberg-rs = { path = "../barretenberg-rs", features = ["native", "async"] 
 
 # Serialization
 serde.workspace = true
+rmp-serde.workspace = true
 
 # Testing and benchmarking
 criterion.workspace = true

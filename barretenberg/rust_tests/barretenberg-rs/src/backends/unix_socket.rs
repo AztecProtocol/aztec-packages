@@ -3,7 +3,7 @@
 //! This backend communicates with the BB binary via Unix domain sockets,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendAsync};
+use crate::backend::{MsgpackBackend, MsgpackBackendSync, MsgpackBackendAsync};
 use crate::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
@@ -141,6 +141,8 @@ impl MsgpackBackend for UnixSocketBackend {
         Ok(())
     }
 }
+
+impl MsgpackBackendSync for UnixSocketBackend {}
 
 impl Drop for UnixSocketBackend {
     fn drop(&mut self) {
