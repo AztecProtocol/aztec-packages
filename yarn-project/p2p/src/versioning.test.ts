@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ChainConfig } from '@aztec/stdlib/config';
 
-import type { SignableENR } from '@chainsafe/enr';
+import type { SignableENR } from '@nethermindeth/enr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AZTEC_ENR_KEY } from './types/index.js';

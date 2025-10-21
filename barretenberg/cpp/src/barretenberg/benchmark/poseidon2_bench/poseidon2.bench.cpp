@@ -20,7 +20,7 @@ void native_poseidon2_commitment_bench(State& state) noexcept
 {
     for (auto _ : state) {
         const size_t count = (static_cast<size_t>(state.range(0)));
-        (poseidon_function(count));
+        DoNotOptimize(poseidon_function(count));
     }
 }
 BENCHMARK(native_poseidon2_commitment_bench)->Arg(10)->Arg(1000)->Arg(10000);

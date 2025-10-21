@@ -11,6 +11,8 @@ elif [[ "$REF_NAME" == "merge-train/avm" ]]; then
   channel="#team-bonobos"
 elif [[ "$REF_NAME" == "merge-train/docs" ]]; then
   channel="#dev-rels"
+elif [[ "$REF_NAME" == "merge-train/spartan" ]]; then
+  channel="#team-alpha"
 else
   exit 0
 fi

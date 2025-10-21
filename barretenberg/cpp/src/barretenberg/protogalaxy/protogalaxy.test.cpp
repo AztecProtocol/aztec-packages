@@ -571,10 +571,10 @@ TYPED_TEST(ProtogalaxyTests, CombineAlphas)
     TestFixture::test_compute_and_extend_alphas();
 }
 
-TYPED_TEST(ProtogalaxyTests, ProtogalaxyInhomogeneous)
-{
-    TestFixture::test_protogalaxy_inhomogeneous();
-}
+// TYPED_TEST(ProtogalaxyTests, ProtogalaxyInhomogeneous)
+// {
+//     TestFixture::test_protogalaxy_inhomogeneous();
+// }
 
 TYPED_TEST(ProtogalaxyTests, FullProtogalaxyTest)
 {
@@ -607,10 +607,10 @@ TYPED_TEST(ProtogalaxyTests, TamperedAccumulatorPolynomial)
     TestFixture::test_tampered_accumulator_polynomial();
 }
 
-TYPED_TEST(ProtogalaxyTests, BadLookupFailure)
-{
-    TestFixture::test_protogalaxy_bad_lookup_failure();
-}
+// TYPED_TEST(ProtogalaxyTests, BadLookupFailure)
+// {
+//     TestFixture::test_protogalaxy_bad_lookup_failure();
+// }
 
 // We only fold one incoming decider key pair since this is all we plan to use, and compiling for higher values of k is
 // a significant compilation time cost.

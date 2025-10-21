@@ -29,9 +29,6 @@ static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
-// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;
-
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
 // The number of last rows in ProverPolynomials that are randomized to mask

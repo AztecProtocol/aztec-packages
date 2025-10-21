@@ -58,17 +58,48 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
       return { txs, requested, duration };
     }
 
+    // Validate tx hashes for all collected txs from external sources
+    const validTxs: Tx[] = [];
+    const invalidTxHashes: string[] = [];
+    await Promise.all(
+      txs.map(async tx => {
+        const isValid = await tx.validateTxHash();
+        if (isValid) {
+          validTxs.push(tx);
+        } else {
+          invalidTxHashes.push(tx.getTxHash().toString());
+        }
+      }),
+    );
+
+    if (invalidTxHashes.length > 0) {
+      this.log.warn(`Rejecting ${invalidTxHashes.length} txs with invalid hashes from ${info.description}`, {
+        ...info,
+        invalidTxHashes,
+      });
+    }
+
+    if (validTxs.length === 0) {
+      this.log.trace(`No valid txs found via ${info.description} after validation`, {
+        ...info,
+        requestedTxs: requested.map(t => t.toString()),
+        invalidTxHashes,
+      });
+      return { txs: [], requested, duration };
+    }
+
     this.log.verbose(
-      `Collected ${txs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
+      `Collected ${validTxs.length} txs out of ${requested.length} requested via ${info.description} in ${duration}ms`,
       {
         ...info,
         duration,
-        txs: txs.map(t => t.getTxHash().toString()),
+        txs: validTxs.map(t => t.getTxHash().toString()),
         requestedTxs: requested.map(t => t.toString()),
+        rejectedCount: invalidTxHashes.length,
       },
     );
 
-    return await this.foundTxs(txs, { ...info, duration });
+    return await this.foundTxs(validTxs, { ...info, duration });
   }
 
   private async foundTxs(

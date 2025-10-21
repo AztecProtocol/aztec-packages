@@ -577,7 +577,7 @@ template <class T> constexpr field<T> field<T>::tonelli_shanks_sqrt() const noex
             }
         }
 
-        ASSERT_IN_CONSTEXPR(count != table_size);
+        BB_ASSERT(count != table_size);
         e_slices[table_index] = count;
     }
 

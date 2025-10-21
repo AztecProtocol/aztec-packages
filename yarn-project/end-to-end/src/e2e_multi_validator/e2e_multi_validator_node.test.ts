@@ -139,7 +139,7 @@ describe('e2e_multi_validator_node', () => {
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
@@ -196,7 +196,7 @@ describe('e2e_multi_validator_node', () => {
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
   });

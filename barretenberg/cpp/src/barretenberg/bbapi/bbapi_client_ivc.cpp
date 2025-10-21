@@ -65,48 +65,42 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
-    if (!USE_SUMCHECK_IVC) {
-        std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-        // if (!request.loaded_circuit_vk.empty()) {
-        //     // Deserialize directly from buffer
-        //     precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
-        // }
-        info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
-        request.ivc_in_progress->accumulate(circuit, precomputed_vk);
-        request.ivc_stack_depth++;
+    std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
+    // if (!request.loaded_circuit_vk.empty()) {
+    //     // Deserialize directly from buffer
+    //     precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+    // }
+    info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    request.ivc_stack_depth++;
 
-        request.loaded_circuit_constraints.reset();
-        request.loaded_circuit_vk.clear();
-    } else {
-        std::shared_ptr<SumcheckClientIVC::MegaVerificationKey> precomputed_vk;
-        std::shared_ptr<SumcheckClientIVC::ProverInstance> prover_instance =
-            std::make_shared<SumcheckClientIVC::ProverInstance>(circuit);
-#ifndef NDEBUG
-        auto actual_vk = std::make_shared<SumcheckClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
-#else
-        auto actual_vk = nullptr;
-#endif
-
+    if (request.vk_policy == VkPolicy::RECOMPUTE) {
+        precomputed_vk = nullptr;
+    } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
         if (!request.loaded_circuit_vk.empty()) {
-            // Deserialize directly from buffer
-            precomputed_vk =
-                from_buffer<std::shared_ptr<SumcheckClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
-#ifndef NDEBUG
-            if (*precomputed_vk != *actual_vk) {
-                throw_or_abort("ClientIvcAccumulate - precomputed VK mismatch");
+            precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+
+            if (request.vk_policy == VkPolicy::CHECK) {
+                auto prover_instance = std::make_shared<ClientIVC::ProverInstance>(circuit, request.trace_settings);
+                auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+
+                // Dereference to compare VK contents
+                if (*precomputed_vk != *computed_vk) {
+                    throw_or_abort("VK check failed for circuit '" + request.loaded_circuit_name +
+                                   "': provided VK does not match computed VK");
+                }
             }
-#endif
-        } else {
-            precomputed_vk = actual_vk;
         }
-        info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
-        request.ivc_in_progress->accumulate(circuit, precomputed_vk);
-
-        request.ivc_stack_depth++;
-
-        request.loaded_circuit_constraints.reset();
-        request.loaded_circuit_vk.clear();
+    } else {
+        throw_or_abort("Invalid VK policy. Valid options: default, check, recompute");
     }
+
+    info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
+    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    request.ivc_stack_depth++;
+
+    request.loaded_circuit_constraints.reset();
+    request.loaded_circuit_vk.clear();
 
     return Response{};
 }

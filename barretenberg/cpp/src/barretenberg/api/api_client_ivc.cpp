@@ -67,6 +67,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 {
     BB_BENCH_NAME("ClientIVCAPI::prove");
     bbapi::BBApiRequest request;
+    request.vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size(), .use_sumcheck_ivc = bbapi::USE_SUMCHECK_IVC }.execute(
