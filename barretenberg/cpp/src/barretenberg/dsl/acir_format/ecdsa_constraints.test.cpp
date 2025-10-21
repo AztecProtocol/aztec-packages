@@ -67,7 +67,6 @@ template <class Curve> class EcdsaTestingFunctions {
                                  WitnessVector& witness_values,
                                  const WitnessOverride::Case& witness_override)
     {
-        witness_values[ecdsa_constraints.predicate.index] = bb::fr(0);
         witness_values[ecdsa_constraints.result] = bb::fr(0);
         switch (witness_override) {
         case WitnessOverride::Case::R:
@@ -86,8 +85,8 @@ template <class Curve> class EcdsaTestingFunctions {
             };
             break;
         case WitnessOverride::Case::HashedMessage:
-            for (size_t idx = 32; idx < 64; idx++) {
-                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(15);
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(15);
             };
             break;
         case WitnessOverride::Case::P:
@@ -95,14 +94,11 @@ template <class Curve> class EcdsaTestingFunctions {
             break;
         case WitnessOverride::Case::Result:
             // Tamper with the signature so that signature verification fails
-            witness_values[ecdsa_constraints.signature[0]] = bb::fr(1);
-            witness_values[ecdsa_constraints.signature[31]] = bb::fr(1);
+            witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
             // Set signature result to true
             witness_values[ecdsa_constraints.result] = bb::fr(1);
             break;
         case WitnessOverride::Case::None:
-        default:
-            // Do nothing
             break;
         }
     }
@@ -118,19 +114,13 @@ template <class Curve> class EcdsaTestingFunctions {
             witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
             witness_values[ecdsa_constraints.result] = bb::fr(0);
         case (Tampering::Mode::NonUniquePubKeyX): {
-            std::vector<uint8_t> modulus_plus_one = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x30 };
-            for (auto [byte_idx, tweaked_byte] : zip_view(ecdsa_constraints.pub_x_indices, modulus_plus_one)) {
-                witness_values[byte_idx] = tweaked_byte;
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.pub_x_indices[idx]] = bb::fr(15);
             }
         }
         case (Tampering::Mode::NonUniquePubKeyY): {
-            std::vector<uint8_t> modulus_plus_one = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                                      0xff, 0xff, 0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xfc, 0x30 };
-            for (auto [byte_idx, tweaked_byte] : zip_view(ecdsa_constraints.pub_y_indices, modulus_plus_one)) {
-                witness_values[byte_idx] = tweaked_byte;
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.pub_y_indices[idx]] = bb::fr(15);
             }
         }
         }

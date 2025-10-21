@@ -320,6 +320,16 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             EXPECT_TRUE(circuit_checker_result) << "Check builder failed for override case " + override_label;
             EXPECT_FALSE(builder_failed) << "Builder failed for override case " + override_label;
             vinfo("Passed override case: ", override_label);
+
+            {
+                // Check that the same configuration would have failed if the predicate was witness true
+                auto [circuit_checker_result, builder_failed, _] =
+                    test_constraints(PredicateTestCase::WitnessTrue, override_case, tampering_mode);
+
+                EXPECT_FALSE(circuit_checker_result) << "Check builder succeeded for override case " + override_label;
+                EXPECT_TRUE(builder_failed) << "Builder succeeded for override case " + override_label;
+                vinfo("Passed override case (witness true confirmation): ", override_label);
+            }
         }
     }
 
