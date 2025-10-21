@@ -360,42 +360,6 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
     }
 
     /**
-     * @brief Test all witness override cases for the witness false predicate case.
-     *
-     * @details This version of test_witness_false also checks that each configuration would have failed if the
-     * predicate was witness true. Useful for debugging.
-     *
-     * @param default_tampering_mode Tampering mode to be used to check that the circuit succeeds when tampered if the
-     * predicate is witness false.
-     */
-    static void test_witness_false_slow(TamperingMode default_tampering_mode)
-    {
-        for (auto [override_case, override_label] :
-             zip_view(WitnessOverride::get_all(), WitnessOverride::get_labels())) {
-            vinfo("Testing witness override case: ", override_label);
-
-            auto tampering_mode =
-                override_case == WitnessOverrideCase::None ? default_tampering_mode : TamperingMode::None;
-            auto [circuit_checker_result, builder_failed, _] =
-                test_constraints(PredicateTestCase::WitnessFalse, override_case, tampering_mode);
-
-            EXPECT_TRUE(circuit_checker_result) << "Check builder failed for override case " + override_label;
-            EXPECT_FALSE(builder_failed) << "Builder failed for override case " + override_label;
-            vinfo("Passed override case: ", override_label);
-
-            {
-                // Check that the same configuration would have failed if the predicate was witness true
-                auto [circuit_checker_result, builder_failed, _] = test_constraints(
-                    PredicateTestCase::WitnessTrue, override_case, tampering_mode, /*forced_override=*/true);
-
-                EXPECT_FALSE(circuit_checker_result) << "Check builder succeeded for override case " + override_label;
-                EXPECT_TRUE(builder_failed) << "Builder succeeded for override case " + override_label;
-                vinfo("Passed override case (witness true confirmation): ", override_label);
-            }
-        }
-    }
-
-    /**
      * @brief Test all tampering modes.
      *
      * @return std::vector<std::string> List of error messages from the builder for each tampering mode.

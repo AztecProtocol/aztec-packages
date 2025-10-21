@@ -241,5 +241,10 @@ TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
 TYPED_TEST(EcdsaConstraintsTest, Tampering)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_tampering();
+    std::vector<std::string> error_msgs = TestFixture::test_tampering();
+
+    EXPECT_EQ(error_msgs[2],
+              "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb.");
+    EXPECT_EQ(error_msgs[3],
+              "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.");
 }
