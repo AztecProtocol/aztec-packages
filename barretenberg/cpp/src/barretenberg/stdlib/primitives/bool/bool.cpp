@@ -383,7 +383,7 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator==(const bo
         bb::fr q_c{ 1 - lhs_inverted - rhs_inverted + 2 * rhs_inverted * lhs_inverted };
 
         context->create_poly_gate(
-            { witness_index, other.witness_index, result.witness_index, q_m, q_r, q_l, q_o, q_c });
+            { witness_index, other.witness_index, result.witness_index, q_m, q_l, q_r, q_o, q_c });
 
     } else if (!is_constant() && (other.is_constant())) {
         // Compare *this with a constant other. If other == true, then we're checking *this == true. In this case we
