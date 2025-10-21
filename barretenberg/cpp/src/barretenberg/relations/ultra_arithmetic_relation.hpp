@@ -9,7 +9,7 @@
 
 namespace bb {
 
-template <typename FF_> class UltraArithmeticRelationImpl {
+template <typename FF_> class ArithmeticRelationImpl {
   public:
     using FF = FF_;
 
@@ -124,5 +124,5 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     };
 };
 
-template <typename FF> using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
+template <typename FF> using ArithmeticRelation = Relation<ArithmeticRelationImpl<FF>>;
 } // namespace bb
