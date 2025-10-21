@@ -2,7 +2,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { wordlist } from '@scure/bip39/wordlists/english';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { dirname } from 'path';
 import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 
