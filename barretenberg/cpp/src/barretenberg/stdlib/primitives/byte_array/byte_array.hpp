@@ -34,7 +34,6 @@ template <typename Builder> class byte_array {
 
   public:
     byte_array(Builder* parent_context = nullptr);
-    byte_array(Builder* parent_context, size_t const n);
     byte_array(Builder* parent_context, std::string const& input);
     byte_array(Builder* parent_context, std::vector<uint8_t> const& input);
     byte_array(Builder* parent_context, bytes_t const& input);

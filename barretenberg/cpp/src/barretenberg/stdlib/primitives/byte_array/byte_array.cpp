@@ -18,12 +18,6 @@ byte_array<Builder>::byte_array(Builder* parent_context)
     : context(parent_context)
 {}
 
-template <typename Builder>
-byte_array<Builder>::byte_array(Builder* parent_context, const size_t n)
-    : context(parent_context)
-    , values(std::vector<field_t<Builder>>(n))
-{}
-
 /**
  * @brief Create a byte array out of a vector of uint8_t bytes.
  *
