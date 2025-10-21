@@ -26,6 +26,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
 
@@ -124,7 +125,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             out.x = x;
             out.y = y;
         }
-        out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
+        out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
 
         // Mark the element as coming out of nowhere
         out.set_free_witness_tag();
@@ -354,7 +355,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element montgomery_ladder(const element& other) const;
     element montgomery_ladder(const chain_add_accumulator& to_add);
     element multiple_montgomery_ladder(const std::vector<chain_add_accumulator>& to_add) const;
-    element quadruple_and_add(const std::vector<element>& to_add) const;
 
     typename NativeGroup::affine_element get_value() const
     {
@@ -373,53 +373,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
         const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
-    // compute a multi-scalar-multiplication by creating a precomputed lookup table for each point,
-    // splitting each scalar multiplier up into a 4-bit sliding window wNAF.
-    // more efficient than batch_mul if num_points < 4
-    // only works with Plookup!
-    template <size_t max_num_bits = 0>
-    static element wnaf_batch_mul(const std::vector<element>& points, const std::vector<Fr>& scalars);
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
                              const bool with_edgecases = false);
 
-    // we want to conditionally compile this method iff our curve params are the BN254 curve.
-    // This is a bit tricky to do with `std::enable_if`, because `bn254_endo_batch_mul` is a member function of a class
-    // template
-    // && the compiler can't perform partial template specialization on member functions of class templates
-    // => our template parameter cannot be a value but must instead by a type
-    // Our input to `std::enable_if` is a comparison between two types (NativeGroup and bb::g1), which
-    // resolves to either `true/false`.
-    // If `std::enable_if` resolves to `true`, it resolves to a `typedef` that equals `void`
-    // If `std::enable_if` resolves to `false`, there is no member typedef
-    // We want to take the *type* of the output typedef of `std::enable_if`
-    // i.e. for the bn254 curve, the template param is `typename = void`
-    // for any other curve, there is no template param
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul(const std::vector<element>& big_points,
-                                        const std::vector<Fr>& big_scalars,
-                                        const std::vector<element>& small_points,
-                                        const std::vector<Fr>& small_scalars,
-                                        const size_t max_num_small_bits);
-
-    template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, bb::g1>::value>>
-        requires(IsNotMegaBuilder<Builder>)
-    static element bn254_endo_batch_mul_with_generator(const std::vector<element>& big_points,
-                                                       const std::vector<Fr>& big_scalars,
-                                                       const std::vector<element>& small_points,
-                                                       const std::vector<Fr>& small_scalars,
-                                                       const Fr& generator_scalar,
-                                                       const size_t max_num_small_bits);
-
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
-
-    template <size_t max_num_bits = 0, size_t WNAF_SIZE = 4>
-    static std::vector<field_t<Builder>> compute_wnaf(const Fr& scalar);
 
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
@@ -1029,8 +991,7 @@ using element = std::conditional_t<IsGoblinBigGroup<C, Fq, Fr, G>,
                                    element_goblin::goblin_element<C, goblin_field<C>, Fr, G>,
                                    element_default::element<C, Fq, Fr, G>>;
 } // namespace bb::stdlib
-#include "biggroup_batch_mul.hpp"
-#include "biggroup_bn254.hpp"
+#include "biggroup_edgecase_handling.hpp"
 #include "biggroup_goblin.hpp"
 #include "biggroup_impl.hpp"
 #include "biggroup_nafs.hpp"
