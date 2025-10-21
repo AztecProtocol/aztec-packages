@@ -569,7 +569,7 @@ TEST_F(ProtogalaxyRecursiveTests, FixedCircuitSize)
     auto [proof_size_2, circuit_2] = compute_circuit_size(12);
 
     EXPECT_EQ(proof_size_1, proof_size_2);
-    EXPECT_EQ(circuit_1.get_estimated_num_finalized_gates(), circuit_2.get_estimated_num_finalized_gates());
+    EXPECT_EQ(circuit_1.get_num_finalized_gates_inefficient(), circuit_2.get_num_finalized_gates_inefficient());
     EXPECT_EQ(circuit_1.blocks, circuit_2.blocks);
 }
 

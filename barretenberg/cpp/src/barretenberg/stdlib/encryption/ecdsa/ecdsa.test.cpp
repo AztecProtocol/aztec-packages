@@ -273,12 +273,12 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         EXPECT_EQ(signature_result.get_value(), signature_verification_result);
 
         // Log data
-        std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
+        std::cerr << "num gates = " << builder.get_num_finalized_gates_inefficient() << std::endl;
         benchmark_info(Builder::NAME_STRING,
                        "ECDSA",
                        "Signature Verification Test",
                        "Gate Count",
-                       builder.get_estimated_num_finalized_gates());
+                       builder.get_num_finalized_gates_inefficient());
 
         // Circuit checker
         bool is_circuit_satisfied = CircuitChecker::check(builder);

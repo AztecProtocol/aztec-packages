@@ -95,7 +95,7 @@ TEST(stdlib_keccak, keccak_rho_output_table)
         EXPECT_EQ(static_cast<uint256_t>(result_msb.get_value()), expected_msb);
     });
 
-    info("num gates = ", builder.get_estimated_num_finalized_gates());
+    info("num gates = ", builder.get_num_finalized_gates_inefficient());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -131,7 +131,7 @@ TEST(stdlib_keccak, keccak_chi_output_table)
         EXPECT_EQ(static_cast<uint256_t>(normalized.get_value()), normalized_native);
         EXPECT_EQ(static_cast<uint256_t>(msb.get_value()), binary_native >> 63);
     }
-    info("num gates = n", builder.get_estimated_num_finalized_gates());
+    info("num gates = n", builder.get_num_finalized_gates_inefficient());
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -189,8 +189,6 @@ TEST(stdlib_keccak, test_single_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_estimated_finalized_gates();
-
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -214,8 +212,6 @@ TEST(stdlib_keccak, test_double_block)
 
     EXPECT_EQ(output.get_value(), expected);
 
-    builder.print_num_estimated_finalized_gates();
-
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
 }
@@ -232,8 +228,6 @@ TEST(stdlib_keccak, test_permutation_opcode_single_block)
     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 
     EXPECT_EQ(output.get_value(), expected);
-
-    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
@@ -254,8 +248,6 @@ TEST(stdlib_keccak, test_permutation_opcode_double_block)
     std::vector<uint8_t> expected = stdlib::keccak<Builder>::hash_native(input_v);
 
     EXPECT_EQ(output.get_value(), expected);
-
-    builder.print_num_estimated_finalized_gates();
 
     bool proof_result = CircuitChecker::check(builder);
     EXPECT_EQ(proof_result, true);
