@@ -97,8 +97,9 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# This compiles a noir contract.
+# This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
 # $1 is the input package name
+# On exit it's fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
