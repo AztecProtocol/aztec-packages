@@ -1,3 +1,4 @@
+import { Barretenberg } from '@aztec/bb.js';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -93,14 +94,21 @@ import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from 
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { Barretenberg } from '@aztec/bb.js';
-
-import { type BBFailure, type BBSuccess, BB_RESULT } from '../../bb/execute.js';
+import {
+  type BBFailure,
+  type BBSuccess,
+  BB_RESULT,
+  PROOF_FILENAME,
+  PUBLIC_INPUTS_FILENAME,
+  VK_FILENAME,
+  generateAvmProof,
+  verifyAvmProof,
+} from '../../bb/execute.js';
+import { BBMsgpackProver } from '../../bb/msgpack_api.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
 import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
-import { BBMsgpackProver } from '../../bb/msgpack_api.js';
 
 const logger = createLogger('bb-prover');
 
@@ -539,15 +547,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
     this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
 
-    logger.info(`Generated proof for ${circuitType} in ${Math.ceil(durationMs)} ms, size: ${proof.proof.length} fields`, {
-      circuitName,
-      circuitSize: vkData.circuitSize,
-      duration: durationMs,
-      inputSize: output.toBuffer().length,
-      proofSize: proof.binaryProof.buffer.length,
-      eventName: 'circuit-proving',
-      numPublicInputs: vkData.numPublicInputs,
-    } satisfies CircuitProvingStats);
+    logger.info(
+      `Generated proof for ${circuitType} in ${Math.ceil(durationMs)} ms, size: ${proof.proof.length} fields`,
+      {
+        circuitName,
+        circuitSize: vkData.circuitSize,
+        duration: durationMs,
+        inputSize: output.toBuffer().length,
+        proofSize: proof.binaryProof.buffer.length,
+        eventName: 'circuit-proving',
+        numPublicInputs: vkData.numPublicInputs,
+      } satisfies CircuitProvingStats,
+    );
 
     return {
       circuitOutput: output,
@@ -570,121 +581,109 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Generates an AVM proof using bb.js msgpack API - NO FILE I/O!
-   * All operations happen in memory - no temporary files written.
+   * Generates an AVM proof using the BB CLI (not msgpack - AVM API not available yet in bb.js)
    */
-  private async generateAvmProofMsgpack(
-    input: AvmCircuitInputs,
-  ): Promise<{ proof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>; vk: VerificationKeyData; durationMs: number }> {
-    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash} via msgpack API...`);
+  private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
+    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    // Serialize inputs to msgpack format
-    const inputsBuffer = input.serializeWithMessagePack();
+    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
-    // Prove via msgpack API - ALL IN MEMORY!
-    const startMs = Date.now();
+    if (provingResult.status === BB_RESULT.FAILURE) {
+      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
+      throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
+    }
 
-    const result = await this.bbApi.avmProve({
-      inputs: inputsBuffer,
-    });
-
-    const durationMs = Date.now() - startMs;
-
-    logger.debug(
-      `AVM proof generated via msgpack: ${result.proof.length} proof fields, VK size: ${result.verificationKey.length} bytes`,
-    );
-
-    // Convert msgpack proof format to Aztec RecursiveProof
-    const avmProof = await this.convertAvmProofFromMsgpack(result.proof, result.verificationKey);
-
-    logger.info(`Generated AVM proof for TX ${input.hints.tx.hash} in ${Math.ceil(durationMs)} ms via msgpack API`);
-
-    return {
-      proof: avmProof,
-      vk: await extractAvmVkData(result.verificationKey),
-      durationMs,
-    };
+    return provingResult;
   }
 
   /**
-   * Converts AVM proof from msgpack format (raw buffer) to Aztec RecursiveProof format.
-   * Similar to readAvmProofAsFields but works with in-memory buffer instead of file.
+   * Reads an AVM proof from disk and converts it to RecursiveProof format.
    */
-  private async convertAvmProofFromMsgpack(
-    proofBuffer: Uint8Array,
-    vkBuffer: Uint8Array,
+  private async readAvmProofAsFields(
+    proofFilename: string,
   ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const reader = BufferReader.asReader(Buffer.from(proofBuffer));
-    const proofFields = reader.readArray(proofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
+    const rawProofBuffer = await fs.readFile(proofFilename);
+    const reader = BufferReader.asReader(rawProofBuffer);
+    const proofFields = reader.readArray(rawProofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
 
-    // Pad to fixed size (same as readAvmProofAsFields)
+    // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
+    // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
+    // TODO(#13390): Revive a non-padded AVM proof
     if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
       throw new Error(
         `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
       );
     }
-
     const proofFieldsPadded = proofFields.concat(
       Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
     );
 
-    const proof = new Proof(Buffer.from(proofBuffer), /*numPublicInputs=*/ 0);
+    const proof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
     return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
   /**
-   * Verifies an AVM proof using bb.js msgpack API - NO FILE I/O!
+   * Internal helper for verification - writes proof/vk to temp files and calls BB CLI.
    */
-  private async verifyAvmProofMsgpack(
+  private async verifyWithKeyInternal(
     proof: Proof,
-    verificationKey: VerificationKeyData,
-    publicInputs: AvmCircuitPublicInputs,
-  ): Promise<void> {
-    logger.debug(`Verifying AVM proof via msgpack API...`);
+    verificationKey: { keyAsBytes: Buffer },
+    verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
+  ) {
+    const operation = async (bbWorkingDirectory: string) => {
+      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
+      const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
+      const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
+      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
+      await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
-    // Serialize public inputs to msgpack format
-    const publicInputsBuffer = publicInputs.serializeWithMessagePack();
+      const result = await verificationFunction(proofFileName, verificationKeyPath!);
 
-    // Verify via msgpack API - ALL IN MEMORY!
-    const { verified } = await this.bbApi.avmVerify({
-      proof: proof.buffer,
-      publicInputs: publicInputsBuffer,
-      verificationKey: verificationKey.keyAsBytes,
-    });
+      if (result.status === BB_RESULT.FAILURE) {
+        const errorMessage = `Failed to verify proof from key!`;
+        throw new ProvingError(errorMessage, result, result.retry);
+      }
 
-    if (!verified) {
-      throw new Error('AVM proof verification failed via msgpack API');
-    }
+      logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
+    };
 
-    logger.debug('AVM proof verified successfully via msgpack API');
+    await this.runInDirectory(operation);
   }
 
   private async createAvmProof(
     input: AvmCircuitInputs,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    // Use msgpack API - NO FILE I/O!
-    const { proof: avmProof, vk: avmVK, durationMs } = await this.generateAvmProofMsgpack(input);
+    const operation = async (bbWorkingDirectory: string) => {
+      const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
-    const circuitType = 'avm-circuit' as const;
-    const appCircuitName = 'unknown' as const;
-    this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, durationMs);
-    this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
+      const avmVK = await extractAvmVkData(provingResult.vkDirectoryPath!);
+      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
 
-    logger.info(
-      `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(durationMs)} ms`,
-      {
-        circuitName: circuitType,
-        appCircuitName: input.hints.tx.hash,
-        duration: durationMs,
-        proofSize: avmProof.binaryProof.buffer.length,
-        eventName: 'circuit-proving',
-        inputSize: input.serializeWithMessagePack().length,
-        circuitSize: 1 << 21,
-        numPublicInputs: 0,
-      } satisfies CircuitProvingStats,
-    );
+      const circuitType = 'avm-circuit' as const;
+      const appCircuitName = 'unknown' as const;
+      this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
+      this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
 
-    return makeProofAndVerificationKey(avmProof, avmVK);
+      logger.info(
+        `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
+        {
+          circuitName: circuitType,
+          appCircuitName: input.hints.tx.hash,
+          // does not include reading the proof from disk
+          duration: provingResult.durationMs,
+          proofSize: avmProof.binaryProof.buffer.length,
+          eventName: 'circuit-proving',
+          inputSize: input.serializeWithMessagePack().length,
+          circuitSize: 1 << 21,
+          numPublicInputs: 0,
+        } satisfies CircuitProvingStats,
+      );
+
+      return makeProofAndVerificationKey(avmProof, avmVK);
+    };
+    return await this.runInDirectory(operation);
   }
 
   /**
@@ -743,8 +742,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     verificationKey: VerificationKeyData,
     publicInputs: AvmCircuitPublicInputs,
   ) {
-    // Use msgpack API - NO FILE I/O!
-    return await this.verifyAvmProofMsgpack(proof, verificationKey, publicInputs);
+    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
+      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
+    );
   }
 
   public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
