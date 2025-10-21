@@ -525,26 +525,28 @@ void keccak<Builder>::sponge_absorb(keccak_state& internal,
 
 template <typename Builder> byte_array<Builder> keccak<Builder>::sponge_squeeze(keccak_state& internal)
 {
-    byte_array_ct result(internal.context);
+    std::vector<field_ct> result_bytes;
+    result_bytes.reserve(32);
 
     // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
     for (size_t i = 0; i < 4; ++i) {
         field_ct output_limb = plookup_read<Builder>::read_from_1_to_2_table(KECCAK_FORMAT_OUTPUT, internal.state[i]);
         byte_array_ct limb_bytes(output_limb, 8);
-        byte_array_ct little_endian_limb_bytes(internal.context, 8);
-        little_endian_limb_bytes[0] = limb_bytes[7];
-        little_endian_limb_bytes[1] = limb_bytes[6];
-        little_endian_limb_bytes[2] = limb_bytes[5];
-        little_endian_limb_bytes[3] = limb_bytes[4];
-        little_endian_limb_bytes[4] = limb_bytes[3];
-        little_endian_limb_bytes[5] = limb_bytes[2];
-        little_endian_limb_bytes[6] = limb_bytes[1];
-        little_endian_limb_bytes[7] = limb_bytes[0];
-        // Safe to use write_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which constrains each
-        // byte
-        result.write_unconstrained(little_endian_limb_bytes);
+
+        // Reverse byte order for little-endian
+        result_bytes.push_back(limb_bytes[7]);
+        result_bytes.push_back(limb_bytes[6]);
+        result_bytes.push_back(limb_bytes[5]);
+        result_bytes.push_back(limb_bytes[4]);
+        result_bytes.push_back(limb_bytes[3]);
+        result_bytes.push_back(limb_bytes[2]);
+        result_bytes.push_back(limb_bytes[1]);
+        result_bytes.push_back(limb_bytes[0]);
     }
-    return result;
+
+    // Safe to use from_field_elements_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which
+    // constrains each byte
+    return byte_array_ct::from_field_elements_unconstrained(internal.context, result_bytes);
 }
 
 /**
@@ -570,10 +572,8 @@ template <typename Builder> std::vector<field_t<Builder>> keccak<Builder>::forma
     byte_array_ct block_bytes(input);
 
     const size_t byte_difference = max_blocks_length - input_size;
-    byte_array_ct padding_bytes(ctx, byte_difference);
-    for (size_t i = 0; i < byte_difference; ++i) {
-        padding_bytes[i] = witness_ct::create_constant_witness(ctx, 0);
-    }
+    std::vector<field_ct> padding_bytes_raw(byte_difference, field_ct(witness_ct::create_constant_witness(ctx, 0)));
+    byte_array_ct padding_bytes = byte_array_ct::from_field_elements_unconstrained(ctx, padding_bytes_raw);
     // Safe to use write_unconstrained: padding bytes are constants (0x00) created via create_constant_witness
     block_bytes.write_unconstrained(padding_bytes);
 
@@ -686,12 +686,8 @@ stdlib::byte_array<Builder> keccak<Builder>::hash_using_permutation_opcode(byte_
 
     if (ctx == nullptr) {
         // if buffer is constant compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, 32);
         const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < 32; ++i) {
-            output[i] = result[i];
-        }
-        return output;
+        return byte_array_ct(nullptr, result);
     }
 
     // convert the input byte array into 64-bit keccak lanes (+ apply padding)
@@ -711,12 +707,8 @@ template <typename Builder> stdlib::byte_array<Builder> keccak<Builder>::hash(by
     auto ctx = input.get_context();
 
     const auto constant_case = [&] { // if buffer is constant, compute hash and return w/o creating constraints
-        byte_array_ct output(nullptr, 32);
-        const std::vector<uint8_t> result = hash_native(input.get_value());
-        for (size_t i = 0; i < 32; ++i) {
-            output[i] = result[i];
-        }
-        return output;
+        const std::vector<uint8_t> result_uint = hash_native(input.get_value());
+        return byte_array_ct(ctx, result_uint);
     };
 
     if (ctx == nullptr) {
@@ -768,25 +760,27 @@ template <typename Builder>
 stdlib::byte_array<Builder> keccak<Builder>::sponge_squeeze_for_permutation_opcode(
     std::array<field_t<Builder>, NUM_KECCAK_LANES> lanes, Builder* context)
 {
-    byte_array_ct result(context);
+    std::vector<field_ct> result_bytes;
+    result_bytes.reserve(32);
 
     // Each hash limb represents a little-endian integer. Need to reverse bytes before we write into the output array
     for (size_t i = 0; i < 4; ++i) {
         byte_array_ct limb_bytes(lanes[i], 8);
-        byte_array_ct little_endian_limb_bytes(context, 8);
-        little_endian_limb_bytes[0] = limb_bytes[7];
-        little_endian_limb_bytes[1] = limb_bytes[6];
-        little_endian_limb_bytes[2] = limb_bytes[5];
-        little_endian_limb_bytes[3] = limb_bytes[4];
-        little_endian_limb_bytes[4] = limb_bytes[3];
-        little_endian_limb_bytes[5] = limb_bytes[2];
-        little_endian_limb_bytes[6] = limb_bytes[1];
-        little_endian_limb_bytes[7] = limb_bytes[0];
-        // Safe to use write_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which constrains each
-        // byte
-        result.write_unconstrained(little_endian_limb_bytes);
+
+        // Reverse byte order for little-endian
+        result_bytes.push_back(limb_bytes[7]);
+        result_bytes.push_back(limb_bytes[6]);
+        result_bytes.push_back(limb_bytes[5]);
+        result_bytes.push_back(limb_bytes[4]);
+        result_bytes.push_back(limb_bytes[3]);
+        result_bytes.push_back(limb_bytes[2]);
+        result_bytes.push_back(limb_bytes[1]);
+        result_bytes.push_back(limb_bytes[0]);
     }
-    return result;
+
+    // Safe to use from_field_elements_unconstrained: limb_bytes comes from byte_array(field, 8) constructor which
+    // constrains each byte
+    return byte_array_ct::from_field_elements_unconstrained(context, result_bytes);
 }
 
 /**
