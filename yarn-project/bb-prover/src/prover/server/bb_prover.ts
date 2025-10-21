@@ -662,38 +662,122 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return provingResult;
   }
 
+  /**
+   * Generates an AVM proof using bb.js msgpack API - NO FILE I/O!
+   * All operations happen in memory - no temporary files written.
+   */
+  private async generateAvmProofMsgpack(
+    input: AvmCircuitInputs,
+  ): Promise<{ proof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>; vk: VerificationKeyData; durationMs: number }> {
+    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash} via msgpack API...`);
+
+    // Serialize inputs to msgpack format
+    const inputsBuffer = input.serializeWithMessagePack();
+
+    // Prove via msgpack API - ALL IN MEMORY!
+    const startMs = Date.now();
+
+    const result = await this.bbApi.avmProve({
+      inputs: inputsBuffer,
+    });
+
+    const durationMs = Date.now() - startMs;
+
+    logger.debug(
+      `AVM proof generated via msgpack: ${result.proof.length} proof fields, VK size: ${result.verificationKey.length} bytes`,
+    );
+
+    // Convert msgpack proof format to Aztec RecursiveProof
+    const avmProof = await this.convertAvmProofFromMsgpack(result.proof, result.verificationKey);
+
+    logger.info(`Generated AVM proof for TX ${input.hints.tx.hash} in ${Math.ceil(durationMs)} ms via msgpack API`);
+
+    return {
+      proof: avmProof,
+      vk: await extractAvmVkData(result.verificationKey),
+      durationMs,
+    };
+  }
+
+  /**
+   * Converts AVM proof from msgpack format (raw buffer) to Aztec RecursiveProof format.
+   * Similar to readAvmProofAsFields but works with in-memory buffer instead of file.
+   */
+  private async convertAvmProofFromMsgpack(
+    proofBuffer: Uint8Array,
+    vkBuffer: Uint8Array,
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    const reader = BufferReader.asReader(Buffer.from(proofBuffer));
+    const proofFields = reader.readArray(proofBuffer.length / Fr.SIZE_IN_BYTES, Fr);
+
+    // Pad to fixed size (same as readAvmProofAsFields)
+    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+      throw new Error(
+        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
+      );
+    }
+
+    const proofFieldsPadded = proofFields.concat(
+      Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
+    );
+
+    const proof = new Proof(Buffer.from(proofBuffer), /*numPublicInputs=*/ 0);
+    return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+  }
+
+  /**
+   * Verifies an AVM proof using bb.js msgpack API - NO FILE I/O!
+   */
+  private async verifyAvmProofMsgpack(
+    proof: Proof,
+    verificationKey: VerificationKeyData,
+    publicInputs: AvmCircuitPublicInputs,
+  ): Promise<void> {
+    logger.debug(`Verifying AVM proof via msgpack API...`);
+
+    // Serialize public inputs to msgpack format
+    const publicInputsBuffer = publicInputs.serializeWithMessagePack();
+
+    // Verify via msgpack API - ALL IN MEMORY!
+    const { verified } = await this.bbApi.avmVerify({
+      proof: proof.buffer,
+      publicInputs: publicInputsBuffer,
+      verificationKey: verificationKey.keyAsBytes,
+    });
+
+    if (!verified) {
+      throw new Error('AVM proof verification failed via msgpack API');
+    }
+
+    logger.debug('AVM proof verified successfully via msgpack API');
+  }
+
   private async createAvmProof(
     input: AvmCircuitInputs,
   ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const operation = async (bbWorkingDirectory: string) => {
-      const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
+    // Use msgpack API - NO FILE I/O!
+    const { proof: avmProof, vk: avmVK, durationMs } = await this.generateAvmProofMsgpack(input);
 
-      const avmVK = await extractAvmVkData(provingResult.vkDirectoryPath!);
-      const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!);
+    const circuitType = 'avm-circuit' as const;
+    const appCircuitName = 'unknown' as const;
+    this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, durationMs);
+    this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
 
-      const circuitType = 'avm-circuit' as const;
-      const appCircuitName = 'unknown' as const;
-      this.instrumentation.recordAvmDuration('provingDuration', appCircuitName, provingResult.durationMs);
-      this.instrumentation.recordAvmSize('proofSize', appCircuitName, avmProof.binaryProof.buffer.length);
+    logger.info(
+      `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(durationMs)} ms`,
+      {
+        circuitName: circuitType,
+        appCircuitName: input.hints.tx.hash,
+        duration: durationMs,
+        proofSize: avmProof.binaryProof.buffer.length,
+        eventName: 'circuit-proving',
+        inputSize: input.serializeWithMessagePack().length,
+        circuitSize: 1 << 21,
+        numPublicInputs: 0,
+      } satisfies CircuitProvingStats,
+    );
 
-      logger.info(
-        `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
-        {
-          circuitName: circuitType,
-          appCircuitName: input.hints.tx.hash,
-          // does not include reading the proof from disk
-          duration: provingResult.durationMs,
-          proofSize: avmProof.binaryProof.buffer.length,
-          eventName: 'circuit-proving',
-          inputSize: input.serializeWithMessagePack().length,
-          circuitSize: 1 << 21,
-          numPublicInputs: 0,
-        } satisfies CircuitProvingStats,
-      );
-
-      return makeProofAndVerificationKey(avmProof, avmVK);
-    };
-    return await this.runInDirectory(operation);
+    return makeProofAndVerificationKey(avmProof, avmVK);
   }
 
   /**
@@ -752,10 +836,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     verificationKey: VerificationKeyData,
     publicInputs: AvmCircuitPublicInputs,
   ) {
-    // TODO: Migrate AVM verification to msgpack
-    return await this.verifyWithKeyInternal(proof, verificationKey, (proofPath, vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, vkPath, logger),
-    );
+    // Use msgpack API - NO FILE I/O!
+    return await this.verifyAvmProofMsgpack(proof, verificationKey, publicInputs);
   }
 
   public async verifyWithKey(flavor: UltraHonkFlavor, verificationKey: VerificationKeyData, proof: Proof) {
