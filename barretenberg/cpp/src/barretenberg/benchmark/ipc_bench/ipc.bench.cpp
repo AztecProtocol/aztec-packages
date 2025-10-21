@@ -95,7 +95,8 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
         if constexpr (Transport == TransportType::Socket) {
             ipc_path = "/tmp/poseidon_bb_msgpack_bench.sock";
         } else {
-            ipc_path = "/poseidon_bb_msgpack_shm_bench.shm";
+            // Use short name for macOS shm_open 31-char limit
+            ipc_path = "/p2_bench.shm";
         }
     }
 
@@ -143,7 +144,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
             } else {
                 // Strip .shm suffix for base name
                 std::string base_name = ipc_path.substr(0, ipc_path.size() - 4);
-                clients[i] = ipc::IpcClient::create_shm(base_name, 10);
+                clients[i] = ipc::IpcClient::create_shm(base_name, NumClients);
             }
 
             bool connected = false;
@@ -168,7 +169,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
                 background_threads[i - 1] = std::thread([this, i]() {
                     grumpkin::fq bx = grumpkin::fq::random_element();
                     grumpkin::fq by = grumpkin::fq::random_element();
-                    std::array<uint8_t, 1024 * 1024> resp_buffer{};
+                    std::vector<uint8_t> resp_buffer(1024 * 1024);
 
                     while (!stop_background.load(std::memory_order_relaxed)) {
                         // Create Poseidon2Hash command
@@ -244,7 +245,7 @@ template <TransportType Transport, size_t NumClients> class Poseidon2BBMsgpack :
     // Benchmark implementation shared across all variants
     void run_benchmark(benchmark::State& state)
     {
-        std::array<uint8_t, 1024 * 1024> resp_buffer{};
+        std::vector<uint8_t> resp_buffer(1024 * 1024);
 
         for (auto _ : state) {
             // Create Poseidon2Hash command

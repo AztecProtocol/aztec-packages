@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "spsc_shm.hpp"
 #include <array>
 #include <atomic>
 #include <cstddef>
