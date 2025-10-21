@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
  * The address of the zk passport verifier on sepolia
  * get address from: ROOT/l1-contracts/lib/circuits/src/solidity/deployments/deployment-11155111.json
  */
-export const ZK_PASSPORT_VERIFIER_ADDRESS = EthAddress.fromString('0xBec82dec0747C9170D760D5aba9cc44929B17C05');
+export const ZK_PASSPORT_VERIFIER_ADDRESS = EthAddress.fromString('0x3101Bad9eA5fACadA5554844a1a88F7Fe48D4DE0');
 /**
  * The default domain of the zk passport site
  */
