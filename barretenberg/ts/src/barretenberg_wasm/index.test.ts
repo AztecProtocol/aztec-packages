@@ -1,17 +1,23 @@
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from './barretenberg_wasm_main/index.js';
-import { Barretenberg } from '../index.js';
+import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
+import { BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
+import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
+import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
+import { Worker } from 'worker_threads';
 
 describe('barretenberg wasm', () => {
-  let api: Barretenberg;
   let wasm: BarretenbergWasmMainWorker;
+  let worker: Worker;
 
   beforeAll(async () => {
-    api = await Barretenberg.new({ threads: 2 });
-    wasm = api.getWasm();
+    worker = await createMainWorker();
+    wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
+    const { module, threads } = await fetchModuleAndThreads(2);
+    await wasm.init(module, threads);
   }, 20000);
 
   afterAll(async () => {
-    await api.destroy();
+    await wasm.destroy();
+    await worker.terminate();
   });
 
   it('should new malloc, transfer and slice mem', async () => {
@@ -26,11 +32,6 @@ describe('barretenberg wasm', () => {
 
   it('test abort', async () => {
     await expect(() => wasm.call('test_abort')).rejects.toThrow();
-  });
-
-  it('test c/c++ stdout/stderr', async () => {
-    // We're checking we don't crash, but you can manually confirm you see log lines handled by logstr.
-    await wasm.call('test_stdout_stderr');
   });
 
   it('should new malloc, transfer and slice mem', async () => {

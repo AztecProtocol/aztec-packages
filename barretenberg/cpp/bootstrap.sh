@@ -244,12 +244,12 @@ function build {
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
   fi
   if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_smt_verification)
+    builds+=(build_darwin_arm64 build_smt_verification)
   fi
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    builds+=(build_darwin_arm64 build_darwin_amd64)
+    builds+=(build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release

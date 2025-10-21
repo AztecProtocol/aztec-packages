@@ -13,7 +13,9 @@ namespace bb::ipc {
 /**
  * @brief IPC server implementation using Unix domain sockets
  *
- * Direct implementation using epoll for efficient multi-client handling.
+ * Platform-specific implementation:
+ * - Linux: uses epoll for efficient multi-client handling
+ * - macOS: uses kqueue for efficient multi-client handling
  * Dynamic client capacity with no artificial limits.
  */
 class SocketServer : public IpcServer {
@@ -42,7 +44,11 @@ class SocketServer : public IpcServer {
     std::string socket_path_;
     int initial_max_clients_;
     int listen_fd_ = -1;
-    int epoll_fd_ = -1;
+#ifdef __APPLE__
+    int kqueue_fd_ = -1; // macOS: kqueue for event notification
+#else
+    int epoll_fd_ = -1; // Linux: epoll for event notification
+#endif
     std::vector<int> client_fds_;                  // client_id -> fd
     std::unordered_map<int, int> fd_to_client_id_; // fd -> client_id (for fast lookup)
     int num_clients_ = 0;

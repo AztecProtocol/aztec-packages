@@ -139,6 +139,8 @@ struct FqParams {
     // For consistency with bb::fq, if we ever represent an element of bb::secp256k1::fq in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
+
+    static constexpr char schema_name[] = "secp256k1_fq";
 };
 using fq = field<FqParams>;
 
@@ -285,6 +287,8 @@ struct FrParams {
     // For consistency with bb::fq, if we ever represent an element of bb::secp256k1::fr in the public inputs, we do so
     // as a bigfield element, so with 4 public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGFIELD_PUBLIC_INPUTS_SIZE;
+
+    static constexpr char schema_name[] = "secp256k1_fr";
 };
 using fr = field<FrParams>;
 
