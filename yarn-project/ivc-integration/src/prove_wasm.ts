@@ -15,6 +15,7 @@ export async function proveClientIVC(
   witnessStack: Uint8Array[],
   vks: string[],
   threads?: number,
+  useSumcheckIvc?: boolean,
 ): Promise<ClientIvcProof> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
@@ -25,6 +26,7 @@ export async function proveClientIVC(
     const [proof] = await backend.prove(
       witnessStack.map((arr: Uint8Array) => ungzip(arr)),
       vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
+      useSumcheckIvc ?? false,
     );
     return ClientIvcProof.fromBufferArray(proof);
   } finally {
@@ -37,6 +39,7 @@ export async function proveThenVerifyAztecClient(
   witnessStack: Uint8Array[],
   vks: string[],
   threads?: number,
+  useSumcheckIvc?: boolean,
 ): Promise<boolean> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
@@ -48,6 +51,7 @@ export async function proveThenVerifyAztecClient(
     const [_, msgpackProof, vk] = await backend.prove(
       witnessStack.map((arr: Uint8Array) => ungzip(arr)),
       vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
+      useSumcheckIvc ?? false,
     );
     const verified = await backend.verify(msgpackProof, vk);
     return verified;

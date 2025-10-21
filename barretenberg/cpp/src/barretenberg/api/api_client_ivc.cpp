@@ -31,9 +31,10 @@ namespace { // anonymous namespace
  */
 void write_standalone_vk(std::vector<uint8_t> bytecode,
                          const std::filesystem::path& output_path,
-                         bool use_structured_trace = true)
+                         [[maybe_unused]] bool use_structured_trace = true)
 {
-    auto trace_settings = use_structured_trace ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
+    auto trace_settings =
+        (use_structured_trace && !bbapi::USE_SUMCHECK_IVC) ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute({ .trace_settings = trace_settings });
@@ -68,7 +69,8 @@ void ClientIVCAPI::prove(const Flags& flags,
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
+    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size(), .use_sumcheck_ivc = bbapi::USE_SUMCHECK_IVC }.execute(
+        request);
     info("ClientIVC: starting with ",
          raw_steps.size(),
          " circuits",
@@ -215,8 +217,8 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     BB_BENCH_NAME("gate_count_for_ivc");
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
-
-    bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
+    auto trace_settings = bbapi::USE_SUMCHECK_IVC ? TraceSettings{} : TraceSettings{ AZTEC_TRACE_STRUCTURE };
+    bbapi::BBApiRequest request{ .trace_settings = trace_settings };
 
     auto bytecode = get_bytecode(bytecode_path);
     auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },

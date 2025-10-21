@@ -16,9 +16,12 @@ namespace bb::bbapi {
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    USE_SUMCHECK_IVC = use_sumcheck_ivc;
     if (USE_SUMCHECK_IVC) {
+        info("ClientIvcStart - using SumcheckClientIVC");
         request.ivc_in_progress = std::make_shared<SumcheckClientIVC>(num_circuits);
     } else {
+        info("ClientIvcStart - using ClientIVC");
         request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
     }
     request.ivc_stack_depth = 0;
@@ -64,10 +67,10 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
     if (!USE_SUMCHECK_IVC) {
         std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-        if (!request.loaded_circuit_vk.empty()) {
-            // Deserialize directly from buffer
-            precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
-        }
+        // if (!request.loaded_circuit_vk.empty()) {
+        //     // Deserialize directly from buffer
+        //     precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        // }
         info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
         request.ivc_in_progress->accumulate(circuit, precomputed_vk);
         request.ivc_stack_depth++;
@@ -76,10 +79,25 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
         request.loaded_circuit_vk.clear();
     } else {
         std::shared_ptr<SumcheckClientIVC::MegaVerificationKey> precomputed_vk;
+        std::shared_ptr<SumcheckClientIVC::ProverInstance> prover_instance =
+            std::make_shared<SumcheckClientIVC::ProverInstance>(circuit);
+#ifndef NDEBUG
+        auto actual_vk = std::make_shared<SumcheckClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+#else
+        auto actual_vk = nullptr;
+#endif
+
         if (!request.loaded_circuit_vk.empty()) {
             // Deserialize directly from buffer
             precomputed_vk =
                 from_buffer<std::shared_ptr<SumcheckClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+#ifndef NDEBUG
+            if (*precomputed_vk != *actual_vk) {
+                throw_or_abort("ClientIvcAccumulate - precomputed VK mismatch");
+            }
+#endif
+        } else {
+            precomputed_vk = actual_vk;
         }
         info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
         request.ivc_in_progress->accumulate(circuit, precomputed_vk);
@@ -130,7 +148,6 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
         info("ClientIvcProve - using ClientIVC");
         auto proof = client_ivc->prove();
         auto vk = client_ivc->get_vk();
-
         // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
         // and it is mysterious if this transaction fails later in the lifecycle.
         info("ClientIvcProve - verifying the generated proof as a sanity check");
@@ -276,7 +293,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(
     }
 }
 
-ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
+ClientIvcStats::Response ClientIvcStats::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     Response response;
@@ -287,10 +304,10 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
     // Get IVC constraints if any
     const auto& ivc_constraints = constraint_system.pg_recursion_constraints;
 
+    auto trace_settings = bbapi::USE_SUMCHECK_IVC ? TraceSettings{} : request.trace_settings;
     // Create metadata with appropriate IVC context
     acir_format::ProgramMetadata metadata{
-        .ivc = ivc_constraints.empty() ? nullptr
-                                       : create_mock_ivc_from_constraints(ivc_constraints, request.trace_settings),
+        .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings),
         .collect_gates_per_opcode = include_gates_per_opcode
     };
 
@@ -317,7 +334,7 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
          response.circuit_size);
 
     // Print structured execution trace details
-    builder.blocks.set_fixed_block_sizes(request.trace_settings);
+    builder.blocks.set_fixed_block_sizes(trace_settings);
     builder.blocks.summarize();
 
     return response;

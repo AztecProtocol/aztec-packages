@@ -88,6 +88,16 @@
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],
     },
+  { "name": "Debug BB write_vk flow for kernel circuits",
+    "type": "lldb",
+    "request": "launch",
+    "program": "${workspaceFolder}/barretenberg/cpp/build-debug-no-avm/bin/bb",
+    "args": ["write_vk", "--scheme", "client_ivc", "--use-sumcheck-ivc", "--verifier_type", "standalone_hiding", "-b", "./target/hiding_kernel_to_rollup.json", "-o", "."],
+    "cwd": "${workspaceFolder}/noir-projects/noir-protocol-circuits/circuits/kernel_circuits",
+    "initCommands": [
+      "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+    ],
+  },
     {
       "name": "Debug BB DSL Test",
       "type": "lldb",

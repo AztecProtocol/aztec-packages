@@ -353,7 +353,7 @@ template <typename Flavor> class SumcheckProver {
                     if (poly.size() == 1) {
                         poly.at(0) *= (FF(1) - round_challenge);
                     } else if (poly.size() == 2) {
-                        if constexpr (isMultilinearBatchingFlavor<Flavor>) {
+                        if constexpr (bb::isMultilinearBatchingFlavor<Flavor>) {
                             // Here we handle the eq polynomial case
                             poly.at(0) = poly.at(0) * (FF(1) - round_challenge) + poly.at(1) * round_challenge;
                             poly.at(1) = 0;
@@ -364,9 +364,6 @@ template <typename Flavor> class SumcheckProver {
                 }
             }
             virtual_gate_separator.partially_evaluate(round_challenge);
-        }
-        for (auto challenge : multivariate_challenge) {
-            info("challenge in prover: ", challenge);
         }
 
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
@@ -854,10 +851,6 @@ template <typename Flavor> class SumcheckVerifier {
 
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
             full_honk_purported_value += libra_evaluation * libra_challenge;
-        }
-
-        for (auto challenge : multivariate_challenge) {
-            info("challenge in verifier: ", challenge);
         }
 
         //! [Final Verification Step]

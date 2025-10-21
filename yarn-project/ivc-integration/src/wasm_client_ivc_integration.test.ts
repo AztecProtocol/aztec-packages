@@ -30,7 +30,7 @@ describe('Client IVC Integration', () => {
   // 3. Run the tail kernel to finish the client IVC chain.
   // 4. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
-    const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
+    const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 0);
 
     // We use the bb binary for verification / writing out the VK
     const bbBinaryPath = path.join(
@@ -39,14 +39,17 @@ describe('Client IVC Integration', () => {
       'bb',
     );
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
-    const wasmProof = await proveClientIVCWasm(bytecodes, witnessStack, vks);
+    logger.info('Proving ClientIVC with WASM...');
+    const wasmProof = await proveClientIVCWasm(bytecodes, witnessStack, vks, undefined, true);
 
     // Write the WASM proof to the working directory.
     const proofPath = path.join(clientIVCWorkingDirectory, 'proof');
     await writeClientIVCProofToPath(wasmProof, proofPath);
 
+    logger.info('Verifying WASM proof with native BB binary...');
     // Use the pre-generated ivc vk to verify the proof.
     const vkPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../artifacts/keys/mock_hiding.ivc.vk');
+    logger.info('VK path: ', vkPath);
 
     const verifyWasmResultInNative = await verifyClientIvcProof(bbBinaryPath, proofPath, vkPath, logger.info);
     expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
@@ -86,7 +89,7 @@ describe('Client IVC Integration', () => {
   // 7. Run the hiding kernel.
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
-    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks);
+    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks, undefined, true);
     logger.info(`generated then verified proof. result: ${verifyResult}`);
 
     expect(verifyResult).toEqual(true);

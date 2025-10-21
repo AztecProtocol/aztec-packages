@@ -31,7 +31,7 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 0);
 
-    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger, true);
 
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
@@ -53,7 +53,7 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
 
-    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger);
+    await proveClientIVC(bbBinaryPath, bbWorkingDirectory, witnessStack, bytecodes, vks, logger, true);
 
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
