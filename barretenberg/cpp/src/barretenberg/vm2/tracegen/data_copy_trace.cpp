@@ -12,21 +12,47 @@ namespace bb::avm2::tracegen {
 
 constexpr uint64_t MAX_MEM_ADDR = AVM_HIGHEST_MEM_ADDRESS;
 
+/**
+ * @brief Builds the data copy trace.
+ *
+ * This trace handles CALLDATACOPY and RETURNDATACOPY (both enqueued and nested) events.
+ * The enum DataCopyOperation is used to distinguish between the two operations and is set
+ * in the field operation of the DataCopyEvent.
+ *
+ * Memory I/O, this subtrace can potentially read and write across two different memory
+ * space ids (indicated by the context_ids). All memory reads are performed in the src context
+ * (using the src_context_id) and writes are performed in the current executing context (using dst_context_id).
+ * For an enqueued call, we do not read from memory as there is no parent context but read from
+ * the calldata column.
+ *
+ * Error Handling:
+ * There is one class of errors that is checked: memory out of range accesses for reads and writes.
+ * Both are part of the same temporality group and therefore are checked simultaneously.
+ * If an error occurs, we populate a single row with the error flag set.
+ *
+ * Writing Data:
+ * If the copy size is zero, we do not read or write any data.
+ * If the copy size is non-zero, we read and write the data to the current context.
+ * For each read/write, we populate one row in the trace.
+ *
+ * Padding Data:
+ * If we read past the end of the data, we populate a padding row (value = 0).
+ *
+ * Precondition: If there is no error, the field copying_data is a vector of size copy_size.
+ *
+ * @param events The events to process.
+ * @param trace The trace to populate.
+ */
 void DataCopyTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::DataCopyEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
-
     uint32_t row = 1;
-    // When processing the events, we need to handle any potential errors and create the respective error columns
     for (const auto& event : events) {
-        // We first set elements of the row that are unconditional, i.e. they are always set regardless of success/error
-        bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
-        bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
-
-        // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
-        bool is_top_level = event.read_context_id == 0;
-        FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id); // Will be inverted in batch later
+        const bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
+        const bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
+        const bool is_top_level = event.read_context_id == 0;
+        const FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id); // Will be inverted in batch later
 
         // While we know at this point data copy size and data offset are guaranteed to be U32
         // we cast to a wider integer type to detect overflows
