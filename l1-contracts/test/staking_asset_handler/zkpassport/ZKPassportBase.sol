@@ -4,10 +4,11 @@ pragma solidity >=0.8.27;
 
 import {ZKPassportVerifier, ProofVerificationParams} from "@zkpassport/ZKPassportVerifier.sol";
 import {IRootRegistry} from "@zkpassport/IRootRegistry.sol";
-import {HonkVerifier as OuterVerifier7} from "@zkpassport/ultra-honk-verifiers/OuterCount7.sol";
+import {HonkVerifier as OuterVerifier8} from "@zkpassport/ultra-honk-verifiers/OuterCount8.sol";
 import {MockRootRegistry} from "./MockRootRegistry.sol";
 import {MockZKPassportVerifier} from "@aztec/mock/staking_asset_handler/MockZKPassportVerifier.sol";
 import {CommittedInputLen} from "@zkpassport/Constants.sol";
+import {ProofVerificationData, Commitments, ServiceConfig} from "@zkpassport/Types.sol";
 
 import {Test} from "forge-std/Test.sol";
 
@@ -15,7 +16,7 @@ contract ZKPassportBase is Test {
   ZKPassportVerifier public zkPassportVerifier;
   MockZKPassportVerifier public mockZKPassportVerifier;
 
-  OuterVerifier7 public verifier;
+  OuterVerifier8 public verifier;
   IRootRegistry public rootRegistry;
 
   ProofVerificationParams internal fakeProof;
@@ -23,14 +24,14 @@ contract ZKPassportBase is Test {
 
   // Path to the proof file - using files directly in project root
   // Fixtures copied from within the zk passport subrepo
-  bytes32 constant VKEY_HASH = 0x2992c925ad8932475d5784bf202b58f1c9d043d6ec04e236a7c761593caea5ce;
+  bytes32 constant VKEY_HASH = 0x254314c80a8cc3efc785643a0a6aeeba6ae268a45e69a98affd4a4155f01e186;
 
   // From fixtures - see lib/circuits/src/solidity/test/SampleContract.t.sol
   string constant CORRECT_DOMAIN = "zkpassport.id";
   string constant CORRECT_SCOPE = "bigproof";
 
-  // Time when the proof was generated - 2025-09-26T15:46:45.835Z
-  uint256 public PROOF_GENERATION_TIMESTAMP = 1_758_901_597;
+  // Time when the proof was generated - October 19, 2025 7:29:51Z
+  uint256 public PROOF_GENERATION_TIMESTAMP = 1_760_906_062;
 
   // Using this base contract will make a zkpassport verifier and proof available for testing purposes
   constructor() {
@@ -40,7 +41,7 @@ contract ZKPassportBase is Test {
     // Deploy wrapper verifier
     zkPassportVerifier = new ZKPassportVerifier(address(rootRegistry));
     // Deploy actual circuit verifier
-    verifier = new OuterVerifier7();
+    verifier = new OuterVerifier8();
 
     // Add to the zk passport verifier
     bytes32[] memory vkeyHashes = new bytes32[](1);
@@ -66,22 +67,22 @@ contract ZKPassportBase is Test {
     bytes memory committedInputs = loadBytesFromFile("valid_committed_inputs.hex");
 
     // Order of bytes of committed inputs for each disclosure proof
-    uint256[] memory committedInputCounts = new uint256[](4);
+    uint256[] memory committedInputCounts = new uint256[](5);
     committedInputCounts[0] = CommittedInputLen.BIND;
     committedInputCounts[1] = CommittedInputLen.SANCTIONS;
     committedInputCounts[2] = CommittedInputLen.EXCL_NATIONALITY;
     committedInputCounts[3] = CommittedInputLen.COMPARE_AGE;
+    committedInputCounts[4] = CommittedInputLen.FACEMATCH;
 
     params = ProofVerificationParams({
-      vkeyHash: VKEY_HASH,
-      proof: proof,
-      publicInputs: publicInputs,
-      committedInputs: committedInputs,
-      committedInputCounts: committedInputCounts,
-      validityPeriodInSeconds: 7 days,
-      domain: "zkpassport.id",
-      scope: "bigproof",
-      devMode: false
+      proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
+      commitments: Commitments({committedInputs: committedInputs, committedInputCounts: committedInputCounts}),
+      serviceConfig: ServiceConfig({
+        validityPeriodInSeconds: 7 days,
+        domain: CORRECT_DOMAIN,
+        scope: CORRECT_SCOPE,
+        devMode: false
+      })
     });
   }
 
@@ -102,15 +103,14 @@ contract ZKPassportBase is Test {
     committedInputCounts[7] = 25;
 
     params = ProofVerificationParams({
-      vkeyHash: VKEY_HASH,
-      proof: proof,
-      publicInputs: publicInputs,
-      committedInputs: committedInputs,
-      committedInputCounts: committedInputCounts,
-      validityPeriodInSeconds: 7 days,
-      domain: "zkpassport.id",
-      scope: "bigproof",
-      devMode: true
+      proofVerificationData: ProofVerificationData({vkeyHash: VKEY_HASH, proof: proof, publicInputs: publicInputs}),
+      commitments: Commitments({committedInputs: committedInputs, committedInputCounts: committedInputCounts}),
+      serviceConfig: ServiceConfig({
+        validityPeriodInSeconds: 7 days,
+        domain: "zkpassport.id",
+        scope: "bigproof",
+        devMode: true
+      })
     });
   }
 
