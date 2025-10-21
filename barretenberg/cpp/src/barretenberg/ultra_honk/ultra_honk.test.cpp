@@ -78,18 +78,28 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 };
 template <typename Flavor> class MemoryTests : public UltraHonkTests<Flavor> {
   public:
+    using NativeRomTable = std::vector<std::array<fr, 2>>;
+    using NativeRamTable = std::vector<fr>;
     enum MemType { ROM, RAM };
-    void build_random_mem_table(auto& circuit_builder,
-                                MemType mem_type,
-                                size_t array_length,
-                                const size_t read_write_operations = 0,
-                                bool any_uninitialized_entries = false)
+    /**
+     * @brief construct a memory (ROM or RAM) table with some random operations. contains logic to check that the
+     * operations are correct.
+     *
+     * @param circuit_builder
+     * @param mem_type
+     * @param array_length
+     * @param read_write_operations
+     */
+    static void build_random_mem_table(auto& circuit_builder,
+                                       MemType mem_type,
+                                       size_t array_length,
+                                       const size_t read_write_operations = 0)
     {
         // for ROM tables, we including testing for only partially initialized arrays.
-        size_t num_variables = (!any_uninitialized_entries) ? (array_length / 2) : array_length;
-        std::vector<fr> variables(num_variables);
-        std::vector<uint32_t> variable_witnesses(num_variables);
+        std::vector<fr> variables(array_length);
+        std::vector<uint32_t> variable_witnesses(array_length);
         // create a list of random variables, add them to the circuit, and record their witnesses.
+        // these will be the _initial_ elements of the ROM/RAM table.
         for (auto [variable, witness] : zip_view(variables, variable_witnesses)) {
             variable = fr::random_element();
             witness = circuit_builder.add_variable(variable);
@@ -97,56 +107,98 @@ template <typename Flavor> class MemoryTests : public UltraHonkTests<Flavor> {
         // create the mem table of choice
         size_t mem_table_id = (mem_type == MemType::ROM) ? circuit_builder.create_ROM_array(array_length)
                                                          : circuit_builder.create_RAM_array(array_length);
-
+        // array pointing to the witness indicies whose associated real variable is `i`.
+        std::vector<uint32_t> index_witness_indices(array_length);
+        for (size_t i = 0; i < array_length; ++i) {
+            index_witness_indices[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
+        }
+        // witness indices of the variables for the final check.
         uint32_t a_idx;
         uint32_t b_idx;
         uint32_t c_idx;
+        // final _value_ that we will use to run the last test.
+        fr d_value;
 
         // build three random indices, store their witnesses for later use in the final check.
-        std::array<uint32_t, 3> random_index_witnesses;
+        std::array<uint32_t, 3> random_index_witnesses_to_check_computation;
+        std::array<uint32_t, 3> random_indices_to_check_computation;
         for (size_t i = 0; i < 3; i++) {
-            uint32_t random_index = static_cast<uint32_t>(engine.get_random_uint32() % array_length);
-            random_index_witnesses[i] = circuit_builder->put_constant_variable(random_index);
+            uint32_t random_index_to_check_computation =
+                static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+            random_indices_to_check_computation[i] = random_index_to_check_computation;
+            random_index_witnesses_to_check_computation[i] =
+                circuit_builder.add_variable(random_index_to_check_computation);
         }
 
         // different behavior depending on ROM or RAM table.
+        // both involve some "native" checks.
         switch (mem_type) {
-        case MemType::Rom:
 
-            for (size_t i = 0; i < num_variables; ++i) {
+        case MemType::ROM: {
+            // build our "native" table to check our operations
+            NativeRomTable native_rom_table(array_length);
+            // set some single ROM elements
+            for (size_t i = 0; i < array_length / 2; ++i) {
                 circuit_builder.set_ROM_element(mem_table_id, i, variable_witnesses[i]);
+                native_rom_table[i] = std::array{ variables[i], fr::zero() };
             }
+            // set pairs of ROM values
+            for (size_t i = array_length / 2; i < array_length; ++i) {
+                circuit_builder.set_ROM_element_pair(mem_table_id, i, variable_witnesses[i], variable_witnesses[i - 1]);
+                native_rom_table[i] = std::array{ variables[i], variables[i - 1] };
+            }
+            // perform some random read operations (which add rows to the execution trace)
             for (size_t i = 0; i < read_write_operations; ++i) {
-                uint32_t random_access_index = static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+                uint32_t random_read_index = static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+                if (random_read_index < array_length / 2) {
+                    uint32_t read_witness_index =
+                        circuit_builder.read_ROM_array(mem_table_id, index_witness_indices[random_read_index]);
+                    auto actually_read_value = circuit_builder.get_variable(read_witness_index);
+                    auto expected_value = native_rom_table[random_read_index][0];
+                    BB_ASSERT_EQ(actually_read_value, expected_value);
+                } else {
+                    auto [read_witness_index_1, read_witness_index_2] =
+                        circuit_builder.read_ROM_array_pair(mem_table_id, index_witness_indices[random_read_index]);
+                    std::array<fr, 2> actually_read_values = { circuit_builder.get_variable(read_witness_index_1),
+                                                               circuit_builder.get_variable(read_witness_index_2) };
+                    auto expected_values = native_rom_table[random_read_index];
+
+                    BB_ASSERT_EQ(actually_read_values[0], expected_values[0]);
+                    BB_ASSERT_EQ(actually_read_values[1], expected_values[1]);
+                }
             }
 
-            for (size_t i = 0; i < read_write_operations; ++i) {
-            }
-            a_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[0]);
-            b_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[1]);
-            c_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses[2]);
+            // final read operations which we will use to perform our last check
+            a_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses_to_check_computation[0]);
+            b_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses_to_check_computation[1]);
+            c_idx = circuit_builder.read_ROM_array(mem_table_id, random_index_witnesses_to_check_computation[2]);
 
             break;
-        case MemType::Ram:
+        }
 
-            BB_ASSERT_EQ(any_uninitialized_entries, false);
-            std::vector<size_t> witness_indices(array_length);
+        case MemType::RAM:
+            // witness indices of the indicies of the array, as we will have to perform "random write operations"
             for (size_t i = 0; i < array_length; ++i) {
                 circuit_builder.init_RAM_element(mem_table_id, i, variable_witnesses[i]);
-                witness_indices[i] = circuit_builder->put_constant_variable(static_cast<uint64_t>(i));
             }
 
-            std::vector<uint32_t> write_variable_witnesses(read_write_operations);
+            // perform some random read and write operations, which add rows to the execution trace.
             for (size_t i = 0; i < read_write_operations; ++i) {
                 size_t random_write_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
                 fr random_element = fr::random_element();
-                write_variable_witnesses[i] = circuit_builder.add_variable(random_element);
-                circuit_builder.write_RAM_array(mem_table_id, witness_indices[random_write_index]);
+                uint32_t write_variable_witness = circuit_builder.add_variable(random_element);
+                // write_variable_witnesses[i] = circuit_builder.add_variable(random_element);
+                // don't need to store write_variable_witnesses[i] in a vector.
+                circuit_builder.write_RAM_array(
+                    mem_table_id, index_witness_indices[random_write_index], write_variable_witness);
+
+                size_t random_read_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
+                circuit_builder.read_RAM_array(mem_table_id, index_witness_indices[random_read_index]);
             }
 
-            a_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[0]);
-            b_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[1]);
-            c_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses[2]);
+            a_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses_to_check_computation[0]);
+            b_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses_to_check_computation[1]);
+            c_idx = circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses_to_check_computation[2]);
             break;
         }
         const fr d_value = circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
@@ -188,37 +240,6 @@ template <typename Flavor> class MemoryTests : public UltraHonkTests<Flavor> {
             variable = fr::random_element();
         }
         add_variables(circuit_builder, variables);
-
-        // size_t rom_id = circuit_builder.create_ROM_array(8);
-
-        // for (size_t i = 0; i < 8; ++i) {
-        //     circuit_builder.set_ROM_element(rom_id, i, rom_values[i]);
-        // }
-
-        // uint32_t a_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(5));
-        // EXPECT_EQ(a_idx != rom_values[5], true);
-        // uint32_t b_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(4));
-        // uint32_t c_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(1));
-
-        // const auto d_value =
-        //     circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
-        //     circuit_builder.get_variable(c_idx);
-        // uint32_t d_idx = circuit_builder.add_variable(d_value);
-
-        // circuit_builder.create_big_add_gate({
-        //     a_idx,
-        //     b_idx,
-        //     c_idx,
-        //     d_idx,
-        //     1,
-        //     1,
-        //     1,
-        //     -1,
-        //     0,
-        // });
-        // TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-        // TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
     }
 };
 
@@ -1040,6 +1061,22 @@ TYPED_TEST(UltraHonkTests, NonNativeFieldMultiplication)
 
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+TYPED_TEST(UltraHonkTests, Rom2)
+{
+    using Flavor = TypeParam;
+    using MemoryTests = MemoryTests<Flavor>;
+    using MemType = MemoryTests::MemType;
+    auto circuit_builder = UltraCircuitBuilder();
+    MemType mem_type = MemType::ROM;
+    size_t first_array_size = 10;
+    size_t num_reads = 5;
+    MemoryTests::build_random_mem_table(circuit_builder, mem_type, first_array_size, num_reads);
+
+    size_t second_array_size = 8;
+    MemoryTests::build_random_mem_table(circuit_builder, mem_type, second_array_size, num_reads);
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
 
