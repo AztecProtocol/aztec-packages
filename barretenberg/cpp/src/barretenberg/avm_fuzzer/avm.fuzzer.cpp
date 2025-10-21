@@ -8,9 +8,19 @@
 #include "fuzz_lib/control_flow.hpp"
 #include "fuzz_lib/fuzz.hpp"
 #include "fuzz_lib/fuzzer_data.hpp"
+#include "fuzz_lib/simulator.hpp"
 #include "mutations/fuzzer_data.hpp"
 
 using FuzzInstruction = ::FuzzInstruction;
+
+extern "C" int LLVMFuzzerInitialize(int*, char***)
+{
+    // TODO(defkit) init
+    std::string simulator_path =
+        "/home/defkit/aztec-packages/yarn-project/simulator/dest/scripts/fuzzing/avm_simulator_bin.cjs";
+    JsSimulator::initialize(simulator_path);
+    return 0;
+}
 
 SimulatorResult fuzz(const uint8_t* buffer, size_t size)
 {
@@ -21,7 +31,6 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
         deserialized_data = FuzzerData();
     }
     // std::cout << "Deserialized data: " << deserialized_data << std::endl;
-    std::cout << "HUI\n";
     auto res = fuzz(deserialized_data);
 
     return res;

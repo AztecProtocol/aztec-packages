@@ -1,9 +1,13 @@
 #include "simulator.hpp"
 #include <iomanip>
 #include <iostream>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/common/base64.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
@@ -12,6 +16,7 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
+#include "libdeflate.h"
 #include <nlohmann/json.hpp>
 
 using bb::avm2::GlobalVariables;
@@ -21,10 +26,10 @@ using namespace bb::avm2::testing;
 using json = nlohmann::json;
 
 // Helper function to serialize bytecode and calldata to JSON and print to stdout
-void print_bytecode_and_calldata_json(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
+std::string serialize_bytecode_and_calldata(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
     json j;
-    j["bytecode"] = bytecode;
+    j["bytecode"] = base64_encode(bytecode.data(), bytecode.size());
 
     // Convert FF values to strings for JSON serialization
     std::vector<std::string> calldata_strings;
@@ -32,9 +37,9 @@ void print_bytecode_and_calldata_json(const std::vector<uint8_t>& bytecode, cons
     for (const auto& field : calldata) {
         calldata_strings.push_back(field_to_string(field));
     }
-    j["calldata"] = calldata_strings;
+    j["inputs"] = calldata_strings;
 
-    std::cout << j.dump() << std::endl;
+    return j.dump();
 }
 
 // Helper function to create default global variables for testing
@@ -76,14 +81,53 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
     return { .reverted = result.reverted, .output = result.output };
 }
 
-// TODO(defkit) implement communication with the javascript simulator
+JsSimulator* JsSimulator::instance = nullptr;
+JsSimulator::JsSimulator(std::string& simulator_path)
+    : process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+{}
+
+JsSimulator* JsSimulator::getInstance()
+{
+    if (instance == nullptr) {
+        throw std::runtime_error("JsSimulator should be initializing in FUZZ INIT");
+    }
+    return instance;
+}
+
+void JsSimulator::initialize(std::string& simulator_path)
+{
+    if (instance != nullptr) {
+        throw std::runtime_error("JsSimulator already initialized");
+    }
+    instance = new JsSimulator(simulator_path);
+}
+
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
-    print_bytecode_and_calldata_json(bytecode, calldata);
-    TestSimulator simulator;
-    auto result = simulator.simulate(bytecode, calldata);
+    std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
 
-    return { .reverted = result.reverted, .output = result.output };
+    std::cout << "Sending request: " << serialized << std::endl;
+
+    // Send the request
+    process.write_line(serialized);
+    std::string response = process.read_line();
+    // Remove the newline character
+    response.erase(response.find_last_not_of('\n') + 1);
+
+    // HACK
+    // decode_bytecode decodes base64 and ungzips it
+    std::vector<uint8_t> decoded_response = decode_bytecode(response);
+    std::string response_string(decoded_response.begin(), decoded_response.end());
+    json response_json = json::parse(response_string);
+    bool reverted = response_json["reverted"];
+    std::vector<std::string> output = response_json["output"];
+    std::vector<FF> output_fields;
+    output_fields.reserve(output.size());
+    for (const auto& field : output) {
+        output_fields.push_back(FF(field));
+    }
+    SimulatorResult result = { .reverted = reverted, .output = output_fields };
+    return result;
 }
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
