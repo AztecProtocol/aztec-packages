@@ -15,6 +15,13 @@ if curl -fsSL "https://hub.docker.com/v2/repositories/aztecprotocol/aztec-block-
   exit 0
 fi
 
+if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+  echo "No DOCKERHUB_PASSWORD provided."
+  exit 1
+fi
+
+echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+
 echo "Building image ${IMAGE}..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="${SCRIPT_DIR}/.."
@@ -25,5 +32,3 @@ echo "Pushing ${IMAGE}..."
 docker push "${IMAGE}"
 
 echo "Done: ${IMAGE}"
-
-

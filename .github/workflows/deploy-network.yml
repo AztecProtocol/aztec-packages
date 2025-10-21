@@ -141,6 +141,7 @@ jobs:
         if: inputs.network == 'testnet' && !contains(inputs.semver, '-')
         env:
           MONITORING_NAMESPACE: testnet-block-height-monitor
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
         run: |
           echo "Updating monitoring app for testnet deployment..."
           ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}
