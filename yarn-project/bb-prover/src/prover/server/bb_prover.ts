@@ -93,6 +93,8 @@ import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from 
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
+import { Barretenberg } from '@aztec/bb.js';
+
 import {
   type BBFailure,
   type BBSuccess,
@@ -109,6 +111,7 @@ import type { ACVMConfig, BBConfig } from '../../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
 import { extractAvmVkData } from '../../verification_key/verification_key_data.js';
+import { BBMsgpackProver } from '../../bb/msgpack_api.js';
 import { readProofsFromOutputDirectory } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
@@ -123,6 +126,8 @@ export interface BBProverConfig extends BBConfig, ACVMConfig {
  */
 export class BBNativeRollupProver implements ServerCircuitProver {
   private instrumentation: ProverInstrumentation;
+  private bbApi!: Barretenberg;
+  private bbMsgpackProver!: BBMsgpackProver;
 
   constructor(
     private config: BBProverConfig,
@@ -143,7 +148,28 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.info(`Using native BB at ${config.bbBinaryPath} and working directory ${config.bbWorkingDirectory}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    return new BBNativeRollupProver(config, telemetry);
+    const prover = new BBNativeRollupProver(config, telemetry);
+
+    // Initialize bb.js msgpack native backend
+    logger.info(`Initializing bb.js msgpack backend with ${config.bbThreads || 1} threads...`);
+    prover.bbApi = await Barretenberg.new({
+      threads: config.bbThreads || 1,
+      bbPath: config.bbBinaryPath,
+    });
+    prover.bbMsgpackProver = new BBMsgpackProver(prover.bbApi, logger);
+    logger.info(`bb.js msgpack backend initialized successfully`);
+
+    return prover;
+  }
+
+  /**
+   * Cleanup resources - destroys the bb.js API instance
+   */
+  async destroy() {
+    if (this.bbApi) {
+      logger.info('Destroying bb.js msgpack backend...');
+      await this.bbApi.destroy();
+    }
   }
 
   /**
@@ -515,6 +541,98 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return {
       circuitOutput: output,
       provingResult,
+    };
+  }
+
+  /**
+   * Generates a proof using bb.js msgpack API - NO FILE I/O for proving!
+   * ACVM still writes witness file (different binary), but BB proving happens entirely in memory.
+   */
+  private async generateProofWithBBMsgpack<
+    PROOF_LENGTH extends number,
+    Input extends { toBuffer: () => Buffer },
+    Output extends { toBuffer: () => Buffer },
+  >(
+    input: Input,
+    circuitType: ServerProtocolArtifact,
+    proofLength: PROOF_LENGTH,
+    convertInput: (input: Input) => WitnessMap,
+    convertOutput: (outputWitness: WitnessMap) => Output,
+    workingDirectory: string,
+  ): Promise<{ circuitOutput: Output; proof: RecursiveProof<PROOF_LENGTH>; durationMs: number }> {
+    // Still need ACVM for witness generation (different binary)
+    const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
+    const simulator = new NativeACVMSimulator(
+      this.config.acvmWorkingDirectory,
+      this.config.acvmBinaryPath,
+      outputWitnessFile,
+    );
+
+    const artifact = getServerCircuitArtifact(circuitType);
+    logger.debug(`Generating witness data for ${circuitType}`);
+
+    const inputWitness = convertInput(input);
+    const foreignCallHandler = undefined;
+    const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
+    const output = convertOutput(witnessResult.witness);
+
+    const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
+    this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
+    this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
+    this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
+
+    logger.info(`Generated witness`, {
+      circuitName,
+      duration: witnessResult.duration,
+      inputSize: input.toBuffer().length,
+      outputSize: output.toBuffer().length,
+      eventName: 'circuit-witness-generation',
+    } satisfies CircuitWitnessGenerationStats);
+
+    // Read witness buffer (last file I/O!)
+    const witnessBuffer = await fs.readFile(outputWitnessFile);
+
+    // Get circuit data (already in memory)
+    const bytecode = Buffer.from(artifact.bytecode, 'base64');
+    const vkData = this.getVerificationKeyDataForCircuit(circuitType);
+    const flavor = getUltraHonkFlavorForCircuit(circuitType);
+
+    // Prove via msgpack API - ALL IN MEMORY!
+    logger.debug(`Proving ${circuitType} via msgpack API...`);
+    const startMs = Date.now();
+
+    const proof = await this.bbMsgpackProver.proveCircuit(
+      witnessBuffer,
+      bytecode,
+      vkData.keyAsBytes,
+      circuitName,
+      flavor,
+      proofLength,
+      vkData,
+    );
+
+    const durationMs = Date.now() - startMs;
+
+    // Record metrics
+    this.instrumentation.recordDuration('provingDuration', circuitName, durationMs);
+    this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
+    this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
+    this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
+
+    logger.info(`Generated proof for ${circuitType} in ${Math.ceil(durationMs)} ms, size: ${proof.proof.length} fields`, {
+      circuitName,
+      circuitSize: vkData.circuitSize,
+      duration: durationMs,
+      inputSize: output.toBuffer().length,
+      proofSize: proof.binaryProof.buffer.length,
+      eventName: 'circuit-proving',
+      numPublicInputs: vkData.numPublicInputs,
+    } satisfies CircuitProvingStats);
+
+    return {
+      circuitOutput: output,
+      proof,
+      durationMs,
     };
   }
 

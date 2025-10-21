@@ -2,6 +2,7 @@ import { sha256 } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { Barretenberg } from '@aztec/bb.js';
 
 import * as proc from 'child_process';
 import { promises as fs } from 'fs';
@@ -194,6 +195,47 @@ function getArgs(flavor: UltraHonkFlavor) {
     case 'ultra_rollup_honk': {
       return ['--scheme', 'ultra_honk', '--oracle_hash', 'poseidon2', '--ipa_accumulation'];
     }
+  }
+}
+
+/**
+ * Converts UltraHonkFlavor to proof settings for msgpack API
+ */
+function getProofSettingsFromFlavor(flavor: UltraHonkFlavor): {
+  ipaAccumulation: boolean;
+  oracleHashType: string;
+  disableZk: boolean;
+  optimizedSolidityVerifier: boolean;
+} {
+  switch (flavor) {
+    case 'ultra_honk':
+      return {
+        ipaAccumulation: false,
+        oracleHashType: 'poseidon2',
+        disableZk: true,
+        optimizedSolidityVerifier: false,
+      };
+    case 'ultra_keccak_honk':
+      return {
+        ipaAccumulation: false,
+        oracleHashType: 'keccak',
+        disableZk: true,
+        optimizedSolidityVerifier: false,
+      };
+    case 'ultra_starknet_honk':
+      return {
+        ipaAccumulation: false,
+        oracleHashType: 'starknet',
+        disableZk: true,
+        optimizedSolidityVerifier: false,
+      };
+    case 'ultra_rollup_honk':
+      return {
+        ipaAccumulation: true,
+        oracleHashType: 'poseidon2',
+        disableZk: true,
+        optimizedSolidityVerifier: false,
+      };
   }
 }
 
@@ -393,6 +435,80 @@ export async function verifyProof(
     log,
     getArgs(ultraHonkFlavor),
   );
+}
+
+/**
+ * POC: Verifies proofs using bb.js msgpack API instead of CLI
+ * @param proofFullPath - The full path to the proof to be verified
+ * @param verificationKeyPath - The full path to the circuit verification key
+ * @param ultraHonkFlavor - The flavor of the proof
+ * @param log - A logging function
+ * @returns An object containing a result indication and duration taken
+ */
+export async function verifyProofMsgpack(
+  proofFullPath: string,
+  verificationKeyPath: string,
+  ultraHonkFlavor: UltraHonkFlavor,
+  log: Logger,
+): Promise<BBFailure | BBSuccess> {
+  try {
+    log.verbose('bb-prover (verify) using msgpack API');
+
+    // Read proof, verification key, and public inputs from disk
+    const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+    const publicInputsFullPath = join(proofDir, PUBLIC_INPUTS_FILENAME);
+    log.debug(`public inputs path: ${publicInputsFullPath}`);
+
+    const [proofBuffer, vkBuffer, publicInputsBuffer] = await Promise.all([
+      fs.readFile(proofFullPath),
+      fs.readFile(verificationKeyPath),
+      fs.readFile(publicInputsFullPath),
+    ]);
+
+    // Convert proof buffer to array of 32-byte field elements
+    const proof: Uint8Array[] = [];
+    for (let i = 0; i < proofBuffer.length; i += 32) {
+      proof.push(new Uint8Array(proofBuffer.subarray(i, i + 32)));
+    }
+
+    // Convert public inputs buffer to array of 32-byte field elements
+    const publicInputs: Uint8Array[] = [];
+    for (let i = 0; i < publicInputsBuffer.length; i += 32) {
+      publicInputs.push(new Uint8Array(publicInputsBuffer.subarray(i, i + 32)));
+    }
+
+    // Create Barretenberg instance with native backend
+    const api = await Barretenberg.new({ threads: 1 });
+
+    try {
+      const timer = new Timer();
+
+      // Call circuitVerify via msgpack API
+      const { verified } = await api.circuitVerify({
+        verificationKey: new Uint8Array(vkBuffer),
+        publicInputs,
+        proof,
+        settings: getProofSettingsFromFlavor(ultraHonkFlavor),
+      });
+
+      const duration = timer.ms();
+
+      if (verified) {
+        log.verbose(`Proof verified successfully via msgpack API in ${duration}ms`);
+        return { status: BB_RESULT.SUCCESS, durationMs: duration };
+      } else {
+        return {
+          status: BB_RESULT.FAILURE,
+          reason: 'Proof verification failed via msgpack API',
+        };
+      }
+    } finally {
+      // Always clean up the API instance
+      await api.destroy();
+    }
+  } catch (error) {
+    return { status: BB_RESULT.FAILURE, reason: `${error}` };
+  }
 }
 
 export async function verifyAvmProof(

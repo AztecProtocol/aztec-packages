@@ -5,6 +5,8 @@ export interface BBConfig {
   bbSkipCleanup: boolean;
   numConcurrentIVCVerifiers: number;
   bbIVCConcurrency: number;
+  /** Number of threads to use for bb.js msgpack backend proving (defaults to 1) */
+  bbThreads?: number;
 }
 
 export interface ACVMConfig {
