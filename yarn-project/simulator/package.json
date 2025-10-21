@@ -65,6 +65,7 @@
   "dependencies": {
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@aztec/native": "workspace:^",
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
@@ -75,6 +76,7 @@
     "@aztec/world-state": "workspace:^",
     "lodash.clonedeep": "^4.5.0",
     "lodash.merge": "^4.6.2",
+    "msgpackr": "^1.11.2",
     "tslib": "^2.4.0"
   },
   "devDependencies": {
