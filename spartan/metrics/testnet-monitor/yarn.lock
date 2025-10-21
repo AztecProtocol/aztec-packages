@@ -205,19 +205,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"testnet-monitor@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "testnet-monitor@workspace:."
-  dependencies:
-    "@types/express": "npm:^4.17.21"
-    "@types/node": "npm:^20.11.30"
-    express: "npm:^4.19.2"
-    prom-client: "npm:^15.1.2"
-    typescript: "npm:^5.4.5"
-    viem: "npm:^2.13.3"
-  languageName: unknown
-  linkType: soft
-
 "array-flatten@npm:1.1.1":
   version: 1.1.1
   resolution: "array-flatten@npm:1.1.1"
@@ -869,6 +856,19 @@ __metadata:
   checksum: 10c0/10187b8144b112fcdfd3a5e4e9068efa42c990b1e30cd0d4f35ee8f58f16d1b41bc587e668fa7a6f6ca31308961cbd06cd5d4a4ae1dc388335902ae04f7d57df
   languageName: node
   linkType: hard
+
+"testnet-monitor@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "testnet-monitor@workspace:."
+  dependencies:
+    "@types/express": "npm:^4.17.21"
+    "@types/node": "npm:^20.11.30"
+    express: "npm:^4.19.2"
+    prom-client: "npm:^15.1.2"
+    typescript: "npm:^5.4.5"
+    viem: "npm:^2.13.3"
+  languageName: unknown
+  linkType: soft
 
 "toidentifier@npm:1.0.1":
   version: 1.0.1
