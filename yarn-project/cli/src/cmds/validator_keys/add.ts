@@ -10,8 +10,9 @@ import type { NewValidatorKeystoreOptions } from './new.js';
 import {
   buildValidatorEntries,
   logValidatorSummaries,
-  materializeBlsAsEip2335,
   maybePrintJson,
+  writeBlsEip2335ToFile,
+  writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
 
@@ -34,7 +35,6 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     coinbase: coinbaseOpt,
     fundingAccount: fundingAccountOpt,
     remoteSigner: remoteSignerOpt,
-    eip2335,
     password,
     outDir,
   } = options;
@@ -84,14 +84,12 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
 
   keystore.validators.push(...validators);
 
-  // If requested, materialize BLS keys into EIP-2335 files and replace in keystore
-  if (eip2335) {
-    if (!password || password.length === 0) {
-      throw new Error('Password is required when using --eip2335');
-    }
+  // If password provided, write ETH JSON V3 and BLS EIP-2335 keystores and replace plaintext
+  if (password !== undefined) {
     const targetDir =
       outDir && outDir.length > 0 ? outDir : dataDir && dataDir.length > 0 ? dataDir : dirname(existing);
-    await materializeBlsAsEip2335(keystore.validators as unknown as any[], { outDir: targetDir, password });
+    await writeEthJsonV3ToFile(keystore.validators as unknown as any[], { outDir: targetDir, password });
+    await writeBlsEip2335ToFile(keystore.validators as unknown as any[], { outDir: targetDir, password });
   }
 
   let outputPath = existing;

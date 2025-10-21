@@ -1143,6 +1143,7 @@ __metadata:
     "@aztec/stdlib": "workspace:^"
     "@aztec/test-wallet": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@ethersproject/wallet": "npm:^5.7.0"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"

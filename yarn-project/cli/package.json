@@ -86,6 +86,7 @@
     "@aztec/stdlib": "workspace:^",
     "@aztec/test-wallet": "workspace:^",
     "@aztec/world-state": "workspace:^",
+    "@ethersproject/wallet": "^5.7.0",
     "@iarna/toml": "^2.2.5",
     "@libp2p/peer-id-factory": "^3.0.4",
     "@scure/bip39": "1.5.4",

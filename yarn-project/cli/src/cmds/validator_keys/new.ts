@@ -9,9 +9,10 @@ import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
 import {
   buildValidatorEntries,
   logValidatorSummaries,
-  materializeBlsAsEip2335,
   maybePrintJson,
   resolveKeystoreOutputPath,
+  writeBlsEip2335ToFile,
+  writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
 
@@ -28,7 +29,6 @@ export type NewValidatorKeystoreOptions = {
   ikm?: string;
   blsPath?: string;
   blsOnly?: boolean;
-  eip2335?: boolean;
   password?: string;
   outDir?: string;
   json?: boolean;
@@ -55,7 +55,6 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     blsPath,
     ikm,
     mnemonic: _mnemonic,
-    eip2335,
     password,
     outDir,
   } = options;
@@ -89,13 +88,11 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     fundingAccount,
   });
 
-  // If requested, materialize BLS keys into EIP-2335 files and replace in keystore
-  if (eip2335) {
-    if (!password || password.length === 0) {
-      throw new Error('Password is required when using --eip2335');
-    }
+  // If password provided, write ETH JSON V3 and BLS EIP-2335 keystores and replace plaintext
+  if (password !== undefined) {
     const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
-    await materializeBlsAsEip2335(validators as unknown as any[], { outDir: keystoreOutDir, password });
+    await writeEthJsonV3ToFile(validators as unknown as any[], { outDir: keystoreOutDir, password });
+    await writeBlsEip2335ToFile(validators as unknown as any[], { outDir: keystoreOutDir, password });
   }
 
   const keystore = {

@@ -6,6 +6,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import type { EthAccount, EthPrivateKey } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { Wallet } from '@ethersproject/wallet';
 import { createCipheriv, createHash, pbkdf2Sync, randomBytes, randomUUID } from 'crypto';
 import { constants as fsConstants, mkdirSync } from 'fs';
 import { access, writeFile } from 'fs/promises';
@@ -266,7 +267,7 @@ export async function writeEip2335BlsKeystore(
 }
 
 /** Replace plaintext BLS keys in validators with { path, password } pointing to EIP-2335 files. */
-export async function materializeBlsAsEip2335(
+export async function writeBlsEip2335ToFile(
   validators: any[],
   options: { outDir: string; password: string },
 ): Promise<void> {
@@ -290,6 +291,71 @@ export async function materializeBlsAsEip2335(
 
     if (typeof att === 'object') {
       (att as any).bls = { path: keystorePath, password: options.password };
+    }
+  }
+}
+
+/** Writes an Ethereum JSON V3 keystore using ethers, returns absolute path */
+export async function writeEthJsonV3Keystore(
+  outDir: string,
+  fileNameBase: string,
+  password: string,
+  privateKeyHex: string,
+): Promise<string> {
+  const safeBase = fileNameBase.replace(/[^a-zA-Z0-9_-]/g, '_');
+  mkdirSync(outDir, { recursive: true });
+  const wallet = new Wallet(privateKeyHex);
+  const json = await wallet.encrypt(password);
+  const outPath = join(outDir, `keystore-eth-${safeBase}.json`);
+  await writeFile(outPath, json, { encoding: 'utf-8' });
+  return outPath;
+}
+
+/** Replace plaintext ETH keys in validators with { path, password } pointing to JSON V3 files. */
+export async function writeEthJsonV3ToFile(
+  validators: any[],
+  options: { outDir: string; password: string },
+): Promise<void> {
+  const maybeEncryptEth = async (account: any, label: string) => {
+    if (typeof account === 'string' && account.startsWith('0x') && account.length === 66) {
+      const fileBase = `${label}_${account.slice(2, 10)}`;
+      const p = await writeEthJsonV3Keystore(options.outDir, fileBase, options.password, account);
+      return { path: p, password: options.password };
+    }
+    return account;
+  };
+
+  for (let i = 0; i < validators.length; i++) {
+    const v = validators[i];
+    if (!v || typeof v !== 'object') {
+      continue;
+    }
+
+    // attester may be string (eth), object with eth, or remote signer
+    const att = (v as any).attester;
+    if (typeof att === 'string') {
+      (v as any).attester = await maybeEncryptEth(att, `attester_${i + 1}`);
+    } else if (att && typeof att === 'object' && 'eth' in att) {
+      (att as any).eth = await maybeEncryptEth((att as any).eth, `attester_${i + 1}`);
+    }
+
+    // publisher can be single or array
+    if ('publisher' in v) {
+      const pub = (v as any).publisher;
+      if (Array.isArray(pub)) {
+        const out: any[] = [];
+        for (let j = 0; j < pub.length; j++) {
+          out.push(await maybeEncryptEth(pub[j], `publisher_${i + 1}_${j + 1}`));
+        }
+        (v as any).publisher = out;
+      } else if (pub !== undefined) {
+        (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
+      }
+    }
+
+    // Optional fundingAccount within validator
+    if ('fundingAccount' in v) {
+      (v as any).fundingAccount = await maybeEncryptEth((v as any).fundingAccount, `funding_${i + 1}`);
     }
   }
 }

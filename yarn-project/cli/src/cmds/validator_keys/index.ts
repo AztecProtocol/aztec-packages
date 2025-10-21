@@ -30,9 +30,11 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', 'EIP-2334 path (default m/12381/3600/0/0/0)')
     .option('--bls-only', 'Generate only BLS keys')
-    .option('--eip2335', 'Write encrypted BLS keystore(s)')
-    .option('--password <str>', 'Password for EIP-2335 keystore(s)')
-    .option('--out-dir <dir>', 'Output directory for EIP-2335 keystore(s)')
+    .option(
+      '--password <str>',
+      'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335). Empty string allowed',
+    )
+    .option('--out-dir <dir>', 'Output directory for generated keystore file(s)')
     .option('--json', 'Echo resulting JSON to stdout')
     .requiredOption('--fee-recipient <address>', 'Aztec address that will receive fees', parseAztecAddress)
     .action(async options => {
@@ -62,9 +64,11 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--bls-path <path>', 'EIP-2334 path (default m/12381/3600/0/0/0)')
     .option('--bls-only', 'Generate only BLS keys')
     .option('--empty', 'Generate an empty skeleton without keys')
-    .option('--eip2335', 'Write encrypted BLS keystore(s)')
-    .option('--password <str>', 'Password for EIP-2335 keystore(s)')
-    .option('--out-dir <dir>', 'Output directory for EIP-2335 keystore(s)')
+    .option(
+      '--password <str>',
+      'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335). Empty string allowed',
+    )
+    .option('--out-dir <dir>', 'Output directory for generated keystore file(s)')
     .option('--json', 'Echo resulting JSON to stdout')
     .requiredOption('--fee-recipient <address>', 'Aztec address that will receive fees', parseAztecAddress)
     .action(async (existing: string, options) => {
