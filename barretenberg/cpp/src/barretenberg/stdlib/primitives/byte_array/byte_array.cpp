@@ -228,7 +228,6 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
 template <typename Builder> byte_array<Builder>::operator field_t<Builder>() const
 {
     const size_t bytes = values.size();
-    BB_ASSERT(bytes < 32);
     static constexpr uint256_t one(1);
     std::vector<field_t<Builder>> scaled_values;
 
