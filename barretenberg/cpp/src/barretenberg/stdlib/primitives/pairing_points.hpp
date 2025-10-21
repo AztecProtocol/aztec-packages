@@ -58,6 +58,50 @@ template <typename Builder_> struct PairingPoints {
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
+     * @brief Aggregate multiple PairingPoints
+     *
+     * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
+     * points being aggregated.
+     */
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
+    {
+        size_t num_points = pairing_points.size();
+        BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
+
+        std::vector<Group> first_components;
+        first_components.reserve(num_points);
+        std::vector<Group> second_components;
+        second_components.reserve(num_points);
+        for (const auto& points : pairing_points) {
+            first_components.emplace_back(points.P0);
+            second_components.emplace_back(points.P1);
+        }
+
+        // Fiat-Shamir
+        StdlibTranscript<Builder> transcript{};
+        std::vector<std::string> labels;
+        labels.reserve(num_points);
+        for (size_t idx = 0; auto [first, second] : zip_view(first_components, second_components)) {
+            transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), first);
+            transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), second);
+            labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            idx++;
+        }
+
+        std::vector<Fr> challenges;
+        challenges.reserve(num_points);
+        for (size_t idx = 0; idx < num_points; idx++) {
+            challenges.emplace_back(transcript.template get_challenge<Fr>(labels[idx]));
+        }
+
+        // Batch mul
+        auto P0 = Group::batch_mul(first_components, challenges);
+        auto P1 = Group::batch_mul(second_components, challenges);
+
+        return { P0, P1 };
+    }
+
+    /**
      * @brief Compute a linear combination of the present pairing points with an input set of pairing points
      * @details The linear combination is done with a recursion separator that is the hash of the two sets of pairing
      * points.
