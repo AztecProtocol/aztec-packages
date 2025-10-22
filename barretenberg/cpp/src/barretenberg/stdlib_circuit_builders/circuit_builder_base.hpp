@@ -87,9 +87,6 @@ template <typename FF_> class CircuitBuilderBase {
     // DOCTODO(#231): replace with the relevant wiki link.
     std::map<uint32_t, uint32_t> _tau;
 
-    // Increment the gate count by the specified amount
-    void increment_num_gates(size_t count = 1) { _num_gates += count; }
-
   public:
     // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
     // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
@@ -119,6 +116,9 @@ template <typename FF_> class CircuitBuilderBase {
 
     // Get the current number of gates in the circuit
     size_t num_gates() const { return _num_gates; }
+
+    // Increment the gate count by the specified amount
+    void increment_num_gates(size_t count = 1) { _num_gates += count; }
 
     // Get the permutation on variable tags
     const std::map<uint32_t, uint32_t>& tau() const { return _tau; }

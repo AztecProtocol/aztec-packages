@@ -24,17 +24,17 @@ CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_wit
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const
 {
-    return num_gates;
+    return _num_gates;
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finalized_gates() const
 {
-    return num_gates;
+    return _num_gates;
 }
 
 template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
 {
-    info(num_gates);
+    info(_num_gates);
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_variables() const
@@ -84,10 +84,10 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t
     variable_names.insert({ first_idx, name });
 }
 
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
+template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t _num_gates) const
 {
-    auto log2_n = static_cast<size_t>(numeric::get_msb(num_gates));
-    if ((1UL << log2_n) != (num_gates)) {
+    auto log2_n = static_cast<size_t>(numeric::get_msb(_num_gates));
+    if ((1UL << log2_n) != (_num_gates)) {
         ++log2_n;
     }
     return 1UL << log2_n;
