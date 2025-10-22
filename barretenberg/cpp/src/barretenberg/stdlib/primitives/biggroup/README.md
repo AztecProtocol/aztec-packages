@@ -488,17 +488,19 @@ R &= 2 \cdot \textcolor{violet}{Q_{1}} + \textcolor{violet}{Q_{2}} =
 \end{aligned}
 $$
 
-Our Montmogomery ladder implementation requires that the two points being added have distinct $x$-coordinates, which is not the case here since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$. So an honest prover would fail to generate a valid proof. To prevent this, we can add a random multiple of the generator point to the first column output before adding it to the accumulator:
+Our Montmogomery ladder implementation requires that the two points being added have distinct $x$-coordinates, which is not the case here since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$. So an honest prover would fail to generate a valid proof. To prevent this, we can add a random offset generator to the first column output before adding it to the accumulator:
 
 $$
 \begin{aligned}
-R &= 2 \cdot (\textcolor{violet}{Q_{1}} + \delta \cdot \textcolor{olive}{G}) + \textcolor{violet}{Q_{2}} \\
+R &= 2 \cdot (\textcolor{violet}{Q_{1}} + \windex{G_{\textsf{offset}}}) + \textcolor{violet}{Q_{2}} \\
 \end{aligned}
 $$
 
-Here, $\delta$ is a verifier-chosen random scalar in $\mathbb{F}_r$. This randomization ensures that the two points being added have distinct $x$-coordinates during the addition operation in the Montgomery ladder. We choose the same random scalar $\delta$ that was used for randomizing the input points to avoid the overhead of computing $\delta' \cdot \textcolor{olive}{G}$ in the circuit if $\delta' \neq \delta$.
+Adding this offset generator ensures that the two points being added have distinct $x$-coordinates during the addition operation in the Montgomery ladder.
 
-Effectively, the modified MSM computation becomes:
+> Note that we do not choose the offset generator to be dependent on the random scalar $\delta$ used for point randomization. This is safe when we are masking the points with random multiples of the generator, as a malicious prover cannot control the randomization applied to the masked points. However, this could be a vulnerability if the input points were not masked, as a malicious prover could potentially exploit knowledge of the offset generator to create points at infinity. In our usage of the `batch_mul` implementation in the recursive circuit, we always mask the input points, so using a fixed offset generator is secure. When using `scalar_mul` to aggregate pairing points in the recursive verifier, we do not apply masking to the input point. However, since the pairing points themselves are derived using verifier-chosen randomness, there is no risk of a malicious prover exploiting the offset generator in this context.
+
+In summary, the modified MSM computation becomes:
 
 $$
 \begin{aligned}
@@ -515,8 +517,8 @@ $$
 A &= \sum_{j=1}^{m+1} \left( -\mathfrak{s}_{j} + \sum_{i=0}^{n-1} \windex{2^{i}} \cdot a_{j, n-1-i} \right) \cdot \textcolor{olive}{P'_j} \\
 &= \sum_{j=1}^{m+1} \left( \sum_{i=0}^{n-1} \windex{2^{i}} \cdot a_{j, n-1-i} \right) \cdot \textcolor{olive}{P'_j} - \sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j} \\
 &= \windex{2^{n - 1}} \cdot \underbrace{\left(\sum_{j=1}^{m+1}  a_{j, 0} \cdot \textcolor{olive}{P'_j}\right)}_{=: \ \textcolor{violet}{Q_1}} + \sum_{i=1}^{n-1} \windex{2^{i}} \cdot \underbrace{\left( \sum_{j=1}^{m+1} a_{j, n-1-i} \cdot \textcolor{olive}{P'_j} \right)}_{\textcolor{violet}{Q_i}} - \sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j} \\
-&= \windex{2^{n-1}} \cdot \left( \textcolor{violet}{Q_1} + \textcolor{olive}{\delta G} \right) - \windex{2^{n-1}} \cdot \textcolor{olive}{\delta G} + \left(\sum_{i=1}^{n-1} \windex{2^{i}} \cdot \textcolor{violet}{Q_i}\right) - \left(\sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j}\right). \\
+&= \windex{2^{n-1}} \cdot \left( \textcolor{violet}{Q_1} + \windex{G_{\textsf{offset}}} \right) - \windex{2^{n-1}} \cdot \windex{G_{\textsf{offset}}} + \left(\sum_{i=1}^{n-1} \windex{2^{i}} \cdot \textcolor{violet}{Q_i}\right) - \left(\sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j}\right). \\
 \end{aligned}
 $$
 
-Thus, we need to subtract the term $\windex{2^{n-1}} \cdot \textcolor{olive}{\delta G}$ from the final MSM result to account for the randomization added during the accumulation of NAF column outputs. This ensures that the final MSM result is correct and unaffected by the randomization used to prevent points at infinity during intermediate computations.
+Thus, we need to subtract the term $\windex{2^{n-1}} \cdot \windex{G_{\textsf{offset}}}$ from the final MSM result to account for the offset generator added to the first NAF column output. This ensures that the final MSM result is correct and unaffected by the offset generator used to prevent points at infinity during intermediate computations.
