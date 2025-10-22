@@ -33,8 +33,6 @@ using namespace bb;
  *        than 2^241).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
- *      - The first byte of the hash of the message to be 1 (NOTE: This only works the order of the curve is
- *        bigger than 2^241)
  *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
  *     \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
  *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -99,8 +97,6 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1));
         // 0 < s < n/2
         s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1));
-        // hashed_message < n
-        hashed_message[0] = field_ct::conditional_assign(predicate, hashed_message[0], field_ct(1));
         // P is on the curve
         // We need to use a point which is different from the generator otherwise secp256r1 ECDSA verification fails
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);

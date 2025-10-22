@@ -36,8 +36,6 @@ using namespace bb;
  *      - We set the first byte of each component of the signature to 1 (NOTE: This only works when the order of the
  *        curve divided by two is bigger than 2^241).
  *      - We set the public key to be 2 times the generator of the curve.
- *      - We set the first byte of the hash of the message to be 1 (NOTE: This only works the order of the curve is
- *        bigger than 2^241).
  */
 struct EcdsaConstraint {
     bb::CurveType type;

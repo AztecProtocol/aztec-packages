@@ -46,16 +46,16 @@ template <class Curve> class EcdsaTestingFunctions {
 
     struct WitnessOverride {
       public:
-        enum class Case : uint8_t { None, R, ZeroS, HighS, HashedMessage, P, Result };
+        enum class Case : uint8_t { None, R, ZeroS, HighS, P, Result };
 
         static std::vector<Case> get_all()
         {
-            return { Case::None, Case::R, Case::ZeroS, Case::HighS, Case::HashedMessage, Case::P, Case::Result };
+            return { Case::None, Case::R, Case::ZeroS, Case::HighS, Case::P, Case::Result };
         }
 
         static std::vector<std::string> get_labels()
         {
-            return { "None", "R", "Zero S", "High S", "Hashed message", "Public key", "Result" };
+            return { "None", "R", "Zero S", "High S", "Public key", "Result" };
         }
     };
 
@@ -82,11 +82,6 @@ template <class Curve> class EcdsaTestingFunctions {
         case WitnessOverride::Case::HighS:
             for (size_t idx = 32; idx < 64; idx++) {
                 witness_values[ecdsa_constraints.signature[idx]] = bb::fr(255);
-            };
-            break;
-        case WitnessOverride::Case::HashedMessage:
-            for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.hashed_message[idx]] = bb::fr(255);
             };
             break;
         case WitnessOverride::Case::P:
