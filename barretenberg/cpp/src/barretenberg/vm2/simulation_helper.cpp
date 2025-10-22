@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
+#include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
 
 // Events.
@@ -67,6 +68,7 @@
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 
 // Standalone.
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
@@ -306,6 +308,7 @@ void AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
     bool user_requested_simulation = false;
     DebugLogLevel debug_log_level = DebugLogLevel::INFO;
     uint32_t max_debug_log_memory_reads = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
+    FF prover_id = 1;
 
     NoopEventEmitter<ExecutionEvent> execution_emitter;
     NoopEventEmitter<DataCopyEvent> data_copy_emitter;
@@ -344,11 +347,14 @@ void AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
 
     Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
 
+    SideEffectTracker tracked_side_effects;
     PureContractDB contract_db(raw_contract_db);
 
-    PureMerkleDB merkle_db(
+    PureMerkleDB base_merkle_db(
         tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
-    merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+    SideEffectTrackingDB merkle_db(base_merkle_db, tracked_side_effects);
+    // TODO(fcarreiro): should this ideally be in the tracking db?
+    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
     NoopUpdateCheck update_check;
 
@@ -413,7 +419,12 @@ void AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
                              poseidon2,
                              tx_event_emitter);
 
+    PublicInputsBuilder public_inputs_builder;
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, prover_id, raw_merkle_db);
+
     tx_execution.simulate(tx);
+
+    public_inputs_builder.extract_outputs(raw_merkle_db);
 }
 
 void AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)

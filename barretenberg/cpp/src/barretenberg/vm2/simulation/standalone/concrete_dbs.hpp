@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -88,6 +89,46 @@ class PureMerkleDB final : public HighLevelMerkleDBInterface {
     std::stack<TreeCounters> tree_counters_stack{
         { { .note_hash_counter = 0, .nullifier_counter = 0, .l2_to_l1_msg_counter = 0 } }
     };
+};
+
+class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
+  public:
+    SideEffectTrackingDB(HighLevelMerkleDBInterface& merkle_db, SideEffectTracker& tracked_side_effects)
+        : merkle_db(merkle_db)
+        , tracked_side_effects(tracked_side_effects)
+    {}
+
+    // These methods just delegate to the merkle db.
+    FF storage_read(const AztecAddress& contract_address, const FF& slot) const override;
+    bool was_storage_written(const AztecAddress& contract_address, const FF& slot) const override;
+    bool nullifier_exists(const AztecAddress& contract_address, const FF& nullifier) const override;
+    bool siloed_nullifier_exists(const FF& nullifier) const override;
+    bool note_hash_exists(uint64_t leaf_index, const FF& unique_note_hash) const override;
+    bool l1_to_l2_msg_exists(uint64_t leaf_index, const FF& msg_hash) const override;
+    uint32_t get_checkpoint_id() const override;
+    TreeStates get_tree_state() const override;
+    LowLevelMerkleDBInterface& as_unconstrained() const override;
+
+    // These methods track the side effects and delegate to the merkle db.
+    void storage_write(const AztecAddress& contract_address,
+                       const FF& slot,
+                       const FF& value,
+                       bool is_protocol_write) override;
+    void nullifier_write(const AztecAddress& contract_address, const FF& nullifier) override;
+    void siloed_nullifier_write(const FF& nullifier) override;
+    void note_hash_write(const AztecAddress& contract_address, const FF& note_hash) override;
+    void siloed_note_hash_write(const FF& note_hash) override;
+    void unique_note_hash_write(const FF& note_hash) override;
+    void pad_trees() override;
+
+    // These methods notify the tracked container, and delegate to the merkle db.
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+
+  private:
+    HighLevelMerkleDBInterface& merkle_db;
+    SideEffectTracker& tracked_side_effects;
 };
 
 } // namespace bb::avm2::simulation
