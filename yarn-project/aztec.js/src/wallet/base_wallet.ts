@@ -87,7 +87,14 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
-  async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  /**
+   * Returns the list of aliased contacts associated with the wallet.
+   * This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders.
+   *  - Senders: Addresses we check during synching in case they sent us notes,
+   *  - Contacts: more general concept akin to a phone's contact list.
+   * @returns The aliased collection of AztecAddresses that form this wallet's address book
+   */
+  async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const senders: AztecAddress[] = await this.pxe.getSenders();
     return senders.map(sender => ({ item: sender, alias: '' }));
   }

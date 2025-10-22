@@ -9,6 +9,15 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### `getSenders` renamed to `getAddressBook` in wallet interface
+
+An app could request "contacts" from the wallet, which don't necessarily have to be senders in the wallet's PXE. This method has been renamed to reflect that fact:
+
+```diff
+-wallet.getSenders();
++wallet.getAddressBook();
+```
+
 ### Removal of `proveTx` from `Wallet` interface
 
 Exposing this method on the interface opened the door for certain types of attacks, were an app could route proven transactions through malicious nodes (that stored them for later decryption, or collected user IPs for example). It also made transactions difficult to track for the wallet, since they could be sent without their knowledge at any time. This change also affects `ContractFunctionInteraction` and `DeployMethod`, which no longer expose a `prove()` method.

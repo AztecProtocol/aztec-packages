@@ -161,7 +161,7 @@ export type Wallet = {
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
-  getSenders(): Promise<Aliased<AztecAddress>[]>;
+  getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
@@ -321,7 +321,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-  getSenders: z
+  getAddressBook: z
     .function()
     .args()
     .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),

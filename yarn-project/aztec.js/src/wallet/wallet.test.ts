@@ -100,8 +100,8 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(AztecAddress);
   });
 
-  it('getSenders', async () => {
-    const result = await context.client.getSenders();
+  it('getAddressBook', async () => {
+    const result = await context.client.getAddressBook();
     expect(result).toEqual([{ alias: 'sender1', item: expect.any(AztecAddress) }]);
   });
 
@@ -284,7 +284,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(address);
   }
 
-  async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     return [{ alias: 'sender1', item: await AztecAddress.random() }];
   }
 
