@@ -27,8 +27,8 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Addition
     cycle_group_ct result = input1_point + input2_point;
     cycle_group_ct standard_result = result.get_standard_form();
-    auto x_normalized = standard_result.x.normalize();
-    auto y_normalized = standard_result.y.normalize();
+    auto x_normalized = standard_result.x().normalize();
+    auto y_normalized = standard_result.y().normalize();
     auto infinite = standard_result.is_point_at_infinity().normalize();
 
     if (x_normalized.is_constant()) {
