@@ -28,6 +28,9 @@ namespace bb::stdlib {
 template <typename Builder> class byte_array {
     using bytes_t = typename std::vector<field_t<Builder>>;
 
+    // Allow fuzzer to access private constructors for testing
+    template <typename B> friend class ByteArrayFuzzBase;
+
   private:
     Builder* context;
     bytes_t values;

@@ -109,9 +109,7 @@ Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> 
                                                          uint8_t block_len,
                                                          uint8_t flags)
 {
-    // Copy constructor propagates constraint status
     byte_array_ct block_copy = block;
-
     // Initialize output_t with all fields
     output_t ret{ .input_cv = {}, .block = block_copy, .block_len = block_len, .flags = flags };
 
