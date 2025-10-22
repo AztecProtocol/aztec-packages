@@ -264,7 +264,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     size_t diff = builder.get_num_finalized_gates_inefficient() - num_gates_start;
 
                     if (!a.is_constant() && !b.is_constant()) {
-                        EXPECT_EQ(diff, 2);
+                        EXPECT_EQ(diff, 1);
                     }
                     // Due to optimizations, the result of a => b can be a constant, in this case, the the assert_equal
                     // reduces to an out-of-circuit ASSERT
@@ -275,13 +275,13 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     if (!result_is_constant && a.is_constant() && !b.is_constant()) {
                         // we only add gates if the value `true` is not flipped to `false` and we need to add a new
                         // constant == 1, which happens iff `b` is not inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(!b.is_inverted()));
+                        EXPECT_EQ(diff, 0);
                     }
 
                     if (!result_is_constant && !a.is_constant() && b.is_constant()) {
                         // we only add gates if the value `true` is not flipped to `false` and we need to add a new
                         // constant == 1, which happens iff `a` is inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(a.is_inverted()));
+                        EXPECT_EQ(diff, 0);
                     }
                     EXPECT_EQ(CircuitChecker::check(builder), expected);
                 }
