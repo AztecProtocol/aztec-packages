@@ -47,9 +47,9 @@ using namespace bb;
  * @param has_valid_witness_assignments
  */
 template <typename Curve>
-void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder,
-                                                const EcdsaConstraint& input,
-                                                bool has_valid_witness_assignments)
+void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
+                                     const EcdsaConstraint& input,
+                                     bool has_valid_witness_assignments)
 {
     using Builder = Curve::Builder;
 
@@ -130,7 +130,7 @@ void create_incomplete_ecdsa_verify_constraints(typename Curve::Builder& builder
 
     // Step 5.
     bool_ct signature_result =
-        stdlib::incomplete_ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
+        stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
     // Step 6.
     // Assert that signature verification returned the expected result
@@ -186,13 +186,13 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     builder.set_variable(result_field.witness_index, bb::fr::one());
 }
 
-template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(
+template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(
+template void create_ecdsa_verify_constraints<stdlib::secp256k1<MegaCircuitBuilder>>(
     MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(
+template void create_ecdsa_verify_constraints<stdlib::secp256r1<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
-template void create_incomplete_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(
+template void create_ecdsa_verify_constraints<stdlib::secp256r1<MegaCircuitBuilder>>(
     MegaCircuitBuilder& builder, const EcdsaConstraint& input, bool has_valid_witness_assignments);
 
 template void create_dummy_ecdsa_constraint<stdlib::secp256k1<UltraCircuitBuilder>>(

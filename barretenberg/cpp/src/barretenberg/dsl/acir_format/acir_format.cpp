@@ -186,8 +186,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA k1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_k1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_k1_constraints.at(i);
-        create_incomplete_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(
-            builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256k1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_k1_constraints.at(i));
     }
@@ -195,8 +194,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     // Add ECDSA r1 constraints
     for (size_t i = 0; i < constraint_system.ecdsa_r1_constraints.size(); ++i) {
         const auto& constraint = constraint_system.ecdsa_r1_constraints.at(i);
-        create_incomplete_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(
-            builder, constraint, has_valid_witness_assignments);
+        create_ecdsa_verify_constraints<stdlib::secp256r1<Builder>>(builder, constraint, has_valid_witness_assignments);
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.ecdsa_r1_constraints.at(i));
     }
