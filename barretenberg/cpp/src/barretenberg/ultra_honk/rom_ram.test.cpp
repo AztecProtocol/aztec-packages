@@ -77,7 +77,7 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
         }
         //  perform some random read operations (which add rows to the execution trace) and check "natively" that the
         //  reads are correct. note that if we are reading a row of the ROM table that had a _pair_ being entered in,
-        //  then we must call `read_ROM_array_pair`.
+        //  then we _must_ call `read_ROM_array_pair`.
         for (size_t i = 0; i < read_operations; ++i) {
             uint32_t random_read_index = static_cast<uint32_t>(
                 engine.get_random_uint32() % array_length); // a random index to read from in my ROM array.
@@ -152,6 +152,8 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             engine.get_random_uint32() % num_single_elts_in_ROM_table); // a random index to read from in my ROM array.
         circuit_builder.read_ROM_array(rom_table_id, index_witness_indices[random_read_index]);
     }
+
+    static void build_ROM_table_length_zero(auto& circuit_builder) { circuit_builder.create_ROM_array(0); }
 
     static void build_random_RAM_table(auto& circuit_builder,
                                        size_t array_length,
@@ -239,6 +241,8 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             engine.get_random_uint32() % array_length; // a random index to read from in my ROM array.
         circuit_builder.read_RAM_array(ram_table_id, index_witness_indices[random_read_index]);
     }
+
+    static void build_RAM_table_length_zero(auto& circuit_builder) { circuit_builder.create_RAM_array(0); }
 };
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
@@ -247,6 +251,7 @@ TYPED_TEST(UltraHonkTests, RomTinyNoReads)
     using Flavor = TypeParam;
     using MemoryTests = MemoryTests_<Flavor>;
     auto circuit_builder = UltraCircuitBuilder();
+    MemoryTests::build_ROM_table_length_zero(circuit_builder);
     size_t array_size = 1;
     size_t num_pair_elts = 0;
     size_t num_reads = 0;
@@ -278,10 +283,10 @@ TYPED_TEST(UltraHonkTests, RamTiny)
     using Flavor = TypeParam;
     using MemoryTests = MemoryTests_<Flavor>;
     auto circuit_builder = UltraCircuitBuilder();
+    MemoryTests::build_RAM_table_length_zero(circuit_builder);
     size_t array_size = 1;
     size_t read_write_ops = 5;
     MemoryTests::build_random_RAM_table(circuit_builder, array_size, read_write_ops);
-
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
