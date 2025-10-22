@@ -37,6 +37,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
     enum class TamperingMode : std::uint8_t {
+        HighXCoordinate,
+        HighYCoordinate,
         InvalidR,
         InvalidS,
         HighS,
@@ -75,6 +77,20 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::string failure_msg;
 
         switch (mode) {
+        case TamperingMode::HighXCoordinate: {
+            // Invalidate the circuit by passing a public key with x >= q
+            // Do nothing here, tampering happens in circuit
+            failure_msg = "ECDSA input validation: the x coordinate of the public key is bigger than the base field "
+                          "modulus.: hi limb.";
+            break;
+        }
+        case TamperingMode::HighYCoordinate: {
+            // Invalidate the circuit by passing a public key with y >= q
+            // Do nothing here, tampering happens in circuit
+            failure_msg = "ECDSA input validation: the y coordinate of the public key is bigger than the base field "
+                          "modulus.: hi limb.";
+            break;
+        }
         case TamperingMode::InvalidR: {
             // Invalidate the signature by changing r.
             FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
@@ -165,6 +181,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             // verification function raises an error, we treat it as an invalid signature
             is_signature_valid = false;
         }
+        if (mode == TamperingMode::HighXCoordinate || mode == TamperingMode::HighYCoordinate) {
+            // In these tampering modes nothing has changed and the tampering happens in circuit, so we override the
+            // result and set it to false
+            is_signature_valid = false;
+        }
 
         bool expected = mode == TamperingMode::None;
         BB_ASSERT_EQ(is_signature_valid,
@@ -176,12 +197,26 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
     }
 
     std::pair<G1, stdlib::ecdsa_signature<Builder>> create_stdlib_ecdsa_data(
-        Builder& builder, const ecdsa_key_pair<FrNative, G1Native>& account, const ecdsa_signature& signature)
+        Builder& builder,
+        const ecdsa_key_pair<FrNative, G1Native>& account,
+        const ecdsa_signature& signature,
+        const TamperingMode mode)
     {
         // We construct the point via its x,y-coordinates to avoid the on curve check of G1::from_witness. In this way
         // we test the on curve check of the ecdsa verification function
         Fq x = Fq::from_witness(&builder, account.public_key.x);
         Fq y = Fq::from_witness(&builder, account.public_key.y);
+        if (mode == TamperingMode::HighXCoordinate || mode == TamperingMode::HighYCoordinate) {
+            // To test the case in which one of the two coordinates is above the modulus of the base field, we need to
+            // override the limbs of the coordinates
+            uint256_t max_uint = (static_cast<uint256_t>(1) << 256) - 1;
+            for (size_t idx = 0; idx < 4; idx++) {
+                builder.set_variable(mode == TamperingMode::HighXCoordinate
+                                         ? x.binary_basis_limbs[idx].element.get_witness_index()
+                                         : y.binary_basis_limbs[idx].element.get_witness_index(),
+                                     bb::fr(max_uint.slice(64 * idx, 64 * (idx + 1))));
+            }
+        }
         bool_t is_infinity(
             stdlib::witness_t<Builder>(&builder, account.public_key.is_point_at_infinity() ? fr::one() : fr::zero()),
             false);
@@ -204,10 +239,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                     const ecdsa_signature& signature,
                                     const bool signature_verification_result,
                                     const bool circuit_checker_result,
-                                    const std::string failure_msg)
+                                    const std::string failure_msg,
+                                    const TamperingMode mode)
 
     {
-        auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature);
+        auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature, mode);
 
         // Verify signature
         stdlib::bool_t<Builder> signature_result =
@@ -266,7 +302,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                    signature,
                                    signature_verification_result,
                                    circuit_checker_result,
-                                   failure_msg);
+                                   failure_msg,
+                                   mode);
     }
 
     /**
@@ -304,7 +341,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                        { r, s, v },
                                        test.is_valid_signature,
                                        test.is_circuit_satisfied,
-                                       test.failure_msg);
+                                       test.failure_msg,
+                                       TamperingMode::None);
         }
     }
 };
@@ -324,6 +362,18 @@ TYPED_TEST(EcdsaTests, VerifyRandomSignature)
 TYPED_TEST(EcdsaTests, VerifySignature)
 {
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
+}
+
+TYPED_TEST(EcdsaTests, HighXCoordinate)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighXCoordinate);
+}
+
+TYPED_TEST(EcdsaTests, HighYCoordinate)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighYCoordinate);
 }
 
 TYPED_TEST(EcdsaTests, InvalidR)
