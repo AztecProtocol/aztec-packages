@@ -2,7 +2,6 @@ include "memory.pil";
 include "calldata.pil";
 include "precomputed.pil";
 include "constants_gen.pil";
-include "context.pil";
 
 /** This trace handles CALLDATACOPY and RETURNDATACOPY
  * The data_copy gadget handles CALLDATACOPY and RETURNDATACOPY (both enqueued and nested)
