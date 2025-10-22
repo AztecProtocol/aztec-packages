@@ -1,18 +1,23 @@
-import { simAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
 describe('AVM proven minimal tx', () => {
   let tester: AvmProvingTester;
+  let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new();
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('Proving minimal public tx', async () => {
-    const result = await simAvmMinimalPublicTx();
+    const result = await executeAvmMinimalPublicTx(tester);
     expect(result.revertCode.isOK()).toBe(true);
-
-    await tester.proveVerify(result.avmProvingRequest.inputs);
   }, 180_000);
 });
