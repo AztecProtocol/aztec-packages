@@ -137,6 +137,19 @@ export class SequencerTimetable {
     return validationTimeEnd;
   }
 
+  public getMaxAllowedTime(
+    state: Extract<
+      SequencerState,
+      SequencerState.STOPPED | SequencerState.STOPPING | SequencerState.IDLE | SequencerState.SYNCHRONIZING
+    >,
+  ): undefined;
+  public getMaxAllowedTime(
+    state: Exclude<
+      SequencerState,
+      SequencerState.STOPPED | SequencerState.STOPPING | SequencerState.IDLE | SequencerState.SYNCHRONIZING
+    >,
+  ): number;
+  public getMaxAllowedTime(state: SequencerState): number | undefined;
   public getMaxAllowedTime(state: SequencerState): number | undefined {
     switch (state) {
       case SequencerState.STOPPED:
