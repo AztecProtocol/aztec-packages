@@ -279,7 +279,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
             // Constraint: (x3 - lambda^2 + (x1 + x2)) * (x2 - x1)^2 = 0
             auto x_add_identity = (x_3 - lambda_sqr + (x_1 + x_2)) * x_diff_sqr;
 
-            // Contribution (2) point addition, x-coordinate check
+            // Contribution (2) point addition, y-coordinate check
             // Formula: y3 = lambda * (x1 - x3) - y1
             // Constraint: (y3 - lambda * (x1 - x3) + y1) * (x2 - x1) = 0
             auto y_add_identity = (y_3 - lambda * (x_1 - x_3) + y_1) * x_diff;
