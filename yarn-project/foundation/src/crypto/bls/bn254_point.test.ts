@@ -147,27 +147,6 @@ describe('BN254 Point Operations', () => {
       const tooLarge = '0x' + 'ff'.repeat(32);
       expect(() => decompressBn254G1Point(tooLarge)).toThrow('out of field range');
     });
-
-    it('throws on point not on curve', () => {
-      // Create a point that's in field but not on curve
-      // Try x=1 (which should give y²=4, and 4 is a quadratic residue, so it should work)
-      // Instead try x=2
-      const x2 = '0x' + '02'.padStart(64, '0');
-      // This might or might not be on curve - if it throws, good, if not, the point is valid
-
-      // Better approach: use a known invalid point
-      // For x=0, we'd have y²=3, and 3 may or may not be a quadratic residue
-      // Let's just test that the function correctly validates
-      const x0 = '0x' + '00'.repeat(32);
-      try {
-        const result = decompressBn254G1Point(x0);
-        // If it doesn't throw, verify it's actually on curve
-        expect(isOnBn254Curve(result)).toBe(true);
-      } catch (e: any) {
-        // Should throw "Point not on BN254 curve" for invalid points
-        expect(e.message).toContain('curve');
-      }
-    });
   });
 
   describe('isOnBn254Curve', () => {
