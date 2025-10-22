@@ -15,29 +15,32 @@ using FlavorTypes = testing::Types<UltraFlavor,
 using FlavorTypes =
     testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor, UltraRollupFlavor>;
 #endif
+
 template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
   public:
     // helper types to check correctness of memory operations
     using NativeRomTable = std::vector<std::array<fr, 2>>;
     using NativeRamTable = std::vector<fr>;
-
-    enum MemType { ROM, RAM };
-
     /**
-     * @brief helper method to construct a memory (ROM or RAM) table with some random operations. contains logic to
-     * check that the operations are correct.
+     * @brief build a random ROM table, together with some read ops and an arithmetic gate. includes many compatibility
+     * checks, both "native" and on the level of the circuit.
      *
      * @param circuit_builder
-     * @param mem_type
      * @param array_length
-     * @param read_write_operations
+     * @param num_pair_elts_in_ROM_table // ROM tables allow for entering in single elements or pairs of elements; this
+     * is the number of _pairs_ of elements in our table.
+     * @param read_operations
      */
-    static void build_random_mem_table(auto& circuit_builder,
-                                       MemType mem_type,
+    static void build_random_ROM_table(auto& circuit_builder,
                                        size_t array_length,
-                                       const size_t read_write_operations = 0)
+                                       size_t num_pair_elts_in_ROM_table = 0, // the number of elements of our ROM table
+                                                                              // that will involve _pairs_ of numbers.
+                                       const size_t read_operations = 0)
     {
-
+        BB_ASSERT_LTE(num_pair_elts_in_ROM_table,
+                      array_length,
+                      "cannot set the number of 'pairs of elements to add to the ROM table' to be greater than the "
+                      "length of the table");
         // create a list of random variables, add them to the circuit, and record their witnesses.
         // these will be the _initial_ elements of the ROM/RAM table. we have one extra to use the set-pair
         // functionality.
@@ -48,9 +51,121 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
             witness = circuit_builder.add_variable(variable);
         }
 
-        // create the mem table of specified type
-        size_t mem_table_id = (mem_type == MemType::ROM) ? circuit_builder.create_ROM_array(array_length)
-                                                         : circuit_builder.create_RAM_array(array_length);
+        // array pointing to the witness indicies whose associated real variable is `i`. this makes testing a bit more
+        // ergonomic.
+        std::vector<uint32_t> index_witness_indices(array_length);
+        for (size_t i = 0; i < array_length; ++i) {
+            index_witness_indices[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
+        }
+
+        // build our "native" ROM table to check our operations
+        NativeRomTable native_rom_table(array_length);
+        // build out in-circuit ROM table
+        size_t rom_table_id = circuit_builder.create_ROM_array(array_length);
+
+        const size_t num_single_elts_in_ROM_table = array_length - num_pair_elts_in_ROM_table;
+        // set some single ROM elements for the chunk
+        for (size_t i = 0; i < num_single_elts_in_ROM_table; ++i) {
+            circuit_builder.set_ROM_element(rom_table_id, i, variable_witnesses[i]);
+            native_rom_table[i] = std::array{ variables[i], fr::zero() };
+        }
+        // set pairs of ROM values for the second chunk
+        for (size_t i = num_single_elts_in_ROM_table; i < array_length; ++i) {
+            circuit_builder.set_ROM_element_pair(
+                rom_table_id, i, std::array{ variable_witnesses[i], variable_witnesses[i + 1] });
+            native_rom_table[i] = std::array{ variables[i], variables[i + 1] };
+        }
+        //  perform some random read operations (which add rows to the execution trace) and check "natively" that the
+        //  reads are correct. note that if we are reading a row of the ROM table that had a _pair_ being entered in,
+        //  then we must call `read_ROM_array_pair`.
+        for (size_t i = 0; i < read_operations; ++i) {
+            uint32_t random_read_index = static_cast<uint32_t>(
+                engine.get_random_uint32() % array_length); // a random index to read from in my ROM array.
+
+            if (random_read_index < num_single_elts_in_ROM_table) {
+                uint32_t read_witness_index =
+                    circuit_builder.read_ROM_array(rom_table_id, index_witness_indices[random_read_index]);
+                auto actually_read_value = circuit_builder.get_variable(read_witness_index);
+                auto expected_value = native_rom_table[random_read_index][0];
+                BB_ASSERT_EQ(actually_read_value, expected_value);
+            } else {
+                auto [read_witness_index_1, read_witness_index_2] =
+                    circuit_builder.read_ROM_array_pair(rom_table_id, index_witness_indices[random_read_index]);
+                std::array<fr, 2> actually_read_values = { circuit_builder.get_variable(read_witness_index_1),
+                                                           circuit_builder.get_variable(read_witness_index_2) };
+                auto expected_values = native_rom_table[random_read_index];
+
+                BB_ASSERT_EQ(actually_read_values[0], expected_values[0]);
+                BB_ASSERT_EQ(actually_read_values[1], expected_values[1]);
+            }
+        }
+        // Final gate checks: construct a `big_add_gate` with values from the ROM table, then perform another read
+        // (which adds rows to our execution trace). This checks that nothing unexpected happens when we include
+        // basic arithmetic gates.
+
+        // build three random indices, store their witnesses for the final check.
+        // in the case when there are _pairs_ of element in the ROM table row, we only use the _first_ entry for our
+        // gate check.
+        std::array<uint32_t, 3> random_index_witnesses_to_check_computation;
+        std::array<uint32_t, 3> random_indices_to_check_computation;
+        std::array<fr, 3> native_fr_elts_to_check_computation;
+        for (size_t i = 0; i < 3; i++) {
+            uint32_t random_index_to_check_computation =
+                static_cast<uint32_t>(engine.get_random_uint32() % array_length);
+            random_indices_to_check_computation[i] = random_index_to_check_computation;
+            random_index_witnesses_to_check_computation[i] = index_witness_indices[random_index_to_check_computation];
+            native_fr_elts_to_check_computation[i] = native_rom_table[random_index_to_check_computation][0];
+        }
+
+        // Perform the reads at the random indices, handling single vs pair reads
+        std::array<uint32_t, 3> final_check_read_witnesses;
+        for (size_t i = 0; i < 3; i++) {
+            const auto random_idx = random_indices_to_check_computation[i];
+            const auto random_idx_witness = random_index_witnesses_to_check_computation[i];
+
+            if (random_idx < num_single_elts_in_ROM_table) {
+                final_check_read_witnesses[i] = circuit_builder.read_ROM_array(rom_table_id, random_idx_witness);
+            } else {
+                // For pairs, we only use the first element in the final check
+                auto [first, _] = circuit_builder.read_ROM_array_pair(rom_table_id, random_idx_witness);
+                final_check_read_witnesses[i] = first;
+            }
+        }
+
+        // add the `big_add_gate`
+        const fr d_value = std::accumulate(
+            native_fr_elts_to_check_computation.begin(), native_fr_elts_to_check_computation.end(), fr::zero());
+        uint32_t d_idx = circuit_builder.add_variable(d_value);
+        circuit_builder.create_big_add_gate({
+            final_check_read_witnesses[0],
+            final_check_read_witnesses[1],
+            final_check_read_witnesses[2],
+            d_idx,
+            1,
+            1,
+            1,
+            -1,
+            0,
+        });
+        // add a read row, to make sure we can intersperse the operations, as expected.
+        uint32_t random_read_index = static_cast<uint32_t>(
+            engine.get_random_uint32() % num_single_elts_in_ROM_table); // a random index to read from in my ROM array.
+        circuit_builder.read_ROM_array(rom_table_id, index_witness_indices[random_read_index]);
+    }
+
+    static void build_random_RAM_table(auto& circuit_builder,
+                                       size_t array_length,
+                                       const size_t read_write_operations = 0)
+    {
+
+        // create a list of random variables, add them to the circuit, and record their witnesses.
+        // these will be the _initial_ elements of the RAM table.
+        std::vector<fr> variables(array_length);
+        std::vector<uint32_t> variable_witnesses(array_length);
+        for (auto [variable, witness] : zip_view(variables, variable_witnesses)) {
+            variable = fr::random_element();
+            witness = circuit_builder.add_variable(variable);
+        }
 
         // array pointing to the witness indicies whose associated real variable is `i`.
         // this is used for testing
@@ -58,133 +173,133 @@ template <typename Flavor> class MemoryTests_ : public UltraHonkTests<Flavor> {
         for (size_t i = 0; i < array_length; ++i) {
             index_witness_indices[i] = circuit_builder.put_constant_variable(static_cast<uint64_t>(i));
         }
+        NativeRamTable native_ram_table(array_length);
+        size_t ram_table_id = circuit_builder.create_RAM_array(array_length);
+        // witness indices of the indicies of the array, as we will have to perform "random write operations"
+        for (size_t i = 0; i < array_length; ++i) {
+            circuit_builder.init_RAM_element(ram_table_id, i, variable_witnesses[i]);
+            native_ram_table[i] = variables[i];
+        }
 
-        [[maybe_unused]] std::array<uint32_t, 3> final_check_read_witnesses;
-        // build three random indices, store their witnesses for later use in the final check; these will be used to set
-        // the `a_idx`, `b_idx`, and `c_idx` in each of the memory variants.
+        // perform some random read and write operations, which add rows to the execution trace.
+        for (size_t i = 0; i < read_write_operations; ++i) {
+            // write ops
+            size_t random_write_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
+            fr random_element = fr::random_element();
+            uint32_t write_variable_witness = circuit_builder.add_variable(random_element);
+            native_ram_table[random_write_index] = random_element;
+            circuit_builder.write_RAM_array(
+                ram_table_id, index_witness_indices[random_write_index], write_variable_witness);
+            // read ops, with a "native" check that the values are correct.
+            size_t random_read_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
+            uint32_t read_witness =
+                circuit_builder.read_RAM_array(ram_table_id, index_witness_indices[random_read_index]);
+            auto read_value = circuit_builder.get_variable(read_witness);
+            auto expected_value = native_ram_table[random_read_index];
+            BB_ASSERT_EQ(read_value, expected_value, "the value the RAM table read was not the expected value");
+        }
+
+        // Final gate checks: construct a `big_add_gate` with values from the RAM table, then perform another read
+        // (which adds rows to our execution trace). This checks that nothing unexpected happens when we include
+        // basic arithmetic gates.
+
+        // build three random indices, store their witnesses for the final check.
         std::array<uint32_t, 3> random_index_witnesses_to_check_computation;
-        std::array<uint32_t, 3> random_indices_to_check_computation;
+        std::array<fr, 3> native_fr_elts_to_check_computation;
         for (size_t i = 0; i < 3; i++) {
             uint32_t random_index_to_check_computation =
                 static_cast<uint32_t>(engine.get_random_uint32() % array_length);
-            random_indices_to_check_computation[i] = random_index_to_check_computation;
-            random_index_witnesses_to_check_computation[i] =
-                circuit_builder.add_variable(random_index_to_check_computation);
+            random_index_witnesses_to_check_computation[i] = index_witness_indices[random_index_to_check_computation];
+            native_fr_elts_to_check_computation[i] = native_ram_table[random_index_to_check_computation];
+        }
+        // Perform the ops at the random indices, handling single vs pair reads
+        std::array<uint32_t, 3> final_check_read_witnesses;
+        for (size_t i = 0; i < 3; i++) {
+            const auto random_idx_witness = random_index_witnesses_to_check_computation[i];
+            final_check_read_witnesses[i] = circuit_builder.read_RAM_array(ram_table_id, random_idx_witness);
         }
 
-        // different behavior depending on ROM or RAM table. both involve some "native" checks.
-        switch (mem_type) {
-
-        case MemType::ROM: {
-            // build our "native" table to check our operations
-            NativeRomTable native_rom_table(array_length);
-            // set some single ROM elements for the first half of the ROM array.
-            for (size_t i = 0; i < array_length / 2; ++i) {
-                circuit_builder.set_ROM_element(mem_table_id, i, variable_witnesses[i]);
-                native_rom_table[i] = std::array{ variables[i], fr::zero() };
-            }
-            // set pairs of ROM values for the second half of the array.
-            for (size_t i = array_length / 2; i < array_length; ++i) {
-                circuit_builder.set_ROM_element_pair(
-                    mem_table_id, i, std::array{ variable_witnesses[i], variable_witnesses[i + 1] });
-                native_rom_table[i] = std::array{ variables[i], variables[i + 1] };
-            }
-            //  perform some random read operations(which add rows to the execution trace)
-            for (size_t i = 0; i < read_write_operations; ++i) {
-                uint32_t random_read_index = static_cast<uint32_t>(
-                    engine.get_random_uint32() % array_length); // a random index to read from in my ROM array.
-
-                if (random_read_index < array_length / 2) {
-                    uint32_t read_witness_index =
-                        circuit_builder.read_ROM_array(mem_table_id, index_witness_indices[random_read_index]);
-                    [[maybe_unused]] auto actually_read_value = circuit_builder.get_variable(read_witness_index);
-                    [[maybe_unused]] auto expected_value = native_rom_table[random_read_index][0];
-                    BB_ASSERT_EQ(actually_read_value, expected_value);
-                } else {
-                    auto [read_witness_index_1, read_witness_index_2] =
-                        circuit_builder.read_ROM_array_pair(mem_table_id, index_witness_indices[random_read_index]);
-                    [[maybe_unused]] std::array<fr, 2> actually_read_values = {
-                        circuit_builder.get_variable(read_witness_index_1),
-                        circuit_builder.get_variable(read_witness_index_2)
-                    };
-                    [[maybe_unused]] auto expected_values = native_rom_table[random_read_index];
-
-                    BB_ASSERT_EQ(actually_read_values[0], expected_values[0]);
-                    BB_ASSERT_EQ(actually_read_values[1], expected_values[1]);
-                }
-            }
-            // Perform reads at the random indices, handling single vs pair reads
-            // these populate the final check read witnesses that we will use for our last check.
-            for (size_t i = 0; i < 3; i++) {
-                final_check_read_witnesses[i] = [&]() {
-                    auto random_idx = random_indices_to_check_computation[i];
-                    auto random_idx_witness = random_index_witnesses_to_check_computation[i];
-                    if (random_idx < array_length / 2) {
-                        return circuit_builder.read_ROM_array(mem_table_id, random_idx_witness);
-                    }
-                    // else, we read the pair and return the first index.
-                    auto [first, second] = circuit_builder.read_ROM_array_pair(mem_table_id, random_idx_witness);
-                    return first;
-                }();
-            }
-
-            break;
-        }
-
-        case MemType::RAM:
-            // witness indices of the indicies of the array, as we will have to perform "random write operations"
-            for (size_t i = 0; i < array_length; ++i) {
-                circuit_builder.init_RAM_element(mem_table_id, i, variable_witnesses[i]);
-            }
-
-            // perform some random read and write operations, which add rows to the execution trace.
-            for (size_t i = 0; i < read_write_operations; ++i) {
-                size_t random_write_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
-                fr random_element = fr::random_element();
-                uint32_t write_variable_witness = circuit_builder.add_variable(random_element);
-                circuit_builder.write_RAM_array(
-                    mem_table_id, index_witness_indices[random_write_index], write_variable_witness);
-
-                size_t random_read_index = static_cast<size_t>(engine.get_random_uint32() % array_length);
-                circuit_builder.read_RAM_array(mem_table_id, index_witness_indices[random_read_index]);
-            }
-            // for (size_t i = 0; i < 3; ++i) {
-            // final_check_read_witnesses[i] =
-            // circuit_builder.read_RAM_array(mem_table_id, random_index_witnesses_to_check_computation[i]);
-            // }
-
-            break;
-        }
-        // const fr d_value = circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) +
-        // circuit_builder.get_variable(c_idx);
-        // [[maybe_unused]] uint32_t d_idx = circuit_builder.add_variable(d_value);
-        // info("d_value is ", d_value);
-        // circuit_builder.create_big_add_gate({
-        // a_idx,
-        // b_idx,
-        // c_idx,
-        // d_idx,
-        // 1,
-        // 1,
-        // 1,
-        //-1,
-        // 0,
-        //});
+        // add the `big_add_gate`
+        const fr d_value = std::accumulate(
+            native_fr_elts_to_check_computation.begin(), native_fr_elts_to_check_computation.end(), fr::zero());
+        uint32_t d_idx = circuit_builder.add_variable(d_value);
+        circuit_builder.create_big_add_gate({
+            final_check_read_witnesses[0],
+            final_check_read_witnesses[1],
+            final_check_read_witnesses[2],
+            d_idx,
+            1,
+            1,
+            1,
+            -1,
+            0,
+        });
+        // add a read row, to make sure we can intersperse the operations, as expected.
+        uint32_t random_read_index =
+            engine.get_random_uint32() % array_length; // a random index to read from in my ROM array.
+        circuit_builder.read_RAM_array(ram_table_id, index_witness_indices[random_read_index]);
     }
 };
 TYPED_TEST_SUITE(UltraHonkTests, FlavorTypes);
 
-TYPED_TEST(UltraHonkTests, Rom2)
+TYPED_TEST(UltraHonkTests, RomTinyNoReads)
 {
     using Flavor = TypeParam;
     using MemoryTests = MemoryTests_<Flavor>;
-    using MemType = MemoryTests::MemType;
     auto circuit_builder = UltraCircuitBuilder();
-    MemType mem_type = MemType::ROM;
-    size_t array_size_1 = 10;
-    size_t num_reads = 50;
-    MemoryTests::build_random_mem_table(circuit_builder, mem_type, array_size_1, num_reads);
+    size_t array_size = 1;
+    size_t num_pair_elts = 0;
+    size_t num_reads = 0;
+    MemoryTests::build_random_ROM_table(circuit_builder, array_size, num_pair_elts, num_reads);
 
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+TYPED_TEST(UltraHonkTests, RomTinyRepeated)
+{
+    using Flavor = TypeParam;
+    using MemoryTests = MemoryTests_<Flavor>;
+    auto circuit_builder = UltraCircuitBuilder();
+    size_t array_size = 2;
+    size_t num_pair_elts = 1;
+    size_t num_reads = 5;
+    // Build multiple ROM tables to test repeated table creation
+    constexpr size_t num_tables = 5;
+    for (size_t i = 0; i < num_tables; ++i) {
+        MemoryTests::build_random_ROM_table(circuit_builder, array_size, num_pair_elts, num_reads);
+    }
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+TYPED_TEST(UltraHonkTests, RamTiny)
+{
+    using Flavor = TypeParam;
+    using MemoryTests = MemoryTests_<Flavor>;
+    auto circuit_builder = UltraCircuitBuilder();
+    size_t array_size = 1;
+    size_t read_write_ops = 5;
+    MemoryTests::build_random_RAM_table(circuit_builder, array_size, read_write_ops);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
+    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
+}
+
+TYPED_TEST(UltraHonkTests, RomRamMixed)
+{
+    using Flavor = TypeParam;
+    using MemoryTests = MemoryTests_<Flavor>;
+    auto circuit_builder = UltraCircuitBuilder();
+    size_t array_size = 15;
+    size_t num_pair_elts = 5;
+    size_t num_reads = 5;
+    size_t read_write_ops = 5;
+    constexpr size_t num_tables = 5;
+    for (size_t i = 0; i < num_tables; ++i) {
+        MemoryTests::build_random_RAM_table(circuit_builder, array_size, read_write_ops);
+        MemoryTests::build_random_ROM_table(circuit_builder, array_size, num_pair_elts, num_reads);
+    }
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/true);
 }
