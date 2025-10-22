@@ -1,20 +1,19 @@
-#include "api_avm.hpp"
-
-#include <filesystem>
+/**
+ * @file avm_api_impl.cpp
+ * @brief Real AVM implementation forwarding to existing logic
+ */
+#include "avm_api_impl.hpp"
 
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/dsl/avm2_recursion_constraint.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb {
 
-// AVM is enabled in this build
-const bool avm_enabled = true;
-
 namespace {
-
 void print_avm_stats()
 {
 #ifdef AVM_TRACK_STATS
@@ -24,10 +23,9 @@ void print_avm_stats()
     info(stats.to_string(levels));
 #endif
 }
-
 } // namespace
 
-void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
+void AvmApiImpl::prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -50,7 +48,7 @@ void avm_prove(const std::filesystem::path& inputs_path, const std::filesystem::
     }
 }
 
-void avm_check_circuit(const std::filesystem::path& inputs_path)
+void AvmApiImpl::check_circuit(const std::filesystem::path& inputs_path)
 {
     avm2::AvmAPI avm;
     auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
@@ -61,10 +59,9 @@ void avm_check_circuit(const std::filesystem::path& inputs_path)
     print_avm_stats();
 }
 
-// NOTE: The proof should NOT include the public inputs.
-bool avm_verify(const std::filesystem::path& proof_path,
-                const std::filesystem::path& public_inputs_path,
-                const std::filesystem::path& vk_path)
+bool AvmApiImpl::verify(const std::filesystem::path& proof_path,
+                        const std::filesystem::path& public_inputs_path,
+                        const std::filesystem::path& vk_path)
 {
     const auto proof = many_from_buffer<fr>(read_file(proof_path));
     std::vector<uint8_t> vk_bytes = read_file(vk_path);
@@ -78,7 +75,7 @@ bool avm_verify(const std::filesystem::path& proof_path,
     return res;
 }
 
-void avm_simulate(const std::filesystem::path& inputs_path)
+void AvmApiImpl::simulate(const std::filesystem::path& inputs_path)
 {
     // This includes input deserialization as well.
     AVM_TRACK_TIME("command/avm_simulate", {
@@ -90,4 +87,19 @@ void avm_simulate(const std::filesystem::path& inputs_path)
     print_avm_stats();
 }
 
+acir_format::HonkRecursionConstraintOutput<acir_format::Builder> AvmApiImpl::create_recursion_constraints(
+    acir_format::Builder& builder, const acir_format::RecursionConstraint& input, bool has_valid_witness_assignments)
+{
+    // Forward to the actual implementation in avm2_recursion_constraint.cpp
+    return acir_format::create_avm2_recursion_constraints_goblin(builder, input, has_valid_witness_assignments);
+}
+
 } // namespace bb
+
+// C interface for dynamic loading
+extern "C" {
+bb::IAvmApi* create_avm_api()
+{
+    return new bb::AvmApiImpl();
+}
+}
