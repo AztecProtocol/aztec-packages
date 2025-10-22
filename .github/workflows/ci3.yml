@@ -197,3 +197,39 @@ jobs:
           comment-on-alert: false
           fail-on-alert: false
           max-items-in-chart: 100
+
+      - name: Upload Barretenberg op count breakdowns
+        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          # Find all op_counts.json files from native benchmarks
+          if ! find ./bench-out/app-proving -name "op_counts.json" -type f 2>/dev/null | grep -q .; then
+            echo "No op_counts.json files found, skipping upload"
+            exit 0
+          fi
+
+          # Shallow clone gh-pages branch
+          git clone --depth 1 --branch gh-pages https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} gh-pages-repo
+
+          # Create target directory
+          mkdir -p gh-pages-repo/bench/barretenberg-breakdowns
+
+          # Copy all op_counts.json files with descriptive names
+          find ./bench-out/app-proving -name "op_counts.json" -type f | while read -r file; do
+            # Extract flow name from path (e.g., bench-out/app-proving/token_contract/native/op_counts.json -> token_contract-native)
+            flow_name=$(echo "$file" | sed -n 's|.*app-proving/\(.*\)/\(.*\)/op_counts.json|\1-\2|p')
+            cp "$file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}-op_counts.json"
+          done
+
+          # Commit and push
+          cd gh-pages-repo
+          git config user.name "Aztec Bot"
+          git config user.email "bot@aztec.network"
+          git add bench/barretenberg-breakdowns/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update Barretenberg op count breakdowns for ${{ github.event.pull_request.head.sha || github.sha }}"
+            git push
+          fi

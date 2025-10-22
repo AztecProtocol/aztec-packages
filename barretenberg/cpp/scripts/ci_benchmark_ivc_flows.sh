@@ -45,8 +45,14 @@ function run_bb_cli_bench {
   shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    memusage "./$native_build_dir/bin/bb" "$@" || {
-      echo "bb native failed with args: $@"
+    # Add --bench_out flag when running in CI for native builds
+    local bench_args=("$@")
+    if [[ "${CI:-}" == "1" ]]; then
+      bench_args+=("--bench_out" "$output/op_counts.json")
+    fi
+
+    memusage "./$native_build_dir/bin/bb" "${bench_args[@]}" || {
+      echo "bb native failed with args: ${bench_args[@]}"
       exit 1
     }
   else # wasm
