@@ -67,15 +67,6 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         EXPECT_EQ(reversed_arr.bytes()[2].get_origin_tag(), clear_tag);
     }
 
-    void test_from_string_constructor()
-    {
-        Builder builder;
-
-        std::string a = "ascii";
-        byte_array_ct arr(&builder, a);
-        EXPECT_EQ(arr.get_string(), a);
-    }
-
     void test_into_bytes_decomposition_less_than_32_bytes()
     {
         for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
@@ -287,11 +278,6 @@ TYPED_TEST_SUITE(ByteArrayTest, CircuitTypes);
 TYPED_TEST(ByteArrayTest, Reverse)
 {
     TestFixture::test_reverse();
-}
-
-TYPED_TEST(ByteArrayTest, ConstructFromString)
-{
-    TestFixture::test_from_string_constructor();
 }
 
 TYPED_TEST(ByteArrayTest, ByteDecompositionUnique)

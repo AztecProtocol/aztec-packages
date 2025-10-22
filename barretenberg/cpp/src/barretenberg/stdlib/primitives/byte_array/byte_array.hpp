@@ -89,7 +89,6 @@ template <typename Builder> class byte_array {
 
     // Out-of-circuit methods
     std::vector<uint8_t> get_value() const;
-    std::string get_string() const;
 
     // OriginTag-specific methods
     void set_origin_tag(bb::OriginTag tag)

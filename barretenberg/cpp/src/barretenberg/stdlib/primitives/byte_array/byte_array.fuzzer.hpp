@@ -462,7 +462,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         {
             const auto& ref = this->reference_value;
 
-            switch (VarianceRNG.next() % 6) {
+            switch (VarianceRNG.next() % 5) {
             case 0:
 #ifdef SHOW_INFORMATION
                 std::cout << "byte_array_t(e);" << std::cout;
@@ -471,18 +471,12 @@ template <typename Builder> class ByteArrayFuzzBase {
                 return ExecutionHandler(ref, byte_array_t(this->byte_array));
             case 1:
 #ifdef SHOW_INFORMATION
-                std::cout << "e.get_string();" << std::cout;
-#endif
-                /* Construct via std::string */
-                return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_string()));
-            case 2:
-#ifdef SHOW_INFORMATION
                 std::cout << "e.get_value();" << std::cout;
 #endif
                 /* Construct via std::vector<uint8_t> */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_value()));
-            // case 3 and 4: Removed - tested private bytes_t constructors (redundant with cases 0-2)
-            case 3: {
+            // case 2 and 3: Removed - tested private bytes_t constructors (redundant with cases 0-1)
+            case 2: {
                 const auto field = to_field_t();
 
                 if (field == std::nullopt) {
@@ -512,7 +506,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                     return ExecutionHandler(new_ref, byte_array_t(*field, num_bytes));
                 }
             }
-            case 4: {
+            case 3: {
                 /* Create a byte_array with gibberish.
                  *
                  * The purpose of this is to ascertain that no gibberish
@@ -530,7 +524,7 @@ template <typename Builder> class ByteArrayFuzzBase {
 
                 return ExecutionHandler(ref, ba);
             } break;
-            case 5: {
+            case 4: {
                 static_assert(suint_t::MAX_BIT_NUM > 0);
                 const auto field = to_field_t(
                     /* One bit must be reserved */

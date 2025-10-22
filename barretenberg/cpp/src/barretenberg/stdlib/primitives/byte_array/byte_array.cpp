@@ -326,16 +326,6 @@ template <typename Builder> std::vector<uint8_t> byte_array<Builder>::get_value(
     return bytes;
 }
 
-/**
- * @brief Given a `byte_array`, compute a vector containing the values of its entries and convert it to a string.
- * @note Used only in tests.
- */
-template <typename Builder> std::string byte_array<Builder>::get_string() const
-{
-    auto v = get_value();
-    return std::string(v.begin(), v.end());
-}
-
 template class byte_array<bb::UltraCircuitBuilder>;
 template class byte_array<bb::MegaCircuitBuilder>;
 
