@@ -29,19 +29,11 @@ template <class Curve> class EcdsaTestingFunctions {
         enum class Mode : uint8_t {
             None,
             TamperSignature,
-            NonUniquePubKeyX,
-            NonUniquePubKeyY,
         };
 
-        static std::vector<Mode> get_all()
-        {
-            return { Mode::None, Mode::TamperSignature, Mode::NonUniquePubKeyX, Mode::NonUniquePubKeyY };
-        }
+        static std::vector<Mode> get_all() { return { Mode::None, Mode::TamperSignature }; }
 
-        static std::vector<std::string> get_labels()
-        {
-            return { "None", "Tamper Signature", "Non-unique PubKey X", "Non-unique PubKey Y" };
-        }
+        static std::vector<std::string> get_labels() { return { "None", "Tamper Signature" }; }
     };
 
     struct WitnessOverride {
@@ -108,16 +100,6 @@ template <class Curve> class EcdsaTestingFunctions {
         case (Tampering::Mode::TamperSignature):
             witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
             witness_values[ecdsa_constraints.result] = bb::fr(0);
-        case (Tampering::Mode::NonUniquePubKeyX): {
-            for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.pub_x_indices[idx]] = bb::fr(255);
-            }
-        }
-        case (Tampering::Mode::NonUniquePubKeyY): {
-            for (size_t idx = 0; idx < 32; idx++) {
-                witness_values[ecdsa_constraints.pub_y_indices[idx]] = bb::fr(255);
-            }
-        }
         }
     }
 
@@ -236,10 +218,5 @@ TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
 TYPED_TEST(EcdsaConstraintsTest, Tampering)
 {
     BB_DISABLE_ASSERTS();
-    std::vector<std::string> error_msgs = TestFixture::test_tampering();
-
-    EXPECT_EQ(error_msgs[2],
-              "ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus: hi limb.");
-    EXPECT_EQ(error_msgs[3],
-              "ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus: hi limb.");
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }

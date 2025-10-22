@@ -33,11 +33,9 @@ using namespace bb;
  *        than 2^241).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
- *  4. Enforce uniqueness of the representation of the public key by asserting \f$x < q\f$ and \f$y < q\f$, where
- *     \f$q\f$ is the modulus of the base field of the elliptic curve we are working with.
- *  5. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
+ *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
  *     whether the signature verification was successfull or not.
- *  6. Enforce that the result of the signature verification matches the expected result.
+ *  5. Enforce that the result of the signature verification matches the expected result.
  *
  * @tparam Curve
  * @param builder
@@ -75,7 +73,6 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     }
 
     // Step 1.
-    // Construct inputs to signature verification from witness indices
     byte_array_ct hashed_message = fields_to_bytes(builder, hashed_message_fields);
     byte_array_ct pub_x_bytes = fields_to_bytes(builder, pub_x_fields);
     byte_array_ct pub_y_bytes = fields_to_bytes(builder, pub_y_fields);
@@ -85,23 +82,21 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     bool_ct predicate;
 
     // Step 2.
-    // Reconstruct the public key from the byte representations of its coordinates
     Fq pub_x(pub_x_bytes);
     Fq pub_y(pub_y_bytes);
+    // This constructor sets the infinity flag of public_key to false. This is OK because the point at infinity is not a
+    // point on the curve and we check tha public_key is on the curve.
+    G1 public_key(pub_x, pub_y);
 
     // Step 3.
-    // Update values depending on the predicate
     if (!input.predicate.is_constant) {
-        predicate = static_cast<bool_ct>(predicate_field); // Constructor enforces predicate = 0 or 1
-        // 0 < r < n
-        r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1));
-        // 0 < s < n/2
-        s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1));
-        // P is on the curve
-        // We need to use a point which is different from the generator otherwise secp256r1 ECDSA verification fails
+        predicate = static_cast<bool_ct>(predicate_field);                 // Constructor enforces predicate = 0 or 1
+        r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1)); // 0 < r < n
+        s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1)); // 0 < s < n/2
+
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
-        pub_x = Fq::conditional_assign(predicate, pub_x, default_point.x);
-        pub_y = Fq::conditional_assign(predicate, pub_y, default_point.y);
+        public_key.x = Fq::conditional_assign(predicate, public_key.x, default_point.x); // P is on the curve
+        public_key.y = Fq::conditional_assign(predicate, public_key.y, default_point.y); // P is on the curve
         // Avoid mixing constant/witness coordinates because of issue
         // https://github.com/AztecProtocol/aztec-packages/issues/17514
         if (pub_x.is_constant() != pub_y.is_constant()) {
@@ -115,22 +110,13 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
     }
 
-    G1 public_key(pub_x, pub_y);
     // Step 4.
-    // Ensure uniqueness of the public key by asserting each of its coordinates is smaller than the modulus of the base
-    // field
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1562) remove this check, it is a duplicate of the check
-    // in the verification function.
-    pub_x.assert_is_in_field("ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus");
-    pub_y.assert_is_in_field("ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus");
-
-    // Step 5.
     bool_ct signature_result =
         stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
-    // Step 6.
-    // Assert that signature verification returned the expected result
+    // Step 5.
     if (!input.predicate.is_constant) {
+        // Ensure the circuit is satisfied when predicate is witness false
         signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
     } else {
         signature_result.assert_equal(result);
