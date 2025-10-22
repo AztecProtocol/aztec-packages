@@ -1,5 +1,6 @@
 #pragma once
 #include "./factories/crs_factory.hpp"
+#include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <filesystem>
@@ -15,6 +16,8 @@ inline void init_file_crs_factory(const std::filesystem::path& path)
 {
     init_bn254_file_crs_factory(path);
     init_grumpkin_file_crs_factory(path);
+    // Transfer bb's CRS to the dynamically loaded AVM library (if loaded)
+    update_avm_crs();
 }
 
 // Initializes the crs using memory buffers
@@ -30,6 +33,8 @@ inline void init_net_crs_factory(const std::filesystem::path& path)
 {
     init_bn254_net_crs_factory(path);
     init_grumpkin_net_crs_factory(path);
+    // Transfer bb's CRS to the dynamically loaded AVM library (if loaded)
+    update_avm_crs();
 }
 
 std::shared_ptr<factories::CrsFactory<curve::BN254>> get_bn254_crs_factory();

@@ -54,7 +54,10 @@ std::vector<std::filesystem::path> get_search_paths()
     // 2. Same directory as executable
     paths.push_back(get_executable_dir());
 
-    // 3. Current directory (for development)
+    // 3. ../lib relative to executable
+    paths.push_back(get_executable_dir() / ".." / "lib");
+
+    // 4. Current directory (for development)
     paths.push_back(std::filesystem::current_path());
 
     return paths;
