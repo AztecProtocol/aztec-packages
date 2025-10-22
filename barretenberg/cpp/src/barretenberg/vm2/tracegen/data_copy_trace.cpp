@@ -67,11 +67,11 @@ void DataCopyTraceBuilder::process(
         trace.set(row,
                   { {
                       // Unconditional values
+                      { C::data_copy_sel, 1 },
                       { C::data_copy_clk, event.execution_clk },
                       { C::data_copy_sel_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
-                      { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
 
                       { C::data_copy_src_context_id, event.read_context_id },
@@ -165,9 +165,9 @@ void DataCopyTraceBuilder::process(
             trace.set(
                 row,
                 { {
+                    { C::data_copy_sel, 1 },
                     { C::data_copy_clk, event.execution_clk },
                     { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
-                    { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
 
                     { C::data_copy_src_context_id, event.read_context_id },
                     { C::data_copy_dst_context_id, event.write_context_id },

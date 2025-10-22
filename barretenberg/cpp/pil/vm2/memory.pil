@@ -6,6 +6,15 @@ namespace memory;
 
 // Link to design document: https://docs.google.com/document/d/1NM5zU39NG5xJReOjSObwWllbpqTCO4flr9v8kdRDK3E
 
+// Usage:
+// sel {
+//   clk, space_id, address, value, tag, rw
+// } is memory.sel_XXX {
+//   memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
+// };
+//
+// sel_XXX is one of the selectors appearing in #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
+
 // Main memory values directly derived from the memory events.
 pol commit value;
 pol commit tag;
