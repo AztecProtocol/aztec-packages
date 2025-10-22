@@ -20,6 +20,7 @@ describe('Client IVC Integration', () => {
   beforeEach(async () => {
     // Create a temp working dir
     bbWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
+    process.env.VM2_LIB_PATH = '../../../barretenberg/cpp/build/lib';
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
 

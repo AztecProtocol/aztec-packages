@@ -54,6 +54,7 @@ describe('Rollup IVC Integration', () => {
   let workingDirectory: string;
 
   beforeAll(async () => {
+    process.env.VM2_LIB_PATH = '../../../barretenberg/cpp/build/lib';
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
     // Create a client IVC proof
