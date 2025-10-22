@@ -19,7 +19,4 @@ ACCUMULATE(tx_contextImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class tx_contextImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(tx_contextImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

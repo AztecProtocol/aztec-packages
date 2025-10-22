@@ -16,7 +16,4 @@ ACCUMULATE(eccImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, Evaluation
 ACCUMULATE(eccImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);  // Check circuit.
 ACCUMULATE(eccImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge); // Check relation (tests).
 
-template class eccImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(eccImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

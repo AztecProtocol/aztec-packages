@@ -19,7 +19,4 @@ ACCUMULATE(sstoreImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class sstoreImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(sstoreImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

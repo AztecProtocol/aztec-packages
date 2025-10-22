@@ -1,5 +1,5 @@
 #include "barretenberg/srs/global_crs.hpp"
-#ifndef DISABLE_AZTEC_VM
+#if 1
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"

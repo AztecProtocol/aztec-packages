@@ -22,10 +22,6 @@ ACCUMULATE(address_derivationImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class address_derivationImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(address_derivationImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

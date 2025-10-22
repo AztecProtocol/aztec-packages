@@ -341,7 +341,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
         }
 
-#ifndef DISABLE_AZTEC_VM
+#if 1
         if (has_avm_recursion_constraints) {
             HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -649,7 +649,7 @@ process_civc_recursion_constraints(Builder& builder,
     return output;
 }
 
-#ifndef DISABLE_AZTEC_VM
+#if 1
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
 process_avm_recursion_constraints(Builder& builder,
                                   AcirFormat& constraint_system,

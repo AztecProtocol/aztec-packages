@@ -22,10 +22,6 @@ ACCUMULATE(note_hash_tree_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class note_hash_tree_checkImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(note_hash_tree_checkImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

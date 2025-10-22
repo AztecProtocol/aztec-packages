@@ -19,7 +19,4 @@ ACCUMULATE(merkle_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class merkle_checkImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(merkle_checkImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

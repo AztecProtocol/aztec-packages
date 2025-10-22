@@ -22,10 +22,6 @@ ACCUMULATE(get_contract_instanceImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class get_contract_instanceImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(get_contract_instanceImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

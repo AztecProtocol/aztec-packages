@@ -19,7 +19,4 @@ ACCUMULATE(keccak_memoryImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class keccak_memoryImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(keccak_memoryImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

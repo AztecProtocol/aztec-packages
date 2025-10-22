@@ -19,7 +19,4 @@ ACCUMULATE(registersImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class registersImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(registersImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

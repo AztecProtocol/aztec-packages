@@ -16,7 +16,4 @@ ACCUMULATE(gtImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationE
 ACCUMULATE(gtImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);  // Check circuit.
 ACCUMULATE(gtImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge); // Check relation (tests).
 
-template class gtImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(gtImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

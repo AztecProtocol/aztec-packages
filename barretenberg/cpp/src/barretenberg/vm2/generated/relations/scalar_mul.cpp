@@ -19,7 +19,4 @@ ACCUMULATE(scalar_mulImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class scalar_mulImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(scalar_mulImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

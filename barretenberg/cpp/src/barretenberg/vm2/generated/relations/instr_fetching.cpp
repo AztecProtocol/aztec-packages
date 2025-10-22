@@ -19,7 +19,4 @@ ACCUMULATE(instr_fetchingImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class instr_fetchingImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(instr_fetchingImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

@@ -333,7 +333,6 @@ fr MerkleTree<Store, HashingPolicy>::fork_stump(
     if (height == common_height) {
         if (height == 1) {
             index1 = numeric::keep_n_lsb(index1, 1);
-            index2 = numeric::keep_n_lsb(index2, 1);
             return binary_put(index1, value1, value2, height);
         } else {
             size_t stump_height = height - 1;

@@ -20,8 +20,7 @@
     ACCUMULATE_FOR_LOOKUP(RelationName, AvmFlavor, SumcheckTupleOfUnivariatesOverSubrelations, ExtendedEdge);          \
     ACCUMULATE_FOR_LOOKUP(RelationName, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge);             \
     ACCUMULATE_FOR_LOOKUP(RelationName, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);        \
-    ACCUMULATE_FOR_LOOKUP(RelationName, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge);       \
-    ACCUMULATE_FOR_LOOKUP(RelationName, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge);
+    ACCUMULATE_FOR_LOOKUP(RelationName, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge);
 
 namespace bb::avm2 {
 

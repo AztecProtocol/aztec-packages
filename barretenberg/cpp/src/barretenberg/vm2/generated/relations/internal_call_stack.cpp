@@ -22,10 +22,6 @@ ACCUMULATE(internal_call_stackImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class internal_call_stackImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(internal_call_stackImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

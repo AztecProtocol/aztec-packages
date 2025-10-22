@@ -19,7 +19,4 @@ ACCUMULATE(bitwiseImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class bitwiseImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(bitwiseImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

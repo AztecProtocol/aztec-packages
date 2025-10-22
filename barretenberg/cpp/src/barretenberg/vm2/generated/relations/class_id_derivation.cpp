@@ -22,10 +22,6 @@ ACCUMULATE(class_id_derivationImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class class_id_derivationImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(class_id_derivationImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

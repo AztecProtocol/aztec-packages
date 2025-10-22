@@ -16,7 +16,4 @@ ACCUMULATE(aluImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, Evaluation
 ACCUMULATE(aluImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);  // Check circuit.
 ACCUMULATE(aluImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge); // Check relation (tests).
 
-template class aluImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(aluImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

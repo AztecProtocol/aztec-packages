@@ -19,7 +19,4 @@ ACCUMULATE(poseidon2_memImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class poseidon2_memImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(poseidon2_memImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

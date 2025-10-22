@@ -44,9 +44,7 @@ class alignas(32) uint256_t {
         : data{ a, b, c, d }
     {}
 
-    constexpr uint256_t(const uint256_t& other) noexcept
-        : data{ other.data[0], other.data[1], other.data[2], other.data[3] }
-    {}
+    constexpr uint256_t(const uint256_t& other) noexcept = default;
     constexpr uint256_t(uint256_t&& other) noexcept = default;
 
     explicit constexpr uint256_t(std::string input) noexcept

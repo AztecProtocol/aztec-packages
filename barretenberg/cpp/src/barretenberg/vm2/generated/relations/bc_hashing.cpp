@@ -19,7 +19,4 @@ ACCUMULATE(bc_hashingImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class bc_hashingImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(bc_hashingImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

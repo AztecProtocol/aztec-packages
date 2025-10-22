@@ -28,10 +28,6 @@ ACCUMULATE(retrieved_bytecodes_tree_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class retrieved_bytecodes_tree_checkImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(retrieved_bytecodes_tree_checkImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

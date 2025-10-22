@@ -19,7 +19,4 @@ ACCUMULATE(external_callImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class external_callImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(external_callImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

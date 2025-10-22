@@ -22,10 +22,6 @@ ACCUMULATE(calldata_hashingImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class calldata_hashingImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(calldata_hashingImpl,
-           AvmRecursiveFlavor,
-           SumcheckArrayOfValuesOverSubrelations,
-           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

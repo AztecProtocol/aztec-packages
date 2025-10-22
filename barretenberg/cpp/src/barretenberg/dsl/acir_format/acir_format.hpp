@@ -7,7 +7,7 @@
 #pragma once
 #include "aes128_constraint.hpp"
 
-#ifndef DISABLE_AZTEC_VM
+#if 1
 #include "avm2_recursion_constraint.hpp"
 #endif
 

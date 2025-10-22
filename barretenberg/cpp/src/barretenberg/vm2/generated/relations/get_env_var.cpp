@@ -19,7 +19,4 @@ ACCUMULATE(get_env_varImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class get_env_varImpl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(get_env_varImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

@@ -14,8 +14,9 @@
 namespace bb::stdlib {
 
 namespace {
+// Random number generator for testing/debugging purposes
 auto& engine = numeric::get_debug_randomness();
-}
+} // namespace
 
 /**
  * @brief Verify ECDSA signature. Returns bool_t(true/false) depending on whether the signature is valid or not.
@@ -75,7 +76,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
-    // Fetch the context
+    // Fetch and validate the circuit builder context from all inputs
+    // All inputs must share the same builder context or be constant
     Builder* builder = hashed_message.get_context();
     builder = validate_context(builder, public_key.get_context());
     builder = validate_context(builder, sig.get_context());

@@ -19,7 +19,4 @@ ACCUMULATE(sha256Impl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
-template class sha256Impl<AvmRecursiveFlavor::FF>;
-ACCUMULATE(sha256Impl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
-
 } // namespace bb::avm2

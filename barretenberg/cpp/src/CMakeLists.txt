@@ -224,7 +224,7 @@ if(WASM)
     target_link_options(
         barretenberg-debug.wasm
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
+        -nostartfiles -Wl,--no-entry,--export-all
     )
 
     # Strip debug info to create the release version.
