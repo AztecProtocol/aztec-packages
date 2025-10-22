@@ -336,9 +336,9 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOTS_URL}/ignition/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/ignition-mainnet/`],
   autoUpdate: 'notify',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/ignition-mainnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',

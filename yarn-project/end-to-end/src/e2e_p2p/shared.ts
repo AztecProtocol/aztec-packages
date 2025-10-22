@@ -4,8 +4,8 @@ import {
   AztecAddress,
   Fr,
   type Logger,
-  ProvenTx,
   type SentTx,
+  Tx,
   TxStatus,
   getContractInstanceFromInstantiationParams,
   retryUntil,
@@ -20,7 +20,7 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
@@ -73,7 +73,7 @@ export async function prepareTransactions(
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<ProvenTx[]> {
+): Promise<Tx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
@@ -87,7 +87,9 @@ export async function prepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.address });
+    const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {
+      from: fundedAccountManager.address,
+    });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

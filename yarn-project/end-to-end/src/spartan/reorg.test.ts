@@ -85,6 +85,7 @@ describe('reorg test', () => {
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
@@ -123,6 +124,7 @@ describe('reorg test', () => {
     // TODO(#9327): end delete
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,

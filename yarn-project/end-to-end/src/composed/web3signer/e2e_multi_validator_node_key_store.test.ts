@@ -326,15 +326,14 @@ describe('e2e_multi_validator_node', () => {
     await rmdir(keyStoreDirectory, { recursive: true });
   });
 
-  const sendTx = async (sender: AztecAddress, contractAddressSalt: Fr) => {
+  const sendTx = (sender: AztecAddress, contractAddressSalt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
+    return deployer.deploy(ownerAddress, sender, 1).send({
       from: ownerAddress,
       contractAddressSalt,
       skipClassPublication: true,
       skipInstancePublication: true,
     });
-    return provenTx.send();
   };
 
   it('should build blocks & attest with multiple validator keys', async () => {
@@ -396,7 +395,7 @@ describe('e2e_multi_validator_node', () => {
       return sendTx(ownerAddress, contractAddressSalt);
     });
 
-    const settledTransactions = await Promise.all(sentTransactionPromises.map(async tx => (await tx).wait()));
+    const settledTransactions = await Promise.all(sentTransactionPromises.map(tx => tx.wait()));
 
     await Promise.all(
       settledTransactions.map(tx => {

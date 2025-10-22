@@ -2,6 +2,7 @@ import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
@@ -16,7 +17,7 @@ describe('client_prover', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
-  let { provenAssets, accounts, logger } = t;
+  let { provenAsset, accounts, logger, wallet } = t;
   let sender: AztecAddress;
   let recipient: AztecAddress;
 
@@ -30,7 +31,7 @@ describe('client_prover', () => {
     await t.applyMintSnapshot();
     await t.setup();
 
-    ({ provenAssets, accounts, logger } = t);
+    ({ provenAsset, accounts, logger, wallet } = t);
     [sender, recipient] = accounts;
 
     feeJuicePortal = getContract({
@@ -71,21 +72,21 @@ describe('client_prover', () => {
       );
 
       // Create the two transactions
-      const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });
+      const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
       const privateSendAmount = privateBalance / 10n;
       expect(privateSendAmount).toBeGreaterThan(0n);
-      const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
+      const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-      const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate({ from: sender });
+      const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
       const publicSendAmount = publicBalance / 10n;
       expect(publicSendAmount).toBeGreaterThan(0n);
-      const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
+      const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
       // Prove them
       logger.info(`Proving txs`);
       const [publicProvenTx, privateProvenTx] = await Promise.all([
-        publicInteraction.prove({ from: sender }),
-        privateInteraction.prove({ from: sender }),
+        proveInteraction(wallet, publicInteraction, { from: sender }),
+        proveInteraction(wallet, privateInteraction, { from: sender }),
       ]);
 
       // Verify them

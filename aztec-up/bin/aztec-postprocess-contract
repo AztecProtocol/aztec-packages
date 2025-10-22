@@ -1,13 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
-if [[ -z "${VERSION:-}" ]]; then
-  VERSION=$(cat "$AZTEC_PATH/default_version" 2>/dev/null || echo "latest")
-fi
-export VERSION
-export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
-
 if [[ $PWD != ${HOME}* ]]; then
   >&2 echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
   exit 1
@@ -29,4 +22,4 @@ docker run ${args:-} \
   -e HOME=$HOME \
   --workdir="$PWD" \
   --entrypoint=/usr/src/aztec-postprocess-contract/transpile_contract_and_gen_vks.sh \
-  $DOCKER_REPO:$VERSION "$@"
+  aztecprotocol/aztec "$@"

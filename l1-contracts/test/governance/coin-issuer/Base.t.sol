@@ -13,9 +13,10 @@ contract CoinIssuerBase is Test {
 
   CoinIssuer internal nom;
 
-  function _deploy(uint256 _rate) internal {
+  function _deploy(uint256 _rate, uint256 _initialSupply) internal {
     TestERC20 testERC20 = new TestERC20("test", "TEST", address(this));
     token = IMintableERC20(address(testERC20));
+    token.mint(address(this), _initialSupply);
     nom = new CoinIssuer(token, _rate, address(this));
     testERC20.transferOwnership(address(nom));
     nom.acceptTokenOwnership();

@@ -110,8 +110,7 @@ describe('e2e_deploy_contract legacy', () => {
       from: defaultAccountAddress,
     };
 
-    await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
-    const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
+    const [goodTx, badTx] = await Promise.all([goodDeploy.send(firstOpts), badDeploy.send(secondOpts)]);
     const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
       goodTx.wait(),
       badTx.wait({ dontThrowOnRevert: true }),

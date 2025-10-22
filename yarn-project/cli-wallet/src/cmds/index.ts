@@ -10,8 +10,8 @@ import {
   parseFieldFromHexString,
   parsePublicKey,
 } from '@aztec/cli/utils';
+import { randomBytes } from '@aztec/foundation/crypto';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import { type Command, Option } from 'commander';
 import inquirer from 'inquirer';
@@ -36,10 +36,7 @@ import {
   createDebugExecutionStepsDirOption,
   createTypeOption,
   createVerboseOption,
-  getPaymentMethodOption,
   integerArgParser,
-  parseGasFees,
-  parsePaymentMethod,
 } from '../utils/options/index.js';
 import type { AccountType } from '../utils/wallet.js';
 
@@ -311,7 +308,6 @@ export function injectCommands(
     )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
-    .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.')
     .addOption(createVerboseOption());
 
   addOptions(sendCommand, CLIFeeArgs.getOptions()).action(async (functionName, _options, command) => {
@@ -324,7 +320,6 @@ export function injectCommands(
       from: parsedFromAddress,
       wait,
       alias,
-      cancel,
       authWitness: authWitnessArray,
       verbose,
     } = options;
@@ -344,14 +339,14 @@ export function injectCommands(
       artifactPath,
       contractAddress,
       wait,
-      cancel,
+      alias,
       CLIFeeArgs.parse(options, log, db),
       authWitnesses,
       verbose,
       log,
     );
     if (db && sentTx) {
-      const txAlias = alias ? alias : `${functionName}-${sentTx.txNonce.toString().slice(-4)}`;
+      const txAlias = alias ? alias : `${functionName}-${randomBytes(16).toString()}`;
       await db.storeTx(sentTx, log, txAlias);
     }
   });
@@ -589,53 +584,21 @@ export function injectCommands(
           aliases.slice(page * pageSize, pageSize * (1 + page)).map(async ({ key, value }) => ({
             alias: key,
             txHash: value,
-            cancellable: (await db.retrieveTxData(TxHash.fromString(value))).cancellable,
             status: await checkTx(wallet, node, TxHash.fromString(value), true, log),
           })),
         );
         log(`Recent transactions:`);
         log('');
         log(`${'Alias'.padEnd(32, ' ')} | ${'TxHash'.padEnd(64, ' ')} | ${'Cancellable'.padEnd(12, ' ')} | Status`);
-        log(''.padEnd(32 + 64 + 12 + 20, '-'));
-        for (const { alias, txHash, status, cancellable } of dataRows) {
-          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${cancellable.toString()?.padEnd(12, ' ')} | ${status}`);
-          log(''.padEnd(32 + 64 + 12 + 20, '-'));
+        log(''.padEnd(32 + 64 + 20, '-'));
+        for (const { alias, txHash, status } of dataRows) {
+          log(`${alias.padEnd(32, ' ')} | ${txHash} | ${status}`);
+          log(''.padEnd(32 + 64 + 20, '-'));
         }
         log(`Displaying ${Math.min(pageSize, aliases.length)} rows, page ${page + 1}/${totalPages}`);
       } else {
         log('Recent transactions are not available, please provide a specific transaction hash');
       }
-    });
-
-  program
-    .command('cancel-tx')
-    .description('Cancels a pending tx by reusing its nonce with a higher fee and an empty payload')
-    .argument('<txHash>', 'A transaction hash to cancel.', txHash => aliasedTxHashParser(txHash, db))
-    .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
-    .addOption(getPaymentMethodOption().default('method=fee_juice'))
-    .option(
-      '-i --increased-fees <da=1,l2=1>',
-      'The amounts by which the fees are increased',
-      value => parseGasFees(value),
-      new GasFees(1, 1),
-    )
-    .option('--max-fees-per-gas <da=100,l2=100>', 'Maximum fees per gas unit for DA and L2 computation.', value =>
-      parseGasFees(value),
-    )
-    .action(async (txHash, options) => {
-      const { cancelTx } = await import('./cancel_tx.js');
-      const { from: parsedFromAddress, payment, increasedFees, maxFeesPerGas } = options;
-
-      const { wallet } = walletAndNodeWrapper;
-
-      const txData = await db?.retrieveTxData(txHash);
-      if (!txData) {
-        throw new Error('Transaction data not found in the database, cannot reuse nonce');
-      }
-      const gasSettings = GasSettings.default({ maxFeesPerGas });
-      const paymentMethod = await parsePaymentMethod(payment, log, db)(wallet, parsedFromAddress, gasSettings);
-
-      await cancelTx(wallet, parsedFromAddress, txData, paymentMethod, increasedFees, maxFeesPerGas, log);
     });
 
   program

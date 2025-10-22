@@ -1,7 +1,8 @@
-import { type AztecAddress, EthAddress, ProvenTx, sleep } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, Tx, sleep } from '@aztec/aztec.js';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
+import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
@@ -26,14 +27,15 @@ describe('transaction benchmarks', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 
-  let { provenAssets, logger } = t;
+  let { provenAsset, logger } = t;
   let sender: AztecAddress;
   let recipient: AztecAddress;
+  let provenWallet: TestWallet;
 
   const results: any[] = [];
 
-  let publicProvenTx: ProvenTx;
-  let privateProvenTx: ProvenTx;
+  let publicProvenTx: Tx;
+  let privateProvenTx: Tx;
 
   const toPrettyString = () => {
     let pretty = '';
@@ -54,27 +56,28 @@ describe('transaction benchmarks', () => {
     await t.setup();
 
     ({
-      provenAssets,
+      provenWallet,
+      provenAsset,
       accounts: [sender, recipient],
       logger,
     } = t);
 
     // Create the two transactions
-    const privateBalance = await provenAssets[0].methods.balance_of_private(sender).simulate({ from: sender });
+    const privateBalance = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
     const privateSendAmount = privateBalance / 10n;
     expect(privateSendAmount).toBeGreaterThan(0n);
-    const privateInteraction = provenAssets[0].methods.transfer(recipient, privateSendAmount);
+    const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
 
-    const publicBalance = await provenAssets[1].methods.balance_of_public(sender).simulate({ from: sender });
+    const publicBalance = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
     const publicSendAmount = publicBalance / 10n;
     expect(publicSendAmount).toBeGreaterThan(0n);
-    const publicInteraction = provenAssets[1].methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
+    const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
 
     // Prove them
     logger.info(`Proving txs`);
     const [publicTx, privateTx] = await Promise.all([
-      publicInteraction.prove({ from: sender }),
-      privateInteraction.prove({ from: sender }),
+      proveInteraction(provenWallet, publicInteraction, { from: sender }),
+      proveInteraction(provenWallet, privateInteraction, { from: sender }),
     ]);
 
     publicProvenTx = publicTx;
@@ -186,7 +189,7 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
-  const runSingleProofVerificationTest = async (tx: ProvenTx, type: 'Private' | 'Public') => {
+  const runSingleProofVerificationTest = async (tx: Tx, type: 'Private' | 'Public') => {
     const numIterations = 20;
     const resultsArray: (IVCProofVerificationResult | undefined)[] = Array.from({ length: numIterations }).map(
       _ => undefined,

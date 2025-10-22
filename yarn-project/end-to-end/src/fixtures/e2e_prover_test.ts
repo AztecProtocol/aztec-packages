@@ -56,6 +56,7 @@ export class FullProverTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
   wallet!: TestWallet;
+  provenWallet!: TestWallet;
   accounts: AztecAddress[] = [];
   deployedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
@@ -68,7 +69,7 @@ export class FullProverTest {
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
-  provenAssets: TokenContract[] = [];
+  provenAsset!: TokenContract;
   private context!: SubsystemsContext;
   private proverNode!: ProverNode;
   private simulatedProverNode!: ProverNode;
@@ -207,32 +208,31 @@ export class FullProverTest {
     await this.context.cheatCodes.rollup.markAsProven();
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
+    const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
+      this.aztecNode,
+      {
+        proverEnabled: this.realProofs,
+        bbBinaryPath: bbConfig?.bbBinaryPath,
+        bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
+      },
+      undefined,
+      true,
+    );
+    this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
+    await provenWallet.registerContract(this.fakeProofsAsset);
+
     for (let i = 0; i < 2; i++) {
-      const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
-        this.aztecNode,
-        {
-          proverEnabled: this.realProofs,
-          bbBinaryPath: bbConfig?.bbBinaryPath,
-          bbWorkingDirectory: bbConfig?.bbWorkingDirectory,
-        },
-        undefined,
-        true,
-      );
-      this.logger.debug(`Contract address ${this.fakeProofsAsset.address}`);
-      await provenWallet.registerContract(this.fakeProofsAsset);
-
-      for (let i = 0; i < 2; i++) {
-        await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
-        await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
-      }
-
-      const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
-      this.provenComponents.push({
-        wallet: provenWallet,
-        teardown: provenTeardown,
-      });
-      this.provenAssets.push(asset);
+      await provenWallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
+      await this.wallet.createSchnorrAccount(this.deployedAccounts[i].secret, this.deployedAccounts[i].salt);
     }
+
+    const asset = await TokenContract.at(this.fakeProofsAsset.address, provenWallet);
+    this.provenComponents.push({
+      wallet: provenWallet,
+      teardown: provenTeardown,
+    });
+    this.provenAsset = asset;
+    this.provenWallet = provenWallet;
     this.logger.info(`Full prover PXE started`);
 
     // Shutdown the current, simulated prover node

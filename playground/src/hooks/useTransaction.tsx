@@ -38,25 +38,19 @@ export function useTransaction() {
     setCurrentTx(tx);
 
     try {
-      notifications.show('Proving transaction...', {
+      notifications.show('Sending transaction...', {
         severity: 'info',
       });
-      const provenInteraction = await interaction.prove(opts);
+      const tx = await interaction.send(opts);
 
-      if (showNotifications) {
-        notifications.show('Proof generated successfully, sending transaction...', {
-          severity: 'success',
-        });
-      }
-
-      txHash = await provenInteraction.getTxHash();
+      txHash = await tx.getTxHash();
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
 
       // TODO: Don't send the tx if the user has cancelled the transaction
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
+      receipt = await tx.wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
 
       if (showNotifications && receipt.status === TxStatus.SUCCESS) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
