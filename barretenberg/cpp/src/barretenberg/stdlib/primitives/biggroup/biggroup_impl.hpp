@@ -692,6 +692,26 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
  * @param max_num_bits The max of the bit lengths of the scalars.
  * @param with_edgecases Use when points are linearly dependent. Randomises them.
  * @return element<C, Fq, Fr, G>
+ *
+ * @details This is an implementation of the Strauss algorithm for multi-scalar-multiplication (MSM).
+ *          It uses the Non-Adjacent Form (NAF) representation of scalars and ROM lookups to
+ *          efficiently compute the MSM. The algorithm processes 4 bits of each scalar per iteration,
+ *          accumulating the results in an accumulator point. The first NAF entry (I, see below) is used to
+ *          -------------------------------
+ *          Point  NAF(scalar)
+ *          G1    [+1, -1, -1, -1, +1, ...]
+ *          G2    [+1, +1, -1, -1, +1, ...]
+ *          G3    [-1, +1, +1, -1, +1, ...]
+ *                  ↑  ↑____________↑
+ *                  I    Iteration 1
+ *          -------------------------------
+ *          select the initial point to add to the offset generator. Thereafter, we process 4 NAF entries
+ *          per iteration. For one NAF entry, we lookup the corresponding points to add, and accumulate
+ *          them using `chain_add_accumulator`. After processing 4 NAF entries, we perform a single
+ *          `multiple_montgomery_ladder` call to update the accumulator. For example, in iteration 1 above,
+ *          for the second NAF entry, the lookup output is:
+ *          table(-1, +1, +1) = (-G1 + G2 + G3)
+ *          This lookup output is accumulated with the lookup outputs from the other 3 NAF entries.
  */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element>& _points,
@@ -727,45 +747,44 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
 
     // TODO: problem if there is a point at infinity, size of NAF(0) => 254 but rest of scalars will be < 254
     // TODO: problem if get_chain_initial_entry itself is point at infinity (example: (+1).6P + (-1).2P + (-1).3P = O)
+    // ROM lookup table for points. Example if we have 3 points G1, G2, G3:
+    // ┌───────┬─────────────────┐
+    // │ Index │ Point           │
+    // ├───────┼─────────────────┤
+    // │   0   │  G1 + G2 + G3   │
+    // │   1   │  G1 + G2 - G3   │
+    // │   2   │  G1 - G2 + G3   │
+    // │   3   │  G1 - G2 - G3   │
+    // │   4   │ -G1 + G2 + G3   │
+    // │   5   │ -G1 + G2 - G3   │
+    // │   6   │ -G1 - G2 + G3   │
+    // │   7   │ -G1 - G2 - G3   │
+    // └───────┴─────────────────┘
     batch_lookup_table point_table(points);
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
     std::vector<std::vector<bool_ct>> naf_entries;
     for (size_t i = 0; i < num_points; ++i) {
         naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
     }
-    const auto offset_generators = compute_offset_generators(num_rounds);
-    element accumulator =
-        element::chain_add_end(element::chain_add(offset_generators.first, point_table.get_chain_initial_entry()));
 
-    // We use the Strauss algorithm to perform the MSM.
-    // Point  NAF(scalar)
-    // G1    [+1, -1, -1, -1, +1, ...]
-    // G2    [+1, +1, -1, -1, +1, ...]
-    // G3    [-1, +1, +1, -1, +1, ...]
-    //         ↑  ↑____________↑
-    //         I    Iteration 1
-    //
-    // The first NAF entry (I) is used to select the initial point to add to the offset generator.
-    // Thereafter, we process 4 NAF entries per iteration. For one NAF entry, we lookup the
-    // corresponding points to add, and accumulate them using `chain_add_accumulator`.
-    // After processing 4 NAF entries, we perform a single `multiple_montgomery_ladder` call to
-    // update the accumulator. For example, in iteration 1 above, for the second NAF entry, the lookup output is:
-    //
-    // table(-1, +1, +1) = (-G1 + G2 + G3)
-    //
-    // This lookup output is accumulated with the lookup outputs from the other 3 NAF entries.
-    //
+    // We choose a deterministic offset generator based on the number of rounds.
+    // We compute both the initial and final offset generators: G_offset, 2ⁿ⁻¹ * G_offset.
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+    const auto [offset_generator_start, offset_generator_end] = compute_offset_generators(num_rounds);
+    element accumulator =
+        element::chain_add_end(element::chain_add(offset_generator_start, point_table.get_chain_initial_entry()));
+
+    // Process 4 NAF entries per iteration (for the remaining [num_rounds - 1] rounds)
     constexpr size_t num_rounds_per_iteration = 4;
     const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
     const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
 
     for (size_t i = 0; i < num_iterations; ++i) {
-        std::vector<bool_ct> nafs(num_points);
         std::vector<element::chain_add_accumulator> to_add;
         const size_t inner_num_rounds =
             (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
         for (size_t j = 0; j < inner_num_rounds; ++j) {
+            std::vector<bool_ct> nafs(num_points);
             for (size_t k = 0; k < num_points; ++k) {
                 nafs[k] = (naf_entries[k][(i * num_rounds_per_iteration) + j + 1]);
             }
@@ -780,8 +799,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
     }
 
-    // Subtrac the scaled offset generator
-    accumulator = accumulator - offset_generators.second;
+    // Subtract the scaled offset generator
+    accumulator = accumulator - offset_generator_end;
 
     accumulator.set_origin_tag(tag);
     return accumulator;
