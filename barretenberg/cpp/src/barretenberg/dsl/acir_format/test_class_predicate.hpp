@@ -230,7 +230,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             {
                 AcirProgram program{ constraint_system, witness_values };
                 auto builder = create_circuit<Builder>(program);
-                info("Num gates: ", builder.get_estimated_num_finalized_gates());
+                info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
                 auto prover_instance = std::make_shared<ProverInstance>(builder);
                 vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());

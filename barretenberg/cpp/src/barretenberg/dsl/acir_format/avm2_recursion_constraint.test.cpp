@@ -118,7 +118,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     const ProgramMetadata metadata{ .honk_recursion = 1 };
     auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
-    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
     auto verification_key = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
@@ -150,7 +150,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
-        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+        info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
         auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
         expected_vk = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
@@ -176,7 +176,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
         const ProgramMetadata metadata{ .honk_recursion = 2 };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
-        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+        info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
         auto prover_instance = std::make_shared<OuterProverInstance>(layer_2_circuit);
         actual_vk = std::make_shared<OuterVerificationKey>(prover_instance->get_precomputed());
