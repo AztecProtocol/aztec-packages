@@ -723,6 +723,11 @@
       "configurePreset": "fuzzing-coverage"
     },
     {
+      "name": "fuzzing-avm",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm"
+    },
+    {
       "name": "gperftools",
       "inherits": "clang20",
       "configurePreset": "gperftools"
