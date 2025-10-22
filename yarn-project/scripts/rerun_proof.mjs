@@ -32,7 +32,7 @@ logger.info(`Got inputs for a job of type ${ProvingRequestType[type]}`);
 const tmp = await mkdtemp('rerun_proof-');
 logger.info(`Using tmp folder: ${tmp}`);
 
-process.env.VM2_LIB_PATH = join(import.meta.pathname, `../../barretenberg/cpp/build/lib`);
+process.env.AVM_LIB_PATH = join(import.meta.pathname, `../../barretenberg/cpp/build/lib`);
 const prover = await BBNativeRollupProver.new({
   bbBinaryPath: process.env.BB_BINARY_PATH ?? join(import.meta.pathname, `../../barretenberg/cpp/build/bin/bb`),
   bbWorkingDirectory: join(tmp, 'bb'),

@@ -109,7 +109,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         std::string lib_path = get_avm_library_path();
         name += "\nAztec Virtual Machine (AVM): enabled at " + lib_path;
     } else {
-        name += "\nAztec Virtual Machine (AVM): disabled (consider setting VM2_LIB_PATH)";
+        name += "\nAztec Virtual Machine (AVM): disabled (consider setting AVM_LIB_PATH)";
     }
 #ifdef ENABLE_AVM_TRANSPILER
     name += "\nAVM Transpiler: enabled";

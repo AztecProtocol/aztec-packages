@@ -6,10 +6,14 @@
  * It attempts to dynamically load libvm2.so/dylib at runtime. If the library is found,
  * calls are delegated to the real implementation. If not found, helpful error messages
  * are thrown.
+ *
+ * For WASM builds, AVM is never available and all functions throw runtime errors.
  */
 #include "barretenberg/api/api_avm.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+
+#ifndef __wasm__
 #include "barretenberg/vm2/i_avm_api.hpp"
 #include "barretenberg/vm2_stub/dynamic_library.hpp"
 #include <cstdlib>
@@ -42,7 +46,7 @@ std::vector<std::filesystem::path> get_search_paths()
     std::vector<std::filesystem::path> paths;
 
     // 1. Environment variable
-    if (const char* env_path = std::getenv("VM2_LIB_PATH")) {
+    if (const char* env_path = std::getenv("AVM_LIB_PATH")) {
         paths.emplace_back(env_path);
     }
 
@@ -155,3 +159,42 @@ void avm_simulate(const std::filesystem::path& inputs_path)
 }
 
 } // namespace bb
+
+#else // __wasm__
+
+// WASM build: AVM is never available
+namespace bb {
+
+const bool avm_enabled = false;
+
+std::string get_avm_library_path()
+{
+    return "";
+}
+
+void avm_prove([[maybe_unused]] const std::filesystem::path& inputs_path,
+               [[maybe_unused]] const std::filesystem::path& output_path)
+{
+    throw_or_abort("AVM is not supported in WASM builds.");
+}
+
+void avm_check_circuit([[maybe_unused]] const std::filesystem::path& inputs_path)
+{
+    throw_or_abort("AVM is not supported in WASM builds.");
+}
+
+bool avm_verify([[maybe_unused]] const std::filesystem::path& proof_path,
+                [[maybe_unused]] const std::filesystem::path& public_inputs_path,
+                [[maybe_unused]] const std::filesystem::path& vk_path)
+{
+    throw_or_abort("AVM is not supported in WASM builds.");
+}
+
+void avm_simulate([[maybe_unused]] const std::filesystem::path& inputs_path)
+{
+    throw_or_abort("AVM is not supported in WASM builds.");
+}
+
+} // namespace bb
+
+#endif // __wasm__
