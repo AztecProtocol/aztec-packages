@@ -90,11 +90,9 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    public_key.x.assert_less_than(
-        Fq::modulus,
+    public_key.x.assert_is_in_field(
         "ECDSA input validation: the x coordinate of the public key is bigger than the base field modulus."); // x < q
-    public_key.y.assert_less_than(
-        Fq::modulus,
+    public_key.y.assert_is_in_field(
         "ECDSA input validation: the y coordinate of the public key is bigger than the base field modulus."); // y < q
 
     // Step 2.
