@@ -5,7 +5,7 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 cd $(dirname $0)/..
 
-if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+if semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
   # We take host build for amd64-linux.
   mkdir -p ./build/amd64-linux
