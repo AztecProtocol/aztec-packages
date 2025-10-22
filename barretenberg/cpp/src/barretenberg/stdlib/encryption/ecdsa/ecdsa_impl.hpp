@@ -86,7 +86,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
 
     // Turn the hashed message into an element of Fr
     // Note that we don't need to trim the length of the output of the hash function because the bit length of the
-    // scalar fields we work with (secp256k1, secp256r1) are equal to 256.
+    // scalar fields we work with (secp256k1, secp256r1) is equal to 256.
     Fr z(hashed_message);
 
     // Step 1.
