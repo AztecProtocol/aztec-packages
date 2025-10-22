@@ -482,3 +482,9 @@ variable "RPC_REPLICAS" {
   type        = string
   default     = 1
 }
+
+variable "CUSTOM_NETWORK_ENABLED" {
+  description = "Whether to specify the network contract addresses manually"
+  type        = bool
+  default     = false
+}

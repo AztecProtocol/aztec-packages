@@ -101,6 +101,11 @@ FLUSH_ENTRY_QUEUE=${FLUSH_ENTRY_QUEUE:-true}
 
 PROVER_NODE_DISABLE_PROOF_PUBLISH=${PROVER_NODE_DISABLE_PROOF_PUBLISH:-false}
 
+# This is used when we want to force the specification of contract addresses rather than retrieving them from network config
+# For example, next-net has the NETWORK variable specified for reading GCP secrets and reading from chain l2 config.
+# But it doesn't have an entry in the remote network config so we must provide the contract addresses directly.
+CUSTOM_NETWORK_ENABLED=${CUSTOM_NETWORK_ENABLED:-false}
+
 ########################
 # CHAOS MESH VARIABLES
 ########################
@@ -382,6 +387,7 @@ DEPLOY_ARCHIVAL_NODE = ${DEPLOY_ARCHIVAL_NODE}
 PROVER_REPLICAS = ${PROVER_REPLICAS}
 
 PROVER_NODE_DISABLE_PROOF_PUBLISH = ${PROVER_NODE_DISABLE_PROOF_PUBLISH}
+CUSTOM_NETWORK_ENABLED = ${CUSTOM_NETWORK_ENABLED}
 EOF
 
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"
