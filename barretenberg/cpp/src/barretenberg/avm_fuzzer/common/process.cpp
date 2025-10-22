@@ -2,8 +2,8 @@
 
 Process::Process(const std::string& command)
 {
-    int stdin_pipe[2];
-    int stdout_pipe[2];
+    int stdin_pipe[2];  // NOLINT
+    int stdout_pipe[2]; // NOLINT
     pid_t pid = 0;
 
     if (pipe(stdin_pipe) < 0 || pipe(stdout_pipe) < 0) {
@@ -25,7 +25,7 @@ Process::Process(const std::string& command)
         close(stdin_pipe[0]);
         close(stdout_pipe[1]);
 
-        execl("/bin/sh", "sh", "-c", command.c_str(), nullptr);
+        execl("/bin/sh", "sh", "-c", command.c_str(), nullptr); // NOLINT
         exit(1);
     }
 
@@ -53,9 +53,9 @@ void Process::write_line(const std::string& line) const
 
 std::string Process::read_line() const
 {
-    char buffer[4096];
+    char buffer[4096]; // NOLINT
     std::string response;
-    ssize_t bytes_read;
+    ssize_t bytes_read = 0;
     while ((bytes_read = read(stdout_fd, buffer, sizeof(buffer))) > 0) {
         response.append(buffer, static_cast<size_t>(bytes_read));
         if (response.find('\n') != std::string::npos) {
