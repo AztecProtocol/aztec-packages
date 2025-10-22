@@ -29,14 +29,14 @@ class EcdsaCircuit {
         Builder builder;
 
         // IN CIRCUIT
-        // Create an input buffer from public inputs
-        std::vector<field_ct> input_bytes;
-        input_bytes.reserve(NUM_PUBLIC_INPUTS);
+        // Create an input buffer from public inputs (treating each as a single byte)
+        typename curve::byte_array_ct input_buffer(&builder, std::vector<uint8_t>());
         for (size_t i = 0; i < NUM_PUBLIC_INPUTS; ++i) {
-            input_bytes.push_back(public_witness_ct(&builder, public_inputs[i]));
+            field_ct byte_value = public_witness_ct(&builder, public_inputs[i]);
+            // Constrain to be a single byte and create byte_array
+            typename curve::byte_array_ct single_byte(byte_value, 1);
+            input_buffer.write(single_byte);
         }
-        typename curve::byte_array_ct input_buffer =
-            curve::byte_array_ct::from_field_elements_unconstrained(&builder, input_bytes);
 
         // This is the message that we would like to confirm
         std::string message_string(NUM_PUBLIC_INPUTS, '\0');

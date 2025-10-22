@@ -360,7 +360,8 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
         rolling_hash = sha256_block(rolling_hash, hash_input);
     }
 
-    std::vector<field_ct> output;
+    // Build result by writing constrained byte_arrays
+    byte_array_ct result(ctx, std::vector<uint8_t>());
     // Each element of rolling_hash is a 4-byte field_t, decompose rolling hash into bytes.
     for (const auto& word : rolling_hash) {
         // This constructor constrains
@@ -368,12 +369,9 @@ template <typename Builder> byte_array<Builder> SHA256<Builder>::hash(const byte
         // - the element reconstructed from bytes is equal to the given input.
         // - each entry to be a byte
         byte_array_ct word_byte_decomposition(word, 4);
-        for (size_t i = 0; i < 4; i++) {
-            output.push_back(word_byte_decomposition[i]);
-        }
+        result.write(word_byte_decomposition);
     }
-    // Safe to use from_field_elements_unconstrained: all bytes constrained by word_byte_decomposition constructor above
-    return byte_array<Builder>::from_field_elements_unconstrained(ctx, output);
+    return result;
 }
 
 template class SHA256<bb::UltraCircuitBuilder>;

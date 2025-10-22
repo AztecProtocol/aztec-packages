@@ -215,15 +215,10 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
         byte_array_ct a_bytes(a, 31);
         byte_array_ct b_bytes(b, 31);
 
-        // Combine the constrained bytes
-        std::vector<field_ct> all_bytes;
-        all_bytes.reserve(62);
-        const auto& a_vec = a_bytes.bytes();
-        const auto& b_vec = b_bytes.bytes();
-        all_bytes.insert(all_bytes.end(), a_vec.begin(), a_vec.end());
-        all_bytes.insert(all_bytes.end(), b_vec.begin(), b_vec.end());
-
-        byte_array_ct arr = byte_array_ct::from_field_elements_unconstrained(&builder, all_bytes);
+        // Build byte_array by writing constrained byte_arrays
+        byte_array_ct arr(&builder, std::vector<uint8_t>());
+        arr.write(a_bytes);
+        arr.write(b_bytes);
 
         EXPECT_EQ(arr.size(), 62UL);
 

@@ -32,6 +32,15 @@ template <typename Builder> class byte_array {
     Builder* context;
     bytes_t values;
 
+    // Internal constructors - do NOT add constraints
+    // Only for use by member functions (slice, reverse, from_constants)
+    byte_array(Builder* parent_context, bytes_t const& input);
+    byte_array(Builder* parent_context, bytes_t&& input);
+
+    // Create byte_array from constant values without adding range constraints
+    // Safe for padding and other constant data - constants can't be manipulated by the prover
+    static byte_array from_constants(Builder* parent_context, std::vector<uint8_t> const& input);
+
   public:
     explicit byte_array(Builder* parent_context, std::string const& input);
     // Explicit to prevent implicit conversion from size_t to std::vector<uint8_t>
@@ -41,30 +50,17 @@ template <typename Builder> class byte_array {
                         const size_t num_bytes = 32,
                         std::optional<uint256_t> test_val = std::nullopt);
 
+    // Convenience method for creating constant padding (common use case)
+    static byte_array constant_padding(Builder* parent_context, size_t num_bytes, uint8_t value = 0)
+    {
+        return from_constants(parent_context, std::vector<uint8_t>(num_bytes, value));
+    }
+
+    // Copy and move operations
     byte_array(const byte_array& other);
     byte_array(byte_array&& other);
-
     byte_array& operator=(const byte_array& other);
     byte_array& operator=(byte_array&& other);
-
-  private:
-    // Private constructors used internally by slice(), reverse(), etc.
-    // These do NOT add constraints - the field_t elements must already be constrained to be bytes
-    byte_array(Builder* parent_context, bytes_t const& input);
-    byte_array(Builder* parent_context, bytes_t&& input);
-
-  public:
-    // Static factory method for explicit unconstrained construction from field elements
-    // WARNING: This does NOT add range constraints. Only use if field_t elements are already constrained to be bytes!
-    static byte_array from_field_elements_unconstrained(Builder* parent_context, bytes_t const& input)
-    {
-        return byte_array(parent_context, input);
-    }
-    static byte_array from_field_elements_unconstrained(Builder* parent_context, bytes_t&& input)
-    {
-        return byte_array(parent_context, std::move(input));
-    }
-
     explicit operator field_t<Builder>() const;
 
     field_t<Builder> operator[](const size_t index) const
@@ -74,11 +70,12 @@ template <typename Builder> class byte_array {
     }
 
     // Non-const operator[] removed to prevent assigning unconstrained values into the array
-    // Internal operations that need to modify use write_at_unconstrained() or direct values access
 
-    // WARNING: These methods do NOT add range constraints. Only use if the appended byte_array is already constrained!
-    byte_array& write_unconstrained(byte_array const& other);
-    byte_array& write_at_unconstrained(byte_array const& other, size_t index);
+    // Append another byte_array to this one
+    byte_array& write(byte_array const& other);
+
+    // Overwrite bytes starting at index with contents of other
+    byte_array& write_at(byte_array const& other, size_t index);
 
     byte_array slice(size_t offset) const;
     byte_array slice(size_t offset, size_t length) const;

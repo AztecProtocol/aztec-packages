@@ -45,6 +45,23 @@ byte_array<Builder>::byte_array(Builder* parent_context, const std::string& inpu
 {}
 
 /**
+ * @brief Create a byte_array from constant values without adding range constraints.
+ * @details This is safe for constant data (like padding) because constants cannot be manipulated by the prover.
+ * Use this for padding, initialization, or other constant data to avoid unnecessary constraints.
+ */
+template <typename Builder>
+byte_array<Builder> byte_array<Builder>::from_constants(Builder* parent_context, std::vector<uint8_t> const& input)
+{
+    bytes_t const_values;
+    const_values.reserve(input.size());
+    for (const auto& byte : input) {
+        // Create constant field elements - no witness, no constraints
+        const_values.push_back(field_t<Builder>(parent_context, byte));
+    }
+    return byte_array(parent_context, const_values);
+}
+
+/**
  * @brief Create a byte_array of length `num_bytes` out of a field element.
  *
  * @details The length of the byte array will default to 32 bytes, but shorter lengths can be specified.
@@ -237,23 +254,20 @@ template <typename Builder> byte_array<Builder>::operator field_t<Builder>() con
 
     return field_t<Builder>::accumulate(scaled_values);
 }
+
 /**
  * @brief Appends the contents of another `byte_array` (`other`) to the end of this one.
- * @warning This does NOT add range constraints. Only use if `other` is already constrained!
  */
-template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_unconstrained(byte_array const& other)
+template <typename Builder> byte_array<Builder>& byte_array<Builder>::write(byte_array const& other)
 {
     values.insert(values.end(), other.bytes().begin(), other.bytes().end());
     return *this;
 }
 
 /**
- * @brief Overwrites this byte_array starting at index with the contents of other. Asserts that the write does not
- * exceed the current size.
- * @warning This does NOT add range constraints. Only use if `other` is already constrained!
+ * @brief Overwrites this byte_array starting at index with the contents of other.
  */
-template <typename Builder>
-byte_array<Builder>& byte_array<Builder>::write_at_unconstrained(byte_array const& other, size_t index)
+template <typename Builder> byte_array<Builder>& byte_array<Builder>::write_at(byte_array const& other, size_t index)
 {
     BB_ASSERT_LTE(index + other.values.size(), values.size());
     for (size_t i = 0; i < other.values.size(); i++) {

@@ -92,14 +92,14 @@ void Blake3s<Builder>::compress_xof(const field_t<Builder> cv[8],
         const auto lookup_1 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[i], state[i + 8], true);
         // byte_array(field, num_bytes) constructor adds range constraints for each byte
         byte_array<Builder> out_bytes_1(lookup_1[ColumnIdx::C3][0], 4);
-        // Safe to use write_at_unconstrained: out_bytes_1 is already constrained by constructor above
-        out.write_at_unconstrained(out_bytes_1.reverse(), i * 4);
+        // Safe write: both out and out_bytes_1 are constrained
+        out.write_at(out_bytes_1.reverse(), i * 4);
 
         const auto lookup_2 = plookup_read<Builder>::get_lookup_accumulators(BLAKE_XOR, state[i + 8], cv[i], true);
         // byte_array(field, num_bytes) constructor adds range constraints for each byte
         byte_array<Builder> out_bytes_2(lookup_2[ColumnIdx::C3][0], 4);
-        // Safe to use write_at_unconstrained: out_bytes_2 is already constrained by constructor above
-        out.write_at_unconstrained(out_bytes_2.reverse(), (i + 8) * 4);
+        // Safe write: both out and out_bytes_2 are constrained
+        out.write_at(out_bytes_2.reverse(), (i + 8) * 4);
     }
 }
 
@@ -109,14 +109,8 @@ Blake3s<Builder>::output_t Blake3s<Builder>::make_output(const field_t<Builder> 
                                                          uint8_t block_len,
                                                          uint8_t flags)
 {
-    // Create block as a copy with proper initialization
-    Builder* ctx = block.get_context();
-    std::vector<field_ct> block_bytes;
-    block_bytes.reserve(BLAKE3_BLOCK_LEN);
-    for (size_t i = 0; i < BLAKE3_BLOCK_LEN; i++) {
-        block_bytes.push_back(block[i]);
-    }
-    byte_array_ct block_copy = byte_array_ct::from_field_elements_unconstrained(ctx, block_bytes);
+    // Copy constructor propagates constraint status
+    byte_array_ct block_copy = block;
 
     // Initialize output_t with all fields
     output_t ret{ .input_cv = {}, .block = block_copy, .block_len = block_len, .flags = flags };
@@ -138,9 +132,8 @@ template <typename Builder> void Blake3s<Builder>::hasher_init(blake3_hasher* se
         self->key[i] = field_ct(uint256_t(IV[i]));
         self->cv[i] = field_ct(uint256_t(IV[i]));
     }
-    // Create zero-filled buffer using vector constructor
-    const std::vector<field_ct> zeros(BLAKE3_BLOCK_LEN, field_ct(0));
-    self->buf = byte_array_ct::from_field_elements_unconstrained(self->context, zeros);
+    // Create zero-filled constant buffer (no constraints needed)
+    self->buf = byte_array_ct::constant_padding(self->context, BLAKE3_BLOCK_LEN);
     self->buf_len = 0;
     self->blocks_compressed = 0;
     self->flags = 0;
@@ -168,9 +161,9 @@ void Blake3s<Builder>::hasher_update(blake3_hasher* self, const byte_array<Build
     if (take > input_len) {
         take = input_len;
     }
-    // Copy bytes from input to buf using write_at_unconstrained
+    // Copy bytes from input to buf (input is constrained)
     byte_array<Builder> input_slice = input.slice(start_counter, take);
-    self->buf.write_at_unconstrained(input_slice, self->buf_len);
+    self->buf.write_at(input_slice, self->buf_len);
 
     self->buf_len = static_cast<uint8_t>(self->buf_len + (uint8_t)take);
     input_len -= take;
@@ -181,11 +174,10 @@ template <typename Builder> void Blake3s<Builder>::hasher_finalize(const blake3_
     uint8_t block_flags = self->flags | maybe_start_flag(self) | CHUNK_END;
     output_t output = make_output(self->cv, self->buf, self->buf_len, block_flags);
 
-    // Create zero-filled buffer for compress_xof output
-    const std::vector<field_ct> wide_zeros(BLAKE3_BLOCK_LEN, field_ct(0));
-    byte_array_ct wide_buf = byte_array_ct::from_field_elements_unconstrained(out.get_context(), wide_zeros);
+    // Create zero-filled constant buffer for compress_xof output (no constraints needed)
+    byte_array_ct wide_buf = byte_array_ct::constant_padding(out.get_context(), BLAKE3_BLOCK_LEN);
     compress_xof(output.input_cv, output.block, output.block_len, output.flags | ROOT, wide_buf);
-    // Extract the output bytes by slicing
+    // Extract the output bytes by slicing (propagates constraint status)
     out = wide_buf.slice(0, BLAKE3_OUT_LEN);
 }
 
@@ -194,10 +186,9 @@ template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byt
     BB_ASSERT(input.size() <= BLAKE3_CHUNK_LEN,
               "Barretenberg does not support blake3s with input lengths greater than 1024 bytes.");
 
-    // Create zero-filled buffer for hasher (will be properly initialized by hasher_init)
+    // Create zero-filled constant buffer for hasher (will be properly initialized by hasher_init)
     Builder* ctx = input.get_context();
-    const std::vector<field_ct> zeros(BLAKE3_BLOCK_LEN, field_ct(0));
-    byte_array_ct buf = byte_array_ct::from_field_elements_unconstrained(ctx, zeros);
+    byte_array_ct buf = byte_array_ct::constant_padding(ctx, BLAKE3_BLOCK_LEN);
 
     blake3_hasher hasher{
         .key = {}, .cv = {}, .buf = buf, .buf_len = 0, .blocks_compressed = 0, .flags = 0, .context = ctx
@@ -206,9 +197,8 @@ template <typename Builder> byte_array<Builder> Blake3s<Builder>::hash(const byt
     hasher_init(&hasher);
     hasher_update(&hasher, input, input.size());
 
-    // Create output buffer
-    std::vector<field_ct> result_zeros(BLAKE3_OUT_LEN, field_ct(0));
-    byte_array_ct result = byte_array_ct::from_field_elements_unconstrained(ctx, result_zeros);
+    // Create output buffer (constants)
+    byte_array_ct result = byte_array_ct::constant_padding(ctx, BLAKE3_OUT_LEN);
     hasher_finalize(&hasher, result);
     return result;
 }

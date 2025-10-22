@@ -454,7 +454,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                 this->reference_value.insert(this->reference_value.end(), other_ref.begin(), other_ref.end());
 
                 return ExecutionHandler(std::vector<uint8_t>(this->reference_value),
-                                        this->byte_array.write_unconstrained(other.byte_array));
+                                        this->byte_array.write(other.byte_array));
             }
         }
         /* Explicit re-instantiation using the various byte_array constructors */

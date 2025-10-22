@@ -18,8 +18,9 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
     using byte_array_ct = stdlib::byte_array<Builder>;
     using field_ct = stdlib::field_t<Builder>;
 
-    // Collect all input bytes
-    std::vector<field_ct> all_bytes;
+    // Build input byte array by appending constrained byte_arrays
+    byte_array_ct arr = byte_array_ct::constant_padding(&builder, 0); // Start with empty array
+
     for (const auto& witness_index_num_bits : constraint.inputs) {
         auto witness_index = witness_index_num_bits.blackbox_input;
         auto num_bits = witness_index_num_bits.num_bits;
@@ -28,16 +29,14 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
         auto num_bytes = round_to_nearest_byte(num_bits);
 
         field_ct element = to_field_ct(witness_index, builder);
+
         // byte_array_ct(field, num_bytes) constructor adds range constraints for each byte
         byte_array_ct element_bytes(element, num_bytes);
 
-        // Extract the constrained bytes
-        const auto& bytes = element_bytes.bytes();
-        all_bytes.insert(all_bytes.end(), bytes.begin(), bytes.end());
+        // Safe write: both arr and element_bytes are constrained
+        arr.write(element_bytes);
     }
 
-    // Create byte array from constrained bytes
-    byte_array_ct arr = byte_array_ct::from_field_elements_unconstrained(&builder, all_bytes);
     byte_array_ct output_bytes = stdlib::Blake2s<Builder>::hash(arr);
 
     // Convert byte array to vector of field_t
