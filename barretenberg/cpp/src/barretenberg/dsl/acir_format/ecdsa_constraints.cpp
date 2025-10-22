@@ -156,7 +156,7 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     // Lambda to populate builder variables from vector of field values
     auto populate_fields = [&builder](const std::vector<field_ct>& fields, const std::vector<bb::fr>& values) {
         for (auto [field, value] : zip_view(fields, values)) {
-            builder.set_variable(field.witness_index, value);
+            builder.set_variable(field.get_witness_index(), value);
         }
     };
 
@@ -185,7 +185,7 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     populate_fields(pub_y_fields, mock_pub_y);
 
     // Result
-    builder.set_variable(result_field.witness_index, bb::fr::one());
+    builder.set_variable(result_field.get_witness_index(), bb::fr::one());
 }
 
 template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(

@@ -101,7 +101,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
         result_inverted = inverted_check;
     } else {
         // In general, the witness has to be normalized.
-        witness_idx = get_normalized_witness_index();
+        witness_idx = normalize().witness_index;
     }
     // Get the normalized value of the witness
     bb::fr witness = context->get_variable(witness_idx);
@@ -894,7 +894,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         return result;
     }
     // If lhs and rhs are the same witness or constant, just return it
-    if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
+    if (lhs.witness_index == rhs.witness_index && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
@@ -916,7 +916,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
             BB_ASSERT_LT(uint256_t(get_value()).get_msb(), num_bits, msg);
         } else {
             context->decompose_into_default_range(
-                get_normalized_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
+                normalize().witness_index, num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }
 }
@@ -937,12 +937,12 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
         return;
     }
     if (lhs.is_constant()) {
-        ctx->assert_equal_constant(rhs.get_normalized_witness_index(), lhs.get_value(), msg);
+        ctx->assert_equal_constant(rhs.get_witness_index(), lhs.get_value(), msg);
     } else if (rhs.is_constant()) {
-        ctx->assert_equal_constant(lhs.get_normalized_witness_index(), rhs.get_value(), msg);
+        ctx->assert_equal_constant(lhs.get_witness_index(), rhs.get_value(), msg);
     } else {
         if (lhs.is_normalized() || rhs.is_normalized()) {
-            ctx->assert_equal(lhs.get_normalized_witness_index(), rhs.get_normalized_witness_index(), msg);
+            ctx->assert_equal(lhs.get_witness_index(), rhs.get_witness_index(), msg);
         } else {
             // Instead of creating 2 gates for normalizing both witnesses and applying a copy constraint, we use a
             // single `add` gate constraining a - b = 0

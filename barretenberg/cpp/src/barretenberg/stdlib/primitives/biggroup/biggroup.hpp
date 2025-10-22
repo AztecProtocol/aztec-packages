@@ -419,7 +419,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     {
         _is_infinity = is_infinity.normalize();
         if (add_to_used_witnesses) {
-            _is_infinity.get_context()->update_used_witnesses(_is_infinity.get_normalized_witness_index());
+            _is_infinity.get_context()->update_used_witnesses(_is_infinity.get_witness_index());
         };
     }
     element get_standard_form() const;

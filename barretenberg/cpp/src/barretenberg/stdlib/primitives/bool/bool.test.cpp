@@ -162,8 +162,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
             std::vector<uint32_t> indices;
             for (size_t idx = 0; idx < num_inputs; idx++) {
-                indices.push_back(
-                    bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_normalized_witness_index());
+                indices.push_back(bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_witness_index());
             }
 
             const size_t sorted_list_size = num_inputs + 2;

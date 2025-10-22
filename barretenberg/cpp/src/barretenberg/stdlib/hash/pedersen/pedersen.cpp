@@ -48,7 +48,7 @@ field_t<Builder> pedersen_hash<Builder>::hash(const std::vector<field_ct>& input
     // so we can put result.y in used_witnesses
     auto builder_ptr = result.y.get_context();
     if (builder_ptr != nullptr) {
-        builder_ptr->update_used_witnesses(result.y.witness_index);
+        builder_ptr->update_used_witnesses(result.y.get_witness_index());
     }
     return result.x;
 }

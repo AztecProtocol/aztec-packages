@@ -670,10 +670,10 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result_y);
 
     if (!result_x.is_constant()) {
-        context->update_used_witnesses(result_x.witness_index);
+        context->update_used_witnesses(result_x.get_witness_index());
     }
     if (!result_y.is_constant()) {
-        context->update_used_witnesses(result_y.witness_index);
+        context->update_used_witnesses(result_y.get_witness_index());
     }
 
     // If the lhs is the point at infinity, return -rhs
@@ -690,7 +690,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // (lhs.x, lhs.y) == (rhs.x, rhs.y) and neither are infinity, OR both are the point at infinity
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
     if (!infinity_predicate.is_constant()) {
-        context->update_used_witnesses(infinity_predicate.get_normalized_witness_index());
+        context->update_used_witnesses(infinity_predicate.get_witness_index());
     }
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);

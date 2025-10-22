@@ -128,6 +128,12 @@ template <typename Builder_> class field_t {
      * `q` values.
      *
      * TLDR: witness_index is a pseudo pointer to a circuit witness
+     *
+     * @warning Direct access to witness_index is for internal use only! External code should use get_witness_index()
+     * which returns a normalized witness index. Direct access may return a witness that doesn't contain the actual
+     * value due to non-trivial multiplicative_constant/additive_constant, which can lead to soundness bugs.
+     * Only access directly when you understand the implications (e.g., checking exact representation equality,
+     * or in performance-critical code like bigfield that carefully manages scaling factors).
      **/
     mutable uint32_t witness_index = IS_CONSTANT;
 
@@ -412,7 +418,7 @@ template <typename Builder_> class field_t {
     uint32_t set_public() const
     {
         BB_ASSERT(!is_constant());
-        return context->set_public_input(get_normalized_witness_index());
+        return context->set_public_input(normalize().witness_index);
     }
 
     /**
@@ -450,6 +456,9 @@ template <typename Builder_> class field_t {
     {
         BB_ASSERT(!is_constant());
         BB_ASSERT(context);
+        // Normalize first to ensure witness_index points to a witness that contains the actual value
+        // (i.e., multiplicative_constant = 1, additive_constant = 0)
+        *this = normalize();
         // Let     a := *this;
         //       q_l :=  1
         //       q_c := -*this.get_value()
@@ -462,21 +471,16 @@ template <typename Builder_> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @warning Are you sure you don't want to use get_normalized_witness_index?
+     * @details Returns the witness index of a normalized version of this element, where the witness
+     * actually contains the value it represents (multiplicative_constant = 1, additive_constant = 0).
+     * This is the safe default that prevents soundness vulnerabilities.
      *
-     * @return uint32_t
+     * Within the field_t class implementation, the raw witness_index member can be accessed directly
+     * when needed (e.g., for checking if two fields share the exact same representation).
+     *
+     * @return uint32_t The normalized witness index
      */
-    uint32_t get_witness_index() const { return witness_index; }
-
-    /**
-     * @brief  Get the index of a normalized version of this element
-     *
-     * @details Most of the time when using field elements in other parts of stdlib we want to use this API instead of
-     * get_witness index. The reason is it will prevent some soundness vulnerabilities
-     *
-     * @return uint32_t
-     */
-    uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
+    uint32_t get_witness_index() const { return normalize().witness_index; }
 
     /**
      * @brief Return (a < b) as bool circuit type.

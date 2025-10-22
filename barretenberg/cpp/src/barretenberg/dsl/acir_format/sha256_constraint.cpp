@@ -42,7 +42,7 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
             builder.fix_witness(constraint.result[i], normalised_output.get_value());
         } else {
             bb::poly_triple assert_equal{
-                .a = normalised_output.witness_index,
+                .a = normalised_output.get_witness_index(),
                 .b = constraint.result[i],
                 .c = 0,
                 .q_m = 0,

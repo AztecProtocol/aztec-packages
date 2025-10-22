@@ -113,7 +113,7 @@ template <typename Builder> void DynamicArray<Builder>::resize(const field_pt& n
     if (max_bounds_check.is_constant()) {
         BB_ASSERT_LTE(uint256_t(new_length.get_value()), _max_size);
     } else {
-        _context->create_new_range_constraint(max_bounds_check.normalize().get_witness_index(), _max_size);
+        _context->create_new_range_constraint(max_bounds_check.get_witness_index(), _max_size);
     }
 
     /**

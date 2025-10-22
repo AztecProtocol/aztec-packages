@@ -154,9 +154,7 @@ field_t<Builder> keccak<Builder>::normalize_and_rotate(const field_ct& limb, fie
     // Each lane_idx has a different rotation amount, which changes sizes of left/right slices
     // and therefore the selector constants required (i.e. the Q1, Q2, Q3 values in the earlier example)
     const auto accumulator_witnesses = limb.context->create_gates_from_plookup_accumulators(
-        (plookup::MultiTableId)((size_t)KECCAK_NORMALIZE_AND_ROTATE + lane_index),
-        lookup,
-        limb.normalize().get_witness_index());
+        (plookup::MultiTableId)((size_t)KECCAK_NORMALIZE_AND_ROTATE + lane_index), lookup, limb.get_witness_index());
 
     // extract the most significant bit of the normalized output from the final lookup entry in column C3
     msb = field_ct::from_witness_index(limb.get_context(),

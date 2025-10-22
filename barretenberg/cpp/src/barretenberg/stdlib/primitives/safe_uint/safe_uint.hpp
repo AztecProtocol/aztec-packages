@@ -78,10 +78,9 @@ template <typename Builder> class safe_uint_t {
     {}
 
     static safe_uint_t<Builder> create_constant_witness(Builder* parent_context, bb::fr const& value)
-
     {
-        witness_t<Builder> out(parent_context, value);
-        parent_context->assert_equal_constant(out.witness_index, value, "create_constant_witness");
+        // Use witness_t's create_constant_witness which safely handles the assertion
+        (void)witness_t<Builder>::create_constant_witness(parent_context, value);
         auto result = safe_uint_t(value, uint256_t(value), IS_UNSAFE);
         result.set_free_witness_tag();
         return result;
