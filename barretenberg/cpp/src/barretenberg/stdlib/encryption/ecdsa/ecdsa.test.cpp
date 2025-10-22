@@ -37,8 +37,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
     enum class TamperingMode : std::uint8_t {
-        HighXCoordinate,
-        HighYCoordinate,
+        XCoordinateOverflow,
+        YCoordinateOverflow,
         InvalidR,
         InvalidS,
         HighS,
@@ -77,14 +77,14 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::string failure_msg;
 
         switch (mode) {
-        case TamperingMode::HighXCoordinate: {
+        case TamperingMode::XCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with x >= q
             // Do nothing here, tampering happens in circuit
             failure_msg = "ECDSA input validation: the x coordinate of the public key is bigger than the base field "
                           "modulus.: hi limb.";
             break;
         }
-        case TamperingMode::HighYCoordinate: {
+        case TamperingMode::YCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with y >= q
             // Do nothing here, tampering happens in circuit
             failure_msg = "ECDSA input validation: the y coordinate of the public key is bigger than the base field "
@@ -181,7 +181,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             // verification function raises an error, we treat it as an invalid signature
             is_signature_valid = false;
         }
-        if (mode == TamperingMode::HighXCoordinate || mode == TamperingMode::HighYCoordinate) {
+        if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
             // In these tampering modes nothing has changed and the tampering happens in circuit, so we override the
             // result and set it to false
             is_signature_valid = false;
@@ -206,12 +206,12 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         // we test the on curve check of the ecdsa verification function
         Fq x = Fq::from_witness(&builder, account.public_key.x);
         Fq y = Fq::from_witness(&builder, account.public_key.y);
-        if (mode == TamperingMode::HighXCoordinate || mode == TamperingMode::HighYCoordinate) {
+        if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
             // To test the case in which one of the two coordinates is above the modulus of the base field, we need to
             // override the limbs of the coordinates
             uint256_t max_uint = (static_cast<uint256_t>(1) << 256) - 1;
             for (size_t idx = 0; idx < 4; idx++) {
-                builder.set_variable(mode == TamperingMode::HighXCoordinate
+                builder.set_variable(mode == TamperingMode::XCoordinateOverflow
                                          ? x.binary_basis_limbs[idx].element.get_witness_index()
                                          : y.binary_basis_limbs[idx].element.get_witness_index(),
                                      bb::fr(max_uint.slice(64 * idx, 64 * (idx + 1))));
@@ -292,8 +292,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // Compute H(m)
         stdlib::byte_array<Builder> message(&builder, message_bytes);
-        stdlib::byte_array<Builder> hashed_message =
-            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+        stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
         // ECDSA verification
         ecdsa_verification_circuit(builder,
@@ -331,8 +330,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
             // Compute H(m)
             stdlib::byte_array<Builder> message(&builder, test.message);
-            stdlib::byte_array<Builder> hashed_message =
-                static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
+            stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
             // ECDSA verification
             ecdsa_verification_circuit(builder,
@@ -364,16 +362,16 @@ TYPED_TEST(EcdsaTests, VerifySignature)
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
 }
 
-TYPED_TEST(EcdsaTests, HighXCoordinate)
+TYPED_TEST(EcdsaTests, XCoordinateOverflow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighXCoordinate);
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::XCoordinateOverflow);
 }
 
-TYPED_TEST(EcdsaTests, HighYCoordinate)
+TYPED_TEST(EcdsaTests, YCoordinateOverflow)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::HighYCoordinate);
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::YCoordinateOverflow);
 }
 
 TYPED_TEST(EcdsaTests, InvalidR)

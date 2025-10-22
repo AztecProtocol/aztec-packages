@@ -53,7 +53,7 @@ auto& engine = numeric::get_debug_randomness();
  * @note The circuit introduces constraints for the following assertions:
  *          1. \f$P = (x,y)\f$, then x < q, y < q
  *          2. \f$P\f$ is on the curve
- *          3. \f$P\f$ is on the point at infinity
+ *          3. \f$P\f$ is not the point at infinity
  *          4. \f$0 < r < n\f$
  *          5. \f$0 < s < (n+1)/2\f$
  *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
