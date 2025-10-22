@@ -29,7 +29,7 @@ class CppSimulator : public Simulator {
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
-/// Signleton, because initializing the simulator is expensive
+/// Singleton, because initializing the simulator is expensive
 class JsSimulator : public Simulator {
   protected:
     static JsSimulator* instance;
