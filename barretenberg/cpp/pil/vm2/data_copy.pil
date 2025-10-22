@@ -146,11 +146,9 @@ namespace data_copy;
     ///////////////////////////////
     // Trace Shape
     ///////////////////////////////
-    // This prevents a computation to be stopped prematurely.
-    // This enforces that each invocation through one of the above permutations generates contiguous rows.
-    // Note that the whole trace might not be contiguous though. (Our tracegen makes it contiguous.)
-    #[TRACE_FINISH_AT_END]
-    sel * (1 - sel') * (1 - sel_end) = 0;
+    // Trace is contiguous.
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
 
     pol commit sel_start; // @boolean
     sel_start * (1 - sel_start) = 0;
@@ -161,9 +159,21 @@ namespace data_copy;
     // sel_end = 1 OR sel_start ==> sel = 1
     (sel_start + sel_end) * (1 - sel) = 0;
 
+    // This prevents a computation to be stopped prematurely, i.e., truncating last rows before
+    // we reach a row where sel_end == 1.
+    #[COMPUTATION_FINISH_AT_END]
+    sel * (1 - sel') * (1 - sel_end) = 0;
+
     // Latch condition is boolean because sel_end cannot be activated at first row
     // because sel is shifted and sel_end implies sel == 1.
     pol LATCH_CONDITION = sel_end + precomputed.first_row;
+
+    // By enforcing the start of a new computation after a latch, we ensure that no superfluous rows are added.
+    // In combination with the permutations from the execution trace, it follows that each active row is
+    // part of a genuine computation. We particularly need to be careful that no malicious memory write is
+    // performed.
+    #[START_AFTER_LATCH]
+    sel' * (sel_start' - LATCH_CONDITION) = 0;
 
     ////////////////////////////////////////////////
     // Dispatch Permutation Selectors
