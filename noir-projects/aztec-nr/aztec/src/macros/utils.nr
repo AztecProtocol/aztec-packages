@@ -72,40 +72,6 @@ pub(crate) comptime fn modify_fn_body(body: [Expr], prepend: Quoted, append: Quo
     body_expr.expect(f"Body is not an expression: {body_quote}")
 }
 
-/// Adds a value to a hash::ArgsHasher. Structs and values inside arrays are required to implement the Serialize trait.
-pub(crate) comptime fn add_to_hasher(hasher_name: Quoted, name: Quoted, typ: Type) -> Quoted {
-    if typ.is_field() | typ.as_integer().is_some() | typ.is_bool() {
-        quote { $hasher_name.add($name as Field); }
-    } else if typ.as_data_type().is_some() {
-        quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name)); }
-    } else if typ.as_array().is_some() {
-        let (element_type, _) = typ.as_array().unwrap();
-        let serialized_name = f"{name}_serialized".quoted_contents();
-        quote {
-           let $serialized_name = $name.map(|x: $element_type | dep::aztec::protocol_types::traits::Serialize::serialize(x));
-            for i in 0..$name.len() {
-                $hasher_name.add_multiple($serialized_name[i]);
-            }
-        }
-    } else if typ.as_tuple().is_some() {
-        let tuple_len = typ.as_tuple().unwrap().len();
-        let mut tuple_quotes: [Quoted] = [];
-        for i in 0..tuple_len {
-            let element_quote = quote { $hasher_name.add_multiple(dep::aztec::protocol_types::traits::Serialize::serialize($name.$i)); };
-            tuple_quotes = tuple_quotes.push_back(element_quote);
-        }
-        tuple_quotes.join(quote {})
-    } else if typ.as_str().is_some() {
-        quote {
-            $hasher_name.add_multiple($name.as_bytes().map(| byte: u8 | byte as Field));
-        }
-    } else {
-        panic(
-            f"Cannot add to hasher: unsupported type {typ} of variable {name}",
-        )
-    }
-}
-
 comptime fn signature_of_type(typ: Type) -> Quoted {
     if typ.is_field() {
         quote {Field}

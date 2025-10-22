@@ -4,12 +4,12 @@ use crate::macros::{
     },
     notes::NOTES,
     utils::{
-        add_to_hasher, fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility,
-        is_fn_contract_library_method, is_fn_initializer, is_fn_internal, is_fn_private,
-        is_fn_public, is_fn_test, is_fn_utility, is_fn_view, modify_fn_body, module_has_initializer,
-        module_has_storage,
+        fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
+        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
+        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
     },
 };
+use dep::protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) {
@@ -34,24 +34,13 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
 
     // The original params are hashed and passed to the `context` object, so that the kernel can verify we've received
     // the correct values.
-    // TODO: Optimize args_hasher for small number of arguments
-    let args_hasher_name = quote { args_hasher };
-    let args_hasher = original_params.fold(
-        quote {
-            let mut $args_hasher_name = dep::aztec::hash::ArgsHasher::new();
-        },
-        |args_hasher, param: (Quoted, Type)| {
-            let (name, typ) = param;
-            let appended_arg = add_to_hasher(args_hasher_name, name, typ);
-            quote {
-                $args_hasher
-                $appended_arg
-            }
-        },
-    );
+    let (args_serialization, _, serialized_args_name) =
+        derive_serialization_quotes(original_params, false);
 
     let context_creation = quote {
-        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, dep::aztec::protocol_types::traits::Hash::hash($args_hasher_name));
+        $args_serialization
+        let args_hash = dep::aztec::hash::hash_args_array($serialized_args_name);
+        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hash);
     };
 
     // Modifications introduced by the different marker attributes.
@@ -116,22 +105,21 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let return_value = if body.len() == 0 {
         quote {}
     } else if return_value_type != type_of(()) {
-        // The original return value is passed to a second args hasher which the context receives.
+        // The original return value is serialized and hashed before being passed to the context.
         let (body_without_return, last_body_expr) = body.pop_back();
         let return_value = last_body_expr.quoted();
         let return_value_assignment =
             quote { let $return_value_var_name: $return_value_type = $return_value; };
-        let return_hasher_name = quote { return_hasher };
-        let return_value_into_hasher =
-            add_to_hasher(return_hasher_name, return_value_var_name, return_value_type);
+
+        let (return_serialization, _, serialized_return_name) =
+            derive_serialization_quotes([(return_value_var_name, return_value_type)], false);
 
         body = body_without_return;
 
         quote {
-            let mut $return_hasher_name = dep::aztec::hash::ArgsHasher::new();
             $return_value_assignment
-            $return_value_into_hasher
-            context.set_return_hash($return_hasher_name);
+            $return_serialization
+            context.set_return_hash($serialized_return_name);
         }
     } else {
         let (body_without_return, last_body_expr) = body.pop_back();
@@ -154,7 +142,6 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
-        $args_hasher
         $context_creation
         $assert_initializer
         $init_check
