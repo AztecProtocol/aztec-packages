@@ -36,6 +36,9 @@ auto& engine = numeric::get_debug_randomness();
  *  6. \f$Q\f$ is not the point at infinity
  *  7. \f$Q_x = r \mod n\f$ (note that \f$Q_x \in \mathbb{F}_q\f$)
  *
+ * We implement these verification algorithm following the implementation of OpenSSL
+ * https://github.com/openssl/openssl/blob/94cc3b7995d82c23b3449708f03f7bff0ba98e92/crypto/ec/ecdsa_ossl.c#L442.
+ *
  * @note The requirement of step 4. is to avoid signature malleability: if \f$(r,s)\f$ is a valid signature for
  * message \f$m\f$ and public key \f$P\f$, so is \f$(r,n-s)\f$. We protect against malleability by enforcing that
  * \f$s\f$ is always the lowest of the two possible values.
@@ -52,13 +55,15 @@ auto& engine = numeric::get_debug_randomness();
  * @note The circuit introduces constraints for the following assertions:
  *          1. \f$P\f$ is on the curve
  *          2. \f$P\f$ is on the point at infinity
- *          3. \f$H(m) < n\f$
- *          4. \f$0 < r < n\f$
- *          5. \f$0 < s < (n+1)/2\f$
- *          6. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
+ *          3. \f$0 < r < n\f$
+ *          4. \f$0 < s < (n+1)/2\f$
+ *          5. \f$Q := H(m) s^{-1} G + r s^{-1} P\f$ is not the point at infinity
  * Therefore, if the witnesses passed to this function do not satisfy these constraints, the resulting circuit
  * will be unsatisfied. If a user wants to use the verification inside a in-circuit branch, then they need to supply
- * valid data for \f$m, P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ * valid data for \f$P, r, s\f$, even though \f$(r,s)\f$ doesn't need to be a valid signature.
+ *
+ * @note We don't need to trim the length of the output of the hash function because the bit length of the scalar fields
+ * we work with (secp256k1, secp256r1) are equal to 256.
  *
  * @tparam Builder
  * @tparam Curve
@@ -75,6 +80,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig)
 {
+    BB_ASSERT_EQ(Fr::modulus.get_msb() + 1, 256UL, "The implementation assumes that the bit-length of Fr is 256 bits.");
+
     // Fetch the context
     Builder* builder = hashed_message.get_context();
     builder = validate_context(builder, public_key.get_context());
@@ -82,13 +89,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     BB_ASSERT_EQ(builder != nullptr, true, "At least one of the inputs should be non-constant.");
 
     // Turn the hashed message into an element of Fr
-    // The assertion means that an honest prover has a small probability of not being able to generate a valid proof if
-    // H(m) >= n. Enforcing this condition introduces a small number of gates, and ensures that signatures cannot be
-    // forged by finding a collision of H modulo n. While finding such a collision is supposed to be hard even modulo n,
-    // we protect against this case with this cheap check.
     Fr z(hashed_message);
-    z.assert_is_in_field(
-        "ECDSA input validation: the hash of the message is bigger than the order of the elliptic curve.");
 
     // Step 1.
     public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");

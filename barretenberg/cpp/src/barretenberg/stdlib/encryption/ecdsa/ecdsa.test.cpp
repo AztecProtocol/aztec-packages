@@ -40,7 +40,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         InvalidR,
         InvalidS,
         HighS,
-        OutOfBoundsHash,
         ZeroR,
         ZeroS,
         InfinityScalarMul,
@@ -66,49 +65,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         }
 
         return { account, signature };
-    }
-
-    /**
-     * @brief Generate valid signature for the message Fr(1)
-     *
-     * @return ecdsa_signature
-     */
-    ecdsa_signature generate_signature_out_of_bounds_hash()
-    {
-        // Generate signature
-        ecdsa_signature signature;
-
-        FrNative fr_hash = FrNative::one();
-        FrNative k = FrNative::random_element();
-        typename G1Native::affine_element R = G1Native::one * k;
-        FqNative::serialize_to_buffer(R.x, &signature.r[0]);
-
-        FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
-        FrNative k_inverse = k.invert();
-        FrNative s = k_inverse * (fr_hash + r * private_key);
-        bool is_s_low = (static_cast<uint256_t>(s) < (FrNative::modulus + 1) / 2);
-        s = is_s_low ? s : -s;
-        FrNative::serialize_to_buffer(s, &signature.s[0]);
-
-        FqNative r_fq(R.x);
-        bool is_r_finite = (uint256_t(r_fq) == uint256_t(r));
-        bool y_parity = uint256_t(R.y).get_bit(0);
-        bool recovery_bit = y_parity ^ is_s_low;
-        constexpr uint8_t offset = 27;
-
-        int value =
-            offset + static_cast<int>(recovery_bit) + (static_cast<uint8_t>(2) * static_cast<int>(!is_r_finite));
-        BB_ASSERT_LTE(value, UINT8_MAX);
-        signature.v = static_cast<uint8_t>(value);
-
-        // Natively verify signature
-        FrNative s_inverse = s.invert();
-        typename G1Native::affine_element Q = G1Native::one * ((fr_hash * s_inverse) + (r * s_inverse * private_key));
-        BB_ASSERT_EQ(static_cast<uint512_t>(Q.x),
-                     static_cast<uint512_t>(r),
-                     "Signature with out of bounds message failed verification");
-
-        return signature;
     }
 
     std::string tampering(std::string message_string,
@@ -143,15 +99,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FrNative::serialize_to_buffer(s, &signature.s[0]);
             failure_msg = "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: "
                           "hi limb."; // The second part of the message is added by the range constraint
-            break;
-        }
-        case TamperingMode::OutOfBoundsHash: {
-            // Invalidate the circuit by passing a message whose hash is bigger than n
-            // (the message will be hard-coded in the circuit at a later point)
-            signature = generate_signature_out_of_bounds_hash();
-
-            failure_msg = "ECDSA input validation: the hash of the message is bigger than the order of the elliptic "
-                          "curve.: hi limb."; // The second part of the message is added by the range constraint
             break;
         }
         case TamperingMode::ZeroR: {
@@ -288,40 +235,10 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         EXPECT_EQ(builder.err(), failure_msg);
     }
 
-    stdlib::byte_array<Builder> construct_hashed_message(Builder& builder,
-                                                         std::vector<uint8_t>& message_bytes,
-                                                         TamperingMode mode)
-    {
-        stdlib::byte_array<Builder> message(&builder, message_bytes);
-        stdlib::byte_array<Builder> hashed_message;
-
-        if (mode == TamperingMode::OutOfBoundsHash) {
-            // In this case the message is already hashed, so we mock the hashing constraints for consistency but
-            // hard-code the message
-            [[maybe_unused]] stdlib::byte_array<Builder> _ =
-                static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-            // Hard-coded witness
-            std::array<uint8_t, 32> hashed_message_witness;
-
-            // The hashed message is FrNative::modulus + 1
-            FqNative fr_hash = FqNative(FrNative::modulus + 1);
-            FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
-
-            hashed_message = stdlib::byte_array<Builder>(
-                &builder, std::vector<uint8_t>(hashed_message_witness.begin(), hashed_message_witness.end()));
-        } else {
-            hashed_message = static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-        }
-
-        return hashed_message;
-    }
-
     void test_verify_signature(bool random_signature, TamperingMode mode)
     {
         // Map tampering mode to signature verification result
-        bool signature_verification_result =
-            (mode == TamperingMode::None) || (mode == TamperingMode::HighS) || (mode == TamperingMode::OutOfBoundsHash);
+        bool signature_verification_result = (mode == TamperingMode::None) || (mode == TamperingMode::HighS);
         // Map tampering mode to circuit checker result
         bool circuit_checker_result =
             (mode == TamperingMode::None) || (mode == TamperingMode::InvalidR) || (mode == TamperingMode::InvalidS);
@@ -338,7 +255,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         Builder builder;
 
         // Compute H(m)
-        stdlib::byte_array<Builder> hashed_message = construct_hashed_message(builder, message_bytes, mode);
+        stdlib::byte_array<Builder> message(&builder, message_bytes);
+        stdlib::byte_array<Builder> hashed_message =
+            static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
         // ECDSA verification
         ecdsa_verification_circuit(builder,
@@ -374,8 +293,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             Builder builder;
 
             // Compute H(m)
+            stdlib::byte_array<Builder> message(&builder, test.message);
             stdlib::byte_array<Builder> hashed_message =
-                construct_hashed_message(builder, test.message, TamperingMode::None);
+                static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
 
             // ECDSA verification
             ecdsa_verification_circuit(builder,
@@ -446,11 +366,6 @@ TYPED_TEST(EcdsaTests, InfinityPubKey)
     // Disable asserts to avoid errors trying to invert zero
     BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InfinityPubKey);
-}
-
-TYPED_TEST(EcdsaTests, OutOfBoundsHash)
-{
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsHash);
 }
 
 TYPED_TEST(EcdsaTests, InfinityScalarMul)
