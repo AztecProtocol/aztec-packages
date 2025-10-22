@@ -60,26 +60,6 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
     } while (cur_index != REAL_VARIABLE);
 }
 
-template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index(const uint32_t witness_index) const
-{
-    uint32_t result = static_cast<uint32_t>(-1);
-    for (size_t i = 0; i < num_public_inputs(); ++i) {
-        if (real_variable_index[public_inputs_[i]] == real_variable_index[witness_index]) {
-            result = static_cast<uint32_t>(i);
-            break;
-        }
-    }
-    BB_ASSERT(result != static_cast<uint32_t>(-1));
-    return result;
-}
-
-template <typename FF_>
-typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
-{
-    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
-    return get_variable(public_inputs_[index]);
-}
-
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
 {
     variables.emplace_back(in);

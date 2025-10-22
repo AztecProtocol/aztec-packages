@@ -1215,11 +1215,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // If the value is larger than the range, we log the error in builder
-    const bool is_lo_out_of_range = (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
+    const bool is_lo_out_of_range = (uint256_t(this->get_variable(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
     if (is_lo_out_of_range && !this->failed()) {
         this->failure(msg + ": lo limb.");
     }
-    const bool is_hi_out_of_range = (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
+    const bool is_hi_out_of_range = (uint256_t(this->get_variable(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
     if (is_hi_out_of_range && !this->failed()) {
         this->failure(msg + ": hi limb.");
     }
@@ -1296,7 +1296,7 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
-    BB_ASSERT_LT(uint256_t(this->get_variable_reference(limb_idx)), (uint256_t(1) << num_limb_bits));
+    BB_ASSERT_LT(uint256_t(this->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
     const uint256_t value = this->get_variable(limb_idx);
     const uint256_t low = value & LIMB_MASK;

@@ -145,24 +145,6 @@ template <typename FF_> class CircuitBuilderBase {
         variables[real_variable_index[index]] = value;
     }
 
-    /**
-     * Get a reference to the variable v_{index}.
-     *
-     * We need this function for check_circuit functions.
-     *
-     * @param index The index of the variable.
-     * @return The value of the variable.
-     * */
-    inline const FF& get_variable_reference(const uint32_t index) const
-    {
-        BB_ASSERT_DEBUG(variables.size() > index);
-        return variables[real_variable_index[index]];
-    }
-
-    uint32_t get_public_input_index(const uint32_t witness_index) const;
-
-    FF get_public_input(const uint32_t index) const;
-
     const std::vector<uint32_t>& public_inputs() const { return public_inputs_; };
 
     /**
