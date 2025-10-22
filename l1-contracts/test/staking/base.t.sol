@@ -23,6 +23,7 @@ contract StakingBase is TestBase {
   uint256 internal EPOCH_DURATION_SECONDS;
 
   address internal SLASHER;
+  address internal GOVERNANCE;
 
   function setUp() public virtual {
     RollupBuilder builder = new RollupBuilder(address(this)).setSlashingQuorum(1).setSlashingRoundSize(1);
@@ -40,6 +41,7 @@ contract StakingBase is TestBase {
     ACTIVATION_THRESHOLD = staking.getActivationThreshold();
     EJECTION_THRESHOLD = staking.getEjectionThreshold();
     SLASHER = staking.getSlasher();
+    GOVERNANCE = address(staking.getGSE().getGovernance());
   }
 
   function mint(address _to, uint256 _amount) internal {

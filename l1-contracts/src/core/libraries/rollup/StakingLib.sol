@@ -222,7 +222,10 @@ library StakingLib {
    */
   function slash(address _attester, uint256 _amount) internal {
     StakingStorage storage store = getStorage();
-    require(msg.sender == store.slasher, Errors.Staking__NotSlasher(store.slasher, msg.sender));
+    require(
+      msg.sender == store.slasher || msg.sender == address(store.gse.getGovernance()),
+      Errors.Staking__NotSlasherOrGovernance(store.slasher, address(store.gse.getGovernance()), msg.sender)
+    );
 
     Exit storage exit = store.exits[_attester];
 

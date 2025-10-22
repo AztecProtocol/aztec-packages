@@ -1,7 +1,7 @@
 SlashTest
-├── when caller is not the slasher
+├── when caller is not the slasher or governance
 │   └── it reverts
-└── when caller is the slasher
+└── when caller is the slasher or governance
     ├── when attester is not registered
     │   └── it reverts
     └── when attester is registered

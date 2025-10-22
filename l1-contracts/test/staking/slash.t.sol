@@ -14,7 +14,7 @@ contract SlashTest is StakingBase {
     super.setUp();
   }
 
-  function test_WhenCallerIsNotTheSlasher() external {
+  function test_WhenCallerIsNotTheSlasherOrGovernance() external {
     mint(address(this), ACTIVATION_THRESHOLD);
     stakingAsset.approve(address(staking), ACTIVATION_THRESHOLD);
     staking.deposit({
@@ -28,18 +28,22 @@ contract SlashTest is StakingBase {
     staking.flushEntryQueue();
 
     // it reverts
-    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotSlasher.selector, SLASHER, address(this)));
+    vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NotSlasherOrGovernance.selector, SLASHER, GOVERNANCE, address(this)));
     staking.slash(ATTESTER, 1);
   }
 
-  modifier whenCallerIsTheSlasher() {
+  function _getSlashCaller(bool _useGovernance) internal view returns (address) {
+    return _useGovernance ? GOVERNANCE : SLASHER;
+  }
+
+  modifier whenCallerIsTheSlasherOrGovernance() {
     _;
   }
 
-  function test_WhenAttesterIsNotRegistered() external whenCallerIsTheSlasher {
+  function test_WhenAttesterIsNotRegistered(bool _useGovernance) external whenCallerIsTheSlasherOrGovernance {
     // it reverts
 
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     // vm.expectRevert(abi.encodeWithSelector(Errors.Staking__NoOneToSlash.selector, ATTESTER));
     assertFalse(staking.slash(ATTESTER, 1));
   }
@@ -67,7 +71,7 @@ contract SlashTest is StakingBase {
     _;
   }
 
-  function test_GivenTimeIsAfterUnlock() external whenCallerIsTheSlasher whenAttesterIsRegistered whenAttesterIsExiting {
+  function test_GivenTimeIsAfterUnlock(bool _useGovernance) external whenCallerIsTheSlasherOrGovernance whenAttesterIsRegistered whenAttesterIsExiting {
     // it reverts
 
     Exit memory exit = staking.getExit(ATTESTER);
@@ -76,13 +80,13 @@ contract SlashTest is StakingBase {
     /*vm.expectRevert(
       abi.encodeWithSelector(Errors.Staking__CannotSlashExitedStake.selector, ATTESTER)
     );*/
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     assertFalse(staking.slash(ATTESTER, 1));
   }
 
-  function test_GivenTimeIsBeforeUnlock()
+  function test_GivenTimeIsBeforeUnlock(bool _useGovernance)
     external
-    whenCallerIsTheSlasher
+    whenCallerIsTheSlasherOrGovernance
     whenAttesterIsRegistered
     whenAttesterIsExiting
   {
@@ -96,7 +100,7 @@ contract SlashTest is StakingBase {
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, 1);
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     staking.slash(ATTESTER, 1);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -105,7 +109,7 @@ contract SlashTest is StakingBase {
     assertTrue(attesterView.status == Status.EXITING);
   }
 
-  function test_WhenAttesterIsNotExiting() external whenCallerIsTheSlasher whenAttesterIsRegistered {
+  function test_WhenAttesterIsNotExiting(bool _useGovernance) external whenCallerIsTheSlasherOrGovernance whenAttesterIsRegistered {
     // it reduce stake by amount
     // it emits {Slashed} event
 
@@ -121,7 +125,7 @@ contract SlashTest is StakingBase {
 
       vm.expectEmit(true, true, true, true, address(staking));
       emit IStakingCore.Slashed(ATTESTER, slashingAmount);
-      vm.prank(SLASHER);
+      vm.prank(_getSlashCaller(_useGovernance));
       staking.slash(ATTESTER, slashingAmount);
 
       attesterView = staking.getAttesterView(ATTESTER);
@@ -148,9 +152,9 @@ contract SlashTest is StakingBase {
     }
   }
 
-  function test_WhenAttesterIsValidatingAndStakeIsBelowLocalEjectionThreshold(uint256 _localEjectionThreshold)
+  function test_WhenAttesterIsValidatingAndStakeIsBelowLocalEjectionThreshold(uint256 _localEjectionThreshold, bool _useGovernance)
     external
-    whenCallerIsTheSlasher
+    whenCallerIsTheSlasherOrGovernance
     whenAttesterIsRegistered
   {
     // The test picks a value for the local ejection that is LARGER than the global ejection threshold
@@ -174,7 +178,7 @@ contract SlashTest is StakingBase {
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, slashingAmount);
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     staking.slash(ATTESTER, slashingAmount);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -193,9 +197,9 @@ contract SlashTest is StakingBase {
     _;
   }
 
-  function test_GivenAttesterIsNotActive()
+  function test_GivenAttesterIsNotActive(bool _useGovernance)
     external
-    whenCallerIsTheSlasher
+    whenCallerIsTheSlasherOrGovernance
     whenAttesterIsRegistered
     whenAttesterIsValidatingAndStakeIsBelowEjectionThreshold
   {
@@ -205,9 +209,9 @@ contract SlashTest is StakingBase {
     // is if the status is none.
   }
 
-  function test_GivenAttesterIsActive()
+  function test_GivenAttesterIsActive(bool _useGovernance)
     external
-    whenCallerIsTheSlasher
+    whenCallerIsTheSlasherOrGovernance
     whenAttesterIsRegistered
     whenAttesterIsValidatingAndStakeIsBelowEjectionThreshold
   {
@@ -223,7 +227,7 @@ contract SlashTest is StakingBase {
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, slashingAmount);
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     staking.slash(ATTESTER, slashingAmount);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -234,7 +238,7 @@ contract SlashTest is StakingBase {
     assertEq(staking.getActiveAttesterCount(), activeAttesterCount - 1);
   }
 
-  function test_SlashingMoreThanBalance() external whenCallerIsTheSlasher whenAttesterIsRegistered {
+  function test_SlashingMoreThanBalance(bool _useGovernance) external whenCallerIsTheSlasherOrGovernance whenAttesterIsRegistered {
     // it should slash only up to the available balance
     // it emits {Slashed} event with the actual slashed amount
 
@@ -247,7 +251,7 @@ contract SlashTest is StakingBase {
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, balance);
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     staking.slash(ATTESTER, amountToSlash);
 
     attesterView = staking.getAttesterView(ATTESTER);
@@ -256,9 +260,9 @@ contract SlashTest is StakingBase {
     assertTrue(attesterView.status == Status.NONE, "Status should be NONE");
   }
 
-  function test_SlashingMoreThanExitBalance()
+  function test_SlashingMoreThanExitBalance(bool _useGovernance)
     external
-    whenCallerIsTheSlasher
+    whenCallerIsTheSlasherOrGovernance
     whenAttesterIsRegistered
     whenAttesterIsExiting
   {
@@ -274,7 +278,7 @@ contract SlashTest is StakingBase {
 
     vm.expectEmit(true, true, true, true, address(staking));
     emit IStakingCore.Slashed(ATTESTER, exitAmount);
-    vm.prank(SLASHER);
+    vm.prank(_getSlashCaller(_useGovernance));
     staking.slash(ATTESTER, amountToSlash);
 
     attesterView = staking.getAttesterView(ATTESTER);

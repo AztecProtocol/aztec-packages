@@ -132,7 +132,7 @@ library Errors {
   error Staking__NoOneToSlash(address); // 0x7e2f7f1c
   error Staking__NotExiting(address); // 0xef566ee0
   error Staking__InitiateWithdrawNeeded(address);
-  error Staking__NotSlasher(address, address); // 0x23a6f432
+  error Staking__NotSlasherOrGovernance(address, address, address);
   error Staking__NotWithdrawer(address, address); // 0x8e668e5d
   error Staking__NothingToExit(address); // 0xd2aac9b6
   error Staking__WithdrawalNotUnlockedYet(Timestamp, Timestamp); // 0x88e1826c
