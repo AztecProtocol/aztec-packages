@@ -53,8 +53,8 @@ export type AztecNodeConfig = ArchiverConfig &
   SlasherConfig & {
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
-    /** Whether the validator is disabled for this node */
-    disableValidator: boolean;
+    /** Whether the sequencer is disabled for this node */
+    disableSequencer: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -75,10 +75,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
   },
-  disableValidator: {
-    env: 'VALIDATOR_DISABLED',
-    description: 'Whether the validator is disabled for this node.',
+  disableSequencer: {
+    env: 'SEQUENCER_DISABLED',
+    description: 'Whether the sequencer is disabled for this node.',
     ...booleanConfigHelper(),
+    fallback: ['ATTESTER_DISABLED', 'VALIDATOR_DISABLED'],
   },
 };
 
@@ -98,16 +99,16 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore): Ke
   if (
     config.web3SignerUrl === undefined ||
     config.web3SignerUrl.length === 0 ||
-    config.validatorAddresses === undefined ||
-    config.validatorAddresses.length === 0
+    config.sequencerAddresses === undefined ||
+    config.sequencerAddresses.length === 0
   ) {
     return undefined;
   }
 
   validatorKeyStores.push({
-    attester: config.validatorAddresses,
+    attester: config.sequencerAddresses,
     feeRecipient: config.feeRecipient ?? AztecAddress.ZERO,
-    coinbase: config.coinbase ?? config.validatorAddresses[0],
+    coinbase: config.coinbase ?? config.sequencerAddresses[0],
     remoteSigner: config.web3SignerUrl,
     publisher: config.publisherAddresses ?? [],
   });
@@ -124,8 +125,8 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore): Ke
 
 function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
-  const ethPrivateKeys = config.validatorPrivateKeys
-    ? config.validatorPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
+  const ethPrivateKeys = config.sequencerPrivateKeys
+    ? config.sequencerPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
     : [];
 
   if (!ethPrivateKeys.length) {

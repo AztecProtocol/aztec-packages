@@ -145,8 +145,8 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** True to disable the status handshake on peer connected. */
   p2pDisableStatusHandshake?: boolean;
 
-  /** True to only permit validators to connect */
-  p2pAllowOnlyValidators?: boolean;
+  /** True to only permit sequencers to connect */
+  p2pAllowOnlySequencers?: boolean;
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
@@ -389,10 +389,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'True to disable the status handshake on peer connected.',
     ...booleanConfigHelper(false),
   },
-  p2pAllowOnlyValidators: {
-    env: 'P2P_ALLOW_ONLY_VALIDATORS',
-    description: 'True to only permit validators to connect.',
+  p2pAllowOnlySequencers: {
+    env: 'P2P_ALLOW_ONLY_SEQUENCERS',
+    description: 'True to only permit sequencers to connect.',
     ...booleanConfigHelper(false),
+    fallback: ['P2P_ALLOW_ONLY_VALIDATORS'],
   },
   p2pMaxFailedAuthAttemptsAllowed: {
     env: 'P2P_MAX_AUTH_FAILED_ATTEMPTS_ALLOWED',

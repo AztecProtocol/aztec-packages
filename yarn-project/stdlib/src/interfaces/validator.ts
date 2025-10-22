@@ -17,28 +17,28 @@ import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
  * Validator client configuration
  */
 export interface ValidatorClientConfig {
-  /** The private keys of the validators participating in attestation duties */
-  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+  /** The private keys of the sequencers participating in attestation duties */
+  sequencerPrivateKeys?: SecretValue<`0x${string}`[]>;
 
-  /** The addresses of the validators to use with remote signers */
-  validatorAddresses?: EthAddress[];
+  /** The addresses of the sequencers to use with remote signers for attestation */
+  sequencerAddresses?: EthAddress[];
 
-  /** Do not run the validator */
-  disableValidator: boolean;
+  /** Do not participate in attestation duties */
+  disableSequencer: boolean;
 
-  /** Temporarily disable these specific validator addresses */
-  disabledValidators: EthAddress[];
+  /** Temporarily disable these specific sequencer addresses */
+  disabledSequencers: EthAddress[];
 
   /** Interval between polling for new attestations from peers */
   attestationPollingIntervalMs: number;
 
   /** Whether to re-execute transactions in a block proposal before attesting */
-  validatorReexecute: boolean;
+  attesterReexecute: boolean;
 
   /** Will re-execute until this many milliseconds are left in the slot */
-  validatorReexecuteDeadlineMs: number;
+  attesterReexecuteDeadlineMs: number;
 
-  /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the currnet committee */
+  /** Whether to always reexecute block proposals, even for non-sequencer nodes or when out of the currnet committee */
   alwaysReexecuteBlockProposals?: boolean;
 }
 
@@ -47,14 +47,14 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
 
 export const ValidatorClientConfigSchema = z.object({
-  validatorAddresses: z.array(schemas.EthAddress).optional(),
-  disableValidator: z.boolean(),
-  disabledValidators: z.array(schemas.EthAddress),
+  sequencerAddresses: z.array(schemas.EthAddress).optional(),
+  disableSequencer: z.boolean(),
+  disabledSequencers: z.array(schemas.EthAddress),
   attestationPollingIntervalMs: z.number().min(0),
-  validatorReexecute: z.boolean(),
-  validatorReexecuteDeadlineMs: z.number().min(0),
+  attesterReexecute: z.boolean(),
+  attesterReexecuteDeadlineMs: z.number().min(0),
   alwaysReexecuteBlockProposals: z.boolean().optional(),
-}) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+}) satisfies ZodFor<Omit<ValidatorClientConfig, 'sequencerPrivateKeys'>>;
 
 export interface Validator {
   start(): Promise<void>;

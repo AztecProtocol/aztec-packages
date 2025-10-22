@@ -21,7 +21,7 @@ import {
 
 const config = setupEnvironment(process.env);
 
-// This test disables a specific validator from all nodes via the `disabledValidators` configuration,
+// This test disables a specific validator from all nodes via the `disabledSequencers` configuration,
 // which will cause the node that handles that validator to NOT propose or attest using it. This still
 // allows us to run multiple validators per node but disable a single one, as opposed to having to
 // disable every validator on a node.
@@ -50,7 +50,7 @@ describe('slash inactivity test', () => {
 
   afterAll(async () => {
     // Clear out the disabled validators so we don't affect other tests
-    await updateSequencersConfig(config, { disabledValidators: [] });
+    await updateSequencersConfig(config, { disabledSequencers: [] });
     monitor.removeAllListeners();
     await monitor.stop();
     forwardProcesses.forEach(p => p.kill());
@@ -142,13 +142,13 @@ describe('slash inactivity test', () => {
       slashInactivityPenalty: inactivityPenalty,
       slashInactivityTargetPercentage: 0.7,
     };
-    const updated = await updateSequencersConfig(config, { disabledValidators: [offlineValidator], ...slashAllConfig });
+    const updated = await updateSequencersConfig(config, { disabledSequencers: [offlineValidator], ...slashAllConfig });
     logger.warn(`Updated sequencer configs to disable ${offlineValidator}`, { configs: updated });
 
     // Sanity check updated configs
     for (const sequencerConfig of updated) {
       expect(sequencerConfig.slashValidatorsNever).toBeEmpty();
-      expect(sequencerConfig.disabledValidators.map(a => a.toString())).toContain(offlineValidator.toString());
+      expect(sequencerConfig.disabledSequencers.map(a => a.toString())).toContain(offlineValidator.toString());
       expect(sequencerConfig.slashInactivityPenalty).toEqual(inactivityPenalty);
       expect(sequencerConfig.slashInactivityTargetPercentage).toEqual(0.7);
     }
@@ -158,7 +158,7 @@ describe('slash inactivity test', () => {
     const lastSlotBeforeNextEpoch = getSlotRangeForEpoch(epoch + 1n, constants)[0] - 1n;
     logger.warn(`Waiting until end of epoch ${epoch + 1n} at slot ${lastSlotBeforeNextEpoch}`);
     await monitor.waitUntilL2Slot(lastSlotBeforeNextEpoch);
-    await updateSequencersConfig(config, { disabledValidators: [] });
+    await updateSequencersConfig(config, { disabledSequencers: [] });
     logger.warn(`Updated sequencer configs to reenable ${offlineValidator}`);
 
     // Now we wait for the slash

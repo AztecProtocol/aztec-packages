@@ -214,7 +214,7 @@ export class BlockProposalHandler {
     config: { l1GenesisTime: bigint; slotDuration: number },
   ): Date {
     const nextSlotTimestampSeconds = Number(getTimestampForSlot(proposal.slotNumber.toBigInt() + 1n, config));
-    const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
+    const msNeededForPropagationAndPublishing = this.config.attesterReexecuteDeadlineMs;
     return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
   }
 

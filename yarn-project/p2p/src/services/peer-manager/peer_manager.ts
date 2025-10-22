@@ -91,7 +91,7 @@ export class PeerManager implements PeerManagerInterface {
     private readonly epochCache: EpochCacheInterface,
     private readonly dateProvider: DateProvider = new DateProvider(),
   ) {
-    if (this.config.p2pDisableStatusHandshake && this.config.p2pAllowOnlyValidators) {
+    if (this.config.p2pDisableStatusHandshake && this.config.p2pAllowOnlySequencers) {
       throw new Error('Status handshake disabled but is required to allow only validators to connect.');
     }
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
@@ -282,7 +282,7 @@ export class PeerManager implements PeerManagerInterface {
       return;
     }
     // If we are not configured to only allow validators then perform a status handshake
-    if (!this.config.p2pAllowOnlyValidators) {
+    if (!this.config.p2pAllowOnlySequencers) {
       void this.exchangeStatusHandshake(peerId);
       return;
     }
@@ -425,7 +425,7 @@ export class PeerManager implements PeerManagerInterface {
 
   public shouldDisableP2PGossip(peerId: string): boolean {
     const isAuthenticated = this.isAuthenticatedPeer(peerIdFromString(peerId));
-    return (this.config.p2pAllowOnlyValidators ?? false) && !isAuthenticated;
+    return (this.config.p2pAllowOnlySequencers ?? false) && !isAuthenticated;
   }
 
   public getPeers(includePending = false): PeerInfo[] {
