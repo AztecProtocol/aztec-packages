@@ -46,8 +46,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     publisherCount = 0,
     json,
     coinbase,
-    accountIndex,
-    addressIndex,
+    accountIndex = 0,
+    addressIndex = 0,
     feeRecipient,
     remoteSigner,
     fundingAccount,
@@ -70,14 +70,11 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
   const { outputPath } = await resolveKeystoreOutputPath(dataDir, file);
 
-  const baseAccountIndex = accountIndex ?? 0;
-  const baseAddressIndex = addressIndex ?? 0;
-
   const { validators, summaries } = buildValidatorEntries({
     validatorCount,
     publisherCount,
-    baseAccountIndex,
-    baseAddressIndex,
+    accountIndex,
+    baseAddressIndex: addressIndex,
     mnemonic,
     ikm,
     blsPath,
@@ -112,9 +109,9 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
 
   if (!blsOnly && mnemonic && remoteSigner) {
     for (let i = 0; i < validatorCount; i++) {
-      const addrIdx = baseAddressIndex + i;
+      const addrIdx = addressIndex + i;
       const acct = mnemonicToAccount(mnemonic, {
-        accountIndex: baseAccountIndex,
+        accountIndex,
         addressIndex: addrIdx,
       });
       log(`attester address: ${acct.address} remoteSignerUrl: ${remoteSigner}`);

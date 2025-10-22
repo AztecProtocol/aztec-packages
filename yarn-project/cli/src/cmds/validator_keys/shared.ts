@@ -22,7 +22,7 @@ export type ValidatorSummary = { attesterEth?: string; attesterBls?: string; pub
 export type BuildValidatorsInput = {
   validatorCount: number;
   publisherCount?: number;
-  baseAccountIndex: number;
+  accountIndex: number;
   baseAddressIndex: number;
   mnemonic: string;
   ikm?: string;
@@ -78,7 +78,7 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
   const {
     validatorCount,
     publisherCount = 0,
-    baseAccountIndex,
+    accountIndex,
     baseAddressIndex,
     mnemonic,
     ikm,
@@ -107,7 +107,7 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
       return { attester, feeRecipient };
     }
 
-    const ethAttester = deriveEthAttester(mnemonic, baseAccountIndex, addressIndex, remoteSigner);
+    const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
     const attester = blsPrivKey ? { eth: ethAttester, bls: blsPrivKey } : ethAttester;
 
     let publisherField: EthAccount | EthPrivateKey | (EthAccount | EthPrivateKey)[] | undefined;
@@ -115,10 +115,10 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
     if (publisherCount > 0) {
       const publishersBaseIndex = baseAddressIndex + validatorCount + i * publisherCount;
       const publisherAccounts = Array.from({ length: publisherCount }, (_unused2, j) => {
-        const publisherIndex = publishersBaseIndex + j;
+        const publisherAddressIndex = publishersBaseIndex + j;
         const pubAcct = mnemonicToAccount(mnemonic, {
-          accountIndex: baseAccountIndex,
-          addressIndex: publisherIndex,
+          accountIndex,
+          addressIndex: publisherAddressIndex,
         });
         publisherAddresses.push(pubAcct.address as unknown as string);
         return remoteSigner
@@ -129,7 +129,7 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
     }
 
     const acct = mnemonicToAccount(mnemonic, {
-      accountIndex: baseAccountIndex,
+      accountIndex,
       addressIndex,
     });
     const attesterEthAddress = acct.address as unknown as string;
