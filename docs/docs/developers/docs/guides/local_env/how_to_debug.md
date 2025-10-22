@@ -25,7 +25,7 @@ LOG_LEVEL=debug aztec start --sandbox
 LOG_LEVEL="verbose;info:sequencer" aztec start --sandbox
 ```
 
-## Log in Aztec.nr contracts
+## Logging in Aztec.nr contracts
 
 Log values from your contract using `debug_log`:
 
@@ -46,27 +46,42 @@ debug_log_field(my_field);
 debug_log_array(my_array);
 ```
 
-Due to local execution of functions on Aztec, you can only see these logs when running private functions or simulating public functions.
+:::note
+Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
+:::
 
-Enable logs on the wallet. For example, if your contract uses `TestWallet`:
-
-```js
-await TestWallet.create(node)
-```
-
-Set the `LOG_LEVEL` on whatever is running it:
+To see debug logs from your tests, set `LOG_LEVEL` when running:
 
 ```bash
 LOG_LEVEL="debug" yarn run test
 ```
 
-This prints your `debug_logs` together with your application logs. You can further narrow it down by showing only the `execution` and `view` logs:
+To filter specific modules, use a semicolon-delimited list:
 
 ```bash
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context" yarn run test
 ```
 
-## Debug common errors
+:::info Log filter format
+`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
+
+- `level` - Sets default level for all modules
+- `level:module` - Sets level for a specific module
+- `level:module:submodule` - Sets level for a specific submodule
+
+```bash
+# Default level only
+LOG_LEVEL="debug"
+
+# Default level + specific module overrides
+LOG_LEVEL="info;debug:simulator;debug:execution"
+
+# Default level + specific submodule overrides
+LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
+```
+:::
+
+## Debugging common errors
 
 ### Contract Errors
 
@@ -102,7 +117,7 @@ aztec-wallet send transfer --from test0 --to test0 --amount 0
 # Messages need 2 blocks to be processed
 ```
 
-## Debug WASM errors
+## Debugging WASM errors
 
 ### Enable debug WASM
 
@@ -157,7 +172,7 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 - Max function calls: Check call stack size limits
 - Max L2→L1 messages: Check message limits
 
-## Debug sequencer issues
+## Debugging sequencer issues
 
 ### Common sequencer errors
 
@@ -168,7 +183,7 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 | `Public call stack size exceeded`    | Too many public calls | Reduce public function calls               |
 | `Failed to publish block`            | L1 submission failed  | Check L1 connection and gas                |
 
-## Report issues
+## Reporting issues
 
 When debugging fails:
 
