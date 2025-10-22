@@ -5,8 +5,6 @@
 // =====================
 
 #pragma once
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
 
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/debug_log.hpp"
@@ -19,28 +17,16 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
+#include "origin_tag.hpp"
 #include "transcript_manifest.hpp"
 #include <atomic>
 #include <concepts>
 
 namespace bb {
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1226): univariates should also be logged
-template <typename T, typename... U>
-concept Loggable = (IsAnyOf<T, bb::fr, grumpkin::fr, bb::g1::affine_element, grumpkin::g1::affine_element, uint32_t>);
-
 // A concept for detecting whether a type is native or in-circuit
 template <typename T>
 concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
-
-template <typename T, typename = void> struct is_iterable : std::false_type {};
-
-// this gets used only when we can call std::begin() and std::end() on that type
-template <typename T>
-struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T&>())), decltype(std::end(std::declval<T&>()))>>
-    : std::true_type {};
-
-template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
@@ -59,6 +45,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
+
+    static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
     // The unique index of the transcript
     size_t transcript_index = 0;
@@ -104,41 +92,35 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * to the current challenge buffer to set up next function call.
      * @return std::array<DataType, 2>
      */
-    [[nodiscard]] std::array<DataType, 2> get_next_duplex_challenge_buffer(size_t num_challenges)
+    [[nodiscard]] std::array<DataType, CHALLENGE_BUFFER_SIZE> get_next_duplex_challenge_buffer()
     {
-        // challenges need at least 110 bits in them to match the presumed security parameter of the BN254 curve.
-        BB_ASSERT_LTE(num_challenges, 2U);
-        // Prevent challenge generation if this is the first challenge we're generating,
-        // AND nothing was sent by the prover.
-        if (is_first_challenge) {
-            BB_ASSERT(!current_round_data.empty());
-        }
+
+        std::vector<DataType> full_buffer;
+
+        const size_t size_bump = (is_first_challenge) ? 0 : 1;
+
+        full_buffer.resize(current_round_data.size() + size_bump);
 
         // concatenate the previous challenge (if this is not the first challenge) with the current round data.
-        // TODO(Adrian): Do we want to use a domain separator as the initial challenge buffer?
-        // We could be cheeky and use the hash of the manifest as domain separator, which would prevent us from
-        // having to domain separate all the data. (See https://safe-hash.dev)
-        std::vector<DataType> full_buffer;
         if (!is_first_challenge) {
             // if not the first challenge, we can use the previous_challenge
-            full_buffer.emplace_back(previous_challenge);
+            full_buffer[0] = previous_challenge;
         } else {
+            // Prevent challenge generation if this is the first challenge we're generating,
+            // AND nothing was sent by the prover.
+            BB_ASSERT(!current_round_data.empty());
             // Update is_first_challenge for the future
             is_first_challenge = false;
         }
-        if (!current_round_data.empty()) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/832): investigate why
-            // full_buffer.insert(full_buffer.end(), current_round_data.begin(), current_round_data.end()); fails to
-            // compile with gcc
-            std::copy(current_round_data.begin(), current_round_data.end(), std::back_inserter(full_buffer));
-            current_round_data.clear(); // clear the round data buffer since it has been used
-        }
 
-        // Hash the full buffer with poseidon2, which is believed to be a collision resistant hash function and a
-        // random oracle, removing the need to pre-hash to compress and then hash with a random oracle, as we
-        // previously did with Pedersen and Blake3s.
+        std::copy(current_round_data.begin(),
+                  current_round_data.end(),
+                  full_buffer.begin() + static_cast<std::ptrdiff_t>(size_bump));
+        current_round_data.clear();
+
+        // Hash the full buffer
         DataType new_challenge = HashFunction::hash(full_buffer);
-        std::array<DataType, 2> new_challenges = Codec::split_challenge(new_challenge);
+        std::array<DataType, CHALLENGE_BUFFER_SIZE> new_challenges = Codec::split_challenge(new_challenge);
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
@@ -220,17 +202,10 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
     }
 
-    /**
-     * @brief Return the size of proof_data
-     *
-     * @return size_t
-     */
-    size_t size_proof_data() { return proof_data.size(); }
+    // Return the size of proof_data
+    size_t get_proof_size() { return proof_data.size(); }
 
-    /**
-     * @brief Enables the manifest
-     *
-     */
+    // Enables the manifest
     void enable_manifest() { use_manifest = true; }
 
     /**
@@ -243,12 +218,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      */
     static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
 
-    /**
-     * @brief Serialize a size_t to a vector of field elements
-     *
-     * @param element
-     * @return std::vector<DataType>
-     */
+    // Serialize an element of type T to a vector of fields
     template <typename T> static std::vector<DataType> serialize(const T& element)
     {
         return Codec::serialize_to_fields(element);
@@ -269,54 +239,50 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * [128, 126, 128, 126, ...].
      *
      * @param labels human-readable names for the challenges for the manifest
-     * @return std::array<Fr, num_challenges> challenges for this round.
+     * @return std::vector<ChallengeType> challenges for this round.
      */
-    template <typename ChallengeType, typename... Strings>
-    std::array<ChallengeType, sizeof...(Strings)> get_challenges(const Strings&... labels)
+    template <typename ChallengeType> std::vector<ChallengeType> get_challenges(std::span<const std::string> labels)
     {
-        constexpr size_t num_challenges = sizeof...(Strings);
+        const size_t num_challenges = labels.size();
 
         if (use_manifest) {
             // Add challenge labels for current round to the manifest
-            manifest.add_challenge(round_number, labels...);
+            for (const auto& label : labels) {
+                manifest.add_challenge(round_number, label);
+            }
         }
 
         // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
         // get an origin tag violation inside the hasher. We are doing this to ensure that the free witness tagged
         // elements that are sent to the transcript and are assigned tags externally, don't trigger the origin tag
         // security mechanism while we are hashing them
-        if constexpr (in_circuit) {
-            for (auto& element : current_round_data) {
-                element.unset_free_witness_tag();
-            }
-        }
+        bb::unset_free_witness_tags<in_circuit, DataType>(current_round_data);
         // Compute the new challenge buffer from which we derive the challenges.
 
         // Create challenges from Frs.
-        std::array<ChallengeType, num_challenges> challenges{};
+        std::vector<ChallengeType> challenges;
+        challenges.resize(num_challenges);
 
         // Generate the challenges by iteratively hashing over the previous challenge.
         for (size_t i = 0; i < num_challenges / 2; i += 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(2);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
             challenges[2 * i] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
             challenges[(2 * i) + 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[1]);
         }
         if ((num_challenges & 1) == 1) {
-            auto challenge_buffer = get_next_duplex_challenge_buffer(1);
+            std::array<DataType, CHALLENGE_BUFFER_SIZE> challenge_buffer = get_next_duplex_challenge_buffer();
             challenges[num_challenges - 1] = Codec::template convert_challenge<ChallengeType>(challenge_buffer[0]);
         }
 
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // We are in challenge generation mode
-            if (reception_phase) {
-                reception_phase = false;
-            }
-            // Assign origin tags to the challenges
-            for (size_t i = 0; i < num_challenges; i++) {
-                challenges[i].set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/false));
-            }
+        // We are in challenge generation mode
+        if (reception_phase) {
+            reception_phase = false;
         }
+
+        // Assign origin tags to the challenges
+        bb::assign_origin_tag<in_circuit>(challenges, OriginTag(transcript_index, round_index, /*is_submitted=*/false));
+
         // Prepare for next round.
         ++round_number;
 
@@ -329,11 +295,14 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      * @param array of labels human-readable names for the challenges for the manifest
      * @return std::array<ChallengeType, N> challenges for this round.
      */
-    template <typename ChallengeType, typename String, std::size_t N>
-    std::array<ChallengeType, N> get_challenges(std::array<String, N> const& labels)
+    template <typename ChallengeType, size_t N>
+    std::array<ChallengeType, N> get_challenges(const std::array<std::string, N>& labels)
     {
-        // Expand the array elements into the existing variadic get_challenges
-        return std::apply([this](auto const&... xs) { return this->get_challenges<ChallengeType>(xs...); }, labels);
+        std::span<const std::string> labels_span{ labels.data(), labels.size() };
+        auto vec = get_challenges<ChallengeType>(labels_span); // calls the const-span overload
+        std::array<ChallengeType, N> out{};
+        std::move(vec.begin(), vec.end(), out.begin());
+        return out;
     }
 
     /**
@@ -370,30 +339,16 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
+        // If the element is iterable, then we need to assign origin tags to all the elements
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto element_frs = Codec::serialize_to_fields(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("independent hash buffer consumed:     ", label, ": ", element);
-        }
-#endif
         independent_hash_buffer.insert(independent_hash_buffer.end(), element_frs.begin(), element_frs.end());
     }
 
@@ -406,11 +361,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
         // get an origin tag violation inside the hasher
-        if constexpr (in_circuit) {
-            for (auto& element : independent_hash_buffer) {
-                element.unset_free_witness_tag();
-            }
-        }
+        bb::unset_free_witness_tags<in_circuit, DataType>(independent_hash_buffer);
         DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
         independent_hash_buffer.clear();
         return buffer_hash;
@@ -428,30 +379,16 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     {
         DEBUG_LOG(label, element);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // If the element is iterable, then we need to assign origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (const auto& subelement : element) {
-                    subelement.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-                }
-            } else {
-                // If the element is not iterable, then we need to assign an origin tag to the element
-                element.set_origin_tag(OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
+
+        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
         auto elements = Codec::serialize_to_fields(element);
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("consumed:     ", label, ": ", element);
-        }
-#endif
         add_element_frs_to_hash_buffer(label, elements);
     }
 
@@ -475,11 +412,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         proof_data.insert(proof_data.end(), element_frs.begin(), element_frs.end());
         num_frs_written += element_frs.size();
 
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("sent:     ", label, ": ", element);
-        }
-#endif
         add_element_frs_to_hash_buffer(label, element_frs);
     }
 
@@ -497,19 +429,15 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
         auto element_frs = std::span{ proof_data }.subspan(num_frs_read, element_size);
         // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        if constexpr (in_circuit) {
-            // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-            // then we need to increment the round index
-            if (!reception_phase) {
-                reception_phase = true;
-                round_index++;
-            }
-            // Assign an origin tag to the elements going into the hash buffer
-            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
-            for (auto& subelement : element_frs) {
-                subelement.set_origin_tag(element_origin_tag);
-            }
+        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
+        // then we need to increment the round index
+        if (!reception_phase) {
+            reception_phase = true;
+            round_index++;
         }
+        // Assign an origin tag to the elements going into the hash buffer
+        bb::assign_origin_tag<in_circuit>(element_frs, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
+
         num_frs_read += element_size;
 
         add_element_frs_to_hash_buffer(label, element_frs);
@@ -518,23 +446,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         DEBUG_LOG(label, element);
 
         // Ensure that the element got assigned an origin tag
-        if constexpr (in_circuit) {
-            const auto element_origin_tag = OriginTag(transcript_index, round_index, /*is_submitted=*/true);
-            // If the element is iterable, then we need to check origin tags to all the elements
-            if constexpr (is_iterable_v<T>) {
-                for (auto& subelement : element) {
-                    BB_ASSERT(subelement.get_origin_tag() == element_origin_tag);
-                }
-            } else {
-                // If the element is not iterable, then we need to check an origin tag of the element
-                BB_ASSERT(element.get_origin_tag() == element_origin_tag);
-            }
-        }
-#ifdef LOG_INTERACTIONS
-        if constexpr (Loggable<T>) {
-            info("received: ", label, ": ", element);
-        }
-#endif
+        bb::check_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
 
         return element;
     }
@@ -549,7 +461,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         const std::shared_ptr<BaseTranscript>& prover_transcript)
     {
         // We expect this function to only be used when the transcript has just been exported.
-        BB_ASSERT_EQ(prover_transcript->num_frs_written, static_cast<size_t>(0), "Expected to be empty");
+        BB_ASSERT_EQ(prover_transcript->num_frs_written, 0UL, "Expected to be empty");
         auto verifier_transcript = std::make_shared<BaseTranscript>(*prover_transcript);
         verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
         verifier_transcript->proof_start = 0;
@@ -586,12 +498,11 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
     {
-        ChallengeType result = get_challenges<ChallengeType>(label)[0];
-#if defined LOG_CHALLENGES || defined LOG_INTERACTIONS
-        info("challenge: ", label, ": ", result);
-#endif
+        std::span<const std::string> label_span(&label, 1);
+        auto result = get_challenges<ChallengeType>(label_span);
+
         DEBUG_LOG(label, result);
-        return result;
+        return result[0];
     }
 
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
@@ -647,6 +558,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      *
      * @return BaseTranscript
      */
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1556): Remove `branch_transcript()` method once PG is
+    // gone.
     BaseTranscript branch_transcript()
     {
         BB_ASSERT(current_round_data.empty(), "Branching a transcript with non empty round data");

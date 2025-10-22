@@ -217,6 +217,12 @@ variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 8000
 }
 
+variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
+  description = "Whether to disable proof publishing from the prover node"
+  type        = bool
+  default     = false
+}
+
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string

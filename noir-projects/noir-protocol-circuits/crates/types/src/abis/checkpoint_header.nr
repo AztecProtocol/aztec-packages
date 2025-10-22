@@ -16,6 +16,8 @@ pub struct CheckpointHeader {
     // The timestamp of the slot. All blocks in the checkpoint must have a timestamp less than or equal to this value.
     pub timestamp: u64,
     pub coinbase: EthAddress,
+    // This field is an optional arbitrary l2 address set by the block builder. It's unchecked, and allows
+    // off chain functionality between builders and tx submitters.
     pub fee_recipient: AztecAddress,
     pub gas_fees: GasFees,
     pub total_mana_used: Field,

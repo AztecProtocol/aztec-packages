@@ -382,7 +382,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
     // Make a copy of the prover_accumulation_transcript for the native verifier to use, only happens in debugging
     // builds
     auto verifier_transcript =
@@ -429,7 +429,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     // Construct merge proof (excluded for hiding kernel since accumulation terminates with
     // tail kernel and hiding merge proof is constructed as part of goblin proving)
     if (queue_entry.type != QUEUE_TYPE::MEGA) {
-#ifdef NDEBUG
+#ifndef NDEBUG
         // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
@@ -716,7 +716,7 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
 void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                            const std::shared_ptr<Transcript>& verifier_transcript)
 {

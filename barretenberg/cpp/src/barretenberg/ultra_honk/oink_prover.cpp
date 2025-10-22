@@ -142,8 +142,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
     prover_instance->relation_parameters.eta = eta;
     prover_instance->relation_parameters.eta_two = eta_two;
     prover_instance->relation_parameters.eta_three = eta_three;
@@ -178,7 +178,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
-    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(
+        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
 
