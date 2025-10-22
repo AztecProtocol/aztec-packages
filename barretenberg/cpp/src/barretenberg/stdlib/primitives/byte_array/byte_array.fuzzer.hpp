@@ -462,7 +462,7 @@ template <typename Builder> class ByteArrayFuzzBase {
         {
             const auto& ref = this->reference_value;
 
-            switch (VarianceRNG.next() % 8) {
+            switch (VarianceRNG.next() % 6) {
             case 0:
 #ifdef SHOW_INFORMATION
                 std::cout << "byte_array_t(e);" << std::cout;
@@ -481,21 +481,8 @@ template <typename Builder> class ByteArrayFuzzBase {
 #endif
                 /* Construct via std::vector<uint8_t> */
                 return ExecutionHandler(ref, byte_array_t(builder, this->byte_array.get_value()));
-            case 3:
-#ifdef SHOW_INFORMATION
-                std::cout << "e.bytes();" << std::cout;
-#endif
-                /* Construct via bytes_t */
-                return ExecutionHandler(
-                    ref, byte_array_t::from_field_elements_unconstrained(builder, this->byte_array.bytes()));
-            case 4:
-#ifdef SHOW_INFORMATION
-                std::cout << "std::move(e.bytes());" << std::cout;
-#endif
-                /* Construct via bytes_t move constructor */
-                return ExecutionHandler(
-                    ref, byte_array_t::from_field_elements_unconstrained(builder, std::move(this->byte_array.bytes())));
-            case 5: {
+            // case 3 and 4: Removed - tested private bytes_t constructors (redundant with cases 0-2)
+            case 3: {
                 const auto field = to_field_t();
 
                 if (field == std::nullopt) {
@@ -525,7 +512,7 @@ template <typename Builder> class ByteArrayFuzzBase {
                     return ExecutionHandler(new_ref, byte_array_t(*field, num_bytes));
                 }
             }
-            case 6: {
+            case 4: {
                 /* Create a byte_array with gibberish.
                  *
                  * The purpose of this is to ascertain that no gibberish
@@ -543,7 +530,7 @@ template <typename Builder> class ByteArrayFuzzBase {
 
                 return ExecutionHandler(ref, ba);
             } break;
-            case 7: {
+            case 5: {
                 static_assert(suint_t::MAX_BIT_NUM > 0);
                 const auto field = to_field_t(
                     /* One bit must be reserved */
