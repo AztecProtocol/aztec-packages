@@ -9,6 +9,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### Removal of `proveTx` from `Wallet` interface
+
+Exposing this method on the interface opened the door for certain types of attacks, were an app could route proven transactions through malicious nodes (that stored them for later decryption, or collected user IPs for example). It also made transactions difficult to track for the wallet, since they could be sent without their knowledge at any time. This change also affects `ContractFunctionInteraction` and `DeployMethod`, which no longer expose a `prove()` method.
+
 ### `msg_sender` is now an `Option<AztecAddress>` type.
 
 Because Aztec has native account abstraction, the very first function call of a tx has no `msg_sender`. (Recall, the first function call of an Aztec transaction is always a _private_ function call).
@@ -102,7 +106,6 @@ When lining up a new tx, the `FunctionCall` struct has been extended to include 
 - `is_public & !hide_msg_sender` -- will make a public call with a visible `msg_sender`, as was the case before this new feature.
 - `!is_public & hide_msg_sender` -- Incompatible flags.
 - `!is_public & !hide_msg_sender` -- will make a private call with a visible `msg_sender` (noting that since it's a private function call, the `msg_sender` will only be visible to the called private function, but not to the rest of the world).
-
 
 ## [cli-wallet]
 

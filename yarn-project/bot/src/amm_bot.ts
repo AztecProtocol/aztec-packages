@@ -84,12 +84,9 @@ export class AmmBot extends BaseBot {
 
     const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
 
-    this.log.verbose(`Proving transaction`, logCtx);
-    const tx = await swapExactTokensInteraction.prove(opts);
-
+    this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-
-    return tx.send();
+    return swapExactTokensInteraction.send(opts);
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {

@@ -97,7 +97,7 @@ describe('guides/writing_an_account_contract', () => {
     });
 
     try {
-      await token.methods.mint_to_public(address, 200).prove({ from: wrongAccount.address });
+      await token.methods.mint_to_public(address, 200).send({ from: wrongAccount.address }).wait();
     } catch (err) {
       logger.info(`Failed to send tx: ${err}`);
     }

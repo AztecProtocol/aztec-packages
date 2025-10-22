@@ -15,6 +15,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -94,7 +95,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
     const txs = await timesAsync(TX_COUNT, i =>
-      contract.methods.spam(i, 1n, false).prove({ from: context.accounts[0] }),
+      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
     );
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {

@@ -1,6 +1,8 @@
 // TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
-import { ProvenTx, SentTx, SponsoredFeePaymentMethod, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { SentTx, SponsoredFeePaymentMethod, readFieldCompressedString, sleep } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
+import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
@@ -23,6 +25,7 @@ describe('token transfer test', () => {
   const ROUNDS = 1n;
 
   let testAccounts: TestAccounts;
+  let wallet: TestWallet;
   const forwardProcesses: ChildProcess[] = [];
   let cleanup: undefined | (() => Promise<void>);
 
@@ -38,11 +41,12 @@ describe('token transfer test', () => {
     const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
     const {
-      wallet,
+      wallet: _wallet,
       aztecNode,
       cleanup: _cleanup,
     } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
     cleanup = _cleanup;
+    wallet = _wallet;
 
     // Setup wallets
     testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
@@ -80,12 +84,14 @@ describe('token transfer test', () => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
     const txs: ProvenTx[] = await Promise.all(
       Array.from({ length: 20 }, () =>
-        testAccounts.tokenContract.methods
-          .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
-          .prove({
+        proveInteraction(
+          wallet,
+          testAccounts.tokenContract.methods.transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0),
+          {
             from: testAccounts.tokenAdminAddress,
             fee: { paymentMethod: sponsor },
-          }),
+          },
+        ),
       ),
     );
 

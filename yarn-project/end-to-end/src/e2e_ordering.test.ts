@@ -1,9 +1,11 @@
 // Test suite for testing proper ordering of side effects
-import { AztecAddress, type AztecNode, Fr, type FunctionSelector, type Wallet, toBigIntBE } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr, type FunctionSelector, toBigIntBE } from '@aztec/aztec.js';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 import { computeCalldataHash } from '@aztec/stdlib/hash';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -15,7 +17,7 @@ const TIMEOUT = 300_000;
 describe('e2e_ordering', () => {
   jest.setTimeout(TIMEOUT);
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let aztecNode: AztecNode;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
@@ -69,7 +71,7 @@ describe('e2e_ordering', () => {
         async method => {
           const expectedOrder = expectedOrders[method];
           const action = parent.methods[method](child.address, pubSetValueSelector);
-          const tx = await action.prove({ from: defaultAccountAddress });
+          const tx = await proveInteraction(wallet, action, { from: defaultAccountAddress });
 
           await tx.send().wait();
 

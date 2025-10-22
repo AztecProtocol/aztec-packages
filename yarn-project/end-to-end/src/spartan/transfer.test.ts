@@ -1,7 +1,7 @@
 import { type AztecNode, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
@@ -72,14 +72,15 @@ describe('token transfer test', () => {
 
     // For each round, make both private and public transfers
     for (let i = 1n; i <= ROUNDS; i++) {
-      const txs = testAccounts.accounts.map(async a =>
-        (await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet)).methods
-          .transfer_in_public(a, recipient, transferAmount, 0)
-          .prove({
-            from: a,
-            fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
-          }),
-      );
+      const txs = testAccounts.accounts.map(async a => {
+        const token = await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
+        return proveInteraction(wallet, token.methods.transfer_in_public(a, recipient, transferAmount, 0), {
+          from: a,
+          fee: {
+            paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
+          },
+        });
+      });
 
       const provenTxs = await Promise.all(txs);
 
