@@ -272,15 +272,12 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                         EXPECT_EQ(diff, 0);
                     }
 
+                    // No gates are added when one operand is constant
                     if (!result_is_constant && a.is_constant() && !b.is_constant()) {
-                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
-                        // constant == 1, which happens iff `b` is not inverted.
                         EXPECT_EQ(diff, 0);
                     }
 
                     if (!result_is_constant && !a.is_constant() && b.is_constant()) {
-                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
-                        // constant == 1, which happens iff `a` is inverted.
                         EXPECT_EQ(diff, 0);
                     }
                     EXPECT_EQ(CircuitChecker::check(builder), expected);
