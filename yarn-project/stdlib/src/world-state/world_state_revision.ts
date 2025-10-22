@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+export type WorldStateRevisionWithHandle = WorldStateRevision & { wsHandle: any };
+
 export class WorldStateRevision {
   constructor(
     public readonly forkId: number,
