@@ -49,19 +49,48 @@ template <typename FF_> class CircuitBuilderBase {
     // Index at which we store a witness constrained to be equal to 0
     uint32_t _zero_idx = 0;
 
+    size_t _num_gates = 0;
+
+    /**
+     * Update all variables from index in equivalence class to have real variable new_real_index.
+     *
+     * @param index The index of a variable in the class we're updating.
+     * @param new_real_index The index of the real variable to update to.
+     * */
+    void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
+
   protected:
     std::unordered_map<uint32_t, std::string> variable_names;
 
     void set_zero_idx(uint32_t value) { _zero_idx = value; }
 
-  public:
-    size_t num_gates = 0;
+    /**
+     * @brief Get the index of the first variable in class.
+     *
+     * @param index The index of the variable you want to look up.
+     * @return The index of the first variable in the same class as the submitted index.
+     * */
+    uint32_t get_first_variable_in_class(uint32_t index) const;
+
+    /**
+     * @brief Check whether each variable index points to a witness value in the variables array
+     * @details Any variable whose index does not point to witness value is deemed invalid. This implicitly checks
+     * whether a variable index is equal to IS_CONSTANT; assuming that we will never have uint32::MAX number of
+     * variables.
+     *
+     * @param variable_indices
+     */
+    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
 
     // The permutation on variable tags. See
     // https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
     // DOCTODO(#231): replace with the relevant wiki link.
-    std::map<uint32_t, uint32_t> tau;
+    std::map<uint32_t, uint32_t> _tau;
 
+    // Increment the gate count by the specified amount
+    void increment_num_gates(size_t count = 1) { _num_gates += count; }
+
+  public:
     // The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib object) to an
     // index into the variables array. This extra layer of indirection is used to support copy constraints by allowing,
     // for example, two witnesses with differing witness indices to have the same "real variable index" and thus the
@@ -88,6 +117,12 @@ template <typename FF_> class CircuitBuilderBase {
     virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
 
+    // Get the current number of gates in the circuit
+    size_t num_gates() const { return _num_gates; }
+
+    // Get the permutation on variable tags
+    const std::map<uint32_t, uint32_t>& tau() const { return _tau; }
+
     // Non-owning getter for the index at which a fixed witness 0 is stored
     uint32_t zero_idx() const { return _zero_idx; }
 
@@ -98,22 +133,6 @@ template <typename FF_> class CircuitBuilderBase {
     virtual size_t get_num_constant_gates() const = 0;
 
     const std::vector<FF>& get_variables() const { return variables; }
-
-    /**
-     * Get the index of the first variable in class.
-     *
-     * @param index The index of the variable you want to look up.
-     *
-     * @return The index of the first variable in the same class as the submitted index.
-     * */
-    uint32_t get_first_variable_in_class(uint32_t index) const;
-    /**
-     * Update all variables from index in equivalence class to have real variable new_real_index.
-     *
-     * @param index The index of a variable in the class we're updating.
-     * @param new_real_index The index of the real variable to update to.
-     * */
-    void update_real_variable_indices(uint32_t index, uint32_t new_real_index);
 
     /**
      * @brief Get the value of the variable v_{index}.
@@ -209,15 +228,6 @@ template <typename FF_> class CircuitBuilderBase {
     size_t get_circuit_subgroup_size(size_t num_gates) const;
 
     size_t num_public_inputs() const { return public_inputs_.size(); }
-
-    // Check whether each variable index points to a witness in the composer
-    //
-    // Any variable whose index does not point to witness value is deemed invalid.
-    //
-    // This implicitly checks whether a variable index
-    // is equal to IS_CONSTANT; assuming that we will never have
-    // uint32::MAX number of variables
-    void assert_valid_variables(const std::vector<uint32_t>& variable_indices);
 
     bool failed() const;
     const std::string& err() const;

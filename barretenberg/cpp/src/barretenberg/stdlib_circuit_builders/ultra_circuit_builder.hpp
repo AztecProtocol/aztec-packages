@@ -366,7 +366,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         static constexpr size_t NUMBER_OF_ARITHMETIC_GATES_PER_RAM_ARRAY = 1;
         // number of gates created per non-native field operation in process_non_native_field_multiplications
         static constexpr size_t GATES_PER_NON_NATIVE_FIELD_MULTIPLICATION_ARITHMETIC = 7;
-        count = this->num_gates;
+        count = this->num_gates();
 
         // each ROM gate adds +1 extra gate due to the rom reads being copied to a sorted list set
         for (size_t i = 0; i < rom_ram_logic.rom_arrays.size(); ++i) {
@@ -451,7 +451,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_num_finalized_gates() const override
     {
         BB_ASSERT(circuit_finalized);
-        return this->num_gates;
+        return this->num_gates();
     }
 
     /**
@@ -473,7 +473,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     {
         // if circuit finalized already added extra gates
         if (circuit_finalized) {
-            return this->num_gates;
+            return this->num_gates();
         }
         size_t count = 0;
         size_t rangecount = 0;
@@ -662,7 +662,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.set_gate_selector(0); // all selectors zero
 
         check_selector_length_consistency();
-        ++this->num_gates;
+        this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
