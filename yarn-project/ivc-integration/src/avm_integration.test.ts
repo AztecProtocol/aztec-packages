@@ -88,7 +88,7 @@ describe('AVM Integration', () => {
     const clientIVCProofPath = await getWorkingDirectory('bb-avm-integration-client-ivc-');
     bbBinaryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
-      '../../../barretenberg/cpp/build/bin',
+      '../../../barretenberg/cpp/build/bin-avm',
       'bb-avm',
     );
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);

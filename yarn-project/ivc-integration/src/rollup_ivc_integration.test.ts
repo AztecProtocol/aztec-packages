@@ -54,7 +54,11 @@ describe('Rollup IVC Integration', () => {
   let workingDirectory: string;
 
   beforeAll(async () => {
-    bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
+    bbBinaryPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../barretenberg/cpp/build/bin',
+      'bb-avm',
+    );
 
     // Create a client IVC proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
