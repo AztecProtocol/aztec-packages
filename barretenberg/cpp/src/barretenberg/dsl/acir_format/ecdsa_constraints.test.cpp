@@ -28,12 +28,12 @@ template <class Curve> class EcdsaTestingFunctions {
       public:
         enum class Mode : uint8_t {
             None,
-            TamperSignature,
+            TamperR,
         };
 
-        static std::vector<Mode> get_all() { return { Mode::None, Mode::TamperSignature }; }
+        static std::vector<Mode> get_all() { return { Mode::None, Mode::TamperR }; }
 
-        static std::vector<std::string> get_labels() { return { "None", "Tamper Signature" }; }
+        static std::vector<std::string> get_labels() { return { "None", "Tamper R" }; }
     };
 
     struct WitnessOverride {
@@ -97,9 +97,12 @@ template <class Curve> class EcdsaTestingFunctions {
         switch (tampering_mode) {
         case (Tampering::Mode::None):
             break;
-        case (Tampering::Mode::TamperSignature):
-            witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
-            witness_values[ecdsa_constraints.result] = bb::fr(0);
+        case (Tampering::Mode::TamperR):
+            // Set r = 0
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
+            };
+            break;
         }
     }
 
@@ -191,19 +194,19 @@ TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_constant_true(TestFixture::TamperingMode::TamperR);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_witness_true(TestFixture::TamperingMode::TamperR);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
 {
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_witness_false(TestFixture::TamperingMode::TamperR);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
@@ -212,7 +215,7 @@ TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
     // predicate were witness true. It can be useful for debugging.
     GTEST_SKIP();
     BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::TamperSignature);
+    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::TamperR);
 }
 
 TYPED_TEST(EcdsaConstraintsTest, Tampering)
