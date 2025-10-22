@@ -54,7 +54,7 @@ function build_preset() {
   cmake --build --preset "$preset" "$@"
 }
 
-# Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
+# Build all native binaries, including bb, libvm2.so, tests, benches and napi lib.
 function build_native {
   set -eu
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
@@ -166,10 +166,6 @@ function build_release_dir {
   cp build/bin/bb build-release/bb
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
-
-  cp build/bin/bb-avm build-release/bb-avm
-  inject_version build-release/bb-avm
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
