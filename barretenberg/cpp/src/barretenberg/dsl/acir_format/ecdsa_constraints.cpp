@@ -90,9 +90,10 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1)); // 0 < r < n
         s[0] = field_ct::conditional_assign(predicate, s[0], field_ct(1)); // 0 < s < n/2
 
+        // P is on the curve
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
-        public_key.x = Fq::conditional_assign(predicate, public_key.x, default_point.x); // P is on the curve
-        public_key.y = Fq::conditional_assign(predicate, public_key.y, default_point.y); // P is on the curve
+        public_key.x = Fq::conditional_assign(predicate, public_key.x, default_point.x);
+        public_key.y = Fq::conditional_assign(predicate, public_key.y, default_point.y);
         // Avoid mixing constant/witness coordinates because of issue
         // https://github.com/AztecProtocol/aztec-packages/issues/17514
         if (pub_x.is_constant() != pub_y.is_constant()) {
