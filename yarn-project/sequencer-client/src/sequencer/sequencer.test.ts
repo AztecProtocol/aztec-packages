@@ -98,12 +98,7 @@ describe('sequencer', () => {
 
   const getAttestations = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
-    const attestation = new BlockAttestation(
-      block.header.globalVariables.blockNumber,
-      consensusPayload,
-      mockedSig,
-      mockedSig,
-    );
+    const attestation = new BlockAttestation(consensusPayload, mockedSig, mockedSig);
     (attestation as any).sender = committee[0];
     return [attestation];
   };
@@ -111,7 +106,7 @@ describe('sequencer', () => {
   const createBlockProposal = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
     const txHashes = block.body.txEffects.map(tx => tx.txHash);
-    return new BlockProposal(block.header.globalVariables.blockNumber, consensusPayload, mockedSig, txHashes);
+    return new BlockProposal(consensusPayload, mockedSig, txHashes);
   };
 
   const processTxs = async (txs: Tx[]) => {

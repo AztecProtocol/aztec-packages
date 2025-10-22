@@ -1097,6 +1097,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return limitWithProven === 0 ? [] : await this.store.getPublishedBlocks(from, limitWithProven);
   }
 
+  public getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+
+  public getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
+
+  public getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+
+  public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
+  }
+
   /**
    * Gets an l2 block.
    * @param number - The block number to return.
@@ -1592,8 +1608,20 @@ export class ArchiverStoreHelper
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlock(number);
   }
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
+  }
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
   }
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.store.getTxEffect(txHash);

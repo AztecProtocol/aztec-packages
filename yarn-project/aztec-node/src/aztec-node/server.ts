@@ -554,6 +554,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
+    return publishedBlock?.block;
+  }
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByArchive(archive);
+    return publishedBlock?.block;
+  }
+
+  /**
    * Method to request blocks. Will attempt to return all requested blocks but will return only those available.
    * @param from - The start of the range of blocks to return.
    * @param limit - The maximum number of blocks to obtain.
@@ -1059,6 +1079,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return blockNumber === 0 || (blockNumber === 'latest' && (await this.blockSource.getBlockNumber()) === 0)
       ? this.worldStateSynchronizer.getCommitted().getInitialHeader()
       : this.blockSource.getBlockHeader(blockNumber);
+  }
+
+  /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByHash(blockHash);
+  }
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByArchive(archive);
   }
 
   /**
