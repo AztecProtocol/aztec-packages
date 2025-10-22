@@ -17,10 +17,6 @@ using namespace bb;
 /**
  * @brief Create constraints to verify an ECDSA signature
  *
- * @note These constraints are incomplete because the ECDSA verification function enforces that the hash of the message
- * is smaller than the scalar field of the curve, which means an honest prover has a negligible probability of not being
- * able to generate a proof for a valid witness.
- *
  * @details Given an ECDSA constraint system, add to the builder constraints that verify the ECDSA signature. We
  * perform the following operations:
  *  1. Reconstruct byte arrays from builder variables (we enforce that each variable fits in one byte and stack them in
