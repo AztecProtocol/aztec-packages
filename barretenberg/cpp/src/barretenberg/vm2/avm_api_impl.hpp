@@ -16,6 +16,13 @@ namespace bb {
  */
 class AvmApiImpl : public IAvmApi {
   public:
+    /**
+     * @brief Construct AVM API instance
+     *
+     * CRS initialization is deferred to update_crs() which is called after bb initializes its CRS.
+     */
+    AvmApiImpl();
+
     void prove(const std::filesystem::path& inputs_path, const std::filesystem::path& output_path) override;
 
     void check_circuit(const std::filesystem::path& inputs_path) override;
@@ -32,6 +39,8 @@ class AvmApiImpl : public IAvmApi {
         bool has_valid_witness_assignments) override;
 
     bool is_available() const override { return true; }
+
+    void update_crs(void* bn254_crs_factory_ptr, void* grumpkin_crs_factory_ptr) override;
 };
 
 } // namespace bb
@@ -43,6 +52,7 @@ extern "C" {
  *
  * This is the entry point called via dlsym when loading libvm2.so/dylib.
  * Returns a new heap-allocated AvmApiImpl instance.
+ * CRS initialization happens later via the update_crs() method.
  */
 bb::IAvmApi* create_avm_api();
 }

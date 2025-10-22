@@ -94,6 +94,18 @@ class IAvmApi {
      * @return true for real AVM, false for stub
      */
     virtual bool is_available() const = 0;
+
+    /**
+     * @brief Update the CRS factories used by this AVM instance
+     *
+     * @param bn254_crs_factory_ptr Pointer to BN254 CRS factory shared_ptr
+     * @param grumpkin_crs_factory_ptr Pointer to Grumpkin CRS factory shared_ptr
+     *
+     * This is needed because the AVM library is loaded during static initialization
+     * before bb's CRS is initialized. After bb initializes its CRS, this method
+     * should be called to transfer the CRS to the AVM library.
+     */
+    virtual void update_crs(void* bn254_crs_factory_ptr, void* grumpkin_crs_factory_ptr) = 0;
 };
 
 } // namespace bb

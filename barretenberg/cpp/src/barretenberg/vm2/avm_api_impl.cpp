@@ -6,12 +6,44 @@
 
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/dsl/avm2_recursion_constraint.hpp"
 #include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb {
+
+// Declare external references to the global CRS factories defined in global_crs.cpp
+// These exist in this library's copy of libsrs.a, but we'll override them with main executable's values
+namespace srs {
+extern std::shared_ptr<factories::CrsFactory<curve::BN254>> bn254_crs_factory;
+extern std::shared_ptr<factories::CrsFactory<curve::Grumpkin>> grumpkin_crs_factory;
+} // namespace srs
+
+AvmApiImpl::AvmApiImpl()
+{
+    // CRS initialization is deferred to update_crs() which is called after bb initializes its CRS.
+}
+
+void AvmApiImpl::update_crs(void* bn254_crs_factory_ptr, void* grumpkin_crs_factory_ptr)
+{
+    // Update libvm2.so's CRS factories from bb's initialized globals
+    if (bn254_crs_factory_ptr) {
+        auto* factory_ptr =
+            static_cast<std::shared_ptr<srs::factories::CrsFactory<curve::BN254>>*>(bn254_crs_factory_ptr);
+        if (factory_ptr && *factory_ptr) {
+            srs::bn254_crs_factory = *factory_ptr;
+        }
+    }
+    if (grumpkin_crs_factory_ptr) {
+        auto* factory_ptr =
+            static_cast<std::shared_ptr<srs::factories::CrsFactory<curve::Grumpkin>>*>(grumpkin_crs_factory_ptr);
+        if (factory_ptr && *factory_ptr) {
+            srs::grumpkin_crs_factory = *factory_ptr;
+        }
+    }
+}
 
 namespace {
 void print_avm_stats()

@@ -4,12 +4,11 @@
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 
-namespace {
-std::shared_ptr<bb::srs::factories::CrsFactory<bb::curve::BN254>> bn254_crs_factory;       // NOLINT
-std::shared_ptr<bb::srs::factories::CrsFactory<bb::curve::Grumpkin>> grumpkin_crs_factory; // NOLINT
-} // namespace
-
 namespace bb::srs {
+
+// Global CRS factory instances - can be overridden by dynamic libraries
+std::shared_ptr<factories::CrsFactory<curve::BN254>> bn254_crs_factory;       // NOLINT
+std::shared_ptr<factories::CrsFactory<curve::Grumpkin>> grumpkin_crs_factory; // NOLINT
 
 std::filesystem::path bb_crs_path()
 {

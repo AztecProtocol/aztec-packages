@@ -15,6 +15,14 @@ extern const bool avm_enabled;
 std::string get_avm_library_path();
 
 /**
+ * @brief Update the CRS factories used by the loaded AVM library
+ *
+ * This should be called after bb initializes its CRS to transfer the CRS
+ * to the dynamically loaded AVM library.
+ */
+void update_avm_crs();
+
+/**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.
  *
  * Communication:

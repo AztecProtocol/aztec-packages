@@ -14,6 +14,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 
 #ifndef __wasm__
+#include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/vm2/i_avm_api.hpp"
 #include "barretenberg/vm2_stub/dynamic_library.hpp"
 #include <cstdlib>
@@ -89,7 +90,7 @@ IAvmApi* get_or_load_avm_api()
                 continue;
             }
 
-            // Create the instance
+            // Create the instance. CRS will be initialized later via update_avm_crs() after bb initializes it.
             IAvmApi* api = (*factory)();
             if (api != nullptr) {
                 // Keep library open by moving it to static storage
@@ -112,6 +113,19 @@ std::string get_avm_library_path()
     // Ensure lazy loading has been attempted
     get_or_load_avm_api();
     return g_avm_library_path;
+}
+
+void update_avm_crs()
+{
+    auto* api = get_or_load_avm_api();
+    if (api != nullptr) {
+        // Get bb's initialized CRS factories
+        auto bn254_factory = srs::get_bn254_crs_factory();
+        auto grumpkin_factory = srs::get_grumpkin_crs_factory();
+
+        // Update the AVM library's CRS
+        api->update_crs(static_cast<void*>(&bn254_factory), static_cast<void*>(&grumpkin_factory));
+    }
 }
 
 // AVM availability is determined at runtime
@@ -170,6 +184,11 @@ const bool avm_enabled = false;
 std::string get_avm_library_path()
 {
     return "";
+}
+
+void update_avm_crs()
+{
+    // No-op for WASM
 }
 
 void avm_prove([[maybe_unused]] const std::filesystem::path& inputs_path,
