@@ -25,7 +25,7 @@ template <typename FF_> class ArithmeticRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_arith.is_zero(); }
 
     /**
-     * @brief Expression for the Ultra Arithmetic gate.
+     * @brief Expression for the Ultra (width-4) Arithmetic gate.
      * @details This relation contains two subrelations and encapsulates several identities, toggled by the value of
      * q_arith in [0, 1, 2, 3].
      *
@@ -44,7 +44,7 @@ template <typename FF_> class ArithmeticRelationImpl {
      *      Subrelation 1: q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c
      *      Subrelation 2: Disabled
      *
-     * CASE q_arith == 2: Same as above but with an additional term linear term: +w_4_shift
+     * CASE q_arith == 2: Same as above but with an additional linear term: +w_4_shift
      *      Subrelation 1: q_m * w_1 * w_2 + [ \sum_{i=1..4} q_i * w_i + q_c + w_4_shift ] * 2
      *      Subrelation 2: Disabled
      *      Note: Factor of 2 on the linear term must be accounted for when constructing inputs to the relation.
@@ -76,6 +76,7 @@ template <typename FF_> class ArithmeticRelationImpl {
 
         auto q_arith_sub_1 = q_arith_m - FF(1);
         auto scaled_q_arith = q_arith_m * scaling_factor;
+        // Subrelation 1
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
@@ -96,6 +97,7 @@ template <typename FF_> class ArithmeticRelationImpl {
 
             std::get<0>(evals) += (tmp0 + Accumulator(tmp1)) * Accumulator(scaled_q_arith);
         }
+        // Subrelation 2
         {
             using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
