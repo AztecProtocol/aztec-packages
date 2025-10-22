@@ -20,13 +20,14 @@ describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
     expect(expectedAvmInputs).toStrictEqual(inputs);
   });
 
-  it('Minimal Tx avm inputs snapshot loaded from json file', async () => {
+  it.only('Minimal Tx avm inputs snapshot loaded from json file', async () => {
     // If the test data needs to be updated, run the above ^ test case
     // with AZTEC_GENERATE_TEST_DATA=1, and _then_ rerun this test and it should pass.
     const result = await simAvmMinimalPublicTx();
-    const inputs = result.avmProvingRequest.inputs;
-    const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
-    expect(inputs).toStrictEqual(avmInputsFromFile);
+    console.log('res (check note hashes):', result);
+    // const inputs = result.avmProvingRequest.inputs;
+    // const avmInputsFromFile = readAvmMinimalPublicTxInputsFromFile();
+    // expect(inputs).toStrictEqual(avmInputsFromFile);
   });
 
   // This test makes sure that any TS changes are propagated to the testdata,

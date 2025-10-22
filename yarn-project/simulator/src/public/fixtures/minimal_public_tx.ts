@@ -3,7 +3,7 @@ import { ProtocolContracts } from '@aztec/stdlib/tx';
 
 import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' with { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
-import { Add, Return, Set } from '../avm/opcodes/index.js';
+import { Add, EmitNoteHash, NoteHashExists, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
@@ -14,7 +14,36 @@ export async function simAvmMinimalPublicTx(): Promise<PublicTxResult> {
   const minimalBytecode = encodeToBytecode([
     new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
     new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
-    new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
+    // Set some FF value at offset = 3:
+    new Set(/*indirect*/ 0, /*dstOffset*/ 3, TypeTag.FIELD, /*value*/ 20).as(Opcode.SET_8, Set.wireFormat8),
+    // Set 1 at offset = 4:
+    new Set(/*indirect*/ 0, /*dstOffset*/ 4, TypeTag.UINT64, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+    // Add a note hash at index = 0:
+    new EmitNoteHash(/*indirect*/ 0, /*noteHashOffset*/ 3).as(Opcode.EMITNOTEHASH, EmitNoteHash.wireFormat),
+    // Add a note hash at index = 1:
+    new EmitNoteHash(/*indirect*/ 0, /*noteHashOffset*/ 3).as(Opcode.EMITNOTEHASH, EmitNoteHash.wireFormat),
+    // The note hash is siloed, so won't match the value, but will correctly get the siloed hash from index 1:
+    new NoteHashExists(/*indirect*/ 0, /*noteHashOffset*/ 3, /*leafIndexOffset*/ 4, /*existsOffset*/ 5).as(
+      Opcode.NOTEHASHEXISTS,
+      NoteHashExists.wireFormat,
+    ),
+    // Set 2 at offset = 4:
+    new Set(/*indirect*/ 0, /*dstOffset*/ 4, TypeTag.UINT64, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
+    // Below returns null from world_state at index 2, since it's an unwritten leaf:
+    new NoteHashExists(/*indirect*/ 0, /*noteHashOffset*/ 3, /*leafIndexOffset*/ 4, /*existsOffset*/ 5).as(
+      Opcode.NOTEHASHEXISTS,
+      NoteHashExists.wireFormat,
+    ),
+    // Set MAX_INDEX + 1 at offset = 4:
+    new Set(/*indirect*/ 0, /*dstOffset*/ 4, TypeTag.UINT64, /*value*/ 4398046511105n).as(
+      Opcode.SET_64,
+      Set.wireFormat64,
+    ),
+    // Below INCORRECTLY gets the siloed hash from index 1 when looking for a leaf at  MAX_INDEX + 1 :
+    new NoteHashExists(/*indirect*/ 0, /*noteHashOffset*/ 3, /*leafIndexOffset*/ 4, /*existsOffset*/ 5).as(
+      Opcode.NOTEHASHEXISTS,
+      NoteHashExists.wireFormat,
+    ),
     new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
   ]);
 

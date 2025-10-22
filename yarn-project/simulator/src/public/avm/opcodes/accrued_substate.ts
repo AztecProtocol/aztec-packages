@@ -42,8 +42,9 @@ export class NoteHashExists extends Instruction {
     // Note that this instruction accepts any type in memory, and converts to Field.
     const noteHash = memory.get(noteHashOffset).toFr();
     const leafIndex = memory.get(leafIndexOffset).toBigInt();
-
+    console.log('in accrued_substate.ts, executing note hash exists for', noteHash, 'at: ', leafIndex);
     const exists = await context.persistableState.checkNoteHashExists(context.environment.address, noteHash, leafIndex);
+    console.log('executed checkNoteHashExists result, exists = ', exists);
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
   }
 }

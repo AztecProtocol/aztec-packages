@@ -99,6 +99,7 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     treeId: ID,
     leafIndex: bigint,
   ): Promise<MerkleTreeLeafType<ID> | undefined> {
+    // accrued substate -> state manager -> public db sources -> here
     const resp = await this.instance.call(WorldStateMessageType.GET_LEAF_VALUE, {
       leafIndex,
       revision: this.revision,
@@ -106,10 +107,18 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     });
 
     if (!resp) {
+      // Expected if index OOR:
+      console.log('in merkle_trees_facade.ts, returned no resp from world state for index: ', leafIndex);
       return undefined;
     }
 
     const leaf = deserializeLeafValue(resp);
+    console.log(
+      'in merkle_trees_facade.ts, returned non-null resp from world state for index: ',
+      leafIndex,
+      ': ',
+      leaf,
+    );
     if (leaf instanceof Fr) {
       return leaf as any;
     } else {
