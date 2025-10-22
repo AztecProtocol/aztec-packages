@@ -190,6 +190,8 @@ byte_array<Builder>::byte_array(const field_t<Builder>& input,
 
         const field_t overlap = -diff_lo_hi + 1;
         // Ensure that (r - 1).hi  - reconstructed_hi/shift - overlap is positive.
+        // SAFETY: reconstructed_hi is always a multiple of 2^128 by construction
+        // (bytes 0-15 all have scaling factors ≥ 2^128)
         const field_t diff_hi = (-reconstructed_hi / shift).add_two(s_hi, -overlap);
         diff_hi.create_range_constraint(128, "byte_array: y_hi doesn't fit in 128 bits.");
     }
