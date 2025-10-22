@@ -82,7 +82,7 @@ function build_asan {
     # Pass the keys from asan_tests to the build_preset function.
     local bins="commitment_schemes_recursion_tests client_ivc_tests ultra_honk_tests dsl_tests"
     build_preset asan --target $bins
-    # We upload only the binaries specified in --target in build-asan-fast/bin
+    # We upload only the binaries specified in --target in build-asan/bin
     cache_upload barretenberg-asan-$hash.zst $(printf "build-asan/bin/%s " $bins)
   fi
 }
@@ -272,7 +272,7 @@ function test_cmds {
     for bin_name in "${!asan_tests[@]}"; do
       local filter=${asan_tests[$bin_name]}
       local prefix="$hash:CPUS=4:MEM=8g"
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+      echo -e "$prefix barretenberg/cpp/build-asan/bin/$bin_name --gtest_filter=$filter"
     done
   fi
 
