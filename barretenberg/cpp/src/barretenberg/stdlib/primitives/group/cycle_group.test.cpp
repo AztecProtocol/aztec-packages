@@ -1441,9 +1441,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulGeneralMSM)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4393); // Mega
+        check_circuit_and_gate_count(builder, 4395); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 4396); // Ultra
+        check_circuit_and_gate_count(builder, 4398); // Ultra
     }
 }
 
@@ -1473,9 +1473,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulProducesInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4019); // Mega
+        check_circuit_and_gate_count(builder, 4021); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 4022); // Ultra
+        check_circuit_and_gate_count(builder, 4024); // Ultra
     }
 }
 
@@ -1500,9 +1500,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulMultiplyByZero)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3529); // Mega
+        check_circuit_and_gate_count(builder, 3530); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 3532); // Ultra
+        check_circuit_and_gate_count(builder, 3533); // Ultra
     }
 }
 
@@ -1538,9 +1538,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulInputsAreInfinity)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 3542); // Mega
+        check_circuit_and_gate_count(builder, 3543); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 3545); // Ultra
+        check_circuit_and_gate_count(builder, 3546); // Ultra
     }
 }
 
@@ -1709,9 +1709,9 @@ TYPED_TEST(CycleGroupTest, TestMul)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 12933); // Mega
+        check_circuit_and_gate_count(builder, 12943); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 12936); // Ultra
+        check_circuit_and_gate_count(builder, 12946); // Ultra
     }
 }
 
@@ -1882,9 +1882,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulWithBn254Scalar)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 4021); // Mega
+        check_circuit_and_gate_count(builder, 4023); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 4024); // Ultra
+        check_circuit_and_gate_count(builder, 4026); // Ultra
     }
 }
 
@@ -1927,9 +1927,9 @@ TYPED_TEST(CycleGroupTest, TestBatchMulWithU256Witness)
 
     // Gate count difference due to additional constants added by default in Mega builder
     if constexpr (std::is_same_v<TypeParam, bb::MegaCircuitBuilder>) {
-        check_circuit_and_gate_count(builder, 1245); // Mega
+        check_circuit_and_gate_count(builder, 1247); // Mega
     } else {
-        check_circuit_and_gate_count(builder, 1248); // Ultra
+        check_circuit_and_gate_count(builder, 1250); // Ultra
     }
 }
 

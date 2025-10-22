@@ -70,10 +70,9 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     // 3: If point at infinity, conditionally (re)assign each entry in the table to be equal to the offset
     //    generator so that the final table is genuninely correct in all cases. (Otherwise, the table is unchanged
     //    from step 2)
-    cycle_group<Builder> fallback_point(Group::affine_one);
-    field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
-    field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
-    cycle_group<Builder> modded_base_point(modded_x, modded_y, false, /*assert_on_curve=*/false);
+    cycle_group<Builder> work_point =
+        cycle_group<Builder>::conditional_assign(base_point.is_point_at_infinity(), Group::affine_one, base_point);
+    context->update_used_witnesses(work_point.is_point_at_infinity().get_normalized_witness_index());
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
     // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
     // lost here since native addition with the point at infinity is nearly free).
@@ -90,10 +89,10 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         // Case 1: if the input point is constant, it is cheaper to fix the point as a witness and then derive the
         // table, than it is to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate,
         // and fixing x/y coords to be constant = 2 gates)
-        modded_base_point = cycle_group<Builder>::from_constant_witness(_context, modded_base_point.get_value());
+        work_point = cycle_group<Builder>::from_constant_witness(_context, work_point.get_value());
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
-            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
+            point_table[i] = point_table[i - 1].unconditional_add(work_point, get_hint(i - 1));
         }
     } else {
         // Case 2: Point is non-constant so the table is derived via unconditional additions. We check the x_coordinates
@@ -101,9 +100,9 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         field_t coordinate_check_product = 1;
         point_table[0] = offset_generator;
         for (size_t i = 1; i < table_size; ++i) {
-            const field_t x_diff = point_table[i - 1].x - modded_base_point.x;
+            const field_t x_diff = point_table[i - 1].x - work_point.x;
             coordinate_check_product *= x_diff;
-            point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
+            point_table[i] = point_table[i - 1].unconditional_add(work_point, get_hint(i - 1));
         }
         coordinate_check_product.assert_is_not_zero("straus_lookup_table x-coordinate collision");
 
