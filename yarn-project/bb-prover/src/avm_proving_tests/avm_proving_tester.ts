@@ -27,6 +27,7 @@ import {
   verifyAvmProof,
 } from '../bb/execute.js';
 
+process.env.AVM_LIB_PATH = '../../barretenberg/cpp/build/lib';
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb');
 
 // An InterceptingLogger that records all log messages and forwards them to a wrapped logger.
