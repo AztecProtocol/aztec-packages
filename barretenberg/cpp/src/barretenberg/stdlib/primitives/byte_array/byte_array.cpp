@@ -306,6 +306,9 @@ template <typename Builder> byte_array<Builder> byte_array<Builder>::slice(size_
  **/
 template <typename Builder> byte_array<Builder> byte_array<Builder>::reverse() const
 {
+    if (values.empty()) {
+        return *this;
+    }
     bytes_t bytes(values.size());
     size_t offset = bytes.size() - 1;
     for (size_t i = 0; i < bytes.size(); i += 1, offset -= 1) {
