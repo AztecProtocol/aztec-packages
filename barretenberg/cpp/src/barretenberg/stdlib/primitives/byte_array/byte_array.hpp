@@ -58,9 +58,9 @@ template <typename Builder> class byte_array {
 
     // Copy and move operations
     byte_array(const byte_array& other);
-    byte_array(byte_array&& other);
+    byte_array(byte_array&& other) noexcept;
     byte_array& operator=(const byte_array& other);
-    byte_array& operator=(byte_array&& other);
+    byte_array& operator=(byte_array&& other) noexcept;
     explicit operator field_t<Builder>() const;
 
     field_t<Builder> operator[](const size_t index) const

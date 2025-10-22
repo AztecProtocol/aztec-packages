@@ -208,7 +208,7 @@ byte_array<Builder>::byte_array(Builder* parent_context, bytes_t const& input)
 template <typename Builder>
 byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
     : context(parent_context)
-    , values(input)
+    , values(std::move(input))
 {}
 
 template <typename Builder>
@@ -219,7 +219,7 @@ byte_array<Builder>::byte_array(const byte_array& other)
 }
 
 template <typename Builder>
-byte_array<Builder>::byte_array(byte_array&& other)
+byte_array<Builder>::byte_array(byte_array&& other) noexcept
     : context(other.context)
     , values(std::move(other.values))
 {}
@@ -232,7 +232,7 @@ template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(
     return *this;
 }
 
-template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(byte_array&& other)
+template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(byte_array&& other) noexcept
 {
     context = other.context;
     values = std::move(other.values);
