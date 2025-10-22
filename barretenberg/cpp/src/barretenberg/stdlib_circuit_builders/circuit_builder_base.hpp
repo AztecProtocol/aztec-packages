@@ -28,12 +28,12 @@ template <typename FF_> class CircuitBuilderBase {
     // A container for all of the witness values used by the circuit
     std::vector<FF> variables;
 
-    std::vector<uint32_t> public_inputs_;
+    std::vector<uint32_t> _public_inputs;
 
-    bool public_inputs_finalized_ = false; // Addition of new public inputs disallowed after this is set to true.
+    bool _public_inputs_finalized = false; // Addition of new public inputs disallowed after this is set to true.
 
     // true if we have dummy witnesses (in the write_vk case)
-    bool has_dummy_witnesses_ = false;
+    bool _has_dummy_witnesses = false;
 
     // index of next variable in equivalence class (=REAL_VARIABLE if you're last)
     std::vector<uint32_t> next_var_index;
@@ -106,7 +106,7 @@ template <typename FF_> class CircuitBuilderBase {
     CircuitBuilderBase& operator=(CircuitBuilderBase&& other) noexcept = default;
     virtual ~CircuitBuilderBase() = default;
 
-    bool has_dummy_witnesses() const { return has_dummy_witnesses_; }
+    bool has_dummy_witnesses() const { return _has_dummy_witnesses; }
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
@@ -164,14 +164,14 @@ template <typename FF_> class CircuitBuilderBase {
         variables[real_variable_index[index]] = value;
     }
 
-    const std::vector<uint32_t>& public_inputs() const { return public_inputs_; };
+    const std::vector<uint32_t>& public_inputs() const { return _public_inputs; };
 
     /**
-     * @brief Set the public_inputs_finalized_ to true to prevent any new public inputs from being added.
+     * @brief Set the _public_inputs_finalized to true to prevent any new public inputs from being added.
      * @details This is used, for example, for special internal public inputs (like pairing inputs) which we want to
      * ensure are placed at the end of the public inputs vector.
      */
-    void finalize_public_inputs() { public_inputs_finalized_ = true; }
+    void finalize_public_inputs() { _public_inputs_finalized = true; }
 
     /**
      * @brief Directly initialize the public inputs vector.
@@ -179,7 +179,7 @@ template <typename FF_> class CircuitBuilderBase {
      * time of circuit construction.
      *
      */
-    void initialize_public_inputs(const std::vector<uint32_t>& public_inputs) { this->public_inputs_ = public_inputs; }
+    void initialize_public_inputs(const std::vector<uint32_t>& public_inputs) { this->_public_inputs = public_inputs; }
 
     /**
      * Add a variable to variables
@@ -227,7 +227,7 @@ template <typename FF_> class CircuitBuilderBase {
 
     size_t get_circuit_subgroup_size(size_t num_gates) const;
 
-    size_t num_public_inputs() const { return public_inputs_.size(); }
+    size_t num_public_inputs() const { return _public_inputs.size(); }
 
     bool failed() const;
     const std::string& err() const;

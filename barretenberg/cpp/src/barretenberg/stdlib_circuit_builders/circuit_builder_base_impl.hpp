@@ -12,7 +12,7 @@
 namespace bb {
 template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : has_dummy_witnesses_(has_dummy_witnesses)
+    : _has_dummy_witnesses(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -102,8 +102,8 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(index);
     return index;
 }
 
@@ -118,8 +118,8 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
         }
     }
     uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(witness_index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(witness_index);
 
     return public_input_index;
 }
@@ -188,7 +188,7 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!has_dummy_witnesses_) {
+    if (!_has_dummy_witnesses) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
