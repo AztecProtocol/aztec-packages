@@ -413,13 +413,13 @@ void AvmSimulationHelper::simulate_fast(const ExecutionHints& hints)
     tx_execution.simulate(hints.tx);
 }
 
-EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
-                                                          AztecAddress sender,
-                                                          FF transaction_fee,
-                                                          GlobalVariables globals,
+EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& address,
+                                                          const AztecAddress& sender,
+                                                          const FF& transaction_fee,
+                                                          const GlobalVariables& globals,
                                                           bool is_static_call,
                                                           const std::vector<FF>& calldata,
-                                                          Gas gas_limit,
+                                                          const Gas& gas_limit,
                                                           const std::vector<uint8_t>& bytecode)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_bytecode");
@@ -543,7 +543,7 @@ EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
         std::shared_ptr<std::vector<uint8_t>> bytecode_ptr;
     };
 
-    EnqueuedCallContext enqueued_call_context(
+    auto enqueued_call_context = std::make_unique<EnqueuedCallContext>(
         /*context_id=*/0,
         address,
         sender,
@@ -563,13 +563,7 @@ EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
         /*phase=*/TransactionPhase::APP_LOGIC,
         calldata);
 
-    const ExecutionResult& result =
-        execution.execute(std::make_unique<EnqueuedCallContext>(std::move(enqueued_call_context)));
-
-    std::vector<FF> output_data = result.output.value_or(std::vector<FF>{});
-
-    const Gas gas_left = gas_limit - result.gas_used;
-    return { .reverted = !result.success, .output = output_data, .gas_left = gas_left };
+    return execution.execute(std::move(enqueued_call_context));
 }
 
 } // namespace bb::avm2

@@ -1070,7 +1070,7 @@ void Execution::sha256_compression(ContextInterface& context,
 
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
-ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
+EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
     external_call_stack.push(std::move(enqueued_call_context));
@@ -1172,7 +1172,13 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         }
     }
 
-    return get_execution_result();
+    const ExecutionResult& result = get_execution_result();
+    return {
+        .success = result.success,
+        .gas_used = result.gas_used,
+        .output = std::nullopt, // The gadgets do not need to return data.
+        .side_effect_states = result.side_effect_states,
+    };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
@@ -1206,7 +1212,7 @@ void Execution::handle_exit_call()
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
     external_call_stack.pop();
-    ExecutionResult result = get_execution_result();
+    const ExecutionResult& result = get_execution_result();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {

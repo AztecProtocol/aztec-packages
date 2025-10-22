@@ -1,4 +1,5 @@
 #include "simulator.hpp"
+
 #include <iomanip>
 #include <iostream>
 #include <vector>
@@ -52,16 +53,16 @@ class TestSimulator {
 SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
     TestSimulator simulator;
-    auto result = simulator.simulate(bytecode, calldata);
-    return { .reverted = result.reverted, .output = result.output };
+    EnqueuedCallResult result = simulator.simulate(bytecode, calldata);
+    return { .reverted = !result.success, .output = result.output.value_or(std::vector<FF>{}) };
 }
 
 // TODO(defkit) implement communication with the javascript simulator
 SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
     TestSimulator simulator;
-    auto result = simulator.simulate(bytecode, calldata);
-    return { .reverted = result.reverted, .output = result.output };
+    EnqueuedCallResult result = simulator.simulate(bytecode, calldata);
+    return { .reverted = !result.success, .output = result.output.value_or(std::vector<FF>{}) };
 }
 
 bool compare_simulator_results(const SimulatorResult& result1, const SimulatorResult& result2)
