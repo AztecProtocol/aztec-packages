@@ -4,6 +4,8 @@
  */
 #pragma once
 
+#include <string>
+
 namespace bb {
 
 class IAvmApi;
@@ -18,5 +20,12 @@ class IAvmApi;
  * @return Pointer to AVM API implementation, or nullptr if not available
  */
 IAvmApi* get_or_load_avm_api();
+
+/**
+ * @brief Get the path to the loaded AVM library
+ *
+ * @return Path to libvm2.so/dylib if loaded, empty string otherwise
+ */
+std::string get_avm_library_path();
 
 } // namespace bb

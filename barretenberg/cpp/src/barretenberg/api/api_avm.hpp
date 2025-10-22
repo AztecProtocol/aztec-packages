@@ -1,10 +1,18 @@
 #pragma once
 #include <filesystem>
+#include <string>
 
 namespace bb {
 
 // Global flag indicating AVM support is available
 extern const bool avm_enabled;
+
+/**
+ * @brief Get the path to the loaded AVM library
+ *
+ * @return Path to libvm2.so/dylib if loaded, empty string otherwise
+ */
+std::string get_avm_library_path();
 
 /**
  * @brief Writes an avm proof and corresponding (incomplete) verification key to files.

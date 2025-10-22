@@ -57,6 +57,9 @@ std::vector<std::filesystem::path> get_search_paths()
 
 } // namespace
 
+// Track the loaded library path
+static std::string g_avm_library_path;
+
 // Lazy-load the AVM API - exported for use by other modules
 IAvmApi* get_or_load_avm_api()
 {
@@ -70,11 +73,8 @@ IAvmApi* get_or_load_avm_api()
                 continue;
             }
 
-            info("Attempting to load AVM from: ", lib_path.string());
-
             auto lib = DynamicLibrary::load(lib_path.string());
             if (!lib) {
-                info("Failed to load ", lib_path.string(), ": ", DynamicLibrary::last_error());
                 continue;
             }
 
@@ -82,28 +82,32 @@ IAvmApi* get_or_load_avm_api()
             using FactoryFn = IAvmApi* (*)();
             auto factory = lib->get_symbol<FactoryFn>("create_avm_api");
             if (!factory) {
-                info("Failed to find create_avm_api symbol in ", lib_path.string());
                 continue;
             }
 
             // Create the instance
             IAvmApi* api = (*factory)();
-            if (api) {
-                info("Successfully loaded AVM from ", lib_path.string());
+            if (api != nullptr) {
                 // Keep library open by moving it to static storage
                 static auto kept_lib = std::move(*lib);
                 (void)kept_lib;
+                // Store the path for later retrieval
+                g_avm_library_path = lib_path.string();
                 return api;
             }
         }
 
-        // Not found
-        info("AVM library not found. AVM operations will not be available.");
-        info("To enable AVM, ensure ", VM2_LIB_NAME, " is in the same directory as bb or set VM2_LIB_PATH.");
         return nullptr;
     }();
 
     return instance;
+}
+
+std::string get_avm_library_path()
+{
+    // Ensure lazy loading has been attempted
+    get_or_load_avm_api();
+    return g_avm_library_path;
 }
 
 // AVM availability is determined at runtime
