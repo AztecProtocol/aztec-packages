@@ -119,6 +119,9 @@ if(NOT FUZZING)
     if(NOT WASM)
         add_subdirectory(barretenberg/world_state)
     endif()
+endif()
+
+if(MULTITHREADING)
     add_subdirectory(barretenberg/vm2)
 endif()
 

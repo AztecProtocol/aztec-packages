@@ -290,7 +290,8 @@
         "FUZZING": "ON",
         "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -304,7 +305,8 @@
         "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -320,7 +322,8 @@
         "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       }
     },
     {
@@ -334,10 +337,26 @@
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_AZTEC_VM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "OFF"
       },
       "environment": {
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"
+      }
+    },
+    {
+      "name": "fuzzing-avm",
+      "displayName": "Build with fuzzing and AVM",
+      "description": "Build default preset but with fuzzing and AVM enabled",
+      "inherits": "clang20",
+      "binaryDir": "build-fuzzing-avm",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "ON",
+        "AVM_TRANSPILER_LIB": "",
+        "DISABLE_AZTEC_VM": "OFF",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "ON"
       }
     },
     {
@@ -702,6 +721,11 @@
       "name": "fuzzing-coverage",
       "inherits": "clang20",
       "configurePreset": "fuzzing-coverage"
+    },
+    {
+      "name": "fuzzing-avm",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm"
     },
     {
       "name": "gperftools",
