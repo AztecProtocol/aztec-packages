@@ -92,12 +92,12 @@ export interface ExecutionDataProvider {
    *
    * @param contractAddress - The contract address.
    * @param selector - The corresponding function selector.
-   * @returns A Promise that resolves to a FunctionArtifact object.
+   * @returns A Promise that resolves to a FunctionArtifact object or undefined if the function artifact is not found.
    */
   getFunctionArtifact(
     contractAddress: AztecAddress,
     selector: FunctionSelector,
-  ): Promise<FunctionArtifactWithContractName>;
+  ): Promise<FunctionArtifactWithContractName | undefined>;
 
   /**
    * Generates a stable function name for debug purposes.

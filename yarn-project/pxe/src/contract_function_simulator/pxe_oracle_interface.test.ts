@@ -3,6 +3,7 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
@@ -1031,6 +1032,16 @@ describe('PXEOracleInterface', () => {
 
       const result = await pxeOracleInterface.getAnchorBlockHeader();
       expect(result).toEqual(header);
+    });
+  });
+
+  describe('getFunctionArtifact', () => {
+    it('returns undefined if the artifact cannot be found', async () => {
+      const result = await pxeOracleInterface.getFunctionArtifact(
+        AztecAddress.fromNumber(9999),
+        FunctionSelector.fromString('0x12345678'),
+      );
+      expect(result).toBeUndefined();
     });
   });
 
