@@ -1,8 +1,10 @@
-import { AztecAddress, type AztecNode, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, Fr } from '@aztec/aztec.js';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -17,7 +19,7 @@ describe('e2e_offchain_effect', () => {
 
   jest.setTimeout(TIMEOUT);
 
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
@@ -43,7 +45,9 @@ describe('e2e_offchain_effect', () => {
         next_contract: i % 2 === 0 ? contract2.address : contract1.address,
       }));
 
-    const provenTx = await contract1.methods.emit_offchain_effects(effects).prove({ from: defaultAccountAddress });
+    const provenTx = await proveInteraction(wallet, contract1.methods.emit_offchain_effects(effects), {
+      from: defaultAccountAddress,
+    });
 
     // The expected order of offchain effects is the reverse because the messages are popped from the end of the input
     // BoundedVec.
@@ -58,15 +62,19 @@ describe('e2e_offchain_effect', () => {
   });
 
   it('should not emit any offchain effects', async () => {
-    const provenTx = await contract1.methods.emit_offchain_effects([]).prove({ from: defaultAccountAddress });
+    const provenTx = await proveInteraction(wallet, contract1.methods.emit_offchain_effects([]), {
+      from: defaultAccountAddress,
+    });
     expect(provenTx.offchainEffects).toEqual([]);
   });
 
   it('should emit event as offchain message and process it', async () => {
     const [a, b, c] = [1n, 2n, 3n];
-    const provenTx = await contract1.methods
-      .emit_event_as_offchain_message_for_msg_sender(a, b, c)
-      .prove({ from: defaultAccountAddress });
+    const provenTx = await proveInteraction(
+      wallet,
+      contract1.methods.emit_event_as_offchain_message_for_msg_sender(a, b, c),
+      { from: defaultAccountAddress },
+    );
     const { txHash, blockNumber } = await provenTx.send().wait();
 
     const offchainEffects = provenTx.offchainEffects;
@@ -115,9 +123,9 @@ describe('e2e_offchain_effect', () => {
   it('should emit note as offchain message and process it', async () => {
     const value = 123n;
     const owner = defaultAccountAddress;
-    const provenTx = await contract1.methods
-      .emit_note_as_offchain_message(value, owner)
-      .prove({ from: defaultAccountAddress });
+    const provenTx = await proveInteraction(wallet, contract1.methods.emit_note_as_offchain_message(value, owner), {
+      from: defaultAccountAddress,
+    });
     const { txHash } = await provenTx.send().wait();
 
     const offchainEffects = provenTx.offchainEffects;

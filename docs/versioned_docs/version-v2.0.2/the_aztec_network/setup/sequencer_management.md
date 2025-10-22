@@ -15,7 +15,9 @@ Sequencer nodes are critical infrastructure responsible for ordering transaction
 2. Attest to correct execution of transactions in proposed blocks (when part of the sequencer committee)
 3. Submit successfully attested blocks to L1
 
-Before publication, blocks must be validated by a committee of sequencer nodes who re-execute public transactions and verify private function proofs. Committee members attest to validity by signing the block header. Once sufficient attestations are collected (two-thirds of the committee plus one), the block can be submitted to L1.
+Before publication, blocks must be validated by a committee of sequencer nodes who re-execute public transactions and verify private function proofs. Committee members attest to validity by signing the block header.
+
+Once sufficient attestations are collected (two-thirds of the committee plus one), the block can be submitted to L1.
 
 ### Minimum Hardware Requirements
 
@@ -43,8 +45,7 @@ The keystore file (`keystore.json`) uses the following structure:
     {
       "attester": ["ETH_PRIVATE_KEY_0"],
       "publisher": ["ETH_PRIVATE_KEY_1"],
-      "coinbase": "ETH_ADDRESS_2",
-      "feeRecipient": "AZTEC_ADDRESS_0"
+      "coinbase": "ETH_ADDRESS_2"
     }
   ]
 }
@@ -66,7 +67,7 @@ Private key for sending block proposals to L1. This account needs ETH funding to
 
 - **Format**: Array of Ethereum private keys
 - **Default**: Uses attester key if not specified
-- **Requirement**: Must be funded with at least 0.1 ETH to avoid slashing
+**Rule of thumb**: Ensure every publisher account maintains at least 0.1 ETH per attester account it serves. This balance allows the selected publisher to successfully post transactions when chosen.
 
 :::tip
 If you're using the same key for both attester and publisher, you can omit the `publisher` field entirely from your keystore.
@@ -74,17 +75,10 @@ If you're using the same key for both attester and publisher, you can omit the `
 
 #### coinbase (optional)
 
-Ethereum address receiving L1 rewards and fees.
+Ethereum address that receives all L1 block rewards and tx fees.
 
 - **Format**: Ethereum address
 - **Default**: Uses attester address if not specified
-
-#### feeRecipient (required)
-
-Aztec address receiving unburnt transaction fees from blocks you produce.
-
-- **Format**: Aztec address
-- **Requirement**: Must be a deployed Aztec account
 
 ### Generating Keys
 
@@ -102,19 +96,7 @@ cast wallet new-mnemonic --words 24
 # Save these securely - you'll need the private key for the keystore
 ```
 
-At minimum, you need one Ethereum private key for the `attester` field. Optionally, you can generate a separate key for the `publisher` field.
-
-#### Aztec Fee Recipient Address
-
-Follow the [Getting Started on Testnet](../../developers/getting_started_on_testnet.md#getting-started-on-testnet) guide to create and deploy an Aztec account, then use that account's address as your `feeRecipient`.
-
-:::warning Save Account Recovery Information
-When you create your Aztec account for the `feeRecipient`, make sure to save:
-- The contract artifact version you used for deployment
-- The deployment information (address, secret key, etc.)
-
-This information is required to recover your account in the future and access your sequencer fees.
-:::
+At a minimum, you need one Ethereum private key for the `attester` field. Optionally, you can generate a separate key for the `publisher` field and a separate address for the `coinbase` field.
 
 ## Setup with Docker Compose
 
@@ -139,8 +121,7 @@ Create a `keystore.json` file in your `aztec-sequencer/keys` folder with your ge
     {
       "attester": ["ETH_PRIVATE_KEY_0"],
       "publisher": ["ETH_PRIVATE_KEY_1"],
-      "coinbase": "ETH_ADDRESS_2",
-      "feeRecipient": "AZTEC_ADDRESS_0"
+      "coinbase": "ETH_ADDRESS_2"
     }
   ]
 }
@@ -149,7 +130,13 @@ Create a `keystore.json` file in your `aztec-sequencer/keys` folder with your ge
 Replace the placeholder values with your actual keys and addresses generated in the previous section.
 
 :::warning
-Because the publisher posts block proposals to L1, the account needs to be funded with ETH. Ensure the account holds at least 0.1 ETH during operation of the sequencer to avoid being slashed.
+Publisher accounts submit block proposals to L1. Each publisher operates independently, and the system does not retry with another publisher if a transaction fails due to insufficient funds.
+
+**Examples**:
+- 3 attesters with 1 publisher → Maintain ≥ 0.3 ETH in that publisher account
+- 3 attesters with 2 publishers → Maintain ≥ 0.15 ETH in each publisher account (0.3 ETH total)
+
+Maintaining these minimum balances prevents failed block publications caused by low gas funds.
 :::
 
 ### Step 3: Configure Environment Variables
@@ -322,12 +309,12 @@ This returns an `AttesterView` struct containing:
 
 ### Performance Monitoring
 
-Monitor your sequencer's performance by tracking:
-- Effective balance (should remain above the ejection threshold)
-- Status (should be VALIDATING for active participation)
-- Attestation rate (how many attestations you've successfully submitted)
-- Proposal success rate (how many of your proposed blocks were accepted)
-- Network participation metrics
+Track your sequencer's performance by monitoring:
+- **Effective balance** - Should remain above the ejection threshold
+- **Status** - Should be VALIDATING for active participation
+- **Attestation rate** - How many attestations you've successfully submitted
+- **Proposal success rate** - How many of your proposed blocks were accepted
+- **Network participation metrics** - Overall participation in network consensus
 
 ## Exiting a Sequencer
 
@@ -361,7 +348,7 @@ Information about the exit process will be added when the mechanism is finalized
 **Issue**: Keystore not loading or errors about invalid keys.
 
 **Solutions**:
-- Ensure keystore.json is properly formatted
+- Ensure `keystore.json` is properly formatted
 - Verify private keys are valid Ethereum private keys
 - Check file permissions on the keys directory
 

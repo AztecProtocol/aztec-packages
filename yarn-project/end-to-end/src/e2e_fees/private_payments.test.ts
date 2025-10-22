@@ -1,21 +1,16 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  BatchCall,
-  PrivateFeePaymentMethod,
-  type Wallet,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { type AztecAddress, type AztecNode, BatchCall, PrivateFeePaymentMethod, waitForProven } from '@aztec/aztec.js';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
   let sequencerAddress: AztecAddress;
@@ -99,13 +94,12 @@ describe('e2e_fees private_payment', () => {
      */
     const transferAmount = 5n;
     const interaction = bananaCoin.methods.transfer(bobAddress, transferAmount);
-    const settings = {
+    const localTx = await proveInteraction(wallet, interaction, {
       from: aliceAddress,
       fee: {
         paymentMethod: new PrivateFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, gasSettings),
       },
-    };
-    const localTx = await interaction.prove(settings);
+    });
     expect(localTx.data.feePayer).toEqual(bananaFPC.address);
 
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();

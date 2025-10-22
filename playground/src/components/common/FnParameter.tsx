@@ -69,12 +69,12 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
     const setAliases = async () => {
       setLoading(true);
       const accounts = await wallet.getAccounts();
-      const senders = await wallet.getSenders();
+      const contacts = await wallet.getAddressBook();
 
       const contracts = parseAliasedBuffersAsString(await playgroundDB.listAliases('contracts')).map(
         ({ alias, item }) => ({ alias, item: AztecAddress.fromString(item) }),
       );
-      setAliasedAddresses([...accounts, ...senders, ...contracts]);
+      setAliasedAddresses([...accounts, ...contacts, ...contracts]);
       setLoading(false);
     };
     if (wallet && playgroundDB) {

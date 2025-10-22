@@ -73,9 +73,8 @@ export class Bot extends BaseBot {
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });
 
-    this.log.verbose(`Proving transaction`, logCtx);
-    const provenTx = await batch.prove(opts);
-    return provenTx.send();
+    this.log.verbose(`Sending transaction`, logCtx);
+    return batch.send(opts);
   }
 
   public async getBalances() {

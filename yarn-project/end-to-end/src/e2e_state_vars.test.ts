@@ -1,7 +1,9 @@
-import { AztecAddress, type AztecNode, BatchCall, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, type AztecNode, BatchCall } from '@aztec/aztec.js';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -13,7 +15,7 @@ describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   let teardown: () => Promise<void>;
@@ -299,7 +301,9 @@ describe('e2e_state_vars', () => {
         (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
 
       // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
-      const tx = await authContract.methods.get_authorized_in_private().prove({ from: defaultAccountAddress });
+      const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {
+        from: defaultAccountAddress,
+      });
 
       expect(tx.data.includeByTimestamp).toEqual(expectedModifiedIncludeByTimestamp);
     });

@@ -198,7 +198,7 @@ export class EmbeddedWallet extends BaseWallet {
     return this.pxe.registerSender(address);
   }
 
-  override async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  override async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const senders = await this.pxe.getSenders();
     const storedSenders = await this.walletDB.listSenders();
     for (const storedSender of storedSenders) {

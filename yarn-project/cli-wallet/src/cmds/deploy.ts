@@ -66,7 +66,10 @@ export async function deploy(
     skipInstancePublication,
   };
 
-  const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { ...deployOpts.fee, estimateGas: true } });
+  const { estimatedGas, stats } = await deploy.simulate({
+    ...deployOpts,
+    fee: { ...deployOpts.fee, estimateGas: true },
+  });
 
   if (feeOpts.estimateOnly) {
     if (json) {
@@ -82,12 +85,10 @@ export async function deploy(
       };
     }
   } else {
-    const provenTx = await deploy.prove(deployOpts);
+    const tx = deploy.send(deployOpts);
     if (verbose) {
-      printProfileResult(provenTx.stats!, log);
+      printProfileResult(stats, log);
     }
-
-    const tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);

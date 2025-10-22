@@ -118,13 +118,15 @@ describe('e2e_multi_validator_node', () => {
 
     const sender = ownerAddress;
     logger.info(`Deploying contract from ${sender}`);
-    const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
-    });
-    const tx = await provenTx.send().wait();
+    const tx = await deployer
+      .deploy(ownerAddress, sender, 1)
+      .send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(BigInt(1)),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+      })
+      .wait();
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -175,13 +177,15 @@ describe('e2e_multi_validator_node', () => {
 
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
-    });
-    const tx = await provenTx.send().wait();
+    const tx = await deployer
+      .deploy(ownerAddress, sender, 1)
+      .send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(BigInt(1)),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+      })
+      .wait();
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });

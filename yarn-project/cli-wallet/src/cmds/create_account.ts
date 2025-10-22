@@ -78,7 +78,7 @@ export async function createAccount(
     };
 
     const deployMethod = await account.getDeployMethod();
-    const { estimatedGas } = await deployMethod.simulate({
+    const { estimatedGas, stats } = await deployMethod.simulate({
       ...deployAccountOpts,
       fee: { ...deployAccountOpts.fee, estimateGas: true },
     });
@@ -97,7 +97,7 @@ export async function createAccount(
         };
       }
     } else {
-      const provenTx = await deployMethod.prove({
+      tx = deployMethod.send({
         ...deployAccountOpts,
         fee: deployAccountOpts.fee
           ? {
@@ -107,9 +107,8 @@ export async function createAccount(
           : undefined,
       });
       if (verbose) {
-        printProfileResult(provenTx.stats!, log);
+        printProfileResult(stats, log);
       }
-      tx = provenTx.send();
 
       const txHash = await tx.getTxHash();
       debugLogger.debug(`Account contract tx sent with hash ${txHash.toString()}`);

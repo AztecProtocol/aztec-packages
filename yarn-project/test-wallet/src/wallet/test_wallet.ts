@@ -8,6 +8,7 @@ import {
   type ContractArtifact,
   type ContractFunctionInteractionCallIntent,
   type IntentInnerHash,
+  type SendOptions,
   SetPublicAuthwitContractInteraction,
   SignerlessAccount,
   type SimulateOptions,
@@ -22,6 +23,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import type { TxSimulationResult } from '@aztec/stdlib/tx';
+
+import { ProvenTx } from '../utils.js';
 
 /**
  * Data for generating an account.
@@ -217,6 +220,27 @@ export abstract class BaseTestWallet extends BaseWallet {
       };
       return this.pxe.simulateTx(txRequest, true /* simulatePublic */, true, true, { contracts: contractOverrides });
     }
+  }
+
+  /**
+   * A utility to prove a transaction using this wallet and return it to be sent by a different entity on their own accord
+   *
+   * Note that this should not be used in production code since a proven transaction could be sent to a malicious
+   * node to index and track. It also makes it very difficult for the wallet to keep track of the interaction.
+   * @param exec - The execution payload to prove.
+   * @param opts - The options to configure the interaction
+   * @returns - A proven tx ready to be sent to the network
+   */
+  async proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<ProvenTx> {
+    const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
+    const txProvingResult = await this.pxe.proveTx(txRequest);
+    return new ProvenTx(
+      this.aztecNode,
+      await txProvingResult.toTx(),
+      txProvingResult.getOffchainEffects(),
+      txProvingResult.stats,
+    );
   }
 
   /**

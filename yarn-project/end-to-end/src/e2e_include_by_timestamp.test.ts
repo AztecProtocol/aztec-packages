@@ -1,12 +1,14 @@
-import type { AztecAddress, AztecNode, Wallet } from '@aztec/aztec.js';
+import type { AztecAddress, AztecNode } from '@aztec/aztec.js';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_INVALID_INCLUDE_BY_TIMESTAMP } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_include_by_timestamp', () => {
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;
@@ -43,9 +45,11 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = false;
 
       it('sets the include by timestamp', async () => {
-        const tx = await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .prove({ from: defaultAccountAddress });
+        const tx = await proveInteraction(
+          wallet,
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          { from: defaultAccountAddress },
+        );
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
         // Note: If the expected value doesn't match, it might be because the includeByTimestamp is rounded down.
         // See compute_tx_include_by_timestamp.ts for the rounding logic.
@@ -63,9 +67,11 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = true;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .prove({ from: defaultAccountAddress });
+        const tx = await proveInteraction(
+          wallet,
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          { from: defaultAccountAddress },
+        );
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
@@ -94,9 +100,11 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = false;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .prove({ from: defaultAccountAddress });
+        const tx = await proveInteraction(
+          wallet,
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          { from: defaultAccountAddress },
+        );
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
@@ -114,9 +122,11 @@ describe('e2e_include_by_timestamp', () => {
       const enqueuePublicCall = true;
 
       it('sets include by timestamp', async () => {
-        const tx = await contract.methods
-          .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-          .prove({ from: defaultAccountAddress });
+        const tx = await proveInteraction(
+          wallet,
+          contract.methods.set_include_by_timestamp(includeByTimestamp, enqueuePublicCall),
+          { from: defaultAccountAddress },
+        );
         expect(tx.data.includeByTimestamp).toEqual(includeByTimestamp);
       });
 
@@ -150,7 +160,8 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .prove({ from: defaultAccountAddress }),
+            .send({ from: defaultAccountAddress })
+            .wait(),
         ).rejects.toThrow();
       });
     });
@@ -162,7 +173,8 @@ describe('e2e_include_by_timestamp', () => {
         await expect(
           contract.methods
             .set_include_by_timestamp(includeByTimestamp, enqueuePublicCall)
-            .prove({ from: defaultAccountAddress }),
+            .send({ from: defaultAccountAddress })
+            .wait(),
         ).rejects.toThrow();
       });
     });

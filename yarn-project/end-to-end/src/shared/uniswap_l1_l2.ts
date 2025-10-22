@@ -666,7 +666,8 @@ export const uniswapL1L2TestSuite = (
             Fr.random(),
             ownerEthAddress,
           )
-          .prove({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] }),
+          .send({ from: ownerAddress, authWitnesses: [transferToPublicAuthwith] })
+          .wait(),
       ).rejects.toThrow('Assertion failed: input_asset address is not the same as seen in the bridge contract');
     });
 

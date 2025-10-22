@@ -78,8 +78,7 @@ async function createAccount(wallet: TestWallet) {
     skipClassPublication: true,
     skipInstancePublication: true,
   };
-  const provenInteraction = await deployMethod.prove(deployOpts);
-  await provenInteraction.send().wait({ timeout: 120 });
+  await deployMethod.send(deployOpts).wait({ timeout: 120 });
 
   return accountManager.address;
 }
@@ -111,16 +110,17 @@ async function deployContract(wallet: Wallet, deployer: AztecAddress) {
 
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
-  const provenInteraction = await deployMethod.prove({
-    from: deployer,
-    contractAddressSalt: salt,
-    fee: {
-      paymentMethod: new SponsoredFeePaymentMethod(
-        sponsoredPFCContract.address
-      ),
-    },
-  });
-  await provenInteraction.send().wait({ timeout: 120 });
+  await deployMethod
+    .send({
+      from: deployer,
+      contractAddressSalt: salt,
+      fee: {
+        paymentMethod: new SponsoredFeePaymentMethod(
+          sponsoredPFCContract.address
+        ),
+      },
+    })
+    .wait({ timeout: 120 });
   await wallet.registerContract(contract, PrivateVotingContract.artifact);
 
   return {
