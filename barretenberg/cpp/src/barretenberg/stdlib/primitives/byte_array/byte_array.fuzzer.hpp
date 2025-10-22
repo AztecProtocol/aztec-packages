@@ -348,18 +348,7 @@ template <typename Builder> class ByteArrayFuzzBase {
 
         byte_array_t byte_array{ nullptr, std::vector<uint8_t>{} };
 
-        static std::vector<uint8_t> get_value(const byte_array_t& byte_array)
-        {
-            /* Based on the PRNG, alternate between retrieving an std::vector
-             * and a string.
-             * These should be functionally equivalent.
-             */
-            if (static_cast<bool>(VarianceRNG.next() % 2)) {
-                return byte_array.get_value();
-            } else {
-                return from_to<std::string, std::vector<uint8_t>>(byte_array.get_string());
-            }
-        }
+        static std::vector<uint8_t> get_value(const byte_array_t& byte_array) { return byte_array.get_value(); }
         static const std::vector<uint8_t>& bool_to_vector(const bool& b)
         {
             static const std::vector<uint8_t> false_{ 0 };
