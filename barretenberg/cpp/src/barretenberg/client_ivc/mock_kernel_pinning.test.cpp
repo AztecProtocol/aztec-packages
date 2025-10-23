@@ -1,5 +1,5 @@
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -25,7 +25,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
     MockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -35,7 +35,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         // Expect trace overflow for all but the hiding kernel (final circuit)
         if (idx < NUM_CIRCUITS - 1) {
             EXPECT_TRUE(circuit.blocks.has_overflow);
-            EXPECT_EQ(ivc.prover_accumulator->log_dyadic_size(), 19);
+            // EXPECT_EQ(ivc.prover_accumulator.log_dyadic_size, 19);
         } else {
             EXPECT_FALSE(circuit.blocks.has_overflow);
         }

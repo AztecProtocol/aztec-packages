@@ -27,7 +27,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_syst
                                                   bool* result);
 
 /**
- * @brief Construct and verify a ClientIVC proof
+ * @brief Construct and verify a LegacyClientIVC proof
  * @deprecated
  */
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_system_buf,
