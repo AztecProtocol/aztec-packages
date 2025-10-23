@@ -104,6 +104,19 @@ template <typename Builder> class bool_t {
     // assertions
     void assert_equal(const bool_t& rhs, std::string const& msg = "bool_t::assert_equal") const;
 
+    /**
+     * @brief Conditionally assign lhs or rhs based on predicate, always returns normalized result.
+     *
+     * @details Returns normalized bool_t to prevent concept leakage. All branches normalize their results:
+     * - Constant predicate: normalize selected value
+     * - Same witness: normalize lhs
+     * - Boolean operations: normalize result (can be unnormalized when constants are involved)
+     *
+     * @param predicate The condition
+     * @param lhs Value to return if predicate is true
+     * @param rhs Value to return if predicate is false
+     * @return bool_t Normalized result
+     */
     static bool_t conditional_assign(const bool_t<Builder>& predicate, const bool_t& lhs, const bool_t& rhs);
 
     void must_imply(const bool_t& other, std::string const& msg = "bool_t::must_imply") const;
