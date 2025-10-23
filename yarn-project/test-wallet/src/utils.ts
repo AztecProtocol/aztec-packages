@@ -1,18 +1,17 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
-  type AztecNode,
   ContractFunctionInteraction,
   DeployMethod,
   type DeployOptions,
   type SendInteractionOptions,
   SentTx,
-  Tx,
   type WaitOpts,
   toSendOptions,
-} from '@aztec/aztec.js';
-import type { OffchainEffect, ProvingStats } from '@aztec/stdlib/tx';
+} from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { type OffchainEffect, type ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { BaseTestWallet } from './wallet/test_wallet.js';
 

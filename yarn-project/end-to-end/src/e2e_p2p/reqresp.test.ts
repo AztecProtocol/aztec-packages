@@ -1,7 +1,10 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, Tx, createLogger, sleep } from '@aztec/aztec.js';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { createLogger } from '@aztec/aztec.js/log';
+import { Tx } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';

@@ -1,9 +1,11 @@
-import { type Logger, getTimestampRangeForEpoch, sleep } from '@aztec/aztec.js';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import type { Logger } from '@aztec/aztec.js/log';
 import { BatchedBlob } from '@aztec/blob-lib';
 import type { ViemClient } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor, DelayedTxUtils, type Delayer, waitUntilL1Timestamp } from '@aztec/ethereum/test';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNodePublisher } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';

@@ -1,9 +1,10 @@
-import { createLogger, sleep } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { L1ContractAddresses, ViemPublicClient } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { schemas } from '@aztec/foundation/schemas';
+import { sleep } from '@aztec/foundation/sleep';
 import {
   type AztecNodeAdmin,
   type AztecNodeAdminConfig,

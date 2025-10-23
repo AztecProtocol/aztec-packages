@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 
 import { DEFAULT_ATTESTATION_PROPAGATION_TIME } from '../config.js';
 import { SequencerTooSlowError } from './errors.js';

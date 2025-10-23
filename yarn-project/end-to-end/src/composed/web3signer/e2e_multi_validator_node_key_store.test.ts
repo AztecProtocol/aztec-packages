@@ -1,14 +1,10 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  type AztecNode,
-  ContractDeployer,
-  EthAddress,
-  Fr,
-  type Wallet,
-  retryUntil,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import {
   type DeployL1ContractsReturnType,
   RollupContract,
@@ -16,6 +12,7 @@ import {
   getL1ContractsConfigEnvVars,
 } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';

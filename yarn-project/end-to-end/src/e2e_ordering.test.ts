@@ -1,5 +1,9 @@
 // Test suite for testing proper ordering of side effects
-import { AztecAddress, type AztecNode, Fr, type FunctionSelector, toBigIntBE } from '@aztec/aztec.js';
+import type { FunctionSelector } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';

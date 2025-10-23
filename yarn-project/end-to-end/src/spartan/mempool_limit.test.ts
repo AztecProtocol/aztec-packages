@@ -1,5 +1,5 @@
 // import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-// import { AztecAddress, Fr, SponsoredFeePaymentMethod, Tx, TxStatus, type Wallet } from '@aztec/aztec.js';
+// import { AztecAddress } from '@aztec/aztec.js/addresses';
 // import type { InteractionFeeOptions } from '@aztec/entrypoints/interfaces';
 // import { asyncPool } from '@aztec/foundation/async-pool';
 // import { times } from '@aztec/foundation/collection';
@@ -15,18 +15,15 @@
 // } from '@aztec/stdlib/interfaces/client';
 // import { deriveSigningKey } from '@aztec/stdlib/keys';
 // import { makeTracedFetch } from '@aztec/telemetry-client';
-import {
-  AztecAddress,
-  Fr,
-  SponsoredFeePaymentMethod,
-  Tx,
-  TxStatus,
-  createAztecNodeClient,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { times } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';

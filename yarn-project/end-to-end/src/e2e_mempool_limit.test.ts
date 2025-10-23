@@ -1,4 +1,6 @@
-import { AztecAddress, TxStatus, retryUntil } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';

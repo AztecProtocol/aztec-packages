@@ -1,5 +1,5 @@
-import { retryUntil } from '@aztec/aztec.js';
 import { EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
