@@ -26,7 +26,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     MockLowLevelMerkleDB();
     ~MockLowLevelMerkleDB() override;
 
-    MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(TreeSnapshots, get_tree_roots, (), (const, override));
     MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
     MOCK_METHOD(GetLowIndexedLeafResponse,
                 get_low_indexed_leaf,
