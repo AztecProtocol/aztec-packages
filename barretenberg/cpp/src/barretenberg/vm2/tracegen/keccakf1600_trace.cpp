@@ -379,21 +379,18 @@ constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
     },
 };
 
-// Precomputed inverses from 0, 1 ... AVM_KECCAKF1600_STATE_SIZE.
-std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> generate_precomputed_inverses()
-{
-    std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses;
-    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE + 1; i++) {
-        precomputed_inverses.at(i) = FF(i);
-    }
-    FF::batch_invert(precomputed_inverses);
-    return precomputed_inverses;
-}
-
 // Get inverse for a given index using static precomputed inverses.
 const FF& get_precomputed_inverse(size_t index)
 {
-    static const std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses = generate_precomputed_inverses();
+    static const std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses = []() {
+        std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> inverses;
+        for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE + 1; i++) {
+            inverses.at(i) = FF(i);
+        }
+        FF::batch_invert(inverses);
+        return inverses;
+    }();
+
     return precomputed_inverses.at(index);
 }
 

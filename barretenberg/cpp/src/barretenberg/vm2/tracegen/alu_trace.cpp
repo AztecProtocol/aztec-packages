@@ -17,23 +17,19 @@ namespace bb::avm2::tracegen {
 
 namespace {
 
-// Precomputed inverses for tag values.
-constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
-
-std::array<FF, NUM_TAGS> generate_tag_inverses()
-{
-    std::array<FF, NUM_TAGS> tag_inverses;
-    for (size_t i = 0; i < NUM_TAGS; i++) {
-        tag_inverses.at(i) = FF(i);
-    }
-    FF::batch_invert(tag_inverses);
-    return tag_inverses;
-}
-
 // Get tag inverse for a given index using static precomputed inverses.
 const FF& get_tag_inverse(size_t index)
 {
-    static const std::array<FF, NUM_TAGS> tag_inverses = generate_tag_inverses();
+    constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
+    static const std::array<FF, NUM_TAGS> tag_inverses = []() {
+        std::array<FF, NUM_TAGS> inverses;
+        for (size_t i = 0; i < NUM_TAGS; i++) {
+            inverses.at(i) = FF(i);
+        }
+        FF::batch_invert(inverses);
+        return inverses;
+    }();
+
     return tag_inverses.at(index);
 }
 
