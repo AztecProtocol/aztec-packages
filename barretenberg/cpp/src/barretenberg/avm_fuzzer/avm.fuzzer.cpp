@@ -13,6 +13,8 @@
 
 using FuzzInstruction = ::FuzzInstruction;
 
+/// Initializes the typescript simulator process
+/// See yarn-project/simulator/scripts/fuzzing/
 extern "C" int LLVMFuzzerInitialize(int*, char***)
 {
 
