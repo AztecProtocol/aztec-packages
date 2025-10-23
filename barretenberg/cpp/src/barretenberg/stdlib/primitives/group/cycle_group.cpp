@@ -41,7 +41,7 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
     : x(_x)
     , y(_y)
     , _is_infinity(is_infinity)
