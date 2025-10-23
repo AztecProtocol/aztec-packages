@@ -680,6 +680,80 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
     return std::make_pair<element, element>(offset_generator, offset_generator_end);
 }
 
+template <typename C, class Fq, class Fr, class G>
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm(const strauss_msm_data& msm_data)
+{
+    // Unpack msm data
+    const std::vector<element>& points = msm_data.points;
+    const std::vector<Fr>& scalars = msm_data.scalars;
+    const size_t num_rounds = msm_data.num_bits;
+    const size_t msm_size = scalars.size();
+
+    // Compute ROM lookup table for points. Example if we have 3 points G1, G2, G3:
+    // ┌───────┬─────────────────┐
+    // │ Index │ Point           │
+    // ├───────┼─────────────────┤
+    // │   0   │  G1 + G2 + G3   │
+    // │   1   │  G1 + G2 - G3   │
+    // │   2   │  G1 - G2 + G3   │
+    // │   3   │  G1 - G2 - G3   │
+    // │   4   │ -G1 + G2 + G3   │
+    // │   5   │ -G1 + G2 - G3   │
+    // │   6   │ -G1 - G2 + G3   │
+    // │   7   │ -G1 - G2 - G3   │
+    // └───────┴─────────────────┘
+    batch_lookup_table point_table(points);
+
+    // Compute NAF representations of scalars
+    std::vector<std::vector<bool_ct>> naf_entries;
+    for (size_t i = 0; i < msm_size; ++i) {
+        naf_entries.emplace_back(compute_naf(scalars[i], num_rounds));
+    }
+
+    // We choose a deterministic offset generator based on the number of rounds.
+    // We compute both the initial and final offset generators: G_offset, 2ⁿ⁻¹ * G_offset.
+    const auto [offset_generator_start, offset_generator_end] = compute_offset_generators(num_rounds);
+
+    // Initialize accumulator with offset generator + first NAF column.
+    element accumulator =
+        element::chain_add_end(element::chain_add(offset_generator_start, point_table.get_chain_initial_entry()));
+
+    // Process 4 NAF entries per iteration (for the remaining (num_rounds - 1) rounds)
+    constexpr size_t num_rounds_per_iteration = 4;
+    const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
+    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
+
+    for (size_t i = 0; i < num_iterations; ++i) {
+        std::vector<element::chain_add_accumulator> to_add;
+        const size_t inner_num_rounds =
+            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
+        for (size_t j = 0; j < inner_num_rounds; ++j) {
+            // Gather the NAF columns for this iteration
+            std::vector<bool_ct> nafs(msm_size);
+            for (size_t k = 0; k < msm_size; ++k) {
+                nafs[k] = (naf_entries[k][(i * num_rounds_per_iteration) + j + 1]);
+            }
+            to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
+        }
+
+        // Once we have looked-up all points from the four NAF columns, we update the accumulator as:
+        // accumulator = 2.(2.(2.(2.accumulator + to_add[0]) + to_add[1]) + to_add[2]) + to_add[3]
+        //             = 2⁴.accumulator + 2³.to_add[0] + 2².to_add[1] + 2¹.to_add[2] + to_add[3]
+        accumulator = accumulator.multiple_montgomery_ladder(to_add);
+    }
+
+    // Subtract the skew factors (if any)
+    for (size_t i = 0; i < msm_size; ++i) {
+        element skew = accumulator - points[i];
+        accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
+    }
+
+    // Subtract the scaled offset generator
+    accumulator = accumulator - offset_generator_end;
+
+    return accumulator;
+}
+
 /**
  * @brief Generic batch multiplication that works for all elliptic curve types.
  *
@@ -748,6 +822,14 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         scalars[i].set_origin_tag(empty_tag);
     }
 
+    // If with_edgecases is false, masking_scalar must be constant and equal to 1 (as it is unused).
+    if (!with_edgecases) {
+        BB_ASSERT_EQ(
+            masking_scalar.is_constant() && masking_scalar.get_value() == 1,
+            true,
+            "biggroup batch_mul: masking_scalar must be constant (and equal to 1) when with_edgecases is false");
+    }
+
     if (with_edgecases) {
         // If points are linearly dependent, we randomise them using a masking scalar.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
@@ -758,82 +840,54 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     BB_ASSERT_EQ(
         points.size(), scalars.size(), "biggroup batch_mul: points and scalars size mismatch after handling edgecases");
 
-    // TODO: problem if there is a point at infinity, size of NAF(0) => 254 but rest of scalars will be < 254
-    // TODO: problem if get_chain_initial_entry itself is point at infinity (example: (+1).6P + (-1).2P + (-1).3P = O)
-    // ROM lookup table for points. Example if we have 3 points G1, G2, G3:
-    // ┌───────┬─────────────────┐
-    // │ Index │ Point           │
-    // ├───────┼─────────────────┤
-    // │   0   │  G1 + G2 + G3   │
-    // │   1   │  G1 + G2 - G3   │
-    // │   2   │  G1 - G2 + G3   │
-    // │   3   │  G1 - G2 - G3   │
-    // │   4   │ -G1 + G2 + G3   │
-    // │   5   │ -G1 + G2 - G3   │
-    // │   6   │ -G1 - G2 + G3   │
-    // │   7   │ -G1 - G2 - G3   │
-    // └───────┴─────────────────┘
-    batch_lookup_table point_table(points);
-
-    // Determine number of rounds based on max_num_bits.
-    // Since NAf representation of 0 is not well-defined, we use the NAF representation of the field modulus
-    // for scalar 0. So if any scalar is 0, we must use the bit-length of the field modulus.
-    // This is inefficient, but 0 scalars should be rare in practice.
-    bool has_zero_scalar = false;
-    for (const auto& scalar : scalars) {
-        has_zero_scalar = has_zero_scalar || (scalar.get_value() == 0);
-    }
-    const size_t num_rounds = (max_num_bits == 0 || has_zero_scalar) ? Fr::modulus.get_msb() + 1 : max_num_bits;
-
-    // Compute NAF representations of scalars
-    const size_t num_points = points.size();
-    std::vector<std::vector<bool_ct>> naf_entries;
-    for (size_t i = 0; i < num_points; ++i) {
-        naf_entries.emplace_back(compute_naf(scalars[i], num_rounds));
-    }
-
-    std::cout << "biggroup batch_mul: number of rounds = " << num_rounds << std::endl;
-
-    // We choose a deterministic offset generator based on the number of rounds.
-    // We compute both the initial and final offset generators: G_offset, 2ⁿ⁻¹ * G_offset.
-    const auto [offset_generator_start, offset_generator_end] = compute_offset_generators(num_rounds);
-
-    // Initialize accumulator with offset generator + first NAF column.
-    element accumulator =
-        element::chain_add_end(element::chain_add(offset_generator_start, point_table.get_chain_initial_entry()));
-
-    // Process 4 NAF entries per iteration (for the remaining (num_rounds - 1) rounds)
-    constexpr size_t num_rounds_per_iteration = 4;
-    const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
-    const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
-
-    for (size_t i = 0; i < num_iterations; ++i) {
-        std::vector<element::chain_add_accumulator> to_add;
-        const size_t inner_num_rounds =
-            (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
-        for (size_t j = 0; j < inner_num_rounds; ++j) {
-            // Gather the NAF columns for this iteration
-            std::vector<bool_ct> nafs(num_points);
-            for (size_t k = 0; k < num_points; ++k) {
-                nafs[k] = (naf_entries[k][(i * num_rounds_per_iteration) + j + 1]);
+    // Separate out zero scalars and corresponding points (because NAF(0) = NAF(modulus) which is 254 bits long)
+    // Also add the last point and scalar to big_points and big_scalars (because its a 254-bit scalar)
+    // We do this only if max_num_bits != 0 (i.e. we are not forced to use 254 bits anyway)
+    const size_t original_size = scalars.size();
+    std::vector<Fr> big_scalars;
+    std::vector<element> big_points;
+    std::vector<Fr> small_scalars;
+    std::vector<element> small_points;
+    for (size_t i = 0; i < original_size; ++i) {
+        if (max_num_bits == 0) {
+            big_points.emplace_back(points[i]);
+            big_scalars.emplace_back(scalars[i]);
+        } else {
+            const bool is_last_scalar_big = ((i == original_size - 1) && with_edgecases);
+            if (scalars[i].get_value() == 0 || is_last_scalar_big) {
+                big_points.emplace_back(points[i]);
+                big_scalars.emplace_back(scalars[i]);
+            } else {
+                small_points.emplace_back(points[i]);
+                small_scalars.emplace_back(scalars[i]);
             }
-            to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
         }
-
-        // Once we have looked-up all points from the four NAF columns, we update the accumulator as:
-        // accumulator = 2.(2.(2.(2.accumulator + to_add[0]) + to_add[1]) + to_add[2]) + to_add[3]
-        //             = 2⁴.accumulator + 2³.to_add[0] + 2².to_add[1] + 2¹.to_add[2] + to_add[3]
-        accumulator = accumulator.multiple_montgomery_ladder(to_add);
     }
 
-    // Subtract the skew factors (if any)
-    for (size_t i = 0; i < num_points; ++i) {
-        element skew = accumulator - points[i];
-        accumulator = accumulator.conditional_select(skew, naf_entries[i][num_rounds]);
+    BB_ASSERT_EQ(original_size,
+                 small_points.size() + big_points.size(),
+                 "biggroup batch_mul: points size mismatch after separating big scalars");
+    BB_ASSERT_EQ(big_points.size(),
+                 big_scalars.size(),
+                 "biggroup batch_mul: big points and scalars size mismatch after separating big scalars");
+    BB_ASSERT_EQ(small_points.size(),
+                 small_scalars.size(),
+                 "biggroup batch_mul: small points and scalars size mismatch after separating big scalars");
+
+    element accumulator;
+    if (!big_points.empty()) {
+        // Process big scalars separately
+        strauss_msm_data big_msm_data(big_points, big_scalars, /*max_num_bits*/ Fr::modulus.get_msb() + 1);
+        element big_result = element::process_strauss_msm(big_msm_data);
+        accumulator = big_result;
     }
 
-    // Subtract the scaled offset generator
-    accumulator = accumulator - offset_generator_end;
+    if (!small_points.empty()) {
+        const size_t effective_max_num_bits = (max_num_bits == 0) ? (Fr::modulus.get_msb() + 1) : max_num_bits;
+        strauss_msm_data small_msm_data(small_points, small_scalars, effective_max_num_bits);
+        element small_result = element::process_strauss_msm(small_msm_data);
+        accumulator = (big_points.size() > 0) ? accumulator + small_result : small_result;
+    }
 
     accumulator.set_origin_tag(tag);
     return accumulator;
