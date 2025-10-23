@@ -22,6 +22,7 @@ validator:
   sentinelEnabled: true
   replicas: 4
   keysPerNode: 12
+  publishersPerValidatorKey: 2
   validator:
     disabled: false
   sequencer:
@@ -59,3 +60,7 @@ bot:
 
 web3signer:
   enabled: true
+
+proverNode:
+  replicas: 1
+  publishersPerProver: 2
