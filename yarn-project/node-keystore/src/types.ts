@@ -6,10 +6,8 @@
  * their associated keys and addresses.
  */
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Hex } from '@aztec/foundation/string';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-
-/** Parameterized hex string type for specific byte lengths */
-export type Hex<TByteLength extends number> = `0x${string}` & { readonly _length: TByteLength };
 
 /**
  * An encrypted keystore file config points to a local file with an encrypted private key.

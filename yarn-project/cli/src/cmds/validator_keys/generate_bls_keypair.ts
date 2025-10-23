@@ -1,8 +1,9 @@
+import { deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { writeFile } from 'fs/promises';
 
-import { computeBlsPublicKeyCompressed, deriveBlsPrivateKey, withValidatorIndex } from './shared.js';
+import { computeBlsPublicKeyCompressed, withValidatorIndex } from './shared.js';
 
 export type GenerateBlsKeypairOptions = {
   mnemonic?: string;

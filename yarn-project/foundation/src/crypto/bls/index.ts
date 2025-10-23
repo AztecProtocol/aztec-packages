@@ -5,6 +5,8 @@ import { hmac } from '@noble/hashes/hmac';
 import { sha512 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync } from '@scure/bip39';
 
+import type { Hex } from '../../string/index.js';
+
 // Re-export BN254 point operations
 export {
   computeBn254G1PublicKeyCompressed,
@@ -25,6 +27,16 @@ export {
   loadEip2335Keystore,
   verifyEip2335Keypair,
 } from './eip2335.js';
+
+export function deriveBlsPrivateKey(mnemonic: string | undefined, ikm: string | undefined, path: string): Hex<32> {
+  if (ikm) {
+    return deriveBlsKeyFromEntropy(ikm, path) as Hex<32>;
+  }
+  if (!mnemonic) {
+    throw new Error('Either mnemonic or ikm must be provided for BLS derivation');
+  }
+  return deriveBlsKeyFromMnemonic(mnemonic, path) as Hex<32>;
+}
 
 /**
  * Deterministically derive a BN254 BLS private key from mnemonic and derivation path.

@@ -2,12 +2,11 @@ import { prettyPrintJSON } from '@aztec/cli/utils';
 import {
   computeBn254G1PublicKeyCompressed,
   createEip2335Keystore,
-  deriveBlsKeyFromEntropy,
-  deriveBlsKeyFromMnemonic,
+  deriveBlsPrivateKey,
 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
-import type { BLSPrivateKey, EthAccount, EthPrivateKey, ValidatorKeyStore } from '@aztec/node-keystore/types';
+import type { EthAccount, EthPrivateKey, ValidatorKeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
@@ -41,20 +40,6 @@ export function withValidatorIndex(path: string, index: number) {
     return parts.join('/');
   }
   return path;
-}
-
-export function deriveBlsPrivateKey(
-  mnemonic: string | undefined,
-  ikm: string | undefined,
-  path: string,
-): BLSPrivateKey {
-  if (ikm) {
-    return deriveBlsKeyFromEntropy(ikm, path) as BLSPrivateKey;
-  }
-  if (!mnemonic) {
-    throw new Error('Either mnemonic or ikm must be provided for BLS derivation');
-  }
-  return deriveBlsKeyFromMnemonic(mnemonic, path) as BLSPrivateKey;
 }
 
 /**
