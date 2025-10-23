@@ -108,3 +108,37 @@ EOF
 export -f verify_ivc_flow run_bb_cli_bench
 
 chonk_flow $1 $2
+
+# Upload op count breakdowns to gh-pages if running in CI and it's a native build
+if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
+  echo_header "Uploading Barretenberg op count breakdowns to gh-pages"
+
+  flow_name="$(basename $2)"
+  op_counts_file="bench-out/app-proving/$flow_name/native/op_counts.json"
+
+  if [[ -f "$op_counts_file" ]]; then
+    # Shallow clone gh-pages branch if not already cloned
+    if [[ ! -d "gh-pages-repo" ]]; then
+      git clone --depth 1 --branch gh-pages git@github.com:${GITHUB_REPOSITORY}.git gh-pages-repo
+    fi
+
+    # Create target directory
+    mkdir -p gh-pages-repo/bench/barretenberg-breakdowns
+
+    # Copy op_counts.json with descriptive name
+    cp "$op_counts_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}-native-op_counts.json"
+
+    # Commit and push
+    cd gh-pages-repo
+    git config user.name "Aztec Bot"
+    git config user.email "bot@aztec.network"
+    git add bench/barretenberg-breakdowns/
+    if ! git diff --staged --quiet; then
+      git commit -m "Update Barretenberg op count breakdowns for ${GITHUB_SHA:-unknown}"
+      git push
+    fi
+    cd ..
+  else
+    echo "Warning: op_counts.json not found at $op_counts_file"
+  fi
+fi
