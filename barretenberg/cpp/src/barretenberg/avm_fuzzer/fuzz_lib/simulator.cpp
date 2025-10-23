@@ -95,6 +95,8 @@ JsSimulator* JsSimulator::getInstance()
     return instance;
 }
 
+/// Initializes the typescript simulator process
+/// See yarn-project/simulator/scripts/fuzzing
 void JsSimulator::initialize(std::string& simulator_path)
 {
     if (instance != nullptr) {

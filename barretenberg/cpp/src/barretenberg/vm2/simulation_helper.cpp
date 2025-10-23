@@ -423,14 +423,14 @@ void AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hi
     simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 }
 
-ExecutionResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
-                                                       AztecAddress sender,
-                                                       FF transaction_fee,
-                                                       GlobalVariables globals,
-                                                       bool is_static_call,
-                                                       const std::vector<FF>& calldata,
-                                                       Gas gas_limit,
-                                                       const std::vector<uint8_t>& bytecode)
+EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(AztecAddress address,
+                                                          AztecAddress sender,
+                                                          FF transaction_fee,
+                                                          GlobalVariables globals,
+                                                          bool is_static_call,
+                                                          const std::vector<FF>& calldata,
+                                                          Gas gas_limit,
+                                                          const std::vector<uint8_t>& bytecode)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_bytecode");
 

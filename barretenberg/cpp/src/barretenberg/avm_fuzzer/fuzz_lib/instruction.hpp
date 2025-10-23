@@ -195,32 +195,7 @@ template <class... Ts> overloaded_instruction(Ts...) -> overloaded_instruction<T
 
 inline std::ostream& operator<<(std::ostream& os, const MemoryTag& tag)
 {
-    switch (tag) {
-    case MemoryTag::U1:
-        os << "U1";
-        break;
-    case MemoryTag::U8:
-        os << "U8";
-        break;
-    case MemoryTag::U16:
-        os << "U16";
-        break;
-    case MemoryTag::U32:
-        os << "U32";
-        break;
-    case MemoryTag::U64:
-        os << "U64";
-        break;
-    case MemoryTag::U128:
-        os << "U128";
-        break;
-    case MemoryTag::FF:
-        os << "FF";
-        break;
-    default:
-        os << "Unknown";
-        break;
-    }
+    os << std::to_string(tag);
     return os;
 }
 
