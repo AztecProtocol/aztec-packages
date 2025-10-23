@@ -24,34 +24,38 @@ typedef struct {
 } TranspileResult;
 
 /**
- * Transpiles an ACIR contract artifact file to AVM bytecode
+ * Transpiles a Brillig contract artifact file to AVM bytecode
  *
- * @param input_path Path to input ACIR contract artifact JSON file
+ * @param input_path Path to input Brillig contract artifact JSON file
  * @param output_path Path to output transpiled contract artifact JSON file
- * @return TranspileResult containing success status, output data, or error message
+ * @return TranspileResult containing success status, output data, or error
+ * message
  *
- * The function reads the ACIR contract from input_path, transpiles it to AVM bytecode,
- * and writes the result to output_path. The output data in the result contains
- * the same JSON that was written to the file.
+ * The function reads the Brillig contract from input_path, transpiles it to AVM
+ * bytecode, and writes the result to output_path. The output data in the result
+ * contains the same JSON that was written to the file.
  *
  * Call avm_free_result() to free the returned result.
  */
-TranspileResult avm_transpile_file(const char* input_path, const char* output_path);
+TranspileResult avm_transpile_file(const char* input_path,
+                                   const char* output_path);
 
 /**
- * Transpiles raw ACIR contract artifact bytecode to AVM bytecode
+ * Transpiles raw Brillig contract artifact bytecode to AVM bytecode
  *
- * @param input_data Pointer to input ACIR contract artifact JSON data
+ * @param input_data Pointer to input Brillig contract artifact JSON data
  * @param input_length Length of input data in bytes
- * @return TranspileResult containing success status, output data, or error message
+ * @return TranspileResult containing success status, output data, or error
+ * message
  *
- * The function takes raw JSON bytes representing an ACIR contract artifact,
+ * The function takes raw JSON bytes representing a Brillig contract artifact,
  * transpiles it to AVM bytecode, and returns the transpiled contract artifact
  * as JSON bytes in the result.
  *
  * Call avm_free_result() to free the returned result.
  */
-TranspileResult avm_transpile_bytecode(const unsigned char* input_data, size_t input_length);
+TranspileResult avm_transpile_bytecode(const unsigned char* input_data,
+                                       size_t input_length);
 
 /**
  * Frees memory allocated by a TranspileResult

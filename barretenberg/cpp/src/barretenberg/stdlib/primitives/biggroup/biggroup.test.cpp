@@ -69,7 +69,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         pif.set_origin_tag(next_challenge_tag);
         // BIGGROUP_AUDITTODO: mutable accessor needed for set_origin_tag()
         a.x().set_origin_tag(submitted_value_origin_tag);
-        // BIGGROUP_AUDITTODO: mutable accessor needed for set_origin_tag()
         a.y().set_origin_tag(challenge_origin_tag);
         a.set_point_at_infinity(pif);
         EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);

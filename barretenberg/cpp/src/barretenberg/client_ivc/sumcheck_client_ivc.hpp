@@ -89,7 +89,7 @@ class SumcheckClientIVC : public IVCBase {
         GoblinProof goblin_proof;
 
         /**
-         * @brief The size of a ClientIVC proof without backend-added public inputs
+         * @brief The size of a LegacyClientIVC proof without backend-added public inputs
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -104,7 +104,7 @@ class SumcheckClientIVC : public IVCBase {
         }
 
         /**
-         * @brief The size of a ClientIVC proof with backend-added public inputs: HidingKernelIO
+         * @brief The size of a LegacyClientIVC proof with backend-added public inputs: HidingKernelIO
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -335,7 +335,7 @@ class SumcheckClientIVC : public IVCBase {
     QUEUE_TYPE get_queue_type() const;
 };
 
-// Serialization methods for ClientIVC::VerificationKey
+// Serialization methods for LegacyClientIVC::VerificationKey
 inline void read(uint8_t const*& it, SumcheckClientIVC::VerificationKey& vk)
 {
     using serialize::read;

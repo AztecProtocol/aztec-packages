@@ -123,11 +123,8 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         PairingObject pairing_points = output.points_accumulator;
         // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
         pairing_points.P0.x().fix_witness();
-        // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
         pairing_points.P0.y().fix_witness();
-        // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
         pairing_points.P1.x().fix_witness();
-        // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
         pairing_points.P1.y().fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();

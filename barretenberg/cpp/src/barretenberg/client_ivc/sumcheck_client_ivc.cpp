@@ -465,18 +465,18 @@ void SumcheckClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit
  * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
  * of random ops and their position in the op queue.
  *
- * @details The ClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies that
- * commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
+ * @details The LegacyClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies
+ * that commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
  * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
  * circuit operations that have been accumulated in CIVC. Since the op queue is used across several provers,
  * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add random
  * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
  * throughout CIVC, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
  * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
- * being ClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time as per
- * usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
+ * being LegacyClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time
+ * as per usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
  * achieved via the translation evaluation check and avoiding an information leak there is ensured by
- * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
+ * `LegacyClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
  * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
  * UltraOp adding two coefficients to each of the 4 polynomials).
