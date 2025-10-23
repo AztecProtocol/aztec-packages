@@ -468,7 +468,7 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
 
         auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
-        totals.push_back(static_cast<uint32_t>(builder.num_gates));
+        totals.push_back(static_cast<uint32_t>(builder.num_gates()));
     }
 
     *out = to_heap_buffer(to_buffer(totals));

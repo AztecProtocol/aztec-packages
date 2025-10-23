@@ -6,9 +6,11 @@ import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {
   private epochCache: EpochCacheInterface;
   private logger: Logger;
+  private txsPermitted: boolean;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }) {
     this.epochCache = epochCache;
+    this.txsPermitted = opts.txsPermitted;
     this.logger = createLogger('p2p:block_proposal_validator');
   }
 
@@ -18,6 +20,14 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       const proposer = block.getSender();
       if (!proposer) {
         this.logger.debug(`Penalizing peer for block proposal with invalid signature`);
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
+      // Check if transactions are permitted when the proposal contains transaction hashes
+      if (!this.txsPermitted && block.txHashes.length > 0) {
+        this.logger.debug(
+          `Penalizing peer for block proposal with ${block.txHashes.length} transaction(s) when transactions are not permitted`,
+        );
         return PeerErrorSeverity.MidToleranceError;
       }
 
