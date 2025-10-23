@@ -15,6 +15,17 @@ export {
   isOnBn254Curve,
 } from './bn254_point.js';
 
+// Re-export EIP-2335 keystore utilities
+export {
+  Eip2335Error,
+  type Eip2335Keystore,
+  createEip2335Keystore,
+  decryptEip2335Keystore,
+  decryptEip2335KeystoreFromObject,
+  loadEip2335Keystore,
+  verifyEip2335Keypair,
+} from './eip2335.js';
+
 /**
  * Deterministically derive a BN254 BLS private key from mnemonic and derivation path.
  * Returns a 0x-prefixed 32-byte hex string representing an Fr in [1, r-1].
