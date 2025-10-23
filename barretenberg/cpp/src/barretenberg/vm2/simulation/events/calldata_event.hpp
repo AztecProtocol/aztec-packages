@@ -1,9 +1,9 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
 
 namespace bb::avm2::simulation {
 

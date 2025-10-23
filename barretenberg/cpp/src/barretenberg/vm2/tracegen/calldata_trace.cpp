@@ -2,6 +2,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_calldata_hashing.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"

@@ -67,7 +67,10 @@ class DataCopyConstrainingBuilderTest : public ::testing::Test {
     });
 
     uint32_t dst_addr = 0; // Destination address in memory for the data.
-    const std::vector<FF> data = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    const std::vector<MemoryValue> data = {
+        MemoryValue::from<FF>(1), MemoryValue::from<FF>(2), MemoryValue::from<FF>(3), MemoryValue::from<FF>(4),
+        MemoryValue::from<FF>(5), MemoryValue::from<FF>(6), MemoryValue::from<FF>(7), MemoryValue::from<FF>(8),
+    };
 };
 
 class NestedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest {
@@ -135,7 +138,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
     uint32_t copy_size = 1;
     uint32_t cd_offset = static_cast<uint32_t>(data.size() - 1);
 
-    std::vector<FF> result_cd = { data.begin() + cd_offset, data.begin() + cd_offset + copy_size };
+    std::vector<MemoryValue> result_cd = { data.begin() + cd_offset, data.begin() + cd_offset + copy_size };
 
     EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
 
@@ -180,9 +183,9 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPadded)
 {
     uint32_t cd_offset = 0;
 
-    std::vector<FF> result_cd = data;
+    std::vector<MemoryValue> result_cd = data;
     ASSERT_LT(result_cd.size(), 10);                              // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, 0);                                      // Pad with zeros to 10 elements
+    result_cd.resize(10, MemoryValue::from<FF>(0));               // Pad with zeros to 10 elements
     uint32_t copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
 
     EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
@@ -209,7 +212,7 @@ TEST_F(NestedCdConstrainingBuilderTest, NestedCdCopyPartial)
     uint32_t size = 4;
 
     // Starting at offset = 3
-    std::vector<FF> result_cd = { data.begin() + offset, data.begin() + offset + size };
+    std::vector<MemoryValue> result_cd = { data.begin() + offset, data.begin() + offset + size };
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
 
@@ -307,7 +310,7 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
 
-    std::vector<FF> result_cd(size, FF(0));
+    std::vector<MemoryValue> result_cd(size, MemoryValue::from<FF>(0));
     result_cd.at(0) = data.at(offset);
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
@@ -334,7 +337,7 @@ TEST_F(NestedCdConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
     uint32_t size = static_cast<uint32_t>(data.size()) - 2;
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
-    std::vector<FF> result_cd(data.begin(), data.begin() + size);
+    std::vector<MemoryValue> result_cd(data.begin(), data.begin() + size);
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
 
@@ -374,7 +377,7 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesWithPadding)
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
 
-    std::vector<FF> result_cd(size, FF(0));
+    std::vector<MemoryValue> result_cd(size, MemoryValue::from<FF>(0));
     result_cd.at(0) = data.at(offset);
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
@@ -401,7 +404,7 @@ TEST_F(HighCdAddressConstrainingBuilderTest, HighestMemoryAddressesNoPadding)
     uint32_t size = static_cast<uint32_t>(data.size()) - 2;
 
     uint32_t high_dst_addr = AVM_HIGHEST_MEM_ADDRESS - size + 1;
-    std::vector<FF> result_cd(data.begin(), data.begin() + size);
+    std::vector<MemoryValue> result_cd(data.begin(), data.begin() + size);
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
 
@@ -434,10 +437,14 @@ class EnqueuedCdConstrainingBuilderTest : public DataCopyConstrainingBuilderTest
 
         // Build Calldata Column
         tracegen::CalldataTraceBuilder calldata_builder;
+        std::vector<FF> calldata_ff(data.size());
+        std::ranges::transform(
+            data.begin(), data.end(), calldata_ff.begin(), [](const MemoryValue& value) { return value.as_ff(); });
+
         CalldataEvent cd_event = {
             .context_id = 1,
             .calldata_size = static_cast<uint32_t>(data.size()),
-            .calldata = data,
+            .calldata = calldata_ff,
         };
         calldata_builder.process_retrieval({ cd_event }, trace);
     }
@@ -482,9 +489,9 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, SimpleEnqueuedCdCopy)
 TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPadding)
 {
     uint32_t cd_offset = 0;
-    std::vector<FF> result_cd = data;
+    std::vector<MemoryValue> result_cd = data;
     ASSERT_LT(result_cd.size(), 10);                          // Ensure we have less than 10 elements  so we can pad
-    result_cd.resize(10, 0);                                  // Pad with zeros to 10 elements
+    result_cd.resize(10, MemoryValue::from<FF>(0));           // Pad with zeros to 10 elements
     auto copy_size = static_cast<uint32_t>(result_cd.size()); // Request more than available
 
     EXPECT_CALL(context, get_calldata(cd_offset, copy_size)).WillOnce(Return(result_cd));
@@ -507,7 +514,7 @@ TEST_F(EnqueuedCdConstrainingBuilderTest, EnqueuedCallCdCopyPartial)
     uint32_t size = 4;
 
     // Starting at offset = 3
-    std::vector<FF> result_cd = { data.begin() + offset, data.begin() + offset + size };
+    std::vector<MemoryValue> result_cd = { data.begin() + offset, data.begin() + offset + size };
 
     EXPECT_CALL(context, get_calldata(offset, size)).WillOnce(Return(result_cd));
 
@@ -612,7 +619,10 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     // Parent Context
     uint32_t parent_context_id = 99;    // Parent context ID
     uint32_t parent_cd_addr = 0xc0ffee; // Parent calldata address in memory.
-    const std::vector<FF> data = { 8, 7, 6, 5, 4, 3, 2, 1 };
+    const std::vector<MemoryValue> data = {
+        MemoryValue::from<FF>(8), MemoryValue::from<FF>(7), MemoryValue::from<FF>(6), MemoryValue::from<FF>(5),
+        MemoryValue::from<FF>(4), MemoryValue::from<FF>(3), MemoryValue::from<FF>(2), MemoryValue::from<FF>(1),
+    };
 
     // Set up Memory
     MemoryStore mem(static_cast<uint16_t>(context_id));
@@ -630,7 +640,7 @@ TEST(DataCopyWithExecutionPerm, CdCopy)
     EXPECT_CALL(context, get_calldata(cd_offset, copy_size))
         .WillRepeatedly(::testing::Invoke([&data, cd_offset, copy_size]() {
             // Return a slice of data from the calldata
-            return std::vector<FF>(data.begin() + cd_offset, data.begin() + cd_offset + copy_size);
+            return std::vector<MemoryValue>(data.begin() + cd_offset, data.begin() + cd_offset + copy_size);
         }));
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));
     EXPECT_CALL(context, get_parent_id).WillRepeatedly(Return(parent_context_id));
@@ -707,7 +717,10 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     // Child Context
     uint32_t child_context_id = 1;          // Child context ID
     MemoryAddress child_rd_addr = 0xc0ffee; // Child returndata address in memory.
-    const std::vector<FF> data = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    const std::vector<MemoryValue> data = {
+        MemoryValue::from<FF>(1), MemoryValue::from<FF>(2), MemoryValue::from<FF>(3), MemoryValue::from<FF>(4),
+        MemoryValue::from<FF>(5), MemoryValue::from<FF>(6), MemoryValue::from<FF>(7), MemoryValue::from<FF>(8),
+    };
 
     // Set up Memory
     MemoryStore mem;
@@ -722,7 +735,7 @@ TEST(DataCopyWithExecutionPerm, RdCopy)
     EXPECT_CALL(context, get_returndata(rd_offset, copy_size))
         .WillRepeatedly(::testing::Invoke([&data, rd_offset, copy_size]() {
             // Return a slice of data from the calldata
-            return std::vector<FF>(data.begin() + rd_offset, data.begin() + rd_offset + copy_size);
+            return std::vector<MemoryValue>(data.begin() + rd_offset, data.begin() + rd_offset + copy_size);
         }));
     EXPECT_CALL(context, get_last_child_id).WillRepeatedly(Return(child_context_id));
     EXPECT_CALL(context, get_context_id).WillRepeatedly(Return(context_id));

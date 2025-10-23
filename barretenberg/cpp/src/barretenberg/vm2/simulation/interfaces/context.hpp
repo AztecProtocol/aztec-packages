@@ -47,8 +47,8 @@ class ContextInterface {
 
     virtual TransactionPhase get_phase() const = 0;
 
-    virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
-    virtual std::vector<FF> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
+    virtual std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
+    virtual std::vector<MemoryValue> get_returndata(uint32_t rd_addr, uint32_t rd_size) = 0;
     virtual ContextInterface& get_child_context() = 0;
     // The child context needs to be accessible by this context in order to access the child
     // memory for returndata. We own it so that it's lifetime is as long as decided by this context

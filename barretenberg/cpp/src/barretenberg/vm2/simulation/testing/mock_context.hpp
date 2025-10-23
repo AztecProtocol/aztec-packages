@@ -5,6 +5,7 @@
 
 #include <gmock/gmock.h>
 
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/context_events.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
@@ -46,8 +47,8 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(TransactionPhase, get_phase, (), (const, override));
 
     // Input / Output.
-    MOCK_METHOD(std::vector<FF>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
-    MOCK_METHOD(std::vector<FF>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
+    MOCK_METHOD(std::vector<MemoryValue>, get_calldata, (uint32_t cd_offset, uint32_t cd_size), (const, override));
+    MOCK_METHOD(std::vector<MemoryValue>, get_returndata, (uint32_t rd_offset, uint32_t rd_size), (override));
     MOCK_METHOD(ContextInterface&, get_child_context, (), (override));
     MOCK_METHOD(void, set_child_context, (std::unique_ptr<ContextInterface> child_ctx), (override));
 

@@ -160,7 +160,9 @@ void DataCopyTraceBuilder::process(
 
             // Read from memory if this is not a padding row and we are either RD_COPY-ing or a nested CD_COPY
             bool sel_mem_read = !is_padding_row && (is_rd_copy || !is_top_level);
-            FF value = is_padding_row ? 0 : event.copying_data[i];
+            FF value = is_padding_row ? 0 : event.copying_data[i].as_ff();
+            // Circuit only enforces tag consistency for memory reads.
+            FF tag = sel_mem_read ? static_cast<FF>(static_cast<uint8_t>(event.copying_data[i].get_tag())) : 0;
 
             trace.set(
                 row,
@@ -191,7 +193,7 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_reads_left_inv, reads_left }, // Will be inverted in batch later
                     { C::data_copy_padding, is_padding_row ? 1 : 0 },
                     { C::data_copy_value, value },
-                    { C::data_copy_tag, static_cast<uint8_t>(MemoryTag::FF) }, // TODO: Fails with non-FF tags.
+                    { C::data_copy_tag, tag },
 
                     { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
 

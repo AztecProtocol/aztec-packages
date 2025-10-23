@@ -23,9 +23,9 @@ enum class DataCopyOperation : uint8_t {
 struct DataCopyEvent {
     uint32_t execution_clk = 0; // Data copy will read and write memory,
     DataCopyOperation operation = DataCopyOperation::CD_COPY;
-    std::vector<FF> copying_data;  // A portion of the padded version of calldata/returndata
-    uint32_t write_context_id = 0; // For mem aware subtraces, they need the context id when referencing memory
-    uint32_t read_context_id = 0;  // Refers to the parent/child context id
+    std::vector<MemoryValue> copying_data; // A portion of the padded version of calldata/returndata
+    uint32_t write_context_id = 0;         // For mem aware subtraces, they need the context id when referencing memory
+    uint32_t read_context_id = 0;          // Refers to the parent/child context id
     // Loaded from X_data_copy opcode
     uint32_t data_copy_size = 0;
     uint32_t data_offset = 0;
