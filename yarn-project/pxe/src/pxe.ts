@@ -668,7 +668,7 @@ export class PXE {
 
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
-    const extendedNotes = noteDaos.map(async dao => {
+    const uniqueNotes = noteDaos.map(async dao => {
       const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
       const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
         completeAddress.address.equals(dao.recipient),
@@ -680,7 +680,7 @@ export class PXE {
       const recipient = completeAddress.address;
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
-    return Promise.all(extendedNotes);
+    return Promise.all(uniqueNotes);
   }
 
   /**
