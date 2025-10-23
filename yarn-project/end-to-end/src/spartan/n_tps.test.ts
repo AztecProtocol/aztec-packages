@@ -1,6 +1,9 @@
-import { type AztecNode, ProvenTx, SponsoredFeePaymentMethod, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { sleep } from '@aztec/foundation/sleep';
+import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
@@ -94,12 +97,14 @@ describe('sustained 10 TPS test', () => {
     const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
     const txs: ProvenTx[] = await Promise.all(
       Array.from({ length: TOTAL_TXS }, () =>
-        testAccounts.tokenContract.methods
-          .transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0)
-          .prove({
+        proveInteraction(
+          wallet,
+          testAccounts.tokenContract.methods.transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0),
+          {
             from: testAccounts.tokenAdminAddress,
             fee: { paymentMethod: sponsor },
-          }),
+          },
+        ),
       ),
     );
 

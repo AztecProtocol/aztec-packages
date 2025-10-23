@@ -1,6 +1,7 @@
 // docs:start:imports
 import { BobTokenContract } from './artifacts/BobToken.js';
-import { AztecAddress, createAztecNodeClient } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { openTmpStore } from '@aztec/kv-store/lmdb';

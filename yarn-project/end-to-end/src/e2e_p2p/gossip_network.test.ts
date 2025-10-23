@@ -1,7 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, retryUntil, sleep } from '@aztec/aztec.js';
+import { SentTx } from '@aztec/aztec.js/contracts';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';

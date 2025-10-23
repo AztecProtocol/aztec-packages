@@ -1,4 +1,7 @@
-import { AztecAddress, type AztecNode, EthAddress, Fr, type Logger } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';

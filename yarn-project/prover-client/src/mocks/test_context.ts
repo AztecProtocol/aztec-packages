@@ -213,7 +213,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
     const txs = await timesParallel(numTxs, i =>
@@ -261,7 +261,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, merkleTrees);
 
@@ -330,7 +330,7 @@ export class TestContext {
     const merkleTrees = await this.worldState.fork();
     await merkleTrees.appendLeaves(
       MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-      padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+      padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
     );
 
     const processorFactory = new PublicProcessorFactory(

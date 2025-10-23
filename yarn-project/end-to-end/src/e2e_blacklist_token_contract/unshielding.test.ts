@@ -1,4 +1,5 @@
-import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { Fr } from '@aztec/aztec.js/fields';
 
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';

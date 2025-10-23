@@ -1,10 +1,11 @@
-import { type Logger, fileURLToPath } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import type { BBConfig } from '@aztec/bb-prover';
 import { tryRmDir } from '@aztec/foundation/fs';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const {
   BB_RELEASE_DIR = 'barretenberg/cpp/build/bin',

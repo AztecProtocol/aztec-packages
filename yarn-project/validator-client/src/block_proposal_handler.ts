@@ -135,21 +135,18 @@ export class BlockProposalHandler {
       const currentTime = this.dateProvider.now();
       const timeoutDurationMs = deadline.getTime() - currentTime;
       const parentBlock =
-        timeoutDurationMs <= 0
+        (await this.blockSource.getBlock(blockNumber - 1)) ??
+        (timeoutDurationMs <= 0
           ? undefined
           : await retryUntil(
               async () => {
-                const block = await this.blockSource.getBlock(blockNumber - 1);
-                if (block) {
-                  return block;
-                }
                 await this.blockSource.syncImmediate();
                 return await this.blockSource.getBlock(blockNumber - 1);
               },
               'Force Archiver Sync',
               timeoutDurationMs / 1000,
               0.5,
-            );
+            ));
 
       if (parentBlock === undefined) {
         this.log.warn(`Parent block for ${blockNumber} not found, skipping processing`, proposalInfo);

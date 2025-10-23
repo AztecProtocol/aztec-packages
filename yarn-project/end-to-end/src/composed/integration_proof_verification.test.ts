@@ -1,4 +1,3 @@
-import { fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
 import { PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { type ExtendedViemWalletClient, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
@@ -10,6 +9,7 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import type { Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
+import { fileURLToPath } from 'url';
 import { type GetContractReturnType, type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
