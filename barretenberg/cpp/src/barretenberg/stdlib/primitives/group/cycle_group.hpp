@@ -30,9 +30,6 @@ namespace bb::stdlib {
  */
 template <typename Builder> class cycle_group {
   public:
-    // Friend declaration for stream operator
-    friend std::ostream& operator<<(std::ostream& os, cycle_group const& v);
-
     using field_t = stdlib::field_t<Builder>;
     using BaseField = field_t;
     using bool_t = stdlib::bool_t<Builder>;
@@ -260,6 +257,6 @@ template <typename Builder> class cycle_group {
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
-    return os << "{ " << v._x << ", " << v._y << " }";
+    return os << "{ " << v.x() << ", " << v.y() << " }";
 }
 } // namespace bb::stdlib
