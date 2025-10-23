@@ -101,3 +101,14 @@ jobs:
       semver: ${{ needs.determine-semver.outputs.semver }}
       ref: ${{ needs.determine-semver.outputs.branch }}
     secrets: inherit
+
+  deploy-fisherman:
+    # Depends on testnet until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-testnet]
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    uses: ./.github/workflows/deploy-fisherman-network.yaml
+    with:
+      l1_network: sepolia
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
