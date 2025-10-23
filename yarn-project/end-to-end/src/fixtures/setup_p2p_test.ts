@@ -70,7 +70,7 @@ export async function createNodes(
 
   // Sanity check that we have a sequencer if required
   const seqClient = nodes[0].getSequencer();
-  if (!seqClient && config.disableValidator === false) {
+  if (!seqClient && config.disableSequencer === false) {
     throw new Error('Sequencer not found');
   }
 
@@ -117,8 +117,8 @@ export async function createNonValidatorNode(
     const p2pConfig = await createP2PConfig(baseConfig, bootstrapNode, tcpPort, dataDirectory);
     const config: AztecNodeConfig = {
       ...p2pConfig,
-      disableValidator: true,
-      validatorPrivateKeys: undefined,
+      disableSequencer: true,
+      sequencerPrivateKeys: undefined,
       publisherPrivateKeys: [],
     };
     const telemetry = getEndToEndTestTelemetryClient(metricsPort);
@@ -196,7 +196,7 @@ export async function createValidatorConfig(
   const nodeConfig: AztecNodeConfig = {
     ...config,
     ...p2pConfig,
-    validatorPrivateKeys: new SecretValue([attesterPrivateKey]),
+    sequencerPrivateKeys: new SecretValue([attesterPrivateKey]),
     publisherPrivateKeys: [new SecretValue(attesterPrivateKey)],
   };
 

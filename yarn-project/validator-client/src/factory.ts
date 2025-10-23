@@ -51,7 +51,7 @@ export function createValidatorClient(
     keyStoreManager: KeystoreManager | undefined;
   },
 ) {
-  if (config.disableValidator || !deps.keyStoreManager) {
+  if (config.disableSequencer || !deps.keyStoreManager) {
     return undefined;
   }
 

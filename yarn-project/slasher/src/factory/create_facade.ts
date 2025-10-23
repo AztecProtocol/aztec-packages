@@ -23,7 +23,7 @@ export async function createSlasherFacade(
   dateProvider: DateProvider,
   epochCache: EpochCache,
   /** List of own validator addresses to add to the slashValidatorNever list unless slashSelfAllowed is true */
-  validatorAddresses: EthAddress[] = [],
+  sequencerAddresses: EthAddress[] = [],
   logger = createLogger('slasher'),
 ): Promise<SlasherClientInterface> {
   if (!l1Contracts.rollupAddress || l1Contracts.rollupAddress.equals(EthAddress.ZERO)) {
@@ -35,7 +35,7 @@ export async function createSlasherFacade(
 
   const slashValidatorsNever = config.slashSelfAllowed
     ? config.slashValidatorsNever
-    : unique([...config.slashValidatorsNever, ...validatorAddresses].map(a => a.toString())).map(EthAddress.fromString);
+    : unique([...config.slashValidatorsNever, ...sequencerAddresses].map(a => a.toString())).map(EthAddress.fromString);
   const updatedConfig = { ...config, slashValidatorsNever };
 
   return new SlasherClientFacade(

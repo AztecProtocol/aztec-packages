@@ -181,7 +181,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public getValidatorAddresses() {
     return this.keyStore
       .getAddresses()
-      .filter(addr => !this.config.disabledValidators.some(disabled => disabled.equals(addr)));
+      .filter(addr => !this.config.disabledSequencers.some(disabled => disabled.equals(addr)));
   }
 
   public getBlockProposalHandler() {
@@ -280,10 +280,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Reexecute txs if we are part of the committee so we can attest, or if slashing is enabled so we can slash
     // invalid proposals even when not in the committee, or if we are configured to always reexecute for monitoring purposes.
-    const { validatorReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals } = this.config;
+    const { attesterReexecute, slashBroadcastedInvalidBlockPenalty, alwaysReexecuteBlockProposals } = this.config;
     const shouldReexecute =
-      (slashBroadcastedInvalidBlockPenalty > 0n && validatorReexecute) ||
-      (partOfCommittee && validatorReexecute) ||
+      (slashBroadcastedInvalidBlockPenalty > 0n && attesterReexecute) ||
+      (partOfCommittee && attesterReexecute) ||
       alwaysReexecuteBlockProposals;
 
     const validationResult = await this.blockProposalHandler.handleBlockProposal(

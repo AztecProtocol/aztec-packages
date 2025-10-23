@@ -899,7 +899,7 @@ describe('PeerManager', () => {
       expect(() =>
         createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
           p2pDisableStatusHandshake: true,
-          p2pAllowOnlyValidators: true,
+          p2pAllowOnlySequencers: true,
         }),
       ).toThrow();
     });
@@ -983,7 +983,7 @@ describe('PeerManager', () => {
         [],
         [privatePeerEnr],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1039,7 +1039,7 @@ describe('PeerManager', () => {
         [trustedPeerEnr],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1098,7 +1098,7 @@ describe('PeerManager', () => {
         [],
         [],
         [preferredPeerEnr],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1155,7 +1155,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1208,7 +1208,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1260,7 +1260,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1331,7 +1331,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1401,7 +1401,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1480,7 +1480,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1577,7 +1577,7 @@ describe('PeerManager', () => {
         [],
         [],
         [],
-        { p2pAllowOnlyValidators: true },
+        { p2pAllowOnlySequencers: true },
         protocolVersion,
         blockHash,
       );
@@ -1877,7 +1877,7 @@ describe('PeerManager', () => {
       mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
 
       const peerManager = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
-        p2pAllowOnlyValidators: true,
+        p2pAllowOnlySequencers: true,
         p2pMaxFailedAuthAttemptsAllowed: 2,
       });
 

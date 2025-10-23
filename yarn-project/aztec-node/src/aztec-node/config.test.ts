@@ -45,12 +45,12 @@ describe('createKeyStoreForValidator', () => {
       publisherKeys.length > 0 ? publisherKeys.map(key => ({ getValue: () => key })) : undefined;
 
     return {
-      validatorPrivateKeys: mockValidatorPrivateKeys,
+      sequencerPrivateKeys: mockValidatorPrivateKeys,
       publisherPrivateKeys: mockPublisherPrivateKeys,
       coinbase: coinbase,
       feeRecipient: feeRecipient,
       web3SignerUrl,
-      validatorAddresses: validatorAddresses.map(addr => addr),
+      sequencerAddresses: validatorAddresses.map(addr => addr),
       publisherAddresses: publisherAddresses.map(addr => addr),
     } as TxSenderConfig & ValidatorClientConfig & SequencerClientConfig & SharedNodeConfig;
   };
@@ -65,9 +65,9 @@ describe('createKeyStoreForValidator', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should return undefined when validatorPrivateKeys is undefined', () => {
+  it('should return undefined when sequencerPrivateKeys is undefined', () => {
     const config = {
-      validatorPrivateKeys: undefined,
+      sequencerPrivateKeys: undefined,
       publisherPrivateKeys: undefined,
       coinbase: undefined,
       feeRecipient: undefined,
