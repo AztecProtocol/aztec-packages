@@ -5,6 +5,7 @@
 // =====================
 
 #include "../field/field.hpp"
+#include "../field/field_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
@@ -669,12 +670,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result_x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result_y);
 
-    if (!result_x.is_constant()) {
-        context->update_used_witnesses(result_x.get_witness_index());
-    }
-    if (!result_y.is_constant()) {
-        context->update_used_witnesses(result_y.get_witness_index());
-    }
+    mark_witness_as_used(result_x);
+    mark_witness_as_used(result_y);
 
     // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
@@ -689,9 +686,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // The result is the point at infinity if:
     // (lhs.x, lhs.y) == (rhs.x, rhs.y) and neither are infinity, OR both are the point at infinity
     const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match);
-    if (!infinity_predicate.is_constant()) {
-        context->update_used_witnesses(infinity_predicate.get_witness_index());
-    }
+    mark_witness_as_used(field_t(infinity_predicate));
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 

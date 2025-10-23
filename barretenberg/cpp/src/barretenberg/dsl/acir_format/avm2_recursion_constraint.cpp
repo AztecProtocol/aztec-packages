@@ -57,15 +57,15 @@ void create_dummy_vkey_and_proof(Builder& builder,
     auto set_dummy_commitment = [&builder](const std::vector<stdlib::field_t<Builder>>& fields, size_t& offset) {
         auto comm = curve::BN254::AffineElement::one() * fr::random_element();
         auto frs = FrCodec::serialize_to_fields(comm);
-        builder.set_variable(fields[offset].witness_index, frs[0]);
-        builder.set_variable(fields[offset + 1].witness_index, frs[1]);
-        builder.set_variable(fields[offset + 2].witness_index, frs[2]);
-        builder.set_variable(fields[offset + 3].witness_index, frs[3]);
+        builder.set_variable(fields[offset].get_witness_index(), frs[0]);
+        builder.set_variable(fields[offset + 1].get_witness_index(), frs[1]);
+        builder.set_variable(fields[offset + 2].get_witness_index(), frs[2]);
+        builder.set_variable(fields[offset + 3].get_witness_index(), frs[3]);
         offset += 4;
     };
     // a lambda that sets dummy evaluation in proof fields vector
     auto set_dummy_evaluation_in_proof_fields = [&](size_t& offset) {
-        builder.set_variable(proof_fields[offset].witness_index, fr::random_element());
+        builder.set_variable(proof_fields[offset].get_witness_index(), fr::random_element());
         offset++;
     };
 
@@ -76,7 +76,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
 
     // This routine is adding some placeholders for avm proof and avm vk in the case where witnesses are not present.
     // TODO(#14234)[Unconditional PIs validation]: Remove next line and use offset == 0 for subsequent line.
-    builder.set_variable(proof_fields[0].witness_index, 1);
+    builder.set_variable(proof_fields[0].get_witness_index(), 1);
     offset = 1; // TODO(#14234)[Unconditional PIs validation]: reset offset = 1
 
     // Witness Commitments

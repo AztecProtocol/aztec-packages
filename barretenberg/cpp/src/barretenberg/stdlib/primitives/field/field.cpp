@@ -9,6 +9,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "field_utils.hpp"
 #include <functional>
 
 using namespace bb;
@@ -724,9 +725,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
     // inverse is added in the circuit for checking that field element is not zero
     // and it won't be used anymore, so it's needed to add this element in used witnesses
-    if constexpr (IsUltraBuilder<Builder>) {
-        context->update_used_witnesses(inverse.witness_index);
-    }
+    mark_witness_as_used(inverse);
 
     // Aim of a new `poly` gate: `this` has an inverse (hence is not zero).
     // I.e.:

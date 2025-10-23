@@ -90,6 +90,19 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     return { lo, hi };
 }
 
+template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field)
+{
+    // Only mark as used if:
+    // 1. The field is not constant (constants don't have witness indices)
+    // 2. The builder is an Ultra/Mega builder (only these track used witnesses)
+    if (!field.is_constant()) {
+        if constexpr (IsUltraBuilder<Builder>) {
+            // Use raw witness_index to avoid normalization overhead
+            field.get_context()->update_used_witnesses(field.witness_index);
+        }
+    }
+}
+
 // Explicit instantiations for split_unique
 template std::pair<field_t<bb::UltraCircuitBuilder>, field_t<bb::UltraCircuitBuilder>> split_unique(
     const field_t<bb::UltraCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
@@ -105,5 +118,9 @@ template void validate_split_in_field(const field_t<bb::MegaCircuitBuilder>& lo,
                                       const field_t<bb::MegaCircuitBuilder>& hi,
                                       const size_t lo_bits,
                                       const uint256_t& field_modulus);
+
+// Explicit instantiations for mark_witness_as_used
+template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
+template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
 
 } // namespace bb::stdlib
