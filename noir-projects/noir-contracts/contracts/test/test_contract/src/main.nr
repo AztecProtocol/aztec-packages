@@ -37,7 +37,7 @@ pub contract Test {
         event::event_emission::emit_event_in_private,
         messages::message_delivery::MessageDelivery,
         // Hashing
-        hash::{ArgsHasher, pedersen_hash},
+        hash::pedersen_hash,
         // History and inclusion proofs
         history::note_inclusion::ProveNoteInclusion,
         // Key management
@@ -262,33 +262,6 @@ pub contract Test {
         let header = context.get_anchor_block_header();
 
         header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
-    }
-
-    #[private]
-    fn test_code_gen(
-        a_field: Field,
-        a_bool: bool,
-        a_number: u32,
-        an_array: [Field; 2],
-        a_struct: DummyNote,
-        a_deep_struct: DeepStruct,
-    ) -> Field {
-        let mut args = ArgsHasher::new();
-        args.add(a_field);
-        args.add(a_bool as Field);
-        args.add(a_number as Field);
-        args.add_multiple(an_array);
-        args.add(a_struct.amount);
-        args.add(a_struct.secret_hash);
-        args.add(a_deep_struct.a_field);
-        args.add(a_deep_struct.a_bool as Field);
-        args.add(a_deep_struct.a_note.amount);
-        args.add(a_deep_struct.a_note.secret_hash);
-        for note in a_deep_struct.many_notes {
-            args.add(note.amount);
-            args.add(note.secret_hash);
-        }
-        args.hash()
     }
 
     #[private]

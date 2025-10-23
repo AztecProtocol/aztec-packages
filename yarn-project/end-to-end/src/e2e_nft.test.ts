@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 
 import { jest } from '@jest/globals';

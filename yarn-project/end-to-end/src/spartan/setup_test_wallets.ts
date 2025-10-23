@@ -1,21 +1,17 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  type AztecNode,
-  FeeJuicePaymentMethodWithClaim,
-  type FeePaymentMethod,
-  Fr,
-  L1FeeJuicePortalManager,
-  SponsoredFeePaymentMethod,
-  type Wallet,
-  createAztecNodeClient,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
 
 import { getACVMConfig } from '../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../fixtures/get_bb_config.js';
@@ -246,12 +242,14 @@ async function deployTokenAndMint(
 }
 
 export async function performTransfers({
+  wallet,
   testAccounts,
   rounds,
   transferAmount,
   logger,
   feePaymentMethod,
 }: {
+  wallet: TestWallet;
   testAccounts: TestAccounts;
   rounds: number;
   transferAmount: bigint;
@@ -262,11 +260,15 @@ export async function performTransfers({
   // Default to sponsored fee payment if no fee method is provided
   const defaultFeePaymentMethod = feePaymentMethod || new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
   for (let i = 0; i < rounds; i++) {
-    const txs = testAccounts.accounts.map(async acc =>
-      (await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet)).methods
-        .transfer_in_public(acc, recipient, transferAmount, 0)
-        .prove({ from: acc, fee: { paymentMethod: defaultFeePaymentMethod } }),
-    );
+    const txs = testAccounts.accounts.map(async acc => {
+      const token = await TokenContract.at(testAccounts.tokenAddress, testAccounts.wallet);
+      return proveInteraction(wallet, token.methods.transfer_in_public(acc, recipient, transferAmount, 0), {
+        from: acc,
+        fee: {
+          paymentMethod: defaultFeePaymentMethod,
+        },
+      });
+    });
 
     const provenTxs = await Promise.all(txs);
 

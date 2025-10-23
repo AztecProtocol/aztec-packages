@@ -1,4 +1,4 @@
-import { AztecAddress, CompleteAddress } from '@aztec/aztec.js';
+import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
 import { TokenContractTest } from './token_contract_test.js';

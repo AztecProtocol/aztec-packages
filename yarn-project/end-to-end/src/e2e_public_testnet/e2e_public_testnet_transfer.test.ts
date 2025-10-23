@@ -1,4 +1,6 @@
-import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 
 import { foundry, sepolia } from 'viem/chains';

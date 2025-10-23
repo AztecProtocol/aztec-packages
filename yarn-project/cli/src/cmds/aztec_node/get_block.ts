@@ -1,4 +1,4 @@
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { LogFn } from '@aztec/foundation/log';
 
 import { inspectBlock } from '../../utils/inspect.js';

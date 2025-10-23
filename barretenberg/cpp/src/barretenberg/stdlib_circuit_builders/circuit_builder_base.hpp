@@ -141,6 +141,7 @@ template <typename FF_> class CircuitBuilderBase {
     inline void set_variable(const uint32_t index, const FF& value)
     {
         BB_ASSERT_DEBUG(variables.size() > real_variable_index[index]);
+        BB_ASSERT(has_dummy_witnesses());
         variables[real_variable_index[index]] = value;
     }
 

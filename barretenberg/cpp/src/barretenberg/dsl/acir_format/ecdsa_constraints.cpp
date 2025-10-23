@@ -122,6 +122,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     // Step 4.
     // Ensure uniqueness of the public key by asserting each of its coordinates is smaller than the modulus of the base
     // field
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1562) remove this check, it is a duplicate of the check
+    // in the verification function.
     pub_x.assert_is_in_field("ECDSA input validation: the x coordinate of the public key is larger than Fq::modulus");
     pub_y.assert_is_in_field("ECDSA input validation: the y coordinate of the public key is larger than Fq::modulus");
 

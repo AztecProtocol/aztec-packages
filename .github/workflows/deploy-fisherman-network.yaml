@@ -156,6 +156,20 @@ jobs:
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh ignition-fisherman
 
+      - name: Setup IRM
+        env:
+          MONITORING_NAMESPACE: ${{ env.NETWORK }}-irm
+          INFURA_SECRET_NAME: infura-${{ env.L1_NETWORK }}-url
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+
+          echo "Setting up IRM for namespace: $NAMESPACE, monitoring namespace: $MONITORING_NAMESPACE"
+          echo "Network: $NETWORK"
+
+          echo "INFURA Secret Name: $INFURA_SECRET_NAME"
+
+          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh $NAMESPACE ${{ env.MONITORING_NAMESPACE }} $NETWORK $INFURA_SECRET_NAME
+
       - name: Notify Slack on failure
         if: failure()
         env:

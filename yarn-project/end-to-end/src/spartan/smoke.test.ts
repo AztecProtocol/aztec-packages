@@ -1,6 +1,7 @@
-import { type AztecNode, createAztecNodeClient, retryUntil } from '@aztec/aztec.js';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupContract, type ViemPublicClient, createEthereumChain } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import type { ChildProcess } from 'child_process';
 import { createPublicClient, fallback, http } from 'viem';

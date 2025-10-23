@@ -10,7 +10,7 @@ use dep::protocol_types::{
         sha256_to_field,
     },
     point::Point,
-    traits::{Hash, ToField},
+    traits::ToField,
 };
 
 pub use dep::protocol_types::hash::{compute_siloed_nullifier, pedersen_hash};
@@ -57,32 +57,6 @@ pub fn compute_l1_to_l2_message_hash(
 // The nullifier of a l1 to l2 message is the hash of the message salted with the secret
 pub fn compute_l1_to_l2_message_nullifier(message_hash: Field, secret: Field) -> Field {
     poseidon2_hash_with_separator([message_hash, secret], GENERATOR_INDEX__MESSAGE_NULLIFIER)
-}
-
-pub struct ArgsHasher {
-    pub fields: [Field],
-}
-
-impl Hash for ArgsHasher {
-    fn hash(self) -> Field {
-        hash_args(self.fields)
-    }
-}
-
-impl ArgsHasher {
-    pub fn new() -> Self {
-        Self { fields: [] }
-    }
-
-    pub fn add(&mut self, field: Field) {
-        self.fields = self.fields.push_back(field);
-    }
-
-    pub fn add_multiple<let N: u32>(&mut self, fields: [Field; N]) {
-        for i in 0..N {
-            self.fields = self.fields.push_back(fields[i]);
-        }
-    }
 }
 
 // Computes the hash of input arguments or return values for private functions, or for authwit creation.
@@ -149,11 +123,11 @@ pub fn compute_public_bytecode_commitment(
 
 #[test]
 unconstrained fn compute_var_args_hash() {
-    let mut input = ArgsHasher::new();
+    let mut input = [0; 100];
     for i in 0..100 {
-        input.add(i as Field);
+        input[i] = i as Field;
     }
-    let hash = input.hash();
+    let hash = hash_args_array(input);
     dep::std::println(hash);
     // Used in yarn-project/stdlib test snapshots:
     assert(hash == 0x19b0d74feb06ebde19edd85a28986c97063e84b3b351a8b666c7cac963ce655f);

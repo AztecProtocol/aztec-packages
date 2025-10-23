@@ -436,6 +436,8 @@ TEST(stdlib_sha256, test_input_str_len_multiple)
 
 TEST(stdlib_sha256, test_boomerang_value_regression)
 {
+    BB_DISABLE_ASSERTS(); // Disable assert to allow set_variable
+
     auto builder = Builder();
     std::array<field_t<Builder>, 16> input;
 

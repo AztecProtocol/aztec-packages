@@ -1,4 +1,8 @@
-import { AztecAddress, Fr, GrumpkinScalar, type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import type { TestWallet } from '@aztec/test-wallet/server';
 
