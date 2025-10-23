@@ -24,6 +24,8 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
  * initialized
  *
  * @note This method does not know what the value of `record_witness` will be.
+ * @note There is nothing stopping us from running `set_ROM_element` on the same `rom_id` and `index_value` twice, as
+ * long as the `value_witness` is the same both times.
  **/
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::set_ROM_element(CircuitBuilder* builder,
@@ -286,9 +288,11 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
  * @param index_value raw index in the array specified by `ram_id`. NOT a witness index.
  * @param value_witness
  *
- * @note Other than the line `BB_ASSERT_EQ(ram_array.state[index_value], UNINITIALIZED_MEMORY_RECORD);`, we may
+ * @note If not for the line `BB_ASSERT_EQ(ram_array.state[index_value], UNINITIALIZED_MEMORY_RECORD);`, we could
  * reinitialize an entry multiple times; there are no circuit constraints that prevent this. In particular, the
- * functionality is nearly identical to that of `write_RAM_array`.
+ * functionality is nearly identical to that of `write_RAM_array`. (The only difference is that the current method takes
+ * a raw `index_value` while the latter takes a witness index.) Correspondingly, the `access_type` is
+ * `RamRecord::AccessType::WRITE`.
  */
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,

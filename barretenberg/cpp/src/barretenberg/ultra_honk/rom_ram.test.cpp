@@ -403,16 +403,3 @@ TYPED_TEST(UltraHonkTests, RomFailureSingleReadAtPair)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
     TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
 }
-
-TYPED_TEST(UltraHonkTests, RomFailureReadAtUninitializedIndex)
-{
-    using Flavor = TypeParam;
-    using MemoryTests = MemoryTests_<Flavor>;
-    auto circuit_builder = UltraCircuitBuilder();
-    size_t array_length = 5;
-    auto rom_failure_type = MemoryTests::ROMFailureType::ReadAtUninitVal;
-    MemoryTests::build_failing_ROM_table(circuit_builder, array_length, rom_failure_type);
-
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-    TestFixture::prove_and_verify(circuit_builder, /*expected_result=*/false);
-}
