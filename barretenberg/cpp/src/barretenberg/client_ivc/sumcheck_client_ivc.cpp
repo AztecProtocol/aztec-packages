@@ -295,7 +295,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
-        hiding_output.set_public();
+        hiding_output.set_public(&circuit);
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
@@ -310,7 +310,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.output_pg_accum_hash =
             current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
         info("Kernel output accumulator hash: ", kernel_output.output_pg_accum_hash);
-        kernel_output.set_public();
+        kernel_output.set_public(&circuit);
     }
 }
 

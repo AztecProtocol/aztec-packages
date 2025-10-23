@@ -307,15 +307,11 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points
-    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-
+    // Add the default pairing points and IPA claim
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Create a fake ipa claim and proof
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-        stdlib_opening_claim.set_public();
-        builder.ipa_proof = ipa_proof;
+        stdlib::recursion::honk::RollupIO::add_default(builder);
+    } else {
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     }
 
     // prove the circuit constructed above

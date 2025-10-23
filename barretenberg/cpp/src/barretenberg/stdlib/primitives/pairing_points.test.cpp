@@ -15,9 +15,10 @@ TYPED_TEST_SUITE(PairingPointsTests, Builders);
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     TypeParam builder;
-    info("Num gates: ", builder.num_gates());
-    PairingPoints<TypeParam>::add_default_to_public_inputs(builder);
-    info("Num gates after add_default_to_public_inputs: ", builder.num_gates());
+    info("Num gates: ", builder.num_gates);
+    PairingPoints<TypeParam> pp = PairingPoints<TypeParam>::construct_default();
+    pp.set_default_to_public(&builder);
+    info("Num gates after adding default pairing points: ", builder.num_gates);
     builder.finalize_circuit(/*ensure_nonzero=*/true);
     info("Num gates: ", builder.num_gates());
     EXPECT_TRUE(CircuitChecker::check(builder));

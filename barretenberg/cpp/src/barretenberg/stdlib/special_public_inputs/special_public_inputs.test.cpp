@@ -52,7 +52,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
         kernel_output.output_pg_accum_hash = FF::from_witness(&builder, output_pg_accum_hash_val);
 
         // Propagate the kernel output via the public inputs
-        kernel_output.set_public();
+        kernel_output.set_public(&builder);
 
         // Store the public inputs from this circuit for use in the second circuit
         for (const auto& idx : builder.public_inputs()) {
@@ -116,7 +116,7 @@ TEST_F(SpecialPublicInputsTests, Default)
         io_output.pairing_inputs = pairing_inputs;
 
         // Propagate the output via the public inputs
-        io_output.set_public();
+        io_output.set_public(&builder);
 
         // Store the public inputs from this circuit for use in the second circuit
         for (const auto& idx : builder.public_inputs()) {
@@ -197,7 +197,7 @@ TEST_F(SpecialPublicInputsTests, RollUpIO)
         rollup_io_output.ipa_claim = ipa_claim;
 
         // Propagate the kernel output via the public inputs
-        rollup_io_output.set_public();
+        rollup_io_output.set_public(&builder);
 
         // Store the public inputs from this circuit for use in the second circuit
         for (const auto& idx : builder.public_inputs()) {
@@ -287,7 +287,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         }
 
         // Propagate the kernel output via the public inputs
-        hiding_output.set_public();
+        hiding_output.set_public(&builder);
 
         // Store the public inputs from this circuit for use in the second circuit
         for (const auto& idx : builder.public_inputs()) {

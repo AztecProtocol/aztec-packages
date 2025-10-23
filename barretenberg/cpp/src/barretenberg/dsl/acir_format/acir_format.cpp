@@ -291,7 +291,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Propagate pairing points
             stdlib::recursion::honk::DefaultIO<Builder> inputs;
             inputs.pairing_inputs = output.points_accumulator;
-            inputs.set_public();
+            inputs.set_public(&builder);
         } else if (has_pg_recursion_constraints) {
             process_pg_recursion_constraints(
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
@@ -364,25 +364,26 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             inputs.pairing_inputs =
                 has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
             inputs.ipa_claim = ipa_claim;
-            inputs.set_public();
-        } else if (honk_output.is_root_rollup) {
-            // The root rollup performs full IPA verification
-            perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
-
-            // Propagate public inputs
-            stdlib::recursion::honk::DefaultIO<Builder> inputs;
-            inputs.pairing_inputs =
-                has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
-            ;
-            inputs.set_public();
+            inputs.set_public(&builder);
         } else {
-            // We shouldn't accidentally have IPA proofs otherwise.
+            if (metadata.honk_recursion == 1) {
+                // Propagate public inputs
+                stdlib::recursion::honk::DefaultIO<Builder> inputs;
+                inputs.pairing_inputs =
+                    has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
+                inputs.set_public(&builder);
+            }
+
+            if (honk_output.is_root_rollup) {
+                // The root rollup performs full IPA verification
+                perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
+            }
+            // We shouldn't accidentally have IPA proofs.
             BB_ASSERT_EQ(
                 honk_output.nested_ipa_proofs.size(), static_cast<size_t>(0), "IPA proofs present when not expected.");
         }
     }
 }
-} // namespace acir_format
 
 /**
  * @brief Perform full recursive IPA verification
@@ -394,7 +395,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
  */
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
-                                   const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                                   const std::vector<OpeningClaim<bb::stdlib::grumpkin<Builder>>>& nested_ipa_claims,
                                    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
 {
     using StdlibTranscript = UltraStdlibTranscript;
@@ -536,8 +537,9 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                      ivc->verification_queue.size(),
                      "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
-        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values
-        // so that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy
+        // values so that the present kernel circuit is constructed correctly. (Used for constructing VKs without
+        // witnesses).
         if (!has_valid_witness_assignments) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] :
@@ -561,8 +563,8 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
         // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
-        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
-        // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
+        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on
+        // acir are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
         // verifications).
         for (auto [constraint, queue_entry] :
              zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {

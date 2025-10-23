@@ -186,7 +186,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
                 // Store ipa_proof
                 outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
             };
-            inputs.set_public();
+            inputs.set_public(&outer_circuit);
 
             auto outer_prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =
@@ -238,7 +238,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Store ipa_proof
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
         };
-        inputs.set_public();
+        inputs.set_public(&outer_circuit);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
