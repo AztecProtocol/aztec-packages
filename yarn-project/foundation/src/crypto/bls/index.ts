@@ -3,27 +3,10 @@ import { sha512 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync } from '@scure/bip39';
 
 import type { Hex } from '../../string/index.js';
-// Convenience functions using Bn254 class (for backwards compatibility)
-import { Bn254 } from '../bn254/index.js';
 
-// BN254 Fr order (hardcoded from @noble/curves/bn254)
+// BN254 Fr order for BLS key derivation
 const BN254_FR_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
-// Re-export BN254 operations
-export { Bn254, type Bn254G1Point, type Bn254G2Point } from '../bn254/index.js';
-
-const bn254Instance = new Bn254();
-
-export const computeBn254G1PublicKeyCompressed = (privateKeyHex: string): Promise<string> =>
-  bn254Instance.computeG1PublicKeyCompressed(privateKeyHex);
-export const computeBn254G1PublicKey = (privateKeyHex: string): Promise<import('../bn254/index.js').Bn254G1Point> =>
-  bn254Instance.computeG1PublicKey(privateKeyHex);
-export const computeBn254G2PublicKey = (privateKeyHex: string) => bn254Instance.computeG2PublicKey(privateKeyHex);
-export const compressBn254G1Point = (point: { x: bigint; y: bigint }): string => bn254Instance.compressG1Point(point);
-export const decompressBn254G1Point = (compressed: string) => bn254Instance.decompressG1Point(compressed);
-export const isOnBn254Curve = (point: { x: bigint; y: bigint }): Promise<boolean> => bn254Instance.isOnCurve(point);
-
-// Re-export EIP-2335 keystore utilities
 export {
   Eip2335Error,
   type Eip2335Keystore,
