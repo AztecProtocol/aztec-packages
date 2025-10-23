@@ -1,4 +1,5 @@
-import { type AztecNode, createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';

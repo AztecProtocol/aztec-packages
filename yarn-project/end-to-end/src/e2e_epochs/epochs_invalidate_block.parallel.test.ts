@@ -1,11 +1,13 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, type Logger, retryUntil } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
 import { type ExtendedViemWalletClient, type Operator, RollupContract } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';

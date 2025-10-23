@@ -5,7 +5,7 @@ import {
   archiverConfigMappings,
   getArchiverConfigFromEnv,
 } from '@aztec/archiver';
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 import { type BlobSinkConfig, blobSinkConfigMapping, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { getL1Config } from '@aztec/cli/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';

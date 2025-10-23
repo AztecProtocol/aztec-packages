@@ -51,7 +51,7 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
-pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4; // TODO: Update this to publish 1024 messages per checkpoint
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 10;
 pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
@@ -555,9 +555,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
-// TODO: measure whether "4" is a good choice.
 // Depends on the final number of messages per checkpoint.
-pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
+pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
 // pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;

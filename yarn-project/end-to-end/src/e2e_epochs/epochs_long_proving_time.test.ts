@@ -1,5 +1,6 @@
-import { type Logger, sleep } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 

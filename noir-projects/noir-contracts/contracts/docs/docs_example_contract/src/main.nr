@@ -12,7 +12,7 @@ pub contract DocsExample {
         macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
-        protocol_types::{address::AztecAddress, traits::Hash},
+        protocol_types::address::AztecAddress,
         state_vars::{
             Map, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
         },
@@ -143,15 +143,14 @@ pub contract DocsExample {
     ) -> PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
-        // The hasher is a structure used to generate a hash of the circuits inputs.
+        // The args are serialized and hashed to generate the args hash for the circuit inputs.
         // docs:start:context-example-hasher
-        let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
-        args_hasher.add(a);
-        args_hasher.add(b);
+        let serialized_args = [a, b];
+        let args_hash = dep::aztec::hash::hash_args_array(serialized_args);
         // docs:end:context-example-hasher
         // The context object is created with the inputs and the hash of the inputs
         // docs:start:context-example-context
-        let mut context = PrivateContext::new(inputs, args_hasher.hash());
+        let mut context = PrivateContext::new(inputs, args_hash);
         // docs:end:context-example-context
         // docs:start:storage-example-context
         #[allow(unused_variables)]
@@ -161,11 +160,10 @@ pub contract DocsExample {
         // Our actual program
         let result = a + b;
         // ************************************************************
-        // Return values are pushed into the context
+        // Return values are serialized and passed to the context
         // docs:start:context-example-context-return
-        let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
-        return_hasher.add(result);
-        context.set_return_hash(return_hasher);
+        let serialized_return = [result];
+        context.set_return_hash(serialized_return);
         // docs:end:context-example-context-return
         // The context is returned to be consumed by the kernel circuit!
         // docs:start:context-example-finish

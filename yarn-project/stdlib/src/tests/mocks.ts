@@ -24,8 +24,8 @@ import {
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
-import { ExtendedNote, UniqueNote } from '../note/extended_note.js';
 import { Note } from '../note/note.js';
+import { UniqueNote } from '../note/unique_note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
@@ -39,22 +39,6 @@ import { TxHash } from '../tx/tx_hash.js';
 import { makeGas, makeGlobalVariables, makeL2BlockHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
-
-export const randomExtendedNote = async ({
-  note = Note.random(),
-  recipient = undefined,
-  contractAddress = undefined,
-  txHash = randomTxHash(),
-  storageSlot = Fr.random(),
-}: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(
-    note,
-    recipient ?? (await AztecAddress.random()),
-    contractAddress ?? (await AztecAddress.random()),
-    storageSlot,
-    txHash,
-  );
-};
 
 export const randomUniqueNote = async ({
   note = Note.random(),

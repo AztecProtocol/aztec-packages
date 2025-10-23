@@ -1,17 +1,12 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import {
-  AccountManager,
-  type AztecNode,
-  CompleteAddress,
-  DeployAccountMethod,
-  FeeJuicePaymentMethodWithClaim,
-  Fr,
-  type Logger,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-  Schnorr,
-  deriveKeys,
-} from '@aztec/aztec.js';
+import { CompleteAddress } from '@aztec/aztec.js/addresses';
+import { FeeJuicePaymentMethodWithClaim, PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { deriveKeys } from '@aztec/aztec.js/keys';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { AccountManager, DeployAccountMethod } from '@aztec/aztec.js/wallet';
+import { Schnorr } from '@aztec/foundation/crypto';
 import { Fq } from '@aztec/foundation/fields';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SchnorrAccountContract as SchnorrAccountContractInterface } from '@aztec/noir-contracts.js/SchnorrAccount';

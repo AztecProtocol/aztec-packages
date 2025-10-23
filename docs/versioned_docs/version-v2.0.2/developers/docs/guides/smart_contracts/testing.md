@@ -47,8 +47,7 @@ If you have [the sandbox](../../../getting_started_on_sandbox.md) installed, you
 The complete process for running tests:
 
 1. Compile contracts
-2. Start the sandbox
-3. Run `aztec test`
+2. Run `aztec test`
 
 :::warning
 Under the hood, `TestEnvironment` expects an oracle resolver called 'TXE' (Test eXecution Environment) to be available. This means that a regular `nargo test` command will not suffice - you _must_ use `aztec test` instead.

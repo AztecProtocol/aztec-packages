@@ -1,5 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';

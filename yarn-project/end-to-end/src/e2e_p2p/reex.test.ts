@@ -1,6 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { Fr, type SentTx, Tx, sleep } from '@aztec/aztec.js';
+import type { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { Tx } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
+import { sleep } from '@aztec/foundation/sleep';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';

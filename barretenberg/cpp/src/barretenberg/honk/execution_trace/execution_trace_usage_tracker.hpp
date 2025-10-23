@@ -81,7 +81,7 @@ struct ExecutionTraceUsageTracker {
             max_size = std::max(static_cast<uint32_t>(block.size()), max_size);
         }
 
-        max_gates_size = std::max(max_gates_size, circuit.num_gates);
+        max_gates_size = std::max(max_gates_size, circuit.num_gates());
 
         // update the max size of the databus and lookup tables
         max_databus_size = std::max({ max_databus_size,

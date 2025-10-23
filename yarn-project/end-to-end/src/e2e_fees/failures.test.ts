@@ -1,14 +1,11 @@
-import {
-  type AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-  SetPublicAuthwitContractInteraction,
-  TxStatus,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { FunctionSelector } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';

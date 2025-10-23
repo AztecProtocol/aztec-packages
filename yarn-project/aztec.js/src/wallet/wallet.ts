@@ -25,10 +25,8 @@ import { AbiDecodedSchema, type ApiSchemaFor, type ZodFor, optional, schemas } f
 import {
   Capsule,
   HashedValues,
-  Tx,
   TxHash,
   TxProfileResult,
-  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
@@ -109,7 +107,7 @@ export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
 /**
  * Helper type that represents all methods that can be batched.
  */
-export type BatchableMethods = Pick<Wallet, 'registerContract' | 'proveTx' | 'registerSender'>;
+export type BatchableMethods = Pick<Wallet, 'registerContract' | 'sendTx' | 'registerSender'>;
 
 /**
  * From the batchable methods, we create a type that represents a method call with its name and arguments.
@@ -129,10 +127,22 @@ export type BatchedMethodResult<T> =
   T extends BatchedMethod<infer K> ? Awaited<ReturnType<BatchableMethods[K]>> : never;
 
 /**
- * Maps a tuple of BatchedMethod to a tuple of their return types
+ * Wrapper type for batch results that includes the method name for discriminated union deserialization.
+ * Each result is wrapped as \{ name: 'methodName', result: ActualResult \} to allow proper deserialization
+ * when AztecAddress and TxHash would otherwise be ambiguous (both are hex strings).
+ */
+export type BatchedMethodResultWrapper<T extends BatchedMethod<keyof BatchableMethods>> = {
+  /** The method name */
+  name: T['name'];
+  /** The method result */
+  result: BatchedMethodResult<T>;
+};
+
+/**
+ * Maps a tuple of BatchedMethod to a tuple of their wrapped return types
  */
 export type BatchResults<T extends readonly BatchedMethod<keyof BatchableMethods>[]> = {
-  [K in keyof T]: BatchedMethodResult<T[K]>;
+  [K in keyof T]: BatchedMethodResultWrapper<T[K]>;
 };
 
 /**
@@ -151,7 +161,7 @@ export type Wallet = {
   getChainInfo(): Promise<ChainInfo>;
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
-  getSenders(): Promise<Aliased<AztecAddress>[]>;
+  getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
     instanceData: AztecAddress | ContractInstanceWithAddress | ContractInstantiationData | ContractInstanceAndArtifact,
@@ -174,8 +184,7 @@ export type Wallet = {
     authwits?: AuthWitness[],
   ): Promise<UtilitySimulationResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
-  proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxProvingResult>;
-  sendTx(tx: Tx): Promise<TxHash>;
+  sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
   createAuthWit(
     from: AztecAddress,
     messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | CallIntent,
@@ -276,7 +285,7 @@ export const BatchedMethodSchema = z.union([
     args: z.tuple([InstanceDataSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
   }),
   z.object({
-    name: z.literal('proveTx'),
+    name: z.literal('sendTx'),
     args: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
   }),
 ]);
@@ -312,7 +321,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   registerSender: z.function().args(schemas.AztecAddress, optional(z.string())).returns(schemas.AztecAddress),
-  getSenders: z
+  getAddressBook: z
     .function()
     .args()
     .returns(z.array(z.object({ alias: z.string(), item: schemas.AztecAddress }))),
@@ -330,12 +339,19 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
     .args(z.string(), z.array(z.any()), schemas.AztecAddress, optional(z.array(AuthWitness.schema)))
     .returns(UtilitySimulationResult.schema),
   profileTx: z.function().args(ExecutionPayloadSchema, ProfileOptionsSchema).returns(TxProfileResult.schema),
-  proveTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxProvingResult.schema),
-  sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
+  sendTx: z.function().args(ExecutionPayloadSchema, SendOptionsSchema).returns(TxHash.schema),
   createAuthWit: z.function().args(schemas.AztecAddress, MessageHashOrIntentSchema).returns(AuthWitness.schema),
   // @ts-expect-error - ApiSchemaFor cannot properly type generic methods with readonly arrays
   batch: z
     .function()
     .args(z.array(BatchedMethodSchema))
-    .returns(z.array(z.union([schemas.AztecAddress, ContractInstanceWithAddressSchema, TxProvingResult.schema]))),
+    .returns(
+      z.array(
+        z.discriminatedUnion('name', [
+          z.object({ name: z.literal('registerSender'), result: schemas.AztecAddress }),
+          z.object({ name: z.literal('registerContract'), result: ContractInstanceWithAddressSchema }),
+          z.object({ name: z.literal('sendTx'), result: TxHash.schema }),
+        ]),
+      ),
+    ),
 };

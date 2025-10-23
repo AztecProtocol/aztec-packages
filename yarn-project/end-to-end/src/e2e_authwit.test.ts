@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js/authorization';
+import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

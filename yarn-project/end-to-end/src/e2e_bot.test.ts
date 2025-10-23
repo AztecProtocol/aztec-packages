@@ -1,5 +1,7 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { type AztecNode, DeployAccountMethod, Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { AmmBot, Bot, type BotConfig, BotStore, SupportedTokenContracts, getBotDefaultConfig } from '@aztec/bot';
 import { AVM_MAX_PROCESSABLE_L2_GAS, MAX_PROCESSABLE_DA_GAS_PER_BLOCK } from '@aztec/constants';

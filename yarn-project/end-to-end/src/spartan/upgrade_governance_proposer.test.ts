@@ -1,4 +1,5 @@
-import { type AztecNode, EthAddress, type NodeInfo, createAztecNodeClient, sleep } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { type AztecNode, type NodeInfo, createAztecNodeClient } from '@aztec/aztec.js/node';
 import {
   GovernanceProposerContract,
   RollupContract,
@@ -8,6 +9,7 @@ import {
   deployL1Contract,
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 

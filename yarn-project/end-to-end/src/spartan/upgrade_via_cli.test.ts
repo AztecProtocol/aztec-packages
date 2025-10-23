@@ -1,4 +1,4 @@
-// import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
+// import { type PXE, createCompatibleClient } from '@aztec/aztec.js/wallet';
 // import { RegistryContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 // import { createLogger } from '@aztec/foundation/log';
 

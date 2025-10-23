@@ -208,9 +208,11 @@ function test_cmds {
 }
 
 function bench_cmds {
-  local dir=$(realpath --relative-to=$root .)
-  echo "$tests_hash:CPUS=16 barretenberg/acir_tests/scripts/run_bench.sh ultra_honk_rec_wasm_memory" \
-    "'scripts/bbjs_legacy_cli_prove.sh verify_honk_proof'"
+  return
+  # TODO: We no longer have a bb.js cli. Recreate this benchmark another way?
+  # local dir=$(realpath --relative-to=$root .)
+  # echo "$tests_hash:CPUS=16 barretenberg/acir_tests/scripts/run_bench.sh ultra_honk_rec_wasm_memory" \
+  #   "'scripts/bbjs_legacy_cli_prove.sh verify_honk_proof'"
 }
 
 # TODO(https://github.com/AztecProtocol/barretenberg/issues/1254): More complete testing, including failure tests

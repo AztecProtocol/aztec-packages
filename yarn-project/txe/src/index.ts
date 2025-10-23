@@ -1,14 +1,12 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
+import { type NoirCompiledContract, loadContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
   type ContractInstanceWithAddress,
-  Fr,
-  type NoirCompiledContract,
-  PublicKeys,
-  deriveKeys,
   getContractInstanceFromInstantiationParams,
-  loadContractArtifact,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
 import { createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProtocolContract, protocolContractNames } from '@aztec/protocol-contracts';

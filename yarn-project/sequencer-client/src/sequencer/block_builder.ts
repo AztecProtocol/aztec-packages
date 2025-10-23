@@ -1,10 +1,10 @@
-import { MerkleTreeId, elapsed } from '@aztec/aztec.js';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightBlockFactory } from '@aztec/prover-client/block-factory';
 import {

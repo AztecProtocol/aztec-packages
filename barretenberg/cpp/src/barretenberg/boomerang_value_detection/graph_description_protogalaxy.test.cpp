@@ -145,7 +145,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
             stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(folding_circuit);
             // inefficiently check finalized size
             folding_circuit.finalize_circuit(/* ensure_nonzero= */ true);
-            info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates);
+            info("Folding Recursive Verifier: num gates finalized = ", folding_circuit.num_gates());
             auto decider_pk = std::make_shared<OuterProverInstance>(folding_circuit);
             info("Dyadic size of verifier circuit: ", decider_pk->dyadic_size());
             auto honk_vk = std::make_shared<typename OuterFlavor::VerificationKey>(decider_pk->get_precomputed());
@@ -160,7 +160,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         auto graph = cdg::MegaStaticAnalyzer(folding_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        auto connected_components = graph.find_connected_components(/*return_all_connected_components==*/false);
+        auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 1);
         if (connected_components.size() > 1) {
             graph.print_connected_components_info();
@@ -234,13 +234,13 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         inputs.pairing_inputs = pairing_points;
         inputs.set_public();
 
-        info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates);
+        info("Decider Recursive Verifier: num gates = ", decider_circuit.num_gates());
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(decider_circuit.failed(), false) << decider_circuit.err();
         auto graph = cdg::MegaStaticAnalyzer(decider_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        auto connected_components = graph.find_connected_components(/*return_all_connected_components==*/false);
+        auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 1);
         if (variables_in_one_gate.size() > 0) {
             for (const auto& elem : variables_in_one_gate) {

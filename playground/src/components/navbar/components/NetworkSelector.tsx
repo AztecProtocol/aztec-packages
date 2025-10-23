@@ -19,7 +19,7 @@ import { trackButtonClick } from '../../../utils/matomo';
 import CloseIcon from '@mui/icons-material/Close';
 import { PlaygroundDB } from '../../../utils/storage';
 import { WebLogger } from '../../../utils/web_logger';
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 
 export function NetworkSelector() {
   const {

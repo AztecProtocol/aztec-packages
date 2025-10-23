@@ -279,6 +279,8 @@ export const deploySharedContracts = async (
     const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
     stakingAssetAddress = deployedStaking.address;
     logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
+
+    await deployer.waitForDeployments();
   }
 
   const gseAddress = (
@@ -352,7 +354,7 @@ export const deploySharedContracts = async (
   const coinIssuerAddress = (
     await deployer.deploy(CoinIssuerArtifact, [
       feeAssetAddress.toString(),
-      (25_000_000_000n * 10n ** 18n) / (60n * 60n * 24n * 365n),
+      2n * 10n ** 17n, // hard cap of 20% per year
       l1Client.account.address,
     ])
   ).address;
@@ -1707,10 +1709,10 @@ export async function deployL1Contract(
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
       try {
-        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) }, { gasLimit });
+        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
       } catch (err) {
         logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
-        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }) });
+        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
       }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },
@@ -1725,10 +1727,13 @@ export async function deployL1Contract(
     }
   } else {
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-      to: null,
-      data: deployData,
-    });
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: null,
+        data: deployData,
+      },
+      { gasLimit },
+    );
 
     txHash = receipt.transactionHash;
     resultingAddress = receipt.contractAddress;
