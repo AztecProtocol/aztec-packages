@@ -66,13 +66,6 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
     std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
-    // if (!request.loaded_circuit_vk.empty()) {
-    //     // Deserialize directly from buffer
-    //     precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
-    // }
-    info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
-    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
-    request.ivc_stack_depth++;
 
     if (request.vk_policy == VkPolicy::RECOMPUTE) {
         precomputed_vk = nullptr;
@@ -300,10 +293,14 @@ ClientIvcStats::Response ClientIvcStats::execute([[maybe_unused]] const BBApiReq
 
     auto trace_settings = bbapi::USE_SUMCHECK_IVC ? TraceSettings{} : request.trace_settings;
     // Create metadata with appropriate IVC context
-    acir_format::ProgramMetadata metadata{
-        .ivc = ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings),
-        .collect_gates_per_opcode = include_gates_per_opcode
-    };
+    acir_format::ProgramMetadata metadata;
+    if (bbapi::USE_SUMCHECK_IVC) {
+        metadata.ivc = ivc_constraints.empty() ? nullptr : create_mock_sumcheck_ivc_from_constraints(ivc_constraints);
+    } else {
+        metadata.ivc =
+            ivc_constraints.empty() ? nullptr : create_mock_ivc_from_constraints(ivc_constraints, trace_settings);
+    }
+    metadata.collect_gates_per_opcode = include_gates_per_opcode;
 
     // Create and finalize circuit
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);

@@ -57,8 +57,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      * @return std::pair<bool, Accumulator> Pair of sumcheck result and new accumulator.
      */
     std::pair<bool, Accumulator> instance_to_accumulator(const std::shared_ptr<VerifierInstance>& instance,
-                                                         const Proof& proof,
-                                                         bool has_valid_witness_assignments = true);
+                                                         const Proof& proof);
 
     /**
      * @brief Verify folding proof. Return the new accumulator and the results of the two sumchecks.
@@ -67,9 +66,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      * @return std::tuple<bool, bool, Accumulator> Tuple of first and second sumcheck result, and new accumulator.
      */
     std::tuple<bool, bool, Accumulator> verify_folding_proof(
-        const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-        const Proof& proof,
-        bool has_valid_witness_assignments = true);
+        const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof);
 
   private:
     Accumulator sumcheck_output_to_accumulator(MegaSumcheckOutput& sumcheck_output,

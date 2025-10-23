@@ -92,9 +92,9 @@ function compile {
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone_hiding -b - -o $outdir"
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone_hiding --use-sumcheck-ivc -b - -o $outdir"
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
+        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone --use-sumcheck-ivc -b - -o $outdir"
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
         denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
       elif echo "$name" | grep -qE "rollup_root"; then

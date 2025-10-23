@@ -597,7 +597,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
         // if the ivc is a SumcheckClientIVC, we need to pass the has_valid_witness_assignments flag to the function
         if (auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckClientIVC>(ivc)) {
-            sumcheck_ivc->complete_kernel_circuit_logic(builder, has_valid_witness_assignments);
+            sumcheck_ivc->complete_kernel_circuit_logic(builder);
         } else {
             auto client_ivc = std::dynamic_pointer_cast<ClientIVC>(ivc);
             client_ivc->complete_kernel_circuit_logic(builder);
@@ -622,12 +622,12 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         }
     } else {
         // Use the global flag to cast to the correct IVC type
-        if (bb::bbapi::USE_SUMCHECK_IVC) {
-            auto sumcheck_ivc = std::static_pointer_cast<SumcheckClientIVC>(ivc_base);
+        if (auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckClientIVC>(ivc_base)) {
             process_with_ivc(sumcheck_ivc);
+        } else if (auto client_ivc = std::dynamic_pointer_cast<ClientIVC>(ivc_base)) {
+            process_with_ivc(client_ivc);
         } else {
-            auto ivc = std::static_pointer_cast<ClientIVC>(ivc_base);
-            process_with_ivc(ivc);
+            throw_or_abort("Invalid IVC type");
         }
     }
 }

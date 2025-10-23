@@ -61,7 +61,15 @@ describe('Rollup IVC Integration', () => {
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;
 
-    ivcProof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
+    ivcProof = await proveClientIVC(
+      bbBinaryPath,
+      clientIVCWorkingDirectory,
+      witnessStack,
+      bytecodes,
+      vks,
+      logger,
+      true,
+    );
     const ivcVerifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),

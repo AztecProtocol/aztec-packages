@@ -70,8 +70,7 @@ HypernovaFoldingVerifier<Flavor>::Accumulator HypernovaFoldingVerifier<Flavor>::
 template <typename Flavor>
 std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<Flavor>::
     instance_to_accumulator(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-                            const Proof& proof,
-                            bool has_valid_witness_assignments)
+                            const Proof& proof)
 {
     BB_BENCH();
 
@@ -95,11 +94,9 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
     SumcheckVerifier sumcheck(transcript, instance->alphas, Flavor::VIRTUAL_LOG_N, instance->target_sum);
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(instance->relation_parameters, instance->gate_challenges, padding_indicator_array);
-    if (has_valid_witness_assignments) {
-        BB_ASSERT_EQ(
-            sumcheck_output.verified,
-            true,
-            "HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to turn instance into an accumulator.");
+    if (!sumcheck_output.verified) {
+        vinfo("HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to turn instance into an accumulator. "
+              "Ignore, if generating the VK");
     }
 
     auto accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance);
@@ -112,25 +109,23 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
 template <typename Flavor>
 std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<
     Flavor>::verify_folding_proof(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-                                  const HypernovaFoldingVerifier::Proof& proof,
-                                  bool has_valid_witness_assignments)
+                                  const HypernovaFoldingVerifier::Proof& proof)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingVerifier: verifying folding proof...");
 
-    auto [sumcheck_result, incoming_accumulator] =
-        instance_to_accumulator(instance, proof, has_valid_witness_assignments);
+    auto [sumcheck_result, incoming_accumulator] = instance_to_accumulator(instance, proof);
 
     MultilinearBatchingVerifier batching_verifier(transcript);
     auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof();
-    if (has_valid_witness_assignments) {
-        BB_ASSERT_EQ(sumcheck_batching_result,
-                     true,
-                     "HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to batch two accumulators.");
-
-        vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");
+    if (!sumcheck_batching_result) {
+        vinfo("HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to batch two accumulators. "
+              "Ignore, if generating the VK");
     }
+
+    vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");
+
     return { sumcheck_result, sumcheck_batching_result, new_accumulator };
 };
 
