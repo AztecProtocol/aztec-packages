@@ -29,25 +29,15 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Addition
     cycle_group_ct result = input1_point + input2_point;
     cycle_group_ct standard_result = result.get_standard_form();
-    auto x = standard_result.x;
-    auto y = standard_result.y;
-    auto infinite = standard_result.is_point_at_infinity();
 
-    if (x.is_constant()) {
-        builder.fix_witness(input.result_x, x.get_value());
-    } else {
-        x.assert_equal(field_ct::from_witness_index(&builder, input.result_x));
-    }
-    if (y.is_constant()) {
-        builder.fix_witness(input.result_y, y.get_value());
-    } else {
-        y.assert_equal(field_ct::from_witness_index(&builder, input.result_y));
-    }
-    if (infinite.is_constant()) {
-        builder.fix_witness(input.result_infinite, infinite.get_value());
-    } else {
-        infinite.assert_equal(bool_ct::from_witness_index_unsafe(&builder, input.result_infinite));
-    }
+    // Constrain outputs to match expected witness indices
+    field_ct result_x = field_ct::from_witness_index(&builder, input.result_x);
+    field_ct result_y = field_ct::from_witness_index(&builder, input.result_y);
+    bool_ct result_infinite = bool_ct::from_witness_index_unsafe(&builder, input.result_infinite);
+
+    standard_result.x.assert_equal(result_x);
+    standard_result.y.assert_equal(result_y);
+    standard_result.is_point_at_infinity().assert_equal(result_infinite);
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
