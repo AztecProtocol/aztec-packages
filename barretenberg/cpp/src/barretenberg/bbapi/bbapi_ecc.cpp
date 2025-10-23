@@ -59,4 +59,9 @@ Bn254FrSqrt::Response Bn254FrSqrt::execute(BB_UNUSED BBApiRequest& request) &&
     return { is_sqr, root };
 }
 
+Bn254G1Mul::Response Bn254G1Mul::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    return { point * scalar };
+}
+
 } // namespace bb::bbapi
