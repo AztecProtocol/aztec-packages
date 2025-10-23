@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 
@@ -33,18 +33,18 @@ class ClientIVCRecursiveVerifier {
 
         static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
-            return bb::ClientIVC::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n);
+            return bb::SumcheckClientIVC::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n);
         }
 
         static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
-            return bb::ClientIVC::Proof::PROOF_LENGTH(virtual_log_n);
+            return bb::SumcheckClientIVC::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
         StdlibHonkProof mega_proof; // proof of the hiding circuit
         StdlibGoblinProof goblin_proof;
 
-        StdlibProof(Builder& builder, const ClientIVC::Proof& proof)
+        StdlibProof(Builder& builder, const SumcheckClientIVC::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
             , goblin_proof(builder, proof.goblin_proof)
         {}
@@ -97,7 +97,7 @@ class ClientIVCRecursiveVerifier {
 
             BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
                          PROOF_LENGTH(virtual_log_n) + public_inputs_size,
-                         "Reconstructed a ClientIVC proof of wrong the length from proof indices.");
+                         "Reconstructed a LegacyClientIVC proof of wrong the length from proof indices.");
         }
     };
 

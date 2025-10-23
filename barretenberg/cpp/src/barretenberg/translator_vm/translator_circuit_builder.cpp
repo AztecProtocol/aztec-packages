@@ -551,8 +551,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
     // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
-    // ClientIVC::hide_op_queue_content_hiding_kernel
+    // The position and number of these random ops are explained in LegacyClientIVC::hide_op_queue_content_tail_kernel
+    // and LegacyClientIVC::hide_op_queue_content_hiding_kernel
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }

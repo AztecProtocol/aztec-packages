@@ -95,10 +95,10 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(instance->relation_parameters, instance->gate_challenges, padding_indicator_array);
 
-    BB_ASSERT_EQ(
-        sumcheck_output.verified,
-        true,
-        "HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to turn instance into an accumulator.");
+    if (!sumcheck_output.verified) {
+        vinfo("HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to turn instance into an accumulator. "
+              "Ignore if generating the VKs");
+    }
 
     auto accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance);
 
@@ -120,9 +120,10 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
 
     MultilinearBatchingVerifier batching_verifier(transcript);
     auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof();
-    BB_ASSERT_EQ(sumcheck_batching_result,
-                 true,
-                 "HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to batch two accumulators.");
+    if (!sumcheck_batching_result) {
+        vinfo("HypernovaFoldingVerifier: Failed to recursively verify Sumcheck to batch two accumulators. Ignore if "
+              "generating the VKs");
+    }
 
     vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");
 

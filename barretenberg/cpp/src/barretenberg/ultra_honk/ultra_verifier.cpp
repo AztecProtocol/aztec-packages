@@ -73,7 +73,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         // Update output
         output.result &= ipa_result;
     } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-        // Add ecc op tables if we are verifying a ClientIVC proof
+        // Add ecc op tables if we are verifying a LegacyClientIVC proof
         output.ecc_op_tables = inputs.ecc_op_tables;
     }
 
@@ -121,7 +121,7 @@ template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlav
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
-// ClientIVC specialization
+// LegacyClientIVC specialization
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<HidingKernelIO>(
     const Proof& proof, const Proof& ipa_proof);
 

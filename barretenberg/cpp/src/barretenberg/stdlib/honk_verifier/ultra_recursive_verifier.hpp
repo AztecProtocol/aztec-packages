@@ -29,7 +29,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
-                                                      // of the HidingKernel, only for ClientIVC
+                                                      // of the HidingKernel, only for LegacyClientIVC
     FF mega_hash; // The hash of public inputs and VK of the inner circuit in the GoblinAvmRecursiveVerifier
 
     UltraRecursiveVerifierOutput() = default;
