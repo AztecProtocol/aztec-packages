@@ -300,7 +300,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 
     // We won't bump into the case where we end up with non constant coordinates
     BB_ASSERT(!this->_x.is_constant());
-    BB_ASSERT(!this->y.is_constant());
+    BB_ASSERT(!this->_y.is_constant());
 
     // We have to check this to avoid the situation, where we change the infinity
     bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
