@@ -1,6 +1,3 @@
-import { mod } from '@noble/curves/abstract/modular';
-import { bytesToNumberBE } from '@noble/curves/abstract/utils';
-import { bn254 } from '@noble/curves/bn254';
 import { hmac } from '@noble/hashes/hmac';
 import { sha512 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync } from '@scure/bip39';
@@ -8,6 +5,9 @@ import { mnemonicToSeedSync } from '@scure/bip39';
 import type { Hex } from '../../string/index.js';
 // Convenience functions using Bn254 class (for backwards compatibility)
 import { Bn254 } from '../bn254/index.js';
+
+// BN254 Fr order (hardcoded from @noble/curves/bn254)
+const BN254_FR_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
 // Re-export BN254 operations
 export { Bn254, type Bn254G1Point, type Bn254G2Point } from '../bn254/index.js';
@@ -21,7 +21,7 @@ export const computeBn254G1PublicKey = (privateKeyHex: string): Promise<import('
 export const computeBn254G2PublicKey = (privateKeyHex: string) => bn254Instance.computeG2PublicKey(privateKeyHex);
 export const compressBn254G1Point = (point: { x: bigint; y: bigint }): string => bn254Instance.compressG1Point(point);
 export const decompressBn254G1Point = (compressed: string) => bn254Instance.decompressG1Point(compressed);
-export const isOnBn254Curve = (point: { x: bigint; y: bigint }): boolean => bn254Instance.isOnCurve(point);
+export const isOnBn254Curve = (point: { x: bigint; y: bigint }): Promise<boolean> => bn254Instance.isOnCurve(point);
 
 // Re-export EIP-2335 keystore utilities
 export {
@@ -66,14 +66,23 @@ export function deriveBlsKeyFromEntropy(ikm: string, derivationPath: string): st
   return `0x${toFixed32(sk).toString('hex')}`;
 }
 
+// Convert bytes to bigint (big-endian)
+function bytesToNumberBE(bytes: Uint8Array): bigint {
+  let result = 0n;
+  for (let i = 0; i < bytes.length; i++) {
+    result = (result << 8n) | BigInt(bytes[i]);
+  }
+  return result;
+}
+
 function deriveBn254ScalarFromData(data: Buffer): bigint {
-  // Domain-separated HMAC-SHA512, then map to BN254 Fr using noble modular math. Retry on zero.
+  // Domain-separated HMAC-SHA512, then map to BN254 Fr using modular math. Retry on zero.
   const domainKey = Buffer.from('Aztec bn254 key', 'utf8');
   for (let counter = 0; ; counter = (counter + 1) & 0xff) {
     const msg = counter === 0 ? data : Buffer.concat([data, Buffer.from([counter])]);
     const digest = hmac(sha512, domainKey, msg); // 64 bytes
     const x = bytesToNumberBE(digest);
-    const sk = mod(x, bn254.fields.Fr.ORDER);
+    const sk = x % BN254_FR_ORDER;
     if (sk !== 0n) {
       return sk;
     }

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -201,44 +202,75 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     Fq x;
     Fq y;
 
-    // Note: only applicable to field-templated curves (i.e. not something like G2).
+    // Msgpack serialization using byte buffers for compatibility with TypeScript
     struct MsgpackRawAffineElement {
-        uint256_t x{};
-        uint256_t y{};
+        std::vector<uint8_t> x{};
+        std::vector<uint8_t> y{};
         MSGPACK_FIELDS(x, y);
     };
+
+    // Concept to detect if Fq is a field2 type
+    template <typename T>
+    static constexpr bool is_field2_v = requires(T t) {
+        t.c0;
+        t.c1;
+    };
+
+    // Helper to convert field element to bytes using existing serialization
+    static std::vector<uint8_t> field_to_bytes(const Fq& field)
+    {
+        using namespace serialize;
+        constexpr size_t field_size = sizeof(Fq);
+        std::vector<uint8_t> bytes(field_size);
+        uint8_t* ptr = bytes.data();
+        write(ptr, field);
+        return bytes;
+    }
+
+    // Helper to convert bytes to field element using existing serialization
+    static Fq bytes_to_field(const std::vector<uint8_t>& bytes)
+    {
+        using namespace serialize;
+        constexpr size_t field_size = sizeof(Fq);
+        BB_ASSERT(bytes.size() == field_size, "Incorrect byte size for field deserialization");
+        const uint8_t* ptr = bytes.data();
+        Fq result;
+        read(ptr, result);
+        return result;
+    }
+
     void msgpack_pack(auto& packer) const
     {
         MsgpackRawAffineElement raw_element{};
+
         if (is_point_at_infinity()) {
-            // If we are a point at infinity, just set all bits to 1
-            // We only need this case because the below gets mangled converting from montgomery for infinity points
-            constexpr uint256_t all_ones = {
-                0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
-            };
-            raw_element = { all_ones, all_ones };
+            // Represent infinity as all 0xFF bytes
+            constexpr size_t field_size = sizeof(Fq);
+            raw_element.x = std::vector<uint8_t>(field_size, 0xFF);
+            raw_element.y = std::vector<uint8_t>(field_size, 0xFF);
         } else {
-            // Note: internally calls from_montgomery_form()
-            raw_element = { x, y };
+            raw_element.x = field_to_bytes(x);
+            raw_element.y = field_to_bytes(y);
         }
         packer.pack(raw_element);
     }
+
     void msgpack_unpack(auto o)
     {
-        using namespace serialize;
         MsgpackRawAffineElement raw_element = o;
-        // If we are point and infinity, the serialized bits will be all ones.
-        constexpr uint256_t all_ones = {
-            0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
-        };
-        if (raw_element.x == all_ones && raw_element.y == all_ones) {
-            // If we are infinity, just set all bits to 1
-            // We only need this case because the below gets mangled converting from montgomery for infinity points
+
+        // Check if this is point at infinity (all 0xFF bytes)
+        constexpr size_t field_size = sizeof(Fq);
+        bool is_infinity =
+            (raw_element.x.size() == field_size && raw_element.y.size() == field_size &&
+             std::all_of(raw_element.x.begin(), raw_element.x.end(), [](uint8_t b) { return b == 0xFF; }) &&
+             std::all_of(raw_element.y.begin(), raw_element.y.end(), [](uint8_t b) { return b == 0xFF; }));
+
+        if (is_infinity) {
             self_set_infinity();
         } else {
-            // Note: internally calls to_montgomery_form()
-            x = raw_element.x;
-            y = raw_element.y;
+            x = bytes_to_field(raw_element.x);
+            y = bytes_to_field(raw_element.y);
         }
     }
     void msgpack_schema(auto& packer) const

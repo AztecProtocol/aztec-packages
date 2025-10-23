@@ -59,9 +59,19 @@ Bn254FrSqrt::Response Bn254FrSqrt::execute(BB_UNUSED BBApiRequest& request) &&
     return { is_sqr, root };
 }
 
-Bn254G1Mul::Response Bn254G1Mul::execute(BB_UNUSED BBApiRequest& request) &&
+Bn254G1GeneratorScalarMul::Response Bn254G1GeneratorScalarMul::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    return { point * scalar };
+    return { bb::g1::one * scalar };
+}
+
+Bn254G2GeneratorScalarMul::Response Bn254G2GeneratorScalarMul::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    return { bb::g2::one * scalar };
+}
+
+Bn254G1IsOnCurve::Response Bn254G1IsOnCurve::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    return { point.on_curve() };
 }
 
 } // namespace bb::bbapi

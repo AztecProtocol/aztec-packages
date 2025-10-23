@@ -207,24 +207,63 @@ struct Bn254FrSqrt {
 };
 
 /**
- * @struct Bn254G1Mul
- * @brief Multiply a BN254 G1 point by a scalar
+ * @struct Bn254G1GeneratorScalarMul
+ * @brief Multiply a scalar by the BN254 G1 generator point
  */
-struct Bn254G1Mul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1Mul";
+struct Bn254G1GeneratorScalarMul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1GeneratorScalarMul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1MulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1GeneratorScalarMulResponse";
         bb::g1::affine_element point;
         MSGPACK_FIELDS(point);
         bool operator==(const Response&) const = default;
     };
 
-    bb::g1::affine_element point;
     bb::fr scalar;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(point, scalar);
-    bool operator==(const Bn254G1Mul&) const = default;
+    MSGPACK_FIELDS(scalar);
+    bool operator==(const Bn254G1GeneratorScalarMul&) const = default;
+};
+
+/**
+ * @struct Bn254G2GeneratorScalarMul
+ * @brief Multiply a scalar by the BN254 G2 generator point
+ */
+struct Bn254G2GeneratorScalarMul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2GeneratorScalarMul";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2GeneratorScalarMulResponse";
+        bb::g2::affine_element point;
+        MSGPACK_FIELDS(point);
+        bool operator==(const Response&) const = default;
+    };
+
+    bb::fr scalar;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(scalar);
+    bool operator==(const Bn254G2GeneratorScalarMul&) const = default;
+};
+
+/**
+ * @struct Bn254G1IsOnCurve
+ * @brief Check if a BN254 G1 point is on the curve
+ */
+struct Bn254G1IsOnCurve {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1IsOnCurve";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1IsOnCurveResponse";
+        bool is_on_curve;
+        MSGPACK_FIELDS(is_on_curve);
+        bool operator==(const Response&) const = default;
+    };
+
+    bb::g1::affine_element point;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(point);
+    bool operator==(const Bn254G1IsOnCurve&) const = default;
 };
 
 } // namespace bb::bbapi

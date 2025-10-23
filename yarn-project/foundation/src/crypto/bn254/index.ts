@@ -1,12 +1,13 @@
 import { BarretenbergSync } from '@aztec/bb.js';
 
-import { bn254 } from '@noble/curves/bn254';
-
 /**
  * BN254 elliptic curve operations.
- * G1 operations use barretenberg bbapi for performance.
- * G2 operations use @noble/curves (barretenberg G2 support deferred due to msgpack serialization complexity).
+ * All operations use barretenberg bbapi for performance.
  */
+
+// BN254 field constants (hardcoded from @noble/curves/bn254)
+const BN254_FR_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+const BN254_FP_ORDER = 21888242871839275222246405745257275088696311157297823662689037894645226208583n;
 
 /**
  * BN254 G1 point in affine coordinates
@@ -25,12 +26,6 @@ export interface Bn254G2Point {
 }
 
 export class Bn254 {
-  // BN254 G1 generator point (x=1, y=2)
-  private static readonly G1_GENERATOR: Bn254G1Point = {
-    x: 1n,
-    y: 2n,
-  };
-
   /**
    * Generate a compressed BN254 G1 public key from a private key.
    *
@@ -54,21 +49,14 @@ export class Bn254 {
     const api = BarretenbergSync.getSingleton();
 
     const sk = BigInt(privateKeyHex);
-    const skReduced = sk % bn254.fields.Fr.ORDER;
+    const skReduced = sk % BN254_FR_ORDER;
 
     // Convert scalar to 32-byte buffer (big-endian)
     const scalarHex = skReduced.toString(16).padStart(64, '0');
     const scalarBuffer = Buffer.from(scalarHex, 'hex');
 
-    // Convert generator point to buffers
-    const generatorX = this.bigintToBuffer(Bn254.G1_GENERATOR.x);
-    const generatorY = this.bigintToBuffer(Bn254.G1_GENERATOR.y);
-
-    // Call barretenberg for G1 scalar multiplication
-    const response = api.bn254G1Mul({
-      point: { x: generatorX, y: generatorY },
-      scalar: scalarBuffer,
-    });
+    // Call barretenberg for G1 generator scalar multiplication
+    const response = api.bn254G1GeneratorScalarMul({ scalar: scalarBuffer });
 
     // Convert response buffers back to bigints
     const x = BigInt('0x' + Buffer.from(response.point.x).toString('hex'));
@@ -87,15 +75,39 @@ export class Bn254 {
 
   /**
    * Generate BN254 G2 public key from a private key.
+   * Uses barretenberg for efficient scalar multiplication.
    *
    * @param privateKeyHex - Private key as 0x-prefixed hex string
    * @returns G2 point in affine coordinates
    */
-  public computeG2PublicKey(privateKeyHex: string): Bn254G2Point {
-    const sk = BigInt(privateKeyHex);
-    const skReduced = sk % bn254.fields.Fr.ORDER;
+  public async computeG2PublicKey(privateKeyHex: string): Promise<Bn254G2Point> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
 
-    return bn254.G2.ProjectivePoint.BASE.multiply(skReduced).toAffine();
+    const sk = BigInt(privateKeyHex);
+    const skReduced = sk % BN254_FR_ORDER;
+
+    // Convert scalar to 32-byte buffer (big-endian)
+    const scalarHex = skReduced.toString(16).padStart(64, '0');
+    const scalarBuffer = Buffer.from(scalarHex, 'hex');
+
+    // Call barretenberg for G2 generator scalar multiplication
+    const response = api.bn254G2GeneratorScalarMul({ scalar: scalarBuffer });
+
+    // For G2, x and y are field2 elements serialized as 64-byte buffers (c0 || c1)
+    const xBuf = Buffer.from(response.point.x);
+    const yBuf = Buffer.from(response.point.y);
+
+    // Extract c0 and c1 components (32 bytes each)
+    const xC0 = BigInt('0x' + xBuf.subarray(0, 32).toString('hex'));
+    const xC1 = BigInt('0x' + xBuf.subarray(32, 64).toString('hex'));
+    const yC0 = BigInt('0x' + yBuf.subarray(0, 32).toString('hex'));
+    const yC1 = BigInt('0x' + yBuf.subarray(32, 64).toString('hex'));
+
+    return {
+      x: { c0: xC0, c1: xC1 },
+      y: { c0: yC0, c1: yC1 },
+    };
   }
 
   /**
@@ -142,14 +154,14 @@ export class Bn254 {
     bytes[0] &= 0x7f;
     const x = BigInt('0x' + bytes.toString('hex'));
 
-    if (x >= bn254.fields.Fp.ORDER) {
+    if (x >= BN254_FP_ORDER) {
       throw new Error('x-coordinate out of field range');
     }
 
     // Compute y from curve equation: y² = x³ + 3 (BN254: b=3, a=0)
-    const xSquared = (x * x) % bn254.fields.Fp.ORDER;
-    const xCubed = (xSquared * x) % bn254.fields.Fp.ORDER;
-    const ySquared = (xCubed + 3n) % bn254.fields.Fp.ORDER;
+    const xSquared = (x * x) % BN254_FP_ORDER;
+    const xCubed = (xSquared * x) % BN254_FP_ORDER;
+    const ySquared = (xCubed + 3n) % BN254_FP_ORDER;
 
     // Compute square root using BN254-specific formula
     const y = this.modularSqrt(ySquared);
@@ -159,7 +171,7 @@ export class Bn254 {
 
     // Select y with correct parity
     const yIsOdd = (y & 1n) === 1n;
-    const yFinal = yIsOdd === yParity ? y : bn254.fields.Fp.ORDER - y;
+    const yFinal = yIsOdd === yParity ? y : BN254_FP_ORDER - y;
 
     return { x, y: yFinal };
   }
@@ -170,14 +182,15 @@ export class Bn254 {
    * @param point - Point to verify
    * @returns True if the point is on the curve
    */
-  public isOnCurve(point: Bn254G1Point): boolean {
-    // Check curve equation: y² = x³ + 3
-    const lhs = (point.y * point.y) % bn254.fields.Fp.ORDER;
-    const xSquared = (point.x * point.x) % bn254.fields.Fp.ORDER;
-    const xCubed = (xSquared * point.x) % bn254.fields.Fp.ORDER;
-    const rhs = (xCubed + 3n) % bn254.fields.Fp.ORDER;
+  public async isOnCurve(point: Bn254G1Point): Promise<boolean> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
 
-    return lhs === rhs;
+    const pointX = this.bigintToBuffer(point.x);
+    const pointY = this.bigintToBuffer(point.y);
+
+    const response = api.bn254G1IsOnCurve({ point: { x: pointX, y: pointY } });
+    return response.isOnCurve;
   }
 
   /**
@@ -192,7 +205,7 @@ export class Bn254 {
       return 0n;
     }
 
-    const p = bn254.fields.Fp.ORDER;
+    const p = BN254_FP_ORDER;
 
     // For BN254, p ≡ 3 (mod 4), so sqrt(a) = a^((p+1)/4) mod p
     const exponent = (p + 1n) / 4n;

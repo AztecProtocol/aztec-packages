@@ -25,7 +25,7 @@ describe('BN254 Point Operations', () => {
       expect(pk.y).toBeGreaterThan(0n);
 
       // Should be on curve
-      expect(isOnBn254Curve(pk)).toBe(true);
+      expect(await isOnBn254Curve(pk)).toBe(true);
     });
 
     it('matches noble/curves library output', async () => {
@@ -53,9 +53,9 @@ describe('BN254 Point Operations', () => {
   });
 
   describe('computeBn254G2PublicKey', () => {
-    it('generates valid G2 public keys', () => {
+    it('generates valid G2 public keys', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G2PublicKey(sk);
+      const pk = await computeBn254G2PublicKey(sk);
 
       // Should have valid coordinates
       expect(pk.x.c0).toBeGreaterThan(0n);
@@ -64,9 +64,9 @@ describe('BN254 Point Operations', () => {
       expect(pk.y.c1).toBeGreaterThan(0n);
     });
 
-    it('matches noble/curves library output', () => {
+    it('matches noble/curves library output', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G2PublicKey(sk);
+      const pk = await computeBn254G2PublicKey(sk);
 
       // Verify using noble/curves
       const skReduced = BigInt(sk) % bn254.fields.Fr.ORDER;
@@ -110,7 +110,7 @@ describe('BN254 Point Operations', () => {
 
         expect(decompressed.x).toBe(original.x);
         expect(decompressed.y).toBe(original.y);
-        expect(isOnBn254Curve(decompressed)).toBe(true);
+        expect(await isOnBn254Curve(decompressed)).toBe(true);
       }
     });
 
@@ -119,7 +119,7 @@ describe('BN254 Point Operations', () => {
       const compressed = await computeBn254G1PublicKeyCompressed(sk);
       const decompressed = decompressBn254G1Point(compressed);
 
-      expect(isOnBn254Curve(decompressed)).toBe(true);
+      expect(await isOnBn254Curve(decompressed)).toBe(true);
     });
 
     it('correctly handles y parity in compression', async () => {
@@ -154,26 +154,26 @@ describe('BN254 Point Operations', () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
       const pk = await computeBn254G1PublicKey(sk);
 
-      expect(isOnBn254Curve(pk)).toBe(true);
+      expect(await isOnBn254Curve(pk)).toBe(true);
     });
 
-    it('returns true for generator point', () => {
+    it('returns true for generator point', async () => {
       const generator = { x: 1n, y: 2n };
-      expect(isOnBn254Curve(generator)).toBe(true);
+      expect(await isOnBn254Curve(generator)).toBe(true);
     });
 
-    it('returns false for invalid points', () => {
+    it('returns false for invalid points', async () => {
       const invalid = { x: 1n, y: 1n }; // Not on curve
-      expect(isOnBn254Curve(invalid)).toBe(false);
+      expect(await isOnBn254Curve(invalid)).toBe(false);
     });
 
-    it('returns false for random points', () => {
+    it('returns false for random points', async () => {
       const random = {
         x: 12345678901234567890n,
         y: 98765432109876543210n,
       };
       // This point is almost certainly not on the curve
-      expect(isOnBn254Curve(random)).toBe(false);
+      expect(await isOnBn254Curve(random)).toBe(false);
     });
   });
 
@@ -213,7 +213,7 @@ describe('BN254 Point Operations', () => {
       const sk = '0x' + (bn254.fields.Fr.ORDER - 1n).toString(16).padStart(64, '0');
       const pk = await computeBn254G1PublicKey(sk);
 
-      expect(isOnBn254Curve(pk)).toBe(true);
+      expect(await isOnBn254Curve(pk)).toBe(true);
     });
 
     it('handles small private keys', async () => {
