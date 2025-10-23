@@ -691,7 +691,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const st
 
     // Check that all scalars are in range
     for (const auto& scalar : scalars) {
-        const size_t num_scalar_bits = uint512_t(scalar.get_value()).get_msb() + 1ULL;
+        const size_t num_scalar_bits = static_cast<size_t>(uint512_t(scalar.get_value()).get_msb()) + 1ULL;
         BB_ASSERT_LTE(num_scalar_bits, max_num_bits, "process_strauss_msm: scalar out of range");
     }
 
