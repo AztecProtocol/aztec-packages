@@ -48,6 +48,11 @@ template <typename Builder_> class field_t {
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
 
+    // Friend declarations for classes that need direct witness_index access
+    template <typename B> friend class bool_t;
+    template <typename B, typename T> friend class bigfield;
+    template <typename B> friend void mark_witness_as_used(const field_t<B>& field);
+
     mutable Builder* context = nullptr;
 
     /**
@@ -88,6 +93,7 @@ template <typename Builder_> class field_t {
     mutable bb::fr additive_constant;
     mutable bb::fr multiplicative_constant;
 
+  private:
     /**
      * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
      * assigned to wires when creating constraints. `witness_index` describes a location in this container. I.e. it
@@ -137,6 +143,7 @@ template <typename Builder_> class field_t {
      **/
     mutable uint32_t witness_index = IS_CONSTANT;
 
+  public:
     mutable OriginTag tag{};
 
     field_t(Builder* parent_context = nullptr);
