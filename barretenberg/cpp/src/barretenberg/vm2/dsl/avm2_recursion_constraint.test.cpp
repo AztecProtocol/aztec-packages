@@ -113,7 +113,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     std::vector<InnerCircuitData> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit_data());
     AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
-    const ProgramMetadata metadata{ .honk_recursion = 1 };
+    const ProgramMetadata metadata{
+        .is_rollup_flavor = false,
+    };
     auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
@@ -145,7 +147,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     std::shared_ptr<OuterVerificationKey> expected_vk;
     {
         AcirProgram avm_verifier_program = construct_avm_verifier_program({ avm_prover_output });
-        const ProgramMetadata metadata{ .honk_recursion = 2 };
+        const ProgramMetadata metadata{
+            .is_rollup_flavor = true,
+        };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
@@ -171,7 +175,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 
         // Clear the program witness then construct the bberg circuit as normal
         avm_verifier_program.witness.clear();
-        const ProgramMetadata metadata{ .honk_recursion = 2 };
+        const ProgramMetadata metadata{ .is_rollup_flavor = true };
         auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
         info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
