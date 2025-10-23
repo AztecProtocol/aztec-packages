@@ -681,12 +681,22 @@ std::pair<element<C, Fq, Fr, G>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::c
 }
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm(const strauss_msm_data& msm_data)
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::process_strauss_msm_rounds(const std::vector<element>& points,
+                                                                        const std::vector<Fr>& scalars,
+                                                                        const size_t max_num_bits)
 {
-    // Unpack msm data
-    const std::vector<element>& points = msm_data.points;
-    const std::vector<Fr>& scalars = msm_data.scalars;
-    const size_t num_rounds = msm_data.num_bits;
+    // Sanity checks
+    BB_ASSERT_GT(points.size(), 0ULL, "process_strauss_msm: points cannot be empty");
+    BB_ASSERT_EQ(points.size(), scalars.size(), "process_strauss_msm: points and scalars size mismatch");
+
+    // Check that all scalars are in range
+    for (const auto& scalar : scalars) {
+        const size_t num_scalar_bits = uint512_t(scalar.get_value()).get_msb() + 1;
+        BB_ASSERT_LTE(num_scalar_bits, max_num_bits, "process_strauss_msm: scalar out of range");
+    }
+
+    // Constant parameters
+    const size_t num_rounds = max_num_bits;
     const size_t msm_size = scalars.size();
 
     // Compute ROM lookup table for points. Example if we have 3 points G1, G2, G3:
@@ -874,18 +884,18 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                  small_scalars.size(),
                  "biggroup batch_mul: small points and scalars size mismatch after separating big scalars");
 
+    const size_t max_num_bits_in_field = Fr::modulus.get_msb() + 1;
     element accumulator;
     if (!big_points.empty()) {
         // Process big scalars separately
-        strauss_msm_data big_msm_data(big_points, big_scalars, /*max_num_bits*/ Fr::modulus.get_msb() + 1);
-        element big_result = element::process_strauss_msm(big_msm_data);
+        element big_result = element::process_strauss_msm_rounds(big_points, big_scalars, max_num_bits_in_field);
         accumulator = big_result;
     }
 
     if (!small_points.empty()) {
-        const size_t effective_max_num_bits = (max_num_bits == 0) ? (Fr::modulus.get_msb() + 1) : max_num_bits;
-        strauss_msm_data small_msm_data(small_points, small_scalars, effective_max_num_bits);
-        element small_result = element::process_strauss_msm(small_msm_data);
+        // Process small scalars
+        const size_t effective_max_num_bits = (max_num_bits == 0) ? max_num_bits_in_field : max_num_bits;
+        element small_result = element::process_strauss_msm_rounds(small_points, small_scalars, effective_max_num_bits);
         accumulator = (big_points.size() > 0) ? accumulator + small_result : small_result;
     }
 
