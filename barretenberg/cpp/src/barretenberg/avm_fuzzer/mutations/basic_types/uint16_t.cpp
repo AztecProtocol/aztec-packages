@@ -4,7 +4,6 @@
 /// 2. Increment by 1
 /// 3. Decrement by 1
 /// 4. Add a random value
-/// 5. Subtract a random value
 
 #include "uint16_t.hpp"
 #include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
@@ -43,14 +42,6 @@ struct AddRandomValue {
     }
 };
 
-/// @brief Subtract a random value
-struct SubtractRandomValue {
-    static void mutate(uint16_t& value, std::mt19937_64& rng)
-    {
-        value = (value - (generate_random_uint16(rng))) & 0xffff;
-    }
-};
-
 void mutate_uint16_t(uint16_t& value, std::mt19937_64& rng, const Uint16MutationConfig& config)
 {
     Uint16MutationOptions option = config.select(rng);
@@ -67,9 +58,6 @@ void mutate_uint16_t(uint16_t& value, std::mt19937_64& rng, const Uint16Mutation
         break;
     case Uint16MutationOptions::AddRandomValue:
         AddRandomValue::mutate(value, rng);
-        break;
-    case Uint16MutationOptions::SubtractRandomValue:
-        SubtractRandomValue::mutate(value, rng);
         break;
     }
 }

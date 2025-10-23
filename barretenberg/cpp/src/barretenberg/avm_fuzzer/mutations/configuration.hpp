@@ -16,7 +16,7 @@ constexpr VecMutationConfig BASIC_VEC_MUTATION_CONFIGURATION = VecMutationConfig
     { VecMutationOptions::ElementMutation, 100 },
 });
 
-enum class Uint8MutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, SubtractRandomValue };
+enum class Uint8MutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
 
 using Uint8MutationConfig = WeightedSelectionConfig<Uint8MutationOptions, 5>;
 
@@ -24,11 +24,10 @@ constexpr Uint8MutationConfig BASIC_UINT8_T_MUTATION_CONFIGURATION = Uint8Mutati
     { Uint8MutationOptions::RandomSelection, 7 },
     { Uint8MutationOptions::IncrementBy1, 22 },
     { Uint8MutationOptions::DecrementBy1, 20 },
-    { Uint8MutationOptions::AddRandomValue, 100 },
-    { Uint8MutationOptions::SubtractRandomValue, 100 },
+    { Uint8MutationOptions::AddRandomValue, 10 },
 });
 
-enum class Uint16MutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue, SubtractRandomValue };
+enum class Uint16MutationOptions { RandomSelection, IncrementBy1, DecrementBy1, AddRandomValue };
 
 using Uint16MutationConfig = WeightedSelectionConfig<Uint16MutationOptions, 5>;
 
@@ -36,8 +35,7 @@ constexpr Uint16MutationConfig BASIC_UINT16_T_MUTATION_CONFIGURATION = Uint16Mut
     { Uint16MutationOptions::RandomSelection, 7 },
     { Uint16MutationOptions::IncrementBy1, 22 },
     { Uint16MutationOptions::DecrementBy1, 20 },
-    { Uint16MutationOptions::AddRandomValue, 100 },
-    { Uint16MutationOptions::SubtractRandomValue, 100 },
+    { Uint16MutationOptions::AddRandomValue, 10 },
 });
 
 enum class MemoryTagOptions { U1, U8, U16, U32, U64, U128, FF };
@@ -132,6 +130,16 @@ constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION
     { InstructionGenerationOptions::SET_8, 1 },
 });
 
+enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };
+
+using ReturnOptionsMutationConfig = WeightedSelectionConfig<ReturnOptionsMutationOptions, 3>;
+
+constexpr ReturnOptionsMutationConfig BASIC_RETURN_OPTIONS_MUTATION_CONFIGURATION = ReturnOptionsMutationConfig({
+    { ReturnOptionsMutationOptions::return_size, 1 },
+    { ReturnOptionsMutationOptions::return_value_tag, 1 },
+    { ReturnOptionsMutationOptions::return_value_offset_index, 1 },
+});
+
 enum class FuzzerDataMutationOptions {
     InstructionMutation,
     ControlFlowCommandMutation,
@@ -142,7 +150,7 @@ enum class FuzzerDataMutationOptions {
 using FuzzerDataMutationConfig = WeightedSelectionConfig<FuzzerDataMutationOptions, 4>;
 
 constexpr FuzzerDataMutationConfig BASIC_FUZZER_DATA_MUTATION_CONFIGURATION = FuzzerDataMutationConfig({
-    { FuzzerDataMutationOptions::InstructionMutation, 100 },
+    { FuzzerDataMutationOptions::InstructionMutation, 20 },
     { FuzzerDataMutationOptions::ControlFlowCommandMutation, 1 },
     { FuzzerDataMutationOptions::ReturnOptionsMutation, 1 },
     { FuzzerDataMutationOptions::CalldataMutation, 0 },
