@@ -417,6 +417,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return nullptr;
     }
 
+    // Coordinate accessors (non-owning, const reference)
+    const Fq& x() const { return _x; }
+    const Fq& y() const { return _y; }
+    // Non-const accessors for internal use (e.g., fix_witness in tests)
+    Fq& x() { return _x; }
+    Fq& y() { return _y; }
+
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
     {
@@ -459,13 +466,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         _is_infinity.set_free_witness_tag();
     }
 
-    Fq _x;
-    Fq _y;
-
     // For testing purposes only
     friend class element_test_accessor;
 
   private:
+    Fq _x;
+    Fq _y;
     bool_ct _is_infinity;
 
     /**

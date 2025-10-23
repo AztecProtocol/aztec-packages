@@ -406,6 +406,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return start_idx;
     }
 
+    // Coordinate accessors (non-owning, const reference)
+    const Fq& x() const { return _x; }
+    const Fq& y() const { return _y; }
+    // Non-const accessors for internal use (e.g., fix_witness in tests)
+    Fq& x() { return _x; }
+    Fq& y() { return _y; }
+
     /**
      * @brief Reconstruct a goblin element from its representation as limbs stored in the public inputs
      * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
@@ -423,10 +430,9 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
         return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
     }
 
+  private:
     Fq _x;
     Fq _y;
-
-  private:
     bool_ct _is_infinity;
 };
 
