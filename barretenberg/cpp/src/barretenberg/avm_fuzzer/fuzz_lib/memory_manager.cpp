@@ -34,9 +34,6 @@ std::optional<uint16_t> MemoryManager::get_memory_offset_16_bit(bb::avm2::Memory
         return std::nullopt;
     }
     auto& arr = it->second;
-    if (arr.size() == 0) {
-        return std::nullopt;
-    }
     return arr[index % arr.size()];
 }
 

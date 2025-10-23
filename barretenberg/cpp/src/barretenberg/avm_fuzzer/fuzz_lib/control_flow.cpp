@@ -1,5 +1,7 @@
 #include "control_flow.hpp"
+
 #include "fuzzer_data.hpp"
+
 void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructionBlock instruction)
 {
     if (instruction_blocks->size() == 0) {
