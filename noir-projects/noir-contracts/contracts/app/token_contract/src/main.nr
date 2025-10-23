@@ -22,7 +22,7 @@ pub contract Token {
         event::event_emission::emit_event_in_private,
         macros::{
             events::event,
-            functions::{authorize_once, initializer, internal, private, public, utility, view},
+            functions::{authorize_once, external, initializer, internal, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
@@ -69,7 +69,7 @@ pub contract Token {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
         assert(!admin.is_zero(), "invalid admin");
@@ -81,81 +81,81 @@ pub contract Token {
     }
     // docs:end:constructor
 
-    #[public]
+    #[external("public")]
     fn set_admin(new_admin: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not admin");
         storage.admin.write(new_admin);
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn public_get_name() -> FieldCompressedString {
         storage.name.read()
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn private_get_name() -> FieldCompressedString {
         storage.name.read()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn public_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read()
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn private_get_symbol() -> pub FieldCompressedString {
         storage.symbol.read()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn public_get_decimals() -> pub u8 {
         storage.decimals.read()
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn private_get_decimals() -> pub u8 {
         storage.decimals.read()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_admin() -> Field {
         storage.admin.read().to_field()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn is_minter(minter: AztecAddress) -> bool {
         storage.minters.at(minter).read()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn total_supply() -> u128 {
         storage.total_supply.read()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> u128 {
         storage.public_balances.at(owner).read()
     }
 
     // docs:start:set_minter
-    #[public]
+    #[external("public")]
     fn set_minter(minter: AztecAddress, approve: bool) {
         assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not admin");
         storage.minters.at(minter).write(approve);
     }
     // docs:end:set_minter
 
-    #[public]
+    #[external("public")]
     fn mint_to_public(to: AztecAddress, amount: u128) {
         assert(storage.minters.at(context.msg_sender().unwrap()).read(), "caller is not minter");
         let new_balance = storage.public_balances.at(to).read().add(amount);
@@ -165,7 +165,7 @@ pub contract Token {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[public]
+    #[external("public")]
     fn transfer_in_public(
         from: AztecAddress,
         to: AztecAddress,
@@ -179,7 +179,7 @@ pub contract Token {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[public]
+    #[external("public")]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_balance = storage.public_balances.at(from).read().sub(amount);
         storage.public_balances.at(from).write(from_balance);
@@ -188,7 +188,7 @@ pub contract Token {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn transfer_to_public(
         from: AztecAddress,
         to: AztecAddress,
@@ -218,7 +218,7 @@ pub contract Token {
     /// The contract can use the returned partial note to complete the transfer back to private
     /// once the final amount is known during public execution.
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn transfer_to_public_and_prepare_private_balance_increase(
         from: AztecAddress,
         to: AztecAddress,
@@ -236,7 +236,7 @@ pub contract Token {
         _prepare_private_balance_increase(from, &mut context, storage)
     }
 
-    #[private]
+    #[external("private")]
     fn transfer(to: AztecAddress, amount: u128) {
         let from = context.msg_sender().unwrap();
 
@@ -314,7 +314,7 @@ pub contract Token {
     }
 
     #[internal]
-    #[private]
+    #[external("private")]
     fn _recurse_subtract_balance(account: AztecAddress, amount: u128) -> u128 {
         subtract_balance(
             &mut context,
@@ -329,7 +329,7 @@ pub contract Token {
      * Cancel a private authentication witness.
      * @param inner_hash The inner hash of the authwit to cancel.
      */
-    #[private]
+    #[external("private")]
     fn cancel_authwit(inner_hash: Field) {
         let on_behalf_of = context.msg_sender().unwrap();
         let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
@@ -337,7 +337,7 @@ pub contract Token {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn transfer_in_private(
         from: AztecAddress,
         to: AztecAddress,
@@ -359,7 +359,7 @@ pub contract Token {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         storage.balances.at(from).sub(from, amount).emit(
             &mut context,
@@ -370,7 +370,7 @@ pub contract Token {
     }
 
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
-    #[private]
+    #[external("private")]
     fn transfer_to_private(to: AztecAddress, amount: u128) {
         // `from` is the owner of the public balance from which we'll subtract the `amount`.
         let from = context.msg_sender().unwrap();
@@ -387,7 +387,7 @@ pub contract Token {
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
     /// some of the finalization functions (`finalize_transfer_to_private`, `finalize_mint_to_private`) with the
     /// returned partial note.
-    #[private]
+    #[external("private")]
     fn prepare_private_balance_increase(to: AztecAddress) -> PartialUintNote {
         _prepare_private_balance_increase(to, &mut context, storage)
     }
@@ -424,7 +424,7 @@ pub contract Token {
     /// the caller of this function to ensure that it doesn't happen. If the same `partial_note` is used multiple
     /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
     /// to find the pending partial note when trying to complete it).
-    #[public]
+    #[external("public")]
     fn finalize_transfer_to_private(amount: u128, partial_note: PartialUintNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the account
         // `from` from whose balance we're subtracting the `amount`.
@@ -447,7 +447,7 @@ pub contract Token {
     /// times, the token `amount` would most likely get lost (the partial note log processing functionality would fail
     /// to find the pending partial note when trying to complete it).
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn finalize_transfer_to_private_from_private(
         from: AztecAddress,
         partial_note: PartialUintNote,
@@ -467,7 +467,7 @@ pub contract Token {
     /// This is a wrapper around `_finalize_transfer_to_private` placed here so that a call
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
     /// (this has to be done in the calling function).
-    #[public]
+    #[external("public")]
     #[internal]
     fn _finalize_transfer_to_private_unsafe(
         from_and_completer: AztecAddress,
@@ -504,7 +504,7 @@ pub contract Token {
 
     /// Mints token `amount` to a private balance of `to`. Message sender has to have minter permissions (checked
     /// in the enqueued call).
-    #[private]
+    #[external("private")]
     fn mint_to_private(to: AztecAddress, amount: u128) {
         let token = Token::at(context.this_address());
 
@@ -526,7 +526,7 @@ pub contract Token {
     /// Note: This function is only an optimization as it could be replaced by a combination of `mint_to_public`
     /// and `finalize_transfer_to_private`. It is however used very commonly so it makes sense to optimize it
     /// (e.g. used during token bridging, in AMM liquidity token etc.).
-    #[public]
+    #[external("public")]
     fn finalize_mint_to_private(amount: u128, partial_note: PartialUintNote) {
         // Completer is the entity that can complete the partial note. In this case, it's the same as the minter
         // account.
@@ -545,7 +545,7 @@ pub contract Token {
     /// This is a wrapper around `_finalize_mint_to_private` placed here so that a call
     /// to `_finalize_mint_to_private` can be enqueued. Called unsafe as it does not check `minter_and_completer` (this
     /// has to be done in the calling function).
-    #[public]
+    #[external("public")]
     #[internal]
     fn _finalize_mint_to_private_unsafe(
         minter_and_completer: AztecAddress,
@@ -582,7 +582,7 @@ pub contract Token {
     /// Internal ///
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
-    #[public]
+    #[external("public")]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         _increase_public_balance_inner(to, amount, storage);
@@ -598,7 +598,7 @@ pub contract Token {
         storage.public_balances.at(to).write(new_balance);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
@@ -607,7 +607,7 @@ pub contract Token {
     }
 
     // docs:start:balance_of_private
-    #[utility]
+    #[external("utility")]
     unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }

@@ -177,7 +177,7 @@ When this function is invoked, it creates a nullifier for the storage slot, ensu
 Set the value of an PrivateImmutable by calling the `initialize` method:
 
 ```rust
-#[private]
+#[external("private")]
 fn initialize_private_immutable(my_value: u8) {
     let new_note = MyNote::new(my_value, context.msg_sender());
 
@@ -207,7 +207,7 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
 ```rust
-#[private]
+#[external("private")]
 fn get_immutable_note() -> MyNote {
     storage.my_private_immutable.get_note()
 }
@@ -369,7 +369,7 @@ A `PublicImmutable`'s storage **must** only be set once via `initialize`. Attemp
 :::
 
 ```rust
-#[public]
+#[external("public")]
 fn initialize_public_immutable(my_value: u8) {
     let mut new_struct = MyStruct { account: context.msg_sender(), value: my_value };
     storage.my_public_immutable.initialize(new_struct);
@@ -381,7 +381,7 @@ fn initialize_public_immutable(my_value: u8) {
 Returns the stored immutable value. This function is available in public, private and utility contexts.
 
 ```rust
-#[utility]
+#[external("utility")]
 unconstrained fn get_public_immutable() -> MyStruct {
     storage.my_public_immutable.read()
 }
@@ -472,7 +472,7 @@ This is the means by which a `DelayedPublicMutable` variable mutates its content
 This function can only be called in public, typically after some access control check:
 
 ```rust
-#[public]
+#[external("public")]
 fn set_my_value(new_value: MyType) {
     assert_eq(storage.admin.read(), context.msg_sender(), "caller is not admin");
     storage.my_delayed_value.schedule_value_change(new_value);

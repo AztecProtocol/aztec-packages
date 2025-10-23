@@ -9,7 +9,7 @@ pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use aztec::{
         context::PrivateContext,
-        macros::{functions::{private, public, utility}, storage::{storage, storage_no_init}},
+        macros::{functions::external, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         note::{note_interface::NoteProperties, note_viewer_options::NoteViewerOptions},
         protocol_types::address::AztecAddress,
@@ -59,18 +59,18 @@ pub contract DocsExample {
         }
     }
 
-    #[public]
+    #[external("public")]
     fn initialize_public_immutable(points: u8) {
         let mut new_leader = Leader { account: context.msg_sender().unwrap(), points };
         storage.public_immutable.initialize(new_leader);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_public_immutable() -> Leader {
         storage.public_immutable.read()
     }
 
-    #[private]
+    #[external("private")]
     fn initialize_private_immutable(points: u8) {
         let new_card = CardNote::new(points, context.msg_sender().unwrap());
 
@@ -81,18 +81,18 @@ pub contract DocsExample {
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
         storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
 
-    #[private]
+    #[external("private")]
     fn read_legendary_points() {
         storage.legendary_card.get_note()
     }
 
-    #[private]
+    #[external("private")]
     fn increase_legendary_points() {
         storage
             .legendary_card
@@ -103,12 +103,12 @@ pub contract DocsExample {
             .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn is_legendary_initialized() -> bool {
         storage.legendary_card.is_initialized()
     }
 
-    #[private]
+    #[external("private")]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
@@ -117,7 +117,7 @@ pub contract DocsExample {
     use dep::aztec::protocol_types::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs;
     use dep::aztec::context::inputs::PrivateContextInputs;
     // docs:start:simple_macro_example
-    #[private]
+    #[external("private")]
     fn simple_macro_example(a: Field, b: Field) -> Field {
         a + b
     }

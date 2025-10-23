@@ -5,8 +5,8 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, get_fn_visibility, is_fn_contract_library_method,
-        is_fn_initializer, is_fn_internal, is_fn_private, is_fn_public, is_fn_test, is_fn_utility,
-        is_fn_view, modify_fn_body, module_has_initializer, module_has_storage,
+        is_fn_external, is_fn_initializer, is_fn_internal, is_fn_private, is_fn_test, is_fn_view,
+        modify_fn_body, module_has_initializer, module_has_storage,
     },
 };
 use dep::protocol_types::meta::utils::derive_serialization_quotes;
@@ -377,7 +377,7 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
         // We need to for authorize_once to have already executed so that we can retrieve its params - this depends on
         // the order in which the attributes are applied.
         panic(
-            f"Functions marked with #[authorize_once] must have the #[private] or #[public] attribute placed last",
+            f"Functions marked with #[authorize_once] must have the #[external(\"private\")] or #[external(\"public\")] attribute placed last",
         )
     };
 
@@ -437,18 +437,14 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition) -> Quo
     }
 }
 
-/// Checks if each function in the module is marked with either #[private], #[public], #[utility],
-/// #[contract_library_method], or #[test]. Non-macroified functions are not allowed in contracts.
+/// Checks if each function in the module is marked with either #[external(...)], #[contract_library_method], or #[test].
+/// Non-macroified functions are not allowed in contracts.
 pub(crate) comptime fn check_each_fn_macroified(m: Module) {
     for f in m.functions() {
         let name = f.name();
-        if !is_fn_private(f)
-            & !is_fn_public(f)
-            & !is_fn_utility(f)
-            & !is_fn_contract_library_method(f)
-            & !is_fn_test(f) {
+        if !is_fn_external(f) & !is_fn_contract_library_method(f) & !is_fn_test(f) {
             panic(
-                f"Function {name} must be marked as either #[private], #[public], #[utility], #[contract_library_method], or #[test]",
+                f"Function {name} must be marked as either #[external(...)], #[contract_library_method], or #[test]",
             );
         }
     }

@@ -64,7 +64,7 @@ Use generated interfaces instead of manual function calls:
 contract FPC {
     use dep::token::Token;
 
-    #[private]
+    #[external("private")]
     fn fee_entrypoint_private(amount: Field, asset: AztecAddress, secret_hash: Field, nonce: Field) {
         assert(asset == storage.other_asset.read());
         Token::at(asset).transfer_to_public(context.msg_sender(), context.this_address(), amount, nonce).call(&mut context);

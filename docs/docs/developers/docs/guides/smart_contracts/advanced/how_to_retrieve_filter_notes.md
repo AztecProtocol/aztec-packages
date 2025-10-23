@@ -37,8 +37,8 @@ let notes = storage.my_notes.at(owner).get_notes(options);
 // Assuming MyNote has an 'owner' field
 let mut options = NoteGetterOptions::new();
 options = options.select(
-    MyNote::properties().owner, 
-    Comparator.EQ, 
+    MyNote::properties().owner,
+    Comparator.EQ,
     owner
 );
 ```
@@ -84,7 +84,7 @@ fn filter_above_threshold(
 ) -> [Option<RetrievedNote<Note>>; MAX_NOTES] {
     let mut result = [Option::none(); MAX_NOTES];
     let mut count = 0;
-    
+
     for note in notes {
         if note.is_some() & (note.unwrap().note.value >= min) {
             result[count] = note;
@@ -140,7 +140,7 @@ contract.methods.read_notes(Comparator.GTE, 5).simulate({ from: defaultAddress }
 ```rust
 use dep::aztec::note::note_viewer_options::NoteViewerOptions;
 
-#[utility]
+#[external("utility")]
 unconstrained fn view_notes(comparator: u8, value: Field) -> auto {
     let mut options = NoteViewerOptions::new();
     options = options.select(MyNote::properties().value, comparator, value);

@@ -15,10 +15,10 @@ This guide shows you how to define different types of functions in your Aztec co
 
 ## Define private functions
 
-Create functions that execute privately on user devices using the `#[private]` annotation. For example:
+Create functions that execute privately on user devices using the `#[external("private")]` annotation. For example:
 
 ```rust
-#[private]
+#[external("private")]
 fn execute_private_action(param1: AztecAddress, param2: u128) {
     // logic
 }
@@ -28,10 +28,10 @@ Private functions maintain privacy of user inputs and execution logic. Private f
 
 ## Define public functions
 
-Create functions that execute on the sequencer using the `#[public]` annotation:
+Create functions that execute on the sequencer using the `#[external("public")]` annotation:
 
 ```rust
-#[public]
+#[external("public")]
 fn create_item(recipient: AztecAddress, item_id: Field) {
     // logic
 }
@@ -41,12 +41,12 @@ Public functions can access public state, similar to EVM contracts. Public funct
 
 ## Define utility functions
 
-Create offchain query functions using the `#[utility]` annotation.
+Create offchain query functions using the `#[external("utility")]` annotation.
 
 Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received offchain, etc. Example:
 
 ```rust
-#[utility]
+#[external("utility")]
 unconstrained fn get_private_items(
     owner: AztecAddress,
     page_index: u32,
@@ -57,10 +57,10 @@ unconstrained fn get_private_items(
 
 ## Define view functions
 
-Create read-only functions using the `#[view]` annotation combined with `#[private]` or `#[public]`:
+Create read-only functions using the `#[view]` annotation combined with `#[external("private")]` or `#[external("public")]`:
 
 ```rust
-#[public]
+#[external("public")]
 #[view]
 fn get_config_value() -> Field {
     // logic
@@ -74,7 +74,7 @@ View functions cannot modify contract state. They're akin to Ethereum's `view` f
 Create contract-only functions using the `#[internal]` annotation:
 
 ```rust
-#[public]
+#[external("public")]
 #[internal]
 fn update_counter_public(item: Field) {
     // logic
@@ -88,7 +88,7 @@ Internal functions are only callable within the same contract.
 Create constructor-like functions using the `#[initializer]` annotation:
 
 ```rust
-#[private]
+#[external("private")]
 #[initializer]
 fn constructor() {
     // logic

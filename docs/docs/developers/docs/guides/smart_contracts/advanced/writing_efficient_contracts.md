@@ -97,12 +97,12 @@ For example:
 comptime global TWO_POW_32: Field = 2.pow_32(16);
 // ...
 {
-    #[private]
+    #[external("private")]
     fn mul_inefficient(number: Field) -> u128 {
         number as u128 << 16 as u8
     } // 5244 gates
 
-    #[private]
+    #[external("private")]
     fn mul_efficient(number: Field) -> u128 {
         (number * TWO_POW_32) as u128
     } // 5184 gates (60 gates less)
@@ -117,7 +117,7 @@ For example, use boolean equality effectively instead of `>=`:
 
 ```rust
 {
-    #[private]
+    #[external("private")]
     fn sum_from_inefficient(from: u32, array: [u32; 1000]) -> u32 {
         let mut sum: u32 = 0;
         for i in 0..1000 {
@@ -128,7 +128,7 @@ For example, use boolean equality effectively instead of `>=`:
         sum
     } // 44317 gates
 
-    #[private]
+    #[external("private")]
     fn sum_from_efficient(from: u32, array: [u32; 1000]) -> u32 {
         let mut sum: u32 = 0;
         let mut do_sum = false;
@@ -171,21 +171,21 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract OptimisationExample {
-    use dep::aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
+    use dep::aztec::macros::{functions::{external, initializer}, storage::storage};
 
     #[storage]
     struct Storage<Context> {}
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor() {}
 
-    #[private]
+    #[external("private")]
     fn sqrt_inefficient(number: Field) -> Field {
         super::sqrt_constrained(number)
     }
 
-    #[private]
+    #[external("private")]
     fn sqrt_efficient(number: Field) -> Field {
         // Safety: calculate in unconstrained function, then constrain the result
         let x = unsafe { super::sqrt_unconstrained(number) };
@@ -242,7 +242,7 @@ Like with sqrt, we have the inefficient function that does the sort with constra
 ```rust
 //...
 {
-    #[private]
+    #[external("private")]
     fn sort_inefficient(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
         let mut sorted_array = array;
         for i in 0..super::ARRAY_SIZE as u32 {
@@ -257,7 +257,7 @@ Like with sqrt, we have the inefficient function that does the sort with constra
         sorted_array
     } // 6823 gates for 10 elements, 127780 gates for 100 elements
 
-    #[private]
+    #[external("private")]
     fn sort_efficient(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
         // Safety: calculate in unconstrained function, then constrain the result
         let sorted_array = unsafe { super::sort_array(array) };
@@ -290,7 +290,7 @@ Like before, the flamegraph command can be used to present the gate counts of th
 Note: The stdlib provides a highly optimized version of sort on arrays, `array.sort()`, which saves even more gates.
 
 ```rust
-    #[private]
+    #[external("private")]
     fn sort_stdlib(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
         array.sort();
     } // 5943 gates (880 gates less) for 10 elements, 13308 gates for 100 elements (114472 gates less)
@@ -302,7 +302,7 @@ In the same vein, refactoring is inefficient when done constrained, and more eff
 
 ```rust
 {
-    #[private]
+    #[external("private")]
     fn refactor_inefficient(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
         let mut compacted_array = [0; super::ARRAY_SIZE];
         let mut index = 0;
@@ -315,7 +315,7 @@ In the same vein, refactoring is inefficient when done constrained, and more eff
         compacted_array
     } // 6570 gates for 10 elements, 93071 gates for 100 elements
 
-    #[private]
+    #[external("private")]
     fn refactor_efficient(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
         let compacted_array = unsafe { super::refactor_array(array) };
         // count non-zero elements in array

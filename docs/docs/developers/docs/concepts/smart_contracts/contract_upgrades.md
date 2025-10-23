@@ -32,7 +32,7 @@ Contract upgrades in Aztec have to be initiated by the contract that wishes to b
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
 use contract_instance_registry::ContractInstanceRegistry;
 
-#[private]
+#[external("private")]
 fn update_to(new_class_id: ContractClassId) {
     ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
         .update(new_class_id)
@@ -43,7 +43,7 @@ fn update_to(new_class_id: ContractClassId) {
 The `update` function in the registry is a public function, so you can enqueue it from a private function like the example or call it from a public function directly.
 
 :::note
-Recall that `#[private]` means calling this function preserves privacy, and it still CAN be called externally by anyone.
+Recall that `#[external("private")]` means calling this function preserves privacy, and it still CAN be called externally by anyone.
 So the `update_to` function above allows anyone to update the contract that implements it. A more complete implementation should have a proper authorization systems to secure contracts from malicious upgrades.
 :::
 
@@ -54,7 +54,7 @@ This means that they have a delay before entering into effect. The default delay
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
 use contract_instance_registry::ContractInstanceRegistry;
 
-#[private]
+#[external("private")]
 fn set_update_delay(new_delay: u64) {
    ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
       .set_update_delay(new_delay)
@@ -107,7 +107,7 @@ Consider this contract as an example:
 contract Updatable {
 ...
 
-    #[private]
+    #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id).enqueue(
             &mut context,
@@ -164,7 +164,7 @@ await RandomContract.at(address, wallet);
 
 ```rust
 contract Updatable {
-    #[private]
+    #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
         // TODO: Add access control
         assert(context.msg_sender() == owner, "Unauthorized");
@@ -175,7 +175,7 @@ contract Updatable {
             .enqueue(&mut context);
     }
 
-    #[private]
+    #[external("private")]
     fn set_update_delay(new_delay: u64) {
         // TODO: Add access control
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)

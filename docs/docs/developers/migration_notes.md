@@ -197,6 +197,42 @@ The following commands were dropped from the `aztec` command:
 
 ## [Aztec.nr]
 
+### Replacing #[private], #[public], #[utility] with #[external(...)] macro
+
+The original naming was not great in that it did not sufficiently communicate what the given macro did.
+We decided to rename `#[private]` as `#[external("private")]`, `#[public]` as `#[external("public")]`, and `#[utility]` as `#[external("utility")]` to better communicate that these functions are externally callable and to specify their execution context. In this sense, `external` now means the exact same thing as in Solidity, i.e. a function that can be called from other contracts, and that can only be invoked via a contract call (i.e. the `CALL` opcode in the EVM, and a kernel call/AVM `CALL` opcode in Aztec).
+
+You have to do the following changes in your contracts:
+
+Update import:
+
+```diff
+- use aztec::macros::functions::private;
+- use aztec::macros::functions::public;
+- use aztec::macros::functions::utility;
++ use aztec::macros::functions::external;
+```
+
+Update attributes of your functions:
+
+```diff
+-    #[private]
++    #[external("private")]
+    fn my_private_func() {
+```
+
+```diff
+-    #[public]
++    #[external("public")]
+    fn my_public_func() {
+```
+
+```diff
+-    #[utility]
++    #[external("utility")]
+    fn my_utility_func() {
+```
+
 ### Authwit Test Helper now takes `env`
 
 The `add_private_authwit_from_call_interface` test helper available in `test::helpers::authwit` now takes a `TestEnvironment` parameter, mirroring `add_public_authwit_from_call_interface`. This adds some unfortunate verbosity, but there are bigger plans to improve authwit usage in Noir tests in the near future.

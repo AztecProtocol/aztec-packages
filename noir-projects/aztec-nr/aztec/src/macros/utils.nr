@@ -1,26 +1,43 @@
+use crate::macros::functions::external_registry;
 use dep::protocol_types::meta::derive_serialize;
 use std::meta::unquote;
 
 pub(crate) comptime fn get_fn_visibility(f: FunctionDefinition) -> Quoted {
-    if f.has_named_attribute("private") {
-        quote { private }
-    } else if f.has_named_attribute("public") {
-        quote { public }
+    let maybe_external_type = external_registry::get(f);
+    if maybe_external_type.is_some() {
+        let external_type = maybe_external_type.unwrap();
+        if external_type.eq("private") {
+            quote { private }
+        } else if external_type.eq("public") {
+            quote { public }
+        } else {
+            panic(f"Function is neither private nor public")
+        }
     } else {
         panic(f"Function is neither private nor public")
     }
 }
 
+pub(crate) comptime fn is_fn_external(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("external")
+}
+
 pub(crate) comptime fn is_fn_private(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("private")
+    let maybe_external_type = external_registry::get(f);
+    if maybe_external_type.is_some() {
+        maybe_external_type.unwrap_unchecked().eq("private")
+    } else {
+        false
+    }
 }
 
 pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("public")
-}
-
-pub(crate) comptime fn is_fn_utility(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("utility")
+    let maybe_external_type = external_registry::get(f);
+    if maybe_external_type.is_some() {
+        maybe_external_type.unwrap_unchecked().eq("public")
+    } else {
+        false
+    }
 }
 
 pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {

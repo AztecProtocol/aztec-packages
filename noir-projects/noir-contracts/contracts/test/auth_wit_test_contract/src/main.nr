@@ -4,16 +4,16 @@ use dep::aztec::macros::aztec;
 pub contract AuthWitTest {
     use dep::aztec::{
         authwit::auth::{assert_inner_hash_valid_authwit, assert_inner_hash_valid_authwit_public},
-        macros::functions::{private, public},
+        macros::functions::external,
         protocol_types::address::AztecAddress,
     };
 
-    #[private]
+    #[external("private")]
     fn consume(on_behalf_of: AztecAddress, inner_hash: Field) {
         assert_inner_hash_valid_authwit(&mut context, on_behalf_of, inner_hash);
     }
 
-    #[public]
+    #[external("public")]
     fn consume_public(on_behalf_of: AztecAddress, inner_hash: Field) {
         assert_inner_hash_valid_authwit_public(&mut context, on_behalf_of, inner_hash);
     }
