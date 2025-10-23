@@ -26,10 +26,16 @@ node:
     env:
       OTEL_SERVICE_NAME: "prover-node"
       PROVER_AGENT_COUNT: 0
+      # Set this to your web3signer URL (e.g. http://web3signer.namespace.svc.cluster.local:9000/)
+      WEB3_SIGNER_URL: ""
+      # Derivation for publisher addresses when using web3signer
+      PUBLISHERS_PER_PROVER: "1"
+      PUBLISHER_KEY_INDEX_START: "8000"
+    web3signerUrl: ""
 
     preStartScript: |
-      source /scripts/get-private-key.sh
       export TX_COLLECTION_NODE_RPC_URLS=$(bash /scripts/resolve-node-hosts.sh $NODE_HOSTS)
+      source /scripts/setup-prover-keystore.sh
 
     startCmd:
       - --prover-node

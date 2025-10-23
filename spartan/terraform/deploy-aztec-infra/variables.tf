@@ -175,6 +175,18 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
+variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
+  description = "Number of publisher EOAs per validator key"
+  type        = string
+  default     = 1
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic start index for validator publishers"
+  type        = string
+  default     = 5000
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -187,10 +199,22 @@ variable "PROVER_MNEMONIC" {
   default     = "test test test test test test test test test test test junk"
 }
 
-variable "PROVER_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
+variable "PROVER_REPLICAS" {
+  description = "The number of prover replicas"
   type        = string
-  default     = 1000
+  default     = 4
+}
+
+variable "PROVER_PUBLISHERS_PER_PROVER" {
+  description = "Number of publisher keys per prover"
+  type        = string
+  default     = 1
+}
+
+variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "The prover publisher mnemonic start index"
+  type        = string
+  default     = 8000
 }
 
 variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
@@ -421,13 +445,6 @@ variable "BOT_SWAPS_L2_PRIVATE_KEY" {
   default     = null
 }
 
-variable "PROVER_FAILED_PROOF_STORE" {
-  description = "Optional GCS/URI to store failed proofs from the prover"
-  type        = string
-  nullable    = false
-  default     = ""
-}
-
 # RPC ingress configuration (GKE-specific)
 variable "RPC_INGRESS_ENABLED" {
   description = "Enable GKE ingress for RPC nodes"
@@ -453,9 +470,15 @@ variable "RPC_INGRESS_SSL_CERT_NAME" {
   default     = ""
 }
 
-variable "PROVER_REPLICAS" {
-  description = "The number of prover replicas"
-  type        = number
-  default     = 4
+variable "PROVER_FAILED_PROOF_STORE" {
+  description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
 }
 
+variable "RPC_REPLICAS" {
+  description = "The number of RPC replicas"
+  type        = string
+  default     = 1
+}

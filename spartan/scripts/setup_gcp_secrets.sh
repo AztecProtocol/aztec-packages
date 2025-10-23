@@ -13,11 +13,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 # Read the network name from the env file
-NETWORK=$(grep "^NETWORK=" "$ENV_FILE" | cut -d'=' -f2)
-if [[ -z "$NETWORK" ]]; then
-    echo "NETWORK not found in environment file" >&2
-    exit 1
-fi
+NETWORK=${NETWORK:-}
+
+L1_NETWORK=${L1_NETWORK:-sepolia}
 
 echo "Setting up GCP secrets for network: $NETWORK"
 
@@ -67,22 +65,20 @@ mask_secret_value() {
             echo "::add-mask::$element"
         done
     fi
-
-    echo "$secret_value"
 }
 
 # Map of environment variables to GCP secret names
 # Generic mappings - network-specific secrets use ${NETWORK} in the name
 declare -A SECRET_MAPPINGS=(
-    ["ETHEREUM_RPC_URLS"]="sepolia-rpc-urls"
-    ["ETHEREUM_CONSENSUS_HOST_URLS"]="sepolia-consensus-host-urls"
-    ["ETHEREUM_CONSENSUS_HOST_API_KEYS"]="sepolia-consensus-host-api-keys"
-    ["ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS"]="sepolia-consensus-host-api-key-headers"
-    ["FUNDING_PRIVATE_KEY"]="sepolia-funding-private-key"
-    ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="sepolia-labs-rollup-private-key"
+    ["ETHEREUM_RPC_URLS"]="${L1_NETWORK}-rpc-urls"
+    ["ETHEREUM_CONSENSUS_HOST_URLS"]="${L1_NETWORK}-consensus-host-urls"
+    ["ETHEREUM_CONSENSUS_HOST_API_KEYS"]="${L1_NETWORK}-consensus-host-api-keys"
+    ["ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS"]="${L1_NETWORK}-consensus-host-api-key-headers"
+    ["FUNDING_PRIVATE_KEY"]="${L1_NETWORK}-funding-private-key"
+    ["ROLLUP_DEPLOYMENT_PRIVATE_KEY"]="${L1_NETWORK}-labs-rollup-private-key"
     ["OTEL_COLLECTOR_ENDPOINT"]="otel-collector-url"
     ["ETHERSCAN_API_KEY"]="etherscan-api-key"
-    ["LABS_INFRA_MNEMONIC"]="sepolia-labs-${NETWORK}-mnemonic"
+    ["LABS_INFRA_MNEMONIC"]="${L1_NETWORK}-labs-${NETWORK}-mnemonic"
     ["STORE_SNAPSHOT_URL"]="r2-account-id"
     ["R2_ACCESS_KEY_ID"]="r2-access-key-id"
     ["R2_SECRET_ACCESS_KEY"]="r2-secret-access-key"
@@ -104,14 +100,14 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Export the secret value
         secret_file=$(get_secret "$secret_name")
-        secret_value=$(mask_secret_value "$env_var" "$secret_file")
-        export $env_var="${secret_value}"
+        mask_secret_value "$env_var" "$secret_file"
+        export $env_var="$(cat "$secret_file")"
     elif grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE"; then
         # Handle cases like STORE_SNAPSHOT_URL=REPLACE_WITH_GCP_SECRET/network/
         suffix=$(grep "^${env_var}=REPLACE_WITH_GCP_SECRET/" "$ENV_FILE" | cut -d'/' -f2-)
         secret_file=$(get_secret "$secret_name")
-        secret_value=$(mask_secret_value "$env_var" "$secret_file")
-        export $env_var='${secret_value}/'$suffix
+        mask_secret_value "$env_var" "$secret_file"
+        export $env_var="$(cat $secret_file)/$suffix"
     elif grep -q "^${env_var}=.*REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
         # Replace inline occurrences within the value, preserving surrounding content
         full_value=$(grep "^${env_var}=" "$ENV_FILE" | cut -d'=' -f2-)
@@ -120,10 +116,20 @@ for env_var in "${!SECRET_MAPPINGS[@]}"; do
             full_value="${full_value:1:-1}"
         fi
         secret_file=$(get_secret "$secret_name")
-        secret_value=$(mask_secret_value "$env_var" "$secret_file")
+        mask_secret_value "$env_var" "$secret_file"
+        secret_value="$(cat "$secret_file")"
         replaced_value="${full_value//REPLACE_WITH_GCP_SECRET/$secret_value}"
         export $env_var="$replaced_value"
     fi
 done
+
+# Construct STORE_SNAPSHOT_URL from the r2-account-id secret and SNAPSHOT_BUCKET_DIRECTORY
+# This happens after secret replacement so the R2 account ID is available
+if [[ -n "${SNAPSHOT_BUCKET_DIRECTORY:-}" ]]; then
+    secret_file=$(get_secret "r2-account-id")
+    mask_secret_value "STORE_SNAPSHOT_URL" "$secret_file"
+    r2_account_id=$(cat "$secret_file")
+    export STORE_SNAPSHOT_URL="s3://testnet-bucket/${SNAPSHOT_BUCKET_DIRECTORY}/?endpoint=https://${r2_account_id}.r2.cloudflarestorage.com&publicBaseUrl=https://aztec-labs-snapshots.com"
+fi
 
 echo "Successfully set up GCP secrets for $NETWORK"

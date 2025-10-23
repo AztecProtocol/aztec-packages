@@ -35,6 +35,28 @@ provider "helm" {
   }
 }
 
+module "web3signer" {
+  source                                   = "../modules/web3signer"
+  NAMESPACE                                = var.NAMESPACE
+  RELEASE_NAME                             = var.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE                       = var.AZTEC_DOCKER_IMAGE
+  CHAIN_ID                                 = var.L1_CHAIN_ID
+  MNEMONIC                                 = var.VALIDATOR_MNEMONIC
+  ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
+  ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
+  NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
+  VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
+  VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
+  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
+  PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
+  PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
+
+  providers = {
+    helm       = helm.gke-cluster
+    kubernetes = kubernetes.gke-cluster
+  }
+}
+
 locals {
   aztec_image = {
     repository = split(":", var.AZTEC_DOCKER_IMAGE)[0]
@@ -51,6 +73,8 @@ locals {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
     "global.useGcloudLogging"                                  = true
+    "global.customAztecNetwork.enabled"                        = var.NETWORK == null || var.NETWORK == ""
+    "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
     "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
@@ -108,10 +132,12 @@ locals {
         "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
       ]
       custom_settings = {
-        "global.customAztecNetwork.enabled"                 = true
+        "validator.web3signerUrl"                           = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "validator.mnemonic"                                = var.VALIDATOR_MNEMONIC
         "validator.mnemonicStartIndex"                      = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.validatorsPerNode"                       = var.VALIDATORS_PER_NODE
+        "validator.publishersPerValidatorKey"               = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.publisherMnemonicStartIndex"             = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.replicaCount"                            = var.VALIDATOR_REPLICAS
         "validator.sentinel.enabled"                        = var.SENTINEL_ENABLED
         "validator.slash.minPenaltyPercentage"              = var.SLASH_MIN_PENALTY_PERCENTAGE
@@ -128,8 +154,14 @@ locals {
         "validator.slash.maxPayloadSize"                    = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"          = var.TRANSACTIONS_DISABLED
         "validator.node.env.NETWORK"                        = var.NETWORK
+        "validator.node.env.KEY_INDEX_START"                = var.VALIDATOR_MNEMONIC_START_INDEX
+        "validator.node.env.PUBLISHER_KEY_INDEX_START"      = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+        "validator.node.env.VALIDATORS_PER_NODE"            = var.VALIDATORS_PER_NODE
+        "validator.node.env.PUBLISHERS_PER_VALIDATOR_KEY"   = var.VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
         "validator.node.env.SEQ_MIN_TX_PER_BLOCK"           = var.SEQ_MIN_TX_PER_BLOCK
         "validator.node.env.SEQ_MAX_TX_PER_BLOCK"           = var.SEQ_MAX_TX_PER_BLOCK
+        "validator.node.proverRealProofs"                   = var.PROVER_REAL_PROOFS
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -146,16 +178,22 @@ locals {
       ]
       custom_settings = {
         "node.mnemonic"                                   = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                         = var.PROVER_MNEMONIC_START_INDEX
+        "node.mnemonicStartIndex"                         = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
         "node.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+        "node.web3signerUrl"                              = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
         "node.node.env.NETWORK"                           = var.NETWORK
         "node.node.env.PROVER_FAILED_PROOF_STORE"         = var.PROVER_FAILED_PROOF_STORE
+        "node.node.env.KEY_INDEX_START"                   = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHER_KEY_INDEX_START"         = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+        "node.node.env.PUBLISHERS_PER_PROVER"             = var.PROVER_PUBLISHERS_PER_PROVER
         "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH" = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
         "broker.node.proverRealProofs"                    = var.PROVER_REAL_PROOFS
         "broker.node.env.NETWORK"                         = var.NETWORK
+        "broker.node.env.BOOTSTRAP_NODES"                 = "asdf"
         "agent.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
         "agent.node.env.NETWORK"                          = var.NETWORK
         "agent.replicaCount"                              = var.PROVER_REPLICAS
+        "agent.node.env.BOOTSTRAP_NODES"                  = "asdf"
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
@@ -194,7 +232,9 @@ locals {
       })] : []
       custom_settings = {
         "nodeType"                       = "rpc"
+        "replicaCount"                   = var.RPC_REPLICAS
         "node.env.NETWORK"               = var.NETWORK
+        "node.proverRealProofs"          = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"            = var.RPC_INGRESS_ENABLED
         "ingress.rpc.host"               = var.RPC_INGRESS_HOST
         "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
