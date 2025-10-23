@@ -106,11 +106,12 @@ export class ContractFunctionSimulator {
     scopes?: AztecAddress[],
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
-    const anchorBlockHeader = await this.executionDataProvider.getAnchorBlockHeader();
 
-    await verifyCurrentClassId(contractAddress, this.executionDataProvider);
-
-    const entryPointArtifact = await this.executionDataProvider.getFunctionArtifact(contractAddress, selector);
+    const [anchorBlockHeader, _, entryPointArtifact] = await Promise.all([
+      this.executionDataProvider.getAnchorBlockHeader(),
+      verifyCurrentClassId(contractAddress, this.executionDataProvider),
+      this.executionDataProvider.getFunctionArtifact(contractAddress, selector),
+    ]);
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);

@@ -135,7 +135,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataProvider.getContractInstance(contractAddress);
     if (!instance) {
-      return;
+      return undefined;
     }
     const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
