@@ -78,6 +78,11 @@ tests:
     error_regex: "ultra_circuit_builder.test.cpp:631: Failure"
     owners:
       - *luke
+  # http://ci.aztec-labs.com/1593f7c89e22b51b
+  - regex: stdlib_primitives_tests stdlibBiggroupSecp256k1/1.WnafSecp256k1StaggerOutOfRangeFails
+    error_regex: "biggroup_nafs: stagger fragment is not in range"
+    owners:
+      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
