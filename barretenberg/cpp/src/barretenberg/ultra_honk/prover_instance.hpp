@@ -262,12 +262,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;
 
-    /**
-     * @brief Compute dyadic size based on a structured trace with fixed block size
-     *
-     */
-    size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
-
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
 

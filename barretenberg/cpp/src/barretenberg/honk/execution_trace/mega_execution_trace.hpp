@@ -16,42 +16,6 @@
 
 namespace bb {
 
-struct TraceStructure {
-    uint32_t ecc_op;
-    uint32_t busread;
-    uint32_t lookup;
-    uint32_t pub_inputs;
-    uint32_t arithmetic;
-    uint32_t delta_range;
-    uint32_t elliptic;
-    uint32_t memory;
-    uint32_t nnf;
-    uint32_t poseidon2_external;
-    uint32_t poseidon2_internal;
-    uint32_t overflow; // block gates of arbitrary type that overflow their designated block
-
-    auto get()
-    {
-        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
-                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    auto get() const
-    {
-        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
-                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    size_t size() const
-    {
-        size_t result{ 0 };
-        for (const auto& block_size : get()) {
-            result += block_size;
-        }
-        return static_cast<size_t>(result);
-    }
-};
-
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
   public:
     using SelectorType = Selector<fr>;
@@ -322,22 +286,6 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
     SlabVectorSelector<fr> gate_selector;
 };
 
-class MegaTraceOverflowBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_busread() override { return gate_selectors[0]; };
-    SelectorType& q_lookup_type() override { return gate_selectors[1]; };
-    SelectorType& q_arith() override { return gate_selectors[2]; }
-    SelectorType& q_delta_range() override { return gate_selectors[3]; }
-    SelectorType& q_elliptic() override { return gate_selectors[4]; }
-    SelectorType& q_memory() override { return gate_selectors[5]; }
-    SelectorType& q_nnf() override { return gate_selectors[6]; }
-    SelectorType& q_poseidon2_external() override { return gate_selectors[7]; }
-    SelectorType& q_poseidon2_internal() override { return gate_selectors[8]; }
-
-  private:
-    std::array<SlabVectorSelector<fr>, 9> gate_selectors;
-};
-
 /**
  * @brief A container indexed by the types of the blocks in the execution trace.
  *
@@ -357,44 +305,43 @@ struct MegaTraceBlockData {
     MegaTraceNonNativeFieldBlock nnf;
     MegaTracePoseidon2ExternalBlock poseidon2_external;
     MegaTracePoseidon2InternalBlock poseidon2_internal;
-    MegaTraceOverflowBlock overflow; // block gates of arbitrary type that overflow their designated block
+
+    static constexpr size_t NUM_BLOCKS = 11;
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",         "delta_range",
-                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal", "overflow" };
+        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",        "delta_range",
+                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal" };
     }
 
     auto get()
     {
-        return RefArray(std::array<MegaTraceBlock*, 12>{ &ecc_op,
-                                                         &busread,
-                                                         &lookup,
-                                                         &pub_inputs,
-                                                         &arithmetic,
-                                                         &delta_range,
-                                                         &elliptic,
-                                                         &memory,
-                                                         &nnf,
-                                                         &poseidon2_external,
-                                                         &poseidon2_internal,
-                                                         &overflow });
+        return RefArray(std::array<MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                 &busread,
+                                                                 &lookup,
+                                                                 &pub_inputs,
+                                                                 &arithmetic,
+                                                                 &delta_range,
+                                                                 &elliptic,
+                                                                 &memory,
+                                                                 &nnf,
+                                                                 &poseidon2_external,
+                                                                 &poseidon2_internal });
     }
 
     auto get() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, 12>{ &ecc_op,
-                                                               &busread,
-                                                               &lookup,
-                                                               &pub_inputs,
-                                                               &arithmetic,
-                                                               &delta_range,
-                                                               &elliptic,
-                                                               &memory,
-                                                               &nnf,
-                                                               &poseidon2_external,
-                                                               &poseidon2_internal,
-                                                               &overflow });
+        return RefArray(std::array<const MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                       &busread,
+                                                                       &lookup,
+                                                                       &pub_inputs,
+                                                                       &arithmetic,
+                                                                       &delta_range,
+                                                                       &elliptic,
+                                                                       &memory,
+                                                                       &nnf,
+                                                                       &poseidon2_external,
+                                                                       &poseidon2_internal });
     }
 
     auto get_gate_blocks() const
@@ -430,8 +377,6 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
 
     using FF = fr;
 
-    bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
-
     MegaExecutionTraceBlocks() = default;
 
     void compute_offsets()
@@ -457,9 +402,8 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         info("nnf           :\t", this->nnf.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
         info("poseidon int  :\t", this->poseidon2_internal.size());
-        info("overflow      :\t", this->overflow.size());
         info("");
-        info("Total structured size: ", get_structured_size());
+        info("Total size: ", get_total_size());
     }
 
     // Get cumulative size of all blocks
@@ -472,24 +416,13 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         return total_size;
     }
 
-    size_t get_structured_size() const
+    size_t get_total_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (const auto& block : this->get()) {
             total_size += block.size();
         }
         return total_size;
-    }
-
-    size_t get_structured_dyadic_size() const
-    {
-        size_t total_size = get_structured_size();
-
-        auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
-        if ((1UL << log2_n) != (total_size)) {
-            ++log2_n;
-        }
-        return 1UL << log2_n;
     }
 
     bool operator==(const MegaExecutionTraceBlocks& other) const = default;
