@@ -4,9 +4,21 @@ import { mnemonicToSeedSync } from '@scure/bip39';
 
 import type { Hex } from '../../string/index.js';
 
-// BN254 Fr order for BLS key derivation
+// BN254 Fr order (hardcoded from @noble/curves/bn254)
 const BN254_FR_ORDER = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
+// Re-export BN254 operations
+export {
+  type Bn254G1Point,
+  type Bn254G2Point,
+  compressG1Point,
+  computeG1PublicKey,
+  computeG2PublicKey,
+  decompressG1Point,
+  isOnCurve,
+} from '../bn254/index.js';
+
+// Re-export EIP-2335 keystore utilities
 export {
   Eip2335Error,
   type Eip2335Keystore,
@@ -32,7 +44,7 @@ export function deriveBlsPrivateKey(mnemonic: string | undefined, ikm: string | 
  * Returns a 0x-prefixed 32-byte hex string representing an Fr in [1, r-1].
  */
 export function deriveBlsKeyFromMnemonic(mnemonic: string, derivationPath: string, passphrase = ''): string {
-  const seed = Buffer.from(mnemonicToSeedSync(mnemonic, passphrase)); // 64 bytes
+  const seed = Buffer.from(mnemonicToSeedSync(mnemonic, passphrase));
   const data = Buffer.concat([Buffer.from([0x00]), seed, Buffer.from(derivationPath, 'utf8')]);
   const sk = deriveBn254ScalarFromData(data);
   return `0x${toFixed32(sk).toString('hex')}`;
@@ -59,11 +71,10 @@ function bytesToNumberBE(bytes: Uint8Array): bigint {
 }
 
 function deriveBn254ScalarFromData(data: Buffer): bigint {
-  // Domain-separated HMAC-SHA512, then map to BN254 Fr using modular math. Retry on zero.
   const domainKey = Buffer.from('Aztec bn254 key', 'utf8');
   for (let counter = 0; ; counter = (counter + 1) & 0xff) {
     const msg = counter === 0 ? data : Buffer.concat([data, Buffer.from([counter])]);
-    const digest = hmac(sha512, domainKey, msg); // 64 bytes
+    const digest = hmac(sha512, domainKey, msg);
     const x = bytesToNumberBE(digest);
     const sk = x % BN254_FR_ORDER;
     if (sk !== 0n) {
@@ -91,6 +102,5 @@ function toFixed32(x: bigint): Buffer {
   if (buf.length < 32) {
     return Buffer.concat([Buffer.alloc(32 - buf.length, 0), buf]);
   }
-  // Should never happen since x < bn254.Fr.ORDER < 2^256, but guard anyway
   return buf.subarray(buf.length - 32);
 }
