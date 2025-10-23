@@ -21,7 +21,10 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     super(artifactProvider, simulator, log);
   }
 
-  public override async createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
+  public override async createClientIvcProof(
+    executionSteps: PrivateExecutionStep[],
+    useSumcheckIvc?: boolean,
+  ): Promise<ClientIvcProof> {
     const timer = new Timer();
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
@@ -32,6 +35,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     const [proof] = await backend.prove(
       executionSteps.map(step => ungzip(serializeWitness(step.witness))),
       executionSteps.map(step => step.vk),
+      useSumcheckIvc ?? false,
     );
     await backend.destroy();
     this.log.info(`Generated ClientIVC proof`, {

@@ -273,7 +273,7 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
+  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = [], useSumcheckIvc?: boolean): Promise<[Uint8Array[], Uint8Array, Uint8Array]> {
     if (vksBuf.length !== 0 && this.acirBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and bytecodes must have the same stack depth!');
     }
@@ -284,7 +284,7 @@ export class AztecClientBackend {
     await this.instantiate();
 
     // Queue IVC start with the number of circuits
-    this.api.clientIvcStart({ numCircuits: this.acirBuf.length });
+    this.api.clientIvcStart({ numCircuits: this.acirBuf.length, useSumcheckIvc: useSumcheckIvc?? false });
 
     // Queue load and accumulate for each circuit
     for (let i = 0; i < this.acirBuf.length; i++) {

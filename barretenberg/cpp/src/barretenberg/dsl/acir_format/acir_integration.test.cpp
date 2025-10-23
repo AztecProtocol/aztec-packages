@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/ultra_honk/oink_verifier.hpp"
 #ifndef __wasm__
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
@@ -497,6 +498,39 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     ClientIVC::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
+}
+
+/**
+ * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ *
+ */
+TEST_F(AcirIntegrationTest, ClientIVCMsgpackInputsMegaProof)
+{
+    // NOTE: to populate the test inputs at this location, run the following commands:
+    //      export  AZTEC_CACHE_COMMIT=origin/master~3
+    //      export FORCE_CACHE_DOWNLOAD=1
+    //      yarn-project/end-to-end/bootstrap.sh build_bench
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+
+    PrivateExecutionSteps steps;
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
+    info("the name of the first program is: ", steps.function_names[0]);
+    // create a mega proof for the circuit loaded
+    auto program = steps.folding_stack[0];
+    auto verification_key = steps.precomputed_vks[0];
+    auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program);
+    // create the prover instance
+    auto prover_instance = std::make_shared<ProverInstance_<MegaFlavor>>(circuit);
+    auto verification_key_recomputed =
+        std::make_shared<ClientIVC::MegaVerificationKey>(prover_instance->get_precomputed());
+
+    EXPECT_EQ(*verification_key, *verification_key_recomputed);
+    MegaProver prover{ prover_instance, verification_key };
+    auto proof = prover.construct_proof();
+    // Create a mega verifier
+    MegaVerifier verifier{ verification_key };
+    EXPECT_TRUE(verifier.template verify_proof<DefaultIO>(proof).result);
 }
 
 /**

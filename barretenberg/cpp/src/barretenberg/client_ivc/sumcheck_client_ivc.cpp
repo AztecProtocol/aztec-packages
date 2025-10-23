@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/honk/relation_checker.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_prover.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/special_public_inputs/special_public_inputs.hpp"
@@ -97,7 +98,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     const StdlibVerifierInputs& verifier_inputs,
     const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
     const TableCommitments& T_prev_commitments,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+    bool has_valid_witness_assignments)
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
@@ -125,8 +127,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         vinfo("Recursively verifying accumulation of the first app circuit.");
         BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
 
-        auto [_, new_verifier_accumulator] =
-            folding_verifier.instance_to_accumulator(verifier_instance, verifier_inputs.proof);
+        auto [_, new_verifier_accumulator] = folding_verifier.instance_to_accumulator(
+            verifier_instance, verifier_inputs.proof, has_valid_witness_assignments);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
 
         // T_prev = 0 in the first recursive verification
@@ -137,7 +139,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     case QUEUE_TYPE::PG_TAIL: {
         vinfo("Recursively verifying inner accumulation.");
         auto [_first_sumcheck_verified, _second_sumcheck_verified, new_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
+            folding_verifier.verify_folding_proof(
+                verifier_instance, verifier_inputs.proof, has_valid_witness_assignments);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
         break;
     }
@@ -148,7 +151,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         hide_op_queue_accumulation_result(circuit);
 
         auto [_first_sumcheck_verified, _second_sumcheck_verified, final_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
+            folding_verifier.verify_folding_proof(
+                verifier_instance, verifier_inputs.proof, has_valid_witness_assignments);
 
         RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
         StdlibProof stdlib_decider_proof(circuit, decider_proof);
@@ -230,7 +234,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
  *
  * @param circuit
  */
-void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
+void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit, bool has_valid_witness_assignments)
 {
     // Transcript to be shared across recursive verification of the folding of K_{i-1} (kernel), A_{i} (app)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
@@ -282,7 +286,8 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                                                           verifier_input,
                                                                           current_stdlib_verifier_accumulator,
                                                                           T_prev_commitments,
-                                                                          accumulation_recursive_transcript);
+                                                                          accumulation_recursive_transcript,
+                                                                          has_valid_witness_assignments);
         points_accumulator.aggregate(pairing_points);
         // Update commitment to the status of the op_queue
         T_prev_commitments = merged_table_commitments;

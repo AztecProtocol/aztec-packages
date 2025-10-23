@@ -353,9 +353,11 @@ template <typename Flavor> class SumcheckProver {
                     if (poly.size() == 1) {
                         poly.at(0) *= (FF(1) - round_challenge);
                     } else if (poly.size() == 2) {
-                        // Here we handle the eq polynomial case
-                        poly.at(0) = poly.at(0) * (FF(1) - round_challenge) + poly.at(1) * round_challenge;
-                        poly.at(1) = 0;
+                        if constexpr (bb::isMultilinearBatchingFlavor<Flavor>) {
+                            // Here we handle the eq polynomial case
+                            poly.at(0) = poly.at(0) * (FF(1) - round_challenge) + poly.at(1) * round_challenge;
+                            poly.at(1) = 0;
+                        }
                     } else {
                         BB_ASSERT_EQ(true, false, "Polynomial size is not 1 or 2");
                     }
@@ -822,6 +824,7 @@ template <typename Flavor> class SumcheckVerifier {
 
             verified = verified && checked;
         }
+
         // Extract claimed evaluations of Libra univariates and compute their sum multiplied by the Libra challenge
         // Final round
         ClaimedEvaluations purported_evaluations;

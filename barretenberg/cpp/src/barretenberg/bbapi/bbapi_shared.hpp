@@ -146,7 +146,7 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
 }
 
 struct BBApiRequest {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    TraceSettings trace_settings = bbapi::USE_SUMCHECK_IVC ? TraceSettings{} : TraceSettings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<IVCBase> ivc_in_progress;

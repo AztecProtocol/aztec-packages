@@ -595,7 +595,13 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         }
 
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-        ivc->complete_kernel_circuit_logic(builder);
+        // if the ivc is a SumcheckClientIVC, we need to pass the has_valid_witness_assignments flag to the function
+        if (auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckClientIVC>(ivc)) {
+            sumcheck_ivc->complete_kernel_circuit_logic(builder, has_valid_witness_assignments);
+        } else {
+            auto client_ivc = std::dynamic_pointer_cast<ClientIVC>(ivc);
+            client_ivc->complete_kernel_circuit_logic(builder);
+        }
 
         // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
         // are handled simultaneously in the above function call; instead we track the total contribution

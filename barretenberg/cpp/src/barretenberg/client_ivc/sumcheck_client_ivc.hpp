@@ -292,10 +292,11 @@ class SumcheckClientIVC : public IVCBase {
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
             const TableCommitments& T_prev_commitments,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+            bool has_valid_witness_assignments = true);
 
     // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
-    void complete_kernel_circuit_logic(ClientCircuit& circuit);
+    void complete_kernel_circuit_logic(ClientCircuit& circuit, bool has_valid_witness_assignments = true);
 
     /**
      * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)

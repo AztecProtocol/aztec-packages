@@ -77,6 +77,7 @@ function installClientIvcGlobal() {
   async function proveClientIvc(
     ivcInputsBuf: Uint8Array,
     threads?: number,
+    useSumcheckIvc?: boolean,
   ): Promise<{ proof: Uint8Array; verificationKey: Uint8Array }> {
     const { AztecClientBackend } = await import("@aztec/bb.js");
 
@@ -89,7 +90,8 @@ function installClientIvcGlobal() {
     });
     const [_, proof, verificationKey] = await backend.prove(
       witnessBufs,
-      vkBufs
+      vkBufs,
+      useSumcheckIvc ?? false
     );
     await backend.destroy();
     return { proof, verificationKey };

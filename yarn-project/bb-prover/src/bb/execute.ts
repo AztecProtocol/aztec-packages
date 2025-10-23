@@ -126,6 +126,7 @@ export async function executeBbClientIvcProof(
   inputsPath: string,
   log: LogFn,
   writeVk = false,
+  useSumcheckIvc?: boolean,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -153,7 +154,16 @@ export async function executeBbClientIvcProof(
       log(`bb - ${message}`);
     };
 
-    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    const args = [
+      '-o',
+      outputPath,
+      '--ivc_inputs_path',
+      inputsPath,
+      '-v',
+      '--scheme',
+      'client_ivc',
+      (useSumcheckIvc ?? false) ? '--use-sumcheck-ivc' : '',
+    ];
     if (writeVk) {
       args.push('--write_vk');
     }

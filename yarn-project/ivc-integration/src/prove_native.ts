@@ -55,6 +55,7 @@ export async function proveClientIVC(
   bytecodes: string[],
   vks: string[],
   logger: Logger,
+  useSumcheckIvc?: boolean,
 ): Promise<ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>> {
   const stepToStruct = (bytecode: string, index: number) => {
     return {
@@ -74,6 +75,7 @@ export async function proveClientIVC(
     ivcInputsPath,
     logger.info,
     true,
+    useSumcheckIvc ?? false,
   );
 
   if (provingResult.status === BB_RESULT.FAILURE) {

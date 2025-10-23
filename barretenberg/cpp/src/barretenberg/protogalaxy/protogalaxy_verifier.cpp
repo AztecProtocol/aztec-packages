@@ -45,6 +45,9 @@ template <class VerifierInstance>
 std::shared_ptr<VerifierInstance> ProtogalaxyVerifier_<VerifierInstance>::verify_folding_proof(
     const std::vector<FF>& proof)
 {
+    for (auto& alpha : insts_to_fold[0]->alphas) {
+        info("alpha in native verifier: ", alpha);
+    }
     // The degree of the combiner quotient (K in the paper) is equal to deg(G) - deg(Z), where Z is the vanishing
     // polynomial of the domain 0, .., NUM_INSTANCES-1. Hence, deg(K) = deg(G) - NUM_INSTANCES and we need deg(G) + 1 -
     // NUM_INSTANCES = BATCHED_EXTENDED_LENGTH - NUM_INSTANCES evaluations to represent it

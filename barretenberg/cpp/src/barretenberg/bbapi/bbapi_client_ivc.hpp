@@ -36,8 +36,10 @@ struct ClientIvcStart {
     };
     // Number of circuits to be accumulated.
     size_t num_circuits;
+    // Whether to use SumcheckClientIVC instead of ClientIVC
+    bool use_sumcheck_ivc = false;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(num_circuits);
+    MSGPACK_FIELDS(num_circuits, use_sumcheck_ivc);
     bool operator==(const ClientIvcStart&) const = default;
 };
 
@@ -256,7 +258,7 @@ struct ClientIvcStats {
     CircuitInputNoVK circuit;
     /** @brief Whether to include detailed gate counts per opcode */
     bool include_gates_per_opcode;
-    Response execute(BBApiRequest& request) &&;
+    Response execute([[maybe_unused]] const BBApiRequest& request) &&;
     MSGPACK_FIELDS(circuit, include_gates_per_opcode);
     bool operator==(const ClientIvcStats&) const = default;
 };

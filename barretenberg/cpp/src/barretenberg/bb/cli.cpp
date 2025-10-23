@@ -402,6 +402,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_verifier_type_option(write_vk)->default_val("standalone");
     remove_zk_option(write_vk);
+    add_use_sumcheck_ivc_flag(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
