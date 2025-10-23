@@ -720,30 +720,43 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                                                        const bool with_edgecases,
                                                        const Fr& masking_scalar)
 {
+    // Sanity check input sizes
+    BB_ASSERT_GT(_points.size(), 0ULL, "biggroup batch_mul: no points provided for batch multiplication");
+    BB_ASSERT_EQ(_points.size(), _scalars.size(), "biggroup batch_mul: points and scalars size mismatch");
+
+    // Replace (∞, scalar) pairs by the pair (G, 0).
     auto [points, scalars] = handle_points_at_infinity(_points, _scalars);
+
+    BB_ASSERT_LTE(points.size(), _points.size());
+    BB_ASSERT_EQ(points.size(),
+                 scalars.size(),
+                 "biggroup batch_mul: points and scalars size mismatch after handling points at infinity");
+
+    // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
+    // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms
+    // even though the final result satisfies the security logic. For example
+    // result = submitted_in_round_0 * challenge_from_round_0 + submitted_in_round_1 * challenge_in_round_1
+    // will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself.
+    // To avoid this, we remove the tags, merge them separately and set the result appropriately
     OriginTag tag{};
     const auto empty_tag = OriginTag();
-
     for (size_t i = 0; i < _points.size(); i++) {
         tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
     }
     for (size_t i = 0; i < scalars.size(); i++) {
-        // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
-        // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms
-        // even though the final result satisfies the security logic For example
-        // result = submitted_in_round_0 * challenge_from_round_0 + submitted_in_round_1 * challenge_in_round_1
-        // will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself.
-        // To avoid this, we remove the tags, merge them separately and set the result appropriately
         points[i].set_origin_tag(empty_tag);
         scalars[i].set_origin_tag(empty_tag);
     }
 
-    // Perform goblinized batched mul if available; supported only for BN254
     if (with_edgecases) {
+        // If points are linearly dependent, we randomise them using a masking scalar.
+        // We do this to ensure that the x-coordinates of the points are all distinct. This is required
+        // while creating the ROM lookup table with the points.
         std::tie(points, scalars) = mask_points(points, scalars, masking_scalar);
     }
-    const size_t num_points = points.size();
-    BB_ASSERT_EQ(scalars.size(), num_points);
+
+    BB_ASSERT_EQ(
+        points.size(), scalars.size(), "biggroup batch_mul: points and scalars size mismatch after handling edgecases");
 
     // TODO: problem if there is a point at infinity, size of NAF(0) => 254 but rest of scalars will be < 254
     // TODO: problem if get_chain_initial_entry itself is point at infinity (example: (+1).6P + (-1).2P + (-1).3P = O)
@@ -762,19 +775,34 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
     // └───────┴─────────────────┘
     batch_lookup_table point_table(points);
 
+    // Determine number of rounds based on max_num_bits.
+    // Since NAf representation of 0 is not well-defined, we use the NAF representation of the field modulus
+    // for scalar 0. So if any scalar is 0, we must use the bit-length of the field modulus.
+    // This is inefficient, but 0 scalars should be rare in practice.
+    bool has_zero_scalar = false;
+    for (const auto& scalar : scalars) {
+        has_zero_scalar = has_zero_scalar || (scalar.get_value() == 0);
+    }
+    const size_t num_rounds = (max_num_bits == 0 || has_zero_scalar) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+
+    // Compute NAF representations of scalars
+    const size_t num_points = points.size();
     std::vector<std::vector<bool_ct>> naf_entries;
     for (size_t i = 0; i < num_points; ++i) {
-        naf_entries.emplace_back(compute_naf(scalars[i], max_num_bits));
+        naf_entries.emplace_back(compute_naf(scalars[i], num_rounds));
     }
+
+    std::cout << "biggroup batch_mul: number of rounds = " << num_rounds << std::endl;
 
     // We choose a deterministic offset generator based on the number of rounds.
     // We compute both the initial and final offset generators: G_offset, 2ⁿ⁻¹ * G_offset.
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
     const auto [offset_generator_start, offset_generator_end] = compute_offset_generators(num_rounds);
+
+    // Initialize accumulator with offset generator + first NAF column.
     element accumulator =
         element::chain_add_end(element::chain_add(offset_generator_start, point_table.get_chain_initial_entry()));
 
-    // Process 4 NAF entries per iteration (for the remaining [num_rounds - 1] rounds)
+    // Process 4 NAF entries per iteration (for the remaining (num_rounds - 1) rounds)
     constexpr size_t num_rounds_per_iteration = 4;
     const size_t num_iterations = numeric::ceil_div((num_rounds - 1), num_rounds_per_iteration);
     const size_t num_rounds_per_final_iteration = (num_rounds - 1) - ((num_iterations - 1) * num_rounds_per_iteration);
@@ -784,12 +812,17 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         const size_t inner_num_rounds =
             (i != num_iterations - 1) ? num_rounds_per_iteration : num_rounds_per_final_iteration;
         for (size_t j = 0; j < inner_num_rounds; ++j) {
+            // Gather the NAF columns for this iteration
             std::vector<bool_ct> nafs(num_points);
             for (size_t k = 0; k < num_points; ++k) {
                 nafs[k] = (naf_entries[k][(i * num_rounds_per_iteration) + j + 1]);
             }
             to_add.emplace_back(point_table.get_chain_add_accumulator(nafs));
         }
+
+        // Once we have looked-up all points from the four NAF columns, we update the accumulator as:
+        // accumulator = 2.(2.(2.(2.accumulator + to_add[0]) + to_add[1]) + to_add[2]) + to_add[3]
+        //             = 2⁴.accumulator + 2³.to_add[0] + 2².to_add[1] + 2¹.to_add[2] + to_add[3]
         accumulator = accumulator.multiple_montgomery_ladder(to_add);
     }
 
