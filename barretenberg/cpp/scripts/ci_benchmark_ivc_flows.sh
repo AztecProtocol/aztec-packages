@@ -117,9 +117,13 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
   op_counts_file="bench-out/app-proving/$flow_name/native/op_counts.json"
 
   if [[ -f "$op_counts_file" ]]; then
+    # Get repository info from git
+    repo_url=$(git config --get remote.origin.url)
+    current_sha=$(git rev-parse HEAD)
+
     # Shallow clone gh-pages branch if not already cloned
     if [[ ! -d "gh-pages-repo" ]]; then
-      git clone --depth 1 --branch gh-pages git@github.com:${GITHUB_REPOSITORY}.git gh-pages-repo
+      git clone --depth 1 --branch gh-pages "$repo_url" gh-pages-repo
     fi
 
     # Create target directory
@@ -134,7 +138,7 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     git config user.email "bot@aztec.network"
     git add bench/barretenberg-breakdowns/
     if ! git diff --staged --quiet; then
-      git commit -m "Update Barretenberg op count breakdowns for ${GITHUB_SHA:-unknown}"
+      git commit -m "Update Barretenberg op count breakdowns for ${current_sha}"
       git push
     fi
     cd ..
