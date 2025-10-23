@@ -84,7 +84,7 @@ template <typename FF_> class CircuitBuilderBase {
      * @details See https://github.com/AztecProtocol/plonk-with-lookups-private/blob/new-stuff/GenPermuations.pdf
      * DOCTODO(#231): replace with the relevant wiki link
      */
-    std::map<uint32_t, uint32_t> _tau;
+    std::unordered_map<uint32_t, uint32_t> _tau;
 
   public:
     /**
@@ -123,7 +123,7 @@ template <typename FF_> class CircuitBuilderBase {
     void increment_num_gates(size_t count = 1) { _num_gates += count; }
 
     // Get the permutation on variable tags
-    const std::map<uint32_t, uint32_t>& tau() const { return _tau; }
+    const std::unordered_map<uint32_t, uint32_t>& tau() const { return _tau; }
 
     // Non-owning getter for the index at which a fixed witness 0 is stored
     uint32_t zero_idx() const { return _zero_idx; }
