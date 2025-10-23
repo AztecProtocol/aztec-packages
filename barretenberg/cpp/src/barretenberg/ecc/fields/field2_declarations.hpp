@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 // forward declare RNG
 namespace bb::numeric {
@@ -56,6 +57,8 @@ template <class base_field, class Params> struct alignas(32) field2 {
 
     base_field c0;
     base_field c1;
+
+    MSGPACK_FIELDS(c0, c1);
 
     static constexpr uint256_t modulus = base_field::modulus;
 
