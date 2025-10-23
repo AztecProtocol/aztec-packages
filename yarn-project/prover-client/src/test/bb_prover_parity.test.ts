@@ -46,10 +46,7 @@ describe('prover/bb_prover/parity', () => {
   it(
     'proves the parity circuits',
     async () => {
-      const l1ToL2Messages = makeTuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>(
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        Fr.random,
-      );
+      const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
       const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
         ParityBasePrivateInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot()),
       );

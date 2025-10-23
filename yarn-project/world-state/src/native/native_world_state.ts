@@ -179,7 +179,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
     const paddedL1ToL2Messages = isFirstBlock
-      ? padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
+      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
       : [];
 
     const paddedNullifiers = l2Block.body.txEffects

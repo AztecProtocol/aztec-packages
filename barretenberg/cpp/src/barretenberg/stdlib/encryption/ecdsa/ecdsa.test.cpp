@@ -37,10 +37,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
     enum class TamperingMode : std::uint8_t {
+        XCoordinateOverflow,
+        YCoordinateOverflow,
         InvalidR,
         InvalidS,
         HighS,
-        OutOfBoundsHash,
         ZeroR,
         ZeroS,
         InfinityScalarMul,
@@ -68,49 +69,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         return { account, signature };
     }
 
-    /**
-     * @brief Generate valid signature for the message Fr(1)
-     *
-     * @return ecdsa_signature
-     */
-    ecdsa_signature generate_signature_out_of_bounds_hash()
-    {
-        // Generate signature
-        ecdsa_signature signature;
-
-        FrNative fr_hash = FrNative::one();
-        FrNative k = FrNative::random_element();
-        typename G1Native::affine_element R = G1Native::one * k;
-        FqNative::serialize_to_buffer(R.x, &signature.r[0]);
-
-        FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
-        FrNative k_inverse = k.invert();
-        FrNative s = k_inverse * (fr_hash + r * private_key);
-        bool is_s_low = (static_cast<uint256_t>(s) < (FrNative::modulus + 1) / 2);
-        s = is_s_low ? s : -s;
-        FrNative::serialize_to_buffer(s, &signature.s[0]);
-
-        FqNative r_fq(R.x);
-        bool is_r_finite = (uint256_t(r_fq) == uint256_t(r));
-        bool y_parity = uint256_t(R.y).get_bit(0);
-        bool recovery_bit = y_parity ^ is_s_low;
-        constexpr uint8_t offset = 27;
-
-        int value =
-            offset + static_cast<int>(recovery_bit) + (static_cast<uint8_t>(2) * static_cast<int>(!is_r_finite));
-        BB_ASSERT_LTE(value, UINT8_MAX);
-        signature.v = static_cast<uint8_t>(value);
-
-        // Natively verify signature
-        FrNative s_inverse = s.invert();
-        typename G1Native::affine_element Q = G1Native::one * ((fr_hash * s_inverse) + (r * s_inverse * private_key));
-        BB_ASSERT_EQ(static_cast<uint512_t>(Q.x),
-                     static_cast<uint512_t>(r),
-                     "Signature with out of bounds message failed verification");
-
-        return signature;
-    }
-
     std::string tampering(std::string message_string,
                           ecdsa_key_pair<FrNative, G1Native>& account,
                           ecdsa_signature& signature,
@@ -119,6 +77,20 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         std::string failure_msg;
 
         switch (mode) {
+        case TamperingMode::XCoordinateOverflow: {
+            // Invalidate the circuit by passing a public key with x >= q
+            // Do nothing here, tampering happens in circuit
+            failure_msg = "ECDSA input validation: the x coordinate of the public key is bigger than the base field "
+                          "modulus.: hi limb.";
+            break;
+        }
+        case TamperingMode::YCoordinateOverflow: {
+            // Invalidate the circuit by passing a public key with y >= q
+            // Do nothing here, tampering happens in circuit
+            failure_msg = "ECDSA input validation: the y coordinate of the public key is bigger than the base field "
+                          "modulus.: hi limb.";
+            break;
+        }
         case TamperingMode::InvalidR: {
             // Invalidate the signature by changing r.
             FrNative r = FrNative::serialize_from_buffer(&signature.r[0]);
@@ -143,15 +115,6 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FrNative::serialize_to_buffer(s, &signature.s[0]);
             failure_msg = "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: "
                           "hi limb."; // The second part of the message is added by the range constraint
-            break;
-        }
-        case TamperingMode::OutOfBoundsHash: {
-            // Invalidate the circuit by passing a message whose hash is bigger than n
-            // (the message will be hard-coded in the circuit at a later point)
-            signature = generate_signature_out_of_bounds_hash();
-
-            failure_msg = "ECDSA input validation: the hash of the message is bigger than the order of the elliptic "
-                          "curve.: hi limb."; // The second part of the message is added by the range constraint
             break;
         }
         case TamperingMode::ZeroR: {
@@ -218,6 +181,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             // verification function raises an error, we treat it as an invalid signature
             is_signature_valid = false;
         }
+        if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
+            // In these tampering modes nothing has changed and the tampering happens in circuit, so we override the
+            // result and set it to false
+            is_signature_valid = false;
+        }
 
         bool expected = mode == TamperingMode::None;
         BB_ASSERT_EQ(is_signature_valid,
@@ -229,12 +197,26 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
     }
 
     std::pair<G1, stdlib::ecdsa_signature<Builder>> create_stdlib_ecdsa_data(
-        Builder& builder, const ecdsa_key_pair<FrNative, G1Native>& account, const ecdsa_signature& signature)
+        Builder& builder,
+        const ecdsa_key_pair<FrNative, G1Native>& account,
+        const ecdsa_signature& signature,
+        const TamperingMode mode)
     {
         // We construct the point via its x,y-coordinates to avoid the on curve check of G1::from_witness. In this way
         // we test the on curve check of the ecdsa verification function
         Fq x = Fq::from_witness(&builder, account.public_key.x);
         Fq y = Fq::from_witness(&builder, account.public_key.y);
+        if (mode == TamperingMode::XCoordinateOverflow || mode == TamperingMode::YCoordinateOverflow) {
+            // To test the case in which one of the two coordinates is above the modulus of the base field, we need to
+            // override the limbs of the coordinates
+            uint256_t max_uint = (static_cast<uint256_t>(1) << 256) - 1;
+            for (size_t idx = 0; idx < 4; idx++) {
+                builder.set_variable(mode == TamperingMode::XCoordinateOverflow
+                                         ? x.binary_basis_limbs[idx].element.get_witness_index()
+                                         : y.binary_basis_limbs[idx].element.get_witness_index(),
+                                     bb::fr(max_uint.slice(64 * idx, 64 * (idx + 1))));
+            }
+        }
         bool_t is_infinity(
             stdlib::witness_t<Builder>(&builder, account.public_key.is_point_at_infinity() ? fr::one() : fr::zero()),
             false);
@@ -257,10 +239,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                     const ecdsa_signature& signature,
                                     const bool signature_verification_result,
                                     const bool circuit_checker_result,
-                                    const std::string failure_msg)
+                                    const std::string failure_msg,
+                                    const TamperingMode mode)
 
     {
-        auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature);
+        auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature, mode);
 
         // Verify signature
         stdlib::bool_t<Builder> signature_result =
@@ -288,40 +271,10 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         EXPECT_EQ(builder.err(), failure_msg);
     }
 
-    stdlib::byte_array<Builder> construct_hashed_message(Builder& builder,
-                                                         std::vector<uint8_t>& message_bytes,
-                                                         TamperingMode mode)
-    {
-        stdlib::byte_array<Builder> message(&builder, message_bytes);
-        stdlib::byte_array<Builder> hashed_message;
-
-        if (mode == TamperingMode::OutOfBoundsHash) {
-            // In this case the message is already hashed, so we mock the hashing constraints for consistency but
-            // hard-code the message
-            [[maybe_unused]] stdlib::byte_array<Builder> _ =
-                static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-
-            // Hard-coded witness
-            std::array<uint8_t, 32> hashed_message_witness;
-
-            // The hashed message is FrNative::modulus + 1
-            FqNative fr_hash = FqNative(FrNative::modulus + 1);
-            FqNative::serialize_to_buffer(fr_hash, &hashed_message_witness[0]);
-
-            hashed_message = stdlib::byte_array<Builder>(
-                &builder, std::vector<uint8_t>(hashed_message_witness.begin(), hashed_message_witness.end()));
-        } else {
-            hashed_message = static_cast<stdlib::byte_array<Builder>>(stdlib::SHA256<Builder>::hash(message));
-        }
-
-        return hashed_message;
-    }
-
     void test_verify_signature(bool random_signature, TamperingMode mode)
     {
         // Map tampering mode to signature verification result
-        bool signature_verification_result =
-            (mode == TamperingMode::None) || (mode == TamperingMode::HighS) || (mode == TamperingMode::OutOfBoundsHash);
+        bool signature_verification_result = (mode == TamperingMode::None) || (mode == TamperingMode::HighS);
         // Map tampering mode to circuit checker result
         bool circuit_checker_result =
             (mode == TamperingMode::None) || (mode == TamperingMode::InvalidR) || (mode == TamperingMode::InvalidS);
@@ -338,7 +291,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         Builder builder;
 
         // Compute H(m)
-        stdlib::byte_array<Builder> hashed_message = construct_hashed_message(builder, message_bytes, mode);
+        stdlib::byte_array<Builder> message(&builder, message_bytes);
+        stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
         // ECDSA verification
         ecdsa_verification_circuit(builder,
@@ -347,7 +301,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                    signature,
                                    signature_verification_result,
                                    circuit_checker_result,
-                                   failure_msg);
+                                   failure_msg,
+                                   mode);
     }
 
     /**
@@ -374,8 +329,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             Builder builder;
 
             // Compute H(m)
-            stdlib::byte_array<Builder> hashed_message =
-                construct_hashed_message(builder, test.message, TamperingMode::None);
+            stdlib::byte_array<Builder> message(&builder, test.message);
+            stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
 
             // ECDSA verification
             ecdsa_verification_circuit(builder,
@@ -384,7 +339,8 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
                                        { r, s, v },
                                        test.is_valid_signature,
                                        test.is_circuit_satisfied,
-                                       test.failure_msg);
+                                       test.failure_msg,
+                                       TamperingMode::None);
         }
     }
 };
@@ -404,6 +360,18 @@ TYPED_TEST(EcdsaTests, VerifyRandomSignature)
 TYPED_TEST(EcdsaTests, VerifySignature)
 {
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
+}
+
+TYPED_TEST(EcdsaTests, XCoordinateOverflow)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::XCoordinateOverflow);
+}
+
+TYPED_TEST(EcdsaTests, YCoordinateOverflow)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::YCoordinateOverflow);
 }
 
 TYPED_TEST(EcdsaTests, InvalidR)
@@ -446,11 +414,6 @@ TYPED_TEST(EcdsaTests, InfinityPubKey)
     // Disable asserts to avoid errors trying to invert zero
     BB_DISABLE_ASSERTS();
     TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::InfinityPubKey);
-}
-
-TYPED_TEST(EcdsaTests, OutOfBoundsHash)
-{
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::OutOfBoundsHash);
 }
 
 TYPED_TEST(EcdsaTests, InfinityScalarMul)

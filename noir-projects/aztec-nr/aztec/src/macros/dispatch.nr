@@ -1,5 +1,6 @@
-use super::utils::{compute_fn_selector, size_in_fields};
+use super::utils::compute_fn_selector;
 use poseidon::poseidon2::Poseidon2Hasher;
+use protocol_types::meta::utils::get_params_len_quote;
 use std::{collections::umap::UHashMap, hash::BuildHasherDefault, panic};
 
 /// Returns an `fn public_dispatch(...)` function for the given module that's assumed to be an Aztec contract.
@@ -31,10 +32,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         }
         seen_selectors.insert(selector, fn_name);
 
-        let mut parameters_size = 0;
-        for param in parameters {
-            parameters_size += size_in_fields(param.1);
-        }
+        let params_len_quote = get_params_len_quote(parameters);
 
         let initial_read = if parameters.len() == 0 {
             quote {}
@@ -46,7 +44,7 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
             // That is, exactly what is expected for a call to the target function,
             // but with a selector added at the beginning.
             quote {
-                let input_calldata: [Field; $parameters_size] = dep::aztec::context::public_context::calldata_copy(1, $parameters_size);
+                let input_calldata: [Field; $params_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $params_len_quote);
                 let mut reader = dep::aztec::protocol_types::utils::reader::Reader::new(input_calldata);
             }
         };

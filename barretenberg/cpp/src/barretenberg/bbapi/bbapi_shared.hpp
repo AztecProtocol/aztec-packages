@@ -6,7 +6,7 @@
  * This file contains common data structures used across multiple bbapi modules,
  * including circuit input types and proof system settings.
  */
-#include "barretenberg/client_ivc/client_ivc.hpp"
+
 #include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
@@ -15,11 +15,6 @@
 #include <vector>
 
 namespace bb::bbapi {
-
-/**
- * @brief Global flag to control whether to use SumcheckClientIVC instead of ClientIVC
- */
-inline bool USE_SUMCHECK_IVC = false;
 
 /**
  * @enum VkPolicy
@@ -33,7 +28,7 @@ enum class VkPolicy {
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk (SumcheckClientIVC+honk) verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
@@ -58,7 +53,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
+ * @brief A circuit to be used in either ultrahonk or SumcheckClientIVC-honk proving.
  */
 struct CircuitInput {
     /**
@@ -146,7 +141,6 @@ inline VkPolicy parse_vk_policy(const std::string& policy)
 }
 
 struct BBApiRequest {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<IVCBase> ivc_in_progress;

@@ -1,6 +1,6 @@
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
-    hash::{ArgsHasher, hash_args_array, hash_calldata_array},
+    hash::{hash_args_array, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
@@ -562,11 +562,12 @@ impl PrivateContext {
     /// Very low-level function: this is called by the #[private] macro.
     ///
     /// # Arguments
-    /// * `returns_hasher` - A hasher containing the return values to hash
+    /// * `serialized_return_values` - The serialized return values as a field array
     ///
-    pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        self.return_hash = returns_hasher.hash();
-        execution_cache::store(returns_hasher.fields, self.return_hash);
+    pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
+        let return_hash = hash_args_array(serialized_return_values);
+        self.return_hash = return_hash;
+        execution_cache::store(serialized_return_values, return_hash);
     }
 
     /// Builds the PrivateCircuitPublicInputs for this private function, to

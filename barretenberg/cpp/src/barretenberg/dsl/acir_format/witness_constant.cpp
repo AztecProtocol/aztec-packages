@@ -67,7 +67,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
         infinite = bool_ct::conditional_assign(predicate_witness, infinite, generator_is_infinity).normalize();
     }
 
-    cycle_group<Builder> input_point(point_x, point_y, infinite);
+    cycle_group<Builder> input_point(point_x, point_y, infinite, /*assert_on_curve=*/true);
     return input_point;
 }
 

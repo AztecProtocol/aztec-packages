@@ -73,7 +73,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     cycle_group<Builder> fallback_point(Group::affine_one);
     field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
     field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
-    cycle_group<Builder> modded_base_point(modded_x, modded_y, false);
+    cycle_group<Builder> modded_base_point(modded_x, modded_y, false, /*assert_on_curve=*/false);
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
     // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
     // lost here since native addition with the point at infinity is nearly free).
@@ -155,7 +155,7 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
 
     // The result is known to not be the point at infinity due to the use of offset generators in the table
-    return cycle_group<Builder>(x, y, /*is_infinity=*/false);
+    return cycle_group<Builder>(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
 }
 
 template class straus_lookup_table<bb::UltraCircuitBuilder>;

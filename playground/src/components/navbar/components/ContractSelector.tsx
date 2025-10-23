@@ -15,7 +15,8 @@ import {
 } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../../../utils/types';
 import { AztecContext } from '../../../aztecContext';
-import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
+import { loadContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { parse } from 'buffer-json';
 import { navbarButtonStyle, navbarSelect, navbarSelectLabel } from '../../../styles/common';
 import { filterDeployedAliasedContracts } from '../../../utils/contracts';

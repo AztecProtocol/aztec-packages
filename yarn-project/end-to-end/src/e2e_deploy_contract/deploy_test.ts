@@ -1,15 +1,11 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
-  type ContractBase,
-  Fr,
-  type Logger,
-  type PublicKeys,
-  type Wallet,
-  createLogger,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type ContractBase, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { PublicKeys } from '@aztec/aztec.js/keys';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';

@@ -1,5 +1,5 @@
 ---
-title: How to Debug
+title: Debugging Aztec Code
 sidebar_position: 5
 tags: [debugging, errors, logging, sandbox, aztec.nr]
 description: This guide shows you how to debug issues in your Aztec contracts.
@@ -7,15 +7,27 @@ description: This guide shows you how to debug issues in your Aztec contracts.
 
 This guide shows you how to debug issues in your Aztec development environment.
 
-**Prerequisites:**
+## Prerequisites
 
-- Aztec sandbox running
+- Running Aztec sandbox
 - Aztec.nr contract or aztec.js application
 - Basic understanding of Aztec architecture
 
-## How to Enable Logging
+## Enable logging
 
-### In Aztec.nr Contracts
+Enable different levels of logging on the sandbox or local node by setting `LOG_LEVEL`:
+
+```bash
+# Set log level (options: fatal, error, warn, info, verbose, debug, trace)
+LOG_LEVEL=debug aztec start --sandbox
+
+# Different levels for different services
+LOG_LEVEL="verbose;info:sequencer" aztec start --sandbox
+```
+
+## Logging in Aztec.nr contracts
+
+Log values from your contract using `debug_log`:
 
 ```rust
 // Import debug logging
@@ -34,17 +46,42 @@ debug_log_field(my_field);
 debug_log_array(my_array);
 ```
 
-### In Sandbox
+:::note
+Debug logs appear only during local execution. Private functions always execute locally, but public functions must be simulated to show logs. Use `.simulate()` or `.prove()` in TypeScript, or `env.simulate_public_function()` in TXE tests.
+:::
+
+To see debug logs from your tests, set `LOG_LEVEL` when running:
 
 ```bash
-# Set log level (options: fatal, error, warn, info, verbose, debug, trace)
-LOG_LEVEL=debug aztec start --sandbox
-
-# Different levels for different services
-LOG_LEVEL="verbose;info:sequencer" aztec start --sandbox
+LOG_LEVEL="debug" yarn run test
 ```
 
-## How to Debug Common Errors
+To filter specific modules, use a semicolon-delimited list:
+
+```bash
+LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context" yarn run test
+```
+
+:::info Log filter format
+`LOG_LEVEL` accepts a semicolon-delimited list of filters. Each filter can be:
+
+- `level` - Sets default level for all modules
+- `level:module` - Sets level for a specific module
+- `level:module:submodule` - Sets level for a specific submodule
+
+```bash
+# Default level only
+LOG_LEVEL="debug"
+
+# Default level + specific module overrides
+LOG_LEVEL="info;debug:simulator;debug:execution"
+
+# Default level + specific submodule overrides
+LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
+```
+:::
+
+## Debugging common errors
 
 ### Contract Errors
 
@@ -80,9 +117,9 @@ aztec-wallet send transfer --from test0 --to test0 --amount 0
 # Messages need 2 blocks to be processed
 ```
 
-## How to Debug WASM Errors
+## Debugging WASM errors
 
-### Enable Debug WASM
+### Enable debug WASM
 
 ```javascript
 // In vite.config.ts or similar
@@ -93,7 +130,7 @@ export default {
 };
 ```
 
-### Profile Transactions
+### Profile transactions
 
 ```javascript
 import { serializePrivateExecutionSteps } from "@aztec/stdlib";
@@ -117,16 +154,16 @@ link.click();
 
 ⚠️ **Warning:** Debug files may contain private data. Use only in development.
 
-## How to Interpret Error Messages
+## Interpret error messages
 
-### Kernel Circuit Errors (2xxx)
+### Kernel circuit errors (2xxx)
 
 - **Private kernel errors (2xxx)**: Issues with private function execution
 - **Public kernel errors (3xxx)**: Issues with public function execution
 - **Rollup errors (4xxx)**: Block production issues
 - **Generic errors (7xxx)**: Resource limits or state validation
 
-### Transaction Limits
+### Transaction limits
 
 Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 
@@ -135,9 +172,9 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 - Max function calls: Check call stack size limits
 - Max L2→L1 messages: Check message limits
 
-## How to Debug Sequencer Issues
+## Debugging sequencer issues
 
-### Common Sequencer Errors
+### Common sequencer errors
 
 | Error                                | Cause                 | Solution                                   |
 | ------------------------------------ | --------------------- | ------------------------------------------ |
@@ -146,7 +183,7 @@ Current limits that trigger `7009 - ARRAY_OVERFLOW`:
 | `Public call stack size exceeded`    | Too many public calls | Reduce public function calls               |
 | `Failed to publish block`            | L1 submission failed  | Check L1 connection and gas                |
 
-## How to Report Issues
+## Reporting issues
 
 When debugging fails:
 
@@ -155,28 +192,28 @@ When debugging fails:
 3. Note your environment setup
 4. Create issue at [aztec-packages](https://github.com/AztecProtocol/aztec-packages/issues/new)
 
-## Quick Reference
+## Quick reference
 
-### Enable Verbose Logging
+### Enable verbose logging
 
 ```bash
 LOG_LEVEL=verbose aztec start --sandbox
 ```
 
-### Common Debug Imports
+### Common debug imports
 
 ```rust
 use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
 ```
 
-### Check Contract Registration
+### Check contract registration
 
 ```javascript
 await pxe.getContracts();
 await pxe.getRegisteredAccounts();
 ```
 
-### Decode L1 Errors
+### Decode L1 errors
 
 Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Errors.sol)
 
@@ -188,7 +225,7 @@ Check hex errors against [Errors.sol](https://github.com/AztecProtocol/aztec-pac
 - Use debug WASM for detailed stack traces
 - Profile transactions when errors are unclear
 
-## Related Resources
+## Next steps
 
 - [Circuit Architecture](../../concepts/advanced/circuits/index.md)
 - [Private-Public Execution](../../concepts/smart_contracts/functions/public_private_calls.md)

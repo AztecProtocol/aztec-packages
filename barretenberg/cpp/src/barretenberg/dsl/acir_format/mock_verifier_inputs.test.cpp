@@ -1,7 +1,7 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -183,7 +183,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock ClientIVC proof matches expectation
+ * @brief Check that the size of a mock LegacyClientIVC proof matches expectation
  *
  */
 TEST(MockVerifierInputsTest, MockClientIVCProofSize)
@@ -191,5 +191,5 @@ TEST(MockVerifierInputsTest, MockClientIVCProofSize)
     using Builder = MegaCircuitBuilder;
 
     HonkProof civc_proof = create_mock_civc_proof<Builder>();
-    EXPECT_EQ(civc_proof.size(), ClientIVC::Proof::PROOF_LENGTH());
+    EXPECT_EQ(civc_proof.size(), SumcheckClientIVC::Proof::PROOF_LENGTH());
 }

@@ -1,10 +1,12 @@
-import { type AztecNode, SponsoredFeePaymentMethod, readFieldCompressedString } from '@aztec/aztec.js';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';
@@ -98,13 +100,18 @@ describe('token transfer test', () => {
     // For each round, make both private and public transfers
     const startSlot = await rollupCheatCodes.getSlot();
     for (let i = 1n; i <= ROUNDS; i++) {
-      const txs = testAccounts.accounts.map(
-        async acc =>
-          await testAccounts.tokenContract.methods.transfer_in_public(acc, recipient, transferAmount, 0).prove({
+      const txs = testAccounts.accounts.map(async acc => {
+        return proveInteraction(
+          wallet,
+          testAccounts.tokenContract.methods.transfer_in_public(acc, recipient, transferAmount, 0),
+          {
             from: acc,
-            fee: { paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()) },
-          }),
-      );
+            fee: {
+              paymentMethod: new SponsoredFeePaymentMethod(await getSponsoredFPCAddress()),
+            },
+          },
+        );
+      });
 
       const provenTxs = await Promise.all(txs);
 
