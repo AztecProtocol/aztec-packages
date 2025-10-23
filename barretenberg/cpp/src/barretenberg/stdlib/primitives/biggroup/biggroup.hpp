@@ -918,6 +918,36 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     using batch_lookup_table = batch_lookup_table_plookup;
+
+    struct strauss_msm_data {
+        std::vector<element> points; // Points for msm
+        std::vector<Fr> scalars;     // Scalars for msm
+        size_t num_bits;             // Max number of bits in scalars
+        size_t msm_size;             // Number of points/scalars in msm
+
+        strauss_msm_data(const std::vector<element>& _points,
+                         const std::vector<Fr>& _scalars,
+                         const size_t max_num_bits)
+        {
+            // Sanity checks
+            BB_ASSERT_GT(_points.size(), 0ULL, "strauss_msm_data: points cannot be empty");
+            BB_ASSERT_EQ(_points.size(), _scalars.size(), "strauss_msm_data: points and scalars size mismatch");
+
+            // Check that all scalars are in range
+            for (const auto& scalar : _scalars) {
+                const size_t num_scalar_bits = uint512_t(scalar.get_value()).get_msb() + 1;
+                BB_ASSERT_LTE(num_scalar_bits, max_num_bits, "strauss_msm_data: scalar out of range");
+            }
+
+            // Store the input data
+            points = _points;
+            scalars = _scalars;
+            num_bits = max_num_bits;
+            msm_size = _points.size();
+        }
+    };
+
+    static element process_strauss_msm(const strauss_msm_data& msm_data);
 };
 
 // For testing purposes only
