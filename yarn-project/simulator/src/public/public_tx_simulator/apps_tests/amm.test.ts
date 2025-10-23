@@ -25,3 +25,28 @@ describe('Public TX simulator apps tests: AMM Contract', () => {
     await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
   });
 });
+
+describe('Public TX simulator apps tests: AMM Contract (Cpp Simulator)', () => {
+  const logger = createLogger('public-tx-apps-tests-amm-cpp');
+
+  let worldStateService: NativeWorldStateService;
+  let tester: PublicTxSimulationTester;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined, // use default
+      /*metrics=*/ undefined, // use default
+      /*useCppSimulator=*/ true,
+    );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
+  it('amm operations', async () => {
+    await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
+  });
+});
