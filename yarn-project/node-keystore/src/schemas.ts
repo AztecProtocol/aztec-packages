@@ -40,8 +40,8 @@ const remoteSignerAccountSchema = z.union([
   }),
 ]);
 
-// JSON V3 keystore schema
-const jsonKeyFileV3Schema = z.object({
+// Encrypted keystore file schema (used for both JSON V3 ETH keys and EIP-2335 BLS keys)
+const encryptedKeyFileSchema = z.object({
   path: z.string(),
   password: optional(z.string()),
 });
@@ -56,13 +56,13 @@ const mnemonicConfigSchema = z.object({
 });
 
 // EthAccount schema
-const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, jsonKeyFileV3Schema]);
+const ethAccountSchema = z.union([ethPrivateKeySchema, remoteSignerAccountSchema, encryptedKeyFileSchema]);
 
 // EthAccounts schema
 const ethAccountsSchema = z.union([ethAccountSchema, z.array(ethAccountSchema), mnemonicConfigSchema]);
 
 // BLSAccount schema
-const blsAccountSchema = z.union([blsPrivateKeySchema, jsonKeyFileV3Schema]);
+const blsAccountSchema = z.union([blsPrivateKeySchema, encryptedKeyFileSchema]);
 
 // AttesterAccount schema: either EthAccount or { eth: EthAccount, bls?: BLSAccount }
 const attesterAccountSchema = z.union([
