@@ -356,7 +356,14 @@ template <typename Builder_> class field_t {
 
     void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
 
-    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs);
+    static field_t conditional_assign_internal(const bool_t<Builder>& predicate,
+                                               const field_t& lhs,
+                                               const field_t& rhs);
+
+    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs)
+    {
+        return conditional_assign_internal(predicate, lhs, rhs).normalize();
+    }
 
     static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
                                                            const field_t& T1,
@@ -481,6 +488,19 @@ template <typename Builder_> class field_t {
      * @return uint32_t The normalized witness index
      */
     uint32_t get_witness_index() const { return normalize().witness_index; }
+
+    /**
+     * @brief Check if two field elements have the same witness index (for identity checks).
+     *
+     * @details Checks if two field elements share the exact same witness_index representation.
+     * Used for optimization checks like "if inputs are identical, skip computation".
+     * Does NOT check value equality - use operator== for that.
+     *
+     * @param a First field element
+     * @param b Second field element
+     * @return bool True if both elements reference the same witness
+     */
+    static bool witness_indices_match(const field_t& a, const field_t& b) { return a.witness_index == b.witness_index; }
 
     /**
      * @brief Return (a < b) as bool circuit type.

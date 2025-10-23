@@ -395,11 +395,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator+(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst =
-            is_constant() || other.is_constant() ||
-            (prime_basis_limb.witness_index ==
-             other.prime_basis_limb.witness_index); // We are comparing if the bigfield elements are exactly the
-                                                    // same object, so we compare the unnormalized witness indices
+        bool limbconst = is_constant() || other.is_constant() ||
+                         field_ct::witness_indices_match(prime_basis_limb, other.prime_basis_limb);
         if (!limbconst) {
             // Extract witness indices and multiplicative constants for binary basis limbs
             std::array<std::pair<uint32_t, bb::fr>, NUM_LIMBS> x_scaled;
@@ -632,11 +629,8 @@ bigfield<Builder, T> bigfield<Builder, T>::operator-(const bigfield& other) cons
     bool both_prime_limb_multiplicative_constant_one =
         (prime_basis_limb.multiplicative_constant == 1 && other.prime_basis_limb.multiplicative_constant == 1);
     if (both_prime_limb_multiplicative_constant_one && both_witness) {
-        bool limbconst =
-            is_constant() || other.is_constant() ||
-            (prime_basis_limb.get_witness_index() ==
-             other.prime_basis_limb.get_witness_index()); // We are checking if `this` and `other` are identical, so we
-                                                          // need to compare the actual indices, not normalized ones
+        bool limbconst = is_constant() || other.is_constant() ||
+                         field_ct::witness_indices_match(prime_basis_limb, other.prime_basis_limb);
 
         if (!limbconst) {
             // Extract witness indices and multiplicative constants for binary basis limbs
@@ -1630,7 +1624,7 @@ bigfield<Builder, T> bigfield<Builder, T>::conditional_select(const bigfield& ot
 
     // If both elements are the same, we can just return one of them
     auto is_limb_same = [](const field_ct& a, const field_ct& b) {
-        const bool is_witness_index_same = a.get_witness_index() == b.get_witness_index();
+        const bool is_witness_index_same = field_ct::witness_indices_match(a, b);
         const bool is_add_constant_same = a.additive_constant == b.additive_constant;
         const bool is_mul_constant_same = a.multiplicative_constant == b.multiplicative_constant;
         return is_witness_index_same && is_add_constant_same && is_mul_constant_same;
@@ -1741,7 +1735,7 @@ template <typename Builder, typename T> bool_t<Builder> bigfield<Builder, T>::op
 
     bigfield product = diff * multiplicand;
 
-    field_t result = field_t<Builder>::conditional_assign(is_equal, 0, 1);
+    field_t result = field_t<Builder>::conditional_assign_internal(is_equal, 0, 1);
 
     product.prime_basis_limb.assert_equal(result);
     product.binary_basis_limbs[0].element.assert_equal(result);

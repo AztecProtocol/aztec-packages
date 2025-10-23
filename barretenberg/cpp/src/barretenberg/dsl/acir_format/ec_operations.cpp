@@ -18,6 +18,8 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
 {
     // Input to cycle_group points
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+    using bool_ct = bb::stdlib::bool_t<Builder>;
 
     auto input1_point = to_grumpkin_point(
         input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, input.predicate, builder);
@@ -27,24 +29,24 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Addition
     cycle_group_ct result = input1_point + input2_point;
     cycle_group_ct standard_result = result.get_standard_form();
-    auto x_normalized = standard_result.x.normalize();
-    auto y_normalized = standard_result.y.normalize();
-    auto infinite = standard_result.is_point_at_infinity().normalize();
+    auto x = standard_result.x;
+    auto y = standard_result.y;
+    auto infinite = standard_result.is_point_at_infinity();
 
-    if (x_normalized.is_constant()) {
-        builder.fix_witness(input.result_x, x_normalized.get_value());
+    if (x.is_constant()) {
+        builder.fix_witness(input.result_x, x.get_value());
     } else {
-        builder.assert_equal(x_normalized.get_witness_index(), input.result_x);
+        x.assert_equal(field_ct::from_witness_index(&builder, input.result_x));
     }
-    if (y_normalized.is_constant()) {
-        builder.fix_witness(input.result_y, y_normalized.get_value());
+    if (y.is_constant()) {
+        builder.fix_witness(input.result_y, y.get_value());
     } else {
-        builder.assert_equal(y_normalized.get_witness_index(), input.result_y);
+        y.assert_equal(field_ct::from_witness_index(&builder, input.result_y));
     }
     if (infinite.is_constant()) {
         builder.fix_witness(input.result_infinite, infinite.get_value());
     } else {
-        builder.assert_equal(infinite.get_witness_index(), input.result_infinite);
+        infinite.assert_equal(bool_ct::from_witness_index_unsafe(&builder, input.result_infinite));
     }
 }
 

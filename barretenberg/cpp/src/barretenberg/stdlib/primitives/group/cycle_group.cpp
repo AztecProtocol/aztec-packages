@@ -40,8 +40,8 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
  */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
-    : x(_x.normalize())
-    , y(_y.normalize())
+    : x(_x)
+    , y(_y)
     , _is_infinity(is_infinity)
     , _is_standard(is_infinity.is_constant())
 {
@@ -324,8 +324,8 @@ template <typename Builder> void cycle_group<Builder>::standardize()
     }
     this->_is_standard = true;
 
-    this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x).normalize();
-    this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y).normalize();
+    this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
+    this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
 }
 
 /**
@@ -345,7 +345,7 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
 
     // To support the point at infinity, we conditionally modify y to be 1 to avoid division by zero in the
     // doubling formula
-    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y).normalize();
+    auto modified_y = field_t::conditional_assign(is_point_at_infinity(), 1, y);
 
     // Compute the doubled point coordinates (either from hint or by native calculation)
     bb::fr x3;
@@ -597,8 +597,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 
     // If the rhs is the point at infinity, return lhs
     const bool_t rhs_infinity = other.is_point_at_infinity();
-    result_x = field_t::conditional_assign(rhs_infinity, x, result_x).normalize();
-    result_y = field_t::conditional_assign(rhs_infinity, y, result_y).normalize();
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
 
     // The result is the point at infinity if:
     // (lhs.x, lhs.y) == (rhs.x, -rhs.y) and neither are infinity, OR both are the point at infinity
@@ -679,16 +679,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     // If the lhs is the point at infinity, return -rhs
     const bool_t lhs_infinity = is_point_at_infinity();
     result_x = field_t::conditional_assign(lhs_infinity, other.x, result_x);
-    result_y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result_y);
+    result_y = field_t::conditional_assign(lhs_infinity, -other.y, result_y);
 
     // If the rhs is the point at infinity, return lhs
     const bool_t rhs_infinity = other.is_point_at_infinity();
-    result_x = field_t::conditional_assign(rhs_infinity, x, result_x).normalize();
-    result_y = field_t::conditional_assign(rhs_infinity, y, result_y).normalize();
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
 
     // The result is the point at infinity if:
     // (lhs.x, lhs.y) == (rhs.x, rhs.y) and neither are infinity, OR both are the point at infinity
-    const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match).normalize();
+    const bool_t infinity_predicate = (x_coordinates_match && y_coordinates_match);
     if (!infinity_predicate.is_constant()) {
         context->update_used_witnesses(infinity_predicate.get_witness_index());
     }
@@ -1209,8 +1209,8 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
                                                               const cycle_group& lhs,
                                                               const cycle_group& rhs)
 {
-    auto x_res = field_t::conditional_assign(predicate, lhs.x, rhs.x).normalize();
-    auto y_res = field_t::conditional_assign(predicate, lhs.y, rhs.y).normalize();
+    auto x_res = field_t::conditional_assign(predicate, lhs.x, rhs.x);
+    auto y_res = field_t::conditional_assign(predicate, lhs.y, rhs.y);
     auto _is_infinity_res =
         bool_t::conditional_assign(predicate, lhs.is_point_at_infinity(), rhs.is_point_at_infinity());
 

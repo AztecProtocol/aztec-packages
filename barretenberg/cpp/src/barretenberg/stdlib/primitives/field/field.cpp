@@ -127,7 +127,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     // Ensure that non-constant circuit elements can not be added without context
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    if (witness_index == other.witness_index && !is_constant()) {
+    if (witness_indices_match(*this, other) && !is_constant()) {
         // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
         // the scaling factors of this variable.
         result.additive_constant = additive_constant + other.additive_constant;
@@ -495,7 +495,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     for (size_t i = 0; i < 32; ++i) {
         accumulator *= accumulator;
         // If current bit == 1, multiply by the base, else propagate the accumulator
-        const field_t multiplier = conditional_assign(exponent_bits[i], *this, one);
+        const field_t multiplier = conditional_assign_internal(exponent_bits[i], *this, one);
         accumulator *= multiplier;
     }
     accumulator = accumulator.normalize();
@@ -883,9 +883,9 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
  * @return field_t<Builder>
  */
 template <typename Builder>
-field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
-                                                      const field_t& lhs,
-                                                      const field_t& rhs)
+field_t<Builder> field_t<Builder>::conditional_assign_internal(const bool_t<Builder>& predicate,
+                                                               const field_t& lhs,
+                                                               const field_t& rhs)
 {
     // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
@@ -894,7 +894,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         return result;
     }
     // If lhs and rhs are the same witness or constant, just return it
-    if (lhs.witness_index == rhs.witness_index && (lhs.additive_constant == rhs.additive_constant) &&
+    if (witness_indices_match(lhs, rhs) && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
