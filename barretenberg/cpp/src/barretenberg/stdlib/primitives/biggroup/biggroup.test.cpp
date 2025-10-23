@@ -67,7 +67,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         // Tags from members are merged
         bool_ct pif = bool_ct(witness_ct(&builder, 0));
         pif.set_origin_tag(next_challenge_tag);
+        // BIGGROUP_AUDITTODO: mutable accessor needed for set_origin_tag()
         a.x().set_origin_tag(submitted_value_origin_tag);
+        // BIGGROUP_AUDITTODO: mutable accessor needed for set_origin_tag()
         a.y().set_origin_tag(challenge_origin_tag);
         a.set_point_at_infinity(pif);
         EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
@@ -491,6 +493,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             b.set_origin_tag(challenge_origin_tag);
 
             // Make the x-coordinates equal, so we should get an error message about y-coordinates
+            // BIGGROUP_AUDITTODO: mutable accessor needed for assignment (test mutating internal state)
             b.x() = a.x();
             a.incomplete_assert_equal(b, "elements don't match");
 

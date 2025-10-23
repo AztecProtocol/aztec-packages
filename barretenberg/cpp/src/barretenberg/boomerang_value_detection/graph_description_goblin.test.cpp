@@ -99,9 +99,13 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
         ASSERT_TRUE(verified);
     }
     auto translator_pairing_points = output.points_accumulator;
+    // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
     translator_pairing_points.P0.x().fix_witness();
+    // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
     translator_pairing_points.P0.y().fix_witness();
+    // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
     translator_pairing_points.P1.x().fix_witness();
+    // BIGGROUP_AUDITTODO: mutable accessor needed for fix_witness()
     translator_pairing_points.P1.y().fix_witness();
     info("Recursive Verifier: num gates = ", builder.num_gates);
     auto graph = cdg::StaticAnalyzer(builder, false);

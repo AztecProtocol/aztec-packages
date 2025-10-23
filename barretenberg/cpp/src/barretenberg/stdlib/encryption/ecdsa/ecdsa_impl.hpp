@@ -90,8 +90,10 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
+    // BIGGROUP_AUDITTODO: mutable accessor needed for assert_is_in_field()
     public_key.x().assert_is_in_field(
         "ECDSA input validation: the x coordinate of the public key is bigger than the base field modulus."); // x < q
+    // BIGGROUP_AUDITTODO: mutable accessor needed for assert_is_in_field()
     public_key.y().assert_is_in_field(
         "ECDSA input validation: the y coordinate of the public key is bigger than the base field modulus."); // y < q
 
@@ -139,6 +141,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     // Step 8.
     // We reduce result.x() to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and
     // avoids possible edge cases
+    // BIGGROUP_AUDITTODO: mutable accessor needed for self_reduce()
     result.x().self_reduce();
 
     // Transfer Fq value result.x() to Fr (this is just moving from a C++ class to another)
