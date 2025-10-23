@@ -380,7 +380,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     bool expected = (condition.get_value()) ? a.get_value() : b.get_value();
                     EXPECT_EQ(result.get_value(), expected);
 
-                    // CRITICAL: Verify result is always normalized (main goal of this refactor)
+                    // Verify result is always normalized
                     EXPECT_FALSE(result.is_inverted());
 
                     // Pin down gate count for simple cases we can predict
