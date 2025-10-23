@@ -417,6 +417,21 @@ tests:
     owners:
       - *palla
 
+  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
+    owners:
+      - *grego
+
+  - regex: "src/e2e_epochs/epochs_invalidate_block.parallel.test.ts"
+    owners:
+      - *grego
+
+  - regex: "amm_flow.sh"
+    owners:
+      - *grego
+
+  - regex: "src/e2e_p2p/gossip_network.test.ts"
+    owners:
+      - *grego
   # Slack testing.
   - regex: "nonsense to match"
     error_regex: "something else"
