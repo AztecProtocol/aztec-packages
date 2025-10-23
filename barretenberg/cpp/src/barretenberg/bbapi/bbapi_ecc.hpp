@@ -266,4 +266,28 @@ struct Bn254G1IsOnCurve {
     bool operator==(const Bn254G1IsOnCurve&) const = default;
 };
 
+/**
+ * @struct Bn254GetCurveConstants
+ * @brief Get BN254 curve constants (Fr modulus, Fq modulus, generator points)
+ */
+struct Bn254GetCurveConstants {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254GetCurveConstants";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254GetCurveConstantsResponse";
+        std::array<uint8_t, 32> fr_modulus;
+        std::array<uint8_t, 32> fq_modulus;
+        bb::g1::affine_element g1_generator;
+        bb::g2::affine_element g2_generator;
+        MSGPACK_FIELDS(fr_modulus, fq_modulus, g1_generator, g2_generator);
+        bool operator==(const Response&) const = default;
+    };
+
+    // Empty struct for commands with no input - use a dummy field for msgpack
+    uint8_t dummy = 0;
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(dummy);
+    bool operator==(const Bn254GetCurveConstants&) const = default;
+};
+
 } // namespace bb::bbapi

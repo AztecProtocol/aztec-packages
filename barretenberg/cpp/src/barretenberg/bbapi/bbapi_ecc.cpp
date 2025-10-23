@@ -74,4 +74,30 @@ Bn254G1IsOnCurve::Response Bn254G1IsOnCurve::execute(BB_UNUSED BBApiRequest& req
     return { point.on_curve() };
 }
 
+Bn254GetCurveConstants::Response Bn254GetCurveConstants::execute(BB_UNUSED BBApiRequest& request) &&
+{
+    // Convert moduli to byte arrays (big-endian)
+    std::array<uint8_t, 32> fr_mod_bytes;
+    std::array<uint8_t, 32> fq_mod_bytes;
+
+    // Manually copy modulus bytes (big-endian order)
+    // Fr modulus
+    for (size_t i = 0; i < 4; ++i) {
+        uint64_t limb = bb::fr::modulus.data[3 - i]; // big-endian: write MSB first
+        for (size_t j = 0; j < 8; ++j) {
+            fr_mod_bytes[i * 8 + j] = static_cast<uint8_t>(limb >> (56 - j * 8));
+        }
+    }
+
+    // Fq modulus
+    for (size_t i = 0; i < 4; ++i) {
+        uint64_t limb = bb::fq::modulus.data[3 - i]; // big-endian: write MSB first
+        for (size_t j = 0; j < 8; ++j) {
+            fq_mod_bytes[i * 8 + j] = static_cast<uint8_t>(limb >> (56 - j * 8));
+        }
+    }
+
+    return { fr_mod_bytes, fq_mod_bytes, bb::g1::affine_element(bb::g1::one), bb::g2::affine_element(bb::g2::one) };
+}
+
 } // namespace bb::bbapi
