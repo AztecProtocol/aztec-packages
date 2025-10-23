@@ -1,4 +1,5 @@
-import { AztecAddress, type L2AmountClaim } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';

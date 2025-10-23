@@ -3,7 +3,6 @@ import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasSettings } from '@aztec/stdlib/gas';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { extractECDSAPublicKeyFromBase64String } from '../utils/ecdsa.js';
@@ -16,7 +15,6 @@ export class WalletDB {
   #accounts!: AztecAsyncMap<string, Buffer>;
   #aliases!: AztecAsyncMap<string, Buffer>;
   #bridgedFeeJuice!: AztecAsyncMap<string, Buffer>;
-  #transactions!: AztecAsyncMap<string, Buffer>;
 
   private static instance: WalletDB;
 
@@ -34,7 +32,6 @@ export class WalletDB {
     this.#accounts = store.openMap('accounts');
     this.#aliases = store.openMap('aliases');
     this.#bridgedFeeJuice = store.openMap('bridgedFeeJuice');
-    this.#transactions = store.openMap('transactions');
 
     await this.refreshAliasCache();
   }
@@ -125,39 +122,14 @@ export class WalletDB {
     await this.refreshAliasCache();
   }
 
-  async storeTx(
-    {
-      txHash,
-      txNonce,
-      cancellable,
-      gasSettings,
-    }: { txHash: TxHash; txNonce: Fr; cancellable: boolean; gasSettings: GasSettings },
-    log: LogFn,
-    alias?: string,
-  ) {
+  async storeTx({ txHash }: { txHash: TxHash }, log: LogFn, alias?: string) {
     if (alias) {
       await this.#aliases.set(`transactions:${alias}`, Buffer.from(txHash.toString()));
     }
-    await this.#transactions.set(`${txHash.toString()}:txNonce`, txNonce.toBuffer());
-    await this.#transactions.set(`${txHash.toString()}:cancellable`, Buffer.from(cancellable ? 'true' : 'false'));
-    await this.#transactions.set(`${txHash.toString()}:gasSettings`, gasSettings.toBuffer());
     await this.#aliases.set(`transactions:last`, Buffer.from(txHash.toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
 
     await this.refreshAliasCache();
-  }
-
-  async retrieveTxData(txHash: TxHash) {
-    const txNonceBuffer = await this.#transactions.getAsync(`${txHash.toString()}:txNonce`);
-    if (!txNonceBuffer) {
-      throw new Error(
-        `Could not find ${txHash.toString()}:txNonce. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
-      );
-    }
-    const txNonce = Fr.fromBuffer(txNonceBuffer);
-    const cancellable = (await this.#transactions.getAsync(`${txHash.toString()}:cancellable`))!.toString() === 'true';
-    const gasBuffer = (await this.#transactions.getAsync(`${txHash.toString()}:gasSettings`))!;
-    return { txHash, txNonce, cancellable, gasSettings: GasSettings.fromBuffer(gasBuffer) };
   }
 
   tryRetrieveAlias(arg: string) {

@@ -1,5 +1,5 @@
 import { VERSION } from './constants';
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 export type Network = {
   nodeURL: string;

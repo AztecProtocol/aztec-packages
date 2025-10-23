@@ -1,12 +1,10 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
-  type ExtendedNote,
-  Fr,
-  ProtocolContractAddress,
-  type TxHash,
-} from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { ExtendedNote } from '@aztec/aztec.js/note';
+import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
+import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { siloNullifier } from '@aztec/stdlib/hash';
 

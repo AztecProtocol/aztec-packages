@@ -1,10 +1,13 @@
-import { type AztecAddress, type AztecNode, retryUntil } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { Fr } from '@aztec/foundation/fields';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { inspect } from 'util';
 
@@ -56,9 +59,10 @@ describe('e2e_fees fee settings', () => {
     const proveTx = async (baseFeePadding: number | undefined) => {
       t.logger.info(`Preparing tx to be sent with base fee padding ${baseFeePadding}`);
       wallet.setBaseFeePadding(baseFeePadding);
-      const tx = await testContract.methods
-        .emit_nullifier_public(Fr.random())
-        .prove({ from: aliceAddress, fee: { gasSettings } });
+      const tx = await proveInteraction(wallet, testContract.methods.emit_nullifier_public(Fr.random()), {
+        from: aliceAddress,
+        fee: { gasSettings },
+      });
       const { maxFeesPerGas } = tx.data.constants.txContext.gasSettings;
       t.logger.info(`Tx with hash ${tx.getTxHash().toString()} ready with max fees ${inspect(maxFeesPerGas)}`);
       return tx;

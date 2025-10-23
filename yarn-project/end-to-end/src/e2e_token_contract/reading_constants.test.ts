@@ -1,4 +1,4 @@
-import { readFieldCompressedString } from '@aztec/aztec.js';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 
 import { TokenContractTest } from './token_contract_test.js';
 

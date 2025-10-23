@@ -1,4 +1,4 @@
-import type { ContractBase } from '@aztec/aztec.js';
+import { ContractBase } from '@aztec/aztec.js/contracts';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';

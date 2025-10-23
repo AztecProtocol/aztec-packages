@@ -1,18 +1,14 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  Fr,
-  type Logger,
-  ProvenTx,
-  type SentTx,
-  TxStatus,
-  getContractInstanceFromInstantiationParams,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type SentTx, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -20,7 +16,7 @@ import { getPXEConfig, getPXEConfig as getRpcConfig } from '@aztec/pxe/server';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
@@ -73,7 +69,7 @@ export async function prepareTransactions(
   node: AztecNodeService,
   numTxs: number,
   fundedAccount: InitialAccountData,
-): Promise<ProvenTx[]> {
+): Promise<Tx[]> {
   const rpcConfig = getRpcConfig();
   rpcConfig.proverEnabled = false;
 
@@ -87,7 +83,9 @@ export async function prepareTransactions(
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
   return timesAsync(numTxs, async () => {
-    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ from: fundedAccountManager.address });
+    const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(Fr.random()), {
+      from: fundedAccountManager.address,
+    });
     const txHash = tx.getTxHash();
     logger.info(`Tx prepared with hash ${txHash}`);
     return tx;

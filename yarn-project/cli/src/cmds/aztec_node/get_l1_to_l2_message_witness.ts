@@ -1,4 +1,6 @@
-import { type AztecAddress, type Fr, createAztecNodeClient } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { LogFn } from '@aztec/foundation/log';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 
