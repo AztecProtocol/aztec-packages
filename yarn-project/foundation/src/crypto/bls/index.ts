@@ -14,9 +14,10 @@ export { Bn254, type Bn254G1Point, type Bn254G2Point } from '../bn254/index.js';
 
 const bn254Instance = new Bn254();
 
-export const computeBn254G1PublicKeyCompressed = (privateKeyHex: string): string =>
+export const computeBn254G1PublicKeyCompressed = (privateKeyHex: string): Promise<string> =>
   bn254Instance.computeG1PublicKeyCompressed(privateKeyHex);
-export const computeBn254G1PublicKey = (privateKeyHex: string) => bn254Instance.computeG1PublicKey(privateKeyHex);
+export const computeBn254G1PublicKey = (privateKeyHex: string): Promise<import('../bn254/index.js').Bn254G1Point> =>
+  bn254Instance.computeG1PublicKey(privateKeyHex);
 export const computeBn254G2PublicKey = (privateKeyHex: string) => bn254Instance.computeG2PublicKey(privateKeyHex);
 export const compressBn254G1Point = (point: { x: bigint; y: bigint }): string => bn254Instance.compressG1Point(point);
 export const decompressBn254G1Point = (compressed: string) => bn254Instance.decompressG1Point(compressed);

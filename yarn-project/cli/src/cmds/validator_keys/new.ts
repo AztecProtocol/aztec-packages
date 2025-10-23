@@ -70,7 +70,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
   const { outputPath } = await resolveKeystoreOutputPath(dataDir, file);
 
-  const { validators, summaries } = buildValidatorEntries({
+  const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
     accountIndex,

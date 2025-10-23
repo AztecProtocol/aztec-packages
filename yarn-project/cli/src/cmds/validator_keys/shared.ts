@@ -16,6 +16,9 @@ import { homedir } from 'os';
 import { dirname, isAbsolute, join } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
 
+// Re-export for tests
+export { deriveBlsPrivateKey };
+
 export type ValidatorSummary = { attesterEth?: string; attesterBls?: string; publisherEth?: string[] };
 
 export type BuildValidatorsInput = {
@@ -47,7 +50,7 @@ export function withValidatorIndex(path: string, index: number) {
  * @param privateKeyHex - Private key as 0x-prefixed hex string
  * @returns Compressed G1 point (32 bytes with sign bit in MSB)
  */
-export function computeBlsPublicKeyCompressed(privateKeyHex: string): string {
+export function computeBlsPublicKeyCompressed(privateKeyHex: string): Promise<string> {
   return computeBn254G1PublicKeyCompressed(privateKeyHex);
 }
 
@@ -63,7 +66,7 @@ export function deriveEthAttester(
     : (('0x' + Buffer.from(acct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
 }
 
-export function buildValidatorEntries(input: BuildValidatorsInput) {
+export async function buildValidatorEntries(input: BuildValidatorsInput) {
   const {
     validatorCount,
     publisherCount = 0,
@@ -82,60 +85,62 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
   const defaultBlsPath = 'm/12381/3600/0/0/0';
   const summaries: ValidatorSummary[] = [];
 
-  const validators = Array.from({ length: validatorCount }, (_unused, i) => {
-    const addressIndex = baseAddressIndex + i;
-    const basePath = blsPath ?? defaultBlsPath;
-    const perValidatorPath = withValidatorIndex(basePath, addressIndex);
+  const validators = await Promise.all(
+    Array.from({ length: validatorCount }, async (_unused, i) => {
+      const addressIndex = baseAddressIndex + i;
+      const basePath = blsPath ?? defaultBlsPath;
+      const perValidatorPath = withValidatorIndex(basePath, addressIndex);
 
-    const blsPrivKey = blsOnly || ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
-    const blsPubCompressed = blsPrivKey ? computeBlsPublicKeyCompressed(blsPrivKey) : undefined;
+      const blsPrivKey = blsOnly || ikm || mnemonic ? deriveBlsPrivateKey(mnemonic, ikm, perValidatorPath) : undefined;
+      const blsPubCompressed = blsPrivKey ? await computeBlsPublicKeyCompressed(blsPrivKey) : undefined;
 
-    if (blsOnly) {
-      const attester = { bls: blsPrivKey! };
-      summaries.push({ attesterBls: blsPubCompressed });
-      return { attester, feeRecipient } as ValidatorKeyStore;
-    }
+      if (blsOnly) {
+        const attester = { bls: blsPrivKey! };
+        summaries.push({ attesterBls: blsPubCompressed });
+        return { attester, feeRecipient } as ValidatorKeyStore;
+      }
 
-    const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
-    const attester = blsPrivKey ? { eth: ethAttester, bls: blsPrivKey } : ethAttester;
+      const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
+      const attester = blsPrivKey ? { eth: ethAttester, bls: blsPrivKey } : ethAttester;
 
-    let publisherField: EthAccount | EthPrivateKey | (EthAccount | EthPrivateKey)[] | undefined;
-    const publisherAddresses: string[] = [];
-    if (publisherCount > 0) {
-      const publishersBaseIndex = baseAddressIndex + validatorCount + i * publisherCount;
-      const publisherAccounts = Array.from({ length: publisherCount }, (_unused2, j) => {
-        const publisherAddressIndex = publishersBaseIndex + j;
-        const pubAcct = mnemonicToAccount(mnemonic, {
-          accountIndex,
-          addressIndex: publisherAddressIndex,
+      let publisherField: EthAccount | EthPrivateKey | (EthAccount | EthPrivateKey)[] | undefined;
+      const publisherAddresses: string[] = [];
+      if (publisherCount > 0) {
+        const publishersBaseIndex = baseAddressIndex + validatorCount + i * publisherCount;
+        const publisherAccounts = Array.from({ length: publisherCount }, (_unused2, j) => {
+          const publisherAddressIndex = publishersBaseIndex + j;
+          const pubAcct = mnemonicToAccount(mnemonic, {
+            accountIndex,
+            addressIndex: publisherAddressIndex,
+          });
+          publisherAddresses.push(pubAcct.address as unknown as string);
+          return remoteSigner
+            ? ({ address: pubAcct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
+            : (('0x' + Buffer.from(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
         });
-        publisherAddresses.push(pubAcct.address as unknown as string);
-        return remoteSigner
-          ? ({ address: pubAcct.address as unknown as EthAddress, remoteSignerUrl: remoteSigner } as EthAccount)
-          : (('0x' + Buffer.from(pubAcct.getHdKey().privateKey!).toString('hex')) as EthPrivateKey);
+        publisherField = publisherCount === 1 ? publisherAccounts[0] : publisherAccounts;
+      }
+
+      const acct = mnemonicToAccount(mnemonic, {
+        accountIndex,
+        addressIndex,
       });
-      publisherField = publisherCount === 1 ? publisherAccounts[0] : publisherAccounts;
-    }
+      const attesterEthAddress = acct.address as unknown as string;
+      summaries.push({
+        attesterEth: attesterEthAddress,
+        attesterBls: blsPubCompressed,
+        publisherEth: publisherAddresses.length > 0 ? publisherAddresses : undefined,
+      });
 
-    const acct = mnemonicToAccount(mnemonic, {
-      accountIndex,
-      addressIndex,
-    });
-    const attesterEthAddress = acct.address as unknown as string;
-    summaries.push({
-      attesterEth: attesterEthAddress,
-      attesterBls: blsPubCompressed,
-      publisherEth: publisherAddresses.length > 0 ? publisherAddresses : undefined,
-    });
-
-    return {
-      attester,
-      ...(publisherField !== undefined ? { publisher: publisherField } : {}),
-      feeRecipient,
-      coinbase,
-      fundingAccount,
-    } as ValidatorKeyStore;
-  });
+      return {
+        attester,
+        ...(publisherField !== undefined ? { publisher: publisherField } : {}),
+        feeRecipient,
+        coinbase,
+        fundingAccount,
+      } as ValidatorKeyStore;
+    }),
+  );
 
   return { validators, summaries };
 }
@@ -245,7 +250,7 @@ export async function writeBlsEip2335ToFile(
       continue;
     }
 
-    const pub = computeBlsPublicKeyCompressed(blsKey);
+    const pub = await computeBlsPublicKeyCompressed(blsKey);
     const path = 'm/12381/3600/0/0/0';
     const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
     const keystorePath = await writeEip2335BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);

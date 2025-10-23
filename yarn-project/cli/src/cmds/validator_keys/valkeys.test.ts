@@ -51,7 +51,7 @@ describe('validator keys utilities', () => {
   });
 
   describe('deriveBlsPrivateKey and computeBlsPublicKeyCompressed', () => {
-    it('derives from ikm when provided', () => {
+    it('derives from ikm when provided', async () => {
       const ikm = '0x11223344556677889900aabbccddeeff';
       const path = 'm/12381/3600/0/0/0';
       const priv = deriveBlsPrivateKey(undefined, ikm, path);
@@ -70,10 +70,10 @@ describe('validator keys utilities', () => {
       expect(() => deriveBlsPrivateKey(undefined as any, undefined as any, 'm/12381/3600/0/0/0')).toThrow();
     });
 
-    it('computes a compressed public key from a private scalar', () => {
+    it('computes a compressed public key from a private scalar', async () => {
       const path = 'm/12381/3600/0/0/0';
       const priv = deriveBlsPrivateKey(TEST_MNEMONIC, undefined, path);
-      const pub = computeBlsPublicKeyCompressed(priv);
+      const pub = await computeBlsPublicKeyCompressed(priv);
       expect(pub.startsWith('0x')).toBe(true);
       // Should be a non-trivial hex string
       expect(pub.length).toBeGreaterThan(10);
@@ -96,8 +96,8 @@ describe('validator keys utilities', () => {
   });
 
   describe('buildValidatorEntries', () => {
-    it('builds entries and summaries for mixed eth+bls attesters', () => {
-      const { validators, summaries } = buildValidatorEntries({
+    it('builds entries and summaries for mixed eth+bls attesters', async () => {
+      const { validators, summaries } = await buildValidatorEntries({
         validatorCount: 2,
         publisherCount: 1,
         accountIndex: 0,
@@ -118,8 +118,8 @@ describe('validator keys utilities', () => {
       expect(summaries[0].publisherEth!.length).toBe(1);
     });
 
-    it('supports bls-only mode', () => {
-      const { validators, summaries } = buildValidatorEntries({
+    it('supports bls-only mode', async () => {
+      const { validators, summaries } = await buildValidatorEntries({
         validatorCount: 1,
         publisherCount: 0,
         accountIndex: 0,
@@ -135,8 +135,8 @@ describe('validator keys utilities', () => {
       expect(typeof summaries[0].attesterBls).toBe('string');
     });
 
-    it('creates multiple publishers when requested', () => {
-      const { validators, summaries } = buildValidatorEntries({
+    it('creates multiple publishers when requested', async () => {
+      const { validators, summaries } = await buildValidatorEntries({
         validatorCount: 1,
         publisherCount: 3,
         accountIndex: 0,
@@ -316,7 +316,7 @@ describe('validator keys utilities', () => {
       expect(decryptedBlsKey).toMatch(/^0x[0-9a-fA-F]{64}$/);
 
       // Verify we can compute the public key from the decrypted private key
-      const pubkey = computeBlsPublicKeyCompressed(decryptedBlsKey);
+      const pubkey = await computeBlsPublicKeyCompressed(decryptedBlsKey);
       expect(pubkey).toBeDefined();
       expect(pubkey).toMatch(/^0x[0-9a-fA-F]+$/);
     });

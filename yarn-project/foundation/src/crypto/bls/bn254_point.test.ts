@@ -16,9 +16,9 @@ describe('BN254 Point Operations', () => {
   const path = 'm/12381/3600/0/0/0';
 
   describe('computeBn254G1PublicKey', () => {
-    it('generates valid G1 public keys from private keys', () => {
+    it('generates valid G1 public keys from private keys', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
 
       // Should be valid coordinates
       expect(pk.x).toBeGreaterThan(0n);
@@ -28,9 +28,9 @@ describe('BN254 Point Operations', () => {
       expect(isOnBn254Curve(pk)).toBe(true);
     });
 
-    it('matches noble/curves library output', () => {
+    it('matches noble/curves library output', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
 
       // Verify using noble/curves
       const skReduced = BigInt(sk) % bn254.fields.Fr.ORDER;
@@ -40,12 +40,12 @@ describe('BN254 Point Operations', () => {
       expect(pk.y).toBe(expected.y);
     });
 
-    it('generates different keys for different inputs', () => {
+    it('generates different keys for different inputs', async () => {
       const sk1 = deriveBlsKeyFromMnemonic(mnemonic, 'm/12381/3600/0/0/0', '');
       const sk2 = deriveBlsKeyFromMnemonic(mnemonic, 'm/12381/3600/1/0/0', '');
 
-      const pk1 = computeBn254G1PublicKey(sk1);
-      const pk2 = computeBn254G1PublicKey(sk2);
+      const pk1 = await computeBn254G1PublicKey(sk1);
+      const pk2 = await computeBn254G1PublicKey(sk2);
 
       expect(pk1.x).not.toBe(pk2.x);
       expect(pk1.y).not.toBe(pk2.y);
@@ -80,17 +80,17 @@ describe('BN254 Point Operations', () => {
   });
 
   describe('Point Compression and Decompression', () => {
-    it('compresses a G1 point to 32 bytes', () => {
+    it('compresses a G1 point to 32 bytes', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const compressed = computeBn254G1PublicKeyCompressed(sk);
+      const compressed = await computeBn254G1PublicKeyCompressed(sk);
 
       // Should be 0x + 64 hex chars = 32 bytes
       expect(compressed).toMatch(/^0x[0-9a-fA-F]{64}$/);
     });
 
-    it('round-trips compression and decompression', () => {
+    it('round-trips compression and decompression', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const original = computeBn254G1PublicKey(sk);
+      const original = await computeBn254G1PublicKey(sk);
 
       // Compress and decompress
       const compressed = compressBn254G1Point(original);
@@ -100,10 +100,10 @@ describe('BN254 Point Operations', () => {
       expect(decompressed.y).toBe(original.y);
     });
 
-    it('handles multiple keys correctly', () => {
+    it('handles multiple keys correctly', async () => {
       for (let i = 0; i < 10; i++) {
         const sk = deriveBlsKeyFromMnemonic(mnemonic, `m/12381/3600/${i}/0/0`, '');
-        const original = computeBn254G1PublicKey(sk);
+        const original = await computeBn254G1PublicKey(sk);
 
         const compressed = compressBn254G1Point(original);
         const decompressed = decompressBn254G1Point(compressed);
@@ -114,18 +114,18 @@ describe('BN254 Point Operations', () => {
       }
     });
 
-    it('decompressed points are on the curve', () => {
+    it('decompressed points are on the curve', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const compressed = computeBn254G1PublicKeyCompressed(sk);
+      const compressed = await computeBn254G1PublicKeyCompressed(sk);
       const decompressed = decompressBn254G1Point(compressed);
 
       expect(isOnBn254Curve(decompressed)).toBe(true);
     });
 
-    it('correctly handles y parity in compression', () => {
+    it('correctly handles y parity in compression', async () => {
       // Test both even and odd y coordinates
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
       const compressed = compressBn254G1Point(pk);
 
       // Check if MSB is set based on y parity
@@ -150,9 +150,9 @@ describe('BN254 Point Operations', () => {
   });
 
   describe('isOnBn254Curve', () => {
-    it('returns true for valid points', () => {
+    it('returns true for valid points', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
 
       expect(isOnBn254Curve(pk)).toBe(true);
     });
@@ -178,10 +178,10 @@ describe('BN254 Point Operations', () => {
   });
 
   describe('Integration with key derivation', () => {
-    it('derives consistent keys across multiple calls', () => {
+    it('derives consistent keys across multiple calls', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const pk1 = computeBn254G1PublicKeyCompressed(sk);
-      const pk2 = computeBn254G1PublicKeyCompressed(sk);
+      const pk1 = await computeBn254G1PublicKeyCompressed(sk);
+      const pk2 = await computeBn254G1PublicKeyCompressed(sk);
 
       expect(pk1).toBe(pk2);
     });
@@ -194,9 +194,9 @@ describe('BN254 Point Operations', () => {
       expect(fr.toBigInt()).toBeLessThan(bn254.fields.Fr.ORDER);
     });
 
-    it('generates keys that work with noble/curves', () => {
+    it('generates keys that work with noble/curves', async () => {
       const sk = deriveBlsKeyFromMnemonic(mnemonic, path, '');
-      const ourPk = computeBn254G1PublicKey(sk);
+      const ourPk = await computeBn254G1PublicKey(sk);
 
       // Verify with noble/curves
       const skReduced = BigInt(sk) % bn254.fields.Fr.ORDER;
@@ -208,17 +208,17 @@ describe('BN254 Point Operations', () => {
   });
 
   describe('Edge Cases', () => {
-    it('handles private key at field boundary', () => {
+    it('handles private key at field boundary', async () => {
       // Use a key very close to the field order
       const sk = '0x' + (bn254.fields.Fr.ORDER - 1n).toString(16).padStart(64, '0');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
 
       expect(isOnBn254Curve(pk)).toBe(true);
     });
 
-    it('handles small private keys', () => {
+    it('handles small private keys', async () => {
       const sk = '0x' + '01'.padStart(64, '0');
-      const pk = computeBn254G1PublicKey(sk);
+      const pk = await computeBn254G1PublicKey(sk);
 
       // Should equal the generator
       expect(pk.x).toBe(1n);

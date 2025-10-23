@@ -67,7 +67,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   const effectiveBaseAddressIndex =
     addressIndex === undefined ? baseAddressIndex + keystore.validators.length : baseAddressIndex;
 
-  const { validators, summaries } = buildValidatorEntries({
+  const { validators, summaries } = await buildValidatorEntries({
     validatorCount,
     publisherCount,
     accountIndex,

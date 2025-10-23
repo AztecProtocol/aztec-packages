@@ -1,9 +1,11 @@
+import { BarretenbergSync } from '@aztec/bb.js';
+
 import { bn254 } from '@noble/curves/bn254';
 
 /**
  * BN254 elliptic curve operations.
- * Currently uses @noble/curves for G1/G2 operations.
- * TODO: Migrate to barretenberg bbapi once BN254 operations are added to bbapi_ecc.hpp
+ * G1 operations use barretenberg bbapi for performance.
+ * G2 operations use @noble/curves (barretenberg G2 support deferred due to msgpack serialization complexity).
  */
 
 /**
@@ -23,34 +25,64 @@ export interface Bn254G2Point {
 }
 
 export class Bn254 {
+  // BN254 G1 generator point (x=1, y=2)
+  private static readonly G1_GENERATOR: Bn254G1Point = {
+    x: 1n,
+    y: 2n,
+  };
+
   /**
    * Generate a compressed BN254 G1 public key from a private key.
    *
    * @param privateKeyHex - Private key as 0x-prefixed hex string
    * @returns Compressed G1 point (32 bytes with sign bit in MSB)
    */
-  public computeG1PublicKeyCompressed(privateKeyHex: string): string {
-    const sk = BigInt(privateKeyHex);
-    const skReduced = sk % bn254.fields.Fr.ORDER;
-
-    // Generate G1 point on BN254 curve
-    const pk1 = bn254.G1.ProjectivePoint.BASE.multiply(skReduced).toAffine();
-
-    // Compress the point: 32 bytes of x-coordinate with y parity in MSB
+  public async computeG1PublicKeyCompressed(privateKeyHex: string): Promise<string> {
+    const pk1 = await this.computeG1PublicKey(privateKeyHex);
     return this.compressG1Point(pk1);
   }
 
   /**
    * Generate uncompressed BN254 G1 public key from a private key.
+   * Uses barretenberg for efficient scalar multiplication.
    *
    * @param privateKeyHex - Private key as 0x-prefixed hex string
    * @returns G1 point in affine coordinates
    */
-  public computeG1PublicKey(privateKeyHex: string): Bn254G1Point {
+  public async computeG1PublicKey(privateKeyHex: string): Promise<Bn254G1Point> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+
     const sk = BigInt(privateKeyHex);
     const skReduced = sk % bn254.fields.Fr.ORDER;
 
-    return bn254.G1.ProjectivePoint.BASE.multiply(skReduced).toAffine();
+    // Convert scalar to 32-byte buffer (big-endian)
+    const scalarHex = skReduced.toString(16).padStart(64, '0');
+    const scalarBuffer = Buffer.from(scalarHex, 'hex');
+
+    // Convert generator point to buffers
+    const generatorX = this.bigintToBuffer(Bn254.G1_GENERATOR.x);
+    const generatorY = this.bigintToBuffer(Bn254.G1_GENERATOR.y);
+
+    // Call barretenberg for G1 scalar multiplication
+    const response = api.bn254G1Mul({
+      point: { x: generatorX, y: generatorY },
+      scalar: scalarBuffer,
+    });
+
+    // Convert response buffers back to bigints
+    const x = BigInt('0x' + Buffer.from(response.point.x).toString('hex'));
+    const y = BigInt('0x' + Buffer.from(response.point.y).toString('hex'));
+
+    return { x, y };
+  }
+
+  /**
+   * Convert bigint to 32-byte buffer (big-endian)
+   */
+  private bigintToBuffer(value: bigint): Buffer {
+    const hex = value.toString(16).padStart(64, '0');
+    return Buffer.from(hex, 'hex');
   }
 
   /**
