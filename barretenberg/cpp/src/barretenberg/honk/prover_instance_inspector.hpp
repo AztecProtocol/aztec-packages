@@ -48,7 +48,7 @@ uint256_t compute_vk_hash(const Builder& circuit_in)
 
 // A catch-all for Flavor/Builder combinations where the VK hash is not implemented.
 template <typename Flavor, typename Builder>
-uint256_t compute_vk_hash(const Builder&, const TraceSettings& = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+uint256_t compute_vk_hash(const Builder&)
     requires(!IsMegaFlavor<Flavor> || !IsMegaBuilder<Builder>)
 {
     info("compute_vk_hash: Not implemented for this Flavor/Builder, returning 0.");

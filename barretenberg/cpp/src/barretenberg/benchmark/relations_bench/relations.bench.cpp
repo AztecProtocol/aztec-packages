@@ -30,7 +30,7 @@ void execute_relation(::benchmark::State& state)
     }
 }
 
-// Single execution of relation on values (FF), e.g. Sumcheck verifier / PG perturbator work
+// Single execution of relation on values (FF), e.g. Sumcheck verifier work
 template <typename Flavor, typename Relation> void execute_relation_for_values(::benchmark::State& state)
 {
     using Input = typename Flavor::AllValues;

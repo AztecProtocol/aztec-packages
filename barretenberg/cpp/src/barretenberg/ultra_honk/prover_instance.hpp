@@ -79,9 +79,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
-    // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
-    bool is_structured;
-
     MetaData metadata;                 // circuit size and public inputs metadata
     size_t overflow_size{ 0 };         // size of the structured execution trace overflow
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
@@ -147,7 +144,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
         }
 
-        circuit.blocks.compute_offsets(/*is_structured*/ false); // compute offset of each block within the trace
+        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -246,8 +243,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ProverInstance_& operator=(ProverInstance_&&) = delete;
     ~ProverInstance_() = default;
 
-    bool get_is_structured() { return is_structured; }
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
@@ -278,9 +273,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
-
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-        requires IsMegaFlavor<Flavor>;
 
     void populate_memory_records(const Circuit& circuit);
 };

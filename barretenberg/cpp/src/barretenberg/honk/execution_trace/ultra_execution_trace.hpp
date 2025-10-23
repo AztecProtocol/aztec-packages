@@ -299,15 +299,12 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
 
     UltraExecutionTraceBlocks() = default;
 
-    void compute_offsets(bool is_structured)
+    void compute_offsets()
     {
-        if (is_structured) {
-            throw_or_abort("Trace is structuring not implemented for UltraHonk");
-        }
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
-            offset += block.get_fixed_size(is_structured);
+            offset += static_cast<uint32_t>(block.size());
         }
     }
 
@@ -340,7 +337,7 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
-            total_size += block.get_fixed_size();
+            total_size += block.size();
         }
 
         auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));

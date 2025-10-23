@@ -160,7 +160,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_comp
 
 template <typename Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
 {
-    // Get the relation separation challenges for sumcheck/combiner computation
+    // Get the relation separation challenges for sumcheck computation
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
