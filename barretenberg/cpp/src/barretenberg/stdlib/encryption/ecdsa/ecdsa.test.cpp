@@ -113,8 +113,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             s = -s;
 
             FrNative::serialize_to_buffer(s, &signature.s[0]);
-            failure_msg = "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: "
-                          "hi limb."; // The second part of the message is added by the range constraint
+            failure_msg =
+                "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.: "
+                "hi limb."; // The second part of the message is added by the range constraint
             break;
         }
         case TamperingMode::ZeroR: {
