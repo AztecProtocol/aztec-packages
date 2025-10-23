@@ -51,25 +51,25 @@ TEST(MerkleCheckConstrainingTest, EmptyRow)
     check_relation<merkle_check>(testing::empty_trace());
 }
 
-TEST(MerkleCheckConstrainingTest, TraceContinuity)
+TEST(MerkleCheckConstrainingTest, ComputationCannotBeStoppedPrematurely)
 {
-    // Test that the trace is contiguous
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 }, { C::merkle_check_sel, 0 } },
         { { C::merkle_check_sel, 1 } },
         { { C::merkle_check_sel, 1 } },
-        { { C::merkle_check_sel, 0 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 } },
         { { C::merkle_check_sel, 0 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY);
+    check_relation<merkle_check>(
+        trace, merkle_check::SR_COMPUTATION_FINISH_AT_END, merkle_check::SR_SELECTOR_ON_START_OR_END);
 
-    const uint32_t last_row_idx = 4;
+    const uint32_t last_row_idx = 3;
     // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_sel, last_row_idx, 1); // This should fail - sel went from 0 back to 1
+    trace.set(C::merkle_check_end, last_row_idx, 0); // This should fail - end went from 1 back to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_COMPUTATION_FINISH_AT_END),
+                              "COMPUTATION_FINISH_AT_END");
 }
 
 TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
@@ -90,48 +90,38 @@ TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }
 
-TEST(MerkleCheckConstrainingTest, StartAfterLatch)
-{
-    // Test constraint: sel' * (start' - LATCH_CONDITION) = 0
-    // After a row with end=1, the next row with sel=1 must have start=1
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 0 },
-          { C::merkle_check_end, 1 } },                               // end=1 triggers LATCH_CONDITION
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after LATCH is correct
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_START_AFTER_LATCH);
-
-    // First row has precomputed_first_row=1, which also triggers LATCH_CONDITION
-    TestTraceContainer trace2({
-        { { C::precomputed_first_row, 1 }, { C::merkle_check_sel, 0 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after precomputed_first_row is correct
-    });
-
-    check_relation<merkle_check>(trace2, merkle_check::SR_START_AFTER_LATCH);
-
-    // Negative test - start=0 after LATCH
-    trace.set(C::merkle_check_start, 1, 0); // This should fail - start should be 1 after LATCH
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
-}
-
 TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
 {
-    // Test constraint: end * (1 - sel) = 0
+    // Test constraint: (start + end) * (1 - sel) = 0
     // If end=1, sel must be 1
     TestTraceContainer trace({
         { { C::merkle_check_end, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when end=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when end=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END), "SELECTOR_ON_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
+}
+
+TEST(MerkleCheckConstrainingTest, SelectorOnStart)
+{
+    // Test constraint: (start + end) * (1 - sel) = 0
+    // If start=1, sel must be 1
+    TestTraceContainer trace({
+        { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when start=1 is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+
+    // Negative test - now modify to an incorrect value
+    trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when start=1
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, PropagateReadRoot)
