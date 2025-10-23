@@ -7,9 +7,9 @@ import {
   computeBn254G1PublicKeyCompressed,
   computeBn254G2PublicKey,
   decompressBn254G1Point,
+  deriveBlsKeyFromMnemonic,
   isOnBn254Curve,
-} from './bn254_point.js';
-import { deriveBlsKeyFromMnemonic } from './index.js';
+} from './index.js';
 
 describe('BN254 Point Operations', () => {
   const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';

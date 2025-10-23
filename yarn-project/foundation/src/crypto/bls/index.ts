@@ -6,16 +6,21 @@ import { sha512 } from '@noble/hashes/sha2';
 import { mnemonicToSeedSync } from '@scure/bip39';
 
 import type { Hex } from '../../string/index.js';
+// Convenience functions using Bn254 class (for backwards compatibility)
+import { Bn254 } from '../bn254/index.js';
 
-// Re-export BN254 point operations
-export {
-  computeBn254G1PublicKeyCompressed,
-  computeBn254G1PublicKey,
-  computeBn254G2PublicKey,
-  compressBn254G1Point,
-  decompressBn254G1Point,
-  isOnBn254Curve,
-} from './bn254_point.js';
+// Re-export BN254 operations
+export { Bn254, type Bn254G1Point, type Bn254G2Point } from '../bn254/index.js';
+
+const bn254Instance = new Bn254();
+
+export const computeBn254G1PublicKeyCompressed = (privateKeyHex: string): string =>
+  bn254Instance.computeG1PublicKeyCompressed(privateKeyHex);
+export const computeBn254G1PublicKey = (privateKeyHex: string) => bn254Instance.computeG1PublicKey(privateKeyHex);
+export const computeBn254G2PublicKey = (privateKeyHex: string) => bn254Instance.computeG2PublicKey(privateKeyHex);
+export const compressBn254G1Point = (point: { x: bigint; y: bigint }): string => bn254Instance.compressG1Point(point);
+export const decompressBn254G1Point = (compressed: string) => bn254Instance.decompressG1Point(compressed);
+export const isOnBn254Curve = (point: { x: bigint; y: bigint }): boolean => bn254Instance.isOnCurve(point);
 
 // Re-export EIP-2335 keystore utilities
 export {
