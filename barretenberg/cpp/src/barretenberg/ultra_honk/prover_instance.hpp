@@ -80,7 +80,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     MetaData metadata;                 // circuit size and public inputs metadata
-    size_t overflow_size{ 0 };         // size of the structured execution trace overflow
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
 
   public:
@@ -106,7 +105,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
-    void set_overflow_size(size_t size) { overflow_size = size; }
     void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
@@ -117,7 +115,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         return metadata.num_public_inputs;
     }
     MetaData get_metadata() const { return metadata; }
-    size_t get_overflow_size() const { return overflow_size; }
     size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
 
     Flavor::PrecomputedData get_precomputed()
@@ -159,7 +156,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If ZK or if using structured trace with overflow, allocate full size polys
+            // If ZK, allocate full size polys
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
             // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
             if (Flavor::HasZK) {
