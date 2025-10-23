@@ -1535,19 +1535,19 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::queue_partial_non_
     // Note: This may create duplicate gates for repeated multiplications, but simplifies the codebase
     blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), lo_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), hi_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), hi_1_idx);
     apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     return std::array<uint32_t, 2>{ lo_0_idx, hi_1_idx };
 }
