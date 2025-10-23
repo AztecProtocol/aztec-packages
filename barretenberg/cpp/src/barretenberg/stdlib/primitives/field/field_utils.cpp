@@ -50,7 +50,7 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
 {
     using native = typename field_t<Builder>::native;
     static constexpr size_t max_bits = native::modulus.get_msb() + 1;
-    ASSERT(lo_bits < max_bits);
+    BB_ASSERT(lo_bits < max_bits);
 
     const uint256_t value(field.get_value());
     const uint256_t lo_val = value.slice(0, lo_bits);

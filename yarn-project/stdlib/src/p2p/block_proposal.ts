@@ -1,5 +1,5 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { keccak256, recoverAddress } from '@aztec/foundation/crypto';
+import { keccak256, tryRecoverAddress } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -100,12 +100,13 @@ export class BlockProposal extends Gossipable {
 
   /**Get Sender
    * Lazily evaluate the sender of the proposal; result is cached
+   * @returns The sender address, or undefined if signature recovery fails
    */
-  getSender() {
+  getSender(): EthAddress | undefined {
     if (!this.sender) {
       const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
       // Cache the sender for later use
-      this.sender = recoverAddress(hashed, this.signature);
+      this.sender = tryRecoverAddress(hashed, this.signature);
     }
 
     return this.sender;

@@ -1,7 +1,8 @@
-import { defineConfig, loadEnv, searchForWorkspaceRoot } from 'vite';
+import { defineConfig, loadEnv, searchForWorkspaceRoot, Plugin, ResolvedConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { PolyfillOptions, nodePolyfills } from 'vite-plugin-node-polyfills';
-import bundlesize from 'vite-plugin-bundlesize';
+import fs from 'fs';
+import path from 'path';
 
 // Only required for alternative bb wasm file, left as reference
 //import { viteStaticCopy } from 'vite-plugin-static-copy';
@@ -16,6 +17,79 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
       const m = /^vite-plugin-node-polyfills\/shims\/(buffer|global|process)$/.exec(source);
       if (m) {
         return `./node_modules/vite-plugin-node-polyfills/shims/${m[1]}/dist/index.cjs`;
+      }
+    },
+  };
+};
+
+/**
+ * Lightweight chunk size validator plugin
+ * Checks chunk sizes after build completes and fails if limits are exceeded
+ */
+interface ChunkSizeLimit {
+  /** Pattern to match chunk file names (e.g., /assets\/index-.*\.js$/) */
+  pattern: RegExp;
+  /** Maximum size in kilobytes */
+  maxSizeKB: number;
+  /** Optional description for logging */
+  description?: string;
+}
+
+const chunkSizeValidator = (limits: ChunkSizeLimit[]): Plugin => {
+  let config: ResolvedConfig;
+
+  return {
+    name: 'chunk-size-validator',
+    enforce: 'post',
+    apply: 'build',
+    configResolved(resolvedConfig) {
+      config = resolvedConfig;
+    },
+    closeBundle() {
+      const outDir = this.meta?.watchMode ? null : 'dist';
+      if (!outDir) return; // Skip in watch mode
+
+      const logger = config.logger;
+      const violations: string[] = [];
+      const checkDir = (dir: string, baseDir: string = '') => {
+        const files = fs.readdirSync(dir);
+
+        for (const file of files) {
+          const filePath = path.join(dir, file);
+          const relativePath = path.join(baseDir, file);
+          const stat = fs.statSync(filePath);
+
+          if (stat.isDirectory()) {
+            checkDir(filePath, relativePath);
+          } else if (stat.isFile()) {
+            const sizeKB = stat.size / 1024;
+
+            for (const limit of limits) {
+              if (limit.pattern.test(relativePath)) {
+                const desc = limit.description ? ` (${limit.description})` : '';
+                logger.info(`  ${relativePath}: ${sizeKB.toFixed(2)} KB / ${limit.maxSizeKB} KB${desc}`);
+
+                if (sizeKB > limit.maxSizeKB) {
+                  violations.push(
+                    `  ❌ ${relativePath}: ${sizeKB.toFixed(2)} KB exceeds limit of ${limit.maxSizeKB} KB${desc}`,
+                  );
+                }
+              }
+            }
+          }
+        }
+      };
+
+      logger.info('\n📦 Validating chunk sizes...');
+      checkDir(path.resolve(process.cwd(), outDir));
+
+      if (violations.length > 0) {
+        logger.error('\n❌ Chunk size validation failed:\n');
+        violations.forEach(v => logger.error(v));
+        logger.error('\n');
+        throw new Error('Build failed: chunk size limits exceeded');
+      } else {
+        logger.info('✅ All chunks within size limits\n');
       }
     },
   };
@@ -47,7 +121,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
-      nodePolyfillsFix({ include: ['buffer', 'path'] }),
+      nodePolyfillsFix({ include: ['buffer', 'path', 'process', 'net', 'tty'] }),
       // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
       // Left as an example of how to use a different bb wasm file than the default lazily loaded one
       // viteStaticCopy({
@@ -58,18 +132,21 @@ export default defineConfig(({ mode }) => {
       //     },
       //   ],
       // }),
-      bundlesize({
+      chunkSizeValidator([
         // Bump log:
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
         // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
-        limits: [
-          // Main entrypoint, hard limit
-          { name: 'assets/index-*', limit: '1750kB' },
-          // This limit is to detect wheter our json artifacts or bb.js wasm get out of control. At the time
-          // of writing, all the .js files bundled in the app are below 4MB
-          { name: '**/*', limit: '4000kB' },
-        ],
-      }),
+        {
+          pattern: /assets\/index-.*\.js$/,
+          maxSizeKB: 1750,
+          description: 'Main entrypoint, hard limit',
+        },
+        {
+          pattern: /.*/,
+          maxSizeKB: 4000,
+          description: 'Detect if json artifacts or bb.js wasm get out of control',
+        },
+      ]),
     ],
     define: {
       'process.env': JSON.stringify({
@@ -80,10 +157,6 @@ export default defineConfig(({ mode }) => {
         // Files can be compressed or uncompressed, but must be gzipped if compressed.
         BB_WASM_PATH: env.BB_WASM_PATH,
       }),
-    },
-    build: {
-      // Required by vite-plugin-bundle-size
-      sourcemap: 'hidden',
     },
   };
 });

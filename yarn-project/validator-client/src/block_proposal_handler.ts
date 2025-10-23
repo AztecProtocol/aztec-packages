@@ -100,6 +100,12 @@ export class BlockProposalHandler {
     const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
 
+    // Reject proposals with invalid signatures
+    if (!proposer) {
+      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
+      return { isValid: false, reason: 'invalid_proposal' };
+    }
+
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
     this.log.info(`Processing proposal for slot ${slotNumber}`, {
       ...proposalInfo,
@@ -129,21 +135,18 @@ export class BlockProposalHandler {
       const currentTime = this.dateProvider.now();
       const timeoutDurationMs = deadline.getTime() - currentTime;
       const parentBlock =
-        timeoutDurationMs <= 0
+        (await this.blockSource.getBlock(blockNumber - 1)) ??
+        (timeoutDurationMs <= 0
           ? undefined
           : await retryUntil(
               async () => {
-                const block = await this.blockSource.getBlock(blockNumber - 1);
-                if (block) {
-                  return block;
-                }
                 await this.blockSource.syncImmediate();
                 return await this.blockSource.getBlock(blockNumber - 1);
               },
               'Force Archiver Sync',
               timeoutDurationMs / 1000,
               0.5,
-            );
+            ));
 
       if (parentBlock === undefined) {
         this.log.warn(`Parent block for ${blockNumber} not found, skipping processing`, proposalInfo);

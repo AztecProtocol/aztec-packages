@@ -10,7 +10,7 @@ import {
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { type Capsule, type TxProfileResult, TxProvingResult, collectOffchainEffects } from '@aztec/stdlib/tx';
+import { type Capsule, type TxProfileResult, collectOffchainEffects } from '@aztec/stdlib/tx';
 
 import { publishContractClass } from '../deployment/publish_class.js';
 import { publishInstance } from '../deployment/publish_instance.js';
@@ -19,7 +19,6 @@ import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
-import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
@@ -142,7 +141,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     return finalExecutionPayload;
   }
 
-  protected convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions {
+  convertDeployOptionsToRequestOptions(options: DeployOptions): RequestDeployOptions {
     return {
       ...options,
       deployer: !options?.universalDeploy ? options.from : undefined,
@@ -229,12 +228,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     return mergeExecutionPayloads(executionsPayloads);
   }
 
-  override async proveInternal(options: DeployOptions): Promise<TxProvingResult> {
-    const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
-    const proveOptions = await toSendOptions(options);
-    return await this.wallet.proveTx(executionPayload, proveOptions);
-  }
-
   /**
    * Send a contract deployment transaction (initialize and/or publish) using the provided options.
    * This function extends the 'send' method from the ContractFunctionInteraction class,
@@ -244,8 +237,10 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
    * @returns A SentTx object that returns the receipt and the deployed contract instance.
    */
   public override send(options: DeployOptions): DeploySentTx<TContract> {
-    const sendTx = () => {
-      return super.send(options).getTxHash();
+    const sendTx = async () => {
+      const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
+      const sendOptions = await toSendOptions(options);
+      return this.wallet.sendTx(executionPayload, sendOptions);
     };
     this.log.debug(`Sent deployment tx of ${this.artifact.name} contract`);
     return new DeploySentTx(this.wallet, sendTx, this.postDeployCtor, () => this.getInstance(options));
@@ -268,22 +263,6 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
       });
     }
     return this.instance;
-  }
-
-  /**
-   * Prove the request.
-   * @param options - initialization and publication options.
-   * @returns The proven tx.
-   */
-  public override async prove(options: DeployOptions): Promise<DeployProvenTx<TContract>> {
-    const txProvingResult = await this.proveInternal(options);
-    return await DeployProvenTx.fromProvingResult(
-      this.wallet,
-      txProvingResult,
-      this.postDeployCtor,
-      () => this.getInstance(options),
-      txProvingResult.stats,
-    );
   }
 
   /**

@@ -728,7 +728,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
 
     // Range check the carry (output) lo and hi limbs
     const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-    ASSERT(is_high_70_bits == false); // Regression should hit this case
+    BB_ASSERT(is_high_70_bits == false); // Regression should hit this case
 
     // Decompose into default range: these should work even if the limbs are > 2^70
     builder.decompose_into_default_range(lo_1_idx, 72);

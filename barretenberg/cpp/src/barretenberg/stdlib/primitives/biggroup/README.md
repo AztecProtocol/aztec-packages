@@ -269,3 +269,39 @@ $$
 $$
 
 Notice that the terms $e'_{i, \textsf{negative}}$ and $c'_{\textsf{negative}}$ are similar to $e'_i$ and $c'$ respectively, except that the sign bits are flipped. Thus, we can use the same circuit logic to reconstruct both $a$ and $-a_{\textsf{negative}}$ from their wNAF representations with appropriate sign bit handling.
+
+### Signed Digit Representation
+
+We can write the bit representation of an $n$-bit scalar $a$ with bits $a_0, a_1 \dots, a_{n - 1} \in \{0, 1\}$ as follows:
+
+$$
+\begin{aligned}
+a &= \sum_{i=0}^{n-1} a_{i} \cdot \windex{2^{i}} \\
+&= a_0 + \sum_{i=1}^{n-1} (2 \cdot a_{i}) \cdot \windex{2^{i - 1}} \\
+&= a_0 + \sum_{i=1}^{n-1} (2 \cdot a_{i} - 1) \cdot \windex{2^{i - 1}}  + \underbrace{\sum_{i=1}^{n-1} \windex{2^{i - 1}}}_{\textsf{adjusted offset}} \\
+&= a_0 + \sum_{i=1}^{n-1} (1 - 2 \cdot (1 - a_{i})) \cdot \windex{2^{i - 1}}  + \underbrace{(2^{n-1} - 1)}_{\textsf{adjusted offset}} \\
+&= (a_0 - 1) + \sum_{i=1}^{n} (1 - 2 \cdot a'_{i}) \cdot \windex{2^{i - 1}}  \qquad \textsf{s.t. } a'_{n} = 0 \\
+&= -(1 - a_0) + \sum_{i=0}^{n-1} \underbrace{(1 - 2 \cdot a'_{i+1})}_{b_i} \cdot \windex{2^{i}}  \qquad \textsf{s.t. } a'_{n} = 0 \\
+\end{aligned}
+$$
+
+Here, $a'_{i + 1} \in \{0, 1\}$ are the signed digit representation of the scalar $a$ with the most significant digit $a'_n = 0$. Therefore, the new digits $b_i := (1 - 2 \cdot a'_{i + 1})$ can take values in $\{-1, 1\}$.
+The term $(1 - a_0)$ is the skew factor $\mathfrak{s}_a \in \{0, 1\}$ which is 1 for even scalars and 0 for odd scalars. Thus, the final representation of an $n$-bit odd scalar $a$ in signed digit form is:
+
+$$
+\begin{aligned}
+a &= -\mathfrak{s}_a + \sum_{i=0}^{n-1} b_i \cdot \windex{2^{i}}  \qquad \textsf{s.t. } b_i \in \{-1, 1\} \\
+\end{aligned}
+$$
+
+where $\mathfrak{s}_a = 0$ if $a$ is odd and $\mathfrak{s}_a = 1$ if $a$ is even. Given $a'_{1}, \ldots, a'_{n}$, the signed digit representation of the scalar $a$, we can reconstruct the scalar $a$ in a circuit using the following formula:
+
+$$
+\begin{aligned}
+a &= -\mathfrak{s}_a + \sum_{i=0}^{n-1} (1 - 2 \cdot a'_{i+1}) \cdot \windex{2^{i}} \\
+&= -\mathfrak{s}_a + \sum_{i=0}^{n-1} (1 - a'_{i+1} - a'_{i+1}) \cdot \windex{2^{i}} \\
+&= \underbrace{\sum_{i=0}^{n-1} (1 - a'_{i+1}) \cdot \windex{2^{i}}}_{\textsf{positive part}} - \underbrace{\left(\mathfrak{s}_a + \sum_{i=0}^{n-1} a'_{i+1} \cdot \windex{2^{i}} \right)}_{\textsf{negative part}}. \\
+\end{aligned}
+$$
+
+Note that the positive and negative parts are both non-negative and can be computed in a circuit without any conditional logic.

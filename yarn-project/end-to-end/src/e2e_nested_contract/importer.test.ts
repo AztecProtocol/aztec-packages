@@ -24,11 +24,6 @@ describe('e2e_nested_contract manual', () => {
     await t.teardown();
   });
 
-  it('calls a method with multiple arguments', async () => {
-    logger.info(`Calling main on importer contract`);
-    await importerContract.methods.main_contract(testContract.address).send({ from: defaultAccountAddress }).wait();
-  });
-
   it('calls a method no arguments', async () => {
     logger.info(`Calling noargs on importer contract`);
     await importerContract.methods.call_no_args(testContract.address).send({ from: defaultAccountAddress }).wait();

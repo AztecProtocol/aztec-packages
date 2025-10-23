@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import { type ExtendedViemWalletClient, createExtendedL1Client } from '@aztec/ethereum';
 import { DateProvider } from '@aztec/foundation/timer';

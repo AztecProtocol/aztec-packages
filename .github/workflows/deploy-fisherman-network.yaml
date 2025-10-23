@@ -119,14 +119,14 @@ jobs:
             echo "NAMESPACE=ignition-fisherman-sepolia" >> $GITHUB_ENV
             echo "ETHEREUM_CHAIN_ID=11155111" >> $GITHUB_ENV
             echo "L1_NETWORK=sepolia" >> $GITHUB_ENV
-            echo "SNAPSHOT_BUCKET=testnet-bucket" >> $GITHUB_ENV
+            echo "SNAPSHOT_BUCKET_DIRECTORY=ignition-sepolia" >> $GITHUB_ENV
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           elif [[ "${{ inputs.l1_network }}" == "mainnet" ]]; then
             echo "NETWORK=mainnet" >> $GITHUB_ENV
             echo "NAMESPACE=ignition-fisherman-mainnet" >> $GITHUB_ENV
             echo "ETHEREUM_CHAIN_ID=1" >> $GITHUB_ENV
             echo "L1_NETWORK=mainnet" >> $GITHUB_ENV
-            echo "SNAPSHOT_BUCKET=mainnet-bucket" >> $GITHUB_ENV
+            echo "SNAPSHOT_BUCKET_DIRECTORY=ignition-mainnet" >> $GITHUB_ENV
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           fi
 
@@ -149,12 +149,26 @@ jobs:
           echo "Namespace: $NAMESPACE"
           echo "Ethereum Chain ID: $ETHEREUM_CHAIN_ID"
           echo "L1 Network: $L1_NETWORK"
-          echo "Snapshot Bucket: $SNAPSHOT_BUCKET"
+          echo "Snapshot Bucket Directory: $SNAPSHOT_BUCKET_DIRECTORY"
           echo "Use Network Config: $USE_NETWORK_CONFIG"
 
           cd spartan
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh ignition-fisherman
+
+      - name: Setup IRM
+        env:
+          MONITORING_NAMESPACE: ${{ env.NETWORK }}-irm
+          INFURA_SECRET_NAME: infura-${{ env.L1_NETWORK }}-url
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+        run: |
+
+          echo "Setting up IRM for namespace: $NAMESPACE, monitoring namespace: $MONITORING_NAMESPACE"
+          echo "Network: $NETWORK"
+
+          echo "INFURA Secret Name: $INFURA_SECRET_NAME"
+
+          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh $NAMESPACE ${{ env.MONITORING_NAMESPACE }} $NETWORK $INFURA_SECRET_NAME
 
       - name: Notify Slack on failure
         if: failure()

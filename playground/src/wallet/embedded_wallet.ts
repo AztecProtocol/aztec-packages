@@ -2,17 +2,11 @@ import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ec
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr/lazy';
 import { getStubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub/lazy';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import {
-  type Account,
-  type AccountContract,
-  AccountManager,
-  BaseWallet,
-  SignerlessAccount,
-  type SimulateInteractionOptions,
-  createAztecNodeClient,
-  type Aliased,
-  type AztecNode,
-} from '@aztec/aztec.js';
+import type { Aliased } from '@aztec/aztec.js/wallet';
+import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
+import type { SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { AccountManager, BaseWallet } from '@aztec/aztec.js/wallet';
 import { getPXEConfig, type PXEConfig } from '@aztec/pxe/config';
 import { createPXE, PXE } from '@aztec/pxe/client/lazy';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
@@ -198,7 +192,7 @@ export class EmbeddedWallet extends BaseWallet {
     return this.pxe.registerSender(address);
   }
 
-  override async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  override async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const senders = await this.pxe.getSenders();
     const storedSenders = await this.walletDB.listSenders();
     for (const storedSender of storedSenders) {

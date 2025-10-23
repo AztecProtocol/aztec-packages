@@ -287,6 +287,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
+    const auto add_vk_policy_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--vk_policy",
+                         flags.vk_policy,
+                         "Policy for handling verification keys during IVC accumulation. 'default' uses the provided "
+                         "VK as-is, 'check' verifies the provided VK matches the computed VK (throws error on "
+                         "mismatch), 'recompute' always ignores the provided VK and treats it as nullptr.")
+            ->check(CLI::IsMember({ "default", "check", "recompute" }).name("is_member"));
+    };
+
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
@@ -355,6 +365,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
+    add_vk_policy_option(prove);
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);

@@ -4,7 +4,7 @@
  *
  * @packageDocumentation
  */
-import type { GrumpkinScalar } from '@aztec/aztec.js';
+import type { GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 

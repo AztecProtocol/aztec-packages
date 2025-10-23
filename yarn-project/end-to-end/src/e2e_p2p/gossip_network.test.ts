@@ -1,7 +1,9 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, retryUntil, sleep } from '@aztec/aztec.js';
+import { SentTx } from '@aztec/aztec.js/contracts';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import type { ProverNode } from '@aztec/prover-node';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -174,7 +176,7 @@ describe('e2e_p2p_network', () => {
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new BlockAttestation(blockNumber, payload, a.signature, Signature.empty()));
-    const signers = await Promise.all(attestations.map(att => att.getSender().toString()));
+    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
     t.logger.info(`Attestation signers`, { signers });
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right

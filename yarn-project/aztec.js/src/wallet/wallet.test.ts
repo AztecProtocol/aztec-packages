@@ -8,18 +8,11 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassMetadata, ContractInstanceWithAddress, ContractMetadata } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import {
-  Tx,
-  TxHash,
-  TxProfileResult,
-  TxProvingResult,
-  TxReceipt,
-  TxSimulationResult,
-  UtilitySimulationResult,
-} from '@aztec/stdlib/tx';
+import { TxHash, TxProfileResult, TxReceipt, TxSimulationResult, UtilitySimulationResult } from '@aztec/stdlib/tx';
 
 import type {
   Aliased,
+  BatchResults,
   BatchableMethods,
   BatchedMethod,
   ProfileOptions,
@@ -107,8 +100,8 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(AztecAddress);
   });
 
-  it('getSenders', async () => {
-    const result = await context.client.getSenders();
+  it('getAddressBook', async () => {
+    const result = await context.client.getAddressBook();
     expect(result).toEqual([{ alias: 'sender1', item: expect.any(AztecAddress) }]);
   });
 
@@ -175,7 +168,7 @@ describe('WalletSchema', () => {
     expect(result).toBeInstanceOf(TxProfileResult);
   });
 
-  it('proveTx', async () => {
+  it('sendTx', async () => {
     const exec: ExecutionPayload = {
       calls: [],
       authWitnesses: [],
@@ -185,13 +178,7 @@ describe('WalletSchema', () => {
     const opts: SendOptions = {
       from: await AztecAddress.random(),
     };
-    const result = await context.client.proveTx(exec, opts);
-    expect(result).toBeInstanceOf(TxProvingResult);
-  });
-
-  it('sendTx', async () => {
-    const tx = Tx.random();
-    const result = await context.client.sendTx(tx);
+    const result = await context.client.sendTx(exec, opts);
     expect(result).toBeInstanceOf(TxHash);
   });
 
@@ -216,14 +203,17 @@ describe('WalletSchema', () => {
     const methods: BatchedMethod<keyof BatchableMethods>[] = [
       { name: 'registerSender', args: [address1, 'alias1'] },
       { name: 'registerContract', args: [address2, undefined, undefined] },
-      { name: 'proveTx', args: [exec, opts] },
+      { name: 'sendTx', args: [exec, opts] },
     ];
 
     const results = await context.client.batch(methods);
     expect(results).toHaveLength(3);
-    expect(results[0]).toBeInstanceOf(AztecAddress); // registerSender result
-    expect(results[1]).toHaveProperty('address'); // registerContract result
-    expect(results[2]).toBeInstanceOf(TxProvingResult); // proveTx result
+    expect(results[0]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
+    expect(results[1]).toEqual({
+      name: 'registerContract',
+      result: expect.objectContaining({ address: expect.any(AztecAddress) }),
+    });
+    expect(results[2]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
   });
 });
 
@@ -294,7 +284,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(address);
   }
 
-  async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     return [{ alias: 'sender1', item: await AztecAddress.random() }];
   }
 
@@ -332,11 +322,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(TxProfileResult.random());
   }
 
-  proveTx(_exec: ExecutionPayload, _opts: SendOptions): Promise<TxProvingResult> {
-    return Promise.resolve(TxProvingResult.random());
-  }
-
-  sendTx(_tx: Tx): Promise<TxHash> {
+  sendTx(_exec: ExecutionPayload, _opts: SendOptions): Promise<TxHash> {
     return Promise.resolve(TxHash.random());
   }
 
@@ -344,7 +330,7 @@ class MockWallet implements Wallet {
     return Promise.resolve(AuthWitness.random());
   }
 
-  async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<any> {
+  async batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>> {
     const results: any[] = [];
     for (const method of methods) {
       const { name, args } = method;
@@ -355,8 +341,9 @@ class MockWallet implements Wallet {
       // We use dynamic dispatch here for simplicity, but the types are enforced at the call site.
       const fn = this[name] as (...args: any[]) => Promise<any>;
       const result = await fn.apply(this, args);
-      results.push(result);
+      // Wrap result with method name for discriminated union deserialization
+      results.push({ name, result });
     }
-    return results;
+    return results as BatchResults<T>;
   }
 }

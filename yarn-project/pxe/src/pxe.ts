@@ -669,18 +669,15 @@ export class PXE {
     const noteDaos = await this.noteDataProvider.getNotes(filter);
 
     const extendedNotes = noteDaos.map(async dao => {
-      let recipient = filter.recipient;
-      if (recipient === undefined) {
-        const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
-        const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
-          completeAddress.address.equals(dao.recipient),
-        );
-        const completeAddress = completeAddresses[completeAddressIndex];
-        if (completeAddress === undefined) {
-          throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
-        }
-        recipient = completeAddress.address;
+      const completeAddresses = await this.addressDataProvider.getCompleteAddresses();
+      const completeAddressIndex = completeAddresses.findIndex(completeAddress =>
+        completeAddress.address.equals(dao.recipient),
+      );
+      const completeAddress = completeAddresses[completeAddressIndex];
+      if (completeAddress === undefined) {
+        throw new Error(`Cannot find complete address for recipient ${dao.recipient.toString()}`);
       }
+      const recipient = completeAddress.address;
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.noteNonce);
     });
     return Promise.all(extendedNotes);
