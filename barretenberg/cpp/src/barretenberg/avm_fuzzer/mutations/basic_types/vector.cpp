@@ -36,7 +36,7 @@ struct RandomInsertion {
 struct RandomDeletion {
     template <typename T> static void mutate(std::mt19937_64& rng, std::vector<T>& vec)
     {
-        if (vec.size() > 1) {
+        if (vec.size() >= 1) {
             std::uniform_int_distribution<size_t> dist(0, vec.size() - 1);
             size_t index = dist(rng);
             vec.erase(vec.begin() + static_cast<std::ptrdiff_t>(index));

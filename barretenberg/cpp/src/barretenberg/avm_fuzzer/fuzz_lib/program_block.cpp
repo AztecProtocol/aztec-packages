@@ -166,8 +166,8 @@ void ProgramBlock::process_or_8_instruction(OR_8_Instruction instruction)
 void ProgramBlock::process_xor_8_instruction(XOR_8_Instruction instruction)
 {
 
-    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.a_offset_index);
-    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag, instruction.b_offset_index);
+    auto a_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.a_offset_index);
+    auto b_addr = memory_manager.get_memory_offset_8_bit(instruction.argument_tag.value, instruction.b_offset_index);
     if (!a_addr.has_value() || !b_addr.has_value()) {
         return;
     }

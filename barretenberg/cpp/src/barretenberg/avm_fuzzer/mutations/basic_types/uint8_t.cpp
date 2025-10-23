@@ -4,7 +4,6 @@
 /// 2. Increment by 1
 /// 3. Decrement by 1
 /// 4. Add a random value
-/// 5. Subtract a random value
 
 #include "uint8_t.hpp"
 #include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
@@ -40,11 +39,6 @@ struct AddRandomValue {
     static void mutate(uint8_t& value, std::mt19937_64& rng) { value = (value + (generate_random_uint8(rng))) & 0xff; }
 };
 
-/// @brief Subtract a random value
-struct SubtractRandomValue {
-    static void mutate(uint8_t& value, std::mt19937_64& rng) { value = (value - (generate_random_uint8(rng))) & 0xff; }
-};
-
 void mutate_uint8_t(uint8_t& value, std::mt19937_64& rng, const Uint8MutationConfig& config)
 {
     Uint8MutationOptions option = config.select(rng);
@@ -61,9 +55,6 @@ void mutate_uint8_t(uint8_t& value, std::mt19937_64& rng, const Uint8MutationCon
         break;
     case Uint8MutationOptions::AddRandomValue:
         AddRandomValue::mutate(value, rng);
-        break;
-    case Uint8MutationOptions::SubtractRandomValue:
-        SubtractRandomValue::mutate(value, rng);
         break;
     }
 }
