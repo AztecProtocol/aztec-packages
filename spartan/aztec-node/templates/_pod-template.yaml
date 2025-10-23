@@ -137,16 +137,23 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        {{- if .Values.global.customAztecNetwork.enabled }}
+        {{- if .Values.global.customAztecNetwork.l1ChainId }}
         - name: L1_CHAIN_ID
           value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.registryContractAddress }}
         - name: REGISTRY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.slashFactoryContractAddress }}
         - name: SLASH_FACTORY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.slashFactoryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}
         - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
-        {{- else if .Values.global.aztecNetwork }}
+        {{- end }}
+        {{- if .Values.global.aztecNetwork }}
         - name: NETWORK
           value: "{{ .Values.global.aztecNetwork }}"
         {{- end }}

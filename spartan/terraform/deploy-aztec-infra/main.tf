@@ -73,7 +73,6 @@ locals {
     "global.aztecImage.repository"                             = local.aztec_image.repository
     "global.aztecImage.tag"                                    = local.aztec_image.tag
     "global.useGcloudLogging"                                  = true
-    "global.customAztecNetwork.enabled"                        = var.NETWORK == null || var.NETWORK == ""
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
     "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
