@@ -373,7 +373,9 @@ describe('L1Publisher integration', () => {
       let currentBatch: BatchedBlob | undefined;
 
       for (let i = 0; i < numberOfConsecutiveBlocks; i++) {
-        const l1ToL2Content = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 128 * i + 1 + 0x400).map(fr);
+        // With just one l1 client (serial sending) this takes too much time to send NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP
+        // and causes a chain prune
+        const l1ToL2Content = range(Math.min(16, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP), 128 * i + 1 + 0x400).map(fr);
 
         for (let j = 0; j < l1ToL2Content.length; j++) {
           nextL1ToL2Messages.push(await sendToL2(l1ToL2Content[j], recipientAddress));

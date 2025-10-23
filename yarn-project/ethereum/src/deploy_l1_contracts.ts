@@ -1709,10 +1709,10 @@ export async function deployL1Contract(
     const existing = await extendedClient.getCode({ address: resultingAddress });
     if (existing === undefined || existing === '0x') {
       try {
-        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) }, { gasLimit });
+        await l1TxUtils.simulate({ to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]), gas: gasLimit });
       } catch (err) {
         logger?.error(`Failed to simulate deployment tx using universal deployer`, err);
-        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }) });
+        await l1TxUtils.simulate({ to: null, data: encodeDeployData({ abi, bytecode, args }), gas: gasLimit });
       }
       const res = await l1TxUtils.sendTransaction(
         { to: DEPLOYER_ADDRESS, data: concatHex([salt, calldata]) },
@@ -1727,10 +1727,13 @@ export async function deployL1Contract(
     }
   } else {
     const deployData = encodeDeployData({ abi, bytecode, args });
-    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
-      to: null,
-      data: deployData,
-    });
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction(
+      {
+        to: null,
+        data: deployData,
+      },
+      { gasLimit },
+    );
 
     txHash = receipt.transactionHash;
     resultingAddress = receipt.contractAddress;
