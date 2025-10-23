@@ -106,8 +106,6 @@ SimulatorResult JsSimulator::simulate(const std::vector<uint8_t>& bytecode, cons
 {
     std::string serialized = serialize_bytecode_and_calldata(bytecode, calldata);
 
-    std::cout << "Sending request: " << serialized << std::endl;
-
     // Send the request
     process.write_line(serialized);
     std::string response = process.read_line();
