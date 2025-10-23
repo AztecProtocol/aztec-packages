@@ -75,7 +75,7 @@ jobs:
         run: echo "CI_DOCS=1" >> $GITHUB_ENV
 
       - name: Barretenberg CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
+        if: contains(github.event.pull_request.labels.*.name, 'ci-barretenberg') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
       # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
