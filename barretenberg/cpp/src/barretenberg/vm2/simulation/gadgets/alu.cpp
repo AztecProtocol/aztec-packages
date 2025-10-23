@@ -1,8 +1,11 @@
 #include "barretenberg/vm2/simulation/gadgets/alu.hpp"
 
 #include <cstdint>
-#include <memory>
+#include <stdexcept>
+#include <string>
 
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"

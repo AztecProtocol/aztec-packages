@@ -3,8 +3,10 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
+#include "barretenberg/vm2/simulation/interfaces/field_gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/gt.hpp"
+#include "barretenberg/vm2/simulation/interfaces/range_check.hpp"
 
 namespace bb::avm2::simulation {
 
