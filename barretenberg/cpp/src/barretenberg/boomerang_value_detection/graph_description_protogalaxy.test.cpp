@@ -160,7 +160,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         auto graph = cdg::MegaStaticAnalyzer(folding_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        auto connected_components = graph.find_connected_components(/*return_all_connected_components==*/false);
+        auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 1);
         if (connected_components.size() > 1) {
             graph.print_connected_components_info();
@@ -240,7 +240,7 @@ class BoomerangProtogalaxyRecursiveTests : public testing::Test {
         auto graph = cdg::MegaStaticAnalyzer(decider_circuit);
         auto variables_in_one_gate = graph.get_variables_in_one_gate();
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        auto connected_components = graph.find_connected_components(/*return_all_connected_components==*/false);
+        auto connected_components = graph.find_connected_components();
         EXPECT_EQ(connected_components.size(), 1);
         if (variables_in_one_gate.size() > 0) {
             for (const auto& elem : variables_in_one_gate) {
