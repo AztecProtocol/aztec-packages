@@ -1,4 +1,5 @@
 #include "simulator.hpp"
+
 #include <iomanip>
 #include <iostream>
 #include <sys/wait.h>
@@ -77,8 +78,8 @@ class TestSimulator {
 SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata)
 {
     TestSimulator simulator;
-    auto result = simulator.simulate(bytecode, calldata);
-    return { .reverted = result.reverted, .output = result.output };
+    EnqueuedCallResult result = simulator.simulate(bytecode, calldata);
+    return { .reverted = !result.success, .output = result.output.value_or(std::vector<FF>{}) };
 }
 
 JsSimulator* JsSimulator::instance = nullptr;

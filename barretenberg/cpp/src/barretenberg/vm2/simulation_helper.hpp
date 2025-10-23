@@ -22,14 +22,14 @@ class AvmSimulationHelper {
 
     // Simulate a bytecode with some calldata and additional context.
     // Note: this assumes that no nested calls are ever made to other bytecodes.
-    EnqueuedCallResult simulate_bytecode(AztecAddress address,
-                                         AztecAddress sender,
-                                         FF transaction_fee,
-                                         GlobalVariables globals,
-                                         bool is_static_call,
-                                         const std::vector<FF>& calldata,
-                                         Gas gas_limit,
-                                         const std::vector<uint8_t>& bytecode);
+    simulation::EnqueuedCallResult simulate_bytecode(const AztecAddress& address,
+                                                     const AztecAddress& sender,
+                                                     const FF& transaction_fee,
+                                                     const GlobalVariables& globals,
+                                                     bool is_static_call,
+                                                     const std::vector<FF>& calldata,
+                                                     const Gas& gas_limit,
+                                                     const std::vector<uint8_t>& bytecode);
 };
 
 } // namespace bb::avm2

@@ -80,7 +80,7 @@ class Execution : public ExecutionInterface {
         , ctx_stack_events(ctx_stack_emitter)
     {}
 
-    ExecutionResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
+    EnqueuedCallResult execute(std::unique_ptr<ContextInterface> enqueued_call_context) override;
 
     // Opcode handlers. The order of the operands matters and should be the same as the wire format.
     void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr);
@@ -179,11 +179,20 @@ class Execution : public ExecutionInterface {
     void shl(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress c_addr);
 
   protected:
+    // The result of a nested call execution.
+    struct ExecutionResult {
+        MemoryAddress rd_offset;
+        MemoryAddress rd_size;
+        Gas gas_used;
+        SideEffectStates side_effect_states;
+        bool success;
+    };
+
     // Only here for testing. TODO(fcarreiro): try to improve.
     virtual GasTrackerInterface& get_gas_tracker() { return *gas_tracker; }
 
-    void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
-    ExecutionResult get_execution_result() const { return exec_result; }
+    void set_execution_result(const ExecutionResult& exec_result) { this->exec_result = exec_result; }
+    const ExecutionResult& get_execution_result() const { return exec_result; }
     void dispatch_opcode(ExecutionOpCode opcode,
                          ContextInterface& context,
                          const std::vector<Operand>& resolved_operands);

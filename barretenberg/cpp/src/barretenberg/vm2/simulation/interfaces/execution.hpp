@@ -15,23 +15,20 @@ namespace bb::avm2::simulation {
 // Forward declarations
 class ContextInterface;
 
-struct ExecutionResult {
-    MemoryAddress rd_offset;
-    MemoryAddress rd_size;
-    Gas gas_used;
-    SideEffectStates side_effect_states;
+struct EnqueuedCallResult {
     bool success;
-    // Optional: if set, contains the actual return data copied from memory.
-    // This is used when the caller needs the return data but the context's memory
-    // will be destroyed after execution (e.g., in standalone simulation).
+    Gas gas_used;
+    // Optional: if set, contains the actual return data.
     std::optional<std::vector<FF>> output;
+    // TODO(fcarreiro): remove this from here. I think it will be done in the PIs work.
+    SideEffectStates side_effect_states;
 };
 
 class ExecutionInterface {
   public:
     virtual ~ExecutionInterface() = default;
     // Returns the top-level execution result. TODO: This should only be top level enqueud calls
-    virtual ExecutionResult execute(std::unique_ptr<ContextInterface> context) = 0;
+    virtual EnqueuedCallResult execute(std::unique_ptr<ContextInterface> context) = 0;
 };
 
 class RegisterValidationException : public std::runtime_error {
