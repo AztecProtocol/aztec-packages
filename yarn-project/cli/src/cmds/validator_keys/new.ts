@@ -88,8 +88,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   // If password provided, write ETH JSON V3 and BLS EIP-2335 keystores and replace plaintext
   if (password !== undefined) {
     const keystoreOutDir = outDir && outDir.length > 0 ? outDir : dirname(outputPath);
-    await writeEthJsonV3ToFile(validators as unknown as any[], { outDir: keystoreOutDir, password });
-    await writeBlsEip2335ToFile(validators as unknown as any[], { outDir: keystoreOutDir, password });
+    await writeEthJsonV3ToFile(validators, { outDir: keystoreOutDir, password });
+    await writeBlsEip2335ToFile(validators, { outDir: keystoreOutDir, password });
   }
 
   const keystore = {

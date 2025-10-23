@@ -1,16 +1,16 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import {
   computeBn254G1PublicKeyCompressed,
+  createEip2335Keystore,
   deriveBlsKeyFromEntropy,
   deriveBlsKeyFromMnemonic,
 } from '@aztec/foundation/crypto';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
-import type { EthAccount, EthPrivateKey } from '@aztec/node-keystore/types';
+import type { BLSPrivateKey, EthAccount, EthPrivateKey, ValidatorKeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { Wallet } from '@ethersproject/wallet';
-import { createCipheriv, createHash, pbkdf2Sync, randomBytes, randomUUID } from 'crypto';
 import { constants as fsConstants, mkdirSync } from 'fs';
 import { access, writeFile } from 'fs/promises';
 import { homedir } from 'os';
@@ -43,14 +43,18 @@ export function withValidatorIndex(path: string, index: number) {
   return path;
 }
 
-export function deriveBlsPrivateKey(mnemonic: string | undefined, ikm: string | undefined, path: string) {
+export function deriveBlsPrivateKey(
+  mnemonic: string | undefined,
+  ikm: string | undefined,
+  path: string,
+): BLSPrivateKey {
   if (ikm) {
-    return deriveBlsKeyFromEntropy(ikm, path);
+    return deriveBlsKeyFromEntropy(ikm, path) as BLSPrivateKey;
   }
   if (!mnemonic) {
     throw new Error('Either mnemonic or ikm must be provided for BLS derivation');
   }
-  return deriveBlsKeyFromMnemonic(mnemonic, path);
+  return deriveBlsKeyFromMnemonic(mnemonic, path) as BLSPrivateKey;
 }
 
 /**
@@ -102,9 +106,9 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
     const blsPubCompressed = blsPrivKey ? computeBlsPublicKeyCompressed(blsPrivKey) : undefined;
 
     if (blsOnly) {
-      const attester = { bls: blsPrivKey! } as unknown as EthAccount;
+      const attester = { bls: blsPrivKey! };
       summaries.push({ attesterBls: blsPubCompressed });
-      return { attester, feeRecipient };
+      return { attester, feeRecipient } as ValidatorKeyStore;
     }
 
     const ethAttester = deriveEthAttester(mnemonic, accountIndex, addressIndex, remoteSigner);
@@ -145,7 +149,7 @@ export function buildValidatorEntries(input: BuildValidatorsInput) {
       feeRecipient,
       coinbase,
       fundingAccount,
-    };
+    } as ValidatorKeyStore;
   });
 
   return { validators, summaries };
@@ -209,8 +213,16 @@ export function maybePrintJson(log: LogFn, jsonFlag: boolean | undefined, obj: u
 }
 
 /**
- * Writes an EIP-2335-compatible keystore file for a BN254 BLS private key using PBKDF2 and AES-128-CTR.
+ * Writes an EIP-2335-compatible keystore file for a BN254 BLS private key.
  * Returns the absolute path to the written file.
+ *
+ * @param outDir - Directory to write the keystore file to
+ * @param fileNameBase - Base name for the keystore file (will be sanitized)
+ * @param password - Password for encrypting the private key
+ * @param privateKeyHex - Private key as 0x-prefixed hex string (32 bytes)
+ * @param pubkeyHex - Public key as hex string
+ * @param derivationPath - BIP-44 style derivation path
+ * @returns Absolute path to the written keystore file
  */
 export async function writeEip2335BlsKeystore(
   outDir: string,
@@ -220,53 +232,9 @@ export async function writeEip2335BlsKeystore(
   pubkeyHex: string,
   derivationPath: string,
 ): Promise<string> {
-  const ensureHex = (hex: string) => hex.replace(/^0x/i, '');
-  const privHex = ensureHex(privateKeyHex);
-  if (!/^[0-9a-fA-F]{64}$/.test(privHex)) {
-    throw new Error('BLS private key must be 32-byte hex');
-  }
-
   mkdirSync(outDir, { recursive: true });
 
-  const salt = randomBytes(32);
-  const iv = randomBytes(16);
-  const dk = pbkdf2Sync(Buffer.from(password.normalize('NFKD'), 'utf8'), salt, 262144, 32, 'sha256');
-  const cipherKey = dk.subarray(0, 16);
-
-  const cipher = createCipheriv('aes-128-ctr', cipherKey, iv);
-  const plaintext = Buffer.from(privHex, 'hex');
-  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
-
-  const checksum = createHash('sha256')
-    .update(Buffer.concat([dk.subarray(16, 32), ciphertext]))
-    .digest();
-
-  const uuid = randomUUID();
-
-  const keystore = {
-    crypto: {
-      kdf: {
-        function: 'pbkdf2',
-        params: { dklen: 32, c: 262144, prf: 'hmac-sha256', salt: salt.toString('hex') },
-        message: '',
-      },
-      checksum: {
-        function: 'sha256',
-        params: {},
-        message: checksum.toString('hex'),
-      },
-      cipher: {
-        function: 'aes-128-ctr',
-        params: { iv: iv.toString('hex') },
-        message: ciphertext.toString('hex'),
-      },
-    },
-    description: ensureHex(pubkeyHex),
-    pubkey: pubkeyHex,
-    path: derivationPath ?? '',
-    uuid,
-    version: 4,
-  } as const;
+  const keystore = createEip2335Keystore(password, privateKeyHex, pubkeyHex, derivationPath);
 
   const safeBase = fileNameBase.replace(/[^a-zA-Z0-9_-]/g, '_');
   const outPath = join(outDir, `keystore-${safeBase}.json`);
@@ -276,7 +244,7 @@ export async function writeEip2335BlsKeystore(
 
 /** Replace plaintext BLS keys in validators with { path, password } pointing to EIP-2335 files. */
 export async function writeBlsEip2335ToFile(
-  validators: any[],
+  validators: ValidatorKeyStore[],
   options: { outDir: string; password: string },
 ): Promise<void> {
   for (let i = 0; i < validators.length; i++) {
@@ -321,7 +289,7 @@ export async function writeEthJsonV3Keystore(
 
 /** Replace plaintext ETH keys in validators with { path, password } pointing to JSON V3 files. */
 export async function writeEthJsonV3ToFile(
-  validators: any[],
+  validators: ValidatorKeyStore[],
   options: { outDir: string; password: string },
 ): Promise<void> {
   const maybeEncryptEth = async (account: any, label: string) => {

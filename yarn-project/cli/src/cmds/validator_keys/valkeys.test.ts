@@ -1,3 +1,6 @@
+import { decryptEip2335Keystore } from '@aztec/node-keystore';
+import { loadKeystoreFile } from '@aztec/node-keystore/loader';
+import type { KeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
@@ -97,7 +100,7 @@ describe('validator keys utilities', () => {
       const { validators, summaries } = buildValidatorEntries({
         validatorCount: 2,
         publisherCount: 1,
-        baseAccountIndex: 0,
+        accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
         feeRecipient: ('0x' + '11'.repeat(32)) as unknown as AztecAddress,
@@ -119,7 +122,7 @@ describe('validator keys utilities', () => {
       const { validators, summaries } = buildValidatorEntries({
         validatorCount: 1,
         publisherCount: 0,
-        baseAccountIndex: 0,
+        accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
         blsOnly: true,
@@ -136,7 +139,7 @@ describe('validator keys utilities', () => {
       const { validators, summaries } = buildValidatorEntries({
         validatorCount: 1,
         publisherCount: 3,
-        baseAccountIndex: 0,
+        accountIndex: 0,
         baseAddressIndex: 0,
         mnemonic: TEST_MNEMONIC,
         feeRecipient: ('0x' + '33'.repeat(32)) as unknown as AztecAddress,
@@ -212,10 +215,10 @@ describe('validator keys utilities', () => {
         log,
       );
       expect(existsSync(path)).toBe(true);
-      const json = JSON.parse(readFileSync(path, 'utf-8')) as any;
-      expect(json.schemaVersion).toBe(1);
-      expect(Array.isArray(json.validators)).toBe(true);
-      expect(json.validators.length).toBe(2);
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.schemaVersion).toBe(1);
+      expect(Array.isArray(keystore.validators)).toBe(true);
+      expect(keystore.validators?.length).toBe(2);
       // Should log a summary and a write message
       expect(logs.some(l => l.includes('Wrote validator keystore'))).toBe(true);
       expect(logs.some(l => l.includes('acc1:'))).toBe(true);
@@ -257,14 +260,65 @@ describe('validator keys utilities', () => {
         },
         log,
       );
-      const json = JSON.parse(readFileSync(path, 'utf-8')) as any;
-      const v = json.validators[0];
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.validators).toBeDefined();
+      const v = keystore.validators![0];
       // attester may be plain object or contain eth+bls
-      const att = v.attester.eth ? v.attester : { eth: v.attester };
-      expect(typeof att.eth.path).toBe('string');
-      if (att.bls) {
-        expect(typeof att.bls.path).toBe('string');
+      const att = typeof v.attester === 'object' && 'eth' in v.attester ? v.attester : { eth: v.attester };
+      expect(typeof (att.eth as any).path).toBe('string');
+      if ('bls' in att && att.bls) {
+        expect(typeof (att.bls as any).path).toBe('string');
       }
+    });
+
+    it('creates EIP-2335 encrypted keystores that can be loaded and decrypted', async () => {
+      const path = join(tmp, 'eip2335-integration.json');
+      const password = 'test-password-123';
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'eip2335-integration.json',
+          count: 1,
+          publisherCount: 0,
+          mnemonic: TEST_MNEMONIC,
+          password,
+          outDir: tmp,
+          feeRecipient: ('0x' + 'ee'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      // Load the keystore with schema validation
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.validators).toBeDefined();
+      expect(keystore.validators!.length).toBe(1);
+
+      const validator = keystore.validators![0];
+      expect(validator.attester).toBeDefined();
+
+      // Should have ETH and BLS keys as encrypted file references
+      const att = typeof validator.attester === 'object' && 'eth' in validator.attester ? validator.attester : null;
+      expect(att).not.toBeNull();
+      expect(att!.eth).toBeDefined();
+      expect(att!.bls).toBeDefined();
+
+      // Verify BLS key is an EIP-2335 keystore reference
+      const blsConfig = att!.bls as any;
+      expect(blsConfig.path).toBeDefined();
+      expect(blsConfig.password).toBe(password);
+
+      // Actually decrypt the BLS keystore using node-keystore's EIP-2335 decryption
+      const decryptedBlsKey = decryptEip2335Keystore(blsConfig.path, password);
+      expect(decryptedBlsKey).toBeDefined();
+      expect(decryptedBlsKey).toMatch(/^0x[0-9a-fA-F]{64}$/);
+
+      // Verify we can compute the public key from the decrypted private key
+      const pubkey = computeBlsPublicKeyCompressed(decryptedBlsKey);
+      expect(pubkey).toBeDefined();
+      expect(pubkey).toMatch(/^0x[0-9a-fA-F]+$/);
     });
   });
 
@@ -276,10 +330,10 @@ describe('validator keys utilities', () => {
           attester: { eth: '0x' + 'bb'.repeat(32), bls: '0x' + 'cc'.repeat(32) },
           feeRecipient: ('0x' + '88'.repeat(32)) as unknown as AztecAddress,
         },
-      ];
+      ] as any;
       const dirA = mkdtempSync(join(tmpdir(), 'aztec-mat-a-'));
-      await writeEthJsonV3ToFile(validators as any, { outDir: dirA, password: '' });
-      await writeBlsEip2335ToFile(validators as any, { outDir: dirA, password: '' });
+      await writeEthJsonV3ToFile(validators, { outDir: dirA, password: '' });
+      await writeBlsEip2335ToFile(validators, { outDir: dirA, password: '' });
       const a0 = validators[0] as any;
       const a1 = validators[1] as any;
       expect(typeof a0.attester.path === 'string' || typeof a0.attester.eth?.path === 'string').toBeTruthy();
@@ -316,13 +370,13 @@ describe('validator keys utilities', () => {
         log,
       );
 
-      const updated = JSON.parse(readFileSync(existing, 'utf-8')) as any;
-      expect(updated.validators.length).toBe(3);
+      const updated: KeyStore = loadKeystoreFile(existing);
+      expect(updated.validators?.length).toBe(3);
       expect(logs.some(l => l.includes('Updated keystore'))).toBe(true);
       expect(logs.some(l => l.includes('acc1:'))).toBe(true);
     });
 
-    it('throws if feeRecipient cannot be determined', async () => {
+    it('throws if keystore schema validation fails', async () => {
       const missing = join(tmp, 'missing-fee.json');
       const badKeystore = { schemaVersion: 1, validators: [{}] } as any;
       writeFileSync(missing, JSON.stringify(badKeystore, null, 2), 'utf-8');
@@ -337,7 +391,7 @@ describe('validator keys utilities', () => {
           } as any,
           () => {},
         ),
-      ).rejects.toThrow('feeRecipient is required');
+      ).rejects.toThrow('Schema validation failed');
     });
   });
 

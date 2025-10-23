@@ -1,8 +1,9 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
+import { loadKeystoreFile } from '@aztec/node-keystore/loader';
+import type { KeyStore } from '@aztec/node-keystore/types';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';
-import { readFile } from 'fs/promises';
 import { dirname, isAbsolute, join } from 'path';
 import { generateMnemonic } from 'viem/accounts';
 
@@ -25,7 +26,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     count,
     publisherCount = 0,
     mnemonic,
-    accountIndex,
+    accountIndex = 0,
     addressIndex,
     ikm,
     blsPath,
@@ -40,13 +41,12 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   } = options;
 
   const validatorCount = typeof count === 'number' && Number.isFinite(count) && count > 0 ? Math.floor(count) : 1;
-  const baseAccountIndex = accountIndex ?? 0;
   const baseAddressIndex = addressIndex ?? 0;
 
-  const buf = await readFile(existing, { encoding: 'utf-8' });
-  const keystore = JSON.parse(buf) as { schemaVersion: number; validators: any[] };
-  if (!keystore || typeof keystore !== 'object' || !Array.isArray((keystore as any).validators)) {
-    throw new Error('Invalid keystore JSON: missing validators array');
+  const keystore: KeyStore = loadKeystoreFile(existing);
+
+  if (!keystore.validators || !Array.isArray(keystore.validators)) {
+    throw new Error('Invalid keystore: missing validators array');
   }
 
   const first = keystore.validators[0] ?? {};
@@ -57,7 +57,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   const coinbase = (coinbaseOpt as EthAddress | undefined) ?? (first.coinbase as EthAddress | undefined);
   const fundingAccount =
     (fundingAccountOpt as EthAddress | undefined) ?? (first.fundingAccount as EthAddress | undefined);
-  const derivedRemoteSigner = first.attester?.remoteSignerUrl || first.attester?.eth?.remoteSignerUrl;
+  const derivedRemoteSigner = (first.attester as any)?.remoteSignerUrl || (first.attester as any)?.eth?.remoteSignerUrl;
   const remoteSigner = remoteSignerOpt ?? derivedRemoteSigner;
 
   // Ensure we always have a mnemonic for key derivation if none was provided
@@ -65,12 +65,12 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
 
   // If user explicitly provided --address-index, use it as-is. Otherwise, append after existing validators.
   const effectiveBaseAddressIndex =
-    addressIndex === undefined ? baseAddressIndex + (keystore.validators?.length ?? 0) : baseAddressIndex;
+    addressIndex === undefined ? baseAddressIndex + keystore.validators.length : baseAddressIndex;
 
   const { validators, summaries } = buildValidatorEntries({
     validatorCount,
     publisherCount,
-    baseAccountIndex,
+    accountIndex,
     baseAddressIndex: effectiveBaseAddressIndex,
     mnemonic: mnemonicToUse,
     ikm,
@@ -88,8 +88,8 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   if (password !== undefined) {
     const targetDir =
       outDir && outDir.length > 0 ? outDir : dataDir && dataDir.length > 0 ? dataDir : dirname(existing);
-    await writeEthJsonV3ToFile(keystore.validators as unknown as any[], { outDir: targetDir, password });
-    await writeBlsEip2335ToFile(keystore.validators as unknown as any[], { outDir: targetDir, password });
+    await writeEthJsonV3ToFile(keystore.validators, { outDir: targetDir, password });
+    await writeBlsEip2335ToFile(keystore.validators, { outDir: targetDir, password });
   }
 
   let outputPath = existing;
