@@ -511,10 +511,10 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     lay_limbs_in_row(acc_step.quotient_microlimbs[2], QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
     lay_limbs_in_row(top_quotient_microlimbs, QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
 
-    num_gates += 2;
+    increment_num_gates(2);
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates()); });
 }
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
@@ -535,7 +535,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         wire.push_back(zero_idx());
         wire.push_back(zero_idx());
     }
-    num_gates += 2;
+    increment_num_gates(2);
 
     auto process_random_op = [&](const UltraOp& ultra_op) {
         BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
@@ -545,7 +545,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             wires[i].push_back(zero_idx());
             wires[i].push_back(zero_idx());
         }
-        num_gates += 2;
+        increment_num_gates(2);
     };
 
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
@@ -611,7 +611,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 wires[j].push_back(zero_idx());
                 wires[j].push_back(zero_idx());
             }
-            num_gates += 2;
+            increment_num_gates(2);
             continue;
         }
         Fq previous_accumulator{ 0 };

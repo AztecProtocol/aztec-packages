@@ -143,7 +143,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -158,7 +158,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -369,7 +369,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -382,7 +382,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builde
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -534,7 +534,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         builder->blocks.memory.populate_wires(
             current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
 
-        ++builder->num_gates;
+        builder->increment_num_gates();
 
         // store timestamp offsets for later. Need to apply range checks to them, but calling
         // `create_new_range_constraint` can add gates. Would ruin the structure of our sorted timestamp list.

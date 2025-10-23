@@ -243,7 +243,7 @@ ClientIvcStats::Response ClientIvcStats::execute([[maybe_unused]] BBApiRequest& 
 
     // Set response values
     response.acir_opcodes = program.constraints.num_acir_opcodes;
-    response.circuit_size = static_cast<uint32_t>(builder.num_gates);
+    response.circuit_size = static_cast<uint32_t>(builder.num_gates());
 
     // Optionally include gates per opcode
     if (include_gates_per_opcode) {
