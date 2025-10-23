@@ -361,7 +361,6 @@ function release {
     boxes
     aztec-up
     playground
-    # docs # released as part of ci
     release-image
   )
   if [ $(arch) == arm64 ]; then
