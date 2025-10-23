@@ -793,7 +793,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul_infinity()
     {
         // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
-        // short scalar and also check that the number of gates in this case is equal to the number of gates spent on a
+        // short scalar and also check that the number of gates in this case is more than the number of gates spent on a
         // finite point.
 
         // Populate test points.
@@ -1176,7 +1176,19 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x_d.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/false));
             tag_union = OriginTag(tag_union, x_d.get_origin_tag());
 
-            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d });
+            // Define masking scalar (128 bits)
+            const auto get_128_bit_scalar = []() {
+                uint256_t scalar_u256(0, 0, 0, 0);
+                scalar_u256.data[0] = engine.get_random_uint64();
+                scalar_u256.data[1] = engine.get_random_uint64();
+                fr scalar(scalar_u256);
+                return scalar;
+            };
+            fr masking_scalar = get_128_bit_scalar();
+            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+
+            element_ct c =
+                element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d }, 0, true, masking_scalar_ct);
 
             // Check that the tag of the batched product is the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), tag_union);
