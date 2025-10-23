@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/avm_fuzzer/common/process.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include <vector>
@@ -28,8 +29,23 @@ class CppSimulator : public Simulator {
 };
 
 /// @brief uses the yarn-project/simulator to simulate the bytecode
+/// Singleton, because initializing the simulator is expensive
 class JsSimulator : public Simulator {
+  protected:
+    static JsSimulator* instance;
+    JsSimulator(std::string& simulator_path);
+    Process process;
+
   public:
+    JsSimulator(JsSimulator& other) = delete;
+    void operator=(const JsSimulator&) = delete;
+    JsSimulator(JsSimulator&&) = delete;
+    JsSimulator& operator=(JsSimulator&&) = delete;
+    ~JsSimulator() = default;
+
+    static JsSimulator* getInstance();
+    static void initialize(std::string& simulator_path);
+
     SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
 };
 

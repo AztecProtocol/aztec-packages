@@ -8,9 +8,22 @@
 #include "fuzz_lib/control_flow.hpp"
 #include "fuzz_lib/fuzz.hpp"
 #include "fuzz_lib/fuzzer_data.hpp"
+#include "fuzz_lib/simulator.hpp"
 #include "mutations/fuzzer_data.hpp"
 
 using FuzzInstruction = ::FuzzInstruction;
+
+extern "C" int LLVMFuzzerInitialize(int*, char***)
+{
+
+    const char* simulator_path = std::getenv("AVM_SIMULATOR_BIN");
+    if (simulator_path == nullptr) {
+        throw std::runtime_error("AVM_SIMULATOR_BIN is not set");
+    }
+    std::string simulator_path_str(simulator_path);
+    JsSimulator::initialize(simulator_path_str);
+    return 0;
+}
 
 SimulatorResult fuzz(const uint8_t* buffer, size_t size)
 {
@@ -20,7 +33,6 @@ SimulatorResult fuzz(const uint8_t* buffer, size_t size)
     } catch (const std::exception& e) {
         deserialized_data = FuzzerData();
     }
-    std::cout << "Deserialized data: " << deserialized_data << std::endl;
     auto res = fuzz(deserialized_data);
 
     return res;
@@ -43,7 +55,6 @@ extern "C" size_t LLVMFuzzerCustomMutator(uint8_t* serialized_fuzzer_data,
     mutate_fuzzer_data(deserialized_data, rng);
     auto [mutated_serialized_fuzzer_data, mutated_serialized_fuzzer_data_size] =
         msgpack_encode_buffer(deserialized_data);
-    // std::cout << "Mutated serialized fuzzer data: " << deserialized_data << std::endl;
     if (mutated_serialized_fuzzer_data_size > max_size) {
         //???
         return 0;
