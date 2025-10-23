@@ -277,7 +277,19 @@ template <typename ExecutionTrace> size_t RomRamLogic_<ExecutionTrace>::create_R
     ram_arrays.emplace_back(new_transcript);
     return ram_arrays.size() - 1;
 }
-
+/**
+ * @brief Initialize an element of the RAM array
+ *
+ * @tparam ExecutionTrace
+ * @param builder
+ * @param ram_id
+ * @param index_value raw index in the array specified by `ram_id`. NOT a witness index.
+ * @param value_witness
+ *
+ * @note Other than the line `BB_ASSERT_EQ(ram_array.state[index_value], UNINITIALIZED_MEMORY_RECORD);`, we may
+ * reinitialize an entry multiple times; there are no circuit constraints that prevent this. In particular, the
+ * functionality is nearly identical to that of `write_RAM_array`.
+ */
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::init_RAM_element(CircuitBuilder* builder,
                                                     const size_t ram_id,
@@ -337,7 +349,18 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     // return witness index of the value in the array
     return value_witness;
 }
-
+/**
+ * @brief write an value (given by its witness index) to a RAM array
+ *
+ * @tparam ExecutionTrace
+ * @param builder
+ * @param ram_id
+ * @param index_witness
+ * @param value_witness
+ *
+ * @note Other than taking in an `index_witness` rather than a raw `index`, this is _identical_ to `init_RAM_element`..
+ * In particular, both use the `RamRecord::AccessType::WRITE`.
+ */
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
                                                    const size_t ram_id,
