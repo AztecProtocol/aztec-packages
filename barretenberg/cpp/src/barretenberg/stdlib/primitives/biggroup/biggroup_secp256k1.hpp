@@ -126,7 +126,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
                                     const bool_ct& positive_skew,
                                     const bool_ct& negative_skew) {
         auto to_add = base_point;
-        to_add.y = to_add.y.conditional_negate(negative_skew);
+        to_add._y = to_add._y.conditional_negate(negative_skew);
         element result = accumulator + to_add;
 
         // when computing the wNAF we have already validated that positive_skew and negative_skew cannot both be true

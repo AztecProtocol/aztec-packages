@@ -40,25 +40,25 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
     std::vector<std::array<field_t<C>, 2>> prime_limbs;
 
     for (size_t i = 0; i < num_elements; ++i) {
-        limb_max[0] = std::max(limb_max[0], rom_data[i].x.binary_basis_limbs[0].maximum_value);
-        limb_max[1] = std::max(limb_max[1], rom_data[i].x.binary_basis_limbs[1].maximum_value);
-        limb_max[2] = std::max(limb_max[2], rom_data[i].x.binary_basis_limbs[2].maximum_value);
-        limb_max[3] = std::max(limb_max[3], rom_data[i].x.binary_basis_limbs[3].maximum_value);
-        limb_max[4] = std::max(limb_max[4], rom_data[i].y.binary_basis_limbs[0].maximum_value);
-        limb_max[5] = std::max(limb_max[5], rom_data[i].y.binary_basis_limbs[1].maximum_value);
-        limb_max[6] = std::max(limb_max[6], rom_data[i].y.binary_basis_limbs[2].maximum_value);
-        limb_max[7] = std::max(limb_max[7], rom_data[i].y.binary_basis_limbs[3].maximum_value);
+        limb_max[0] = std::max(limb_max[0], rom_data[i]._x.binary_basis_limbs[0].maximum_value);
+        limb_max[1] = std::max(limb_max[1], rom_data[i]._x.binary_basis_limbs[1].maximum_value);
+        limb_max[2] = std::max(limb_max[2], rom_data[i]._x.binary_basis_limbs[2].maximum_value);
+        limb_max[3] = std::max(limb_max[3], rom_data[i]._x.binary_basis_limbs[3].maximum_value);
+        limb_max[4] = std::max(limb_max[4], rom_data[i]._y.binary_basis_limbs[0].maximum_value);
+        limb_max[5] = std::max(limb_max[5], rom_data[i]._y.binary_basis_limbs[1].maximum_value);
+        limb_max[6] = std::max(limb_max[6], rom_data[i]._y.binary_basis_limbs[2].maximum_value);
+        limb_max[7] = std::max(limb_max[7], rom_data[i]._y.binary_basis_limbs[3].maximum_value);
 
-        x_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i].x.binary_basis_limbs[0].element,
-                                                           rom_data[i].x.binary_basis_limbs[1].element });
-        x_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i].x.binary_basis_limbs[2].element,
-                                                           rom_data[i].x.binary_basis_limbs[3].element });
-        y_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i].y.binary_basis_limbs[0].element,
-                                                           rom_data[i].y.binary_basis_limbs[1].element });
-        y_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i].y.binary_basis_limbs[2].element,
-                                                           rom_data[i].y.binary_basis_limbs[3].element });
+        x_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._x.binary_basis_limbs[0].element,
+                                                           rom_data[i]._x.binary_basis_limbs[1].element });
+        x_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._x.binary_basis_limbs[2].element,
+                                                           rom_data[i]._x.binary_basis_limbs[3].element });
+        y_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._y.binary_basis_limbs[0].element,
+                                                           rom_data[i]._y.binary_basis_limbs[1].element });
+        y_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._y.binary_basis_limbs[2].element,
+                                                           rom_data[i]._y.binary_basis_limbs[3].element });
         prime_limbs.emplace_back(
-            std::array<field_t<C>, 2>{ rom_data[i].x.prime_basis_limb, rom_data[i].y.prime_basis_limb });
+            std::array<field_t<C>, 2>{ rom_data[i]._x.prime_basis_limb, rom_data[i]._y.prime_basis_limb });
     }
     std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> output_tables;
     output_tables[0] = twin_rom_table<C>(x_lo_limbs);
@@ -387,13 +387,13 @@ element<C, Fq, Fr, G>::create_endo_pair_four_bit_table_plookup(const element& in
         P1.element_table[i] = (-P1.element_table[15 - i]);
     }
     for (size_t i = 0; i < 16; ++i) {
-        endoP1.element_table[i].y = P1.element_table[15 - i].y;
+        endoP1.element_table[i]._y = P1.element_table[15 - i]._y;
     }
     uint256_t beta_val = bb::field<typename Fq::TParams>::cube_root_of_unity();
     Fq beta(bb::fr(beta_val.slice(0, 136)), bb::fr(beta_val.slice(136, 256)));
     for (size_t i = 0; i < 8; ++i) {
-        endoP1.element_table[i].x = P1.element_table[i].x * beta;
-        endoP1.element_table[15 - i].x = endoP1.element_table[i].x;
+        endoP1.element_table[i]._x = P1.element_table[i]._x * beta;
+        endoP1.element_table[15 - i]._x = endoP1.element_table[i]._x;
     }
     P1.coordinates = create_group_element_rom_tables<16>(P1.element_table, P1.limb_max);
     endoP1.coordinates = create_group_element_rom_tables<16>(endoP1.element_table, endoP1.limb_max);

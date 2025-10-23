@@ -253,11 +253,19 @@ template <typename Field> class StdlibCodec {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
+        } else if constexpr (IsAnyOf<T, cycle_group<Builder>>) {
+            // For cycle_group (grumpkin_element), still uses .x and .y directly (not renamed yet)
+            std::vector<field_ct> fr_vec_x = serialize_to_fields<field_ct>(val.x);
+            std::vector<field_ct> fr_vec_y = serialize_to_fields<field_ct>(val.y);
+            std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+            return fr_vec;
+        } else if constexpr (IsAnyOf<T, bn254_element>) {
             using BaseField = typename T::BaseField;
 
-            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x);
-            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y);
+            // For biggroup element (bn254), use _x and _y
+            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val._x);
+            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val._y);
             std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
