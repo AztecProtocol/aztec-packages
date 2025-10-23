@@ -258,7 +258,7 @@ ClientIvcStats::Response ClientIvcStats::execute([[maybe_unused]] BBApiRequest& 
          ", circuit_size: ",
          response.circuit_size);
 
-    // Print structured execution trace details
+    // Print execution trace details
     builder.blocks.summarize();
 
     return response;

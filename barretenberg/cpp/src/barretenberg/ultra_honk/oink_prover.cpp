@@ -259,8 +259,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
  */
 template <IsUltraOrMegaHonk Flavor>
 Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                                                    const std::string& label,
-                                                                    const CommitmentKey::CommitType type)
+                                                                    const std::string& label)
 {
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
@@ -270,8 +269,7 @@ Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<F
 
     typename Flavor::Commitment commitment;
 
-    commitment = prover_instance->commitment_key.commit_with_type(
-        polynomial, type, prover_instance->active_region_data.get_ranges());
+    commitment = prover_instance->commitment_key.commit(polynomial);
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 

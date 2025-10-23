@@ -531,7 +531,6 @@ void SumcheckClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
-    // Note: a structured trace is not used for the hiding kernel
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
     // Hiding circuit is proven by a MegaZKProver
