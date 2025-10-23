@@ -58,21 +58,16 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     auto output_point = cycle_group_ct::batch_mul(points, scalars).get_standard_form();
 
     // Add the constraints and handle constant values
-    if (output_point.is_point_at_infinity().is_constant()) {
-        builder.fix_witness(input.out_point_is_infinite, output_point.is_point_at_infinity().get_value());
-    } else {
-        builder.assert_equal(output_point.is_point_at_infinity().get_witness_index(), input.out_point_is_infinite);
-    }
-    if (output_point.x.is_constant()) {
-        builder.fix_witness(input.out_point_x, output_point.x.get_value());
-    } else {
-        builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);
-    }
-    if (output_point.y.is_constant()) {
-        builder.fix_witness(input.out_point_y, output_point.y.get_value());
-    } else {
-        builder.assert_equal(output_point.y.get_witness_index(), input.out_point_y);
-    }
+    // Convert bool_t to field_t for assert_equal
+    field_ct is_infinite_field(output_point.is_point_at_infinity());
+    field_ct out_is_infinite_witness = field_ct::from_witness_index(&builder, input.out_point_is_infinite);
+    is_infinite_field.assert_equal(out_is_infinite_witness);
+
+    field_ct out_x_witness = field_ct::from_witness_index(&builder, input.out_point_x);
+    output_point.x.assert_equal(out_x_witness);
+
+    field_ct out_y_witness = field_ct::from_witness_index(&builder, input.out_point_y);
+    output_point.y.assert_equal(out_y_witness);
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,
