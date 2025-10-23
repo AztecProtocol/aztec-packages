@@ -31,8 +31,7 @@ template <typename Flavor> struct NativeFlavorHelper<Flavor, true> {
  * @tparam Builder The builder for the circuit in question.
  */
 template <typename Flavor, typename Builder>
-uint256_t compute_vk_hash(const Builder& circuit_in,
-                          const TraceSettings& trace_settings = TraceSettings{ AZTEC_TRACE_STRUCTURE })
+uint256_t compute_vk_hash(const Builder& circuit_in)
     requires(IsMegaFlavor<Flavor> && IsMegaBuilder<Builder>)
 {
     using NativeFlavor = typename NativeFlavorHelper<Flavor>::type;
@@ -41,7 +40,7 @@ uint256_t compute_vk_hash(const Builder& circuit_in,
 
     Builder circuit = circuit_in; // Copy the circuit to avoid modifying the original
 
-    ProverInstance prover_instance{ circuit, trace_settings };
+    ProverInstance prover_instance{ circuit };
     VerificationKey verification_key{ prover_instance.get_precomputed() };
 
     return verification_key.hash();

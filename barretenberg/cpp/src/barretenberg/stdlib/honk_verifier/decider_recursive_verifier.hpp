@@ -7,9 +7,9 @@
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 

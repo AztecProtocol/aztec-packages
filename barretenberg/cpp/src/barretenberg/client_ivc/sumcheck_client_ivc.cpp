@@ -532,7 +532,7 @@ HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     // Note: a structured trace is not used for the hiding kernel
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
@@ -548,7 +548,7 @@ HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
  */
 SumcheckClientIVC::Proof SumcheckClientIVC::prove()
 {
-    // deallocate the protogalaxy accumulator
+    // deallocate the accumulator
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
