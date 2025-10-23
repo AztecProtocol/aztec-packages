@@ -1,14 +1,8 @@
 import { useContext } from 'react';
 import { AztecContext } from '../aztecContext';
-import {
-  TxReceipt,
-  TxStatus,
-  type AztecAddress,
-  type ContractFunctionInteraction,
-  type DeployMethod,
-  type DeployOptions,
-  type SendInteractionOptions,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { ContractFunctionInteraction, DeployMethod, DeployOptions, SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import { TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { TX_TIMEOUT } from '../constants';

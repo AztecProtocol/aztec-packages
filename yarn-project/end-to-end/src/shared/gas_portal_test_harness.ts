@@ -1,16 +1,11 @@
-import {
-  AztecAddress,
-  type AztecNode,
-  EthAddress,
-  Fr,
-  L1FeeJuicePortalManager,
-  type L1TokenManager,
-  type L2AmountClaim,
-  type Logger,
-  type Wallet,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { L1FeeJuicePortalManager, type L1TokenManager, type L2AmountClaim } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
+import { retryUntil } from '@aztec/foundation/retry';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';

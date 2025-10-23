@@ -1,16 +1,14 @@
-import {
-  AztecAddress,
-  type AztecNode,
-  BatchCall,
-  Fr,
-  type Logger,
-  TxStatus,
-  type Wallet,
-  generateClaimSecret,
-  retryUntil,
-} from '@aztec/aztec.js';
-import { isL1ToL2MessageReady } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { timesAsync } from '@aztec/foundation/collection';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';

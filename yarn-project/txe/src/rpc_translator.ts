@@ -1,4 +1,5 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
+import { Fr, Point } from '@aztec/aztec.js/fields';
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import {
   type IMiscOracle,

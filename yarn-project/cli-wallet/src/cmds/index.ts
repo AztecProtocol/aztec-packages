@@ -1,5 +1,5 @@
 import { getIdentities } from '@aztec/accounts/utils';
-import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { TxHash } from '@aztec/aztec.js/tx';
 import {
   ETHEREUM_HOSTS,
   PRIVATE_KEY,

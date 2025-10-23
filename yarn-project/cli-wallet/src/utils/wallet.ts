@@ -2,20 +2,15 @@ import { EcdsaRAccountContract, EcdsaRSSHAccountContract } from '@aztec/accounts
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
 import { getIdentities } from '@aztec/accounts/utils';
+import { type Account, type AccountContract, SignerlessAccount } from '@aztec/aztec.js/account';
 import {
-  type Account,
-  type AccountContract,
-  AccountManager,
-  type Aliased,
-  type AztecNode,
-  BaseWallet,
   type InteractionFeeOptions,
-  SignerlessAccount,
-  type SimulateOptions,
-  UniqueNote,
   getContractInstanceFromInstantiationParams,
   getGasLimits,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { UniqueNote } from '@aztec/aztec.js/note';
+import { AccountManager, type Aliased, BaseWallet, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';

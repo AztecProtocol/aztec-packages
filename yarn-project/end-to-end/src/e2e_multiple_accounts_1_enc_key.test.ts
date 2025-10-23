@@ -1,5 +1,8 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { AztecAddress, Fr, GrumpkinScalar, type Logger, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';

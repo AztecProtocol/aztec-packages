@@ -233,8 +233,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveSucceed)
     auto y = stdlib::field_t<Builder>::from_witness(&builder, point_val.y);
     auto is_infinity = bool_ct(witness_ct(&builder, point_val.is_point_at_infinity()));
 
-    cycle_group_ct point(x, y, is_infinity);
-    point.validate_on_curve();
+    cycle_group_ct point(x, y, is_infinity, /*assert_on_curve=*/true);
     EXPECT_FALSE(builder.failed());
     check_circuit_and_gate_count(builder, 6);
 }
@@ -252,8 +251,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveInfinitySucceed)
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
-    cycle_group_ct a(x, y, /*_is_infinity=*/true); // marks this point as the point at infinity
-    a.validate_on_curve();
+    cycle_group_ct a(x, y, /*_is_infinity=*/true, /*assert_on_curve=*/true);
     EXPECT_FALSE(builder.failed());
     check_circuit_and_gate_count(builder, 0);
 }
@@ -272,8 +270,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail)
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
-    cycle_group_ct a(x, y, /*_is_infinity=*/false);
-    a.validate_on_curve();
+    cycle_group_ct a(x, y, /*_is_infinity=*/false, /*assert_on_curve=*/true);
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -292,8 +289,7 @@ TYPED_TEST(CycleGroupTest, TestValidateOnCurveFail2)
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
 
-    cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)));
-    a.validate_on_curve();
+    cycle_group_ct a(x, y, /*_is_infinity=*/bool_ct(witness_ct(&builder, false)), /*assert_on_curve=*/true);
     EXPECT_TRUE(builder.failed());
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -311,8 +307,8 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
 
     auto x = stdlib::field_t<Builder>::from_witness(&builder, 1);
     auto y = stdlib::field_t<Builder>::from_witness(&builder, 1);
-    cycle_group_ct input_e = cycle_group_ct(x, y, true);
-    cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)));
+    cycle_group_ct input_e = cycle_group_ct(x, y, true, /*assert_on_curve=*/true);
+    cycle_group_ct input_f = cycle_group_ct(x, y, bool_ct(witness_ct(&builder, true)), /*assert_on_curve=*/true);
 
     // Assign different tags to all inputs
     input_a.set_origin_tag(submitted_value_origin_tag);
@@ -376,7 +372,7 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_f_x, 0);
     EXPECT_EQ(standard_f_y, 0);
 
-    check_circuit_and_gate_count(builder, 15);
+    check_circuit_and_gate_count(builder, 20);
 }
 TYPED_TEST(CycleGroupTest, TestDbl)
 {
@@ -551,7 +547,7 @@ TYPED_TEST(CycleGroupTest, TestDblMixedConstantWitness)
     auto point = TestFixture::generators[1];
     auto x = stdlib::field_t<Builder>(&builder, point.x);             // constant
     auto y = stdlib::field_t<Builder>(witness_ct(&builder, point.y)); // witness
-    cycle_group_ct a(x, y, false);
+    cycle_group_ct a(x, y, false, /*assert_on_curve=*/false);
 
     // Currently this crashes with an assertion error about invalid variable_index
     // The issue is that when we have mixed constant/witness coordinates, the dbl()

@@ -1,5 +1,5 @@
-import { retryUntil } from '@aztec/aztec.js';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import type { ChildProcess } from 'child_process';
 

@@ -1,4 +1,7 @@
-import { type AztecAddress, EthAddress, Tx, TxReceipt, TxStatus, waitForProven } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
+import { Tx, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { type ExtendedViemWalletClient, RollupContract } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { getTestData, isGenerateTestDataEnabled } from '@aztec/foundation/testing';

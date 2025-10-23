@@ -217,7 +217,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         : CircuitBuilderBase<FF>(size_hint)
     {
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
 
     /**
@@ -253,7 +253,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         // Add the const zero variable after the acir witness has been
         // incorporated into variables.
         this->set_zero_idx(put_constant_variable(FF::zero()));
-        this->tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
+        this->_tau.insert({ DUMMY_TAG, DUMMY_TAG }); // TODO(luke): explain this
     };
     UltraCircuitBuilder_(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_(UltraCircuitBuilder_&& other) = default;
@@ -350,7 +350,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     size_t get_num_finalized_gates() const override
     {
         BB_ASSERT(circuit_finalized);
-        return this->num_gates;
+        return this->num_gates();
     }
 
     /**
@@ -495,7 +495,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.set_gate_selector(0); // all selectors zero
 
         check_selector_length_consistency();
-        ++this->num_gates;
+        this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
     void create_sort_constraint(const std::vector<uint32_t>& variable_index);
@@ -514,7 +514,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     uint32_t create_tag(const uint32_t tag_index, const uint32_t tau_index)
     {
-        this->tau.insert({ tag_index, tau_index });
+        this->_tau.insert({ tag_index, tau_index });
         this->current_tag++; // Why exactly?
         return this->current_tag;
     }

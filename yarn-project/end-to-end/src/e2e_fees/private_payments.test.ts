@@ -1,4 +1,7 @@
-import { type AztecAddress, type AztecNode, BatchCall, PrivateFeePaymentMethod, waitForProven } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall, waitForProven } from '@aztec/aztec.js/contracts';
+import { PrivateFeePaymentMethod } from '@aztec/aztec.js/fee';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';

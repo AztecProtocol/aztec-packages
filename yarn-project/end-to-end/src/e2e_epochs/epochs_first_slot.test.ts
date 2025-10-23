@@ -1,16 +1,14 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  EthAddress,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type Logger,
-  getTimestampRangeForEpoch,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';

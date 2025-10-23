@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EnvVar } from '@aztec/foundation/config';
 
 export function enrichVar(envVar: EnvVar, value: string | undefined) {

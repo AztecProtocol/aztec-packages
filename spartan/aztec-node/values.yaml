@@ -17,7 +17,6 @@ global:
   aztecNetwork: ""
   # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
   customAztecNetwork:
-    enabled: false
     l1ChainId:
     registryContractAddress:
     slashFactoryContractAddress:

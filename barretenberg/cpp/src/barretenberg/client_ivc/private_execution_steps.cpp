@@ -1,5 +1,5 @@
 #include "private_execution_steps.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <libdeflate.h>
@@ -133,16 +133,15 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
             // For backwards compatibility, but it affects performance and correctness.
             precomputed_vks[i] = nullptr;
         } else {
-            precomputed_vks[i] = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
+            precomputed_vks[i] = from_buffer<std::shared_ptr<SumcheckClientIVC::MegaVerificationKey>>(step.vk);
         }
         function_names[i] = step.function_name;
     }
 }
 
-std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
+std::shared_ptr<SumcheckClientIVC> PrivateExecutionSteps::accumulate()
 {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(/*num_circuits=*/folding_stack.size(), trace_settings);
+    auto ivc = std::make_shared<SumcheckClientIVC>(/*num_circuits=*/folding_stack.size());
 
     const acir_format::ProgramMetadata metadata{ ivc };
 
@@ -157,7 +156,7 @@ std::shared_ptr<ClientIVC> PrivateExecutionSteps::accumulate()
         // Construct a bberg circuit from the acir representation then accumulate it into the IVC
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
-        info("ClientIVC: accumulating " + function_name);
+        info("SumcheckClientIVC: accumulating " + function_name);
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
         ivc->accumulate(circuit, precomputed_vk);

@@ -1,16 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  type AztecNode,
-  ContractDeployer,
-  EthAddress,
-  Fr,
-  type Logger,
-  type Wallet,
-  retryUntil,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
@@ -20,6 +16,7 @@ import {
 } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';

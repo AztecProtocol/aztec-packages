@@ -1,4 +1,5 @@
-import { type AztecAddress, EthAddress } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import { parseBooleanEnv } from '@aztec/foundation/config';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';

@@ -50,7 +50,9 @@ export class LightweightBlockFactory implements IBlockFactory {
   ): Promise<void> {
     this.logger.debug('Starting new block', { globalVariables: globalVariables.toInspect(), l1ToL2Messages });
     this.globalVariables = globalVariables;
-    this.l1ToL2Messages = isFirstBlock ? padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) : [];
+    this.l1ToL2Messages = isFirstBlock
+      ? padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP)
+      : [];
     this.startSpongeBlob = startSpongeBlob;
     this.txs = undefined;
     // Update L1 to L2 tree

@@ -1,5 +1,8 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AccountManager, type AztecAddress, type WaitOpts, createAztecNodeClient } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { WaitOpts } from '@aztec/aztec.js/contracts';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';

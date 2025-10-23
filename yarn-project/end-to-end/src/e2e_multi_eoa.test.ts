@@ -1,4 +1,7 @@
-import { AztecAddress, EthAddress, Fr, type Logger, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { PublisherManager, ViemClient } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';

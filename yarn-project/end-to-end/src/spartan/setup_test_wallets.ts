@@ -1,18 +1,14 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import {
-  AztecAddress,
-  type AztecNode,
-  FeeJuicePaymentMethodWithClaim,
-  type FeePaymentMethod,
-  Fr,
-  L1FeeJuicePortalManager,
-  SponsoredFeePaymentMethod,
-  type Wallet,
-  createAztecNodeClient,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { Logger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet, proveInteraction, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';

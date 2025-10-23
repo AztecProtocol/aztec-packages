@@ -23,7 +23,7 @@ export async function mockBlock(
   maxEffects: number | undefined = undefined,
 ) {
   const l2Block = await L2Block.random(blockNum, size, maxEffects);
-  const l1ToL2Messages = Array(16).fill(0).map(Fr.random);
+  const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.random);
 
   {
     const insertData = async (
@@ -55,7 +55,7 @@ export async function mockBlock(
       padArrayEnd(txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
     );
 
-    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
     const noteHashInsert = fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
     const messageInsert = fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
@@ -89,7 +89,7 @@ export async function mockEmptyBlock(blockNum: number, fork: MerkleTreeWriteOper
     );
     await fork.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashesPadded);
 
-    const l1ToL2MessagesPadded = padArrayEnd(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     await fork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
   }
 

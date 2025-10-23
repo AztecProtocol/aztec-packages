@@ -321,7 +321,7 @@ describe('LightBlockBuilder', () => {
   };
 
   const getParityOutput = async (msgs: Fr[]) => {
-    const l1ToL2Messages = padArrayEnd(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
+    const l1ToL2Messages = padArrayEnd<Fr, number>(msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
     await expectsFork.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
 
     const parityBases: ParityBaseProofData[] = [];
