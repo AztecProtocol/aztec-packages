@@ -31,15 +31,16 @@ template <typename Builder> cycle_group<Builder>::cycle_group(Builder* _context)
 
 /**
  * @brief Construct a new cycle group<Builder>::cycle group object
- * @warning This constructor does not constrain the point to be on the curve. It is intended for cases where points are
- * implicitly known to be on the curve such as the result of a point addition or doubling.
+ * @warning This constructor constrains the point to be on the curve by default, however this can be disabled by passing
+ * `false` for the `assert_on_curve` parameter. This is intended for cases where points are implicitly known to be on
+ * the curve such as the result of a point addition or doubling.
  *
  * @param _x
  * @param _y
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool assert_on_curve)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
@@ -57,7 +58,15 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
         *this = constant_infinity(this->context);
     }
 
-    ASSERT(get_value().on_curve());
+    // We don't support points with only one constant coordinate since valid use-cases are limited and it complicates
+    // the logic
+    BB_ASSERT(x.is_constant() == y.is_constant(), "cycle_group: Inconsistent constancy of coordinates");
+
+    // Elements are always expected to be on the curve but may or may not be constrained as such.
+    BB_ASSERT(get_value().on_curve(), "cycle_group: Point is not on curve");
+    if (assert_on_curve) {
+        validate_on_curve();
+    }
 }
 
 /**
@@ -80,7 +89,7 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
     , _is_standard(true)
     , context(nullptr)
 {
-    ASSERT(get_value().on_curve());
+    BB_ASSERT(get_value().on_curve());
 }
 
 /**
@@ -92,7 +101,6 @@ cycle_group<Builder>::cycle_group(const bb::fr& _x, const bb::fr& _y, bool is_in
  * @tparam Builder
  * @param _in
  */
-// AUDITTODO: Used only by fuzzer. Remove if possible, otherwise mark it accordingly.
 template <typename Builder>
 cycle_group<Builder>::cycle_group(const AffineElement& _in)
     : x(_in.is_point_at_infinity() ? 0 : _in.x)
@@ -115,7 +123,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
     field_t y(_context, Group::one.y);
     bool_t is_infinity(_context, false);
 
-    return cycle_group<Builder>(x, y, is_infinity);
+    return cycle_group<Builder>(x, y, is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -261,7 +269,7 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
         // Check that it's not possible to enter the case when
         // The point is already infinity, but `is_infinity` = false
-        ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
+        BB_ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
 
         if (is_infinity.get_value()) {
             *this = constant_infinity(this->context);
@@ -291,8 +299,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
     this->y = field_t::conditional_assign(is_infinity, 0, this->y).normalize();
 
     // We won't bump into the case where we end up with non constant coordinates
-    ASSERT(!this->x.is_constant());
-    ASSERT(!this->y.is_constant());
+    BB_ASSERT(!this->x.is_constant());
+    BB_ASSERT(!this->y.is_constant());
 
     // We have to check this to avoid the situation, where we change the infinity
     bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
@@ -315,8 +323,8 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
     if (this->is_constant_point_at_infinity()) {
-        ASSERT(this->is_constant());
-        ASSERT(this->_is_standard);
+        BB_ASSERT(this->is_constant());
+        BB_ASSERT(this->_is_standard);
     }
 
     if (this->_is_standard) {
@@ -371,12 +379,13 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
     // Construct the doubled point based on whether this is a constant or witness
     cycle_group result;
     if (is_constant()) {
-        result = cycle_group(x3, y3, is_point_at_infinity());
+        result = cycle_group(x3, y3, is_point_at_infinity(), /*assert_on_curve=*/false);
         // Propagate the origin tag as-is
         result.set_origin_tag(get_origin_tag());
     } else {
         // Create result witness and construct ECC double constraint
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), is_point_at_infinity());
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
         context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
             .x1 = x.get_witness_index(),
@@ -411,10 +420,10 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           const std::optional<AffineElement> hint) const
 {
     // This method should not be called on known points at infinity
-    ASSERT(!this->is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
-    ASSERT(!other.is_constant_point_at_infinity(),
-           "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    BB_ASSERT(!this->is_constant_point_at_infinity(),
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    BB_ASSERT(!other.is_constant_point_at_infinity(),
+              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
 
     auto context = get_context(other);
 
@@ -451,10 +460,11 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
     // Construct the result based on whether inputs are constant or witness
     cycle_group result;
     if (lhs_constant && rhs_constant) {
-        result = cycle_group(x3, y3, /*is_infinity=*/false);
+        result = cycle_group(x3, y3, /*is_infinity=*/false, /*assert_on_curve=*/false);
     } else {
         // Both points are witnesses - create result witness and construct ECC add constraint
-        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
+        result = cycle_group(
+            witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
         context->create_ecc_add_gate(bb::ecc_add_gate_<bb::fr>{
             .x1 = x.get_witness_index(),
@@ -504,7 +514,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_add(const cycle
 {
     const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        BB_ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_add, x-coordinate collision");
     }
@@ -528,7 +538,7 @@ cycle_group<Builder> cycle_group<Builder>::checked_unconditional_subtract(const 
 {
     const field_t x_delta = this->x - other.x;
     if (x_delta.is_constant()) {
-        ASSERT(x_delta.get_value() != 0);
+        BB_ASSERT(x_delta.get_value() != 0);
     } else {
         x_delta.assert_is_not_zero("cycle_group::checked_unconditional_subtract, x-coordinate collision");
     }
@@ -606,7 +616,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
+    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -662,9 +672,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     const cycle_group dbl_result = dbl();
 
     // If the subtraction amounts to a doubling then the result is the doubling result, else the subtraction result.
-    // AUDITTODO: The assumption here is that is y1 != y2 implies y1 == -y2. This is only true if the points are
-    // guaranteed to be on the curve. Ideally we can ensure that on-curve checks are applied to all cycle_group
-    // elements, otherwise we may need to be more precise with these predicates.
+    // Note: The assumption here is that x1 == x2 && y1 != y2 implies y1 == -y2 which is true assuming that the points
+    // are both on the curve.
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match);
     auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, sub_result_x);
     auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, sub_result_y);
@@ -695,7 +704,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity);
+    return cycle_group(result_x, result_y, /*is_infinity=*/result_is_infinity, /*assert_on_curve=*/false);
 }
 
 /**
@@ -953,7 +962,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const field_t x = lookup_data[ColumnIdx::C2][j];
             const field_t y = lookup_data[ColumnIdx::C3][j];
-            lookup_points.emplace_back(x, y, /*is_infinity=*/false);
+            lookup_points.emplace_back(x, y, /*is_infinity=*/false, /*assert_on_curve=*/false);
         }
         // Update offset accumulator with the total offset for the corresponding multitable
         offset_generator_accumulator += table::get_generator_offset_for_table_id(table_id);
@@ -1035,6 +1044,11 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
 {
     BB_ASSERT_EQ(scalars.size(), base_points.size(), "Points/scalars size mismatch in batch mul!");
 
+    if (scalars.empty()) {
+        cycle_group result{ Group::point_at_infinity };
+        return result;
+    }
+
     std::vector<cycle_scalar> variable_base_scalars;
     std::vector<cycle_group> variable_base_points;
     std::vector<cycle_scalar> fixed_base_scalars;
@@ -1045,14 +1059,11 @@ cycle_group<Builder> cycle_group<Builder>::batch_mul(const std::vector<cycle_gro
     for (auto [point, scalar] : zip_view(base_points, scalars)) {
         result_tag = OriginTag(result_tag, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
     }
-    size_t num_bits = 0;
-    for (auto& s : scalars) {
-        num_bits = std::max(num_bits, s.num_bits());
 
-        // Note: is this the best place to put `validate_is_in_field`? Should it not be part of the constructor?
-        // Note note: validate_scalar_is_in_field does not apply range checks to the hi/lo slices, this is performed
-        // implicitly via the scalar mul algorithm
-        s.validate_scalar_is_in_field();
+    // Determine scalar bit length (for simplicity we require all scalars to have the same bit length)
+    size_t num_bits = scalars[0].num_bits();
+    for (auto& s : scalars) {
+        BB_ASSERT_EQ(num_bits, s.num_bits());
     }
 
     // If scalars are not full sized, we skip lookup-version of fixed-base scalar mul. too much complexity
@@ -1224,7 +1235,7 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
         x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
     }
 
-    cycle_group<Builder> result(x_res, y_res, _is_infinity_res);
+    cycle_group<Builder> result(x_res, y_res, _is_infinity_res, /*assert_on_curve=*/false);
     result._is_standard = _is_standard_res;
     return result;
 };

@@ -1,12 +1,9 @@
-import {
-  AztecAddress,
-  ContractDeployer,
-  type DeployOptions,
-  Fr,
-  type Logger,
-  TxStatus,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type DeployOptions, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -110,8 +107,7 @@ describe('e2e_deploy_contract legacy', () => {
       from: defaultAccountAddress,
     };
 
-    await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
-    const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
+    const [goodTx, badTx] = await Promise.all([goodDeploy.send(firstOpts), badDeploy.send(secondOpts)]);
     const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
       goodTx.wait(),
       badTx.wait({ dontThrowOnRevert: true }),

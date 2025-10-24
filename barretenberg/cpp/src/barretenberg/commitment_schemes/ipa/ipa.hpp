@@ -182,8 +182,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
-               "The polynomial degree plus 1 should be positive and a power of two");
+        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+                  "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
@@ -887,7 +887,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
         transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
         transcript.add_to_hash_buffer("U_2", verifier_accumulator_2.comm);
-        auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
+        auto [alpha, r] = transcript.template get_challenges<Fr>(std::array<std::string, 2>{ "IPA:alpha", "IPA:r" });
 
         // Step 3: Compute the new accumulator
         OpeningClaim<Curve> output_claim;

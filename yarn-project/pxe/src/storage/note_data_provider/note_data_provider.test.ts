@@ -18,6 +18,9 @@ const FAKE_ADDRESS = AztecAddress.fromString('0x11111111111111111111111111111111
 const SLOT_X = Fr.fromString('0x01');
 const SLOT_Y = Fr.fromString('0x02');
 const NON_EXISTING_SLOT = Fr.fromString('0xabad1dea');
+const DUMMY_SILOED_NULLIFIER_1 = new Fr(1n);
+const DUMMY_SILOED_NULLIFIER_2 = new Fr(2n);
+const DUMMY_SILOED_NULLIFIER_3 = new Fr(3n);
 // -----------------------------------------------------------------------------
 
 // ─── Test Fixtures Overview ────────────────────────────────────────────────
@@ -41,6 +44,7 @@ describe('NoteDataProvider', () => {
       recipient: overrides.recipient ?? SCOPE_1,
       index: overrides.index ?? 0n,
       l2BlockNumber: overrides.l2BlockNumber ?? 1,
+      siloedNullifier: overrides.siloedNullifier ?? Fr.random(),
       ...overrides,
     });
   }
@@ -57,18 +61,21 @@ describe('NoteDataProvider', () => {
       contractAddress: CONTRACT_A,
       storageSlot: SLOT_X,
       recipient: SCOPE_1,
+      siloedNullifier: DUMMY_SILOED_NULLIFIER_1,
       index: 1n,
     });
     const note2 = await mkNote({
       contractAddress: CONTRACT_A,
       storageSlot: SLOT_Y,
       recipient: SCOPE_1,
+      siloedNullifier: DUMMY_SILOED_NULLIFIER_2,
       index: 2n,
     });
     const note3 = await mkNote({
       contractAddress: CONTRACT_B,
       storageSlot: SLOT_X,
       recipient: SCOPE_2,
+      siloedNullifier: DUMMY_SILOED_NULLIFIER_3,
       index: 3n,
     });
 
@@ -133,11 +140,12 @@ describe('NoteDataProvider', () => {
   describe('NoteDataProvider.getNotes filtering happy path', () => {
     let store: AztecLMDBStoreV2;
     let provider: NoteDataProvider;
+    let note1: NoteDao;
     let note2: NoteDao;
     let note3: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note2, note3 } = await setupProviderWithNotes('note_data_provider_get_notes_happy'));
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes('note_data_provider_get_notes_happy'));
     });
 
     afterEach(async () => {
@@ -224,14 +232,32 @@ describe('NoteDataProvider', () => {
 
       expect(new Set(getIndexes(res2))).toEqual(new Set([3n]));
     });
+
+    it('filters notes by siloedNullifier', async () => {
+      const filter = {
+        contractAddress: CONTRACT_A,
+        siloedNullifier: note1.siloedNullifier,
+      };
+
+      const res = await provider.getNotes(filter);
+      expect(new Set(getIndexes(res))).toEqual(new Set([1n])); // note1 (index1n)
+
+      // Test with a different note's siloedNullifier
+      const res2 = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        siloedNullifier: note2.siloedNullifier,
+      });
+      expect(new Set(getIndexes(res2))).toEqual(new Set([2n])); // note2 (index2n)
+    });
   });
 
   describe('NoteDataProvider.getNotes filtering edge cases', () => {
     let store: AztecLMDBStoreV2;
     let provider: NoteDataProvider;
+    let note2: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider } = await setupProviderWithNotes('note_data_provider_get_notes_edge'));
+      ({ store, provider, note2 } = await setupProviderWithNotes('note_data_provider_get_notes_edge'));
     });
 
     afterEach(async () => {
@@ -254,10 +280,7 @@ describe('NoteDataProvider', () => {
     });
 
     it('throws when filtering with a scope not present in the PXE database', async () => {
-      const unknownScope = AztecAddress.fromString(
-        '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc',
-      );
-      await expect(provider.getNotes({ contractAddress: CONTRACT_A, scopes: [unknownScope] })).rejects.toThrow(
+      await expect(provider.getNotes({ contractAddress: CONTRACT_A, scopes: [FAKE_ADDRESS] })).rejects.toThrow(
         'Trying to get incoming notes of a scope that is not in the PXE database',
       );
     });
@@ -267,16 +290,39 @@ describe('NoteDataProvider', () => {
         'Trying to get notes with an empty scopes array',
       );
     });
+
+    it('returns no notes when filtering by a non-existent siloedNullifier', async () => {
+      const filter = {
+        contractAddress: CONTRACT_A,
+        siloedNullifier: NON_EXISTING_SLOT,
+      };
+
+      const res = await provider.getNotes(filter);
+      expect(res).toHaveLength(0);
+    });
+
+    it('returns no notes when siloedNullifier is valid but contractAddress mismatches', async () => {
+      const filter = {
+        contractAddress: CONTRACT_B,
+        siloedNullifier: note2.siloedNullifier,
+      };
+
+      const res = await provider.getNotes(filter);
+      expect(res).toHaveLength(0);
+    });
   });
 
   describe('NoteDataProvider.applyNullifiers happy path', () => {
     let store: AztecLMDBStoreV2;
     let provider: NoteDataProvider;
     let note1: NoteDao;
+    let note2: NoteDao;
     let note3: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note1, note3 } = await setupProviderWithNotes('note_data_provider_apply_nullifiers_happy'));
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes(
+        'note_data_provider_apply_nullifiers_happy',
+      ));
     });
 
     afterEach(async () => {
@@ -312,6 +358,19 @@ describe('NoteDataProvider', () => {
       expect(result).toEqual([note1, note3]); // returned nullified notes
       expect(new Set(getIndexes(activeA))).toEqual(new Set([2n])); // note2 remains active
       expect(getIndexes(activeB)).toHaveLength(0); // no active notes in contractB
+    });
+
+    it('retrieves a nullified note by its siloedNullifier when status is ACTIVE_OR_NULLIFIED', async () => {
+      await provider.applyNullifiers([mkNullifier(note2)]);
+
+      const filter = {
+        contractAddress: CONTRACT_A,
+        siloedNullifier: note2.siloedNullifier,
+        status: NoteStatus.ACTIVE_OR_NULLIFIED,
+      };
+
+      const res = await provider.getNotes(filter);
+      expect(new Set(getIndexes(res))).toEqual(new Set([2n]));
     });
   });
 

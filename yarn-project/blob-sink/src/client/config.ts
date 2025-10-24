@@ -32,7 +32,7 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   l1ConsensusHostApiKeyHeaders?: string[];
 
   /**
-   * The map size to be provided to LMDB for each blob sink DB, optional, will inherit from the general dataStoreMapSizeKB if not specified
+   * The map size to be provided to LMDB for each blob sink DB, optional, will inherit from the general dataStoreMapSizeKb if not specified
    */
   blobSinkMapSizeKb?: number;
 }
@@ -66,7 +66,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
   },
   blobSinkMapSizeKb: {
     env: 'BLOB_SINK_MAP_SIZE_KB',
-    description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
   },
   ...blobSinkArchiveApiConfigMappings,

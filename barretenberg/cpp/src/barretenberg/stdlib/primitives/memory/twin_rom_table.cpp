@@ -137,7 +137,7 @@ template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const
 {
     if (index >= length) {
-        ASSERT(context != nullptr);
+        BB_ASSERT(context != nullptr);
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 

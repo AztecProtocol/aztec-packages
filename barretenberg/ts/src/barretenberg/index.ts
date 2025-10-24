@@ -1,33 +1,13 @@
-import { proxy } from 'comlink';
-import { BarretenbergApi, BarretenbergApiSync } from '../barretenberg_api/index.js';
-import { createMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/factory/node/index.js';
-import { BarretenbergWasmMain, BarretenbergWasmMainWorker } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
-import { getRemoteBarretenbergWasm } from '../barretenberg_wasm/helpers/index.js';
 import { Crs, GrumpkinCrs } from '../crs/index.js';
-import { RawBuffer } from '../types/raw_buffer.js';
-import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { SyncApi } from '../cbind/generated/sync.js';
+import { IMsgpackBackendSync, IMsgpackBackendAsync } from '../bb_backends/interface.js';
+import { BackendOptions, BackendType } from '../bb_backends/index.js';
+import { createAsyncBackend, createSyncBackend } from '../bb_backends/node/index.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
-
-export type BackendOptions = {
-  /** @description Number of threads to run the backend worker on */
-  threads?: number;
-
-  /** @description Initial and Maximum memory to be alloted to the backend worker */
-  memory?: { initial?: number; maximum?: number };
-
-  /** @description Path to download CRS files */
-  crsPath?: string;
-
-  /** @description Path to download WASM files */
-  wasmPath?: string;
-
-  /** @description Logging function */
-  logger?: (msg: string) => void;
-};
+export * from '../bb_backends/index.js';
 
 export type CircuitOptions = {
   /** @description Whether to produce SNARK friendly proofs */
@@ -38,42 +18,46 @@ export type CircuitOptions = {
  * The main class library consumers interact with.
  * It extends the generated api, and provides a static constructor "new" to compose components.
  */
-export class Barretenberg extends BarretenbergApi {
+export class Barretenberg extends AsyncApi {
   private options: BackendOptions;
-  private bbApi: BbApiBase;
 
-  private constructor(
-    private worker: any,
-    wasm: BarretenbergWasmMainWorker,
-    options: BackendOptions,
-  ) {
-    super(wasm);
+  constructor(backend: IMsgpackBackendAsync, options: BackendOptions) {
+    super(backend);
     this.options = options;
-    this.bbApi = new AsyncApi(wasm);
   }
 
   /**
    * Constructs an instance of Barretenberg.
-   * Launches it within a worker. This is necessary as it blocks waiting on child threads to complete,
-   * and blocking the main thread in the browser is not allowed.
-   * It threads > 1 (defaults to hardware availability), child threads will be created on their own workers.
+   *
+   * If options.backend is set: uses that specific backend (throws if unavailable)
+   * If options.backend is unset: tries backends in order with fallback:
+   *   1. NativeSharedMemory (if bb binary available)
+   *   2. WasmWorker (in browser) or Wasm (in Node.js)
    */
   static async new(options: BackendOptions = {}) {
-    const worker = await createMainWorker();
-    const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
-    const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-    await wasm.init(
-      module,
-      threads,
-      proxy(options.logger ?? createDebugLogger('bb_wasm_async')),
-      options.memory?.initial,
-      options.memory?.maximum,
-    );
-    return new Barretenberg(worker, wasm, options);
-  }
+    const logger = options.logger ?? createDebugLogger('bb_async');
 
-  async getNumThreads() {
-    return await this.wasm.getNumThreads();
+    if (options.backend) {
+      // Explicit backend required - no fallback
+      return await createAsyncBackend(options.backend, options, logger);
+    }
+
+    if (typeof window === 'undefined') {
+      try {
+        return await createAsyncBackend(BackendType.NativeSharedMemory, options, logger);
+      } catch (err: any) {
+        logger(`Shared memory unavailable (${err.message}), falling back to other backends`);
+        try {
+          return await createAsyncBackend(BackendType.NativeUnixSocket, options, logger);
+        } catch (err: any) {
+          logger(`Unix socket unavailable (${err.message}), falling back to WASM`);
+          return await createAsyncBackend(BackendType.Wasm, options, logger);
+        }
+      }
+    } else {
+      logger(`In browser, using WASM over worker backend.`);
+      return await createAsyncBackend(BackendType.WasmWorker, options, logger);
+    }
   }
 
   async initSRSForCircuitSize(circuitSize: number): Promise<void> {
@@ -81,7 +65,7 @@ export class Barretenberg extends BarretenbergApi {
     const crs = await Crs.new(Math.max(circuitSize, minSRSSize) + 1, this.options.crsPath, this.options.logger);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
     // await this.commonInitSlabAllocator(circuitSize);
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
   }
 
   async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
@@ -91,8 +75,8 @@ export class Barretenberg extends BarretenbergApi {
 
     // Load CRS into wasm global CRS state.
     // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
-    await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
-    await this.srsInitGrumpkinSrs(new RawBuffer(grumpkinCrs.getG1Data()), grumpkinCrs.numPoints);
+    await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
+    await this.srsInitGrumpkinSrs({ pointsBuf: grumpkinCrs.getG1Data(), numPoints: grumpkinCrs.numPoints });
   }
 
   getDefaultSrsSize(): number {
@@ -104,91 +88,130 @@ export class Barretenberg extends BarretenbergApi {
     return 2 ** 20;
   }
 
+  async acirGetCircuitSizes(
+    bytecode: Uint8Array,
+    recursive: boolean,
+    honkRecursion: boolean,
+  ): Promise<[number, number]> {
+    const response = await this.circuitStats({
+      circuit: { name: '', bytecode, verificationKey: new Uint8Array() },
+      includeGatesPerOpcode: false,
+      settings: {
+        ipaAccumulation: false,
+        oracleHashType: honkRecursion ? 'poseidon2' : 'keccak',
+        disableZk: !recursive,
+        optimizedSolidityVerifier: false,
+      },
+    });
+    return [response.numGates, response.numGatesDyadic];
+  }
+
   async acirInitSRS(bytecode: Uint8Array, recursive: boolean, honkRecursion: boolean): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [_total, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
+    const [_, subgroupSize] = await this.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
     return this.initSRSForCircuitSize(subgroupSize);
   }
 
   async destroy() {
-    await this.wasm.destroy();
-    await this.worker.terminate();
+    return super.destroy();
   }
 
-  getWasm() {
-    return this.wasm;
+  /**
+   * Initialize the singleton instance of Barretenberg.
+   * @param options Backend configuration options
+   */
+  static async initSingleton(options: BackendOptions = {}) {
+    if (!barretenbergSingletonPromise) {
+      barretenbergSingletonPromise = Barretenberg.new(options);
+    }
+    try {
+      barretenbergSingleton = await barretenbergSingletonPromise;
+      return barretenbergSingleton;
+    } catch (error) {
+      // If initialization fails, clear the singleton so next call can retry
+      barretenbergSingleton = undefined!;
+      barretenbergSingletonPromise = undefined!;
+      throw error;
+    }
   }
 
-  // Wrap ClientIVC methods used by AztecClientBackend and UltraHonkBackend
-  async clientIvcStart(command: ClientIvcStart) {
-    return this.bbApi.clientIvcStart(command);
+  static async destroySingleton() {
+    if (barretenbergSingleton) {
+      await barretenbergSingleton.destroy();
+      barretenbergSingleton = undefined!;
+      barretenbergSingletonPromise = undefined!;
+    }
   }
 
-  async clientIvcLoad(command: ClientIvcLoad) {
-    return this.bbApi.clientIvcLoad(command);
+  /**
+   * Get the singleton instance of Barretenberg.
+   * Must call initSingleton() first.
+   */
+  static getSingleton() {
+    if (!barretenbergSingleton) {
+      throw new Error('First call Barretenberg.initSingleton() on @aztec/bb.js module.');
+    }
+    return barretenbergSingleton;
   }
-
-  async clientIvcAccumulate(command: ClientIvcAccumulate) {
-    return this.bbApi.clientIvcAccumulate(command);
-  }
-
-  async clientIvcProve(command: ClientIvcProve) {
-    return this.bbApi.clientIvcProve(command);
-  }
-
-  async clientIvcVerify(command: ClientIvcVerify) {
-    return this.bbApi.clientIvcVerify(command);
-  }
-
-  async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk) {
-    return this.bbApi.clientIvcComputeIvcVk(command);
-  }
-
-  async clientIvcStats(command: ClientIvcStats) {
-    return this.bbApi.clientIvcStats(command);
-  }
-
-  // Wrap circuit methods used by BbApiUltraHonkBackend
-  async circuitProve(command: CircuitProve) {
-    return this.bbApi.circuitProve(command);
-  }
-
-  async circuitComputeVk(command: CircuitComputeVk) {
-    return this.bbApi.circuitComputeVk(command);
-  }
-
-  async circuitVerify(command: CircuitVerify) {
-    return this.bbApi.circuitVerify(command);
-  }
-
-  async vkAsFields(command: VkAsFields) {
-    return this.bbApi.vkAsFields(command);
-  }
-
 }
+
+let barretenbergSingletonPromise: Promise<Barretenberg>;
+let barretenbergSingleton: Barretenberg;
 
 let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
-export class BarretenbergSync extends BarretenbergApiSync {
-  private constructor(wasm: BarretenbergWasmMain) {
-    super(wasm);
+export class BarretenbergSync extends SyncApi {
+  constructor(backend: IMsgpackBackendSync) {
+    super(backend);
   }
 
-  private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
-    const wasm = new BarretenbergWasmMain();
-    const { module, threads } = await fetchModuleAndThreads(1, wasmPath, logger);
-    await wasm.init(module, threads, logger);
-    return new BarretenbergSync(wasm);
+  /**
+   * Create a new BarretenbergSync instance.
+   *
+   * If options.backend is set: uses that specific backend (throws if unavailable)
+   * If options.backend is unset: tries backends in order with fallback:
+   *   1. NativeSharedMem (if bb binary + NAPI module available)
+   *   2. Wasm
+   *
+   * Supported backends: Wasm, NativeSharedMem
+   * Not supported: WasmWorker (no workers in sync), NativeUnixSocket (async only)
+   */
+  static async new(options: BackendOptions = {}) {
+    const logger = options.logger ?? createDebugLogger('bb_sync');
+
+    if (options.backend) {
+      return await createSyncBackend(options.backend, options, logger);
+    }
+
+    // Try native, fallback to WASM.
+    try {
+      return await createSyncBackend(BackendType.NativeSharedMemory, options, logger);
+    } catch (err: any) {
+      logger(`Shared memory unavailable (${err.message}), falling back to WASM`);
+    }
+
+    return await createSyncBackend(BackendType.Wasm, options, logger);
   }
 
-  static async initSingleton(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
+  /**
+   * Initialize the singleton instance.
+   * @param options Backend configuration options
+   */
+  static async initSingleton(options: BackendOptions = {}) {
     if (!barretenbergSyncSingletonPromise) {
-      barretenbergSyncSingletonPromise = BarretenbergSync.new(wasmPath, logger);
+      barretenbergSyncSingletonPromise = BarretenbergSync.new(options);
     }
 
     barretenbergSyncSingleton = await barretenbergSyncSingletonPromise;
     return barretenbergSyncSingleton;
+  }
+
+  static destroySingleton() {
+    if (barretenbergSyncSingleton) {
+      barretenbergSyncSingleton.destroy();
+      barretenbergSyncSingleton = undefined!;
+      barretenbergSyncSingletonPromise = undefined!;
+    }
   }
 
   static getSingleton() {
@@ -196,9 +219,5 @@ export class BarretenbergSync extends BarretenbergApiSync {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
-  }
-
-  getWasm() {
-    return this.wasm;
   }
 }

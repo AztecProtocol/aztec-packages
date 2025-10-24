@@ -6,7 +6,7 @@
  * This file contains common data structures used across multiple bbapi modules,
  * including circuit input types and proof system settings.
  */
-#include "barretenberg/client_ivc/client_ivc.hpp"
+
 #include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
@@ -17,13 +17,18 @@
 namespace bb::bbapi {
 
 /**
- * @brief Global flag to control whether to use SumcheckClientIVC instead of ClientIVC
+ * @enum VkPolicy
+ * @brief Policy for handling verification keys during IVC accumulation
  */
-inline bool USE_SUMCHECK_IVC = false;
+enum class VkPolicy {
+    DEFAULT,  // Use the provided VK as-is (default behavior)
+    CHECK,    // Verify the provided VK matches the computed VK, throw error if mismatch
+    RECOMPUTE // Always ignore the provided VK and treat it as nullptr
+};
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk (SumcheckClientIVC+honk) verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
@@ -48,7 +53,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
+ * @brief A circuit to be used in either ultrahonk or SumcheckClientIVC-honk proving.
  */
 struct CircuitInput {
     /**
@@ -121,8 +126,21 @@ inline OracleHashType parse_oracle_hash_type(const std::string& type)
     return OracleHashType::POSEIDON2; // default
 }
 
+/**
+ * @brief Convert VK policy string to enum for internal use
+ */
+inline VkPolicy parse_vk_policy(const std::string& policy)
+{
+    if (policy == "check") {
+        return VkPolicy::CHECK;
+    }
+    if (policy == "recompute") {
+        return VkPolicy::RECOMPUTE;
+    }
+    return VkPolicy::DEFAULT; // default
+}
+
 struct BBApiRequest {
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
     std::shared_ptr<IVCBase> ivc_in_progress;
@@ -132,6 +150,8 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
+    // Policy for handling verification keys during accumulation
+    VkPolicy vk_policy = VkPolicy::DEFAULT;
 };
 
 struct Shutdown {

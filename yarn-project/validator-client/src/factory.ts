@@ -24,7 +24,9 @@ export function createBlockProposalHandler(
   },
 ) {
   const metrics = new ValidatorMetrics(deps.telemetry);
-  const blockProposalValidator = new BlockProposalValidator(deps.epochCache);
+  const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
+    txsPermitted: !config.disableTransactions,
+  });
   return new BlockProposalHandler(
     deps.blockBuilder,
     deps.blockSource,

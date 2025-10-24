@@ -1,31 +1,20 @@
-#include "barretenberg/ipc/shm/spsc_shm.hpp"
+#include "spsc_shm.hpp"
+#include "futex.hpp"
+#include "utilities.hpp"
 #include <atomic>
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
-#include <linux/futex.h>
 #include <stdexcept>
 #include <string>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
-#include <time.h> // NOLINT(modernize-deprecated-headers) - need POSIX clock_gettime/CLOCK_MONOTONIC
 #include <unistd.h>
-
-#if defined(__x86_64__) || defined(_M_X64)
-#include <immintrin.h>
-#define SPSC_PAUSE() _mm_pause()
-#else
-#define SPSC_PAUSE()                                                                                                   \
-    do {                                                                                                               \
-    } while (0)
-#endif
 
 namespace bb::ipc {
 
 namespace {
-// ----- Utilities -----
 
 inline uint64_t pow2_ceil_u64(uint64_t x)
 {
@@ -42,27 +31,6 @@ inline uint64_t pow2_ceil_u64(uint64_t x)
     return x + 1;
 }
 
-inline uint64_t mono_ns_now()
-{
-    struct timespec ts;
-    if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
-        return 0;
-    }
-    return (static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL) + static_cast<uint64_t>(ts.tv_nsec);
-}
-
-// Futex helpers
-inline int futex_wait(volatile uint32_t* addr, uint32_t expect)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAIT, expect, nullptr, nullptr, 0));
-}
-
-inline int futex_wake(volatile uint32_t* addr, int n)
-{
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
-    return static_cast<int>(syscall(SYS_futex, addr, FUTEX_WAKE, n, nullptr, nullptr, 0));
-}
 } // anonymous namespace
 
 // ----- SpscShm Implementation -----
@@ -393,7 +361,7 @@ bool SpscShm::wait_for_data(uint32_t spin_ns)
             if (available() > 0) {
                 return true;
             }
-            SPSC_PAUSE();
+            IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_ns);
     }
 
@@ -421,7 +389,7 @@ bool SpscShm::wait_for_space(size_t need, uint32_t spin_ns)
             if (free_space() >= need) {
                 return true;
             }
-            SPSC_PAUSE();
+            IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_ns);
     }
 

@@ -20,7 +20,7 @@ export async function createArchiverStore(
 ) {
   const config = {
     ...userConfig,
-    dataStoreMapSizeKB: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKB,
+    dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
   return new KVArchiverDataStore(store, config.maxLogs);

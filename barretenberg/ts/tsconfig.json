@@ -16,6 +16,7 @@
     "skipLibCheck": true,
     "composite": true,
     "rootDir": "src",
+    "noEmit": true,
   },
   "include": ["src"]
 }

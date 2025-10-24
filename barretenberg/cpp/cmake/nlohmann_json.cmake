@@ -3,7 +3,7 @@ set(NLOHMANN_JSON_SOURCE_DIR "${CMAKE_BINARY_DIR}/_deps/nlohmann_json-src")
 set(NLOHMANN_JSON_COMMIT_HASH "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03")
 
 execute_process(
-    COMMAND sh -c "mkdir -p ${NLOHMANN_JSON_SOURCE_DIR} && cd ${NLOHMANN_JSON_SOURCE_DIR} && git init . && (git remote add origin https://github.com/nlohmann/json.git || true) && git fetch --depth 1 origin ${NLOHMANN_JSON_COMMIT_HASH} && git checkout FETCH_HEAD"
+    COMMAND sh -c "mkdir -p ${NLOHMANN_JSON_SOURCE_DIR} && cd ${NLOHMANN_JSON_SOURCE_DIR} && git init . 2>/dev/null && (git remote add origin https://github.com/nlohmann/json.git 2>/dev/null || true) && git fetch --depth 1 origin ${NLOHMANN_JSON_COMMIT_HASH} 2>/dev/null && git checkout FETCH_HEAD 2>/dev/null"
     RESULT_VARIABLE result
 )
 if(result)

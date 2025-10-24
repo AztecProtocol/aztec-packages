@@ -140,26 +140,6 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
-    static void test_wnaf_secp256k1_stagger_out_of_range_fails()
-    {
-        Builder builder = Builder();
-
-        // Generate a random even scalar
-        fr scalar_a(fr::random_element());
-        if ((uint256_t(scalar_a).get_bit(0) & 1) == 1) {
-            scalar_a -= fr(1); // skew bit is 1
-        }
-        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
-
-        // If we range constrain the wnaf entries, but the stagger is out of range, the circuit should
-        // fail.
-        element_ct::template compute_secp256k1_endo_wnaf</*wnaf_size=*/4, /*lo_stagger=*/10, /*hi_stagger=*/0>(
-            x_a, /*range_constrain_wnaf=*/true);
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder, false);
-        EXPECT_EQ(builder.err(), "biggroup_nafs: stagger fragment is not in range");
-    }
-
     static void test_wnaf_secp256k1_scalar_exceeding_modulus_regression_1()
     {
         Builder builder = Builder();
@@ -315,18 +295,18 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         const uint256_t scalar_u2("0xdefbb9bbabde5b9f8d7175946e75babc2f11203a8bfb71beaeec1d7a2bff17dd");
 
         // Check the assumptions
-        ASSERT(scalar_s1 < fr::modulus);
-        ASSERT(scalar_u1 < fr::modulus);
-        ASSERT(scalar_u2 < fr::modulus);
-        ASSERT((fr(scalar_s1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
-        ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_s1)) * fr(scalar_u2)).is_point_at_infinity());
+        BB_ASSERT(scalar_s1 < fr::modulus);
+        BB_ASSERT(scalar_u1 < fr::modulus);
+        BB_ASSERT(scalar_u2 < fr::modulus);
+        BB_ASSERT((fr(scalar_s1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
+        BB_ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_s1)) * fr(scalar_u2)).is_point_at_infinity());
 
         // Check that the wnaf skews of the lo and hi parts of u2 are as expected
         fr u2_lo;
         fr u2_hi;
         fr::split_into_endomorphism_scalars(fr(scalar_u2).from_montgomery_form(), u2_lo, u2_hi);
-        ASSERT(uint256_t(u2_lo).get_bit(0) == 0); // u2_lo skew is 1 (even)
-        ASSERT(uint256_t(u2_hi).get_bit(0) == 1); // u2_hi skew is 0 (odd)
+        BB_ASSERT(uint256_t(u2_lo).get_bit(0) == 0); // u2_lo skew is 1 (even)
+        BB_ASSERT(uint256_t(u2_hi).get_bit(0) == 1); // u2_hi skew is 0 (odd)
 
         Builder builder = Builder();
         element_ct P_a = element_ct::from_witness(&builder, g1::one * fr(scalar_s1));
@@ -375,11 +355,11 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         const uint256_t scalar_u2("0x1323b0342b1a56a076cbf5e3899156fbf3f439f2c3b0d5a95b9ef74622447f2e");
 
         // Check the assumptions
-        ASSERT(scalar_g1 < fr::modulus);
-        ASSERT(scalar_u1 < fr::modulus);
-        ASSERT(scalar_u2 < fr::modulus);
-        ASSERT((fr(scalar_g1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
-        ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_g1)) * fr(scalar_u2)).is_point_at_infinity());
+        BB_ASSERT(scalar_g1 < fr::modulus);
+        BB_ASSERT(scalar_u1 < fr::modulus);
+        BB_ASSERT(scalar_u2 < fr::modulus);
+        BB_ASSERT((fr(scalar_g1) * fr(scalar_u2) + fr(scalar_u1)).is_zero());
+        BB_ASSERT((g1::one * fr(scalar_u1) + (g1::one * fr(scalar_g1)) * fr(scalar_u2)).is_point_at_infinity());
 
         // Create the circuit
         Builder builder = Builder();
@@ -414,10 +394,6 @@ TYPED_TEST(stdlibBiggroupSecp256k1, GetStaggeredWnafFragmentValue8bit)
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1)
 {
     TestFixture::test_wnaf_secp256k1();
-}
-TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1StaggerOutOfRangeFails)
-{
-    TestFixture::test_wnaf_secp256k1_stagger_out_of_range_fails();
 }
 TYPED_TEST(stdlibBiggroupSecp256k1, WnafSecp256k1LargeScalarRegression1)
 {

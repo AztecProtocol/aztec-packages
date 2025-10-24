@@ -103,8 +103,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_wire_commitments_r
 template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumulator_round()
 {
     // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
     relation_parameters.eta = eta;
     relation_parameters.eta_two = eta_two;
     relation_parameters.eta_three = eta_three;
@@ -124,7 +124,8 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_sorted_list_accumu
 template <typename Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
 {
     // Get permutation challenges
-    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(
+        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
 
@@ -159,7 +160,7 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_grand_product_comp
 
 template <typename Flavor> typename Flavor::SubrelationSeparators OinkVerifier<Flavor>::generate_alphas_round()
 {
-    // Get the relation separation challenges for sumcheck/combiner computation
+    // Get the relation separation challenges for sumcheck computation
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {

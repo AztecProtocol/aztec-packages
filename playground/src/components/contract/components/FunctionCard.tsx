@@ -1,17 +1,12 @@
 import { css } from '@mui/styled-engine';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type SendInteractionOptions, ContractFunctionInteraction, Contract } from '@aztec/aztec.js/contracts';
+import { type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
 import CardContent from '@mui/material/CardContent';
-import {
-  FunctionType,
-  type FunctionAbi,
-  ContractFunctionInteraction,
-  Contract,
-  type SendInteractionOptions,
-  AztecAddress,
-  type ContractArtifact,
-} from '@aztec/aztec.js';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import PsychologyIcon from '@mui/icons-material/Psychology';

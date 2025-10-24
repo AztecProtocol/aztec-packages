@@ -1,13 +1,16 @@
 import { css } from '@emotion/react';
 import welcomeIconURL from '../../../assets/welcome_icon.svg';
-import { AztecAddress, Fr, TxStatus, type DeployAccountOptions } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { Box, Button, CircularProgress, Tooltip } from '@mui/material';
 import { AztecContext } from '../../../aztecContext';
 import { useContext, useEffect, useState } from 'react';
 import { PREDEFINED_CONTRACTS } from '../../../constants';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { loadContractArtifact } from '@aztec/aztec.js';
+import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { useTransaction } from '../../../hooks/useTransaction';
 import {
   convertFromUTF8BufferAsString,

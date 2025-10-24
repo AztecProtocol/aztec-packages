@@ -80,9 +80,9 @@ import {
   mockGetBytecodeCommitment,
   mockGetContractClass,
   mockGetContractInstance,
-  mockL1ToL2MessageExists,
+  mockGetL1ToL2LeafValue,
+  mockGetNoteHash,
   mockNoteHashCount,
-  mockNoteHashExists,
   mockStorageRead,
   mockStorageReadWithMap,
   mockTraceFork,
@@ -626,7 +626,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('note_hash_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
+          mockGetNoteHash(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetNoteHash(treesDB, leafIndex);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -668,7 +671,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('l1_to_l2_msg_exists');
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockGetL1ToL2LeafValue(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetL1ToL2LeafValue(treesDB, leafIndex);
         }
 
         const results = await new AvmSimulator(context).executeBytecode(bytecode);
@@ -1161,6 +1167,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let siloedNullifier0: Fr;
     let uniqueNoteHash0: Fr;
 
+    let worldStateService: NativeWorldStateService;
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
@@ -1178,7 +1185,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       mockNoteHashCount(trace, noteHashIndexInTx);
 
       const contractDataSource = new SimpleContractDataSource();
-      const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+      worldStateService = await NativeWorldStateService.tmp();
+      const merkleTrees = await worldStateService.fork();
       treesDB = new PublicTreesDB(merkleTrees);
       contractsDB = new PublicContractsDB(contractDataSource);
 
@@ -1189,6 +1197,10 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         doMerkleOperations: true,
         firstNullifier,
       });
+    });
+
+    afterEach(async () => {
+      await worldStateService.close();
     });
 
     const createContext = (calldata: Fr[] = []) => {

@@ -140,7 +140,7 @@ template <class Params_> struct alignas(32) field {
     constexpr explicit operator bool() const
     {
         field out = from_montgomery_form();
-        ASSERT_IN_CONSTEXPR(out.data[0] == 0 || out.data[0] == 1);
+        BB_ASSERT(out.data[0] == 0 || out.data[0] == 1);
         return static_cast<bool>(out.data[0]);
     }
 

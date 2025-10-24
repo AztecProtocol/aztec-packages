@@ -1,18 +1,12 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import {
-  type ContractInstanceWithAddress,
-  PublicKeys,
-  DeployMethod,
-  getContractInstanceFromInstantiationParams,
-  Contract,
-  type DeployOptions,
-  AztecAddress,
-  type Wallet,
-  Fr,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type ContractInstanceWithAddress, type DeployOptions, DeployMethod, getContractInstanceFromInstantiationParams, Contract } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys } from '@aztec/aztec.js/keys';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormGroup from '@mui/material/FormGroup';
 import TextField from '@mui/material/TextField';

@@ -1,4 +1,4 @@
-import { type NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -12,11 +12,13 @@ export class ParityBasePrivateInputs {
     public readonly vkTreeRoot: Fr,
   ) {}
 
-  public static fromSlice(
-    array: Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP>,
-    index: number,
-    vkTreeRoot: Fr,
-  ): ParityBasePrivateInputs {
+  public static fromSlice(array: Fr[], index: number, vkTreeRoot: Fr): ParityBasePrivateInputs {
+    // Can't use Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> due to length
+    if (array.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
+      throw new Error(
+        `Msgs array length must be NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP=${NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP}`,
+      );
+    }
     const start = index * NUM_MSGS_PER_BASE_PARITY;
     const end = start + NUM_MSGS_PER_BASE_PARITY;
     const msgs = array.slice(start, end);

@@ -12,6 +12,8 @@
 namespace bb::secp256r1 {
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 struct FqParams {
+    static constexpr const char* schema_name = "secp256r1_fq";
+
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0xFFFFFFFFFFFFFFFFULL;
     static constexpr uint64_t modulus_1 = 0x00000000FFFFFFFFULL;
@@ -140,6 +142,7 @@ struct FqParams {
 using fq = field<FqParams>;
 
 struct FrParams {
+    static constexpr const char* schema_name = "secp256r1_fr";
 
     // A little-endian representation of the modulus split into 4 64-bit words
     static constexpr uint64_t modulus_0 = 0xF3B9CAC2FC632551ULL;

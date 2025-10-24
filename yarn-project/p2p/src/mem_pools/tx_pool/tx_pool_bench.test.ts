@@ -146,7 +146,7 @@ describe('TxPool: Benchmarks', () => {
     dataDirectory = await mkdtemp(path.join(tmpdir(), 'tx-bench-'));
     store = await createStore('tx', 1, {
       dataDirectory,
-      dataStoreMapSizeKB: 10 * 1024 * 1024,
+      dataStoreMapSizeKb: 10 * 1024 * 1024,
     });
 
     ws = await NativeWorldStateService.tmp();

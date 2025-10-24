@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 
 import { beforeEach, expect } from '@jest/globals';
 import { basename } from 'path';

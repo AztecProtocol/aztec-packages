@@ -1,1 +1,1 @@
-barretenberg_module(client_ivc stdlib_protogalaxy_verifier dsl libdeflate::libdeflate_static hypernova multilinear_batching)
+barretenberg_module(client_ivc dsl libdeflate::libdeflate_static hypernova multilinear_batching)
