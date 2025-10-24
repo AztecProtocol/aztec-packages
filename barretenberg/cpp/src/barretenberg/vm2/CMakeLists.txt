@@ -3,33 +3,22 @@ if(NOT DISABLE_AZTEC_VM)
 endif()
 
 # Include only simulation-related sources from vm2
-file(GLOB_RECURSE SOURCE_FILES
+file(GLOB_RECURSE VM2_SIM_SOURCE_FILES
   simulation/*.cpp
   common/*.cpp
   tooling/*.cpp
 )
 
 # Exclude test, bench, and fuzzer files
-list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
+list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 
-add_library(vm2_sim STATIC
-  ${SOURCE_FILES}
-  simulation_helper.cpp
-  avm_sim_api.cpp)
-
-# Link only necessary dependencies for simulation (we don't want all vm2 witgen and circuit code)
-target_link_libraries(
+# TODO: this isn't a proper module. We should look into creating something we actually link.
+# This can be done by using barretenberg_module_with_sources above, linking this, but with the these files explicitly excluded.
+barretenberg_module_with_sources(
   vm2_sim
-  PUBLIC
-  world_state
-  ${TRACY_LIBS}
-  ${TBB_IMPORTED_TARGETS}
+  SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
+    simulation_helper.cpp
+    avm_sim_api.cpp
+  HEADER_FILES
+  DEPENDENCIES world_state
 )
-
-if(FUZZING)
-  target_compile_options(
-    vm2_sim_objects
-    PRIVATE
-    -fsanitize=fuzzer-no-link
-  )
-endif()

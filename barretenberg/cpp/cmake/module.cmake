@@ -23,10 +23,21 @@ target_sources(
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-function(barretenberg_module MODULE_NAME)
-    file(GLOB_RECURSE SOURCE_FILES *.cpp)
-    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
-    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
+# Variant of barretenberg_module that allows specific sources and header files
+function(barretenberg_module_with_sources MODULE_NAME)
+    # Parse named arguments for SOURCE_FILES and HEADER_FILES
+    # All remaining arguments are treated as dependencies
+    set(options "")
+    set(oneValueArgs "")
+    set(multiValueArgs SOURCE_FILES HEADER_FILES DEPENDENCIES)
+    cmake_parse_arguments(PARSE_ARGV 1 ARG "${options}" "${oneValueArgs}" "${multiValueArgs}")
+
+    # Use provided SOURCE_FILES and HEADER_FILES
+    set(SOURCE_FILES ${ARG_SOURCE_FILES})
+    set(HEADER_FILES ${ARG_HEADER_FILES})
+
+    # Dependencies are either in ARG_DEPENDENCIES or ARG_UNPARSED_ARGUMENTS
+    set(MODULE_DEPENDENCIES ${ARG_DEPENDENCIES} ${ARG_UNPARSED_ARGUMENTS})
 
     target_sources(
         barretenberg_headers
@@ -52,7 +63,7 @@ function(barretenberg_module MODULE_NAME)
         target_link_libraries(
             ${MODULE_NAME}
             PUBLIC
-            ${ARGN}
+            ${MODULE_DEPENDENCIES}
             ${TRACY_LIBS}
             ${TBB_IMPORTED_TARGETS}
         )
@@ -157,7 +168,7 @@ function(barretenberg_module MODULE_NAME)
             ${MODULE_NAME}_tests
             PRIVATE
             ${MODULE_LINK_NAME}
-            ${ARGN}
+            ${MODULE_DEPENDENCIES}
             GTest::gtest
             GTest::gtest_main
             GTest::gmock_main
@@ -206,7 +217,7 @@ function(barretenberg_module MODULE_NAME)
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 ${MODULE_LINK_NAME}
-                ${ARGN}
+                ${MODULE_DEPENDENCIES}
             )
 
             if(ENABLE_STACKTRACES)
@@ -253,7 +264,7 @@ function(barretenberg_module MODULE_NAME)
                 ${BENCHMARK_NAME}_bench
                 PRIVATE
                 ${MODULE_LINK_NAME}
-                ${ARGN}
+                ${MODULE_DEPENDENCIES}
                 benchmark::benchmark
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
@@ -290,4 +301,21 @@ function(barretenberg_module MODULE_NAME)
 
     set(${MODULE_NAME}_lib_targets ${lib_targets} PARENT_SCOPE)
     set(${MODULE_NAME}_exe_targets ${exe_targets} PARENT_SCOPE)
+endfunction()
+
+function(barretenberg_module MODULE_NAME)
+    file(GLOB_RECURSE SOURCE_FILES *.cpp)
+    file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
+    list(FILTER SOURCE_FILES EXCLUDE REGEX ".*\\.(fuzzer|test|bench)\\.cpp$")
+
+    barretenberg_module_with_sources(
+        ${MODULE_NAME}
+        SOURCE_FILES ${SOURCE_FILES}
+        HEADER_FILES ${HEADER_FILES}
+        DEPENDENCIES ${ARGN}
+    )
+
+    # Propagate targets to parent scope
+    set(${MODULE_NAME}_lib_targets ${${MODULE_NAME}_lib_targets} PARENT_SCOPE)
+    set(${MODULE_NAME}_exe_targets ${${MODULE_NAME}_exe_targets} PARENT_SCOPE)
 endfunction()
