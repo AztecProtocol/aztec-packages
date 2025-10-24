@@ -36,14 +36,20 @@ plookup::ReadData<field_t<Builder>> plookup_read<Builder>::get_lookup_accumulato
         }
     } else {
         // At least one key needs witness constraints, so create plookup gates
-        // Get normalized witness indices (ensures witness contains actual value)
-        uint32_t lhs_index =
-            key_a.is_constant() ? ctx->put_constant_variable(key_a.get_value()) : key_a.get_witness_index();
-        uint32_t rhs_index = (key_b.is_constant() && is_2_to_1_lookup) ? ctx->put_constant_variable(key_b.get_value())
-                                                                       : key_b.get_witness_index();
+        uint32_t lhs_index = key_a.get_witness_index();
+        uint32_t rhs_index = key_b.get_witness_index();
 
-        // For 2-to-1 lookups, pass rhs witness; otherwise omit it
-        auto key_b_witness = is_2_to_1_lookup ? std::make_optional(rhs_index) : std::nullopt;
+        if (key_a.is_constant()) {
+            lhs_index = ctx->put_constant_variable(key_a.get_value());
+        }
+        if (key_b.is_constant() && is_2_to_1_lookup) {
+            rhs_index = ctx->put_constant_variable(key_b.get_value());
+        }
+
+        auto key_b_witness = std::make_optional(rhs_index);
+        if (rhs_index == stdlib::IS_CONSTANT) {
+            key_b_witness = std::nullopt;
+        }
 
         const auto accumulator_witnesses =
             ctx->create_gates_from_plookup_accumulators(id, lookup_data, lhs_index, key_b_witness);

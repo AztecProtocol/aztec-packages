@@ -92,14 +92,9 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
 
 template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field)
 {
-    // Only mark as used if:
-    // 1. The field is not constant (constants don't have witness indices)
-    // 2. The builder is an Ultra/Mega builder (only these track used witnesses)
     if (!field.is_constant()) {
-        if constexpr (IsUltraBuilder<Builder>) {
-            // Use raw witness_index to avoid normalization overhead
-            field.get_context()->update_used_witnesses(field.witness_index);
-        }
+        // Use raw witness_index to avoid normalization overhead
+        field.get_context()->update_used_witnesses(field.witness_index);
     }
 }
 

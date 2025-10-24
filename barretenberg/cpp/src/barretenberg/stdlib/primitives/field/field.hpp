@@ -485,14 +485,17 @@ template <typename Builder_> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @details Returns the witness index of a normalized version of this element, where the witness
-     * actually contains the value it represents (multiplicative_constant = 1, additive_constant = 0).
-     * This is the safe default that prevents soundness vulnerabilities.
+     * @details This method normalizes the field element in place and returns the witness index of the normalized
+     * representation, such that the witness actually contains the value it represents (multiplicative_constant = 1,
+     * additive_constant = 0).
+     *
+     * Note: the normalization may add gates to the circuit, but this is the safest option that prevents soundness
+     * vulnerabilities from using witness indices that don't contain the actual field value.
      *
      * Within the field_t class implementation, the raw witness_index member can be accessed directly
      * when needed (e.g., for checking if two fields share the exact same representation).
      *
-     * @return uint32_t The normalized witness index
+     * @return uint32_t The witness index of the normalized element
      */
     uint32_t get_witness_index() const { return normalize().witness_index; }
 

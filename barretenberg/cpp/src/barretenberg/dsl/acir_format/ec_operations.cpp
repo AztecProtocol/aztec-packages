@@ -33,7 +33,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Constrain outputs to match expected witness indices
     field_ct result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct result_y = field_ct::from_witness_index(&builder, input.result_y);
-    bool_ct result_infinite = bool_ct::from_witness_index_unsafe(&builder, input.result_infinite);
+    bool_ct result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
 
     standard_result.x.assert_equal(result_x);
     standard_result.y.assert_equal(result_y);
