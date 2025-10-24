@@ -202,13 +202,6 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     Fq x;
     Fq y;
 
-    // Msgpack serialization using byte buffers for compatibility with TypeScript
-    struct MsgpackRawAffineElement {
-        std::vector<uint8_t> x{};
-        std::vector<uint8_t> y{};
-        MSGPACK_FIELDS(x, y);
-    };
-
     // Concept to detect if Fq is a field2 type
     template <typename T>
     static constexpr bool is_field2_v = requires(T t) {
@@ -216,41 +209,43 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
         t.c1;
     };
 
-    // Helper to convert field element to bytes using existing serialization
-    static std::vector<uint8_t> field_to_bytes(const Fq& field)
-    {
-        using namespace serialize;
-        constexpr size_t field_size = sizeof(Fq);
-        std::vector<uint8_t> bytes(field_size);
-        uint8_t* ptr = bytes.data();
-        write(ptr, field);
-        return bytes;
-    }
+    // Msgpack serialization optimized for single uint256_t or array of uint256_t
+    struct MsgpackRawAffineElement {
+        // For regular fields (uint256_t), use uint256_t directly
+        // For field2 types, use std::array<uint256_t, 2>
+        using FieldType = std::conditional_t<is_field2_v<Fq>, std::array<uint256_t, 2>, uint256_t>;
 
-    // Helper to convert bytes to field element using existing serialization
-    static Fq bytes_to_field(const std::vector<uint8_t>& bytes)
-    {
-        using namespace serialize;
-        constexpr size_t field_size = sizeof(Fq);
-        BB_ASSERT(bytes.size() == field_size, "Incorrect byte size for field deserialization");
-        const uint8_t* ptr = bytes.data();
-        Fq result;
-        read(ptr, result);
-        return result;
-    }
+        FieldType x{};
+        FieldType y{};
+        MSGPACK_FIELDS(x, y);
+    };
 
     void msgpack_pack(auto& packer) const
     {
         MsgpackRawAffineElement raw_element{};
 
         if (is_point_at_infinity()) {
-            // Represent infinity as all 0xFF bytes
-            constexpr size_t field_size = sizeof(Fq);
-            raw_element.x = std::vector<uint8_t>(field_size, 0xFF);
-            raw_element.y = std::vector<uint8_t>(field_size, 0xFF);
+            // Set all bits to 1 for infinity representation
+            constexpr uint256_t all_ones = {
+                0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
+            };
+
+            if constexpr (is_field2_v<Fq>) {
+                raw_element.x = { all_ones, all_ones };
+                raw_element.y = { all_ones, all_ones };
+            } else {
+                raw_element.x = all_ones;
+                raw_element.y = all_ones;
+            }
         } else {
-            raw_element.x = field_to_bytes(x);
-            raw_element.y = field_to_bytes(y);
+            // Note: field assignment operators internally call from_montgomery_form()
+            if constexpr (is_field2_v<Fq>) {
+                raw_element.x = { x.c0, x.c1 };
+                raw_element.y = { y.c0, y.c1 };
+            } else {
+                raw_element.x = x;
+                raw_element.y = y;
+            }
         }
         packer.pack(raw_element);
     }
@@ -259,18 +254,32 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     {
         MsgpackRawAffineElement raw_element = o;
 
-        // Check if this is point at infinity (all 0xFF bytes)
-        constexpr size_t field_size = sizeof(Fq);
-        bool is_infinity =
-            (raw_element.x.size() == field_size && raw_element.y.size() == field_size &&
-             std::all_of(raw_element.x.begin(), raw_element.x.end(), [](uint8_t b) { return b == 0xFF; }) &&
-             std::all_of(raw_element.y.begin(), raw_element.y.end(), [](uint8_t b) { return b == 0xFF; }));
+        // Check if this is point at infinity (all bits set)
+        constexpr uint256_t all_ones = {
+            0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
+        };
+
+        bool is_infinity;
+        if constexpr (is_field2_v<Fq>) {
+            is_infinity = (raw_element.x[0] == all_ones && raw_element.x[1] == all_ones &&
+                           raw_element.y[0] == all_ones && raw_element.y[1] == all_ones);
+        } else {
+            is_infinity = (raw_element.x == all_ones && raw_element.y == all_ones);
+        }
 
         if (is_infinity) {
             self_set_infinity();
         } else {
-            x = bytes_to_field(raw_element.x);
-            y = bytes_to_field(raw_element.y);
+            // Note: field assignment operators internally call to_montgomery_form()
+            if constexpr (is_field2_v<Fq>) {
+                x.c0 = raw_element.x[0];
+                x.c1 = raw_element.x[1];
+                y.c0 = raw_element.y[0];
+                y.c1 = raw_element.y[1];
+            } else {
+                x = raw_element.x;
+                y = raw_element.y;
+            }
         }
     }
     void msgpack_schema(auto& packer) const

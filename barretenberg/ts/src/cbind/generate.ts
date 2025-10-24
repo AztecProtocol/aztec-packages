@@ -103,6 +103,17 @@ async function generateCurveConstants(bbBuildPath: string, outputDir: string) {
     return result;
   };
 
+  // Helper to serialize point coordinate (handles both Uint8Array and array of Uint8Array for field2)
+  const serializeCoordinate = (coord: Uint8Array | Uint8Array[]) => {
+    if (Array.isArray(coord)) {
+      // For field2 (like BN254 G2), we have array of two Uint8Arrays
+      return `[${coord.map(c => `new Uint8Array([${Array.from(c).join(', ')}])`).join(', ')}]`;
+    } else {
+      // For regular fields, single Uint8Array
+      return `new Uint8Array([${Array.from(coord).join(', ')}])`;
+    }
+  };
+
   // Generate TypeScript file
   const content = `/**
  * Curve constants generated from barretenberg native binary.
@@ -116,13 +127,13 @@ export const BN254_FR_MODULUS = ${toBigInt(constants.bn254_fr_modulus)}n;
 export const BN254_FQ_MODULUS = ${toBigInt(constants.bn254_fq_modulus)}n;
 
 export const BN254_G1_GENERATOR = {
-  x: new Uint8Array([${Array.from(constants.bn254_g1_generator.x).join(', ')}]),
-  y: new Uint8Array([${Array.from(constants.bn254_g1_generator.y).join(', ')}]),
+  x: ${serializeCoordinate(constants.bn254_g1_generator.x)},
+  y: ${serializeCoordinate(constants.bn254_g1_generator.y)},
 } as const;
 
 export const BN254_G2_GENERATOR = {
-  x: new Uint8Array([${Array.from(constants.bn254_g2_generator.x).join(', ')}]),
-  y: new Uint8Array([${Array.from(constants.bn254_g2_generator.y).join(', ')}]),
+  x: ${serializeCoordinate(constants.bn254_g2_generator.x)},
+  y: ${serializeCoordinate(constants.bn254_g2_generator.y)},
 } as const;
 
 /**
@@ -132,8 +143,8 @@ export const GRUMPKIN_FR_MODULUS = ${toBigInt(constants.grumpkin_fr_modulus)}n;
 export const GRUMPKIN_FQ_MODULUS = ${toBigInt(constants.grumpkin_fq_modulus)}n;
 
 export const GRUMPKIN_G1_GENERATOR = {
-  x: new Uint8Array([${Array.from(constants.grumpkin_g1_generator.x).join(', ')}]),
-  y: new Uint8Array([${Array.from(constants.grumpkin_g1_generator.y).join(', ')}]),
+  x: ${serializeCoordinate(constants.grumpkin_g1_generator.x)},
+  y: ${serializeCoordinate(constants.grumpkin_g1_generator.y)},
 } as const;
 
 /**
@@ -143,8 +154,8 @@ export const SECP256K1_FR_MODULUS = ${toBigInt(constants.secp256k1_fr_modulus)}n
 export const SECP256K1_FQ_MODULUS = ${toBigInt(constants.secp256k1_fq_modulus)}n;
 
 export const SECP256K1_G1_GENERATOR = {
-  x: new Uint8Array([${Array.from(constants.secp256k1_g1_generator.x).join(', ')}]),
-  y: new Uint8Array([${Array.from(constants.secp256k1_g1_generator.y).join(', ')}]),
+  x: ${serializeCoordinate(constants.secp256k1_g1_generator.x)},
+  y: ${serializeCoordinate(constants.secp256k1_g1_generator.y)},
 } as const;
 
 /**
@@ -154,8 +165,8 @@ export const SECP256R1_FR_MODULUS = ${toBigInt(constants.secp256r1_fr_modulus)}n
 export const SECP256R1_FQ_MODULUS = ${toBigInt(constants.secp256r1_fq_modulus)}n;
 
 export const SECP256R1_G1_GENERATOR = {
-  x: new Uint8Array([${Array.from(constants.secp256r1_g1_generator.x).join(', ')}]),
-  y: new Uint8Array([${Array.from(constants.secp256r1_g1_generator.y).join(', ')}]),
+  x: ${serializeCoordinate(constants.secp256r1_g1_generator.x)},
+  y: ${serializeCoordinate(constants.secp256r1_g1_generator.y)},
 } as const;
 `;
 
