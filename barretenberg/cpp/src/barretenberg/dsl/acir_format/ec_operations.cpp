@@ -26,18 +26,15 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     auto input2_point = to_grumpkin_point(
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, input.predicate, builder);
 
-    // Addition
+    // Compute the result of the addition
     cycle_group_ct result = input1_point + input2_point;
-    cycle_group_ct standard_result = result.get_standard_form();
 
-    // Constrain outputs to match expected witness indices
-    field_ct result_x = field_ct::from_witness_index(&builder, input.result_x);
-    field_ct result_y = field_ct::from_witness_index(&builder, input.result_y);
-    bool_ct result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
-
-    standard_result.x.assert_equal(result_x);
-    standard_result.y.assert_equal(result_y);
-    standard_result.is_point_at_infinity().assert_equal(result_infinite);
+    // Create copy-constraints between the computed result and the expected result stored in the input witness indices
+    field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
+    field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
+    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
+    cycle_group_ct input_result{ input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false };
+    result.assert_equal(input_result);
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,

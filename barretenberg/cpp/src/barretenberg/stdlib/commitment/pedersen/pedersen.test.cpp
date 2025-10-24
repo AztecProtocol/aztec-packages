@@ -36,8 +36,8 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto result = pedersen_commitment::commit(inputs, context);
         auto expected = crypto::pedersen_commitment::commit_native(input_vals, context);
 
-        EXPECT_EQ(result.x.get_value(), expected.x);
-        EXPECT_EQ(result.y.get_value(), expected.y);
+        EXPECT_EQ(result.x().get_value(), expected.x);
+        EXPECT_EQ(result.y().get_value(), expected.y);
     }
 
   public:
@@ -103,8 +103,8 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto result = pedersen_commitment::commit(witness_inputs);
 
         // For empty inputs, the circuit returns (0, 0) which is the identity point
-        EXPECT_EQ(result.x.get_value(), fr::zero());
-        EXPECT_EQ(result.y.get_value(), fr::zero());
+        EXPECT_EQ(result.x().get_value(), fr::zero());
+        EXPECT_EQ(result.y().get_value(), fr::zero());
 
         check_circuit_and_gate_count(builder, 0);
     }
@@ -255,12 +255,12 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         auto result2 = pedersen_commitment::commit(witness_inputs);
 
         // Should produce identical results
-        EXPECT_EQ(result1.x.get_value(), result2.x.get_value());
-        EXPECT_EQ(result1.y.get_value(), result2.y.get_value());
+        EXPECT_EQ(result1.x().get_value(), result2.x().get_value());
+        EXPECT_EQ(result1.y().get_value(), result2.y().get_value());
 
         auto expected = crypto::pedersen_commitment::commit_native(inputs);
-        EXPECT_EQ(result1.x.get_value(), expected.x);
-        EXPECT_EQ(result1.y.get_value(), expected.y);
+        EXPECT_EQ(result1.x().get_value(), expected.x);
+        EXPECT_EQ(result1.y().get_value(), expected.y);
 
         bool check_result = CircuitChecker::check(builder);
         EXPECT_EQ(check_result, true);

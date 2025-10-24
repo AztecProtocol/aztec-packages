@@ -3,7 +3,7 @@ export type NetworkNames =
   | 'staging-ignition'
   | 'staging-public'
   | 'testnet'
-  | 'ignition'
+  | 'mainnet'
   | 'next-net'
   | 'devnet';
 
@@ -17,8 +17,8 @@ export function getActiveNetworkName(name?: string): NetworkNames {
     return network;
   } else if (network === 'testnet' || network === 'alpha-testnet') {
     return 'testnet';
-  } else if (network === 'ignition') {
-    return 'ignition';
+  } else if (network === 'mainnet') {
+    return 'mainnet';
   } else if (network === 'next-net') {
     return 'next-net';
   } else if (network === 'devnet') {

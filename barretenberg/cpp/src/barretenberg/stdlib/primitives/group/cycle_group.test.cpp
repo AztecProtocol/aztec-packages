@@ -68,22 +68,32 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     STDLIB_TYPE_ALIASES
     Builder builder;
 
+    // Create field elements with specific tags before constructing the cycle_group
     auto lhs = TestFixture::generators[0];
-    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-    // Set the whole tag first
-    a.set_origin_tag(next_challenge_tag);
-    // Set tags of x an y
-    a.x.set_origin_tag(submitted_value_origin_tag);
-    a.y.set_origin_tag(challenge_origin_tag);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, lhs.x);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, lhs.y);
+    auto is_infinity = bool_ct(witness_ct(&builder, lhs.is_point_at_infinity()));
 
-    // The tag of the _is_point_at_infinity member should stay as next_challenge_tag, so the whole thing should be the
-    // union of all 3
+    // Set tags on the individual field elements
+    x.set_origin_tag(submitted_value_origin_tag);
+    y.set_origin_tag(challenge_origin_tag);
+    is_infinity.set_origin_tag(next_challenge_tag);
 
+    // Construct cycle_group from pre-tagged field elements
+    cycle_group_ct a(x, y, is_infinity, /*assert_on_curve=*/true);
+
+    // The tag of the cycle_group should be the union of all 3 member tags
     EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
-    cycle_group_ct b = cycle_group_ct::from_witness(&builder, TestFixture::generators[1]);
-    b.x.set_origin_tag(instant_death_tag);
+    // Test that instant_death_tag on x coordinate propagates correctly
+    auto x_death = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].x);
+    auto y_normal = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].y);
+    auto is_infinity_normal = bool_ct(witness_ct(&builder, TestFixture::generators[1].is_point_at_infinity()));
+
+    x_death.set_origin_tag(instant_death_tag);
+
+    cycle_group_ct b(x_death, y_normal, is_infinity_normal, /*assert_on_curve=*/true);
     // Even requesting the tag of the whole structure can cause instant death
     EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
 #endif
@@ -211,8 +221,8 @@ TYPED_TEST(CycleGroupTest, TestConditionalAssignSuperMixupRegression)
     auto c0 = cycle_group_ct(TestFixture::generators[0]);
     auto c1 = cycle_group_ct(-TestFixture::generators[0]);
     auto w2 = cycle_group_ct::conditional_assign(bool_ct(witness_ct(&builder, true)), c0, c1);
-    EXPECT_FALSE(w2.x.is_constant());
-    EXPECT_FALSE(w2.y.is_constant());
+    EXPECT_FALSE(w2.x().is_constant());
+    EXPECT_FALSE(w2.y().is_constant());
     EXPECT_TRUE(w2.is_point_at_infinity().is_constant());
     auto w3 = w2.dbl();
     (void)w3;
@@ -336,28 +346,28 @@ TYPED_TEST(CycleGroupTest, TestStandardForm)
     EXPECT_EQ(standard_c.get_origin_tag(), next_challenge_tag);
     EXPECT_EQ(standard_d.get_origin_tag(), first_two_merged_tag);
 
-    auto input_a_x = input_a.x.get_value();
-    auto input_a_y = input_a.y.get_value();
-    auto input_c_x = input_c.x.get_value();
-    auto input_c_y = input_c.y.get_value();
+    auto input_a_x = input_a.x().get_value();
+    auto input_a_y = input_a.y().get_value();
+    auto input_c_x = input_c.x().get_value();
+    auto input_c_y = input_c.y().get_value();
 
-    auto standard_a_x = standard_a.x.get_value();
-    auto standard_a_y = standard_a.y.get_value();
+    auto standard_a_x = standard_a.x().get_value();
+    auto standard_a_y = standard_a.y().get_value();
 
-    auto standard_b_x = standard_b.x.get_value();
-    auto standard_b_y = standard_b.y.get_value();
+    auto standard_b_x = standard_b.x().get_value();
+    auto standard_b_y = standard_b.y().get_value();
 
-    auto standard_c_x = standard_c.x.get_value();
-    auto standard_c_y = standard_c.y.get_value();
+    auto standard_c_x = standard_c.x().get_value();
+    auto standard_c_y = standard_c.y().get_value();
 
-    auto standard_d_x = standard_d.x.get_value();
-    auto standard_d_y = standard_d.y.get_value();
+    auto standard_d_x = standard_d.x().get_value();
+    auto standard_d_y = standard_d.y().get_value();
 
-    auto standard_e_x = standard_e.x.get_value();
-    auto standard_e_y = standard_e.y.get_value();
+    auto standard_e_x = standard_e.x().get_value();
+    auto standard_e_y = standard_e.y().get_value();
 
-    auto standard_f_x = standard_f.x.get_value();
-    auto standard_f_y = standard_f.y.get_value();
+    auto standard_f_x = standard_f.x().get_value();
+    auto standard_f_y = standard_f.y().get_value();
 
     EXPECT_EQ(input_a_x, standard_a_x);
     EXPECT_EQ(input_a_y, standard_a_y);
@@ -454,7 +464,7 @@ TYPED_TEST(CycleGroupTest, TestDblNonConstantPoints)
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         // Note: from_witness sets x,y to witness(0,0) for infinity points
         // After doubling, y becomes -1 (0x3064...) due to the modified_y logic
-        EXPECT_EQ(result.x.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
 
         // Same gate count as regular witness points
         check_circuit_and_gate_count(builder, 9);
@@ -509,8 +519,8 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
 
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_TRUE(result.is_constant());
-        EXPECT_EQ(result.x.get_value(), 0);
-        EXPECT_EQ(result.y.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
+        EXPECT_EQ(result.y().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 0);
     }
@@ -527,8 +537,8 @@ TYPED_TEST(CycleGroupTest, TestDblConstantPoints)
 
         EXPECT_TRUE(result.is_point_at_infinity().get_value());
         EXPECT_TRUE(result.is_constant());
-        EXPECT_EQ(result.x.get_value(), 0);
-        EXPECT_EQ(result.y.get_value(), 0);
+        EXPECT_EQ(result.x().get_value(), 0);
+        EXPECT_EQ(result.y().get_value(), 0);
 
         check_circuit_and_gate_count(builder, 0);
     }
