@@ -5,7 +5,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"

@@ -14,17 +14,17 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
-    // Types for LegacyChonk recursive verifier
+    // Types for Chonk recursive verifier
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
 
-    // Types for LegacyChonk
+    // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
-    // Public inputs added by bb to a LegacyChonk proof
+    // Public inputs added by bb to a Chonk proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     struct ChonkData {

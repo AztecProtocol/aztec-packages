@@ -183,7 +183,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock LegacyChonk proof matches expectation
+ * @brief Check that the size of a mock Chonk proof matches expectation
  *
  */
 TEST(MockVerifierInputsTest, MockChonkProofSize)

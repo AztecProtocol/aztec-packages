@@ -97,7 +97,7 @@ class ChonkRecursiveVerifier {
 
             BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
                          PROOF_LENGTH(virtual_log_n) + public_inputs_size,
-                         "Reconstructed a LegacyChonk proof of wrong the length from proof indices.");
+                         "Reconstructed a Chonk proof of wrong the length from proof indices.");
         }
     };
 

@@ -39,8 +39,8 @@ std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc_with_pr
     return { ivc.prove(), ivc.get_vk() };
 }
 
-std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> sumcheck_precompute_vks(
-    const size_t num_app_circuits, const bool large_first_app = true)
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,
+                                                                                  const bool large_first_app = true)
 {
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
