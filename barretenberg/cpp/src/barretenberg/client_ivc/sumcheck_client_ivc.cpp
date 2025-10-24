@@ -90,7 +90,7 @@ void SumcheckClientIVC::instantiate_stdlib_verification_queue(
  * tables as read from the proof by the Merge verifier
  */
 std::tuple<std::optional<SumcheckClientIVC::RecursiveVerifierAccumulator>,
-           SumcheckClientIVC::PairingPoints,
+           std::vector<SumcheckClientIVC::PairingPoints>,
            SumcheckClientIVC::TableCommitments>
 SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
@@ -101,8 +101,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 {
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
-    // The pairing points produced by the verification of the decider proof
-    PairingPoints decider_pairing_points;
+    // PairingPoints to be returned for aggregation
+    std::vector<PairingPoints> pairing_points;
 
     // Input commitments to be passed to the merge recursive verification
     MergeCommitments merge_commitments{ .T_prev_commitments = T_prev_commitments };
@@ -152,7 +152,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 
         RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
         StdlibProof stdlib_decider_proof(circuit, decider_proof);
-        decider_pairing_points = decider_verifier.verify_proof(final_verifier_accumulator, stdlib_decider_proof);
+        pairing_points.emplace_back(decider_verifier.verify_proof(final_verifier_accumulator, stdlib_decider_proof));
 
         BB_ASSERT_EQ(output_verifier_accumulator.has_value(), false);
         break;
@@ -166,13 +166,12 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
     std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
 
-    PairingPoints nested_pairing_points; // to be extracted from public inputs of app or kernel proof just verified
-
     if (verifier_inputs.is_kernel) {
         // Reconstruct the input from the previous kernel from its public inputs
         KernelIO kernel_input; // pairing points, databus return data commitments
         kernel_input.reconstruct_from_public(public_inputs);
-        nested_pairing_points = kernel_input.pairing_inputs;
+        // Add pairing points for aggregation
+        pairing_points.emplace_back(kernel_input.pairing_inputs);
         // Perform databus consistency checks
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
         kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
@@ -198,7 +197,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
         app_input.reconstruct_from_public(public_inputs);
-        nested_pairing_points = app_input.pairing_inputs;
+        // Add pairing points for aggregation
+        pairing_points.emplace_back(app_input.pairing_inputs);
 
         // Set the app return data commitment to be propagated via the public inputs
         bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
@@ -208,16 +208,9 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
     merge_commitments.t_commitments = witness_commitments.get_ecc_op_wires().get_copy();
 
     // Recursively verify the corresponding merge proof
-    auto [pairing_points, merged_table_commitments] =
+    auto [merge_pairing_points, merged_table_commitments] =
         goblin.recursively_verify_merge(circuit, merge_commitments, accumulation_recursive_transcript);
-
-    pairing_points.aggregate(nested_pairing_points);
-    if (is_hiding_kernel) {
-        pairing_points.aggregate(decider_pairing_points);
-        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
-        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
-        hide_op_queue_content_in_hiding(circuit);
-    }
+    pairing_points.emplace_back(merge_pairing_points);
 
     return { output_verifier_accumulator, pairing_points, merged_table_commitments };
 }
@@ -268,7 +261,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     circuit.queue_ecc_eq();
 
     // Perform Oink/PG and Merge recursive verification + databus consistency checks for each entry in the queue
-    PairingPoints points_accumulator;
+    std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
@@ -283,7 +276,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                                                           current_stdlib_verifier_accumulator,
                                                                           T_prev_commitments,
                                                                           accumulation_recursive_transcript);
-        points_accumulator.aggregate(pairing_points);
+        points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
         // Update commitment to the status of the op_queue
         T_prev_commitments = merged_table_commitments;
         // Update the output verifier accumulator
@@ -291,10 +284,18 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         stdlib_verification_queue.pop_front();
     }
+
+    // PairingPoint aggregation
+    PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
+
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
-        HidingKernelIO hiding_output{ points_accumulator, T_prev_commitments };
+        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
+        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        hide_op_queue_content_in_hiding(circuit);
+
+        HidingKernelIO hiding_output{ pairing_points_aggregator, T_prev_commitments };
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
@@ -302,7 +303,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
         KernelIO kernel_output;
-        kernel_output.pairing_inputs = points_accumulator;
+        kernel_output.pairing_inputs = pairing_points_aggregator;
         kernel_output.kernel_return_data = bus_depot.get_kernel_return_data_commitment(circuit);
         kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
         kernel_output.ecc_op_tables = T_prev_commitments;
