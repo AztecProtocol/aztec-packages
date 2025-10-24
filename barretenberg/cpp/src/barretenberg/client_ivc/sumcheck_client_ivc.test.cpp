@@ -296,7 +296,7 @@ HEAVY_TEST(SumcheckClientIVCKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 24;
+    const size_t NUM_APP_CIRCUITS = 27;
     auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = SumcheckClientIVC::verify(proof, vk);
