@@ -77,7 +77,7 @@ template <typename Builder> void create_aes128_constraints(Builder& builder, con
         converted_inputs, convert_input(constraint.iv, 0, builder), convert_input(constraint.key, 0, builder));
 
     for (size_t i = 0; i < output_bytes.size(); ++i) {
-        builder.assert_equal(output_bytes[i].normalize().witness_index, converted_outputs[i].normalize().witness_index);
+        output_bytes[i].assert_equal(converted_outputs[i]);
     }
 }
 

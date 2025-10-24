@@ -12,6 +12,7 @@
 #include "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 
 namespace bb {
@@ -114,7 +115,7 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
     // The point is prime basis limb of accumulated result can be easily recovered from binary basis limbs, so
     // there's no meaning to use it at the circuit next and we can put it in used_witnesses
-    accumulated_result.get_context()->update_used_witnesses(accumulated_result.prime_basis_limb.witness_index);
+    mark_witness_as_used(accumulated_result.prime_basis_limb);
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
 

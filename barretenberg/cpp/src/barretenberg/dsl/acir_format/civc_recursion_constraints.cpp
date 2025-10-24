@@ -55,7 +55,7 @@ static void create_dummy_vkey_and_proof(Builder& builder,
     // Set honk vk in builder
     size_t offset = 0;
     for (auto& vk_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].witness_index, vk_element);
+        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
         offset++;
     }
 
@@ -65,7 +65,7 @@ static void create_dummy_vkey_and_proof(Builder& builder,
     // Set CIVC proof in builder
     offset = 0;
     for (auto& proof_element : civc_proof) {
-        builder.set_variable(proof_fields[offset].witness_index, proof_element);
+        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
         offset++;
     }
 

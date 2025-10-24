@@ -155,7 +155,7 @@ void create_dummy_ecdsa_constraint(typename Curve::Builder& builder,
     populate_fields(builder, pub_y_fields, mock_pub_y);
 
     // Result
-    builder.set_variable(result_field.witness_index, bb::fr::one());
+    builder.set_variable(result_field.get_witness_index(), bb::fr::one());
 }
 
 template void create_ecdsa_verify_constraints<stdlib::secp256k1<UltraCircuitBuilder>>(

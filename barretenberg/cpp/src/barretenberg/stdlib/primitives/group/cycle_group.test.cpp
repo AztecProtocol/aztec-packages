@@ -190,7 +190,7 @@ TYPED_TEST(CycleGroupTest, TestConstantWitnessMixupRegression)
     auto w27 = w10 - w11; // and here
     (void)w26;
     (void)w27;
-    check_circuit_and_gate_count(builder, 41);
+    check_circuit_and_gate_count(builder, 40);
 }
 
 /**
@@ -1323,7 +1323,7 @@ TYPED_TEST(CycleGroupTest, TestSubtract)
         EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
     }
 
-    check_circuit_and_gate_count(builder, 267);
+    check_circuit_and_gate_count(builder, 261);
 }
 
 TYPED_TEST(CycleGroupTest, TestSubtractConstantPoints)

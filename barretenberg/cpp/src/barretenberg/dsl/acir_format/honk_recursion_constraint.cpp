@@ -73,7 +73,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // Set honk vk in builder
     for (auto& vk_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].witness_index, vk_element);
+        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
         offset++;
     }
 
@@ -83,7 +83,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     offset = 0;
     // Set honk proof in builder
     for (auto& proof_element : honk_proof) {
-        builder.set_variable(proof_fields[offset].witness_index, proof_element);
+        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
         offset++;
     }
 

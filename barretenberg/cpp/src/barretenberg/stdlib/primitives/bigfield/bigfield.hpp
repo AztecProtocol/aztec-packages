@@ -205,16 +205,16 @@ template <typename Builder, typename T> class bigfield {
         result.prime_basis_limb += (result.binary_basis_limbs[0].element);
 
         // Range contrain the first two limbs each to NUM_LIMB_BITS
-        ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_normalized_witness_index(),
-                                       result.binary_basis_limbs[1].element.get_normalized_witness_index(),
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[0].element.get_witness_index(),
+                                       result.binary_basis_limbs[1].element.get_witness_index(),
                                        static_cast<size_t>(NUM_LIMB_BITS),
                                        static_cast<size_t>(NUM_LIMB_BITS),
                                        "bigfield::construct_from_limbs: limb 0 or 1 too large");
 
         // Range constrain the last two limbs to NUM_LIMB_BITS and NUM_LAST_LIMB_BITS
         const size_t num_last_limb_bits = (can_overflow) ? NUM_LIMB_BITS : NUM_LAST_LIMB_BITS;
-        ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_normalized_witness_index(),
-                                       result.binary_basis_limbs[3].element.get_normalized_witness_index(),
+        ctx->range_constrain_two_limbs(result.binary_basis_limbs[2].element.get_witness_index(),
+                                       result.binary_basis_limbs[3].element.get_witness_index(),
                                        static_cast<size_t>(NUM_LIMB_BITS),
                                        static_cast<size_t>(num_last_limb_bits),
                                        "bigfield::construct_from_limbs: limb 2 or 3 too large");
@@ -748,7 +748,7 @@ template <typename Builder, typename T> class bigfield {
         Builder* ctx = get_context();
         const uint32_t start_index = static_cast<uint32_t>(ctx->num_public_inputs());
         for (auto& limb : binary_basis_limbs) {
-            ctx->set_public_input(limb.element.normalize().witness_index);
+            ctx->set_public_input(limb.element.get_witness_index());
         }
         return start_index;
     }
@@ -964,7 +964,7 @@ template <typename Builder, typename T> class bigfield {
     {
         std::array<uint32_t, NUM_LIMBS> limb_witness_indices;
         for (size_t i = 0; i < NUM_LIMBS; i++) {
-            limb_witness_indices[i] = binary_basis_limbs[i].element.get_normalized_witness_index();
+            limb_witness_indices[i] = binary_basis_limbs[i].element.get_witness_index();
         }
         return limb_witness_indices;
     }
