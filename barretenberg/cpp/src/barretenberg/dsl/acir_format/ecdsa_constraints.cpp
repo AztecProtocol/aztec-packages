@@ -94,6 +94,9 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
 
         // P is on the curve
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
+        // BIGGROUP_AUDITTODO: mutable accessor needed for conditional_assign(). Could add a conditional_assign method
+        // to biggroup or could just perform these operations on the underlying fields prior to constructing the
+        // biggroup element.
         public_key.x() = Fq::conditional_assign(predicate, public_key.x(), default_point.x());
         public_key.y() = Fq::conditional_assign(predicate, public_key.y(), default_point.y());
     } else {
