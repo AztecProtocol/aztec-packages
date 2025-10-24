@@ -70,9 +70,6 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
     polynomials.lagrange_first = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
 
-    // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
-    // instances being folded might have lagrange_last set at different indexes and folding does not work
-    // correctly unless the polynomial is allocated in the correct range to accomodate this
     polynomials.lagrange_last = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
@@ -98,28 +95,27 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Can allocate table polynomials based on genuine
-    // lookup table sizes in all cases. Same applies to read_counts/tags, except for ZK case.
-    const size_t max_tables_size = dyadic_size() - table_offset;
-    BB_ASSERT_GT(dyadic_size(), max_tables_size);
+    const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables used in the circuit
+    BB_ASSERT_GT(dyadic_size(), tables_size);
 
     // Allocate the polynomials containing the actual table data
     if constexpr (IsUltraOrMegaHonk<Flavor>) {
         for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_size(), table_offset);
+            poly = Polynomial(tables_size, dyadic_size(), table_offset);
         }
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_offset);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_counts = Polynomial(tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_tags = Polynomial(tables_size, dyadic_size(), table_offset);
 
+    // Determine end index for the lookup block and the tables themselves
+    // Note that the start of the tables is aligned with the start of the lookup block in the trace
     const size_t lookup_block_end =
         static_cast<size_t>(circuit.blocks.lookup.trace_offset()) + circuit.blocks.lookup.size();
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
+    const auto tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
 
     // Allocate the lookup_inverses polynomial
-
     const size_t lookup_inverses_start = table_offset;
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
