@@ -308,6 +308,8 @@ struct Tx {
     std::string hash;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
+    ContractDeploymentData nonRevertibleContractDeploymentData;
+    ContractDeploymentData revertibleContractDeploymentData;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
@@ -320,6 +322,8 @@ struct Tx {
     MSGPACK_FIELDS(hash,
                    gasSettings,
                    effectiveGasFees,
+                   nonRevertibleContractDeploymentData,
+                   revertibleContractDeploymentData,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,

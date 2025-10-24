@@ -234,6 +234,46 @@ struct AvmAccumulatedDataArrayLengths {
 };
 
 ////////////////////////////////////////////////////////////////////////////
+// Contract Deployment Data Types
+////////////////////////////////////////////////////////////////////////////
+
+struct ContractClassLogFields {
+    std::vector<FF> fields;
+
+    bool operator==(const ContractClassLogFields& other) const = default;
+
+    MSGPACK_FIELDS(fields);
+};
+
+struct ContractClassLog {
+    AztecAddress contractAddress;
+    ContractClassLogFields fields;
+    uint32_t emittedLength;
+
+    bool operator==(const ContractClassLog& other) const = default;
+
+    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
+};
+
+struct PrivateLog {
+    std::vector<FF> fields;
+    uint32_t emittedLength;
+
+    bool operator==(const PrivateLog& other) const = default;
+
+    MSGPACK_FIELDS(fields, emittedLength);
+};
+
+struct ContractDeploymentData {
+    std::vector<ContractClassLog> contractClassLogs;
+    std::vector<PrivateLog> privateLogs;
+
+    bool operator==(const ContractDeploymentData& other) const = default;
+
+    MSGPACK_FIELDS(contractClassLogs, privateLogs);
+};
+
+////////////////////////////////////////////////////////////////////////////
 // Accumulated Data Types
 ////////////////////////////////////////////////////////////////////////////
 
