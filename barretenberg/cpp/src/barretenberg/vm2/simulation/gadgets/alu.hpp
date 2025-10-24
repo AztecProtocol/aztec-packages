@@ -31,9 +31,9 @@ class Alu : public AluInterface {
     MemoryValue lt(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue lte(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue op_not(const MemoryValue& a) override;
-    MemoryValue truncate(const FF& a, MemoryTag dst_tag) override;
     MemoryValue shr(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue shl(const MemoryValue& a, const MemoryValue& b) override;
+    MemoryValue truncate(const FF& a, MemoryTag dst_tag) override;
 
   private:
     GreaterThanInterface& greater_than;

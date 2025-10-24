@@ -696,7 +696,7 @@ sel_exec_dispatch_bitwise {
 #[DISPATCH_TO_CAST]
 sel_exec_dispatch_cast {
     register[0], rop[2], subtrace_operation_id, register[1], mem_tag_reg[1], sel_opcode_error
-} in alu.sel_op_truncate {
+} in alu.sel {
     alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
 };
 
@@ -747,7 +747,7 @@ sel_exec_dispatch_returndata_copy {
 #[DISPATCH_TO_SET]
 sel_exec_dispatch_set {
     rop[2], rop[1], subtrace_operation_id, register[0], mem_tag_reg[0], sel_opcode_error
-} in alu.sel_op_truncate {
+} in alu.sel {
     alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
 };
 

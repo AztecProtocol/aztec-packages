@@ -495,11 +495,11 @@ pol commit sel_trunc_trivial;
 pol commit sel_trunc_gte_128;
 pol commit sel_trunc_lt_128;
 
-// If ia >= 2^128 and dst_tag != FF, and a malicious sequencer would toggle sel_trunc_trivial, this would
-// fail in the range check pertaining to the memory write. If he would toggle sel_tunc_lt_128, this would
-// fail in the decomposition of ia == lo_128 in #[TRUNC_LO_128_DECOMPOSITION], because the range checks
-// on mid and ic (memory write) ensures a correct 128-bit decomposition of ia.
-// If ia < 2^128 and ia > max_value, and a malicious sequencer would toggle sel_trunc_trivial,
+// If ia >= 2^128 and dst_tag != FF, and a malicious sequencer toggled sel_trunc_trivial, this would
+// fail in the range check pertaining to the memory write. If the sequencer toggled sel_trunc_lt_128,
+// this would fail in the decomposition of ia == lo_128 in #[TRUNC_LO_128_DECOMPOSITION], because
+// the range checks on mid and ic (memory write) ensure a correct 128-bit decomposition of ia.
+// If ia < 2^128 and ia > max_value, and a malicious sequencer toggled sel_trunc_trivial,
 // then the memory write would fail because ia == ic > max_value.
 
 // Boolean

@@ -397,7 +397,7 @@ struct lookup_execution_dispatch_to_cast_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_cast;
-    static constexpr Column DST_SELECTOR = Column::alu_sel_op_truncate;
+    static constexpr Column DST_SELECTOR = Column::alu_sel;
     static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_cast_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_cast_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -423,7 +423,7 @@ struct lookup_execution_dispatch_to_set_settings_ {
     static constexpr std::string_view RELATION_NAME = "execution";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_set;
-    static constexpr Column DST_SELECTOR = Column::alu_sel_op_truncate;
+    static constexpr Column DST_SELECTOR = Column::alu_sel;
     static constexpr Column COUNTS = Column::lookup_execution_dispatch_to_set_counts;
     static constexpr Column INVERSES = Column::lookup_execution_dispatch_to_set_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

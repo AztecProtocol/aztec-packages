@@ -342,14 +342,6 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
             trace.set(row, get_tag_error_columns(event));
         }
         bool div_0_error = event.error.has_value() && event.error == AluError::DIV_0_ERROR;
-        if (div_0_error) {
-            // TODO(MW): Below needed?
-            // Should not emit a divide by 0 error if we are not in DIV or FDIV or have no 0 divisor:
-            assert((event.b.as_ff() == FF(0)) &&
-                   ((event.operation == simulation::AluOperation::DIV) ||
-                    (event.operation == simulation::AluOperation::FDIV)) &&
-                   "ALU Event emitted with divide by zero error, but none exists");
-        }
 
         // Operation specific columns:
         trace.set(row, get_operation_specific_columns(event));

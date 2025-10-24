@@ -12,6 +12,14 @@
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Add two memory values and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return The sum of the two memory values. (same tag as a and b)
+ */
 MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -24,6 +32,14 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Subtract two memory values and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value (minuend).
+ * @param b The second memory value (subtrahend).
+ * @return The difference of the two memory values. (same tag as a and b)
+ */
 MemoryValue Alu::sub(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -36,6 +52,14 @@ MemoryValue Alu::sub(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Multiply two memory values and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return The product of the two memory values. (same tag as a and b)
+ */
 MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -64,6 +88,15 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Divide two memory values and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match or if dividing by zero.
+ * @throws AluException if attempting to perform integer division on field elements.
+ * @param a The dividend memory value.
+ * @param b The divisor memory value.
+ * @return The quotient of the division. (same tag as a and b)
+ */
 MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -100,6 +133,15 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Perform field division on two memory values and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match or if dividing by zero.
+ * @throws AluException if attempting to perform field division on non-field elements.
+ * @param a The dividend memory value.
+ * @param b The divisor memory value.
+ * @return The quotient of the field division (field element).
+ */
 MemoryValue Alu::fdiv(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -124,6 +166,14 @@ MemoryValue Alu::fdiv(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Check if two memory values are equal and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return A boolean memory value (1 if equal, 0 if not equal).
+ */
 MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for EQ.
@@ -137,6 +187,14 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
     return c;
 }
 
+/**
+ * @brief Check if the first memory value is less than the second and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return A boolean memory value (1 if a < b, 0 otherwise).
+ */
 MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for LT.
@@ -152,6 +210,14 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
     return c;
 }
 
+/**
+ * @brief Check if the first memory value is less than or equal to the second and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags of a and b do not match.
+ * @param a The first memory value.
+ * @param b The second memory value.
+ * @return A boolean memory value (1 if a <= b, 0 otherwise).
+ */
 MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for LTE.
@@ -168,6 +234,13 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
     return c;
 }
 
+/**
+ * @brief Perform bitwise NOT operation on a memory value and emit an event of type AluEvent.
+ *
+ * @throws AluException for field elements.
+ * @param a The memory value to negate.
+ * @return The bitwise NOT of the memory value (same tag as a).
+ */
 MemoryValue Alu::op_not(const MemoryValue& a)
 {
     try {
@@ -180,6 +253,14 @@ MemoryValue Alu::op_not(const MemoryValue& a)
     }
 }
 
+/**
+ * @brief Perform left shift operation on a memory value and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags do not match or are field elements.
+ * @param a The memory value to shift.
+ * @param b The number of positions to shift left.
+ * @return The result of the left shift operation (same tag as a and b).
+ */
 MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -205,6 +286,14 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
     }
 }
 
+/**
+ * @brief Perform right shift operation on a memory value and emit an event of type AluEvent.
+ *
+ * @throws AluException if the tags do not match or are field elements.
+ * @param a The memory value to shift.
+ * @param b The number of positions to shift right.
+ * @return The result of the right shift operation (same tag as a and b).
+ */
 MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
 {
     try {
@@ -227,12 +316,16 @@ MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
     } catch (const InvalidOperationTag& e) {
         events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
         throw AluException("SHR, " + std::string(e.what()));
-    } catch (const std::exception& e) {
-        // We have some err not handled by TAG_ERROR, so we rethrow back to execution:
-        throw e;
     }
 }
 
+/**
+ * @brief Truncate a field element to a specific memory tag and emit an event of type AluEvent.
+ *
+ * @param a The field element to truncate.
+ * @param dst_tag The target memory tag to truncate to.
+ * @return The truncated memory value (with tag dst_tag).
+ */
 MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
 {
     const MemoryValue c = MemoryValue::from_tag_truncating(dst_tag, a);
