@@ -11,6 +11,7 @@
 #include "../byte_array/byte_array.hpp"
 #include "../circuit_builders/circuit_builders_fwd.hpp"
 #include "../field/field.hpp"
+#include "../field/field_utils.hpp"
 #include "../memory/rom_table.hpp"
 #include "../memory/twin_rom_table.hpp"
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
@@ -419,7 +420,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     {
         _is_infinity = is_infinity.normalize();
         if (add_to_used_witnesses) {
-            _is_infinity.get_context()->update_used_witnesses(_is_infinity.get_normalized_witness_index());
+            mark_witness_as_used(field_t<Builder>(_is_infinity));
         };
     }
     element get_standard_form() const;

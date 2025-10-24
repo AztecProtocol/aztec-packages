@@ -9,6 +9,7 @@
 #include "../circuit_builders/circuit_builders.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "field_utils.hpp"
 #include <functional>
 
 using namespace bb;
@@ -101,7 +102,7 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
         result_inverted = inverted_check;
     } else {
         // In general, the witness has to be normalized.
-        witness_idx = get_normalized_witness_index();
+        witness_idx = normalize().witness_index;
     }
     // Get the normalized value of the witness
     bb::fr witness = context->get_variable(witness_idx);
@@ -127,7 +128,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     // Ensure that non-constant circuit elements can not be added without context
     BB_ASSERT(ctx || (is_constant() && other.is_constant()));
 
-    if (witness_index == other.witness_index && !is_constant()) {
+    if (witness_indices_match(*this, other) && !is_constant()) {
         // If summands represent the same circuit variable, i.e. their witness indices coincide, we just need to update
         // the scaling factors of this variable.
         result.additive_constant = additive_constant + other.additive_constant;
@@ -495,7 +496,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     for (size_t i = 0; i < 32; ++i) {
         accumulator *= accumulator;
         // If current bit == 1, multiply by the base, else propagate the accumulator
-        const field_t multiplier = conditional_assign(exponent_bits[i], *this, one);
+        const field_t multiplier = conditional_assign_internal(exponent_bits[i], *this, one);
         accumulator *= multiplier;
     }
     accumulator = accumulator.normalize();
@@ -724,9 +725,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
     // inverse is added in the circuit for checking that field element is not zero
     // and it won't be used anymore, so it's needed to add this element in used witnesses
-    if constexpr (IsUltraBuilder<Builder>) {
-        context->update_used_witnesses(inverse.witness_index);
-    }
+    mark_witness_as_used(inverse);
 
     // Aim of a new `poly` gate: `this` has an inverse (hence is not zero).
     // I.e.:
@@ -883,9 +882,9 @@ field_t<Builder> field_t<Builder>::conditional_negate(const bool_t<Builder>& pre
  * @return field_t<Builder>
  */
 template <typename Builder>
-field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& predicate,
-                                                      const field_t& lhs,
-                                                      const field_t& rhs)
+field_t<Builder> field_t<Builder>::conditional_assign_internal(const bool_t<Builder>& predicate,
+                                                               const field_t& lhs,
+                                                               const field_t& rhs)
 {
     // If the predicate is constant, the conditional assignment can be done out of circuit
     if (predicate.is_constant()) {
@@ -894,7 +893,7 @@ field_t<Builder> field_t<Builder>::conditional_assign(const bool_t<Builder>& pre
         return result;
     }
     // If lhs and rhs are the same witness or constant, just return it
-    if (lhs.get_witness_index() == rhs.get_witness_index() && (lhs.additive_constant == rhs.additive_constant) &&
+    if (witness_indices_match(lhs, rhs) && (lhs.additive_constant == rhs.additive_constant) &&
         (lhs.multiplicative_constant == rhs.multiplicative_constant)) {
         return lhs;
     }
@@ -916,7 +915,7 @@ void field_t<Builder>::create_range_constraint(const size_t num_bits, std::strin
             BB_ASSERT_LT(uint256_t(get_value()).get_msb(), num_bits, msg);
         } else {
             context->decompose_into_default_range(
-                get_normalized_witness_index(), num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
+                normalize().witness_index, num_bits, bb::UltraCircuitBuilder::DEFAULT_PLOOKUP_RANGE_BITNUM, msg);
         }
     }
 }
@@ -937,12 +936,12 @@ template <typename Builder> void field_t<Builder>::assert_equal(const field_t& r
         return;
     }
     if (lhs.is_constant()) {
-        ctx->assert_equal_constant(rhs.get_normalized_witness_index(), lhs.get_value(), msg);
+        ctx->assert_equal_constant(rhs.get_witness_index(), lhs.get_value(), msg);
     } else if (rhs.is_constant()) {
-        ctx->assert_equal_constant(lhs.get_normalized_witness_index(), rhs.get_value(), msg);
+        ctx->assert_equal_constant(lhs.get_witness_index(), rhs.get_value(), msg);
     } else {
         if (lhs.is_normalized() || rhs.is_normalized()) {
-            ctx->assert_equal(lhs.get_normalized_witness_index(), rhs.get_normalized_witness_index(), msg);
+            ctx->assert_equal(lhs.get_witness_index(), rhs.get_witness_index(), msg);
         } else {
             // Instead of creating 2 gates for normalizing both witnesses and applying a copy constraint, we use a
             // single `add` gate constraining a - b = 0
