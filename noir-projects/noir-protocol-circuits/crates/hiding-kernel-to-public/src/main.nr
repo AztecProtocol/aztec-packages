@@ -13,14 +13,18 @@ impl HidingKernelToPublicPrivateInputs {
     pub fn execute(self) {
         // Verify previous kernel, which contains a protogalaxy proof and a decider proof.
         // The associated public inputs and proofs are linked through the verification queue in the backend.
+<<<<<<< HEAD
         // The proof type `PROOF_TYPE_PG_FINAL` designates the final proof in the chonk sequence.
+=======
+        // The proof type `PROOF_TYPE_HN_FINAL` designates the final proof in the client IVC sequence.
+>>>>>>> a87a1522d7 (change pg to hn in noir code)
         if !std::runtime::is_unconstrained() {
             std::verify_proof_with_type(
                 self.previous_kernel_vk_data.vk.key,
                 [],
                 [],
                 self.previous_kernel_vk_data.vk.hash,
-                PROOF_TYPE_PG_FINAL,
+                PROOF_TYPE_HN_FINAL,
             );
         }
 

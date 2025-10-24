@@ -41,10 +41,10 @@ impl PrivateKernelData {
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
     pub fn verify(self, is_last_inner_kernel: bool) {
-        let mut proof_type = PROOF_TYPE_PG;
-        // chonk public inputs are linked in the backend via the databus
+        let mut proof_type = PROOF_TYPE_HN;
+        // Client IVC public inputs are linked in the backend via the databus
         if is_last_inner_kernel {
-            proof_type = PROOF_TYPE_PG_TAIL;
+            proof_type = PROOF_TYPE_HN_TAIL;
         }
         std::verify_proof_with_type(
             self.vk_data.vk.key,
