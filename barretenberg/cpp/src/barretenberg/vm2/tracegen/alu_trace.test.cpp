@@ -27,7 +27,6 @@
 namespace bb::avm2::tracegen {
 namespace {
 
-using simulation::AluError;
 using simulation::AluOperation;
 using testing::ElementsAre;
 
@@ -182,7 +181,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationAddTagError)
               .a = MemoryValue::from<uint128_t>(1),
               .b = MemoryValue::from<uint64_t>(2),
               .c = MemoryValue::from<uint128_t>(3),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::ADD,
               .a = MemoryValue::from<uint128_t>(1),
               .b = MemoryValue::from<uint128_t>(2),
@@ -462,11 +461,7 @@ TEST_P(AluDivTraceGenerationTest, TraceGenerationDiv)
     bool is_u128 = tag == MemoryTag::U128;
     builder.process(
         {
-            { .operation = AluOperation::DIV,
-              .a = a,
-              .b = b,
-              .c = c,
-              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+            { .operation = AluOperation::DIV, .a = a, .b = b, .c = c, .error = div_0_error },
         },
         trace);
 
@@ -582,12 +577,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::DIV,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -654,7 +649,7 @@ TEST_F(AluTraceGenerationTest, TraceGenerationDivByZeroError)
             { .operation = AluOperation::DIV,
               .a = MemoryValue::from<uint64_t>(6),
               .b = MemoryValue::from<uint64_t>(0), // c is optional
-              .error = AluError::DIV_0_ERROR },
+              .error = true },
         },
         trace);
 
@@ -728,11 +723,7 @@ TEST_P(AluFDivTraceGenerationTest, TraceGenerationFDiv)
 
     builder.process(
         {
-            { .operation = AluOperation::FDIV,
-              .a = a,
-              .b = b,
-              .c = c,
-              .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+            { .operation = AluOperation::FDIV, .a = a, .b = b, .c = c, .error = div_0_error },
         },
         trace);
 
@@ -768,12 +759,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivTagError)
               .a = MemoryValue::from<uint128_t>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<uint128_t>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::FDIV,
               .a = MemoryValue::from<uint64_t>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<uint64_t>(2),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -827,10 +818,12 @@ TEST_F(AluTraceGenerationTest, TraceGenerationFDivByZeroError)
 {
     builder.process(
         {
-            { .operation = AluOperation::FDIV,
-              .a = MemoryValue::from<FF>(6),
-              .b = MemoryValue::from<FF>(0), // c is optional
-              .error = AluError::DIV_0_ERROR },
+            {
+                .operation = AluOperation::FDIV,
+                .a = MemoryValue::from<FF>(6),
+                .b = MemoryValue::from<FF>(0), // c is optional
+                .error = true,
+            },
         },
         trace);
 
@@ -1069,10 +1062,7 @@ TEST_P(AluNOTTraceGenerationTest, TraceGenerationNOT)
 
     builder.process(
         {
-            { .operation = AluOperation::NOT,
-              .a = a,
-              .b = b,
-              .error = is_ff ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+            { .operation = AluOperation::NOT, .a = a, .b = b, .error = is_ff },
         },
         trace);
 
@@ -1184,12 +1174,12 @@ TEST_F(AluShlTraceGenerationTest, TraceGenerationShlTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(48),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::SHL,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(48),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 
@@ -1322,12 +1312,12 @@ TEST_F(AluShrTraceGenerationTest, TraceGenerationShrTagError)
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<FF>(3),
               .c = MemoryValue::from<FF>(0),
-              .error = AluError::TAG_ERROR },
+              .error = true },
             { .operation = AluOperation::SHR,
               .a = MemoryValue::from<FF>(6),
               .b = MemoryValue::from<uint128_t>(3),
               .c = MemoryValue::from<FF>(0),
-              .error = AluError::TAG_ERROR },
+              .error = true },
         },
         trace);
 

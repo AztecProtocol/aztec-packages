@@ -81,7 +81,7 @@ TEST(AvmSimulationAluTest, NegativeAddTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, Sub)
@@ -160,7 +160,7 @@ TEST(AvmSimulationAluTest, NegativeSubTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, Mul)
@@ -286,9 +286,7 @@ TEST(AvmSimulationAluTest, DivByZero)
     EXPECT_THROW(alu.div(a, b), AluException);
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(
-        events,
-        ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::DIV, .a = a, .b = b, .error = true }));
 }
 
 TEST(AvmSimulationAluTest, DivFFTag)
@@ -310,7 +308,7 @@ TEST(AvmSimulationAluTest, DivFFTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, FDiv)
@@ -346,9 +344,7 @@ TEST(AvmSimulationAluTest, FDivByZero)
     EXPECT_THROW(alu.fdiv(a, b), AluException);
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(
-        events,
-        ElementsAre(AluEvent{ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::FDIV, .a = a, .b = b, .error = true }));
 }
 
 TEST(AvmSimulationAluTest, FDivNonFFTag)
@@ -370,7 +366,7 @@ TEST(AvmSimulationAluTest, FDivNonFFTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, LT)
@@ -434,7 +430,7 @@ TEST(AvmSimulationAluTest, NegativeLTTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, LTE)
@@ -515,8 +511,7 @@ TEST(AvmSimulationAluTest, NegativeLTETag)
     EXPECT_THROW(alu.lte(a, b), AluException);
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events,
-                ElementsAre(AluEvent{ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::LTE, .a = a, .b = b, .error = true }));
 }
 
 TEST(AvmSimulationAluTest, EQEquality)
@@ -535,8 +530,7 @@ TEST(AvmSimulationAluTest, EQEquality)
     EXPECT_EQ(c, MemoryValue::from<uint1_t>(1));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events,
-                ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = std::nullopt }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = false }));
 }
 
 TEST(AvmSimulationAluTest, EQInequality)
@@ -555,8 +549,7 @@ TEST(AvmSimulationAluTest, EQInequality)
     EXPECT_EQ(c, MemoryValue::from<uint1_t>(0));
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events,
-                ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = std::nullopt }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::EQ, .a = a, .b = b, .c = c, .error = false }));
 }
 
 TEST(AvmSimulationAluTest, EQTagError)
@@ -578,7 +571,7 @@ TEST(AvmSimulationAluTest, EQTagError)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, NotBasic)
@@ -595,7 +588,7 @@ TEST(AvmSimulationAluTest, NotBasic)
     EXPECT_EQ(b, ~a);
 
     auto events = alu_event_emitter.dump_events();
-    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::NOT, .a = a, .b = b, .error = std::nullopt }));
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::NOT, .a = a, .b = b, .error = false }));
 }
 
 TEST(AvmSimulationAluTest, NotFFTagError)
@@ -615,7 +608,7 @@ TEST(AvmSimulationAluTest, NotFFTagError)
                 ElementsAre(AluEvent{ .operation = AluOperation::NOT,
                                       .a = a,
                                       .b = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, Shl)
@@ -683,7 +676,7 @@ TEST(AvmSimulationAluTest, NegativeShlTagMismatch)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, Shr)
@@ -728,7 +721,7 @@ TEST(AvmSimulationAluTest, ShrFFTag)
                                       .a = a,
                                       .b = b,
                                       .c = MemoryValue::from_tag(static_cast<MemoryTag>(0), 0),
-                                      .error = AluError::TAG_ERROR }));
+                                      .error = true }));
 }
 
 TEST(AvmSimulationAluTest, TruncateTrivial)
@@ -751,7 +744,7 @@ TEST(AvmSimulationAluTest, TruncateTrivial)
                                       .a = MemoryValue::from_tag(MemoryTag::FF, a),
                                       .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(MemoryTag::U16)),
                                       .c = c,
-                                      .error = std::nullopt }));
+                                      .error = false }));
 }
 
 TEST(AvmSimulationAluTest, TruncateLess128Bits)
@@ -776,7 +769,7 @@ TEST(AvmSimulationAluTest, TruncateLess128Bits)
                                       .a = MemoryValue::from_tag(MemoryTag::FF, a),
                                       .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(MemoryTag::U16)),
                                       .c = c,
-                                      .error = std::nullopt }));
+                                      .error = false }));
 }
 
 TEST(AvmSimulationAluTest, TruncateGreater128Bits)
@@ -804,7 +797,7 @@ TEST(AvmSimulationAluTest, TruncateGreater128Bits)
                                       .a = MemoryValue::from_tag(MemoryTag::FF, a),
                                       .b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(MemoryTag::U32)),
                                       .c = c,
-                                      .error = std::nullopt }));
+                                      .error = false }));
 }
 
 } // namespace

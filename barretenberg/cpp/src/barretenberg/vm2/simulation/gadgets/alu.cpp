@@ -27,7 +27,7 @@ MemoryValue Alu::add(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::ADD, .a = a, .b = b, .error = true });
         throw AluException("ADD, " + std::string(e.what()));
     }
 }
@@ -47,7 +47,7 @@ MemoryValue Alu::sub(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::SUB, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::SUB, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::SUB, .a = a, .b = b, .error = true });
         throw AluException("SUB, " + std::string(e.what()));
     }
 }
@@ -83,7 +83,7 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .error = true });
         throw AluException("MUL, " + std::string(e.what()));
     }
 }
@@ -106,9 +106,10 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
 
         if (tag == MemoryTag::FF) {
             // DIV on a field is not a valid operation, but should be recoverable.
-            // TODO(MW): cleanup - It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
-            // not throw, so I sin here and throw a not relevant error we know will create a TAG_ERROR:
-            throw TagMismatchException("Cannot perform integer division on a field element");
+            // It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
+            // not throw.
+            events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = true });
+            throw AluException("DIV, Cannot perform integer division on a field element");
         }
 
         // Check remainder < b:
@@ -125,10 +126,10 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = true });
         throw AluException("DIV, " + std::string(e.what()));
     } catch (const DivisionByZero& e) {
-        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
+        events.emit({ .operation = AluOperation::DIV, .a = a, .b = b, .error = true });
         throw AluException("DIV, " + std::string(e.what()));
     }
 }
@@ -149,19 +150,20 @@ MemoryValue Alu::fdiv(const MemoryValue& a, const MemoryValue& b)
 
         if (a.get_tag() != MemoryTag::FF) {
             // We cannot reach this case from execution because the tags are forced to be FF (see below*).
-            // TODO(MW): cleanup - It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
-            // not throw, so I sin here and throw a not relevant error we know will create a TAG_ERROR:
-            throw TagMismatchException("Cannot perform field division on an integer");
+            // It comes under the umbrella of tag errors (like NOT) but MemoryValue c = a / b does
+            // not throw.
+            events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = true });
+            throw AluException("FDIV, Cannot perform field division on an integer");
         }
 
         events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
         // *This is unreachable from execution and exists to manage and test tag errors:
-        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = true });
         throw AluException("FDIV, " + std::string(e.what()));
     } catch (const DivisionByZero& e) {
-        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = AluError::DIV_0_ERROR });
+        events.emit({ .operation = AluOperation::FDIV, .a = a, .b = b, .error = true });
         throw AluException("FDIV, " + std::string(e.what()));
     }
 }
@@ -178,7 +180,7 @@ MemoryValue Alu::eq(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for EQ.
     if (a.get_tag() != b.get_tag()) {
-        events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::EQ, .a = a, .b = b, .error = true });
         throw AluException("EQ, Tag mismatch between operands.");
     }
 
@@ -200,7 +202,7 @@ MemoryValue Alu::lt(const MemoryValue& a, const MemoryValue& b)
     // Brillig semantic enforces that tags match for LT.
     // This is special cased because comparison operators do not throw on tag mismatch.
     if (a.get_tag() != b.get_tag()) {
-        events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::LT, .a = a, .b = b, .error = true });
         throw AluException("LT, Tag mismatch between operands.");
     }
     // Use the greater_than interface to check if b > a, which is the same as a < b.
@@ -222,7 +224,7 @@ MemoryValue Alu::lte(const MemoryValue& a, const MemoryValue& b)
 {
     // Brillig semantic enforces that tags match for LTE.
     if (a.get_tag() != b.get_tag()) {
-        events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::LTE, .a = a, .b = b, .error = true });
         throw AluException("LT, Tag mismatch between operands.");
     }
     // Note: the result of LTE is the opposite of GT
@@ -248,7 +250,7 @@ MemoryValue Alu::op_not(const MemoryValue& a)
         events.emit({ .operation = AluOperation::NOT, .a = a, .b = b });
         return b;
     } catch (const InvalidOperationTag& e) {
-        events.emit({ .operation = AluOperation::NOT, .a = a, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::NOT, .a = a, .error = true });
         throw AluException("NOT, " + std::string(e.what()));
     }
 }
@@ -278,10 +280,10 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = true });
         throw AluException("SHL, " + std::string(e.what()));
     } catch (const InvalidOperationTag& e) {
-        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .error = true });
         throw AluException("SHL, " + std::string(e.what()));
     }
 }
@@ -311,10 +313,10 @@ MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
         events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = true });
         throw AluException("SHR, " + std::string(e.what()));
     } catch (const InvalidOperationTag& e) {
-        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = AluError::TAG_ERROR });
+        events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .error = true });
         throw AluException("SHR, " + std::string(e.what()));
     }
 }
@@ -334,7 +336,6 @@ MemoryValue Alu::truncate(const FF& a, MemoryTag dst_tag)
     // mid is (128 - dst_tag_bits) bits.
     bool is_trivial = dst_tag == MemoryTag::FF || static_cast<uint256_t>(a) <= get_tag_max_value(dst_tag);
     if (!is_trivial) {
-
         uint128_t a_lo = 0;
         if (static_cast<uint256_t>(a) >= (static_cast<uint256_t>(1) << 128)) {
             // Canonical decomposition

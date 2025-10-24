@@ -21,24 +21,6 @@ enum class AluOperation : uint8_t {
     TRUNCATE,
 };
 
-enum class AluError : uint8_t {
-    TAG_ERROR,
-    DIV_0_ERROR,
-};
-
-inline std::string to_string(AluError e)
-{
-    switch (e) {
-    case AluError::TAG_ERROR:
-        return "TAG_ERROR";
-    case AluError::DIV_0_ERROR:
-        return "DIV_0_ERROR";
-    }
-
-    // We should be catching all the cases above.
-    __builtin_unreachable();
-}
-
 // Explanations on default values:
 // Circuit values of execution.register[X], execution.mem_tag_reg[X] corresponding to the output c are all set to 0 when
 // an error is thrown. In order to have a correct lookup from Execution into ALU, we therefore need to set the default
@@ -52,7 +34,7 @@ struct AluEvent {
     MemoryValue b = MemoryValue::from_tag(static_cast<ValueTag>(0), 0);
     MemoryValue c = MemoryValue::from_tag(static_cast<ValueTag>(0), 0);
 
-    std::optional<AluError> error;
+    bool error = false;
     // To be used with deduplicating event emitters.
     using Key = std::tuple<AluOperation, MemoryValue, MemoryValue>;
     Key get_key() const { return { operation, a, b }; }

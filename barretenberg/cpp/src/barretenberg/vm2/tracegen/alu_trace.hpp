@@ -13,6 +13,9 @@ class AluTraceBuilder final {
                  TraceContainer& trace);
 
     static const InteractionDefinition interactions;
+
+  private:
+    std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEvent& event) const;
 };
 
 } // namespace bb::avm2::tracegen

@@ -197,11 +197,7 @@ class AluAddConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::ADD,
-                  .a = a,
-                  .b = b,
-                  .c = c,
-                  .error = error ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+                { .operation = simulation::AluOperation::ADD, .a = a, .b = b, .c = c, .error = error },
             },
             trace);
 
@@ -822,11 +818,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::DIV,
-                  .a = a,
-                  .b = b,
-                  .c = c,
-                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+                { .operation = simulation::AluOperation::DIV, .a = a, .b = b, .c = c, .error = div_0_error },
             },
             trace);
 
@@ -1112,11 +1104,7 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::FDIV,
-                  .a = a,
-                  .b = b,
-                  .c = c,
-                  .error = div_0_error ? std::make_optional(simulation::AluError::DIV_0_ERROR) : std::nullopt },
+                { .operation = simulation::AluOperation::FDIV, .a = a, .b = b, .c = c, .error = div_0_error },
             },
             trace);
 
@@ -1649,10 +1637,7 @@ class AluNotConstrainingTest : public AluConstrainingTest, public ::testing::Wit
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::NOT,
-                  .a = a,
-                  .b = b,
-                  .error = error || is_ff ? std::make_optional(simulation::AluError::TAG_ERROR) : std::nullopt },
+                { .operation = simulation::AluOperation::NOT, .a = a, .b = b, .error = error || is_ff },
             },
             trace);
 
