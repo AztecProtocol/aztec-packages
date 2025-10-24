@@ -3,7 +3,6 @@
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/gadgets/address_derivation.hpp"
-#include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
@@ -19,11 +18,9 @@ class ContractDB final : public ContractDBInterface {
   public:
     ContractDB(ContractDBInterface& raw_contract_db,
                AddressDerivationInterface& address_derivation,
-               ClassIdDerivationInterface& class_id_derivation,
                const ProtocolContracts& protocol_contracts)
         : raw_contract_db(raw_contract_db)
         , address_derivation(address_derivation)
-        , class_id_derivation(class_id_derivation)
         , protocol_contracts(protocol_contracts)
     {}
 
@@ -31,10 +28,13 @@ class ContractDB final : public ContractDBInterface {
     // This does NOT prove that the address is in the nullifier tree.
     // Silo the address and use the MerkleDB to prove that.
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
-    // Gets a class from the DB and proves class id derivation from the result.
+    // Gets a class from the DB.
+    // This does NOT prove class id derivation (bytecode manager does that).
     // This does NOT prove that the class id is in the nullifier tree.
     // Silo the class id and use the MerkleDB to prove that.
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
+    // Gets the bytecode commitment for a contract class ID.
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
 
     // Adds non-revertible contracts to the DB.
     void add_new_non_revertible_contracts(
@@ -45,7 +45,6 @@ class ContractDB final : public ContractDBInterface {
   private:
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;
-    ClassIdDerivationInterface& class_id_derivation;
     const ProtocolContracts& protocol_contracts;
 };
 

@@ -69,10 +69,10 @@ FF compute_contract_address(const ContractInstance& contract_instance)
 {
     FF salted_initialization_hash = poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS,
                                                       contract_instance.salt,
-                                                      contract_instance.initialisation_hash,
-                                                      contract_instance.deployer_addr });
+                                                      contract_instance.initialization_hash,
+                                                      contract_instance.deployer });
     FF partial_address = poseidon2::hash(
-        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_class_id, salted_initialization_hash });
+        { GENERATOR_INDEX__PARTIAL_ADDRESS, contract_instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(contract_instance.public_keys);
     FF h = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });

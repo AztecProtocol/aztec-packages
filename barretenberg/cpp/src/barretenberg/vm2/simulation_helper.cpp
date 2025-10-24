@@ -166,7 +166,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
 
-    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocolContracts);
+    ContractDB contract_db(raw_contract_db, address_derivation, hints.protocolContracts);
 
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
@@ -200,6 +200,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
                                        bytecode_hasher,
                                        range_check,
                                        contract_instance_manager,
+                                       class_id_derivation,
                                        retrieved_bytecodes_tree_check,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,

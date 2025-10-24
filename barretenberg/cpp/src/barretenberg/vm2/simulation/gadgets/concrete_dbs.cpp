@@ -28,15 +28,14 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
 
 std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    std::optional<ContractClass> klass = raw_contract_db.get_contract_class(class_id);
-    // If we didn't get a contract class, we don't prove anything.
-    // It is the responsibility of the caller to prove what the protocol expects.
-    if (!klass.has_value()) {
-        return std::nullopt;
-    }
-    // If we did get a contract class, we need to prove that the class_id is derived from the class.
-    class_id_derivation.assert_derivation(class_id, klass.value());
-    return klass;
+    // Simply return the contract class from the raw DB.
+    // Note: class ID derivation is handled by the bytecode manager.
+    return raw_contract_db.get_contract_class(class_id);
+}
+
+std::optional<FF> ContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+{
+    return raw_contract_db.get_bytecode_commitment(class_id);
 }
 
 void ContractDB::add_new_non_revertible_contracts(const ContractDeploymentData& non_revertible_contract_deployment_data)
