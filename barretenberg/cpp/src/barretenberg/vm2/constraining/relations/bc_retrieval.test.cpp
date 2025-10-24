@@ -70,21 +70,28 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     std::vector<FF> bytecode_fields = simulation::encode_bytecode(klass.packed_bytecode);
     std::vector<FF> hash_input = { GENERATOR_INDEX__PUBLIC_BYTECODE };
     hash_input.insert(hash_input.end(), bytecode_fields.begin(), bytecode_fields.end());
-    // random_contract_class() assigns a random FF as the commitment, so we overwrite to ensure the below passes:
-    klass.public_bytecode_commitment = RawPoseidon2::hash(hash_input);
-    builder.process_hashing({ { .bytecode_id = klass.public_bytecode_commitment,
+    // Compute the bytecode commitment separately
+    FF bytecode_commitment = RawPoseidon2::hash(hash_input);
+    builder.process_hashing({ { .bytecode_id = bytecode_commitment,
                                 .bytecode_length = bytecode_size,
                                 .bytecode_fields = bytecode_fields } },
                             trace);
     contract_instance_retrieval_builder.process({ {
-                                                    .address = instance.deployer_addr,
+                                                    .address = instance.deployer,
                                                     .contract_instance = { instance },
                                                     .nullifier_tree_root = nullifier_root,
                                                     .public_data_tree_root = public_data_tree_root,
                                                     .exists = true,
                                                 } },
                                                 trace);
-    class_id_builder.process({ { .class_id = instance.current_class_id, .klass = klass } }, trace);
+    ContractClassWithCommitment klass_with_commitment = {
+        .id = instance.current_contract_class_id,
+        .artifact_hash = klass.artifact_hash,
+        .private_functions_root = klass.private_functions_root,
+        .packed_bytecode = klass.packed_bytecode,
+        .public_bytecode_commitment = bytecode_commitment,
+    };
+    class_id_builder.process({ { .klass = klass_with_commitment } }, trace);
 
     AppendOnlyTreeSnapshot snapshot_before = AppendOnlyTreeSnapshot{
         .root = FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT),
@@ -99,7 +106,7 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     // Read the tree of the retrieved bytecodes
     retrieved_bytecodes_tree_check_builder.process(
         { RetrievedBytecodesTreeCheckEvent{
-            .class_id = instance.current_class_id,
+            .class_id = instance.current_contract_class_id,
             .prev_snapshot = snapshot_before,
             .next_snapshot = snapshot_after,
             .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
@@ -110,7 +117,7 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     // Insertion in the retrieved bytecodes tree
     retrieved_bytecodes_tree_check_builder.process(
         { RetrievedBytecodesTreeCheckEvent{
-            .class_id = instance.current_class_id,
+            .class_id = instance.current_contract_class_id,
             .prev_snapshot = snapshot_before,
             .next_snapshot = snapshot_after,
             .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
@@ -121,9 +128,9 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
 
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
-                                  .bytecode_id = klass.public_bytecode_commitment, // bytecode_id equals commitment
-                                  .address = instance.deployer_addr,
-                                  .current_class_id = instance.current_class_id,
+                                  .bytecode_id = bytecode_commitment, // bytecode_id equals commitment
+                                  .address = instance.deployer,
+                                  .current_class_id = instance.current_contract_class_id,
                                   .contract_class = klass,
                                   .nullifier_root = nullifier_root,
                                   .public_data_tree_root = public_data_tree_root,
@@ -169,8 +176,8 @@ TEST(BytecodeRetrievalConstrainingTest, TooManyBytecodes)
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
                                   .bytecode_id = 0, // bytecode_id equals commitment
-                                  .address = instance.deployer_addr,
-                                  .current_class_id = instance.current_class_id,
+                                  .address = instance.deployer,
+                                  .current_class_id = instance.current_contract_class_id,
                                   .nullifier_root = nullifier_root,
                                   .public_data_tree_root = public_data_tree_root,
                                   .retrieved_bytecodes_snapshot_before = snapshot_before,
@@ -200,7 +207,7 @@ TEST(BytecodeRetrievalConstrainingTest, NonExistentInstance)
             { C::bc_retrieval_instance_exists, 0 },
             { C::bc_retrieval_current_class_id, 0 },
             { C::bc_retrieval_artifact_hash, 0 },
-            { C::bc_retrieval_private_function_root, 0 },
+            { C::bc_retrieval_private_functions_root, 0 },
             { C::bc_retrieval_bytecode_id, 0 },
             { C::bc_retrieval_address, contract_address },
             { C::bc_retrieval_prev_retrieved_bytecodes_tree_size, 1 },
@@ -224,11 +231,11 @@ TEST(BytecodeRetrievalConstrainingTest, NonExistentInstance)
     // reset
     trace.set(C::bc_retrieval_artifact_hash, 1, 0);
 
-    // mutate the private_function_root and confirm that it is a violation
-    trace.set(C::bc_retrieval_private_function_root, 1, 99);
+    // mutate the private_functions_root and confirm that it is a violation
+    trace.set(C::bc_retrieval_private_functions_root, 1, 99);
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_retrieval>(trace), "PRIVATE_FUNCTION_ROOT_IS_ZERO_IF_ERROR");
     // reset
-    trace.set(C::bc_retrieval_private_function_root, 1, 0);
+    trace.set(C::bc_retrieval_private_functions_root, 1, 0);
 
     // mutate the bytecode_id and confirm that it is a violation
     trace.set(C::bc_retrieval_bytecode_id, 1, 99);

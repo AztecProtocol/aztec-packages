@@ -85,22 +85,51 @@ struct PublicKeys {
 
 struct ContractInstance {
     FF salt;
-    AztecAddress deployer_addr;
-    ContractClassId current_class_id;
-    ContractClassId original_class_id;
-    FF initialisation_hash;
+    AztecAddress deployer;
+    ContractClassId current_contract_class_id;
+    ContractClassId original_contract_class_id;
+    FF initialization_hash;
     PublicKeys public_keys;
 
     bool operator==(const ContractInstance& other) const = default;
 };
 
-struct ContractClass {
+// Similar to ContractClassPublicWithCommitment in TS but without:
+// - version
+// - privateFunctions[]
+// - utilityFunctions[]
+struct ContractClassWithCommitment {
+    FF id;
     FF artifact_hash;
-    FF private_function_root;
+    FF private_functions_root;
+    std::vector<uint8_t> packed_bytecode;
     FF public_bytecode_commitment;
+
+    bool operator==(const ContractClassWithCommitment& other) const = default;
+};
+
+// Similar to ContractClassPublic in TS but without:
+// - version
+// - privateFunctions[]
+// - utilityFunctions[]
+struct ContractClass {
+    FF id;
+    FF artifact_hash;
+    FF private_functions_root;
     std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClass& other) const = default;
+
+    ContractClassWithCommitment with_commitment(const FF& public_bytecode_commitment) const
+    {
+        return {
+            .id = id,
+            .artifact_hash = artifact_hash,
+            .private_functions_root = private_functions_root,
+            .packed_bytecode = packed_bytecode,
+            .public_bytecode_commitment = public_bytecode_commitment,
+        };
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////////

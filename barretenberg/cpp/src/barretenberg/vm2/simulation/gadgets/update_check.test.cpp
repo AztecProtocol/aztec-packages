@@ -35,7 +35,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
 {
     uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = instance.original_class_id;
+    instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
@@ -65,8 +65,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     EXPECT_THAT(event_emitter.dump_events(),
                 ElementsAre(UpdateCheckEvent{
                     .address = derived_address,
-                    .current_class_id = instance.current_class_id,
-                    .original_class_id = instance.original_class_id,
+                    .current_class_id = instance.current_contract_class_id,
+                    .original_class_id = instance.original_contract_class_id,
                     .public_data_tree_root = tree_states.publicDataTree.tree.root,
                     .current_timestamp = current_timestamp,
                     .update_hash = 0,
@@ -77,7 +77,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                 }));
 
     // Negative: class id must be original class id
-    instance.current_class_id = instance.current_class_id + 1;
+    instance.current_contract_class_id = instance.current_contract_class_id + 1;
     EXPECT_THROW_WITH_MESSAGE(update_check.check_current_class_id(derived_address, instance),
                               "Current class id.*does not match expected class id.*");
 }
@@ -160,8 +160,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 
     uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = param.current_class_id;
-    instance.original_class_id = param.original_class_id;
+    instance.current_contract_class_id = param.current_class_id;
+    instance.original_contract_class_id = param.original_class_id;
 
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
@@ -246,8 +246,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
         EXPECT_THAT(event_emitter.dump_events(),
                     ElementsAre(UpdateCheckEvent{
                         .address = derived_address,
-                        .current_class_id = instance.current_class_id,
-                        .original_class_id = instance.original_class_id,
+                        .current_class_id = instance.current_contract_class_id,
+                        .original_class_id = instance.original_contract_class_id,
                         .public_data_tree_root = tree_states.publicDataTree.tree.root,
                         .current_timestamp = current_timestamp,
                         .update_hash = update_hash,
@@ -265,7 +265,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
 {
     uint64_t current_timestamp = 100;
     ContractInstance instance = testing::random_contract_instance();
-    instance.current_class_id = instance.original_class_id;
+    instance.current_contract_class_id = instance.original_contract_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
     FF delayed_public_mutable_slot = poseidon2::hash({ UPDATED_CLASS_IDS_SLOT, derived_address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
