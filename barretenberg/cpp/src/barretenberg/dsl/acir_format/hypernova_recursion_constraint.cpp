@@ -56,13 +56,21 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vect
 
     // Case: RESET kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
+<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+=======
+        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/true);
+>>>>>>> 6c9679e126 (die protogalaxy die)
         return ivc;
     }
 
     // Case: TAIL kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
+<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+=======
+        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+>>>>>>> 6c9679e126 (die protogalaxy die)
         return ivc;
     }
 
@@ -70,14 +78,23 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vect
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
+<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+=======
+        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/false);
+>>>>>>> 6c9679e126 (die protogalaxy die)
         return ivc;
     }
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
+<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+=======
+        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+>>>>>>> 6c9679e126 (die protogalaxy die)
         return ivc;
     }
 
@@ -107,8 +124,14 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
+<<<<<<< HEAD
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN || verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
+=======
+        BB_ASSERT_EQ(verification_type == ClientIVC::QUEUE_TYPE::HN ||
+                         verification_type == ClientIVC::QUEUE_TYPE::HN_TAIL ||
+                         verification_type == ClientIVC::QUEUE_TYPE::HN_FINAL,
+>>>>>>> 6c9679e126 (die protogalaxy die)
                      true);
 
         // kernel circuits are always folded, thus the proof always includes the nova fold proof
@@ -118,7 +141,12 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
+<<<<<<< HEAD
         BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
+=======
+        BB_ASSERT_EQ(verification_type == ClientIVC::QUEUE_TYPE::OINK || verification_type == ClientIVC::QUEUE_TYPE::HN,
+                     true);
+>>>>>>> 6c9679e126 (die protogalaxy die)
 
         // The first app is not folded thus the proof does not include the nova fold proof
         bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
@@ -154,8 +182,13 @@ void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QU
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
+<<<<<<< HEAD
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
+=======
+    if (type == ClientIVC::QUEUE_TYPE::HN_FINAL) {
+        ivc->decider_proof = acir_format::create_mock_pcs_proof<ClientIVC::Flavor>();
+>>>>>>> 6c9679e126 (die protogalaxy die)
     }
     ivc->num_circuits_accumulated++;
 }
