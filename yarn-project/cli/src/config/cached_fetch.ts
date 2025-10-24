@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 
 import { mkdir, readFile, stat, writeFile } from 'fs/promises';
 import { dirname } from 'path';

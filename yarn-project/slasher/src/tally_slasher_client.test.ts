@@ -1,9 +1,9 @@
-import { sleep } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
@@ -60,19 +60,16 @@ describe('TallySlasherClient', () => {
 
   const executableRoundData = {
     isExecuted: false,
-    readyToExecute: true,
     voteCount: 150n,
   };
 
   const executedRoundData = {
     isExecuted: true,
-    readyToExecute: false,
     voteCount: 150n,
   };
 
   const emptyRoundData = {
     isExecuted: false,
-    readyToExecute: false,
     voteCount: 0n,
   };
 
@@ -155,6 +152,7 @@ describe('TallySlasherClient', () => {
       address: EthAddress.random(),
       actions: [{ validator: committee[0], slashAmount: slashingUnit }],
     });
+    tallySlashingProposer.isRoundReadyToExecute.mockResolvedValue(true);
 
     // Setup rollup and slasher contract mocks
     rollup.getSlasherContract.mockResolvedValue(slasherContract);
@@ -454,7 +452,6 @@ describe('TallySlasherClient', () => {
         // Mock executable round
         tallySlashingProposer.getRound.mockResolvedValueOnce({
           isExecuted: false,
-          readyToExecute: true,
           voteCount: 120n,
         });
 

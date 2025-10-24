@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Send bash xtrace (set -x) to stdout so callers don't treat it as stderr (ERROR)
+export BASH_XTRACEFD=1
 set -exu
 
 # NOTICE: This script is intended for non-production (i.e. testnet) use only.

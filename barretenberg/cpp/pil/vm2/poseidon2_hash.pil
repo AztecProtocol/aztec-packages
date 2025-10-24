@@ -18,6 +18,13 @@ namespace poseidon2_hash;
     #[skippable_if]
     sel = 0;
 
+    // If the current row is not active, then there are no more active rows after that.
+    // Note that sel cannot be activated in the first row as sel' is defined.
+    // As a consequence, if a row is activated (sel == 1) somewhere in this sub-trace, then
+    // the activated rows start from the second row and are contiguous.
+    #[TRACE_CONTINUITY]
+    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+
     // === Input Values ===
     // Unpadded Length of the inputs to be hashed
     pol commit input_len;
@@ -46,8 +53,11 @@ namespace poseidon2_hash;
     // The last row of hashing for the given input
     pol commit end;
     end * (1 - end) = 0;
-    // End and first row are NAND - they cannot both be one.
-    end * precomputed.first_row = 0;
+
+    // Selector must be 1 in end row
+    #[SELECTOR_ON_END]
+    end * (1 - sel) = 0;
+
     // Our latch condition can either be the designated end of the computation or the first row
     // The previous relation ensures they cannot both be 1
     pol LATCH_CONDITION = end + precomputed.first_row;

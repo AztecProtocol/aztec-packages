@@ -6,13 +6,9 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import SettingsIcon from '@mui/icons-material/Settings';
 import { useContext, useEffect, useState, type RefObject } from 'react';
 import { EmbeddedWallet } from '../../../wallet/embedded_wallet';
-import {
-  AztecAddress,
-  DeployMethod,
-  type ContractFunctionInteraction,
-  type DeployOptions,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type ContractFunctionInteraction, type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AztecContext } from '../../../aztecContext';
 import { CreateAccountDialog } from '../../../wallet/components/CreateAccountDialog';
 import { useTransaction } from '../../../hooks/useTransaction';

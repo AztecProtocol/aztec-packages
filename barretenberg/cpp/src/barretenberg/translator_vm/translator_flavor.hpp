@@ -985,7 +985,7 @@ class TranslatorFlavor {
     /**
      * @brief When evaluating the sumcheck protocol - can we skip evaluation of all relations for a given row?
      *
-     * @details When used in ClientIVC, the Translator has a large fixed size, which is often not fully utilized.
+     * @details When used in LegacyClientIVC, the Translator has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of z_perm and z_perm_shift will match,
      *          we can use this as a proxy to determine if we can skip Sumcheck::compute_univariate
      **/

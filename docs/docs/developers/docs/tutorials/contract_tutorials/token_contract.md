@@ -49,7 +49,7 @@ aztec-nargo init --contract
 We have a messy, but working structure. In `src/main.nr` we even have a proto-contract. Let's replace it with a simple starting point:
 
 ```rust
-#include_code start /docs/examples/tutorials/bob_token_contract/src/main.nr raw
+#include_code start /docs/examples/contracts/bob_token_contract/src/main.nr raw
     // We'll build the mental health token here
 }
 ```
@@ -70,7 +70,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#incl
 Since we're here, let's import more specific stuff from this library:
 
 ```rust
-#include_code imports /docs/examples/tutorials/bob_token_contract/src/main.nr raw
+#include_code imports /docs/examples/contracts/bob_token_contract/src/main.nr raw
 }
 ```
 
@@ -103,7 +103,7 @@ Let's start with the public components that Giggle will use to mint and track in
 First, define the storage for our BOB tokens:
 
 ```rust
-#include_code public_storage /docs/examples/tutorials/bob_token_contract/src/main.nr raw
+#include_code public_storage /docs/examples/contracts/bob_token_contract/src/main.nr raw
 }
 ```
 
@@ -125,7 +125,7 @@ While employees want privacy when spending, having public balances during mintin
 
 When deploying the contract, we need to set Giggle as the owner:
 
-#include_code setup /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code setup /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 The `#[initializer]` decorator ensures this runs once during deployment. Only Giggle's address will have the power to mint new BOB tokens for employees.
 
@@ -133,7 +133,7 @@ The `#[initializer]` decorator ensures this runs once during deployment. Only Gi
 
 Giggle needs a way to allocate mental health tokens to employees:
 
-#include_code mint_public /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code mint_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 This public minting function:
 
@@ -149,7 +149,7 @@ Imagine Giggle allocating 100 BOB tokens to each employee at the start of the ye
 
 While most transfers will be private, we'll add public transfers for cases where transparency is desired:
 
-#include_code transfer_public /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code transfer_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 This might be used when:
 
@@ -161,7 +161,7 @@ This might be used when:
 
 In case Giggle's mental health program administration changes:
 
-#include_code transfer_ownership /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code transfer_ownership /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 ## Your First Deployment - Let's See It Work
 
@@ -189,47 +189,9 @@ Create `index.ts`. We will connect to our running sandbox and its PXE, then depl
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 
 ```typescript
-import { BobTokenContract } from './artifacts/BobToken.js';
-import { AztecAddress, createAztecNodeClient } from '@aztec/aztec.js';
-import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { TestWallet } from '@aztec/test-wallet/server';
-import { openTmpStore } from '@aztec/kv-store/lmdb';
+#include_code imports /docs/examples/ts/bob_token_contract/index.ts raw
 
-async function main() {
-    // Connect to sandbox
-    const node = createAztecNodeClient('http://localhost:8080');
-
-    const store = await openTmpStore();
-
-    const wallet = await TestWallet.create(node, undefined, {
-        store,
-    });
-
-    const [giggleWalletData, aliceWalletData, bobClinicWalletData] = await getInitialTestAccountsData();
-    const giggleAccount = await wallet.createSchnorrAccount(giggleWalletData.secret, giggleWalletData.salt);
-    const aliceAccount = await wallet.createSchnorrAccount(aliceWalletData.secret, aliceWalletData.salt);
-    const bobClinicAccount = await wallet.createSchnorrAccount(bobClinicWalletData.secret, bobClinicWalletData.salt);
-
-    const giggleAddress = (await giggleAccount.getAccount()).getAddress();
-    const aliceAddress = (await aliceAccount.getAccount()).getAddress();
-    const bobClinicAddress = (await bobAccount.getAccount()).getAddress();
-
-    const bobToken = await BobTokenContract
-        .deploy(
-            wallet,
-        )
-        .send({ from: giggleAddress })
-        .deployed();
-
-    await bobToken.methods
-        .mint_public(aliceAddress, 100n)
-        .send({ from: giggleAddress })
-        .wait();
-
-    await bobToken.methods
-        .transfer_public(bobClinicAddress, 10n)
-        .send({ from: aliceAddress })
-        .wait();
+#include_code checkpoint_1 /docs/examples/ts/bob_token_contract/index.ts raw
 }
 
 main().catch(console.error);
@@ -307,7 +269,7 @@ pub contract BobToken {
 
 We need to update the contract storage to have private balances as well:
 
-#include_code storage /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code storage /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 The `private_balances` use `EasyPrivateUint` which manages encrypted notes automatically.
 
@@ -315,11 +277,11 @@ The `private_balances` use `EasyPrivateUint` which manages encrypted notes autom
 
 Great, now our contract knows about private balances. Let's implement a method to allow users to move their publicly minted tokens there:
 
-#include_code public_to_private /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code public_to_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 And the helper function:
 
-#include_code _deduct_public_balance /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code _deduct_public_balance /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 By calling `public_to_private` we're telling the network "deduct this amount from my balance" while simultaneously creating a Note with that balance in privateland.
 
@@ -327,7 +289,7 @@ By calling `public_to_private` we're telling the network "deduct this amount fro
 
 Now for the crucial privacy feature - transferring BOB tokens in privacy. This is actually pretty simple:
 
-#include_code transfer_private /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code transfer_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 This function simply nullifies the sender's notes, while adding them to the recipient.
 
@@ -345,7 +307,7 @@ When an employee uses 50 BOB tokens at Bob's clinic, this private transfer ensur
 
 Employees can check their BOB token balances without hitting the network by using utility unconstrained functions:
 
-#include_code check_balances /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code check_balances /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 ## Part 3: Securing Private Minting
 
@@ -374,11 +336,11 @@ We want Giggle to mint BOB tokens directly to employees' private balances (for m
 
 Let's use a clever pattern where private functions enqueue public validation checks. First we make a little helper function in public. Remember, public functions always run _after_ private functions, since private functions run client-side.
 
-#include_code _assert_is_owner /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code _assert_is_owner /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 Now we can add a secure private minting function. It looks pretty easy, and it is, since the whole thing will revert if the public function fails:
 
-#include_code mint_private /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code mint_private /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 This pattern ensures:
 
@@ -391,7 +353,7 @@ This pattern ensures:
 
 For the sake of completeness, let's also have a function that brings the tokens back to publicland:
 
-#include_code private_to_public /docs/examples/tutorials/bob_token_contract/src/main.nr rust
+#include_code private_to_public /docs/examples/contracts/bob_token_contract/src/main.nr rust
 
 Now you've made changes to your contract, you need to recompile your contract.
 
@@ -413,25 +375,7 @@ Let's stop being lazy and add a nice little "log" function that just spits out e
 
 ```typescript
 // at the top of your file
-async function getBalances(contract: BobTokenContract, aliceAddress: AztecAddress, bobAddress: AztecAddress) {
-    Promise.all([
-        contract.methods
-            .public_balance_of(aliceAddress)
-            .simulate({ from: aliceAddress }),
-        contract.methods
-            .private_balance_of(aliceAddress)
-            .simulate({ from: aliceAddress }),
-        contract.methods
-            .public_balance_of(bobAddress)
-            .simulate({ from: bobAddress }),
-        contract.methods
-            .private_balance_of(bobAddress)
-            .simulate({ from: bobAddress })
-    ]).then(([alicePublicBalance, alicePrivateBalance, bobPublicBalance, bobPrivateBalance]) => {
-        console.log(`📊 Alice has ${alicePublicBalance} public BOB tokens and ${alicePrivateBalance} private BOB tokens`);
-        console.log(`📊 Bob's Clinic has ${bobPublicBalance} public BOB tokens and ${bobPrivateBalance} private BOB tokens`);
-    });
-}
+#include_code get_balances /docs/examples/ts/bob_token_contract/index.ts raw
 ```
 
 Looks ugly but it does what it says: prints Alice's and Bob's balances. This will make it easier to see our contract working.
@@ -441,44 +385,7 @@ Now let's add some more stuff to our `index.ts`:
 ```typescript
 async function main() {
     // ...etc
-    await bobToken.methods
-        .mint_public(aliceAddress, 100n)
-        .send({ from: giggleAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-    await bobToken.methods
-        .transfer_public(bobClinicAddress, 10n)
-        .send({ from: aliceAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-    await bobToken.methods
-        .public_to_private(90n)
-        .send({ from: aliceAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-    await bobToken.methods
-        .transfer_private(bobClinicAddress, 50n)
-        .send({ from: aliceAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-    await bobToken.methods
-        .private_to_public(10n)
-        .send({ from: aliceAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-
-    await bobToken.methods
-        .mint_private(aliceAddress, 100n)
-        .send({ from: giggleAddress })
-        .wait();
-    await getBalances(bobToken, aliceAddress, bobClinicAddress);
-}
-
-main().catch(console.error);
+#include_code checkpoint_2 /docs/examples/ts/bob_token_contract/index.ts raw
 ```
 
 The flow is something like:

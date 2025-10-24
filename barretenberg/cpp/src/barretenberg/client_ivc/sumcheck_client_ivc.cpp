@@ -187,7 +187,7 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
         info("Accumulator hash from IO: ", kernel_input.output_pg_accum_hash);
-        ASSERT(prev_accum_hash.has_value());
+        BB_ASSERT(prev_accum_hash.has_value());
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
         if (!is_hiding_kernel) {
@@ -271,7 +271,8 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     PairingPoints points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
-        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator(&circuit, recursive_verifier_native_accum);
+        current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
+            &circuit, recursive_verifier_native_accum);
     }
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
@@ -298,7 +299,7 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Extract native verifier accumulator from the stdlib accum for use on the next round
-        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value();
+        recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
         KernelIO kernel_output;
         kernel_output.pairing_inputs = points_accumulator;
@@ -357,12 +358,12 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
                  num_circuits,
                  "SumcheckClientIVC: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
+    BB_ASSERT(precomputed_vk != nullptr, "SumcheckClientIVC::accumulate - VK expected for the provided circuit");
 
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
-    // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
+    // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (prover_instance->dyadic_size() > bn254_commitment_key.dyadic_size) {
         bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
@@ -381,7 +382,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
         prover_accumulation_transcript = std::make_shared<Transcript>();
     }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
     // Make a copy of the prover_accumulation_transcript for the native verifier to use, only happens in debugging
     // builds
     auto verifier_transcript =
@@ -414,6 +415,10 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     }
     case QUEUE_TYPE::MEGA:
         vinfo("Generating proof for hiding kernel");
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Method for constructing hiding kernel proof
+        // constructs a new ProverInstance (with ZK Flavor). For now just do a hacky shared ptr deallocation to avoid
+        // double memory for storing two instances.
+        prover_instance.reset();
         proof = construct_honk_proof_for_hiding_kernel(circuit, precomputed_vk);
         break;
     }
@@ -424,7 +429,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     // Construct merge proof (excluded for hiding kernel since accumulation terminates with
     // tail kernel and hiding merge proof is constructed as part of goblin proving)
     if (queue_entry.type != QUEUE_TYPE::MEGA) {
-#ifdef NDEBUG
+#ifndef NDEBUG
         // In debugging builds update native verifier accumulator
         update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
@@ -460,18 +465,18 @@ void SumcheckClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit
  * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
  * of random ops and their position in the op queue.
  *
- * @details The ClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies that
- * commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
+ * @details The LegacyClientIVC proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies
+ * that commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
  * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
  * circuit operations that have been accumulated in CIVC. Since the op queue is used across several provers,
  * randomising these polynomials has to be handled in a special way. Normally, to hide a witness we'd add random
  * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
  * throughout CIVC, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
  * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
- * being ClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time as per
- * usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
+ * being LegacyClientIVC. ECCVM is not affected by the concerns above, randomness being added to wires at proving time
+ * as per usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
  * achieved via the translation evaluation check and avoiding an information leak there is ensured by
- * `ClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
+ * `LegacyClientIVC::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
  * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
  * UltraOp adding two coefficients to each of the 4 polynomials).
@@ -526,8 +531,7 @@ void SumcheckClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
-    // Note: a structured trace is not used for the hiding kernel
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
@@ -543,7 +547,7 @@ HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
  */
 SumcheckClientIVC::Proof SumcheckClientIVC::prove()
 {
-    // deallocate the protogalaxy accumulator
+    // deallocate the accumulator
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 
@@ -711,7 +715,7 @@ SumcheckClientIVC::VerificationKey SumcheckClientIVC::get_vk() const
              std::make_shared<TranslatorVerificationKey>() };
 }
 
-#ifdef NDEBUG
+#ifndef NDEBUG
 void SumcheckClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                                            const std::shared_ptr<Transcript>& verifier_transcript)
 {

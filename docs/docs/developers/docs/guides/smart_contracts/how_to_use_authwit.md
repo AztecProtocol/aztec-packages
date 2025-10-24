@@ -38,7 +38,7 @@ Check if the current call is authenticated using the `authorize_once` macro:
 
 ```rust
 #[authorize_once("from", "authwit_nonce")]
-#[private]
+#[external("private")]
 fn execute_private_action(
     from: AztecAddress,
     to: AztecAddress,
@@ -62,7 +62,7 @@ Enable contracts to approve actions on their behalf by updating the public auth 
 This pattern is commonly used in bridge contracts (like the [uniswap example contract](https://github.com/AztecProtocol/aztec-packages/tree/next/noir-projects/noir-contracts/contracts/app/uniswap_contract)) where one contract needs to authorize another to perform actions on its behalf:
 
 ```rust
-#[public]
+#[external("public")]
 #[internal]
 fn _approve_and_execute_action(
     target_contract: AztecAddress,

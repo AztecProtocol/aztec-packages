@@ -274,7 +274,7 @@ export class EpochProvingJob implements Traceable {
    */
   private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
     const db = await this.dbProvider.fork(blockNumber);
-    const l1ToL2MessagesPadded = padArrayEnd(
+    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
       l1ToL2Messages,
       Fr.ZERO,
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

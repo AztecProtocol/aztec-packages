@@ -40,7 +40,7 @@ pub contract AMM {
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
     };
     use dep::aztec::{
-        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -61,7 +61,7 @@ pub contract AMM {
 
     // TODO(#9480): Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
     // this contract expects (i.e. that the AMM has permission to mint and burn).
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
         storage.config.initialize(Config { token0, token1, liquidity_token });
@@ -75,7 +75,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn add_liquidity(
         amount0_max: u128,
         amount1_max: u128,
@@ -145,7 +145,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _add_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
@@ -239,7 +239,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn remove_liquidity(
         liquidity: u128,
         amount0_min: u128,
@@ -284,7 +284,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _remove_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
@@ -323,7 +323,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
@@ -358,7 +358,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
@@ -392,7 +392,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
@@ -438,7 +438,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
@@ -476,7 +476,7 @@ pub contract AMM {
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_amount_out_for_exact_in(
         balance_in: u128,
         balance_out: u128,
@@ -486,7 +486,7 @@ pub contract AMM {
         get_amount_out(amount_in, balance_in, balance_out)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_amount_in_for_exact_out(
         balance_in: u128,
         balance_out: u128,

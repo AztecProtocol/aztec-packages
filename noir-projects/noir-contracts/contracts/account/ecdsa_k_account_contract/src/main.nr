@@ -7,7 +7,7 @@ pub contract EcdsaKAccount {
     use dep::aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::{functions::{initializer, noinitcheck, private, view}, storage::storage},
+        macros::{functions::{external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness, notes::{get_sender_for_tags, set_sender_for_tags}},
         state_vars::PrivateImmutable,
@@ -21,7 +21,7 @@ pub contract EcdsaKAccount {
     }
 
     // Creates a new account out of an ECDSA public key to use for signature verification
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: [u8; 32], signing_pub_key_y: [u8; 32]) {
         let this = context.this_address();
@@ -51,7 +51,7 @@ pub contract EcdsaKAccount {
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`)
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
@@ -63,7 +63,7 @@ pub contract EcdsaKAccount {
         actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {

@@ -76,6 +76,7 @@ describe('public_tx_simulator', () => {
 
   let publicDataTree: AppendOnlyTree<Fr>;
 
+  let worldStateService: NativeWorldStateService;
   let treeStore: AztecKVStore;
   let simulator: PublicTxSimulator;
   let simulateInternal: jest.SpiedFunction<
@@ -311,8 +312,9 @@ describe('public_tx_simulator', () => {
     privateGasUsed = new Gas(13, 17);
     enqueuedCallGasUsed = new Gas(12, 34);
 
-    merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
+    worldStateService = await NativeWorldStateService.tmp();
+    merkleTrees = await worldStateService.fork();
+    merkleTreesCopy = await worldStateService.fork();
     contractsDB = new PublicContractsDB(mock<ContractDataSource>());
 
     treeStore = openTmpStore();
@@ -342,6 +344,7 @@ describe('public_tx_simulator', () => {
   }, 30_000);
 
   afterEach(async () => {
+    await worldStateService.close();
     await treeStore.delete();
   });
 

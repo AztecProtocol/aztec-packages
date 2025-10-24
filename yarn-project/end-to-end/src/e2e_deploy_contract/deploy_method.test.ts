@@ -1,12 +1,9 @@
-import {
-  AztecAddress,
-  type AztecNode,
-  BatchCall,
-  Fr,
-  type Logger,
-  type Wallet,
-  createAztecNodeClient,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstructor';
@@ -108,7 +105,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipInstancePublication: true, skipClassPublication: true, from: defaultAccountAddress };
-    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(
+    await expect(NoConstructorContract.deploy(wallet).send(opts).wait()).rejects.toThrow(
       'No transactions are needed to publish or initialize contract NoConstructor',
     );
   });

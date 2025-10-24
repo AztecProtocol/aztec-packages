@@ -101,9 +101,14 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     super(merkleTrees, contractDataSource, globals, metrics);
   }
 
-  static async new(checkCircuitOnly: boolean = false, globals?: GlobalVariables, metrics?: TestExecutorMetrics) {
+  static async new(
+    worldStateService: NativeWorldStateService, // make sure to close this later
+    checkCircuitOnly: boolean = false,
+    globals?: GlobalVariables,
+    metrics?: TestExecutorMetrics,
+  ) {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const merkleTrees = await worldStateService.fork();
     return new AvmProvingTester(checkCircuitOnly, contractDataSource, merkleTrees, globals, metrics);
   }
 

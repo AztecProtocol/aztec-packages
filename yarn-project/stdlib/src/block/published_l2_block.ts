@@ -7,8 +7,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { BlockAttestation } from '../p2p/block_attestation.js';
-import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { L2Block } from './l2_block.js';
 import { CommitteeAttestation } from './proposal/committee_attestation.js';
 
@@ -81,13 +79,4 @@ export class PublishedL2Block {
       this.attestations,
     );
   }
-}
-
-export function getAttestationsFromPublishedL2Block(
-  block: Pick<PublishedL2Block, 'attestations' | 'block'>,
-): BlockAttestation[] {
-  const payload = ConsensusPayload.fromBlock(block.block);
-  return block.attestations
-    .filter(attestation => !attestation.signature.isEmpty())
-    .map(attestation => new BlockAttestation(block.block.number, payload, attestation.signature));
 }

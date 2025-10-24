@@ -56,7 +56,7 @@ class ECCVMFlavor {
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
-    // Fixed size of the ECCVM circuits used in ClientIVC
+    // Fixed size of the ECCVM circuits used in LegacyClientIVC
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
@@ -580,12 +580,13 @@ class ECCVMFlavor {
 
             const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
                                     NUM_DISABLED_ROWS_IN_SUMCHECK;
+            vinfo("Num rows in the ECCVM: ", num_rows);
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
-            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
-                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
-                               std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
-            }
+            BB_ASSERT_LTE(dyadic_num_rows,
+                          ECCVM_FIXED_SIZE,
+                          "The ECCVM circuit size has exceeded the fixed upper bound! Fixed size: " +
+                              std::to_string(ECCVM_FIXED_SIZE) + " actual size: " + std::to_string(dyadic_num_rows));
 
 #ifdef FUZZING
             // We don't want to spend all the time generating the full trace if we are just fuzzing eccvm.
@@ -1022,7 +1023,7 @@ class ECCVMFlavor {
      * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
      *          is purely a prover-side optimization.
      *
-     * @details When used in ClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
+     * @details When used in LegacyClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
      *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
      *          In fact, here are several other conditions that need to be checked to see if we can skip the computation

@@ -39,7 +39,7 @@ msgpack::sbuffer create_polynomial_evaluation_circuit(size_t n, bool pub_coeffs)
     builder.set_variable_name(res.get_witness_index(), "result");
 
     info("evaluation at point ", z, ": ", res);
-    info("gates: ", builder.num_gates);
+    info("gates: ", builder.num_gates());
     info("variables: ", builder.get_num_variables());
     info("public inputs: ", builder.num_public_inputs());
 

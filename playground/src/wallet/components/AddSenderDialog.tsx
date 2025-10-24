@@ -3,7 +3,7 @@ import Dialog from '@mui/material/Dialog';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
-import { AztecAddress } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Box, DialogActions, DialogContent, DialogContentText, FormGroup } from '@mui/material';
 import { dialogBody, form } from '../../styles/common';
 import { InfoText } from '../../components/common/InfoText';

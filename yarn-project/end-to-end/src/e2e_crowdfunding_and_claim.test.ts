@@ -1,4 +1,6 @@
-import { Fr, type Logger, PublicKeys, deriveKeys } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys, deriveKeys } from '@aztec/aztec.js/keys';
+import type { Logger } from '@aztec/aztec.js/log';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';

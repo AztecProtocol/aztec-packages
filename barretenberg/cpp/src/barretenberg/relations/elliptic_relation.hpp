@@ -39,14 +39,42 @@ template <typename FF_> class EllipticRelationImpl {
     }
 
     /**
-     * @brief Expression for the Ultra Arithmetic gate.
-     * @details The relation is defined as C(in(X)...) =
-     *    TODO(#429): steal description from elliptic_widget.hpp
+     * @brief Expression for elliptic curve point addition and doubling.
+     * @details This relation implements elliptic curve addition/subtraction and doubling operations in short
+     * Weierstrass form: y^2 = x^3 + b. Given two distinct points P1 = (x1, y1) and P2 = (x2, y2), compute P3 = P1 ± P2
+     * = (x3, y3) or given a point P1 = (x1, y1), compute P3 = 2*P1 = (x3, y3).
      *
-     * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
+     * Addition/doubling subrelation constraints are toggled on and off via scaling by: q_elliptic * (1 - q_is_double)
+     * and q_elliptic * q_is_double respectively.
+     *
+     * Point addition constraints:
+     * ---------------------------
+     * Subrelation 0 (x-coordinate):
+     *   Formula: x3 = lambda^2 - x1 - x2, where lambda = (q_sign * y2 - y1) / (x2 - x1)
+     *   Constraint (via cancellation of denominator and assumption that q_sign^2 = 1):
+     *      (x3 + x1 + x2)(x2 - x1)^2 - (y2^2 - y1^2 + 2*q_sign*y2*y1) = 0
+     *
+     * Subrelation 1 (y-coordinate):
+     *   Formula: y3 = lambda * (x1 - x3) - y1
+     *   Constraint:
+     *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
+     *
+     * Point doubling constraints:
+     * ---------------------------
+     * Subrelation 0 (x-coordinate):
+     *   Formula: x3 = lambda^2 - 2*x1, where lambda = (3*x1^2) / (2*y1)
+     *   Constraint (via cancellation of denominator and using x1^3 = y1^2 - b):
+     *      (x3 + 2*x1)*4*y1^2 - 9*x1*(y1^2 - b) = 0
+     *
+     * Subrelation 1 (y-coordinate):
+     *   Formula: y3 = lambda * (x1 - x3) - y1
+     *   Constraint:
+     *      (y3 + y1)(x2 - x1) + (q_sign*y2 - y1)(x3 - x1) = 0
+     *
+     * @param accumulators transformed to `accumulators + C(in(X)...)*scaling_factor`
      * @param in an std::array containing the fully extended Univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
-     * @param scaling_factor optional term to scale the evaluation before adding to evals.
+     * @param scaling_factor optional term to scale the evaluation before adding to accumulators.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     inline static void accumulate(ContainerOverSubrelations& accumulators,
@@ -67,46 +95,43 @@ template <typename FF_> class EllipticRelationImpl {
         auto q_is_double_m = CoefficientAccumulator(in.q_m);
         auto q_sign_m = CoefficientAccumulator(in.q_l);
 
-        // we need to efficiently construct the following:
-        // 1. (x2 - x1)
-        // 2. (x3 - x1)
-        // 3. (x3 + x2 + x1)
-        // 4. (x1 + x1 + x1)
-        auto x2_sub_x1_m = (x_2_m - x_1_m);
-        auto x1_mul_3_m = (x_1_m + x_1_m + x_1_m);                  // used
-        auto x3_sub_x1_m = x_3_m - x_1_m;                           // used
-        auto x3_plus_two_x1_m = x3_sub_x1_m + x1_mul_3_m;           // used
-        auto x3_plus_x2_plus_x1_m = x3_plus_two_x1_m + x2_sub_x1_m; // used
+        // We efficiently construct the following:
+        auto x2_sub_x1_m = (x_2_m - x_1_m);                         // (x2 - x1)
+        auto x1_mul_3_m = (x_1_m + x_1_m + x_1_m);                  // (3*x1)
+        auto x3_sub_x1_m = x_3_m - x_1_m;                           // (x3 - x1)
+        auto x3_plus_two_x1_m = x3_sub_x1_m + x1_mul_3_m;           // (x3 - x1 + 3*x1) = (x3 + 2*x1)
+        auto x3_plus_x2_plus_x1_m = x3_plus_two_x1_m + x2_sub_x1_m; // (x3 + 2*x1 + x2 - x1) = (x3 + x2 + x1)
         Accumulator x3_plus_x2_plus_x1(x3_plus_x2_plus_x1_m);
         Accumulator x3_sub_x1(x3_sub_x1_m);
         Accumulator x1_mul_3(x1_mul_3_m);
         Accumulator x3_plus_two_x1(x3_plus_two_x1_m);
 
-        // Contribution (1) point addition, x-coordinate check
-        // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+        // Contribution (1) point addition, x-coordinate check:
+        // q_elliptic * (q_is_double - 1) * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
         auto y2_sqr_m = y_2_m.sqr();
         auto y1_sqr_m = y_1_m.sqr();
         auto y2_mul_q_sign_m = y_2_m * q_sign_m;
         auto x_add_identity = x3_plus_x2_plus_x1 * Accumulator(x2_sub_x1_m.sqr()) - Accumulator(y2_sqr_m + y1_sqr_m) +
                               Accumulator(y2_mul_q_sign_m + y2_mul_q_sign_m) * Accumulator(y_1_m);
 
-        auto q_elliptic_by_scaling_m = q_elliptic_m * scaling_factor;
-        auto q_elliptic_q_double_scaling_m = (q_elliptic_by_scaling_m * q_is_double_m);
+        auto q_elliptic_by_scaling_m = q_elliptic_m * scaling_factor;                   // a * q_elliptic
+        auto q_elliptic_q_double_scaling_m = (q_elliptic_by_scaling_m * q_is_double_m); // a * q_elliptic * q_is_double
         Accumulator q_elliptic_q_double_scaling(q_elliptic_q_double_scaling_m);
+        // (a * q_elliptic * q_is_double - a * q_elliptic) = a * q_elliptic * (q_is_double - 1)
         auto neg_q_elliptic_not_double_scaling = Accumulator(q_elliptic_q_double_scaling_m - q_elliptic_by_scaling_m);
         std::get<0>(accumulators) -= x_add_identity * neg_q_elliptic_not_double_scaling;
 
-        // Contribution (2) point addition, x-coordinate check
-        // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
-        auto y1_plus_y3_m = y_1_m + y_3_m;
-        auto y_diff_m = y2_mul_q_sign_m - y_1_m;
+        // Contribution (2) point addition, x-coordinate check:
+        // q_elliptic *  (q_is_double - 1) * (y1 + y3)(x2 - x1) + (x3 - x1)(q_sign * y2 - y1) = 0
+        auto y1_plus_y3_m = y_1_m + y_3_m;       // (y1 + y3)
+        auto y_diff_m = y2_mul_q_sign_m - y_1_m; // (q_sign * y2 - y1)
         auto y_diff = Accumulator(y_diff_m);
         auto y_add_identity = Accumulator(y1_plus_y3_m * x2_sub_x1_m) + (x3_sub_x1)*y_diff;
         std::get<1>(accumulators) -= y_add_identity * neg_q_elliptic_not_double_scaling;
 
         // Contribution (3) point doubling, x-coordinate check
-        // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-        // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+        // (x3 + x1 + x1) (4*y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
+        // N.B. we're using the equivalence x1^3 === y1^2 - curve_b to reduce degree by 1
         const auto curve_b = get_curve_b();
         auto x_pow_4_mul_3 = (Accumulator(y1_sqr_m - curve_b)) * x1_mul_3;
         auto y1_sqr_mul_4_m = y1_sqr_m + y1_sqr_m;
@@ -116,7 +141,7 @@ template <typename FF_> class EllipticRelationImpl {
         std::get<0>(accumulators) += x_double_identity * q_elliptic_q_double_scaling;
 
         // Contribution (4) point doubling, y-coordinate check
-        // (y1 + y3) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
+        // (y1 + y3) (2*y1) - (3 * x1 * x1)(x1 - x3) = 0
         auto x1_sqr_mul_3 = Accumulator(x1_mul_3_m * x_1_m);
         auto neg_y_double_identity = x1_sqr_mul_3 * (x3_sub_x1) + Accumulator((y_1_m + y_1_m) * (y1_plus_y3_m));
         std::get<1>(accumulators) -= neg_y_double_identity * q_elliptic_q_double_scaling;

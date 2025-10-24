@@ -1,4 +1,4 @@
-import { Body, L2Block } from '@aztec/aztec.js';
+import { Body, L2Block } from '@aztec/aztec.js/block';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum';
@@ -98,7 +98,12 @@ describe('sequencer', () => {
 
   const getAttestations = () => {
     const consensusPayload = ConsensusPayload.fromBlock(block);
-    const attestation = new BlockAttestation(block.header.globalVariables.blockNumber, consensusPayload, mockedSig);
+    const attestation = new BlockAttestation(
+      block.header.globalVariables.blockNumber,
+      consensusPayload,
+      mockedSig,
+      mockedSig,
+    );
     (attestation as any).sender = committee[0];
     return [attestation];
   };

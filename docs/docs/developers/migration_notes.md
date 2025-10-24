@@ -9,6 +9,45 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] Removal of barrel export
+
+`aztec.js` is now divided into granular exports, which improves loading performance in node.js and also makes the job of web bundlers easier:
+
+```diff
+-import { AztecAddress, Fr, getContractInstanceFromInstantiationParams, type Wallet } from '@aztec/aztec.js';
++import { AztecAddress } from '@aztec/aztec.js/addresses';
++import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
++import { Fr } from '@aztec/aztec.js/fields';
++import type { Wallet } from '@aztec/aztec.js/wallet';
+```
+
+Additionally, some general utilities reexported from `foundation` have been removed:
+
+```diff
+-export { toBigIntBE } from '@aztec/foundation/bigint-buffer';
+-export { sha256, Grumpkin, Schnorr } from '@aztec/foundation/crypto';
+-export { makeFetch } from '@aztec/foundation/json-rpc/client';
+-export { retry, retryUntil } from '@aztec/foundation/retry';
+-export { to2Fields, toBigInt } from '@aztec/foundation/serialize';
+-export { sleep } from '@aztec/foundation/sleep';
+-export { elapsed } from '@aztec/foundation/timer';
+-export { type FieldsOf } from '@aztec/foundation/types';
+-export { fileURLToPath } from '@aztec/foundation/url';
+```
+
+### `getSenders` renamed to `getAddressBook` in wallet interface
+
+An app could request "contacts" from the wallet, which don't necessarily have to be senders in the wallet's PXE. This method has been renamed to reflect that fact:
+
+```diff
+-wallet.getSenders();
++wallet.getAddressBook();
+```
+
+### Removal of `proveTx` from `Wallet` interface
+
+Exposing this method on the interface opened the door for certain types of attacks, were an app could route proven transactions through malicious nodes (that stored them for later decryption, or collected user IPs for example). It also made transactions difficult to track for the wallet, since they could be sent without their knowledge at any time. This change also affects `ContractFunctionInteraction` and `DeployMethod`, which no longer expose a `prove()` method.
+
 ### `msg_sender` is now an `Option<AztecAddress>` type.
 
 Because Aztec has native account abstraction, the very first function call of a tx has no `msg_sender`. (Recall, the first function call of an Aztec transaction is always a _private_ function call).
@@ -103,7 +142,6 @@ When lining up a new tx, the `FunctionCall` struct has been extended to include 
 - `!is_public & hide_msg_sender` -- Incompatible flags.
 - `!is_public & !hide_msg_sender` -- will make a private call with a visible `msg_sender` (noting that since it's a private function call, the `msg_sender` will only be visible to the called private function, but not to the rest of the world).
 
-
 ## [cli-wallet]
 
 The `deploy-account` command now requires the address (or alias) of the account to deploy as an argument, not a parameter
@@ -158,6 +196,42 @@ The following commands were dropped from the `aztec` command:
 - `get-pxe-info`: debug-only and not considered important enough to need a replacement
 
 ## [Aztec.nr]
+
+### Replacing #[private], #[public], #[utility] with #[external(...)] macro
+
+The original naming was not great in that it did not sufficiently communicate what the given macro did.
+We decided to rename `#[private]` as `#[external("private")]`, `#[public]` as `#[external("public")]`, and `#[utility]` as `#[external("utility")]` to better communicate that these functions are externally callable and to specify their execution context. In this sense, `external` now means the exact same thing as in Solidity, i.e. a function that can be called from other contracts, and that can only be invoked via a contract call (i.e. the `CALL` opcode in the EVM, and a kernel call/AVM `CALL` opcode in Aztec).
+
+You have to do the following changes in your contracts:
+
+Update import:
+
+```diff
+- use aztec::macros::functions::private;
+- use aztec::macros::functions::public;
+- use aztec::macros::functions::utility;
++ use aztec::macros::functions::external;
+```
+
+Update attributes of your functions:
+
+```diff
+-    #[private]
++    #[external("private")]
+    fn my_private_func() {
+```
+
+```diff
+-    #[public]
++    #[external("public")]
+    fn my_public_func() {
+```
+
+```diff
+-    #[utility]
++    #[external("utility")]
+    fn my_utility_func() {
+```
 
 ### Authwit Test Helper now takes `env`
 

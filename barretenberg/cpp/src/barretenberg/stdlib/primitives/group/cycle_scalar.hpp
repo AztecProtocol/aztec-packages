@@ -43,10 +43,6 @@ template <typename Builder> class cycle_scalar {
 
   private:
     size_t _num_bits = NUM_BITS;
-    bool _skip_primality_test = false;
-    // if our scalar multiplier is a bn254 FF scalar (e.g. pedersen hash),
-    // we want to validate the cycle_scalar < bn254::fr::modulus *not* grumpkin::fr::modulus
-    bool _use_bn254_scalar_field_for_primality_test = false;
 
     /**
      * @brief Decompose a uint256_t value into lo and hi parts for cycle_scalar representation
@@ -59,21 +55,10 @@ template <typename Builder> class cycle_scalar {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
 
-    cycle_scalar(const field_t& _lo,
-                 const field_t& _hi,
-                 const size_t bits,
-                 const bool skip_primality_test,
-                 const bool use_bn254_scalar_field_for_primality_test)
-        : lo(_lo)
-        , hi(_hi)
-        , _num_bits(bits)
-        , _skip_primality_test(skip_primality_test)
-        , _use_bn254_scalar_field_for_primality_test(use_bn254_scalar_field_for_primality_test) {};
-
   public:
     // AUDITTODO: this is used only in the fuzzer.
     cycle_scalar(const ScalarField& _in = 0);
-    cycle_scalar(const field_t& _lo, const field_t& _hi);
+    cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation = false);
     // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
     // production entrypoint.
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
@@ -85,15 +70,9 @@ template <typename Builder> class cycle_scalar {
     ScalarField get_value() const;
     Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
     [[nodiscard]] size_t num_bits() const { return _num_bits; }
-    [[nodiscard]] bool skip_primality_test() const { return _skip_primality_test; }
-    [[nodiscard]] bool use_bn254_scalar_field_for_primality_test() const
-    {
-        return _use_bn254_scalar_field_for_primality_test;
-    }
 
     /**
-     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the appropriate field modulus
-     * @details Checks against either bn254 scalar field or grumpkin scalar field based on internal flags
+     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
      */
     void validate_scalar_is_in_field() const;
 

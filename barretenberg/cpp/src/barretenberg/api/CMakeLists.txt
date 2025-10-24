@@ -4,3 +4,7 @@ barretenberg_module(api client_ivc bbapi dsl libdeflate::libdeflate_static nlohm
 if(AVM_TRANSPILER_LIB)
     target_link_libraries(api_objects PRIVATE avm_transpiler)
 endif()
+
+if(NOT WASM)
+    target_link_libraries(api_objects PRIVATE ipc)
+endif()

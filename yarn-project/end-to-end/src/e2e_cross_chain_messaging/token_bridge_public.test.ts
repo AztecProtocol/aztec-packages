@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 
 import { NO_L1_TO_L2_MSG_ERROR } from '../fixtures/fixtures.js';

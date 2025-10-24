@@ -4,8 +4,8 @@
  *
  * @packageDocumentation
  */
-import type { AztecAddress } from '@aztec/aztec.js';
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';

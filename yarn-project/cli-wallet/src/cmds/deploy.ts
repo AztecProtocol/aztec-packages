@@ -1,4 +1,8 @@
-import { AztecAddress, type AztecNode, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { DeployOptions } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { encodeArgs, getContractArtifact, prettyPrintJSON } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
@@ -66,7 +70,10 @@ export async function deploy(
     skipInstancePublication,
   };
 
-  const { estimatedGas } = await deploy.simulate({ ...deployOpts, fee: { ...deployOpts.fee, estimateGas: true } });
+  const { estimatedGas, stats } = await deploy.simulate({
+    ...deployOpts,
+    fee: { ...deployOpts.fee, estimateGas: true },
+  });
 
   if (feeOpts.estimateOnly) {
     if (json) {
@@ -82,12 +89,10 @@ export async function deploy(
       };
     }
   } else {
-    const provenTx = await deploy.prove(deployOpts);
+    const tx = deploy.send(deployOpts);
     if (verbose) {
-      printProfileResult(provenTx.stats!, log);
+      printProfileResult(stats, log);
     }
-
-    const tx = provenTx.send();
 
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Deploy tx sent with hash ${txHash.toString()}`);
