@@ -129,6 +129,23 @@ export class Bn254Fr extends BaseField {
   static fromGrumpkinFq(fq: GrumpkinFq): Bn254Fr {
     return new Bn254Fr(fq.value);
   }
+
+  /**
+   * Computes a square root of the field element.
+   * @returns A square root of the field element (null if it does not exist).
+   */
+  async sqrt(): Promise<Bn254Fr | null> {
+    // Lazy import to avoid circular dependency
+    const { BarretenbergSync } = await import('../barretenberg/index.js');
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+    const response = api.bn254FrSqrt({ input: this.toBuffer() });
+    if (!response.isSquareRoot) {
+      // Field element is not a quadratic residue mod p so it has no square root.
+      return null;
+    }
+    return Bn254Fr.fromBuffer(Buffer.from(response.value));
+  }
 }
 
 /**
