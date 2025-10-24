@@ -163,6 +163,30 @@ template <typename FF_>
 using lookup_tx_context_public_inputs_read_gas_limit_relation =
     lookup_relation_base<FF_, lookup_tx_context_public_inputs_read_gas_limit_settings>;
 
+/////////////////// lookup_tx_context_public_inputs_read_reverted ///////////////////
+
+struct lookup_tx_context_public_inputs_read_reverted_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_TX_CONTEXT_PUBLIC_INPUTS_READ_REVERTED";
+    static constexpr std::string_view RELATION_NAME = "tx_context";
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr Column SRC_SELECTOR = Column::tx_is_cleanup;
+    static constexpr Column DST_SELECTOR = Column::public_inputs_sel;
+    static constexpr Column COUNTS = Column::lookup_tx_context_public_inputs_read_reverted_counts;
+    static constexpr Column INVERSES = Column::lookup_tx_context_public_inputs_read_reverted_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::tx_reverted_pi_offset, ColumnAndShifts::tx_tx_reverted
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::precomputed_clk, ColumnAndShifts::public_inputs_cols_0_
+    };
+};
+
+using lookup_tx_context_public_inputs_read_reverted_settings =
+    lookup_settings<lookup_tx_context_public_inputs_read_reverted_settings_>;
+template <typename FF_>
+using lookup_tx_context_public_inputs_read_reverted_relation =
+    lookup_relation_base<FF_, lookup_tx_context_public_inputs_read_reverted_settings>;
+
 /////////////////// lookup_tx_context_restore_state_on_revert ///////////////////
 
 struct lookup_tx_context_restore_state_on_revert_settings_ {

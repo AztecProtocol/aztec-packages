@@ -67,6 +67,7 @@ namespace tx;
 
     // end_phase = 1, remaining_phase - 1 = 0;
     pol commit is_revertible;
+    // Whether this phase reverted
     pol commit reverted;
     reverted * (1 - reverted) = 0;
     #[END_PHASE_ON_REVERT]
