@@ -77,7 +77,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Polynomial = typename Flavor::Polynomial;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
     MetaData metadata;                 // circuit size and public inputs metadata
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
@@ -88,7 +88,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     WitnessCommitments commitments;
-    SubrelationSeparators alphas; // a challenge for each subrelation
+    SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator

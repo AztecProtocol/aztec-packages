@@ -40,7 +40,7 @@ template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relatio
     Sumcheck sumcheck(polynomial_size,
                       prover_instance->polynomials,
                       transcript,
-                      prover_instance->alphas,
+                      prover_instance->alpha,
                       prover_instance->gate_challenges,
                       prover_instance->relation_parameters,
                       virtual_log_n);

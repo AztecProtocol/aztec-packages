@@ -84,11 +84,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) to much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
