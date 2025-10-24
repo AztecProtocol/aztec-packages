@@ -127,7 +127,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** A list of preferred peers. */
   preferredPeers: string[];
 
-  /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
   /** Which calls are allowed in the public setup phase of a tx. */
@@ -360,7 +360,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowList: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
@@ -452,7 +452,7 @@ export type BootnodeConfig = Pick<
   | 'queryForIp'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
-  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
   Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
@@ -463,7 +463,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'peerIdPrivateKey',
   'peerIdPrivateKeyPath',
   'dataDirectory',
-  'dataStoreMapSizeKB',
+  'dataStoreMapSizeKb',
   'bootstrapNodes',
   'l1ChainId',
   'queryForIp',
