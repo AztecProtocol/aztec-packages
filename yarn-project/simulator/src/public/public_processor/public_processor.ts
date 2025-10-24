@@ -319,6 +319,9 @@ export class PublicProcessor implements Traceable {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
         // The tx-level contracts cache should not live on to the next tx
+        // On tx success (inclusion in block), created contracts should have been committed down too the block-level cache,
+        // in which case this clear should be a no-op, but is good for sanity.
+        // On failure (error and no inclusion in block), this clears the tx-level cache of any contracts that were created.
         this.contractsDB.clearContractsForTx();
       }
     }
@@ -523,6 +526,11 @@ export class PublicProcessor implements Traceable {
 
     const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
       await this.publicTxSimulator.simulate(tx);
+    // Commit contracts from this TX to the block-level cache and clear tx cache
+    // If the tx reverted, only commit non-revertible contracts.
+    // This commit function also clears the tx-level caches (both non-revertible and revertible caches).
+    this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
+    // NOTE: You can't create contracts in public, so this just adds contracts from the TX's private section.
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
