@@ -12,8 +12,7 @@ file(GLOB_RECURSE VM2_SIM_SOURCE_FILES
 # Exclude test, bench, and fuzzer files
 list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 
-# Use barretenberg_module_with_sources for vm2_sim
-# This provides consistent build configuration with other barretenberg modules
+# TODO: this isn't a proper module. We should look into creating something we actually link.
 barretenberg_module_with_sources(
   vm2_sim
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
