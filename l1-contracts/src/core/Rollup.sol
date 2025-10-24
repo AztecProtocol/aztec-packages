@@ -524,6 +524,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return RewardLib.getBlockReward();
   }
 
+  function isRewardsClaimable() external view override(IRollup) returns (bool) {
+    return RewardLib.isRewardsClaimable();
+  }
+
+  function getEarliestRewardsClaimableTimestamp() external view override(IRollup) returns (Timestamp) {
+    return RewardLib.getEarliestRewardsClaimableTimestamp();
+  }
+
   function getAvailableValidatorFlushes() external view override(IStaking) returns (uint256) {
     return ValidatorOperationsExtLib.getAvailableValidatorFlushes();
   }
