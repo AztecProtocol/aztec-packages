@@ -16,11 +16,15 @@ function build_image {
     # Otherwise, use the commit hash as the version.
     local version=$(git rev-parse HEAD)
   fi
+  local previous_ids=$(docker images aztecprotocol/aztec --format "{{.ID}}" | uniq)
   docker build -f release-image/Dockerfile --build-arg VERSION=$version -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
-  # Remove all but the most recent image.
-  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +2 | xargs -r docker rmi -f
+  # If we actually built a new image (not from cache), remove all but the just-built image.
+  local new_ids=$(docker images aztecprotocol/aztec --format "{{.ID}}" | uniq)
+  if [ "$previous_ids" != "$new_ids" ]; then
+    echo "$previous_ids" | xargs -r docker rmi -f
+  fi
 }
 export -f build_image
 
