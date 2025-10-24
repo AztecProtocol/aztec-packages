@@ -7,11 +7,12 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-void AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
+TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
 {
     info("Simulating...");
     AvmSimulationHelper simulation_helper;
-    AVM_TRACK_TIME("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
+    auto result = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
+    return result;
 }
 
 } // namespace bb::avm2

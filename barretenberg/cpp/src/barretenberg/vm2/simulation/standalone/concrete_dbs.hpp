@@ -93,8 +93,11 @@ class PureMerkleDB final : public HighLevelMerkleDBInterface {
 
 class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
   public:
-    SideEffectTrackingDB(HighLevelMerkleDBInterface& merkle_db, SideEffectTracker& tracked_side_effects)
-        : merkle_db(merkle_db)
+    SideEffectTrackingDB(const FF& first_nullifier,
+                         HighLevelMerkleDBInterface& merkle_db,
+                         SideEffectTracker& tracked_side_effects)
+        : first_nullifier(first_nullifier)
+        , merkle_db(merkle_db)
         , tracked_side_effects(tracked_side_effects)
     {}
 
@@ -127,6 +130,7 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
     void revert_checkpoint() override;
 
   private:
+    FF first_nullifier;
     HighLevelMerkleDBInterface& merkle_db;
     SideEffectTracker& tracked_side_effects;
 };

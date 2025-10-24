@@ -5,7 +5,6 @@
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
-#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
 
@@ -19,7 +18,7 @@ class AvmSimulationHelper {
                                                     std::vector<PublicDataWrite> public_data_writes);
 
     // Fast simulation without event collection.
-    void simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
+    TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
     // Simulate a bytecode with some calldata and additional context.
     // Note: this assumes that no nested calls are ever made to other bytecodes.
@@ -35,11 +34,11 @@ class AvmSimulationHelper {
 
   private:
     // Helper called by simulate_fast* functions.
-    void simulate_fast(simulation::ContractDBInterface& raw_contract_db,
-                       simulation::LowLevelMerkleDBInterface& raw_merkle_db,
-                       const Tx& tx,
-                       const GlobalVariables& global_variables,
-                       const ProtocolContracts& protocol_contracts);
+    TxSimulationResult simulate_fast(simulation::ContractDBInterface& raw_contract_db,
+                                     simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                                     const Tx& tx,
+                                     const GlobalVariables& global_variables,
+                                     const ProtocolContracts& protocol_contracts);
 };
 
 } // namespace bb::avm2

@@ -5,6 +5,7 @@
 
 #include <memory>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -37,6 +38,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_sha256.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_to_radix.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
@@ -69,6 +71,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     {
         ON_CALL(context, get_memory).WillByDefault(ReturnRef(memory));
         ON_CALL(context, get_bytecode_manager).WillByDefault(ReturnRef(bytecode_manager));
+        ON_CALL(context, get_side_effect_tracker).WillByDefault(ReturnRef(side_effect_tracker));
         execution.set_gas_tracker(gas_tracker);
     }
 
@@ -96,6 +99,7 @@ class ExecutionSimulationTest : public ::testing::Test {
     StrictMock<MockBytecodeManager> bytecode_manager;
     StrictMock<MockSha256> sha256;
     StrictMock<MockDebugLog> debug_log;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     TestingExecution execution = TestingExecution(alu,
                                                   bitwise,
                                                   data_copy,
@@ -264,8 +268,17 @@ TEST_F(ExecutionSimulationTest, Call)
             .counter = 1,
         }
     };
-
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
+    TrackedSideEffects side_effect_states = {
+        .l2_to_l1_messages = { {
+                                   .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
+                                   .contractAddress = parent_address,
+                               },
+                               {
+                                   .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
+                                   .contractAddress = parent_address,
+                               } },
+        .public_logs = { { { 4 }, parent_address } },
+    };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
@@ -285,7 +298,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_parent_gas_limit);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
-    EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
+    EXPECT_CALL(side_effect_tracker, get_side_effects()).WillRepeatedly(ReturnRef(side_effect_states));
 
     EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
 
@@ -302,17 +315,9 @@ TEST_F(ExecutionSimulationTest, Call)
     ON_CALL(*nested_context, halted())
         .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
-    EXPECT_CALL(context_provider,
-                make_nested_context(nested_address,
-                                    parent_address,
-                                    _,
-                                    _,
-                                    _,
-                                    _,
-                                    _,
-                                    Gas{ 2, 3 },
-                                    side_effect_states,
-                                    TransactionPhase::APP_LOGIC))
+    EXPECT_CALL(
+        context_provider,
+        make_nested_context(nested_address, parent_address, _, _, _, _, _, Gas{ 2, 3 }, TransactionPhase::APP_LOGIC))
         .WillOnce(Return(std::move(nested_context)));
 
     execution.call(context,
@@ -343,7 +348,17 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                     .nullifierTree = { .tree = { .root = 7, .nextAvailableLeafIndex = 6 }, .counter = 5 },
                     .l1ToL2MessageTree = { .tree = { .root = 4, .nextAvailableLeafIndex = 3 }, .counter = 0 },
                     .publicDataTree = { .tree = { .root = 2, .nextAvailableLeafIndex = 1 }, .counter = 1 } };
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
+    TrackedSideEffects side_effect_states = {
+        .l2_to_l1_messages = { {
+                                   .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
+                                   .contractAddress = parent_address,
+                               },
+                               {
+                                   .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
+                                   .contractAddress = parent_address,
+                               } },
+        .public_logs = { { { 4 }, parent_address } },
+    };
 
     auto setup_context_expectations = [&](bool parent_is_static) {
         EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
@@ -362,7 +377,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_parent_gas_limit);
         EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
             .WillOnce(Return(written_public_data_slots_tree_snapshot));
-        EXPECT_CALL(context, get_side_effect_states).WillRepeatedly(ReturnRef(side_effect_states));
+        EXPECT_CALL(side_effect_tracker, get_side_effects()).WillRepeatedly(ReturnRef(side_effect_states));
         EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
         EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
         EXPECT_CALL(context, get_memory);
@@ -390,7 +405,6 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                                     _,
                                     /*is_static=*/false,
                                     Gas{ 2, 3 },
-                                    side_effect_states,
                                     TransactionPhase::APP_LOGIC))
         .WillOnce(Return(create_nested_context()));
     execution.call(context, 1, 2, 3, 4, 5);
@@ -406,7 +420,6 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                                     _,
                                     /*is_static=*/true,
                                     Gas{ 2, 3 },
-                                    side_effect_states,
                                     TransactionPhase::APP_LOGIC))
         .WillOnce(Return(create_nested_context()));
     execution.static_call(context, 1, 2, 3, 4, 5);
@@ -422,7 +435,6 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                                     _,
                                     /*is_static=*/true,
                                     Gas{ 2, 3 },
-                                    side_effect_states,
                                     TransactionPhase::APP_LOGIC))
         .WillOnce(Return(create_nested_context()));
     execution.call(context, 1, 2, 3, 4, 5);
@@ -438,7 +450,6 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                                     _,
                                     /*is_static=*/true,
                                     Gas{ 2, 3 },
-                                    side_effect_states,
                                     TransactionPhase::APP_LOGIC))
         .WillOnce(Return(create_nested_context()));
     execution.static_call(context, 1, 2, 3, 4, 5);
@@ -1088,10 +1099,14 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
     auto recipient = MemoryValue::from<FF>(42);
     auto content = MemoryValue::from<FF>(27);
 
-    SideEffectStates side_effects_states = {};
-    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
-    SideEffectStates side_effects_states_after = side_effects_states;
-    side_effects_states_after.numL2ToL1Messages++;
+    ScopedL2ToL1Message dummy_msg = { .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
+                                      .contractAddress = 0x12345678 };
+    TrackedSideEffects side_effects_states;
+    for (int i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX - 1; i++) {
+        side_effects_states.l2_to_l1_messages.push_back(dummy_msg);
+    }
+    TrackedSideEffects side_effects_states_after = side_effects_states;
+    side_effects_states_after.l2_to_l1_messages.push_back(dummy_msg);
 
     EXPECT_CALL(context, get_memory);
 
@@ -1102,8 +1117,9 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
-    EXPECT_CALL(context, set_side_effect_states(side_effects_states_after));
+    EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
+    EXPECT_CALL(side_effect_tracker,
+                add_l2_to_l1_message(AztecAddress(0x12345678), EthAddress(0x12345678), FF(0x12345678)));
 
     execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
 }
@@ -1116,8 +1132,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
     auto recipient = MemoryValue::from<FF>(42);
     auto content = MemoryValue::from<FF>(27);
 
-    SideEffectStates side_effects_states = {};
-    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX - 1;
+    TrackedSideEffects side_effects_states;
 
     EXPECT_CALL(context, get_memory);
 
@@ -1128,7 +1143,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
-    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+    EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
                               "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
@@ -1142,8 +1157,11 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
     auto recipient = MemoryValue::from<FF>(42);
     auto content = MemoryValue::from<FF>(27);
 
-    SideEffectStates side_effects_states = {};
-    side_effects_states.numL2ToL1Messages = MAX_L2_TO_L1_MSGS_PER_TX;
+    TrackedSideEffects side_effects_states;
+    for (int i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
+        side_effects_states.l2_to_l1_messages.push_back(ScopedL2ToL1Message{
+            .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 }, .contractAddress = 0x12345678 });
+    }
 
     EXPECT_CALL(context, get_memory);
 
@@ -1154,7 +1172,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states).WillOnce(ReturnRef(side_effects_states));
+    EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
 
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
                               "SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");

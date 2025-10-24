@@ -14,6 +14,7 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/default_print.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
@@ -109,6 +110,28 @@ struct PublicInputs {
                    accumulatedData,
                    transactionFee,
                    reverted);
+    DEFINE_PRINT_MEMBERS(globalVariables,
+                         protocolContracts,
+                         startTreeSnapshots,
+                         startGasUsed,
+                         gasSettings,
+                         effectiveGasFees,
+                         feePayer,
+                         proverId,
+                         publicCallRequestArrayLengths,
+                         publicSetupCallRequests,
+                         publicAppLogicCallRequests,
+                         publicTeardownCallRequest,
+                         previousNonRevertibleAccumulatedDataArrayLengths,
+                         previousRevertibleAccumulatedDataArrayLengths,
+                         previousNonRevertibleAccumulatedData,
+                         previousRevertibleAccumulatedData,
+                         endTreeSnapshots,
+                         endGasUsed,
+                         accumulatedDataArrayLengths,
+                         accumulatedData,
+                         transactionFee,
+                         reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -161,6 +184,7 @@ struct BytecodeCommitmentHint {
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
     MSGPACK_FIELDS(classId, commitment);
+    DEFINE_PRINT_MEMBERS(classId, commitment);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -300,6 +324,7 @@ struct AccumulatedData {
     bool operator==(const AccumulatedData& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
+    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Messages);
 };
 
 // We are currently using this structure as the input to TX simulation.
@@ -387,6 +412,31 @@ struct AvmProvingInputs {
     bool operator==(const AvmProvingInputs& other) const = default;
 
     MSGPACK_FIELDS(publicInputs, hints);
+};
+
+////////////////////////////////////////////////////////////////////////////
+// Tx Simulation Result
+////////////////////////////////////////////////////////////////////////////
+struct TxSimulationResult {
+    /**
+     * TODO(fcarreiro): This is what we want it to be.
+     *
+     * avmProvingRequest: AvmProvingRequest;
+     * gasUsed: GasUsed;
+     * revertCode: RevertCode;
+     * revertReason?: SimulationError;
+     * processedPhases: ProcessedPhase[];
+     * logs: DebugLog[];
+     */
+    // Proving request data.
+    PublicInputs public_inputs;
+    std::optional<ExecutionHints> execution_hints;
+    // The rest.
+    Gas gas_used;
+    std::vector<DebugLog> debug_logs;
+
+    bool operator==(const TxSimulationResult& other) const = default;
+    MSGPACK_FIELDS(public_inputs, execution_hints, gas_used, debug_logs);
 };
 
 } // namespace bb::avm2

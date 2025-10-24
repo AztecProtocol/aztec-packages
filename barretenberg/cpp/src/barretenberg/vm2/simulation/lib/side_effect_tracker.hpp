@@ -8,7 +8,7 @@
 
 namespace bb::avm2::simulation {
 
-struct TrackedTreeSideEffects {
+struct TrackedSideEffects {
     std::vector<FF> nullifiers;
     std::vector<FF> note_hashes;
     std::vector<ScopedL2ToL1Message> l2_to_l1_messages;
@@ -16,24 +16,46 @@ struct TrackedTreeSideEffects {
     // These two are required for squashing.
     std::vector<FF> storage_writes_slots_by_insertion;
     std::unordered_map<FF, FF> storage_writes_slot_to_value;
+
+    uint32_t get_num_unencrypted_log_fields() const;
 };
 
-class SideEffectTracker {
+class SideEffectTrackerInterface {
   public:
-    void add_nullifier(const FF& siloed_nullifier);
-    void add_note_hash(const FF& siloed_unique_note_hash);
-    void add_l2_to_l1_message(const AztecAddress& contract_address, const EthAddress& recipient, const FF& content);
-    void add_public_log(const AztecAddress& contract_address, const std::vector<FF>& fields);
-    void add_storage_write(const FF& slot, const FF& value);
+    virtual ~SideEffectTrackerInterface() = default;
+    virtual void add_nullifier(const FF& siloed_nullifier) = 0;
+    virtual void add_note_hash(const FF& siloed_unique_note_hash) = 0;
+    virtual void add_l2_to_l1_message(const AztecAddress& contract_address,
+                                      const EthAddress& recipient,
+                                      const FF& content) = 0;
+    virtual void add_public_log(const AztecAddress& contract_address, const std::vector<FF>& fields) = 0;
+    virtual void add_storage_write(const FF& slot, const FF& value) = 0;
 
-    void create_checkpoint();
-    void commit_checkpoint();
-    void revert_checkpoint();
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 
-    const TrackedTreeSideEffects& get_side_effects() const { return tracked_tree_side_effects.top(); }
+    virtual const TrackedSideEffects& get_side_effects() const = 0;
+};
+
+class SideEffectTracker : public SideEffectTrackerInterface {
+  public:
+    void add_nullifier(const FF& siloed_nullifier) override;
+    void add_note_hash(const FF& siloed_unique_note_hash) override;
+    void add_l2_to_l1_message(const AztecAddress& contract_address,
+                              const EthAddress& recipient,
+                              const FF& content) override;
+    void add_public_log(const AztecAddress& contract_address, const std::vector<FF>& fields) override;
+    void add_storage_write(const FF& slot, const FF& value) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+
+    const TrackedSideEffects& get_side_effects() const override { return tracked_tree_side_effects.top(); }
 
   private:
-    std::stack<TrackedTreeSideEffects> tracked_tree_side_effects{ { TrackedTreeSideEffects{} } };
+    std::stack<TrackedSideEffects> tracked_tree_side_effects{ { TrackedSideEffects{} } };
 };
 
 } // namespace bb::avm2::simulation

@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -33,11 +34,13 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockRetrievedBytecodesTreeCheck> retrieved_bytecodes_tree_check;
+    NiceMock<MockSideEffectTracker> side_effect_tracker;
     TxExecution tx_execution = TxExecution(execution,
                                            context_provider,
                                            merkle_db,
                                            written_public_data_slots_tree_check,
                                            retrieved_bytecodes_tree_check,
+                                           side_effect_tracker,
                                            field_gt,
                                            poseidon2,
                                            tx_event_emitter);
@@ -75,6 +78,8 @@ TEST_F(TxExecutionTest, simulateTx)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
+    TrackedSideEffects side_effect_states{};
+    ON_CALL(side_effect_tracker, get_side_effects()).WillByDefault(ReturnRef(side_effect_states));
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return());
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown
@@ -93,7 +98,6 @@ TEST_F(TxExecutionTest, simulateTx)
         .success = true, // This is the key - mark execution as successful
         .gas_used = Gas{ 100, 100 },
         .output = std::nullopt, // The gadgets do not need to return data.
-        .side_effect_states = SideEffectStates{},
     };
 
     ON_CALL(execution, execute(_)).WillByDefault(Return(successful_result));

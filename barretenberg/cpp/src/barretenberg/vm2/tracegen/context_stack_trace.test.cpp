@@ -55,8 +55,6 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
         .nextAvailableLeafIndex = 10,
     };
 
-    SideEffectStates side_effect_states = SideEffectStates{ .numUnencryptedLogFields = 1, .numL2ToL1Messages = 2 };
-
     builder.process({ {
                         .id = 1,
                         .parent_id = 0,
@@ -66,7 +64,8 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                         .is_static = false,
                         .tree_states = tree_states,
                         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree_snapshot,
-                        .side_effect_states = side_effect_states,
+                        .numUnencryptedLogFields = 1,
+                        .numL2ToL1Messages = 2,
                     } },
                     trace);
 
@@ -94,8 +93,8 @@ TEST(ContextStackTraceGenTest, TraceGenerationSnapshot)
                              written_public_data_slots_tree_snapshot.root),
                 ROW_FIELD_EQ(context_stack_written_public_data_slots_tree_size,
                              written_public_data_slots_tree_snapshot.nextAvailableLeafIndex),
-                ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, side_effect_states.numUnencryptedLogFields),
-                ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, side_effect_states.numL2ToL1Messages))));
+                ROW_FIELD_EQ(context_stack_num_unencrypted_log_fields, 1),
+                ROW_FIELD_EQ(context_stack_num_l2_to_l1_messages, 2))));
 }
 
 } // namespace
