@@ -322,6 +322,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
+    void assert_coordinates_in_field(const std::string& msg = "biggroup::assert_coordinates_in_field") const
+    {
+        _x.assert_is_in_field(msg + " (x coordinate)");
+        _y.assert_is_in_field(msg + " (y coordinate)");
+    }
+
     element dbl() const;
 
     // we use this data structure to add together a sequence of points.

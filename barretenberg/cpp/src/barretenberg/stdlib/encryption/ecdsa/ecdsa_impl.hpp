@@ -90,11 +90,8 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr z(hashed_message);
 
     // Step 1.
-    // BIGGROUP_AUDITTODO: mutable accessor needed for assert_is_in_field()
-    public_key.x().assert_is_in_field(
-        "ECDSA input validation: the x coordinate of the public key is bigger than the base field modulus."); // x < q
-    public_key.y().assert_is_in_field(
-        "ECDSA input validation: the y coordinate of the public key is bigger than the base field modulus."); // y < q
+    public_key.assert_coordinates_in_field(
+        "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus."); // x < q, y < q
 
     // Step 2.
     public_key.validate_on_curve("ECDSA input validation: the public key is not a point on the elliptic curve.");

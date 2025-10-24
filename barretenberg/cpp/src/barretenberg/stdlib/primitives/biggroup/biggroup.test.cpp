@@ -47,6 +47,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using Builder = typename Curve::Builder;
     using witness_ct = stdlib::witness_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -65,23 +66,105 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(a.get_origin_tag(), next_submitted_value_origin_tag);
 
         // Tags from members are merged
-        bool_ct pif = bool_ct(witness_ct(&builder, 0));
+        // Create field elements with specific tags before constructing the biggroup element
+        affine_element input_c(element::random_element());
+        auto x = element_ct::BaseField::from_witness(&builder, input_c.x);
+        auto y = element_ct::BaseField::from_witness(&builder, input_c.y);
+        auto pif = bool_ct(witness_ct(&builder, false));
+
+        // Set tags on the individual field elements
+        x.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
         pif.set_origin_tag(next_challenge_tag);
-        // BIGGROUP_AUDITTODO: mutable accessor needed for set_origin_tag()
-        a.x().set_origin_tag(submitted_value_origin_tag);
-        a.y().set_origin_tag(challenge_origin_tag);
-        a.set_point_at_infinity(pif);
-        EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+
+        // Construct biggroup element from pre-tagged field elements
+        element_ct c(x, y, pif);
+
+        // The tag of the biggroup element should be the union of all 3 member tags
+        EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
+        // Test that instant_death_tag on x coordinate propagates correctly
         affine_element input_b(element::random_element());
-        // Working with instant death tagged element causes an exception
-        element_ct b = element_ct::from_witness(&builder, input_b);
-        b.set_origin_tag(instant_death_tag);
+        auto x_death = element_ct::BaseField::from_witness(&builder, input_b.x);
+        auto y_normal = element_ct::BaseField::from_witness(&builder, input_b.y);
+        auto pif_normal = bool_ct(witness_ct(&builder, false));
 
+        x_death.set_origin_tag(instant_death_tag);
+
+        element_ct b(x_death, y_normal, pif_normal);
+        // Working with instant death tagged element causes an exception
         EXPECT_THROW(b + b, std::runtime_error);
 #endif
     }
+
+    static void test_assert_coordinates_in_field()
+    {
+        // Only test for non-goblin builders (goblin elements don't have assert_coordinates_in_field
+        // because coordinate checks are done in the ECCVM circuit)
+        if constexpr (!HasGoblinBuilder<TestType>) {
+            // Test 1: Valid coordinates should pass
+            {
+                Builder builder;
+
+                // Test multiple random points to ensure assert_coordinates_in_field works correctly
+                for (size_t i = 0; i < 3; ++i) {
+                    affine_element valid_point(element::random_element());
+                    element_ct point = element_ct::from_witness(&builder, valid_point);
+
+                    // This should not fail - coordinates are in field
+                    point.assert_coordinates_in_field();
+                }
+
+                // Verify the circuit is correct
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            // Test 2: Invalid x coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                // Create a bigfield element with x coordinate that will be out of range
+                // We do this by creating a valid witness but then manipulating the limb values
+                // to make them represent a value >= the modulus
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because x coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+
+            // Test 3: Invalid y coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because y coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+        }
+    }
+
     static void test_add()
     {
         Builder builder;
@@ -1545,6 +1628,12 @@ TYPED_TEST(stdlib_biggroup, basic_tag_logic)
 {
     TestFixture::test_basic_tag_logic();
 }
+
+TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
+{
+    TestFixture::test_assert_coordinates_in_field();
+}
+
 TYPED_TEST(stdlib_biggroup, add)
 {
 
