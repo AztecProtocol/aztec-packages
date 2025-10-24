@@ -58,7 +58,6 @@ function pascalCase(s: string): string {
 export class SchemaCompiler {
   private typeCache = new Map<string, TypeInfo>();
   private functionMetadata: FunctionMetadata[] = [];
-  // WORKTODO(bbapi): AI slop fixup - redundant with typeCache, remove
   private referencedTypes = new Set<string>();
 
   constructor(private config: CompilerConfig) {}
