@@ -307,8 +307,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
     set(${MODULE_NAME}_exe_targets ${exe_targets} PARENT_SCOPE)
 endfunction()
 
-# Original barretenberg_module function that maintains backward compatibility
-# by auto-discovering source and header files, then calling barretenberg_module_with_sources
 function(barretenberg_module MODULE_NAME)
     # Auto-discover all source files
     file(GLOB_RECURSE SOURCE_FILES *.cpp)
