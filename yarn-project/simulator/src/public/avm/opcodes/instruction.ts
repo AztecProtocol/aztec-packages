@@ -36,6 +36,8 @@ export abstract class Instruction {
    * @returns Thee string representation.
    */
   public toString(): string {
+    // Note: we could have this be the actual wire opcode if `bytecode_serialization.ts` were to
+    // pass it into the class' static `Instruction.as(this, wireFormat)` method.
     let instructionStr = this.constructor.name + ': ';
     // assumes that all properties are flags or operands
     for (const prop of Object.getOwnPropertyNames(this) as (keyof Instruction)[]) {

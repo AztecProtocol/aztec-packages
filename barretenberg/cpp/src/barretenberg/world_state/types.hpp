@@ -40,6 +40,8 @@ struct WorldStateRevision {
 
     static WorldStateRevision committed() { return WorldStateRevision{ .includeUncommitted = false }; }
     static WorldStateRevision uncommitted() { return WorldStateRevision{ .includeUncommitted = true }; }
+
+    bool operator==(const WorldStateRevision& other) const = default;
 };
 
 struct WorldStateStatusSummary {
