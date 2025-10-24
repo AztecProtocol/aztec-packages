@@ -109,14 +109,14 @@ export -f verify_ivc_flow run_bb_cli_bench
 
 chonk_flow $1 $2
 
-# Upload op count breakdowns to gh-pages if running in CI and it's a native build
+# Upload benchmark breakdown (op counts and timings) to gh-pages if running in CI and it's a native build
 if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
-  echo_header "Uploading Barretenberg op count breakdowns to gh-pages"
+  echo_header "Uploading Barretenberg benchmark breakdowns to gh-pages"
 
   flow_name="$(basename $2)"
-  op_counts_file="bench-out/app-proving/$flow_name/native/op_counts.json"
+  benchmark_breakdown_file="bench-out/app-proving/$flow_name/native/op_counts.json"
 
-  if [[ -f "$op_counts_file" ]]; then
+  if [[ -f "$benchmark_breakdown_file" ]]; then
     # Get repository info from git
     repo_url=$(git config --get remote.origin.url)
     current_sha=$(git rev-parse HEAD)
@@ -129,8 +129,8 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     # Create target directory
     mkdir -p gh-pages-repo/bench/barretenberg-breakdowns
 
-    # Copy op_counts.json with descriptive name
-    cp "$op_counts_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}-native-op_counts.json"
+    # Copy benchmark breakdown JSON (contains op counts and timing data) with descriptive name
+    cp "$benchmark_breakdown_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}-native-breakdown.json"
 
     # Commit and push
     cd gh-pages-repo
@@ -138,11 +138,11 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     git config user.email "bot@aztec.network"
     git add bench/barretenberg-breakdowns/
     if ! git diff --staged --quiet; then
-      git commit -m "Update Barretenberg op count breakdowns for ${current_sha}"
+      git commit -m "Update Barretenberg benchmark breakdowns (op counts and timings) for ${current_sha}"
       git push
     fi
     cd ..
   else
-    echo "Warning: op_counts.json not found at $op_counts_file"
+    echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
 fi
