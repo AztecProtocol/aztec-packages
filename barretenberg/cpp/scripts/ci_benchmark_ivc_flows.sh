@@ -121,16 +121,26 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     repo_url=$(git config --get remote.origin.url)
     current_sha=$(git rev-parse HEAD)
 
+    # Use authenticated URL if GITHUB_TOKEN is available
+    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+      # Convert SSH URL to HTTPS with token
+      if [[ "$repo_url" =~ ^git@github\.com:(.+)$ ]]; then
+        repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${BASH_REMATCH[1]}"
+      elif [[ "$repo_url" =~ ^https://github\.com/(.+)$ ]]; then
+        repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${BASH_REMATCH[1]}"
+      fi
+    fi
+
     # Shallow clone gh-pages branch if not already cloned
     if [[ ! -d "gh-pages-repo" ]]; then
       git clone --depth 1 --branch gh-pages "$repo_url" gh-pages-repo
     fi
 
-    # Create target directory
-    mkdir -p gh-pages-repo/bench/barretenberg-breakdowns
+    # Create target directory for this flow
+    mkdir -p "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}"
 
-    # Copy benchmark breakdown JSON (contains op counts and timing data) with descriptive name
-    cp "$benchmark_breakdown_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}-native-breakdown.json"
+    # Copy benchmark breakdown JSON (contains op counts and timing data) with commit SHA as filename
+    cp "$benchmark_breakdown_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}/${current_sha}.json"
 
     # Commit and push
     cd gh-pages-repo
