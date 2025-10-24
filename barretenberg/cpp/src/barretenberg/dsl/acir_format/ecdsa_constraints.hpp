@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: completed, auditors: [Federico], date: 2025-10-23 }
+// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -30,12 +30,19 @@ using namespace bb;
  *     coordinate of the public key against which the signature should be verified.
  *  6. `result`, an array of length 1 representing the witness index of the expected result of the signature
  *     verification.
- *  7. `predicate`, a boolean witness indicating whether the constraint should be disabled or not. If the predicate is
- *     false, then the constraint is disabled, i.e it must not fail and can return whatever. When `predicate` is set to
- *     false, we override some values to ensure that all the circuit constraints are satisfied:
+ *  7. `predicate`, a boolean witness (or constant) indicating whether the constraint should be disabled or not. If the
+ *     predicate is witness false, then the constraint is disabled, i.e it must not fail and can return whatever. When
+ *     `predicate` is set to witness false, we override some values to ensure that all the circuit constraints are
+ *     satisfied:
  *      - We set the first byte of each component of the signature to 1 (NOTE: This only works when the order of the
- *        curve divided by two is bigger than 2^241).
+ *        curve divided by two is bigger than \f$2^241\f$).
  *      - We set the public key to be 2 times the generator of the curve.
+ *
+ * @note There is a small chance that when the predicate is witness false, the circuit still fails. This is due to ECDSA
+ * verification checking that \f$u_1 * G + u_2 * P\f$ is not the point at infinity. When the predicate is witness false,
+ * we set \f$P = 2G\f$, so the result of the scalar multiplication is the point at infinity when \f$u_1 + 2 u_2 = H(m)
+ * * s^{-1} + 2 * r * s^{-1} = 0 \mod n\f$, which means \f$H(m) + 2 * r = 0 \mod n\f$. Given that \f$r\f$ and \f$H(m)\f$
+ * are both random 256-bit numbers, the probability of this happening is negligible.
  */
 struct EcdsaConstraint {
     bb::CurveType type;

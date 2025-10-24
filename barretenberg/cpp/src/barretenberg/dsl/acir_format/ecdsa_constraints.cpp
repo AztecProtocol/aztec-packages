@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: completed, auditors: [Federico], date: 2025-10-23 }
+// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -23,10 +23,10 @@ using namespace bb;
  *     a vector) and the boolean result from the corresponding builder variable
  *  2. Reconstruct the public key from the byte representations (big-endian, 32-byte numbers) of the \f$x\f$ and \f$y\f$
  *     coordinates.
- *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is false. This
- *     ensures that the circuit is satisfied when the predicate is false. We set:
+ *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is witness
+ *     false. This ensures that the circuit is satisfied when the predicate is false. We set:
  *      - The first byte of r and s to 1 (NOTE: This only works when the order of the curve divided by two is bigger
- *        than 2^241).
+ *        than \f$2^241\f$).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
  *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
@@ -85,6 +85,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
     G1 public_key(pub_x, pub_y);
 
     // Step 3.
+    // There is one remaining edge case that happens with negligible probability, see here:
+    // https://github.com/AztecProtocol/barretenberg/issues/1570
     if (!input.predicate.is_constant) {
         predicate = static_cast<bool_ct>(predicate_field);                 // Constructor enforces predicate = 0 or 1
         r[0] = field_ct::conditional_assign(predicate, r[0], field_ct(1)); // 0 < r < n
@@ -94,15 +96,6 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         typename Curve::AffineElement default_point(Curve::g1::one + Curve::g1::one);
         public_key.x = Fq::conditional_assign(predicate, public_key.x, default_point.x);
         public_key.y = Fq::conditional_assign(predicate, public_key.y, default_point.y);
-        // Avoid mixing constant/witness coordinates because of issue
-        // https://github.com/AztecProtocol/aztec-packages/issues/17514
-        if (pub_x.is_constant() != pub_y.is_constant()) {
-            if (pub_x.is_constant()) {
-                pub_x.convert_constant_to_fixed_witness(&builder);
-            } else if (pub_y.is_constant()) {
-                pub_y.convert_constant_to_fixed_witness(&builder);
-            }
-        }
     } else {
         BB_ASSERT(input.predicate.value, "Creating ECDSA constraints with a constant predicate equal to false.");
     }
