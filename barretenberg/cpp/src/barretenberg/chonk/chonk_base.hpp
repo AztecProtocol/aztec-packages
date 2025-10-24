@@ -15,7 +15,7 @@ namespace bb {
 /**
  * @brief Base class interface for IVC schemes
  *
- * Provides common interface for different IVC implementations SumcheckChonk allowing them to be
+ * Provides common interface for different IVC implementations Chonk allowing them to be
  * used polymorphically in the API.
  */
 class IVCBase {

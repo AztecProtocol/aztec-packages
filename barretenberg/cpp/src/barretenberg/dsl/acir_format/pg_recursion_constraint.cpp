@@ -34,13 +34,13 @@ using namespace bb;
  * details.
  *
  * @param constraints IVC recursion constraints from a kernel circuit
- * @return SumcheckChonk
+ * @return Chonk
  */
 
-std::shared_ptr<SumcheckChonk> create_mock_sumcheck_ivc_from_constraints(
+std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
     const std::vector<RecursionConstraint>& constraints)
 {
-    auto ivc = std::make_shared<SumcheckChonk>(constraints.size());
+    auto ivc = std::make_shared<Chonk>(constraints.size());
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
@@ -51,19 +51,19 @@ std::shared_ptr<SumcheckChonk> create_mock_sumcheck_ivc_from_constraints(
 
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
         return ivc;
     }
 
     // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
         return ivc;
     }
 
     // Case: TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -71,14 +71,14 @@ std::shared_ptr<SumcheckChonk> create_mock_sumcheck_ivc_from_constraints(
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
     }
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        mock_sumcheck_ivc_accumulation(ivc, SumcheckChonk::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -91,10 +91,10 @@ std::shared_ptr<SumcheckChonk> create_mock_sumcheck_ivc_from_constraints(
  * necessarily valid
  *
  */
-SumcheckChonk::VerifierInputs create_mock_verification_queue_entry_nova(
-    const SumcheckChonk::QUEUE_TYPE verification_type, const bool is_kernel)
+Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUEUE_TYPE verification_type,
+                                                                    const bool is_kernel)
 {
-    using IvcType = SumcheckChonk;
+    using IvcType = Chonk;
     using FF = IvcType::FF;
     using MegaVerificationKey = IvcType::MegaVerificationKey;
     using Flavor = IvcType::Flavor;
@@ -108,9 +108,9 @@ SumcheckChonk::VerifierInputs create_mock_verification_queue_entry_nova(
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
-        BB_ASSERT_EQ(verification_type == SumcheckChonk::QUEUE_TYPE::PG ||
-                         verification_type == SumcheckChonk::QUEUE_TYPE::PG_TAIL ||
-                         verification_type == SumcheckChonk::QUEUE_TYPE::PG_FINAL,
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::PG ||
+                         verification_type == Chonk::QUEUE_TYPE::PG_TAIL ||
+                         verification_type == Chonk::QUEUE_TYPE::PG_FINAL,
                      true);
 
         // kernel circuits are always folded, thus the proof always includes the nova fold proof
@@ -120,18 +120,17 @@ SumcheckChonk::VerifierInputs create_mock_verification_queue_entry_nova(
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
-        BB_ASSERT_EQ(verification_type == SumcheckChonk::QUEUE_TYPE::OINK ||
-                         verification_type == SumcheckChonk::QUEUE_TYPE::PG,
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::PG,
                      true);
 
         // The first app is not folded thus the proof does not include the nova fold proof
-        bool include_fold = !(verification_type == SumcheckChonk::QUEUE_TYPE::OINK);
+        bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
         proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
 
         verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
     }
 
-    return SumcheckChonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
+    return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }
 
 /**
@@ -143,25 +142,25 @@ SumcheckChonk::VerifierInputs create_mock_verification_queue_entry_nova(
  * @param type The type of verification (OINK, PG, PG_TAIL, PG_FINAL)
  * @param is_kernel Whether this is a kernel circuit accumulation
  */
-void mock_sumcheck_ivc_accumulation(const std::shared_ptr<SumcheckChonk>& ivc,
-                                    SumcheckChonk::QUEUE_TYPE type,
+void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc,
+                                    Chonk::QUEUE_TYPE type,
                                     const bool is_kernel)
 {
-    using FF = SumcheckChonk::FF;
-    using Commitment = SumcheckChonk::Commitment;
+    using FF = Chonk::FF;
+    using Commitment = Chonk::Commitment;
 
     // Initialize verifier accumulator with proper structure
-    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(SumcheckChonk::Flavor::VIRTUAL_LOG_N, FF::zero());
+    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
     ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
     ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
 
-    SumcheckChonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
+    Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
-    if (type == SumcheckChonk::QUEUE_TYPE::PG_FINAL) {
-        ivc->decider_proof = acir_format::create_mock_pcs_proof<SumcheckChonk::Flavor>();
+    if (type == Chonk::QUEUE_TYPE::PG_FINAL) {
+        ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
     ivc->num_circuits_accumulated++;
 }
@@ -177,7 +176,7 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices)
 {
-    using FF = SumcheckChonk::FF;
+    using FF = Chonk::FF;
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();

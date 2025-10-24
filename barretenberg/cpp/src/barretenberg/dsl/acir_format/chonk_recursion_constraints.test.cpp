@@ -29,7 +29,7 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
     struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        SumcheckChonk::Proof proof;
+        Chonk::Proof proof;
     };
 
     static ChonkData get_chonk_data()
@@ -38,13 +38,13 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ num_circuits };
+        Chonk ivc{ num_circuits };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        SumcheckChonk::Proof proof = ivc.prove();
+        Chonk::Proof proof = ivc.prove();
         return { ivc.get_vk().mega, proof };
     }
 

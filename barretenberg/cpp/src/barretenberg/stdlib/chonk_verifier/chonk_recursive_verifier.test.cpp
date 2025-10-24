@@ -9,13 +9,13 @@ class ChonkRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
     using ChonkVerifier = ChonkRecursiveVerifier;
-    using Proof = SumcheckChonk::Proof;
+    using Proof = Chonk::Proof;
     using StdlibProof = ChonkVerifier::StdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
-    using IVCVerificationKey = SumcheckChonk::VerificationKey;
+    using IVCVerificationKey = Chonk::VerificationKey;
     using PairingAccumulator = PairingPoints<Builder>;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -35,7 +35,7 @@ class ChonkRecursionTests : public testing::Test {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer{ num_app_circuits };
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ NUM_CIRCUITS };
 
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
@@ -54,7 +54,7 @@ TEST_F(ChonkRecursionTests, NativeVerification)
     auto [proof, vk] = construct_chonk_prover_output();
 
     // Confirm that the IVC proof can be natively verified
-    EXPECT_TRUE(SumcheckChonk::verify(proof, vk));
+    EXPECT_TRUE(Chonk::verify(proof, vk));
 }
 
 /**

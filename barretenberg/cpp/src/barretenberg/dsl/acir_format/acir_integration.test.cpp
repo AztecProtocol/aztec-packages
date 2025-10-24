@@ -1,4 +1,4 @@
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #ifndef __wasm__
 #include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
@@ -493,8 +493,8 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<SumcheckChonk> ivc = steps.accumulate();
-    SumcheckChonk::Proof proof = ivc->prove();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    Chonk::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
 }
