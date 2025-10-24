@@ -22,4 +22,7 @@ ACCUMULATE(nullifier_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class nullifier_checkImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(nullifier_checkImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

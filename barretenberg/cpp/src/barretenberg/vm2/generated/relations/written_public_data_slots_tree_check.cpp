@@ -28,6 +28,10 @@ ACCUMULATE(written_public_data_slots_tree_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class written_public_data_slots_tree_checkImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(written_public_data_slots_tree_checkImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

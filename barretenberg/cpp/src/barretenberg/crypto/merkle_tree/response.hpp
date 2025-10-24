@@ -228,7 +228,7 @@ struct RemoveHistoricResponse {
 };
 
 template <typename ResponseType> struct TypedResponse {
-    ResponseType inner{};
+    ResponseType inner;
     bool success{ true };
     std::string message;
 

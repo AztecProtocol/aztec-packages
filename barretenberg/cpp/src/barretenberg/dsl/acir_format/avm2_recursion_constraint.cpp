@@ -5,7 +5,7 @@
 // =====================
 
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#if 1
+#ifndef DISABLE_AZTEC_VM
 
 #include "avm2_recursion_constraint.hpp"
 

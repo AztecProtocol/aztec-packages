@@ -16,4 +16,7 @@ ACCUMULATE(txImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationE
 ACCUMULATE(txImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);  // Check circuit.
 ACCUMULATE(txImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge); // Check relation (tests).
 
+template class txImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(txImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

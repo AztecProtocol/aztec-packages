@@ -19,4 +19,7 @@ ACCUMULATE(tx_discardImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class tx_discardImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(tx_discardImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

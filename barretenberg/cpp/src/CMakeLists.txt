@@ -219,11 +219,11 @@ if(WASM)
         $<TARGET_OBJECTS:wasi_objects>
     )
 
-        target_link_options(
-            barretenberg-debug.wasm
-            PRIVATE
-            -nostartfiles -Wl,--no-entry,--export-dynamic,$<$<CONFIG:Debug>:--export-all>
-        )
+    target_link_options(
+        barretenberg-debug.wasm
+        PRIVATE
+        -nostartfiles -Wl,--no-entry,--export-dynamic,$<$<CONFIG:Debug>:--export-all>
+    )
 
 
     # Strip debug info to create the release version.

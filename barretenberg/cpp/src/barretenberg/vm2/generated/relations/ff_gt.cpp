@@ -19,4 +19,7 @@ ACCUMULATE(ff_gtImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class ff_gtImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(ff_gtImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

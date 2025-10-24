@@ -19,4 +19,7 @@ ACCUMULATE(bc_retrievalImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class bc_retrievalImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(bc_retrievalImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

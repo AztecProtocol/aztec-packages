@@ -28,6 +28,10 @@ ACCUMULATE(contract_instance_retrievalImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class contract_instance_retrievalImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(contract_instance_retrievalImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

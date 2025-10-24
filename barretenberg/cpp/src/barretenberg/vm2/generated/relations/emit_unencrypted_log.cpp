@@ -22,6 +22,10 @@ ACCUMULATE(emit_unencrypted_logImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class emit_unencrypted_logImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(emit_unencrypted_logImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

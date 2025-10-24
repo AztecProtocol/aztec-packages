@@ -22,6 +22,10 @@ ACCUMULATE(public_data_checkImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class public_data_checkImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(public_data_checkImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

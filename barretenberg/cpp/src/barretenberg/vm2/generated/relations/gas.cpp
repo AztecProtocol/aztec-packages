@@ -16,4 +16,7 @@ ACCUMULATE(gasImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, Evaluation
 ACCUMULATE(gasImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckCircuitEdge);  // Check circuit.
 ACCUMULATE(gasImpl, AvmFlavor, SumcheckArrayOfValuesOverSubrelations, AvmCheckRelationEdge); // Check relation (tests).
 
+template class gasImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(gasImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

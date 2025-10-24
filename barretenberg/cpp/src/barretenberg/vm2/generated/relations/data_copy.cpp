@@ -19,4 +19,7 @@ ACCUMULATE(data_copyImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class data_copyImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(data_copyImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

@@ -1,25 +1,11 @@
 #include "private_execution_steps.hpp"
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#ifndef __wasm__
 #include <libdeflate.h>
-#endif
 
 namespace bb {
 
-#ifdef __wasm__
-std::vector<uint8_t> compress([[maybe_unused]] const std::vector<uint8_t>& input)
-{
-    throw_or_abort("Compression is not supported in WASM builds");
-}
-
-std::vector<uint8_t> decompress([[maybe_unused]] const void* bytes, [[maybe_unused]] size_t size)
-{
-    throw_or_abort("Decompression is not supported in WASM builds");
-}
-#else
 std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 {
     auto compressor =
@@ -66,7 +52,6 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
     }
     return content;
 }
-#endif
 
 template <typename T> T unpack_from_file(const std::filesystem::path& filename)
 {

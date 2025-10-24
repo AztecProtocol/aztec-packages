@@ -17,45 +17,41 @@ extern "C" {
  * - error_message: Error message if failed (null-terminated string)
  */
 typedef struct {
-  int success;
-  unsigned char *data;
-  size_t length;
-  char *error_message;
+    int success;
+    unsigned char* data;
+    size_t length;
+    char* error_message;
 } TranspileResult;
 
 /**
- * Transpiles a Brillig contract artifact file to AVM bytecode
+ * Transpiles an ACIR contract artifact file to AVM bytecode
  *
- * @param input_path Path to input Brillig contract artifact JSON file
+ * @param input_path Path to input ACIR contract artifact JSON file
  * @param output_path Path to output transpiled contract artifact JSON file
- * @return TranspileResult containing success status, output data, or error
- * message
+ * @return TranspileResult containing success status, output data, or error message
  *
- * The function reads the Brillig contract from input_path, transpiles it to AVM
- * bytecode, and writes the result to output_path. The output data in the result
- * contains the same JSON that was written to the file.
+ * The function reads the ACIR contract from input_path, transpiles it to AVM bytecode,
+ * and writes the result to output_path. The output data in the result contains
+ * the same JSON that was written to the file.
  *
  * Call avm_free_result() to free the returned result.
  */
-TranspileResult avm_transpile_file(const char *input_path,
-                                   const char *output_path);
+TranspileResult avm_transpile_file(const char* input_path, const char* output_path);
 
 /**
- * Transpiles raw Brillig contract artifact bytecode to AVM bytecode
+ * Transpiles raw ACIR contract artifact bytecode to AVM bytecode
  *
- * @param input_data Pointer to input Brillig contract artifact JSON data
+ * @param input_data Pointer to input ACIR contract artifact JSON data
  * @param input_length Length of input data in bytes
- * @return TranspileResult containing success status, output data, or error
- * message
+ * @return TranspileResult containing success status, output data, or error message
  *
- * The function takes raw JSON bytes representing a Brillig contract artifact,
+ * The function takes raw JSON bytes representing an ACIR contract artifact,
  * transpiles it to AVM bytecode, and returns the transpiled contract artifact
  * as JSON bytes in the result.
  *
  * Call avm_free_result() to free the returned result.
  */
-TranspileResult avm_transpile_bytecode(const unsigned char *input_data,
-                                       size_t input_length);
+TranspileResult avm_transpile_bytecode(const unsigned char* input_data, size_t input_length);
 
 /**
  * Frees memory allocated by a TranspileResult
@@ -65,7 +61,7 @@ TranspileResult avm_transpile_bytecode(const unsigned char *input_data,
  * This function must be called to free the memory allocated by
  * avm_transpile_file() and avm_transpile_bytecode().
  */
-void avm_free_result(TranspileResult *result);
+void avm_free_result(TranspileResult* result);
 
 #ifdef __cplusplus
 }

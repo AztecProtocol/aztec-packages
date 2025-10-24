@@ -22,6 +22,10 @@ ACCUMULATE(send_l2_to_l1_msgImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class send_l2_to_l1_msgImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(send_l2_to_l1_msgImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

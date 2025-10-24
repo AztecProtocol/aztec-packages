@@ -22,4 +22,7 @@ ACCUMULATE(notehash_existsImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class notehash_existsImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(notehash_existsImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

@@ -19,4 +19,7 @@ ACCUMULATE(to_radix_memImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class to_radix_memImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(to_radix_memImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

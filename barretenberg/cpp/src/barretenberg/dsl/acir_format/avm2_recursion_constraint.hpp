@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#if 1
+#ifndef DISABLE_AZTEC_VM
 #pragma once
 
 #include "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp"

@@ -19,4 +19,7 @@ ACCUMULATE(emit_nullifierImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class emit_nullifierImpl<AvmRecursiveFlavor::FF>;
+ACCUMULATE(emit_nullifierImpl, AvmRecursiveFlavor, SumcheckArrayOfValuesOverSubrelations, EvaluationEdge); // Verifier.
+
 } // namespace bb::avm2

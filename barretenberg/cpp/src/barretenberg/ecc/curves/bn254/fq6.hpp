@@ -91,6 +91,7 @@ struct Bn254Fq6Params {
         fq T2 = T0 - a.c1;
 
         return { T2, T1 + a.c0 };
+        T0 = a.c0 + a.c0;
     }
 };
 

@@ -22,6 +22,10 @@ ACCUMULATE(bc_decompositionImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class bc_decompositionImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(bc_decompositionImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2

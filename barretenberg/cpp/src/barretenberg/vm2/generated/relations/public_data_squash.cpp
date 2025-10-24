@@ -22,6 +22,10 @@ ACCUMULATE(public_data_squashImpl,
            SumcheckArrayOfValuesOverSubrelations,
            AvmCheckRelationEdge); // Check relation (tests).
 
+template class public_data_squashImpl<AvmRecursiveFlavor::FF>;
 ACCUMULATE(public_data_squashImpl,
+           AvmRecursiveFlavor,
+           SumcheckArrayOfValuesOverSubrelations,
+           EvaluationEdge); // Verifier.
 
 } // namespace bb::avm2
