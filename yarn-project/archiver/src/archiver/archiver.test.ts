@@ -106,7 +106,7 @@ describe('Archiver', () => {
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
   let epochCache: MockProxy<EpochCache>;
   let archiverStore: ArchiverDataStore;
-  let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32 };
+  let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let now: number;
 
   let mockRollupRead: MockProxy<MockRollupContractRead>;
@@ -167,6 +167,7 @@ describe('Archiver', () => {
       slotDuration: 24,
       ethereumSlotDuration: 12,
       proofSubmissionEpochs: 1,
+      genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT),
     };
 
     archiver = new Archiver(

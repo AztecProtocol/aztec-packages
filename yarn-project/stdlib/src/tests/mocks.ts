@@ -270,12 +270,9 @@ export const makeAndSignCommitteeAttestationsAndSigners = (
 };
 
 export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockProposal => {
-  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
-    SignatureDomainSeparator.blockProposal,
-    options,
-  );
+  const { payload, signature } = makeAndSignConsensusPayload(SignatureDomainSeparator.blockProposal, options);
   const txHashes = options?.txHashes ?? [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
-  return new BlockProposal(blockNumber, payload, signature, txHashes, options?.txs ?? []);
+  return new BlockProposal(payload, signature, txHashes, options?.txs ?? []);
 };
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
@@ -303,7 +300,7 @@ export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): Blo
   const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
   const proposerSignature = proposerSigner.sign(proposalHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
+  return new BlockAttestation(payload, attestationSignature, proposerSignature);
 };
 
 export const makeBlockAttestationFromBlock = (
@@ -331,7 +328,7 @@ export const makeBlockAttestationFromBlock = (
   const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
   const proposerSignature = proposalSignerToUse.sign(proposalHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
+  return new BlockAttestation(payload, attestationSignature, proposerSignature);
 };
 
 export async function randomPublishedL2Block(

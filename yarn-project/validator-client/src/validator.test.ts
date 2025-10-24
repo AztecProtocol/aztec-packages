@@ -1,3 +1,4 @@
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times } from '@aztec/foundation/collection';
@@ -222,6 +223,7 @@ describe('ValidatorClient', () => {
 
   describe('attestToProposal', () => {
     let proposal: BlockProposal;
+    let blockNumber: number;
     let sender: PeerId;
     let blockBuildResult: BuildBlockResult;
 
@@ -236,6 +238,7 @@ describe('ValidatorClient', () => {
       const emptyInHash = await computeInHashFromL1ToL2Messages([]);
       const contentCommitment = new ContentCommitment(Fr.random(), emptyInHash, Fr.random());
       const blockHeader = makeL2BlockHeader(1, 100, 100, { contentCommitment });
+      blockNumber = blockHeader.getBlockNumber();
       proposal = makeBlockProposal({ header: blockHeader });
       // Set the current time to the start of the slot of the proposal
       const genesisTime = 1n;
@@ -263,9 +266,13 @@ describe('ValidatorClient', () => {
       });
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
 
-      blockSource.getBlock.mockResolvedValue({
-        archive: new AppendOnlyTreeSnapshot(proposal.payload.header.lastArchiveRoot, proposal.blockNumber),
-      } as L2Block);
+      // Return parent block when requested
+      blockSource.getBlockHeaderByArchive.mockResolvedValue({
+        getBlockNumber: () => blockNumber - 1,
+        getSlot: () => blockHeader.getSlot() - 1n,
+      } as BlockHeader);
+
+      blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
 
       blockBuildResult = {
@@ -279,7 +286,7 @@ describe('ValidatorClient', () => {
         block: {
           header: blockHeader.clone(),
           body: { txEffects: times(proposal.txHashes.length, () => ({})) },
-          archive: new AppendOnlyTreeSnapshot(proposal.archive, proposal.blockNumber),
+          archive: new AppendOnlyTreeSnapshot(proposal.archive, blockNumber),
         } as L2Block,
       };
     });
@@ -293,11 +300,11 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
-      blockSource.getBlock.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockHeaderByArchive.mockResolvedValueOnce(undefined);
       const attestations = await validatorClient.attestToProposal(proposal, sender);
-      expect(blockSource.getBlock).toHaveBeenCalledTimes(4);
+      expect(blockSource.getBlockHeaderByArchive).toHaveBeenCalledTimes(4);
       expect(attestations).toBeDefined();
       expect(attestations?.length).toBe(1);
     });
@@ -346,7 +353,7 @@ describe('ValidatorClient', () => {
       blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
       const attestations = await validatorClient.attestToProposal(proposal, sender);
       expect(attestations).toBeUndefined();
-      expect(blockSource.getBlockHeader).toHaveBeenCalledWith(proposal.blockNumber);
+      expect(blockSource.getBlockHeader).toHaveBeenCalledWith(blockNumber);
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
@@ -367,6 +374,7 @@ describe('ValidatorClient', () => {
 
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
         proposal,
+        blockNumber,
         expect.objectContaining({ pinnedPeer: sender }),
       );
     });
@@ -379,6 +387,7 @@ describe('ValidatorClient', () => {
 
       expect(txProvider.getTxsForBlockProposal).toHaveBeenCalledWith(
         proposal,
+        blockNumber,
         expect.objectContaining({ pinnedPeer: sender }),
       );
     });
