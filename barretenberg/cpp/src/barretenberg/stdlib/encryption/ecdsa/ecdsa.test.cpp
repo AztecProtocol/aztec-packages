@@ -80,15 +80,15 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         case TamperingMode::XCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with x >= q
             // Do nothing here, tampering happens in circuit
-            failure_msg = "ECDSA input validation: the x coordinate of the public key is bigger than the base field "
-                          "modulus.: hi limb.";
+            failure_msg = "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus. "
+                          "(x coordinate): hi limb.";
             break;
         }
         case TamperingMode::YCoordinateOverflow: {
             // Invalidate the circuit by passing a public key with y >= q
             // Do nothing here, tampering happens in circuit
-            failure_msg = "ECDSA input validation: the y coordinate of the public key is bigger than the base field "
-                          "modulus.: hi limb.";
+            failure_msg = "ECDSA input validation: coordinate(s) of the public key bigger than the base field modulus. "
+                          "(y coordinate): hi limb.";
             break;
         }
         case TamperingMode::InvalidR: {
