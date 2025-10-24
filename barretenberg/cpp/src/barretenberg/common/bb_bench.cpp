@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <sys/types.h>
 #ifndef __wasm__
+#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "bb_bench.hpp"
 #include <algorithm>
 #include <cassert>
@@ -294,6 +295,57 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
         os << "\n";
     }
     os << '}' << "\n";
+}
+
+// Serializable structure for a single benchmark entry (msgpack-compatible)
+struct SerializableEntry {
+    std::string parent;
+    std::size_t time;
+    std::size_t time_max;
+    double time_mean;
+    double time_stddev;
+    std::size_t count;
+    std::size_t num_threads;
+
+    MSGPACK_FIELDS(parent, time, time_max, time_mean, time_stddev, count, num_threads);
+};
+
+void GlobalBenchStatsContainer::serialize_aggregate_data_json(std::ostream& os) const
+{
+    AggregateData data = aggregate();
+
+    // Convert AggregateData to a msgpack-serializable map
+    std::map<std::string, std::vector<SerializableEntry>> serializable_data;
+
+    for (const auto& [key, parent_map] : data) {
+        std::vector<SerializableEntry> entries;
+
+        for (const auto& [parent_key, entry] : parent_map) {
+            // Skip _root entries that have zero time (never called at root level)
+            if (parent_key.empty() && entry.time == 0) {
+                continue;
+            }
+
+            entries.push_back(SerializableEntry{ .parent = parent_key.empty() ? "_root" : std::string(parent_key),
+                                                 .time = entry.time,
+                                                 .time_max = entry.time_max,
+                                                 .time_mean = entry.time_mean,
+                                                 .time_stddev = entry.get_std_dev(),
+                                                 .count = entry.count,
+                                                 .num_threads = entry.num_threads });
+        }
+
+        // Only add functions that have non-empty entries
+        if (!entries.empty()) {
+            serializable_data[std::string(key)] = entries;
+        }
+    }
+
+    // Use msgpack to serialize and convert to JSON
+    msgpack::sbuffer buffer;
+    msgpack::pack(buffer, serializable_data);
+    msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+    os << oh.get() << std::endl;
 }
 
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const

@@ -107,7 +107,7 @@ export type SendOptions = Omit<SendInteractionOptions, 'fee'> & {
 /**
  * Helper type that represents all methods that can be batched.
  */
-export type BatchableMethods = Pick<Wallet, 'registerContract' | 'sendTx' | 'registerSender'>;
+export type BatchableMethods = Pick<Wallet, 'registerContract' | 'sendTx' | 'registerSender' | 'simulateUtility'>;
 
 /**
  * From the batchable methods, we create a type that represents a method call with its name and arguments.
@@ -288,6 +288,10 @@ export const BatchedMethodSchema = z.union([
     name: z.literal('sendTx'),
     args: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]),
   }),
+  z.object({
+    name: z.literal('simulateUtility'),
+    args: z.tuple([z.string(), z.array(z.any()), schemas.AztecAddress, optional(z.array(AuthWitness.schema))]),
+  }),
 ]);
 
 export const ContractMetadataSchema = z.object({
@@ -351,6 +355,7 @@ export const WalletSchema: ApiSchemaFor<Wallet> = {
           z.object({ name: z.literal('registerSender'), result: schemas.AztecAddress }),
           z.object({ name: z.literal('registerContract'), result: ContractInstanceWithAddressSchema }),
           z.object({ name: z.literal('sendTx'), result: TxHash.schema }),
+          z.object({ name: z.literal('simulateUtility'), result: UtilitySimulationResult.schema }),
         ]),
       ),
     ),

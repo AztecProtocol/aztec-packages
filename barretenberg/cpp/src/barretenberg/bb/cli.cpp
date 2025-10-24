@@ -306,6 +306,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     const auto add_bench_out_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
     };
+    std::string bench_out_hierarchical;
+    const auto add_bench_out_hierarchical_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--bench_out_hierarchical",
+                                      bench_out_hierarchical,
+                                      "Path to write the hierarchical benchmark data (op counts and timings with "
+                                      "parent-child relationships) as json.");
+    };
 
     /***************************************************************************************************************
      * Top-level flags
@@ -370,6 +377,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
@@ -548,7 +556,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (print_bench || !bench_out.empty()) {
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
     }
 #endif
@@ -656,6 +664,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
+                }
 #endif
                 return 0;
             }
@@ -679,6 +691,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!bench_out.empty()) {
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
+                }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
                 return 0;
