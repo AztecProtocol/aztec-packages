@@ -482,3 +482,9 @@ variable "RPC_REPLICAS" {
   type        = string
   default     = 1
 }
+
+variable "PROVER_AGENTS_PER_PROVER" {
+  description = "Number of prover agents per prover"
+  type        = string
+  default     = 1
+}

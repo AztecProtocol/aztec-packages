@@ -193,6 +193,7 @@ locals {
         "agent.node.env.NETWORK"                          = var.NETWORK
         "agent.replicaCount"                              = var.PROVER_REPLICAS
         "agent.node.env.BOOTSTRAP_NODES"                  = "asdf"
+        "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
       }
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
