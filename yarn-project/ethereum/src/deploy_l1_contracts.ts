@@ -655,6 +655,7 @@ export const deployRollup = async (
     slashAmounts: [args.slashAmountSmall, args.slashAmountMedium, args.slashAmountLarge],
     localEjectionThreshold: args.localEjectionThreshold,
     slashingDisableDuration: BigInt(args.slashingDisableDuration ?? 0n),
+    earliestRewardsClaimableTimestamp: 0n,
   };
 
   const genesisStateArgs = {
