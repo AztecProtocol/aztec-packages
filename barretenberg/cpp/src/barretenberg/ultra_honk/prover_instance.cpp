@@ -74,7 +74,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
     // instances being folded might have lagrange_last set at different indexes and folding does not work
     // correctly unless the polynomial is allocated in the correct range to accomodate this
     polynomials.lagrange_last = Polynomial(
-        /* size=*/dyadic_size(), /*virtual size=*/dyadic_size(), /*start_index=*/0);
+        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
 
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
