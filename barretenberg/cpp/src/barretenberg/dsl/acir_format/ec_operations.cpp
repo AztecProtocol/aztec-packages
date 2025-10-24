@@ -28,6 +28,8 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
 
     // Compute the result of the addition
     cycle_group_ct result = input1_point + input2_point;
+    // AUDITTODO: Is this necessary? If so, ensure cycle_group addition always returns standard form. If not, clarify.
+    result.standardize();
 
     // Create copy-constraints between the computed result and the expected result stored in the input witness indices
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
