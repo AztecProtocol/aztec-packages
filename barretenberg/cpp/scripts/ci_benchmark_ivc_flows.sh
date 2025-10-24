@@ -45,10 +45,10 @@ function run_bb_cli_bench {
   shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    # Add --bench_out flag when running in CI for native builds
+    # Add --bench_out flag when running in CI for native builds to capture op counts and timings
     local bench_args=("$@")
     if [[ "${CI:-}" == "1" ]]; then
-      bench_args+=("--bench_out" "$output/op_counts.json")
+      bench_args+=("--bench_out" "$output/benchmark_breakdown.json")
     fi
 
     memusage "./$native_build_dir/bin/bb" "${bench_args[@]}" || {
@@ -114,7 +114,7 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns to gh-pages"
 
   flow_name="$(basename $2)"
-  benchmark_breakdown_file="bench-out/app-proving/$flow_name/native/op_counts.json"
+  benchmark_breakdown_file="bench-out/app-proving/$flow_name/native/benchmark_breakdown.json"
 
   if [[ -f "$benchmark_breakdown_file" ]]; then
     # Get repository info from git
@@ -142,6 +142,9 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
       git push
     fi
     cd ..
+
+    # Clean up the shallow clone
+    rm -rf gh-pages-repo
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
