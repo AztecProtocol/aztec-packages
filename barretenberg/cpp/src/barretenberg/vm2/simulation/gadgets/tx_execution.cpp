@@ -375,6 +375,9 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
             emit_l2_to_l1_message(false, l2_to_l1_msg);
         }
     }
+
+    // Add new contracts to the contracts DB so that their code may be found and called
+    contract_db.add_new_non_revertible_contracts(tx.nonRevertibleContractDeploymentData);
 }
 
 // TODO: Error Handling
@@ -415,6 +418,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
             emit_l2_to_l1_message(true, l2_to_l1_msg);
         }
     }
+
+    // Add new contracts to the contracts DB so that their functions may be found and called
+    contract_db.add_new_revertible_contracts(tx.revertibleContractDeploymentData);
 }
 
 void TxExecution::pay_fee(const FF& fee_payer,

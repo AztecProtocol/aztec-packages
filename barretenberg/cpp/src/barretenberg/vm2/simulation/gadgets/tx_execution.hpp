@@ -27,6 +27,7 @@ class TxExecution final {
   public:
     TxExecution(ExecutionInterface& call_execution,
                 ContextProviderInterface& context_provider,
+                ContractDBInterface& contract_db,
                 HighLevelMerkleDBInterface& merkle_db,
                 WrittenPublicDataSlotsTreeCheckInterface& written_public_data_slots_tree,
                 RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree,
@@ -36,6 +37,7 @@ class TxExecution final {
                 EventEmitterInterface<TxEvent>& event_emitter)
         : call_execution(call_execution)
         , context_provider(context_provider)
+        , contract_db(contract_db)
         , merkle_db(merkle_db)
         , field_gt(field_gt)
         , poseidon2(poseidon2)
@@ -54,6 +56,7 @@ class TxExecution final {
   private:
     ExecutionInterface& call_execution;
     ContextProviderInterface& context_provider;
+    ContractDBInterface& contract_db;
     HighLevelMerkleDBInterface& merkle_db;
     FieldGreaterThanInterface& field_gt;
     Poseidon2Interface& poseidon2;

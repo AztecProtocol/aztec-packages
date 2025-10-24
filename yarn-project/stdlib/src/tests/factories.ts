@@ -79,6 +79,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { L2BlockHeader } from '../block/index.js';
 import {
   type ContractClassPublic,
+  ContractDeploymentData,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
@@ -118,7 +119,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLogFields } from '../logs/index.js';
+import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -1411,11 +1412,23 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
   return new PublicCallRequestWithCalldata(publicCallRequest, calldata);
 }
 
+export function makeContractClassLog(seed = 0): ContractClassLog {
+  return new ContractClassLog(makeAztecAddress(seed + 0x1000), makeContractClassLogFields(seed + 0x2000), seed % 20);
+}
+
+export function makeContractDeploymentData(seed = 0): ContractDeploymentData {
+  const contractClassLogs = makeArray(seed % 20, i => makeContractClassLog(i), seed + 0x1000);
+  const privateLogs = makeArray(seed % 20, i => makePrivateLog(i), seed + 0x2000);
+  return new ContractDeploymentData(contractClassLogs, privateLogs);
+}
+
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
+    makeContractDeploymentData(seed + 0x2000),
+    makeContractDeploymentData(seed + 0x3000),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),

@@ -21,6 +21,10 @@ class PureContractDB final : public ContractDBInterface {
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
+    void add_new_non_revertible_contracts(
+        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
+    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+
   private:
     ContractDBInterface& raw_contract_db;
 };

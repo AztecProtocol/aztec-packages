@@ -74,4 +74,10 @@ export class ContractClassPublishedEvent {
       utilityFunctions: [],
     };
   }
+
+  public static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {
+    return logs
+      .filter((log: ContractClassLog) => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
+      .map((log: ContractClassLog) => ContractClassPublishedEvent.fromLog(log));
+  }
 }
