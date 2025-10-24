@@ -111,10 +111,10 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
 
     return std::make_optional<ContractInstance>({
         .salt = contract_instance_hint.salt,
-        .deployer_addr = contract_instance_hint.deployer,
-        .current_class_id = contract_instance_hint.currentContractClassId,
-        .original_class_id = contract_instance_hint.originalContractClassId,
-        .initialisation_hash = contract_instance_hint.initializationHash,
+        .deployer = contract_instance_hint.deployer,
+        .current_contract_class_id = contract_instance_hint.currentContractClassId,
+        .original_contract_class_id = contract_instance_hint.originalContractClassId,
+        .initialization_hash = contract_instance_hint.initializationHash,
         .public_keys =
             PublicKeys{
                 .nullifier_key = contract_instance_hint.publicKeys.masterNullifierPublicKey,
@@ -138,17 +138,19 @@ std::optional<ContractClass> HintedRawContractDB::get_contract_class(const Contr
 
     return std::make_optional<ContractClass>({
         .artifact_hash = contract_class_hint.artifactHash,
-        .private_function_root = contract_class_hint.privateFunctionsRoot,
-        // We choose to embed the bytecode commitment in the contract class.
-        .public_bytecode_commitment = get_bytecode_commitment(class_id),
+        .private_functions_root = contract_class_hint.privateFunctionsRoot,
         .packed_bytecode = contract_class_hint.packedBytecode,
     });
 }
 
-FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
+std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
 {
-    assert(bytecode_commitments.contains(class_id));
-    return bytecode_commitments.at(class_id);
+    auto it = bytecode_commitments.find(class_id);
+    if (it == bytecode_commitments.end()) {
+        vinfo("Bytecode commitment not found for class id: ", class_id);
+        return std::nullopt;
+    }
+    return it->second;
 }
 
 void HintedRawContractDB::add_new_non_revertible_contracts(
