@@ -18,8 +18,6 @@ class ClientIVCRecursionTests : public testing::Test {
     using IVCVerificationKey = SumcheckClientIVC::VerificationKey;
     using PairingAccumulator = PairingPoints<Builder>;
 
-    static constexpr TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     struct ClientIVCProverOutput {

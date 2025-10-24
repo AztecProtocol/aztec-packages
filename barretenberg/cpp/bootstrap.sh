@@ -284,8 +284,8 @@ function test_cmds {
     # Mostly arbitrary set that touches lots of the code.
     declare -A asan_tests=(
       ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["client_ivc_tests"]="ClientIVCTests.Basic"
+      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
       ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
     )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.

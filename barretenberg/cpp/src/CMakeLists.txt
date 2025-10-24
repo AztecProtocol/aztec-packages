@@ -102,7 +102,6 @@ add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/polynomials)
-add_subdirectory(barretenberg/protogalaxy)
 add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
@@ -167,7 +166,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>
-    $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
@@ -184,7 +182,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_protogalaxy_verifier_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>

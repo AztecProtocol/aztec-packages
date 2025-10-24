@@ -34,7 +34,6 @@ using namespace bb;
  * details.
  *
  * @param constraints IVC recursion constraints from a kernel circuit
- * @param trace_settings
  * @return LegacyClientIVC
  */
 

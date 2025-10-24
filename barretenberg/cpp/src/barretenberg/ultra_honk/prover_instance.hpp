@@ -79,11 +79,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Polynomial = typename Flavor::Polynomial;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
-    // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
-    bool is_structured;
-
     MetaData metadata;                 // circuit size and public inputs metadata
-    size_t overflow_size{ 0 };         // size of the structured execution trace overflow
     size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
 
   public:
@@ -109,7 +105,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
-    void set_overflow_size(size_t size) { overflow_size = size; }
     void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
@@ -120,7 +115,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         return metadata.num_public_inputs;
     }
     MetaData get_metadata() const { return metadata; }
-    size_t get_overflow_size() const { return overflow_size; }
     size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
 
     Flavor::PrecomputedData get_precomputed()
@@ -128,11 +122,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
     }
 
-    ProverInstance_(Circuit& circuit,
-                    TraceSettings trace_settings = {},
-                    const CommitmentKey& commitment_key = CommitmentKey())
-        : is_structured(trace_settings.structure.has_value())
-        , commitment_key(commitment_key)
+    ProverInstance_(Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
+        : commitment_key(commitment_key)
     {
         BB_BENCH_NAME("ProverInstance(Circuit&)");
         vinfo("Constructing ProverInstance");
@@ -147,20 +138,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
             metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
-            if (is_structured) {
-                circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
-                if (verbose_logging) {
-                    circuit.blocks.summarize();
-                }
-                move_structured_trace_overflow_to_overflow_block(circuit);
-                overflow_size = circuit.blocks.overflow.size();
-                metadata.dyadic_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
-            } else {
-                metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
-            }
+            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
         }
 
-        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
+        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
 
         // Find index of last non-trivial wire value in the trace
         for (auto& block : circuit.blocks.get()) {
@@ -175,10 +156,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If ZK or if using structured trace with overflow, allocate full size polys
+            // If ZK, allocate full size polys
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
             // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
-            if ((Flavor::HasZK) || (is_structured && circuit.blocks.has_overflow)) {
+            if (Flavor::HasZK) {
                 // Allocate full size polynomials
                 polynomials = ProverPolynomials(dyadic_size());
             } else { // Allocate only a correct amount of memory for each polynomial
@@ -259,8 +240,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ProverInstance_& operator=(ProverInstance_&&) = delete;
     ~ProverInstance_() = default;
 
-    bool get_is_structured() { return is_structured; }
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
@@ -283,17 +262,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;
 
-    /**
-     * @brief Compute dyadic size based on a structured trace with fixed block size
-     *
-     */
-    size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
-
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
-
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-        requires IsMegaFlavor<Flavor>;
 
     void populate_memory_records(const Circuit& circuit);
 };

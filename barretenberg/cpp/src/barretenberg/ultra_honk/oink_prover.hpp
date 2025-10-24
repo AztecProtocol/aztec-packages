@@ -25,7 +25,6 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
@@ -50,7 +49,6 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
-    ExecutionTraceUsageTracker trace_usage_tracker;
 
     typename Flavor::CommitmentLabels commitment_labels;
     using SubrelationSeparators = typename Flavor::SubrelationSeparators;
@@ -58,13 +56,11 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
-               std::string domain_separator = "",
-               const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
+               std::string domain_separator = "")
         : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
         , domain_separator(std::move(domain_separator))
-        , trace_usage_tracker(trace_usage_tracker)
     {}
 
     void prove();
@@ -75,10 +71,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
     SubrelationSeparators generate_alphas_round();
-    Flavor::Commitment commit_to_witness_polynomial(
-        Polynomial<FF>& polynomial,
-        const std::string& label,
-        const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
+    Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

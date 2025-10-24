@@ -329,25 +329,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
     return std::pair(honk_proof, vk);
 }
 
-// /**
-//  * @brief Create a mock PG proof that has the correct structure but is not in general valid
-//  *
-//  */
-// template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
-// {
-//     // The first part of a PG proof is an Oink proof
-//     HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
-
-//     // Populate mock perturbator coefficients
-//     populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
-
-//     // Populate mock combiner quotient coefficients
-//     size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
-//     populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
-
-//     return proof;
-// }
-
 /**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *

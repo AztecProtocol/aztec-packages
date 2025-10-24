@@ -363,7 +363,7 @@ void SumcheckClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr
     // Construct the prover instance for circuit
     std::shared_ptr<ProverInstance> prover_instance = std::make_shared<ProverInstance>(circuit);
 
-    // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
+    // If the current circuit exceeds the current size of the commitment key, reinitialize accordingly.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
     if (prover_instance->dyadic_size() > bn254_commitment_key.dyadic_size) {
         bn254_commitment_key = CommitmentKey<curve::BN254>(prover_instance->dyadic_size());
@@ -531,8 +531,7 @@ void SumcheckClientIVC::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
     ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
-    // Note: a structured trace is not used for the hiding kernel
-    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
+    auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
     // Hiding circuit is proven by a MegaZKProver
     MegaZKProver prover(hiding_prover_inst, verification_key, transcript);
@@ -548,7 +547,7 @@ HonkProof SumcheckClientIVC::construct_honk_proof_for_hiding_kernel(
  */
 SumcheckClientIVC::Proof SumcheckClientIVC::prove()
 {
-    // deallocate the protogalaxy accumulator
+    // deallocate the accumulator
     prover_accumulator = ProverAccumulator();
     auto mega_proof = verification_queue.front().proof;
 

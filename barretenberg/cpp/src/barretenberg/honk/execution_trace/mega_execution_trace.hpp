@@ -16,56 +16,6 @@
 
 namespace bb {
 
-struct TraceStructure {
-    uint32_t ecc_op;
-    uint32_t busread;
-    uint32_t lookup;
-    uint32_t pub_inputs;
-    uint32_t arithmetic;
-    uint32_t delta_range;
-    uint32_t elliptic;
-    uint32_t memory;
-    uint32_t nnf;
-    uint32_t poseidon2_external;
-    uint32_t poseidon2_internal;
-    uint32_t overflow; // block gates of arbitrary type that overflow their designated block
-
-    auto get()
-    {
-        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
-                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    auto get() const
-    {
-        return RefArray{ ecc_op,   busread, lookup, pub_inputs,         arithmetic,         delta_range,
-                         elliptic, memory,  nnf,    poseidon2_external, poseidon2_internal, overflow };
-    }
-
-    size_t size() const
-    {
-        size_t result{ 0 };
-        for (const auto& block_size : get()) {
-            result += block_size;
-        }
-        return static_cast<size_t>(result);
-    }
-};
-
-struct TraceSettings {
-    std::optional<TraceStructure> structure;
-    // The size of the overflow block. Specified separately because it is allowed to be determined at runtime in the
-    // context of VK computation
-    uint32_t overflow_capacity = 0;
-
-    // This size is used as a hint to the BN254 Commitment Key needed in the CIVC.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319): This can be removed once the prover knows all
-    // the circuit sizes in advance.
-    size_t size() const { return (structure ? structure->size() : 0) + static_cast<size_t>(overflow_capacity); }
-
-    size_t dyadic_size() const { return numeric::round_up_power_2(size()); }
-};
-
 class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
   public:
     using SelectorType = Selector<fr>;
@@ -336,22 +286,6 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
     SlabVectorSelector<fr> gate_selector;
 };
 
-class MegaTraceOverflowBlock : public MegaTraceBlock {
-  public:
-    SelectorType& q_busread() override { return gate_selectors[0]; };
-    SelectorType& q_lookup_type() override { return gate_selectors[1]; };
-    SelectorType& q_arith() override { return gate_selectors[2]; }
-    SelectorType& q_delta_range() override { return gate_selectors[3]; }
-    SelectorType& q_elliptic() override { return gate_selectors[4]; }
-    SelectorType& q_memory() override { return gate_selectors[5]; }
-    SelectorType& q_nnf() override { return gate_selectors[6]; }
-    SelectorType& q_poseidon2_external() override { return gate_selectors[7]; }
-    SelectorType& q_poseidon2_internal() override { return gate_selectors[8]; }
-
-  private:
-    std::array<SlabVectorSelector<fr>, 9> gate_selectors;
-};
-
 /**
  * @brief A container indexed by the types of the blocks in the execution trace.
  *
@@ -371,44 +305,43 @@ struct MegaTraceBlockData {
     MegaTraceNonNativeFieldBlock nnf;
     MegaTracePoseidon2ExternalBlock poseidon2_external;
     MegaTracePoseidon2InternalBlock poseidon2_internal;
-    MegaTraceOverflowBlock overflow; // block gates of arbitrary type that overflow their designated block
+
+    static constexpr size_t NUM_BLOCKS = 11;
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",         "delta_range",
-                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal", "overflow" };
+        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",        "delta_range",
+                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal" };
     }
 
     auto get()
     {
-        return RefArray(std::array<MegaTraceBlock*, 12>{ &ecc_op,
-                                                         &busread,
-                                                         &lookup,
-                                                         &pub_inputs,
-                                                         &arithmetic,
-                                                         &delta_range,
-                                                         &elliptic,
-                                                         &memory,
-                                                         &nnf,
-                                                         &poseidon2_external,
-                                                         &poseidon2_internal,
-                                                         &overflow });
+        return RefArray(std::array<MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                 &busread,
+                                                                 &lookup,
+                                                                 &pub_inputs,
+                                                                 &arithmetic,
+                                                                 &delta_range,
+                                                                 &elliptic,
+                                                                 &memory,
+                                                                 &nnf,
+                                                                 &poseidon2_external,
+                                                                 &poseidon2_internal });
     }
 
     auto get() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, 12>{ &ecc_op,
-                                                               &busread,
-                                                               &lookup,
-                                                               &pub_inputs,
-                                                               &arithmetic,
-                                                               &delta_range,
-                                                               &elliptic,
-                                                               &memory,
-                                                               &nnf,
-                                                               &poseidon2_external,
-                                                               &poseidon2_internal,
-                                                               &overflow });
+        return RefArray(std::array<const MegaTraceBlock*, NUM_BLOCKS>{ &ecc_op,
+                                                                       &busread,
+                                                                       &lookup,
+                                                                       &pub_inputs,
+                                                                       &arithmetic,
+                                                                       &delta_range,
+                                                                       &elliptic,
+                                                                       &memory,
+                                                                       &nnf,
+                                                                       &poseidon2_external,
+                                                                       &poseidon2_internal });
     }
 
     auto get_gate_blocks() const
@@ -444,51 +377,33 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
 
     using FF = fr;
 
-    bool has_overflow = false; // indicates whether the overflow block has non-zero fixed or actual size
-
     MegaExecutionTraceBlocks() = default;
 
-    void set_fixed_block_sizes(const TraceSettings& settings)
-    {
-        if (settings.structure) {
-            for (auto [block, size] : zip_view(this->get(), settings.structure.value().get())) {
-                block.fixed_size = size;
-            }
-        }
-
-        this->overflow.fixed_size = settings.overflow_capacity;
-    }
-
-    void compute_offsets(bool is_structured)
+    void compute_offsets()
     {
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
-            offset += block.get_fixed_size(is_structured);
+            offset += static_cast<uint32_t>(block.size());
         }
     }
 
     void summarize() const
     {
-        info("Gate blocks summary: (actual gates / fixed capacity)");
-        info("goblin ecc op :\t", this->ecc_op.size(), "/", this->ecc_op.get_fixed_size());
-        info("busread       :\t", this->busread.size(), "/", this->busread.get_fixed_size());
-        info("lookups       :\t", this->lookup.size(), "/", this->lookup.get_fixed_size());
-        info("pub inputs    :\t",
-             this->pub_inputs.size(),
-             "/",
-             this->pub_inputs.get_fixed_size(),
-             " (populated in decider pk constructor)");
-        info("arithmetic    :\t", this->arithmetic.size(), "/", this->arithmetic.get_fixed_size());
-        info("delta range   :\t", this->delta_range.size(), "/", this->delta_range.get_fixed_size());
-        info("elliptic      :\t", this->elliptic.size(), "/", this->elliptic.get_fixed_size());
-        info("memory        :\t", this->memory.size(), "/", this->memory.get_fixed_size());
-        info("nnf           :\t", this->nnf.size(), "/", this->nnf.get_fixed_size());
-        info("poseidon ext  :\t", this->poseidon2_external.size(), "/", this->poseidon2_external.get_fixed_size());
-        info("poseidon int  :\t", this->poseidon2_internal.size(), "/", this->poseidon2_internal.get_fixed_size());
-        info("overflow      :\t", this->overflow.size(), "/", this->overflow.get_fixed_size());
+        info("Gate blocks summary:");
+        info("goblin ecc op :\t", this->ecc_op.size());
+        info("busread       :\t", this->busread.size());
+        info("lookups       :\t", this->lookup.size());
+        info("pub inputs    :\t", this->pub_inputs.size(), " (populated in decider pk constructor)");
+        info("arithmetic    :\t", this->arithmetic.size());
+        info("delta range   :\t", this->delta_range.size());
+        info("elliptic      :\t", this->elliptic.size());
+        info("memory        :\t", this->memory.size());
+        info("nnf           :\t", this->nnf.size());
+        info("poseidon ext  :\t", this->poseidon2_external.size());
+        info("poseidon int  :\t", this->poseidon2_internal.size());
         info("");
-        info("Total structured size: ", get_structured_size());
+        info("Total size: ", get_total_size());
     }
 
     // Get cumulative size of all blocks
@@ -501,108 +416,16 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         return total_size;
     }
 
-    size_t get_structured_size() const
+    size_t get_total_size() const
     {
         size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (const auto& block : this->get()) {
-            total_size += block.get_fixed_size();
+            total_size += block.size();
         }
         return total_size;
     }
 
-    size_t get_structured_dyadic_size() const
-    {
-        size_t total_size = get_structured_size();
-
-        auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
-        if ((1UL << log2_n) != (total_size)) {
-            ++log2_n;
-        }
-        return 1UL << log2_n;
-    }
-
     bool operator==(const MegaExecutionTraceBlocks& other) const = default;
 };
-
-/**
- * @brief A tiny structuring (for testing without recursive verifications only)
- */
-static constexpr TraceStructure TINY_TEST_STRUCTURE{ .ecc_op = 18,
-                                                     .busread = 3,
-                                                     .lookup = 2,
-                                                     .pub_inputs = 52, // Accomodate 4 + HidingKernelIO = 4 + 48
-                                                     .arithmetic = 1 << 14,
-                                                     .delta_range = 5,
-                                                     .elliptic = 2,
-                                                     .memory = 10,
-                                                     .nnf = 2,
-                                                     .poseidon2_external = 2,
-                                                     .poseidon2_internal = 2,
-                                                     .overflow = 0 };
-
-/**
- * @brief An arbitrary but small-ish structuring that can be used for generic unit testing with non-trivial circuits
- */
-
-static constexpr TraceStructure SMALL_TEST_STRUCTURE{ .ecc_op = 1 << 14,
-                                                      .busread = 1 << 14,
-                                                      .lookup = 1 << 14,
-                                                      .pub_inputs = 1 << 14,
-                                                      .arithmetic = 1 << 15,
-                                                      .delta_range = 1 << 14,
-                                                      .elliptic = 1 << 14,
-                                                      .memory = 1 << 14,
-                                                      .nnf = 1 << 7,
-                                                      .poseidon2_external = 1 << 14,
-                                                      .poseidon2_internal = 1 << 15,
-                                                      .overflow = 0 };
-
-/**
- * @brief An example structuring of size 2^18.
- */
-static constexpr TraceStructure EXAMPLE_18{ .ecc_op = 1 << 10,
-                                            .busread = 1 << 6,
-                                            .lookup = 36000,
-                                            .pub_inputs = 1 << 6,
-                                            .arithmetic = 84000,
-                                            .delta_range = 45000,
-                                            .elliptic = 9000,
-                                            .memory = 67000,
-                                            .nnf = 1000,
-                                            .poseidon2_external = 2500,
-                                            .poseidon2_internal = 14000,
-                                            .overflow = 0 };
-
-/**
- * @brief An example structuring of size 2^20.
- */
-static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
-                                            .busread = 1 << 8,
-                                            .lookup = 144000,
-                                            .pub_inputs = 1 << 8,
-                                            .arithmetic = 396000,
-                                            .delta_range = 180000,
-                                            .elliptic = 18000,
-                                            .memory = 268000,
-                                            .nnf = 4000,
-                                            .poseidon2_external = 5000,
-                                            .poseidon2_internal = 28000,
-                                            .overflow = 0 };
-
-/**
- * @brief Structuring tailored to the full e2e TS test (Currently optimized for five key testnet transactions)
- */
-static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1000,
-                                                       .busread = 4000,
-                                                       .lookup = 13000,
-                                                       .pub_inputs = 3500,
-                                                       .arithmetic = 59000,
-                                                       .delta_range = 15500,
-                                                       .elliptic = 6500,
-                                                       .memory = 25000,
-                                                       .nnf = 19000,
-                                                       .poseidon2_external = 17000,
-                                                       .poseidon2_internal = 96500,
-                                                       .overflow = 0 };
 
 } // namespace bb

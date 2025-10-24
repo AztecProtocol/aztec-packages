@@ -27,7 +27,6 @@ namespace { // anonymous namespace
  *
  * @param bytecode_path
  * @param witness_path
- * @param use_structured_trace Whether to utilize structured trace when computing VK for circuit
  */
 void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
 {
