@@ -62,6 +62,10 @@ template <typename Curve_> class KZG {
         // future we might need to adjust this to use the incoming alternative to work queue (i.e. variation of
         // pthreads) or even the work queue itself
         prover_trancript->send_to_verifier("KZG:W", quotient_commitment);
+
+        // Masking challenge is used in the recursive setting to perform batch_mul. This is not used
+        // by the prover directly, we just need it for consistent transcript state with the verifier.
+        prover_trancript->template get_challenge<Fr>("KZG:masking_challenge");
     };
 
     /**
