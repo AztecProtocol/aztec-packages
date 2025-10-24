@@ -51,17 +51,10 @@ export class CppPublicTxSimulatorHintedDbs extends PublicTxSimulator implements 
     // First, run TS simulation to generate hints and public inputs
     this.log.debug(`Running TS simulation for tx ${txHash}`);
 
-    let tsResult: PublicTxResult;
-    try {
-      // Run the full TypeScript simulation using the parent class
-      // This will modify the merkle tree with the transaction's state changes
-      tsResult = await super.simulate(tx);
-      this.log.debug(`TS simulation succeeded for tx ${txHash}`);
-    } catch (error: any) {
-      // If TS simulation fails, clear any partial contract additions and re-throw the error
-      this.contractsDB.clearContractsForTx();
-      throw error;
-    }
+    // Run the full TypeScript simulation using the parent class
+    // This will modify the merkle tree with the transaction's state changes
+    const tsResult = await super.simulate(tx);
+    this.log.debug(`TS simulation succeeded for tx ${txHash}`);
 
     // Extract the full AvmCircuitInputs from the TS result
     const avmCircuitInputs = tsResult.avmProvingRequest.inputs;
