@@ -88,6 +88,8 @@
     "@types/lodash.clonedeep": "^4.5.7",
     "@types/lodash.merge": "^4.6.9",
     "@types/node": "^22.15.17",
+    "istanbul-lib-hook": "^3.0.0",
+    "istanbul-lib-instrument": "^6.0.3",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
