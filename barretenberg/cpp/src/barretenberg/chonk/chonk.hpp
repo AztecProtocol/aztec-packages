@@ -220,15 +220,15 @@ class Chonk : public IVCBase {
     // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
     enum class QUEUE_TYPE : uint8_t {
         OINK,
-        PG,
-        PG_FINAL, // the final PG verification, used in hiding kernel
-        PG_TAIL,  // used in tail to indicate special handling of merge for ZK
+        HN,
+        HN_FINAL, // the final HN verification, used in hiding kernel
+        HN_TAIL,  // used in tail to indicate special handling of merge for ZK
         MEGA
     };
 
     // An entry in the native verification queue
     struct VerifierInputs {
-        std::vector<FF> proof; // oink or PG
+        std::vector<FF> proof; // oink or HN
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
@@ -237,7 +237,7 @@ class Chonk : public IVCBase {
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
-        StdlibProof proof; // oink or PG
+        StdlibProof proof; // oink or HN
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
         bool is_kernel = false;
@@ -255,14 +255,14 @@ class Chonk : public IVCBase {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverAccumulator prover_accumulator; // current PG prover accumulator instance
+    ProverAccumulator prover_accumulator; // current HN prover accumulator instance
 
     HonkProof decider_proof; // decider proof to be verified in the hiding circuit
 
     VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     VerifierAccumulator native_verifier_accum;           //  native verifier accumulator used in prover folding
 
-    // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
+    // Set of tuples {proof, verification_key, type (Oink/HN)} to be recursively verified
     VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
@@ -294,11 +294,11 @@ class Chonk : public IVCBase {
             const TableCommitments& T_prev_commitments,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
-    // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
+    // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     /**
-     * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
+     * @brief Perform prover work for accumulation (e.g. HN folding, merge proving)
      *
      * @param circuit The incoming statement
      * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be

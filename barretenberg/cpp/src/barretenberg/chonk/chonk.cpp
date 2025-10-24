@@ -132,15 +132,15 @@ std::
         merge_commitments.T_prev_commitments = stdlib::recursion::honk::empty_ecc_op_tables(circuit);
         break;
     }
-    case QUEUE_TYPE::PG:
-    case QUEUE_TYPE::PG_TAIL: {
+    case QUEUE_TYPE::HN:
+    case QUEUE_TYPE::HN_TAIL: {
         vinfo("Recursively verifying inner accumulation.");
         auto [_first_sumcheck_verified, _second_sumcheck_verified, new_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
         output_verifier_accumulator = std::move(new_verifier_accumulator);
         break;
     }
-    case QUEUE_TYPE::PG_FINAL: {
+    case QUEUE_TYPE::HN_FINAL: {
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
@@ -180,8 +180,8 @@ std::
         // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
         merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 
-        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::PG || verifier_inputs.type == QUEUE_TYPE::PG_TAIL ||
-                         verifier_inputs.type == QUEUE_TYPE::PG_FINAL,
+        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
+                         verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
                      true,
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
@@ -246,10 +246,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
 
     bool is_tail_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_TAIL);
+        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_TAIL);
 
     bool is_hiding_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::PG_FINAL);
+        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceeding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceeding no-op
@@ -324,15 +324,15 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
     }
     // app (excluding first) or kernel (inner or reset)
     if ((num_circuits_accumulated > 0 && num_circuits_accumulated < num_circuits - 3)) {
-        return QUEUE_TYPE::PG;
+        return QUEUE_TYPE::HN;
     }
     // last kernel prior to tail kernel
     if ((num_circuits_accumulated == num_circuits - 3)) {
-        return QUEUE_TYPE::PG_TAIL;
+        return QUEUE_TYPE::HN_TAIL;
     }
     // tail kernel
     if ((num_circuits_accumulated == num_circuits - 2)) {
-        return QUEUE_TYPE::PG_FINAL;
+        return QUEUE_TYPE::HN_FINAL;
     }
     // hiding kernel
     if ((num_circuits_accumulated == num_circuits - 1)) {
@@ -399,12 +399,12 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         prover_accumulator = prover.instance_to_accumulator(prover_instance, precomputed_vk);
         proof = prover.export_proof();
         break;
-    case QUEUE_TYPE::PG:
-    case QUEUE_TYPE::PG_TAIL:
+    case QUEUE_TYPE::HN:
+    case QUEUE_TYPE::HN_TAIL:
         vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
         std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
         break;
-    case QUEUE_TYPE::PG_FINAL: {
+    case QUEUE_TYPE::HN_FINAL: {
         vinfo("Accumulating tail kernel");
         std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
         DeciderProver decider(prover_accumulation_transcript);

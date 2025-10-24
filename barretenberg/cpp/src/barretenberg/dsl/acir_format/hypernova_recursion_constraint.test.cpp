@@ -66,17 +66,17 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
         // Reset kernel
         EXPECT_EQ(ivc->verification_queue.size(), 1);
-        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::HN);
         construct_and_accumulate_mock_kernel(ivc);
 
         // Tail kernel
         EXPECT_EQ(ivc->verification_queue.size(), 1);
-        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_TAIL);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::HN_TAIL);
         construct_and_accumulate_mock_kernel(ivc);
 
         // Hiding kernel
         EXPECT_EQ(ivc->verification_queue.size(), 1);
-        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::PG_FINAL);
+        EXPECT_EQ(ivc->verification_queue[0].type, QUEUE_TYPE::HN_FINAL);
         construct_and_accumulate_mock_kernel(ivc);
     }
 
@@ -181,14 +181,14 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         case QUEUE_TYPE::OINK:
             proof_type = OINK;
             break;
-        case QUEUE_TYPE::PG:
-            proof_type = PG;
+        case QUEUE_TYPE::HN:
+            proof_type = HN;
             break;
-        case QUEUE_TYPE::PG_FINAL:
-            proof_type = PG_FINAL;
+        case QUEUE_TYPE::HN_FINAL:
+            proof_type = HN_FINAL;
             break;
-        case QUEUE_TYPE::PG_TAIL:
-            proof_type = PG_TAIL;
+        case QUEUE_TYPE::HN_TAIL:
+            proof_type = HN_TAIL;
             break;
         default:
             throw std::runtime_error("Invalid proof type");
@@ -221,16 +221,16 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         AcirProgram program;
 
         // Construct recursion constraints based on the ivc verification queue; populate the witness along the way
-        std::vector<RecursionConstraint> pg_recursion_constraints;
-        pg_recursion_constraints.reserve(verification_queue.size());
+        std::vector<RecursionConstraint> hn_recursion_constraints;
+        hn_recursion_constraints.reserve(verification_queue.size());
         for (const auto& queue_entry : verification_queue) {
-            pg_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
+            hn_recursion_constraints.push_back(create_recursion_constraint(queue_entry, program.witness));
         }
 
         // Construct a constraint system containing the business logic and ivc recursion constraints
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());
-        program.constraints.num_acir_opcodes = static_cast<uint32_t>(pg_recursion_constraints.size());
-        program.constraints.pg_recursion_constraints = pg_recursion_constraints;
+        program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
+        program.constraints.hn_recursion_constraints = hn_recursion_constraints;
         program.constraints.original_opcode_indices = create_empty_original_opcode_indices();
         mock_opcode_indices(program.constraints);
 
@@ -393,7 +393,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc);
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
-        EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::PG);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN);
 
         // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc);
@@ -406,7 +406,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
         kernel_vk = construct_kernel_vk_from_acir_program(program);
@@ -438,7 +438,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
 
         // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
-        EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::PG_TAIL);
+        EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN_TAIL);
         construct_and_accumulate_mock_kernel(ivc);
 
         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
@@ -450,7 +450,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
@@ -487,7 +487,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 
         { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
             EXPECT_TRUE(ivc->verification_queue.size() == 2);
-            EXPECT_TRUE(ivc->verification_queue[1].type == bb::Chonk::QUEUE_TYPE::PG);
+            EXPECT_TRUE(ivc->verification_queue[1].type == bb::Chonk::QUEUE_TYPE::HN);
             construct_and_accumulate_mock_kernel(ivc);
         }
 
@@ -500,8 +500,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
@@ -546,7 +546,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
         // construct a mock tail kernel
         acir_format::mock_sumcheck_ivc_accumulation(ivc,
-                                                    Chonk::QUEUE_TYPE::PG_FINAL,
+                                                    Chonk::QUEUE_TYPE::HN_FINAL,
                                                     /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context

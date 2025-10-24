@@ -150,7 +150,7 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
                                                             .public_inputs = {},
                                                             .key_hash = key_hash,
                                                             .proof_type = is_init_kernel ? acir_format::PROOF_TYPE::OINK
-                                                                                         : acir_format::PROOF_TYPE::PG,
+                                                                                         : acir_format::PROOF_TYPE::HN,
                                                             .predicate = predicate };
 
     Acir::BlackBoxFuncCall black_box_call;

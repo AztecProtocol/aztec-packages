@@ -43,9 +43,9 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
     auto ivc = std::make_shared<Chonk>(constraints.size());
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
-    uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
-    uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::PG_FINAL);
-    uint32_t pg_tail_type = static_cast<uint32_t>(PROOF_TYPE::PG_TAIL);
+    uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::HN);
+    uint32_t pg_final_type = static_cast<uint32_t>(PROOF_TYPE::HN_FINAL);
+    uint32_t pg_tail_type = static_cast<uint32_t>(PROOF_TYPE::HN_TAIL);
 
     // There is a fixed set of valid combinations of IVC recursion constraints for Aztec kernel circuits:
 
@@ -57,13 +57,13 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
 
     // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         return ivc;
     }
 
     // Case: TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -71,14 +71,14 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
         return ivc;
     }
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
+        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -108,9 +108,9 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::PG ||
-                         verification_type == Chonk::QUEUE_TYPE::PG_TAIL ||
-                         verification_type == Chonk::QUEUE_TYPE::PG_FINAL,
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN ||
+                         verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
+                         verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
         // kernel circuits are always folded, thus the proof always includes the nova fold proof
@@ -120,7 +120,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::PG,
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN,
                      true);
 
         // The first app is not folded thus the proof does not include the nova fold proof
@@ -159,7 +159,7 @@ void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc,
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
-    if (type == Chonk::QUEUE_TYPE::PG_FINAL) {
+    if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
     ivc->num_circuits_accumulated++;

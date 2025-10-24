@@ -521,7 +521,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         {
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
@@ -534,7 +534,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         // Compute the verification key using the genuine witness
         {
             auto program = program_in;
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
                 .ivc = ivc_constraints.empty() ? nullptr
                                                : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
