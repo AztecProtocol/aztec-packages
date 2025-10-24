@@ -248,6 +248,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
@@ -420,6 +421,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               merkle_db);
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,

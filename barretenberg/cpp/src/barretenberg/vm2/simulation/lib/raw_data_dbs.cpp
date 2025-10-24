@@ -151,6 +151,18 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
     return bytecode_commitments.at(class_id);
 }
 
+void HintedRawContractDB::add_new_non_revertible_contracts(
+    [[maybe_unused]] const ContractDeploymentData& non_revertible_contract_deployment_data)
+{
+    debug("add_non_revertible_contracts called (no-op in hinted mode)");
+}
+
+void HintedRawContractDB::add_new_revertible_contracts(
+    [[maybe_unused]] const ContractDeploymentData& revertible_contract_deployment_data)
+{
+    debug("add_revertible_contracts called (no-op in hinted mode)");
+}
+
 // Hinted MerkleDB starts.
 HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
     : tree_roots(hints.startingTreeRoots)
