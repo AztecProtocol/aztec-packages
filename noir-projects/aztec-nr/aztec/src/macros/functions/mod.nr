@@ -5,7 +5,6 @@ pub(crate) mod call_interface_stubs;
 pub mod initialization_utils;
 pub(crate) mod stub_registry;
 pub(crate) mod auth_registry;
-pub(crate) mod external_registry;
 pub(crate) mod utils;
 
 use crate::macros::{
@@ -134,9 +133,6 @@ pub comptime fn authorize_once(
 /// Same as in Solidity external functions are functions that our callable from outside the contract. External
 /// functions can be either private, public, or utility.
 pub comptime fn external(f: FunctionDefinition, f_type: CtString) -> Quoted {
-    // Register the function type in the global registry so helper functions can check it
-    external_registry::register(f, f_type);
-
     if f_type.eq("private") {
         private(f)
     } else if f_type.eq("public") {
