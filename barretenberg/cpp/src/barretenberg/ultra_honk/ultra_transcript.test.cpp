@@ -59,7 +59,6 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
         // Size of types is number of bb::frs needed to represent the types
         // UltraKeccak uses uint256_t for commitments and frs, so we need to handle that differently.
         size_t data_types_per_Frs = [] {
@@ -104,13 +103,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);
 
-        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
-        for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "alpha_" + std::to_string(i);
-            alpha_labels[i] = label;
-        }
-
-        manifest_expected.add_challenge(round, alpha_labels);
+        manifest_expected.add_challenge(round, "alpha");
         round++;
 
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");

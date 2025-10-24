@@ -136,6 +136,10 @@ container_script=$(
   ci_log_id=\$(log_ci_run)
   export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
+  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
+    echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+  fi
+
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 

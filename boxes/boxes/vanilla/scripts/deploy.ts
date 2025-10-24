@@ -1,5 +1,8 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { DeployMethod, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import {
+  DeployMethod,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
 import { PublicKeys } from '@aztec/aztec.js/keys';
@@ -28,7 +31,7 @@ async function setupWallet(aztecNode: AztecNode) {
 
   const store = await createStore('pxe', {
     dataDirectory: PXE_STORE_DIR,
-    dataStoreMapSizeKB: 1e6,
+    dataStoreMapSizeKb: 1e6,
   });
 
   const config = getPXEConfig();

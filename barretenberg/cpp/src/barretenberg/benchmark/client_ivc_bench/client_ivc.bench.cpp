@@ -14,7 +14,7 @@ using namespace bb;
 namespace {
 
 /**
- * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
+ * @brief Benchmark suite for the aztec client IVC scheme
  */
 class ClientIVCBench : public benchmark::Fixture {
   public:
@@ -28,7 +28,7 @@ class ClientIVCBench : public benchmark::Fixture {
 };
 
 /**
- * @brief Benchmark only the verification work for the PG-Goblin IVC protocol
+ * @brief Benchmark only the verification work for the IVC protocol
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 {
@@ -42,7 +42,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 }
 
 /**
- * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
+ * @brief Benchmark the prover work for the full IVC protocol
  */
 BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
 {

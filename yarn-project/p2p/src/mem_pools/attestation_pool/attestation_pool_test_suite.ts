@@ -41,7 +41,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
   };
 
   const mockBlockProposal = (signer: Secp256k1Signer, slotNumber: number, archive: Fr = Fr.random()): BlockProposal => {
-    const blockNumber = 1;
     const header = makeL2BlockHeader(1, 2, slotNumber);
     const payload = new ConsensusPayload(header.toCheckpointHeader(), archive, header.state);
 
@@ -50,7 +49,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     const txHashes = [TxHash.random(), TxHash.random()]; // Mock tx hashes
 
-    return new BlockProposalClass(blockNumber, payload, signature, txHashes);
+    return new BlockProposalClass(payload, signature, txHashes);
   };
 
   // We compare buffers as the objects can have cached values attached to them which are not serialised

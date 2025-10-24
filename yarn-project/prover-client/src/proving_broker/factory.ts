@@ -9,7 +9,7 @@ export async function createAndStartProvingBroker(
   _config: ProverBrokerConfig,
   client: TelemetryClient,
 ): Promise<ProvingBroker> {
-  const config = { ..._config, dataStoreMapSizeKB: _config.proverBrokerStoreMapSizeKB ?? _config.dataStoreMapSizeKB };
+  const config = { ..._config, dataStoreMapSizeKb: _config.proverBrokerStoreMapSizeKb ?? _config.dataStoreMapSizeKb };
   const database = config.dataDirectory ? await KVBrokerDatabase.new(config, client) : new InMemoryBrokerDatabase();
 
   const broker = new ProvingBroker(database, config, client);

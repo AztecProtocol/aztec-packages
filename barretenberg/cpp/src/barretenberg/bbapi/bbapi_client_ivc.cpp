@@ -7,7 +7,6 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
-#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
@@ -259,7 +258,7 @@ ClientIvcStats::Response ClientIvcStats::execute([[maybe_unused]] BBApiRequest& 
          ", circuit_size: ",
          response.circuit_size);
 
-    // Print structured execution trace details
+    // Print execution trace details
     builder.blocks.summarize();
 
     return response;

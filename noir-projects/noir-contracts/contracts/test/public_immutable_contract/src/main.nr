@@ -3,24 +3,24 @@ use aztec::macros::aztec;
 /// Used to test public immutable state variable.
 #[aztec]
 contract PublicImmutableContract {
-    use aztec::{macros::{functions::public, storage::storage}, state_vars::PublicImmutable};
+    use aztec::{macros::{functions::external, storage::storage}, state_vars::PublicImmutable};
 
     #[storage]
     struct Storage<Context> {
         immutable_value: PublicImmutable<Field, Context>,
     }
 
-    #[public]
+    #[external("public")]
     fn initialize_value(value: Field) {
         storage.immutable_value.initialize(value);
     }
 
-    #[public]
+    #[external("public")]
     fn read_value() -> pub Field {
         storage.immutable_value.read()
     }
 
-    #[public]
+    #[external("public")]
     fn read_value_unsafe() -> pub Field {
         storage.immutable_value.read_unsafe()
     }

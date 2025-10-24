@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract Updated {
     use aztec::{
-        macros::{functions::{private, public, utility}, storage::storage},
+        macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::constants::CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
         state_vars::{PrivateMutable, PublicMutable},
@@ -18,12 +18,12 @@ contract Updated {
         public_value: PublicMutable<Field, Context>,
     }
 
-    #[public]
+    #[external("public")]
     fn set_public_value() {
         storage.public_value.write(27);
     }
 
-    #[private]
+    #[external("private")]
     fn set_private_value() {
         let owner = context.msg_sender().unwrap();
 
@@ -34,19 +34,19 @@ contract Updated {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn get_update_delay() -> u64 {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
             .view(&mut context)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_private_value() -> Field {
         storage.private_value.view_note().value()
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_public_value() -> Field {
         storage.public_value.read()
     }

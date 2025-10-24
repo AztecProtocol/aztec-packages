@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract BobToken {
     // docs:end:start
     use aztec::{
-        macros::{functions::{initializer, private, public, utility, internal}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
         protocol_types::address::AztecAddress, state_vars::Map,
         state_vars::public_mutable::PublicMutable,
     };
@@ -30,7 +30,7 @@ pub contract BobToken {
 
     // docs:start:setup
     #[initializer]
-    #[public]
+    #[external("public")]
     fn setup() {
         // Giggle becomes the owner who can mint mental health tokens
         storage.owner.write(context.msg_sender().unwrap());
@@ -38,7 +38,7 @@ pub contract BobToken {
     // docs:end:setup
 
     // docs:start:mint_public
-    #[public]
+    #[external("public")]
     fn mint_public(employee: AztecAddress, amount: u64) {
         // Only Giggle can mint tokens
         assert_eq(context.msg_sender().unwrap(), storage.owner.read(), "Only Giggle can mint BOB tokens");
@@ -50,7 +50,7 @@ pub contract BobToken {
     // docs:end:mint_public
 
     // docs:start:transfer_public
-    #[public]
+    #[external("public")]
     fn transfer_public(to: AztecAddress, amount: u64) {
         let sender = context.msg_sender().unwrap();
         let sender_balance = storage.public_balances.at(sender).read();
@@ -66,7 +66,7 @@ pub contract BobToken {
     // docs:end:transfer_public
 
     // docs:start:transfer_ownership
-    #[public]
+    #[external("public")]
     fn transfer_ownership(new_owner: AztecAddress) {
         assert_eq(context.msg_sender().unwrap(), storage.owner.read(), "Only current admin can transfer ownership");
         storage.owner.write(new_owner);
@@ -74,7 +74,7 @@ pub contract BobToken {
     // docs:end:transfer_ownership
 
     // docs:start:public_to_private
-    #[private]
+    #[external("private")]
     fn public_to_private(amount: u64) {
         let sender = context.msg_sender().unwrap();
         // This will enqueue a public function to deduct from public balance
@@ -85,7 +85,7 @@ pub contract BobToken {
     // docs:end:public_to_private
 
     // docs:start:_deduct_public_balance
-    #[public]
+    #[external("public")]
     #[internal]
     fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
         let balance = storage.public_balances.at(owner).read();
@@ -96,7 +96,7 @@ pub contract BobToken {
 
 
     // docs:start:transfer_private
-    #[private]
+    #[external("private")]
     fn transfer_private(to: AztecAddress, amount: u64) {
         let sender = context.msg_sender().unwrap();
         // Spend sender's notes (consumes existing notes)
@@ -107,19 +107,19 @@ pub contract BobToken {
     // docs:end:transfer_private
 
     // docs:start:check_balances
-    #[utility]
+    #[external("utility")]
     unconstrained fn private_balance_of(owner: AztecAddress) -> Field {
         storage.private_balances.at(owner).get_value()
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn public_balance_of(owner: AztecAddress) -> pub u64 {
         storage.public_balances.at(owner).read()
     }
     // docs:end:check_balances
 
     // docs:start:_assert_is_owner
-    #[public]
+    #[external("public")]
     #[internal]
     fn _assert_is_owner(address: AztecAddress) {
         assert_eq(address, storage.owner.read(), "Only Giggle can mint BOB tokens");
@@ -127,7 +127,7 @@ pub contract BobToken {
     // docs:end:_assert_is_owner
 
     // docs:start:mint_private
-    #[private]
+    #[external("private")]
     fn mint_private(employee: AztecAddress, amount: u64) {
         // Enqueue ownership check (will revert if not Giggle)
         BobToken::at(context.this_address())
@@ -141,7 +141,7 @@ pub contract BobToken {
 
 
     // docs:start:private_to_public
-    #[private]
+    #[external("private")]
     fn private_to_public(amount: u64) {
         let sender = context.msg_sender().unwrap();
         // Remove from private balance
@@ -152,7 +152,7 @@ pub contract BobToken {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _credit_public_balance(owner: AztecAddress, amount: u64) {
         let balance = storage.public_balances.at(owner).read();

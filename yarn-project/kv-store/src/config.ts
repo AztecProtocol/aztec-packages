@@ -4,7 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 export type DataStoreConfig = {
   dataDirectory: string | undefined;
-  dataStoreMapSizeKB: number;
+  dataStoreMapSizeKb: number;
   l1Contracts?: { rollupAddress: EthAddress };
 };
 
@@ -13,7 +13,7 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
     env: 'DATA_DIRECTORY',
     description: 'Optional dir to store data. If omitted will store in memory.',
   },
-  dataStoreMapSizeKB: {
+  dataStoreMapSizeKb: {
     env: 'DATA_STORE_MAP_SIZE_KB',
     description: 'The maximum possible size of a data store DB in KB. Can be overridden by component-specific options.',
     ...numberConfigHelper(128 * 1_024 * 1_024), // Defaulted to 128 GB

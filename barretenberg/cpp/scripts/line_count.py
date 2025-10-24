@@ -40,7 +40,6 @@ weights = {"acir_formal_proofs": 0,
            "nodejs_module": 0,
            "numeric": 1,
            "polynomials": 1,
-           "protogalaxy": 1,
            "relations": 1,
            "serialize": 1,
            "smt_verification": 0,
@@ -96,7 +95,6 @@ print(
 weights["client_ivc"] = 1.5
 weights["eccvm"] = 2
 weights["goblin"] = 1.5
-weights["protogalaxy"] = 1.5
 weights["relations"] = 2
 weights["stdlib"] = 1  # partially audited so not reweighting for complexity
 weights["stdlib_circuit_builders"]

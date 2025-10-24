@@ -113,8 +113,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             s = -s;
 
             FrNative::serialize_to_buffer(s, &signature.s[0]);
-            failure_msg = "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s.: "
-                          "hi limb."; // The second part of the message is added by the range constraint
+            failure_msg =
+                "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2.: "
+                "hi limb."; // The second part of the message is added by the range constraint
             break;
         }
         case TamperingMode::ZeroR: {
@@ -233,14 +234,14 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         return { pub_key, sig };
     }
 
-    void ecdsa_verification_circuit(Builder& builder,
-                                    const stdlib::byte_array<Builder>& hashed_message,
-                                    const ecdsa_key_pair<FrNative, G1Native>& account,
-                                    const ecdsa_signature& signature,
-                                    const bool signature_verification_result,
-                                    const bool circuit_checker_result,
-                                    const std::string failure_msg,
-                                    const TamperingMode mode)
+    size_t ecdsa_verification_circuit(Builder& builder,
+                                      const stdlib::byte_array<Builder>& hashed_message,
+                                      const ecdsa_key_pair<FrNative, G1Native>& account,
+                                      const ecdsa_signature& signature,
+                                      const bool signature_verification_result,
+                                      const bool circuit_checker_result,
+                                      const std::string failure_msg,
+                                      const TamperingMode mode)
 
     {
         auto [public_key, sig] = create_stdlib_ecdsa_data(builder, account, signature, mode);
@@ -256,12 +257,9 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         EXPECT_EQ(signature_result.get_value(), signature_verification_result);
 
         // Log data
-        std::cerr << "num gates = " << builder.get_estimated_num_finalized_gates() << std::endl;
-        benchmark_info(Builder::NAME_STRING,
-                       "ECDSA",
-                       "Signature Verification Test",
-                       "Gate Count",
-                       builder.get_estimated_num_finalized_gates());
+        size_t finalized_num_gates = builder.get_estimated_num_finalized_gates();
+        info("num gates = ", finalized_num_gates);
+        benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", finalized_num_gates);
 
         // Circuit checker
         bool is_circuit_satisfied = CircuitChecker::check(builder);
@@ -269,9 +267,11 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // Check the error
         EXPECT_EQ(builder.err(), failure_msg);
+
+        return finalized_num_gates;
     }
 
-    void test_verify_signature(bool random_signature, TamperingMode mode)
+    size_t test_verify_signature(bool random_signature, TamperingMode mode)
     {
         // Map tampering mode to signature verification result
         bool signature_verification_result = (mode == TamperingMode::None) || (mode == TamperingMode::HighS);
@@ -281,6 +281,12 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         std::string message_string = "Goblin";
         std::vector<uint8_t> message_bytes(message_string.begin(), message_string.end());
+        std::array<uint8_t, 32> hashed_message_bytes_ = Sha256Hasher::hash(message_bytes);
+        std::vector<uint8_t> hashed_message_bytes;
+        hashed_message_bytes.reserve(32);
+        for (auto byte : hashed_message_bytes_) {
+            hashed_message_bytes.emplace_back(byte);
+        }
 
         auto [account, signature] = generate_dummy_ecdsa_data(message_string, /*random_signature=*/random_signature);
 
@@ -289,20 +295,17 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
 
         // Create ECDSA verification circuit
         Builder builder;
-
-        // Compute H(m)
-        stdlib::byte_array<Builder> message(&builder, message_bytes);
-        stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
+        stdlib::byte_array<Builder> hashed_message(&builder, hashed_message_bytes);
 
         // ECDSA verification
-        ecdsa_verification_circuit(builder,
-                                   hashed_message,
-                                   account,
-                                   signature,
-                                   signature_verification_result,
-                                   circuit_checker_result,
-                                   failure_msg,
-                                   mode);
+        return ecdsa_verification_circuit(builder,
+                                          hashed_message,
+                                          account,
+                                          signature,
+                                          signature_verification_result,
+                                          circuit_checker_result,
+                                          failure_msg,
+                                          mode);
     }
 
     /**
@@ -325,12 +328,17 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
             FrNative::serialize_to_buffer(test.r, &r[0]);
             FrNative::serialize_to_buffer(test.s, &s[0]);
 
+            // Hashed message
+            std::array<uint8_t, 32> hashed_message_bytes_ = Sha256Hasher::hash(test.message);
+            std::vector<uint8_t> hashed_message_bytes;
+            hashed_message_bytes.reserve(32);
+            for (auto byte : hashed_message_bytes_) {
+                hashed_message_bytes.emplace_back(byte);
+            }
+
             // Create ECDSA verification circuit
             Builder builder;
-
-            // Compute H(m)
-            stdlib::byte_array<Builder> message(&builder, test.message);
-            stdlib::byte_array<Builder> hashed_message = stdlib::SHA256<Builder>::hash(message);
+            stdlib::byte_array<Builder> hashed_message(&builder, hashed_message_bytes);
 
             // ECDSA verification
             ecdsa_verification_circuit(builder,
@@ -359,7 +367,15 @@ TYPED_TEST(EcdsaTests, VerifyRandomSignature)
 
 TYPED_TEST(EcdsaTests, VerifySignature)
 {
-    TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
+    using Curve = TypeParam;
+
+    size_t finalized_num_gates =
+        TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
+    static constexpr size_t NUM_GATES_SECP256K1 = 41827;
+    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 71534 : 71532;
+    BB_ASSERT_EQ(finalized_num_gates,
+                 Curve::type == bb::CurveType::SECP256K1 ? NUM_GATES_SECP256K1 : NUM_GATES_SECP256R1,
+                 "There has been a change in the number of gates for ECDSA verification");
 }
 
 TYPED_TEST(EcdsaTests, XCoordinateOverflow)

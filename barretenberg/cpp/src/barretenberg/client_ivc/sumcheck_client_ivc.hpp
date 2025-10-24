@@ -25,7 +25,7 @@ namespace bb {
 
 /**
  * @brief The IVC scheme used by the aztec client for private function execution
- * @details Combines Protogalaxy with Goblin to accumulate one circuit at a time with efficient EC group
+ * @details Combines HyperNova with Goblin to accumulate one circuit at a time with efficient EC group
  * operations. It is assumed that the circuits being accumulated correspond alternatingly to an app and a kernel, as is
  * the case in Aztec. Two recursive folding verifiers are appended to each kernel (except the first one) to verify the
  * folding of a previous kernel and an app/function circuit. Due to this structure it is enforced that the total number

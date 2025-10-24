@@ -2,6 +2,7 @@ import { MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS } from '@aztec/constants'
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -12,9 +13,11 @@ describe('AVM check-circuit - contract class limits', () => {
   let instances: ContractInstanceWithAddress[];
   let tester: AvmProvingTester;
   let avmTestContractAddress: AztecAddress;
+  let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {
@@ -28,6 +31,10 @@ describe('AVM check-circuit - contract class limits', () => {
       instances.push(instance);
     }
     avmTestContractAddress = instances[0].address;
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it(

@@ -51,7 +51,7 @@ export async function createP2PClient<T extends P2PClientType>(
 ) {
   const config = await configureP2PClientAddresses({
     ...inputConfig,
-    dataStoreMapSizeKB: inputConfig.p2pStoreMapSizeKb ?? inputConfig.dataStoreMapSizeKB,
+    dataStoreMapSizeKb: inputConfig.p2pStoreMapSizeKb ?? inputConfig.dataStoreMapSizeKb,
   });
 
   const logger = deps.logger ?? createLogger('p2p');

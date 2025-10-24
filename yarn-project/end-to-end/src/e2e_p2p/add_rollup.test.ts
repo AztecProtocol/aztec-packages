@@ -514,7 +514,7 @@ describe('e2e_p2p_add_rollup', () => {
       l1Contracts: newConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: newConfig.dataDirectory,
-      dataStoreMapSizeKB: newConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: newConfig.dataStoreMapSizeKb,
     });
     await blobSink.start();
     await sleep(4000);

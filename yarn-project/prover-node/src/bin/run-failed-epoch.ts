@@ -25,7 +25,7 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   const config = {
     ...getProverNodeConfigFromEnv(),
     dataDirectory: dataDir,
-    dataStoreMapSizeKB: env.dataStoreMapSizeKB ?? 1024 * 1024,
+    dataStoreMapSizeKb: env.dataStoreMapSizeKb ?? 1024 * 1024,
     proverId: env.proverId ?? EthAddress.random(),
   };
 

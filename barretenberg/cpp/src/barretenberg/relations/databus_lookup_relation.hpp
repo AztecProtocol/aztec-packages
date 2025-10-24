@@ -89,18 +89,6 @@ template <typename FF_> class DatabusLookupRelationImpl {
         READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH, // read_tag_m* read_tag_m - read_tag_m (bus_idx 2)
     };
 
-    static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX * NUM_BUS_COLUMNS> TOTAL_LENGTH_ADJUSTMENTS{
-        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
-        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT,
-        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
-        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT,
-        INVERSE_SUBREL_LENGTH_ADJUSTMENT,
-        LOOKUP_SUBREL_LENGTH_ADJUSTMENT,
-        READ_TAG_BOOLEAN_CHECK_SUBREL_LENGTH_ADJUSTMENT
-    };
-
     static constexpr bool INVERSE_SUBREL_LIN_INDEPENDENT = true;         // to be satisfied independently at each row
     static constexpr bool LOOKUP_SUBREL_LIN_INDEPENDENT = false;         // to be satisfied as a sum across all rows
     static constexpr bool READ_TAG_BOOLEAN_CHECK_LIN_INDEPENDENT = true; // to be satisfied independently at each row

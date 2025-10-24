@@ -2006,6 +2006,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/native": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"

@@ -71,8 +71,10 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
     //    generator so that the final table is genuninely correct in all cases. (Otherwise, the table is unchanged
     //    from step 2)
     cycle_group<Builder> fallback_point(Group::affine_one);
-    field_t modded_x = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x, base_point.x);
-    field_t modded_y = field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y, base_point.y);
+    field_t modded_x =
+        field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.x(), base_point.x());
+    field_t modded_y =
+        field_t::conditional_assign(base_point.is_point_at_infinity(), fallback_point.y(), base_point.y());
     cycle_group<Builder> modded_base_point(modded_x, modded_y, false, /*assert_on_curve=*/false);
     // We assume that the native hints (if present) do not account for the point at infinity edge case in the same way
     // as above (i.e. replacing with "one") so we avoid using any provided hints in this case. (N.B. No efficiency is
@@ -101,7 +103,7 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         field_t coordinate_check_product = 1;
         point_table[0] = offset_generator;
         for (size_t i = 1; i < table_size; ++i) {
-            const field_t x_diff = point_table[i - 1].x - modded_base_point.x;
+            const field_t x_diff = point_table[i - 1].x() - modded_base_point.x();
             coordinate_check_product *= x_diff;
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
@@ -124,8 +126,8 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
             const auto element = point_table[i].get_value();
             point_table[i] = cycle_group<Builder>::from_constant_witness(_context, element);
         }
-        std::array<uint32_t, 2> coordinate_indices = { point_table[i].x.get_witness_index(),
-                                                       point_table[i].y.get_witness_index() };
+        std::array<uint32_t, 2> coordinate_indices = { point_table[i].x().get_witness_index(),
+                                                       point_table[i].y().get_witness_index() };
         context->set_ROM_element_pair(rom_id, i, coordinate_indices);
     }
 }

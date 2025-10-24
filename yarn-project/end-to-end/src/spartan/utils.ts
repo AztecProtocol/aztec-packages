@@ -278,7 +278,7 @@ function createHelmCommand({
   namespace: string;
   valuesFile: string | undefined;
   timeout: string;
-  values: Record<string, string | number>;
+  values: Record<string, string | number | boolean>;
   reuseValues?: boolean;
 }) {
   const valuesFileArgs = valuesFile ? `--values ${helmChartDir}/values/${valuesFile}` : '';
@@ -633,7 +633,7 @@ export async function installTransferBot({
     namespace,
     valuesFile: undefined,
     timeout,
-    values: values as unknown as Record<string, string | number>,
+    values: values as unknown as Record<string, string | number | boolean>,
     reuseValues,
   });
 
@@ -659,6 +659,87 @@ export async function uninstallTransferBot(namespace: string, logger: Logger) {
   await deleteResourceByLabel({ resource: 'pods', namespace, label: 'app.kubernetes.io/name=bot' }).catch(
     () => undefined,
   );
+}
+
+/**
+ * Enables or disables probabilistic transaction dropping on validators and waits for rollout.
+ * Wired to env vars P2P_DROP_TX and P2P_DROP_TX_CHANCE via Helm values.
+ */
+export async function setValidatorTxDrop({
+  namespace,
+  enabled,
+  probability,
+  logger,
+}: {
+  namespace: string;
+  enabled: boolean;
+  probability: number;
+  logger: Logger;
+}) {
+  const drop = enabled ? 'true' : 'false';
+  const prob = String(probability);
+
+  const selectors = ['app=validator', 'app.kubernetes.io/component=validator'];
+  let updated = false;
+  for (const selector of selectors) {
+    try {
+      const list = await execAsync(`kubectl get statefulset -l ${selector} -n ${namespace} --no-headers -o name | cat`);
+      const names = list.stdout
+        .split('\n')
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (names.length === 0) {
+        continue;
+      }
+      const cmd = `kubectl set env statefulset -l ${selector} -n ${namespace} P2P_DROP_TX=${drop} P2P_DROP_TX_CHANCE=${prob}`;
+      logger.info(`command: ${cmd}`);
+      await execAsync(cmd);
+      updated = true;
+    } catch (e) {
+      logger.warn(`Failed to update validators with selector ${selector}: ${String(e)}`);
+    }
+  }
+
+  if (!updated) {
+    logger.warn(`No validator StatefulSets found in ${namespace}. Skipping tx drop toggle.`);
+    return;
+  }
+
+  // Restart validator pods to ensure env vars take effect and wait for readiness
+  await restartValidators(namespace, logger);
+}
+
+export async function restartValidators(namespace: string, logger: Logger) {
+  const selectors = ['app=validator', 'app.kubernetes.io/component=validator'];
+  let any = false;
+  for (const selector of selectors) {
+    try {
+      const { stdout } = await execAsync(`kubectl get pods -l ${selector} -n ${namespace} --no-headers -o name | cat`);
+      if (!stdout || stdout.trim().length === 0) {
+        continue;
+      }
+      any = true;
+      await deleteResourceByLabel({ resource: 'pods', namespace, label: selector });
+    } catch (e) {
+      logger.warn(`Error restarting validator pods with selector ${selector}: ${String(e)}`);
+    }
+  }
+
+  if (!any) {
+    logger.warn(`No validator pods found to restart in ${namespace}.`);
+    return;
+  }
+
+  // Wait for either label to be Ready
+  for (const selector of selectors) {
+    try {
+      await waitForResourceByLabel({ resource: 'pods', namespace, label: selector });
+      return;
+    } catch {
+      // try next
+    }
+  }
+  logger.warn(`Validator pods did not report Ready; continuing.`);
 }
 
 export async function enableValidatorDynamicBootNode(

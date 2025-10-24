@@ -25,9 +25,6 @@ class ECCVMRecursiveFlavor {
     using NativeVerificationKey = NativeFlavor::VerificationKey;
     using PCS = IPA<Curve>;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = ECCVMFlavor::USE_SHORT_MONOMIALS;
-
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
