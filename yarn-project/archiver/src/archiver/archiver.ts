@@ -14,6 +14,7 @@ import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
@@ -116,9 +117,7 @@ function mapArchiverConfig(config: Partial<ArchiverConfig>) {
  * concern themselves with it.
  */
 export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implements ArchiveSource, Traceable {
-  /**
-   * A promise in which we will be continually fetching new L2 blocks.
-   */
+  /** A loop in which we will be continually fetching new L2 blocks. */
   private runningPromise?: RunningPromise;
 
   private rollup: RollupContract;
@@ -129,6 +128,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
   private initialSyncComplete: boolean = false;
+  private initialSyncPromise: PromiseWithResolvers<void>;
 
   public readonly tracer: Tracer;
 
@@ -160,6 +160,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     this.rollup = new RollupContract(publicClient, l1Addresses.rollupAddress);
     this.inbox = new InboxContract(publicClient, l1Addresses.inboxAddress);
+    this.initialSyncPromise = promiseWithResolvers();
   }
 
   /**
@@ -270,6 +271,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       throw new Error('Archiver is not running');
     }
     return this.runningPromise.trigger();
+  }
+
+  public waitForInitialSync() {
+    return this.initialSyncPromise.promise;
   }
 
   private async syncSafe(initialRun: boolean) {
@@ -384,6 +389,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
     this.initialSyncComplete = true;
+    this.initialSyncPromise.resolve();
 
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
