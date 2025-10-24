@@ -146,19 +146,6 @@ template <typename Builder> class cycle_group {
     }
 
     /**
-     * @brief Set the origin tag for the x coordinate only
-     *
-     * @param tag
-     */
-    void set_x_origin_tag(OriginTag tag) const { _x.set_origin_tag(tag); }
-
-    /**
-     * @brief Set the origin tag for the y coordinate only
-     *
-     * @param tag
-     */
-    void set_y_origin_tag(OriginTag tag) const { _y.set_origin_tag(tag); }
-    /**
      * @brief Get the origin tag of cycle_group (a merege of origin tags of x, y and _is_infinity members)
      *
      * @return OriginTag

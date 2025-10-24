@@ -68,22 +68,32 @@ TYPED_TEST(CycleGroupTest, TestBasicTagLogic)
     STDLIB_TYPE_ALIASES
     Builder builder;
 
+    // Create field elements with specific tags before constructing the cycle_group
     auto lhs = TestFixture::generators[0];
-    cycle_group_ct a = cycle_group_ct::from_witness(&builder, lhs);
-    // Set the whole tag first
-    a.set_origin_tag(next_challenge_tag);
-    // Set tags of x an y
-    a.set_x_origin_tag(submitted_value_origin_tag);
-    a.set_y_origin_tag(challenge_origin_tag);
+    auto x = stdlib::field_t<Builder>::from_witness(&builder, lhs.x);
+    auto y = stdlib::field_t<Builder>::from_witness(&builder, lhs.y);
+    auto is_infinity = bool_ct(witness_ct(&builder, lhs.is_point_at_infinity()));
 
-    // The tag of the _is_point_at_infinity member should stay as next_challenge_tag, so the whole thing should be the
-    // union of all 3
+    // Set tags on the individual field elements
+    x.set_origin_tag(submitted_value_origin_tag);
+    y.set_origin_tag(challenge_origin_tag);
+    is_infinity.set_origin_tag(next_challenge_tag);
 
+    // Construct cycle_group from pre-tagged field elements
+    cycle_group_ct a(x, y, is_infinity, /*assert_on_curve=*/true);
+
+    // The tag of the cycle_group should be the union of all 3 member tags
     EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
-    cycle_group_ct b = cycle_group_ct::from_witness(&builder, TestFixture::generators[1]);
-    b.set_x_origin_tag(instant_death_tag);
+    // Test that instant_death_tag on x coordinate propagates correctly
+    auto x_death = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].x);
+    auto y_normal = stdlib::field_t<Builder>::from_witness(&builder, TestFixture::generators[1].y);
+    auto is_infinity_normal = bool_ct(witness_ct(&builder, TestFixture::generators[1].is_point_at_infinity()));
+
+    x_death.set_origin_tag(instant_death_tag);
+
+    cycle_group_ct b(x_death, y_normal, is_infinity_normal, /*assert_on_curve=*/true);
     // Even requesting the tag of the whole structure can cause instant death
     EXPECT_THROW(b.get_origin_tag(), std::runtime_error);
 #endif
