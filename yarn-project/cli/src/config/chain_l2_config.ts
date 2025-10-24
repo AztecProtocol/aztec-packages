@@ -327,7 +327,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   ...DefaultNetworkDBMapSizeConfig,
 };
 
-export const ignitionL2ChainConfig: L2ChainConfig = {
+export const mainnetL2ChainConfig: L2ChainConfig = {
   l1ChainId: 1,
   testAccounts: false,
   sponsoredFPC: false,
@@ -336,9 +336,9 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOTS_URL}/ignition-mainnet/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/ignition-mainnet.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -469,8 +469,8 @@ export function getL2ChainConfig(networkName: NetworkNames): L2ChainConfig | und
     config = { ...testnetL2ChainConfig };
   } else if (networkName === 'staging-ignition') {
     config = { ...stagingIgnitionL2ChainConfig };
-  } else if (networkName === 'ignition') {
-    config = { ...ignitionL2ChainConfig };
+  } else if (networkName === 'mainnet') {
+    config = { ...mainnetL2ChainConfig };
   } else if (networkName === 'next-net') {
     config = { ...nextNetL2ChainConfig };
   } else if (networkName === 'devnet') {

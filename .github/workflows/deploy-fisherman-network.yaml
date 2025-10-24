@@ -123,10 +123,10 @@ jobs:
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           elif [[ "${{ inputs.l1_network }}" == "mainnet" ]]; then
             echo "NETWORK=mainnet" >> $GITHUB_ENV
-            echo "NAMESPACE=ignition-fisherman-mainnet" >> $GITHUB_ENV
+            echo "NAMESPACE=mainnet" >> $GITHUB_ENV
             echo "ETHEREUM_CHAIN_ID=1" >> $GITHUB_ENV
             echo "L1_NETWORK=mainnet" >> $GITHUB_ENV
-            echo "SNAPSHOT_BUCKET_DIRECTORY=ignition-mainnet" >> $GITHUB_ENV
+            echo "SNAPSHOT_BUCKET_DIRECTORY=mainnet" >> $GITHUB_ENV
             echo "USE_NETWORK_CONFIG=true" >> $GITHUB_ENV
           fi
 
