@@ -59,14 +59,14 @@ Bn254FrSqrt::Response Bn254FrSqrt::execute(BB_UNUSED BBApiRequest& request) &&
     return { is_sqr, root };
 }
 
-Bn254G1GeneratorScalarMul::Response Bn254G1GeneratorScalarMul::execute(BB_UNUSED BBApiRequest& request) &&
+Bn254G1Mul::Response Bn254G1Mul::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    return { bb::g1::one * scalar };
+    return { point * scalar };
 }
 
-Bn254G2GeneratorScalarMul::Response Bn254G2GeneratorScalarMul::execute(BB_UNUSED BBApiRequest& request) &&
+Bn254G2Mul::Response Bn254G2Mul::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    return { bb::g2::one * scalar };
+    return { point * scalar };
 }
 
 Bn254G1IsOnCurve::Response Bn254G1IsOnCurve::execute(BB_UNUSED BBApiRequest& request) &&

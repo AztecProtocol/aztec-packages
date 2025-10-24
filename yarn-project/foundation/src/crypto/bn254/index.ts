@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+import { BarretenbergSync, CurveConstants } from '@aztec/bb.js';
 
 /**
  * BN254 elliptic curve operations.
@@ -78,9 +78,12 @@ function modularSqrt(a: bigint): bigint | null {
   return y;
 }
 
+// BN254 G1 generator point (hardcoded)
+const BN254_G1_GENERATOR: Bn254G1Point = { x: 1n, y: 2n };
+
 /**
  * Generate uncompressed BN254 G1 public key from a private key.
- * Uses barretenberg for efficient scalar multiplication.
+ * Multiplies the G1 generator by the scalar.
  *
  * @param privateKeyHex - Private key as 0x-prefixed hex string
  * @returns G1 point in affine coordinates
@@ -95,7 +98,13 @@ export async function computeG1PublicKey(privateKeyHex: string): Promise<Bn254G1
   const scalarHex = skReduced.toString(16).padStart(64, '0');
   const scalarBuffer = Buffer.from(scalarHex, 'hex');
 
-  const response = api.bn254G1GeneratorScalarMul({ scalar: scalarBuffer });
+  const generatorX = bigintToBuffer(BN254_G1_GENERATOR.x);
+  const generatorY = bigintToBuffer(BN254_G1_GENERATOR.y);
+
+  const response = api.bn254G1Mul({
+    point: { x: generatorX, y: generatorY },
+    scalar: scalarBuffer,
+  });
 
   const x = BigInt('0x' + Buffer.from(response.point.x).toString('hex'));
   const y = BigInt('0x' + Buffer.from(response.point.y).toString('hex'));
@@ -120,7 +129,15 @@ export async function computeG2PublicKey(privateKeyHex: string): Promise<Bn254G2
   const scalarHex = skReduced.toString(16).padStart(64, '0');
   const scalarBuffer = Buffer.from(scalarHex, 'hex');
 
-  const response = api.bn254G2GeneratorScalarMul({ scalar: scalarBuffer });
+  // Get G2 generator from CurveConstants
+  const constants = CurveConstants.getInstance();
+  const generatorX = Buffer.from(constants.bn254G2Generator.x);
+  const generatorY = Buffer.from(constants.bn254G2Generator.y);
+
+  const response = api.bn254G2Mul({
+    point: { x: generatorX, y: generatorY },
+    scalar: scalarBuffer,
+  });
 
   // For G2, x and y are field2 elements serialized as 64-byte buffers (c0 || c1)
   const xBuf = Buffer.from(response.point.x);

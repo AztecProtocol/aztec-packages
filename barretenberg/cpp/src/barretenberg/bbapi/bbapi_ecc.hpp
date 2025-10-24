@@ -207,43 +207,45 @@ struct Bn254FrSqrt {
 };
 
 /**
- * @struct Bn254G1GeneratorScalarMul
- * @brief Multiply a scalar by the BN254 G1 generator point
+ * @struct Bn254G1Mul
+ * @brief Multiply a BN254 G1 point by a scalar
  */
-struct Bn254G1GeneratorScalarMul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1GeneratorScalarMul";
+struct Bn254G1Mul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1Mul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1GeneratorScalarMulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G1MulResponse";
         bb::g1::affine_element point;
         MSGPACK_FIELDS(point);
         bool operator==(const Response&) const = default;
     };
 
+    bb::g1::affine_element point;
     bb::fr scalar;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(scalar);
-    bool operator==(const Bn254G1GeneratorScalarMul&) const = default;
+    MSGPACK_FIELDS(point, scalar);
+    bool operator==(const Bn254G1Mul&) const = default;
 };
 
 /**
- * @struct Bn254G2GeneratorScalarMul
- * @brief Multiply a scalar by the BN254 G2 generator point
+ * @struct Bn254G2Mul
+ * @brief Multiply a BN254 G2 point by a scalar
  */
-struct Bn254G2GeneratorScalarMul {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2GeneratorScalarMul";
+struct Bn254G2Mul {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2Mul";
 
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2GeneratorScalarMulResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "Bn254G2MulResponse";
         bb::g2::affine_element point;
         MSGPACK_FIELDS(point);
         bool operator==(const Response&) const = default;
     };
 
+    bb::g2::affine_element point;
     bb::fr scalar;
     Response execute(BBApiRequest& request) &&;
-    MSGPACK_FIELDS(scalar);
-    bool operator==(const Bn254G2GeneratorScalarMul&) const = default;
+    MSGPACK_FIELDS(point, scalar);
+    bool operator==(const Bn254G2Mul&) const = default;
 };
 
 /**

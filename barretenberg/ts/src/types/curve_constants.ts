@@ -1,4 +1,4 @@
-import { BarretenbergSync } from '../main.js';
+import { BarretenbergSync } from '../barretenberg/index.js';
 
 /**
  * BN254 curve constants lazily initialized from barretenberg.
