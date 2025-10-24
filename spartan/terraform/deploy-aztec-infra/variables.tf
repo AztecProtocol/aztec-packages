@@ -482,3 +482,15 @@ variable "RPC_REPLICAS" {
   type        = string
   default     = 1
 }
+
+variable "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" {
+  description = "Whether to delete transactions from the P2P transaction pool after a reorg"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENTS_PER_PROVER" {
+  description = "Number of prover agents per prover"
+  type        = string
+  default     = 1
+}
