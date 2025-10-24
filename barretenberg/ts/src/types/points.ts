@@ -436,13 +436,3 @@ export class Secp256r1Point {
   }
 }
 
-// ============================================================================
-// Backward Compatibility Alias
-// ============================================================================
-
-/**
- * Alias for GrumpkinPoint for backward compatibility.
- * @dev Most of the codebase uses Grumpkin points.
- */
-export const Point = GrumpkinPoint;
-export type Point = GrumpkinPoint;
