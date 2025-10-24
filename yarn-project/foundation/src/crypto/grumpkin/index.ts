@@ -1,5 +1,13 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+/**
+ * Grumpkin elliptic curve operations - delegates to barretenberg/ts implementation.
+ * This wrapper maintains the foundation API using Fr and Point types.
+ */
+import { Grumpkin as GrumpkinImpl } from '@aztec/bb.js/crypto/grumpkin';
+import { Bn254Fr } from '@aztec/bb.js/types/fields';
+import { GrumpkinPoint } from '@aztec/bb.js/types/points';
 import { Fr, type GrumpkinScalar, Point } from '@aztec/foundation/fields';
+
+const grumpkinImpl = new GrumpkinImpl();
 
 /**
  * Grumpkin elliptic curve operations.
@@ -28,13 +36,10 @@ export class Grumpkin {
    * @returns Result of the multiplication.
    */
   public async mul(point: Point, scalar: GrumpkinScalar): Promise<Point> {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinMul({
-      point: { x: point.x.toBuffer(), y: point.y.toBuffer() },
-      scalar: scalar.toBuffer(),
-    });
-    return Point.fromBuffer(Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]));
+    const grumpkinPoint = GrumpkinPoint.fromBuffer(point.toBuffer());
+    const bn254Fr = Bn254Fr.fromBuffer(scalar.toBuffer());
+    const result = await grumpkinImpl.mul(grumpkinPoint, bn254Fr);
+    return Point.fromBuffer(result.toBuffer());
   }
 
   /**
@@ -44,13 +49,10 @@ export class Grumpkin {
    * @returns Result of the addition.
    */
   public async add(a: Point, b: Point): Promise<Point> {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinAdd({
-      pointA: { x: a.x.toBuffer(), y: a.y.toBuffer() },
-      pointB: { x: b.x.toBuffer(), y: b.y.toBuffer() },
-    });
-    return Point.fromBuffer(Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]));
+    const grumpkinA = GrumpkinPoint.fromBuffer(a.toBuffer());
+    const grumpkinB = GrumpkinPoint.fromBuffer(b.toBuffer());
+    const result = await grumpkinImpl.add(grumpkinA, grumpkinB);
+    return Point.fromBuffer(result.toBuffer());
   }
 
   /**
@@ -60,14 +62,10 @@ export class Grumpkin {
    * @returns Points multiplied by the scalar.
    */
   public async batchMul(points: Point[], scalar: GrumpkinScalar) {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinBatchMul({
-      points: points.map(p => ({ x: p.x.toBuffer(), y: p.y.toBuffer() })),
-      scalar: scalar.toBuffer(),
-    });
-
-    return response.points.map(p => Point.fromBuffer(Buffer.concat([Buffer.from(p.x), Buffer.from(p.y)])));
+    const grumpkinPoints = points.map(p => GrumpkinPoint.fromBuffer(p.toBuffer()));
+    const bn254Fr = Bn254Fr.fromBuffer(scalar.toBuffer());
+    const results = await grumpkinImpl.batchMul(grumpkinPoints, bn254Fr);
+    return results.map(r => Point.fromBuffer(r.toBuffer()));
   }
 
   /**
@@ -75,10 +73,8 @@ export class Grumpkin {
    * @returns Random field element.
    */
   public async getRandomFr(): Promise<Fr> {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinGetRandomFr({ dummy: 0 });
-    return Fr.fromBuffer(Buffer.from(response.value));
+    const result = await grumpkinImpl.getRandomFr();
+    return Fr.fromBuffer(Buffer.from(result.toBuffer()));
   }
 
   /**
@@ -87,9 +83,7 @@ export class Grumpkin {
    * @returns Buffer representation of the field element.
    */
   public async reduce512BufferToFr(uint512Buf: Buffer): Promise<Fr> {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.grumpkinReduce512({ input: uint512Buf });
-    return Fr.fromBuffer(Buffer.from(response.value));
+    const result = await grumpkinImpl.reduce512BufferToFr(uint512Buf);
+    return Fr.fromBuffer(Buffer.from(result.toBuffer()));
   }
 }

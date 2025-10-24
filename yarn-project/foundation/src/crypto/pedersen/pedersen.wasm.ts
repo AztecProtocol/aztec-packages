@@ -1,4 +1,13 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+/**
+ * Pedersen hash and commitment operations - delegates to barretenberg/ts implementation.
+ * This wrapper maintains the foundation API using Fieldable types.
+ */
+import {
+  pedersenCommit as pedersenCommitImpl,
+  pedersenHashBuffer as pedersenHashBufferImpl,
+  pedersenHash as pedersenHashImpl,
+} from '@aztec/bb.js/crypto/pedersen';
+import { Bn254Fr } from '@aztec/bb.js/types/fields';
 
 import { Fr } from '../../fields/fields.js';
 import { type Fieldable, serializeToFields } from '../../serialize/serialize.js';
@@ -8,17 +17,7 @@ import { type Fieldable, serializeToFields } from '../../serialize/serialize.js'
  * Left pads any inputs less than 32 bytes.
  */
 export async function pedersenCommit(input: Buffer[], offset = 0) {
-  if (!input.every(i => i.length <= 32)) {
-    throw new Error('All Pedersen Commit input buffers must be <= 32 bytes.');
-  }
-  input = input.map(i => (i.length < 32 ? Buffer.concat([Buffer.alloc(32 - i.length, 0), i]) : i));
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.pedersenCommit({
-    inputs: input,
-    hashIndex: offset,
-  });
-  return [Buffer.from(response.point.x), Buffer.from(response.point.y)];
+  return await pedersenCommitImpl(input, offset);
 }
 
 /**
@@ -29,24 +28,14 @@ export async function pedersenCommit(input: Buffer[], offset = 0) {
  */
 export async function pedersenHash(input: Fieldable[], index = 0): Promise<Fr> {
   const inputFields = serializeToFields(input);
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.pedersenHash({
-    inputs: inputFields.map(i => i.toBuffer()),
-    hashIndex: index,
-  });
-  return Fr.fromBuffer(Buffer.from(response.hash));
+  const bn254Frs = inputFields.map(f => Bn254Fr.fromBuffer(f.toBuffer()));
+  const result = await pedersenHashImpl(bn254Frs, index);
+  return Fr.fromBuffer(Buffer.from(result.toBuffer()));
 }
 
 /**
  * Create a pedersen hash from an arbitrary length buffer.
  */
 export async function pedersenHashBuffer(input: Buffer, index = 0) {
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.pedersenHashBuffer({
-    input,
-    hashIndex: index,
-  });
-  return Buffer.from(response.hash);
+  return await pedersenHashBufferImpl(input, index);
 }

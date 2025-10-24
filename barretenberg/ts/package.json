@@ -8,9 +8,46 @@
   "types": "./dest/node/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dest/node/index.d.ts",
       "require": "./dest/node-cjs/index.js",
       "browser": "./dest/browser/index.js",
       "default": "./dest/node/index.js"
+    },
+    "./types/fields": {
+      "types": "./dest/node/types/fields.d.ts",
+      "require": "./dest/node-cjs/types/fields.js",
+      "browser": "./dest/browser/types/fields.js",
+      "default": "./dest/node/types/fields.js"
+    },
+    "./types/points": {
+      "types": "./dest/node/types/points.d.ts",
+      "require": "./dest/node-cjs/types/points.js",
+      "browser": "./dest/browser/types/points.js",
+      "default": "./dest/node/types/points.js"
+    },
+    "./crypto/grumpkin": {
+      "types": "./dest/node/crypto/grumpkin/index.d.ts",
+      "require": "./dest/node-cjs/crypto/grumpkin/index.js",
+      "browser": "./dest/browser/crypto/grumpkin/index.js",
+      "default": "./dest/node/crypto/grumpkin/index.js"
+    },
+    "./crypto/schnorr": {
+      "types": "./dest/node/crypto/schnorr/index.d.ts",
+      "require": "./dest/node-cjs/crypto/schnorr/index.js",
+      "browser": "./dest/browser/crypto/schnorr/index.js",
+      "default": "./dest/node/crypto/schnorr/index.js"
+    },
+    "./crypto/ecdsa": {
+      "types": "./dest/node/crypto/ecdsa/index.d.ts",
+      "require": "./dest/node-cjs/crypto/ecdsa/index.js",
+      "browser": "./dest/browser/crypto/ecdsa/index.js",
+      "default": "./dest/node/crypto/ecdsa/index.js"
+    },
+    "./crypto/pedersen": {
+      "types": "./dest/node/crypto/pedersen/index.d.ts",
+      "require": "./dest/node-cjs/crypto/pedersen/index.js",
+      "browser": "./dest/browser/crypto/pedersen/index.js",
+      "default": "./dest/node/crypto/pedersen/index.js"
     }
   },
   "bin": "dest/node/main.js",
