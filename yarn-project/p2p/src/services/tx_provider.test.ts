@@ -36,7 +36,7 @@ describe('TxProvider', () => {
 
   const buildProposal = (txs: Tx[], txHashes: TxHash[]) => {
     const payload = new ConsensusPayload(ProposedBlockHeader.empty(), Fr.random(), StateReference.empty());
-    return new BlockProposal(1, payload, Signature.empty(), txHashes, txs);
+    return new BlockProposal(payload, Signature.empty(), txHashes, txs);
   };
 
   const setupTxPools = (txsInPool: number, txsOnP2P: number, txs: Tx[]) => {
@@ -73,6 +73,8 @@ describe('TxProvider', () => {
       .sort((a, b) => a.sort - b.sort)
       .map(({ value }) => value);
   };
+
+  const blockNumber = 1;
 
   beforeEach(() => {
     txPools.clear();
@@ -116,7 +118,7 @@ describe('TxProvider', () => {
     const txs = shuffleTxs(original);
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     const proposal = buildProposal([], hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs, missingTxs: [] };
     await checkResults(results, expected);
     expect(txPools.size).toEqual(10);
@@ -131,7 +133,7 @@ describe('TxProvider', () => {
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     const proposal = buildProposal([], hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 5), missingTxs: originalHashes.slice(5) };
     await checkResults(results, expected);
     expect(txPools.size).toEqual(5);
@@ -145,7 +147,7 @@ describe('TxProvider', () => {
     const txs = original;
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     const proposal = buildProposal([], hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 6), missingTxs: originalHashes.slice(6) };
     await checkResults(results, expected);
     expect(txPools.size).toEqual(6);
@@ -159,7 +161,7 @@ describe('TxProvider', () => {
     const txs = shuffleTxs([...original]);
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     const proposal = buildProposal(original.slice(6), hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs, missingTxs: [] };
     await checkResults(results, expected);
     // all txs should be in the pool
@@ -186,7 +188,7 @@ describe('TxProvider', () => {
     ).map(method => jest.spyOn(txProvider.instrumentation, method));
 
     // Check result is correct
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 8), missingTxs: txs.slice(8).map(t => t.txHash) };
     await checkResults(results, expected);
     expect(txPools.size).toEqual(8);
@@ -212,7 +214,7 @@ describe('TxProvider', () => {
     const txs = original;
     const hashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     const proposal = buildProposal(txs.slice(4, 8), hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 8), missingTxs: originalHashes.slice(8) };
     await checkResults(results, expected);
     // all txs should be in the pool
@@ -231,7 +233,7 @@ describe('TxProvider', () => {
 
     // Add additional txs and these should not be added to the pool and not in the results
     const proposal = buildProposal(txs.slice(4, 8).concat(additional), hashes);
-    const results = await txProvider.getTxsForBlockProposal(proposal, opts);
+    const results = await txProvider.getTxsForBlockProposal(proposal, blockNumber, opts);
     const expected: TxResults = { txs: txs.slice(0, 8), missingTxs: originalHashes.slice(8) };
     await checkResults(results, expected);
     // all txs should be in the pool

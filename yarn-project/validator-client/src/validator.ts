@@ -183,8 +183,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   // Proxy method for backwards compatibility with tests
-  public reExecuteTransactions(proposal: BlockProposal, txs: any[], l1ToL2Messages: Fr[]): Promise<any> {
-    return this.blockProposalHandler.reexecuteTransactions(proposal, txs, l1ToL2Messages);
+  public reExecuteTransactions(
+    proposal: BlockProposal,
+    blockNumber: number,
+    txs: any[],
+    l1ToL2Messages: Fr[],
+  ): Promise<any> {
+    return this.blockProposalHandler.reexecuteTransactions(proposal, blockNumber, txs, l1ToL2Messages);
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -268,7 +273,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const incFailedAttestation = (reason: string) => this.metrics.incFailedAttestations(1, reason, partOfCommittee);
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
+    this.log.info(`Received proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -310,7 +315,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`Attesting to proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, proposalInfo);
+    this.log.info(`Attesting to proposal for block at slot ${slotNumber}`, proposalInfo);
     this.metrics.incAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
@@ -359,7 +364,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const newProposal = await this.validationService.createBlockProposal(
-      blockNumber,
       header,
       archive,
       stateReference,

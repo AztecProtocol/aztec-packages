@@ -150,7 +150,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     private readonly blobSinkClient: BlobSinkClientInterface,
     private readonly epochCache: EpochCache,
     private readonly instrumentation: ArchiverInstrumentation,
-    private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32 },
+    private readonly l1constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr },
     private readonly log: Logger = createLogger('archiver'),
   ) {
     super();
@@ -184,10 +184,11 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
 
     const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
 
-    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs] = await Promise.all([
+    const [l1StartBlock, l1GenesisTime, proofSubmissionEpochs, genesisArchiveRoot] = await Promise.all([
       rollup.getL1StartBlock(),
       rollup.getL1GenesisTime(),
       rollup.getProofSubmissionEpochs(),
+      rollup.getGenesisArchiveTreeRoot(),
     ] as const);
 
     const l1StartBlockHash = await publicClient
@@ -204,6 +205,7 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       slotDuration,
       ethereumSlotDuration,
       proofSubmissionEpochs: Number(proofSubmissionEpochs),
+      genesisArchiveRoot: Fr.fromHexString(genesisArchiveRoot),
     };
 
     const opts = merge({ pollingIntervalMs: 10_000, batchSize: 100 }, mapArchiverConfig(config));
@@ -977,6 +979,10 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return Promise.resolve(this.l1constants);
   }
 
+  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: this.l1constants.genesisArchiveRoot });
+  }
+
   public getRollupAddress(): Promise<EthAddress> {
     return Promise.resolve(this.l1Addresses.rollupAddress);
   }
@@ -1095,6 +1101,22 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
       ? Math.min(limit, Math.max((await this.store.getProvenL2BlockNumber()) - from + 1, 0))
       : limit;
     return limitWithProven === 0 ? [] : await this.store.getPublishedBlocks(from, limitWithProven);
+  }
+
+  public getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+
+  public getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
+
+  public getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+
+  public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
   }
 
   /**
@@ -1592,8 +1614,20 @@ export class ArchiverStoreHelper
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined> {
     return this.store.getPublishedBlock(number);
   }
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByHash(blockHash);
+  }
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.store.getPublishedBlockByArchive(archive);
+  }
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
+  }
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByHash(blockHash);
+  }
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.store.getBlockHeaderByArchive(archive);
   }
   getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.store.getTxEffect(txHash);
