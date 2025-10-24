@@ -562,24 +562,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         {
             Builder builder;
             affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            // Ensure inputs are different
-            while (input_a == input_b) {
-                input_b = element::random_element();
-            }
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Create a point with the same x coordinate but different y
+            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the curve
+            affine_element input_b = input_a;
+            input_b.y = -input_a.y; // Negate y to get a different point with same x
+
+            // Construct the circuit elements with same x but different y
+            auto x_coord = element_ct::BaseField::from_witness(&builder, input_a.x);
+            auto y_coord_a = element_ct::BaseField::from_witness(&builder, input_a.y);
+            auto y_coord_b = element_ct::BaseField::from_witness(&builder, input_b.y);
+
+            element_ct a(x_coord, y_coord_a, bool_ct(witness_ct(&builder, false)));
+            element_ct b(x_coord, y_coord_b, bool_ct(witness_ct(&builder, false)));
 
             // Set different tags in a and b
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            // Make the x-coordinates equal, so we should get an error message about y-coordinates
-            // BIGGROUP_AUDITTODO: mutable accessor needed for assignment (test mutating internal state)
-            b.x() = a.x();
             a.incomplete_assert_equal(b, "elements don't match");
 
-            // Circuit should fail
+            // Circuit should fail with y coordinate error
             EXPECT_EQ(builder.failed(), true);
             EXPECT_EQ(builder.err(), "elements don't match (y coordinate)");
         }
