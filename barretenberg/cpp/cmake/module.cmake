@@ -23,8 +23,7 @@ target_sources(
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# Function that allows specifying custom source and header files
-# while maintaining all the same functionality as barretenberg_module
+# barretenberg_module variant that allows specifying custom source and header files
 function(barretenberg_module_with_sources MODULE_NAME)
     # Parse named arguments for SOURCE_FILES and HEADER_FILES
     # All remaining arguments are treated as dependencies
