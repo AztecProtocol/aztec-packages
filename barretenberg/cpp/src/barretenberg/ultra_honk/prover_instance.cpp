@@ -148,30 +148,36 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Each triple of databus polynomials can be
     // allocated based on the size of the corresponding column (except for ZK case).
-    const size_t poly_size = std::min(static_cast<size_t>(MAX_DATABUS_SIZE), dyadic_size());
-    polynomials.calldata = Polynomial(poly_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(poly_size, dyadic_size());
 
-    // Allocate log derivative lookup argument inverse polynomials
-    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
     const size_t calldata_size = circuit.get_calldata().size();
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
+
+    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
+
+    polynomials.secondary_calldata = Polynomial(secondary_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(secondary_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(secondary_calldata_size, dyadic_size());
+
+    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
+
+    // Allocate log derivative lookup argument inverse polynomials
+    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Size of databus_id can always be set to max size
     // between the three databus columns. It currently uses dyadic_size because its values are later set based on its
     // size(). This means when we naively construct all ProverPolynomials with dyadic size (e.g. for ZK), we get a
     // different databus_id polynomial and therefore a different VK.
+    [[maybe_unused]] const size_t max_databus_size =
+        std::max({ calldata_size, secondary_calldata_size, return_data_size });
+    // WORKTODO: didn't notice we were doing this - shouldnt be needed
+    [[maybe_unused]] const size_t databus_id_size = std::max(max_databus_size, q_busread_end);
+    // polynomials.databus_id = Polynomial(databus_id_size, dyadic_size());
     polynomials.databus_id = Polynomial(dyadic_size(), dyadic_size());
-    // polynomials.databus_id = Polynomial(std::max({ calldata_size, secondary_calldata_size, return_data_size,
-    // q_busread_end }), dyadic_size());
 
     polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =
