@@ -438,49 +438,5 @@ export type Fr = Bn254Fr;
  * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
  * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
-export class Fq {
-  static MODULUS = BN254_FQ_MODULUS;
-  static MAX_VALUE = Fq.MODULUS - 1n;
-  static SIZE_IN_BYTES = 32;
-
-  constructor(public readonly value: bigint) {
-    if (value > Fq.MAX_VALUE) {
-      throw new Error(`Fq out of range ${value}.`);
-    }
-  }
-
-  static random() {
-    const r = uint8ArrayToBigIntBE(randomBytes(64)) % Fq.MODULUS;
-    return new this(r);
-  }
-
-  static fromBuffer(buffer: Uint8Array | Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
-  }
-
-  static fromBufferReduce(buffer: Uint8Array | Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
-  }
-
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str.replace(/^0x/i, ''), 'hex'));
-  }
-
-  toBuffer() {
-    return bigIntToBufferBE(this.value, Fq.SIZE_IN_BYTES);
-  }
-
-  toString() {
-    return '0x' + this.value.toString(16);
-  }
-
-  equals(rhs: Fq) {
-    return this.value === rhs.value;
-  }
-
-  isZero() {
-    return this.value === 0n;
-  }
-}
+export const Fq = Bn254Fq;
+export type Fq = Bn254Fq;
