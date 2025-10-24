@@ -91,7 +91,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
     RomTranscript& rom_array = rom_arrays[rom_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_array.state.size(), index);
-    ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT_NEQ(rom_array.state[index][0], UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(rom_array.state[index][0]);
     const uint32_t value_witness = builder->add_variable(value);
     RomRecord new_record{
@@ -119,8 +119,8 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
     BB_ASSERT_GT(rom_array.state.size(), index);
-    ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
-    ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT_NEQ(rom_array.state[index][0], UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT_NEQ(rom_array.state[index][1], UNINITIALIZED_MEMORY_RECORD);
     const auto value1 = builder->get_variable(rom_array.state[index][0]);
     const auto value2 = builder->get_variable(rom_array.state[index][1]);
     value_witnesses[0] = builder->add_variable(value1);
@@ -203,7 +203,6 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
         const auto value1 = builder->get_variable(record.value_column1_witness);
         const auto value2 = builder->get_variable(record.value_column2_witness);
         const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        BB_ASSERT_EQ(builder->get_variable(index_witness), builder->get_variable(record.index_witness));
         builder->update_used_witnesses(index_witness);
         const auto value1_witness = builder->add_variable(value1);
         const auto value2_witness = builder->add_variable(value2);
@@ -242,7 +241,7 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // list, then all of the sorted ROM checks have passed. Moreover, as `m + 1` is a circuit constant, this ensures
     // that the checks correctly constrain the sorted ROM gate chunks.
     FF max_index_value((uint64_t)rom_array.state.size());
-    uint32_t max_index = builder->put_constant_variable(max_index_value);
+    uint32_t max_index = builder->add_variable(max_index_value);
 
     builder->create_unconstrained_gate(
         builder->blocks.memory, max_index, builder->zero_idx(), builder->zero_idx(), builder->zero_idx());
@@ -330,7 +329,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT_NEQ(ram_array.state[index], UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(ram_array.state[index]);
     const uint32_t value_witness = builder->add_variable(value);
 
@@ -375,7 +374,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT_NEQ(ram_array.state[index], UNINITIALIZED_MEMORY_RECORD);
 
     RamRecord new_record{ .index_witness = index_witness,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
