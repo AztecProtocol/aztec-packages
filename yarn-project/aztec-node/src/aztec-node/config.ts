@@ -57,6 +57,8 @@ export type AztecNodeConfig = ArchiverConfig &
     l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
+    /** Whether to skip waiting for the archiver to be fully synced before starting other services */
+    skipArchiverInitialSync: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -81,6 +83,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
+  },
+  skipArchiverInitialSync: {
+    env: 'SKIP_ARCHIVER_INITIAL_SYNC',
+    description: 'Whether to skip waiting for the archiver to be fully synced before starting other services.',
+    ...booleanConfigHelper(false),
   },
 };
 

@@ -31,6 +31,7 @@ export type L2ChainConfig = L1ContractsConfig &
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+    skipArchiverInitialSync?: boolean;
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
@@ -217,6 +218,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   txPoolDeleteTxsAfterReorg: true,
+  skipArchiverInitialSync: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -354,6 +356,10 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
   enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
   enrichVar('P2P_MAX_TX_POOL_SIZE', config.maxTxPoolSize.toString());
+
+  if (config.skipArchiverInitialSync !== undefined) {
+    enrichVar('SKIP_ARCHIVER_INITIAL_SYNC', config.skipArchiverInitialSync.toString());
+  }
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
