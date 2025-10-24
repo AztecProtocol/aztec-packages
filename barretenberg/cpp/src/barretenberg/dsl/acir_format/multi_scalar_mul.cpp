@@ -54,8 +54,10 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.out_point_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.out_point_y);
     bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.out_point_is_infinite));
-    cycle_group_ct input_result{ input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false };
-    output_point.assert_equal(input_result);
+
+    output_point.x().assert_equal(input_result_x);
+    output_point.y().assert_equal(input_result_y);
+    output_point.is_point_at_infinity().assert_equal(input_result_infinite);
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,

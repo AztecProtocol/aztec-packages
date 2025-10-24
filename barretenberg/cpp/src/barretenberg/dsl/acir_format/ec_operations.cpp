@@ -33,8 +33,10 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
     bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
-    cycle_group_ct input_result{ input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false };
-    result.assert_equal(input_result);
+
+    result.x().assert_equal(input_result_x);
+    result.y().assert_equal(input_result_y);
+    result.is_point_at_infinity().assert_equal(input_result_infinite);
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
