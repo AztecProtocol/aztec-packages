@@ -45,10 +45,10 @@ function run_bb_cli_bench {
   shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    # Add --bench_out flag when running in CI for native builds to capture op counts and timings
+    # Add --bench_out_hierarchical flag when running in CI for native builds to capture hierarchical op counts and timings
     local bench_args=("$@")
     if [[ "${CI:-}" == "1" ]]; then
-      bench_args+=("--bench_out" "$output/benchmark_breakdown.json")
+      bench_args+=("--bench_out_hierarchical" "$output/benchmark_breakdown.json")
     fi
 
     memusage "./$native_build_dir/bin/bb" "${bench_args[@]}" || {
