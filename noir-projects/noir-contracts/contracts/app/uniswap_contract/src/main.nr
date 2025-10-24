@@ -13,7 +13,7 @@ pub contract Uniswap {
             assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
             set_authorized,
         },
-        macros::{functions::{initializer, internal, private, public}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
@@ -31,7 +31,7 @@ pub contract Uniswap {
         portal_address: PublicImmutable<EthAddress, Context>,
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(portal_address: EthAddress) {
         storage.portal_address.initialize(portal_address);
@@ -39,7 +39,7 @@ pub contract Uniswap {
     // docs:end:uniswap_setup
 
     // docs:start:swap_public
-    #[public]
+    #[external("public")]
     fn swap_public(
         sender: AztecAddress,
         input_asset_bridge: AztecAddress,
@@ -57,7 +57,7 @@ pub contract Uniswap {
         // nonce for someone to call swap on sender's behalf
         _nonce_for_swap_approval: Field,
     ) {
-        if (!sender.eq(context.msg_sender())) {
+        if (!sender.eq(context.msg_sender().unwrap())) {
             assert_current_call_valid_authwit_public(&mut context, sender);
         }
 
@@ -114,7 +114,7 @@ pub contract Uniswap {
     // docs:end:swap_public
 
     // docs:start:swap_private
-    #[private]
+    #[external("private")]
     fn swap_private(
         input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
         input_asset_bridge: AztecAddress,
@@ -144,7 +144,7 @@ pub contract Uniswap {
         // Transfer funds to this contract
         Token::at(input_asset)
             .transfer_to_public(
-                context.msg_sender(),
+                context.msg_sender().unwrap(),
                 context.this_address(),
                 input_amount,
                 nonce_for_transfer_to_public_approval,
@@ -192,7 +192,7 @@ pub contract Uniswap {
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
     // Note that private can't read public return values so created an internal public that handles everything
     // this method is used for both private and public swaps.
-    #[public]
+    #[external("public")]
     #[internal]
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,

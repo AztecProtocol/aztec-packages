@@ -108,7 +108,7 @@ spec:
                   prover_ppk="$(cast wallet private-key --mnemonic "$MNEMONIC" --mnemonic-index "$prover_pub_idx")"
                   prover_paddr="$(cast wallet address --private-key $prover_ppk)"
 
-                  echo "Derived prover publisher key index $idx for node $i pulisher $j: $addr"
+                  echo "Derived prover publisher key index $prover_pub_idx for node $i pulisher $p: $prover_paddr"
 
                   # write keystore file-separated entries
                   [[ $p -gt 0 ]] && echo '---' >> "$PROVER_PUB_KS_FILE"
@@ -161,27 +161,48 @@ spec:
               [ -f "$f" ] && cp "$f" "/shared/all-keystores/$(basename $f)"
             done
 
-            # Create single secret with all keystores
+            # Create single secret with all keystores (only if directory exists)
             KEYSTORE_SECRET_NAME="{{ .Values.keystores.secretName | default (printf "%s-%s" .Release.Name "keystores") }}"
-            kubectl -n "$K8S_NAMESPACE_NAME" create secret generic "$KEYSTORE_SECRET_NAME" \
-              --from-file /shared/all-keystores \
-              --dry-run=client -o yaml | kubectl apply -f -
+            if [ -d "/shared/all-keystores" ]; then
+              echo "Creating keystore secret: $KEYSTORE_SECRET_NAME"
+              kubectl -n "$K8S_NAMESPACE_NAME" create secret generic "$KEYSTORE_SECRET_NAME" \
+                --from-file /shared/all-keystores \
+                --dry-run=client -o yaml | kubectl apply -f -
+            else
+              echo "Skipping keystore secret creation: /shared/all-keystores not found"
+            fi
 
-            # Keep the existing address configmaps
+            # Keep the existing address configmaps (only if directories exist)
             ATTESTER_ADDRESS_CM_NAME="{{ .Values.attesters.addressConfigMap.name | default (printf "%s-%s" .Release.Name "attester-addresses") }}"
-            kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$ATTESTER_ADDRESS_CM_NAME" \
-              --from-file /shared/attesters/addresses \
-              --dry-run=client -o yaml | kubectl apply -f -
+            if [ -d "/shared/attesters/addresses" ]; then
+              echo "Creating attester address ConfigMap: $ATTESTER_ADDRESS_CM_NAME"
+              kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$ATTESTER_ADDRESS_CM_NAME" \
+                --from-file /shared/attesters/addresses \
+                --dry-run=client -o yaml | kubectl apply -f -
+            else
+              echo "Skipping attester address ConfigMap: /shared/attesters/addresses not found"
+            fi
 
             PUBLISHER_ADDRESS_CM_NAME="{{ .Values.publishers.addressConfigMap.name | default (printf "%s-%s" .Release.Name "publisher-addresses") }}"
-            kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$PUBLISHER_ADDRESS_CM_NAME" \
-              --from-file /shared/publishers/addresses \
-              --dry-run=client -o yaml | kubectl apply -f -
+            if [ -d "/shared/publishers/addresses" ]; then
+              echo "Creating publisher address ConfigMap: $PUBLISHER_ADDRESS_CM_NAME"
+              kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$PUBLISHER_ADDRESS_CM_NAME" \
+                --from-file /shared/publishers/addresses \
+                --dry-run=client -o yaml | kubectl apply -f -
+            else
+              echo "Skipping publisher address ConfigMap: /shared/publishers/addresses not found"
+            fi
 
             PROVER_PUBLISHER_ADDRESS_CM_NAME="{{ .Values.provers.addressConfigMap.name | default (printf "%s-%s" .Release.Name "prover-publisher-addresses") }}"
-            kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$PROVER_PUBLISHER_ADDRESS_CM_NAME" \
-              --from-file /shared/prover-publishers/addresses \
-              --dry-run=client -o yaml | kubectl apply -f -
+            if [ -d "/shared/prover-publishers/addresses" ]; then
+              echo "Creating prover publisher address ConfigMap: $PROVER_PUBLISHER_ADDRESS_CM_NAME"
+              kubectl -n "$K8S_NAMESPACE_NAME" create configmap "$PROVER_PUBLISHER_ADDRESS_CM_NAME" \
+                --from-file /shared/prover-publishers/addresses \
+                --dry-run=client -o yaml | kubectl apply -f -
+            else
+              echo "Skipping prover publisher address ConfigMap: /shared/prover-publishers/addresses not found"
+            fi
+
         volumeMounts:
           - name: shared
             mountPath: /shared

@@ -1,4 +1,4 @@
-import type { Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover/client/native';
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/client/wasm/bundle';
 import { createLogger, logger } from '@aztec/foundation/log';

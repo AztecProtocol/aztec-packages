@@ -31,7 +31,7 @@ template <class Curve = curve::BN254>
 void populate_field_elements_for_mock_commitments(std::vector<fr>& fields, const size_t& num_commitments)
 {
     auto mock_commitment = Curve::AffineElement::one();
-    std::vector<fr> mock_commitment_frs = field_conversion::convert_to_bn254_frs(mock_commitment);
+    std::vector<fr> mock_commitment_frs = FrCodec::serialize_to_fields(mock_commitment);
     for (size_t i = 0; i < num_commitments; ++i) {
         for (const fr& val : mock_commitment_frs) {
             fields.emplace_back(val);
@@ -52,9 +52,8 @@ void populate_field_elements(std::vector<fr>& fields,
                              std::optional<FF> value = std::nullopt)
 {
     for (size_t i = 0; i < num_elements; ++i) {
-        std::vector<fr> field_elements = value.has_value()
-                                             ? field_conversion::convert_to_bn254_frs(value.value())
-                                             : field_conversion::convert_to_bn254_frs(FF::random_element());
+        std::vector<fr> field_elements = value.has_value() ? FrCodec::serialize_to_fields(value.value())
+                                                           : FrCodec::serialize_to_fields(FF::random_element());
         fields.insert(fields.end(), field_elements.begin(), field_elements.end());
     }
 }
@@ -273,22 +272,61 @@ template <typename Flavor, class PublicInputs> HonkProof create_mock_honk_proof(
 }
 
 /**
- * @brief Create a mock PG proof that has the correct structure but is not in general valid
+ * @brief Create a verifiable honk proof for a circuit with a single big add gate. Adds random public inputs to match
+ * num_public_inputs provided
  *
+ * @param inner_public_inputs_size Number of public inputs coming from the ACIR constraints
  */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
+template <typename Flavor>
+std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
+    size_t num_inner_public_inputs)
 {
-    // The first part of a PG proof is an Oink proof
-    HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
+    using ProverInstance = ProverInstance_<Flavor>;
+    using InnerProver = bb::UltraProver_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+    using Builder = typename Flavor::CircuitBuilder;
 
-    // Populate mock perturbator coefficients
-    populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
+    // constuct a circuit with a single gate
+    Builder builder;
 
-    // Populate mock combiner quotient coefficients
-    size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
-    populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
+    fr a = fr::random_element();
+    uint32_t a_idx = builder.add_variable(a);
 
-    return proof;
+    // have a big add gate added
+    fr b = fr::random_element();
+    fr c = fr::random_element();
+    fr d = a + b + c;
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+    uint32_t d_idx = builder.add_variable(d);
+
+    builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+
+    // Add the public inputs
+    for (size_t i = 0; i < num_inner_public_inputs; ++i) {
+        builder.add_public_variable(fr::random_element());
+    }
+
+    // Add the default pairing points
+    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
+
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // Create a fake ipa claim and proof
+        auto [stdlib_opening_claim, ipa_proof] =
+            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
+        stdlib_opening_claim.set_public();
+        builder.ipa_proof = ipa_proof;
+    }
+
+    // prove the circuit constructed above
+    // Create the decider proving key
+    auto decider_pk = std::make_shared<ProverInstance>(builder);
+
+    // Construct the Ultra VK
+    auto vk = std::make_shared<VerificationKey>(decider_pk->get_precomputed());
+    InnerProver prover(decider_pk, vk);
+    auto honk_proof = prover.construct_proof();
+    return std::pair(honk_proof, vk);
 }
 
 /**
@@ -338,7 +376,7 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    SumcheckClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
     proof = civc_proof.to_field_elements();
 
     return proof;
@@ -591,9 +629,16 @@ template HonkProof create_mock_honk_proof<UltraZKFlavor, stdlib::recursion::honk
     const size_t);
 template HonkProof create_mock_honk_proof<UltraRollupFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
+    UltraFlavor>(size_t num_public_inputs);
+template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> construct_honk_proof_for_simple_circuit<
+    UltraZKFlavor>(size_t num_public_inputs);
+template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
+construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(size_t num_public_inputs);
+
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     bool);

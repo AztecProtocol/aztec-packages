@@ -58,9 +58,7 @@ void ECCVMProver::execute_preamble_round()
 void ECCVMProver::execute_wire_commitments_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
-    // To commit to the masked wires when `real_size` < `circuit_size`, we use
-    // `commit_structured` that ignores 0 coefficients between the real size and the last NUM_DISABLED_ROWS_IN_SUMCHECK
-    // wire entries.
+
     const size_t circuit_size = key->circuit_size;
     unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
@@ -80,7 +78,7 @@ void ECCVMProver::execute_log_derivative_commitments_round()
     BB_BENCH_NAME("ECCVMProver::execute_log_derivative_commitments_round");
 
     // Compute and add beta to relation parameters
-    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
 
     // TODO(#583)(@zac-williamson): fix Transcript to be able to generate more than 2 challenges per round! oof.
     auto beta_sqr = beta * beta;
@@ -330,14 +328,11 @@ void ECCVMProver::compute_translation_opening_claims()
  * @param polynomial
  * @param label
  */
-void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
-                                               const std::string& label,
-                                               CommitmentKey::CommitType commit_type,
-                                               const std::vector<std::pair<size_t, size_t>>& active_ranges)
+void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial, const std::string& label)
 {
     // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
     // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
-    transcript->send_to_verifier(label, key->commitment_key.commit_with_type(polynomial, commit_type, active_ranges));
+    transcript->send_to_verifier(label, key->commitment_key.commit(polynomial));
 }
 } // namespace bb

@@ -22,6 +22,9 @@ SALT=${SALT:-$(date +%s)}
 RESOURCE_PROFILE=$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")
 BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 
+# Don't try and retrieve contract addresses, instead allow deployed infra to read from network config
+USE_NETWORK_CONFIG=${USE_NETWORK_CONFIG:-false}
+
 # GCP variables, unused if running on kind
 GCP_PROJECT_ID=${GCP_PROJECT_ID:-testnet-440309}
 GCP_REGION=${GCP_REGION:-us-west1-a}
@@ -94,7 +97,7 @@ RPC_INGRESS_STATIC_IP_NAME=${RPC_INGRESS_STATIC_IP_NAME:-}
 RPC_INGRESS_SSL_CERT_NAME=${RPC_INGRESS_SSL_CERT_NAME:-}
 RPC_REPLICAS=${RPC_REPLICAS:-1}
 
-FLUSH_ENTRY_QUEUE=${FLUSH_ENTRY_QUEUE:-true}
+PROVER_NODE_DISABLE_PROOF_PUBLISH=${PROVER_NODE_DISABLE_PROOF_PUBLISH:-false}
 
 ########################
 # CHAOS MESH VARIABLES
@@ -268,7 +271,6 @@ NETWORK = ${NETWORK_TF}
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
-FLUSH_ENTRY_QUEUE = ${FLUSH_ENTRY_QUEUE}
 EOF
 
 tf_run "${DEPLOY_ROLLUP_CONTRACTS_DIR}" "${DESTROY_ROLLUP_CONTRACTS}" "${CREATE_ROLLUP_CONTRACTS}"
@@ -279,13 +281,21 @@ if [[ "${VERIFY_CONTRACTS:-}" == "true" ]]; then
   ${REPO_ROOT}/l1-contracts/scripts/verify-from-json.sh $HOME/l1-verify.json --api-key $ETHERSCAN_API_KEY
 fi
 
-REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
-SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
-FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
-[[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
-[[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
-[[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
-log "Got rollup contract addresses"
+if [[ "${USE_NETWORK_CONFIG:-false}" != "true" ]]; then
+  REGISTRY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw registry_address)
+  SLASH_FACTORY_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw slash_factory_address)
+  FEE_ASSET_HANDLER_ADDRESS=$(terraform -chdir="${DEPLOY_ROLLUP_CONTRACTS_DIR}" output -raw fee_asset_handler_address)
+
+  [[ -n "${REGISTRY_ADDRESS}" ]] || die "Failed to fetch registry_address"
+  [[ -n "${SLASH_FACTORY_ADDRESS}" ]] || die "Failed to fetch slash_factory_address"
+  [[ -n "${FEE_ASSET_HANDLER_ADDRESS}" ]] || die "Failed to fetch fee_asset_handler_address"
+  log "Got rollup contract addresses"
+else
+  REGISTRY_ADDRESS=""
+  SLASH_FACTORY_ADDRESS=""
+  FEE_ASSET_HANDLER_ADDRESS=""
+fi
+
 
 # -------------------------------
 # Deploy Aztec infra
@@ -367,6 +377,8 @@ RPC_REPLICAS = ${RPC_REPLICAS:-1}
 PROVER_FAILED_PROOF_STORE = "${PROVER_FAILED_PROOF_STORE}"
 DEPLOY_ARCHIVAL_NODE = ${DEPLOY_ARCHIVAL_NODE}
 PROVER_REPLICAS = ${PROVER_REPLICAS}
+
+PROVER_NODE_DISABLE_PROOF_PUBLISH = ${PROVER_NODE_DISABLE_PROOF_PUBLISH}
 EOF
 
 tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}"

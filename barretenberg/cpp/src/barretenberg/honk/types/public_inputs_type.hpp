@@ -30,7 +30,7 @@ static constexpr std::size_t GOBLIN_GROUP_PUBLIC_INPUTS_SIZE = 2 * GOBLIN_FIELD_
  * Number of bb::fr elements used to represent a pair {P0, P1} of points in the public inputs
  * The formula assumes BIGGROUP_PUBLIC_INPUTS_SIZE == GOBLIN_GROUP_PUBLIC_INPUTS_SIZE, if this assumption
  * becomes incorrect, then the PAIRING_POINTS_SIZE should be split into two values: one for the pairing points used in
- * ClientIVC (Mega arithmetization), and one for the pairing points used in the Rollup (Ultra arithmetization)
+ * LegacyClientIVC (Mega arithmetization), and one for the pairing points used in the Rollup (Ultra arithmetization)
  */
 static constexpr std::size_t PAIRING_POINTS_SIZE = 2 * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
 

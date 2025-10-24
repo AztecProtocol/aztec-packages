@@ -17,7 +17,6 @@
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/honk_verifier/ipa_accumulator.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include <cstddef>
 #include <numeric>
@@ -183,8 +182,8 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Checks poly_degree is greater than zero and a power of two
         // In the future, we might want to consider if non-powers of two are needed
-        ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
-               "The polynomial degree plus 1 should be positive and a power of two");
+        BB_ASSERT((poly_length > 0) && (!(poly_length & (poly_length - 1))) &&
+                  "The polynomial degree plus 1 should be positive and a power of two");
 
         // Step 4.
         // Set initial vector a to the polynomial monomial coefficients and load vector G
@@ -876,19 +875,19 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires Curve::is_stdlib_type
     {
         using NativeCurve = curve::Grumpkin;
-        using Builder = typename Curve::Builder;
+        // Sanity check that we are not using Grumpkin with MegaCircuitBuilder designed to delegate BN254 ops.
+        static_assert(IsAnyOf<typename Curve::Builder, UltraCircuitBuilder>);
         // Step 1: Run the partial verifier for each IPA instance
         VerifierAccumulator verifier_accumulator_1 = reduce_verify(claim_1, transcript_1);
         VerifierAccumulator verifier_accumulator_2 = reduce_verify(claim_2, transcript_2);
 
         // Step 2: Generate the challenges by hashing the pairs
-        using StdlibTranscript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
-        StdlibTranscript transcript;
+        UltraStdlibTranscript transcript;
         transcript.add_to_hash_buffer("u_challenges_inv_1", verifier_accumulator_1.u_challenges_inv);
         transcript.add_to_hash_buffer("U_1", verifier_accumulator_1.comm);
         transcript.add_to_hash_buffer("u_challenges_inv_2", verifier_accumulator_2.u_challenges_inv);
         transcript.add_to_hash_buffer("U_2", verifier_accumulator_2.comm);
-        auto [alpha, r] = transcript.template get_challenges<Fr>("IPA:alpha", "IPA:r");
+        auto [alpha, r] = transcript.template get_challenges<Fr>(std::array<std::string, 2>{ "IPA:alpha", "IPA:r" });
 
         // Step 3: Compute the new accumulator
         OpeningClaim<Curve> output_claim;

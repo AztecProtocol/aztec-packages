@@ -88,8 +88,7 @@ export class ValidationService {
     const signatures = await Promise.all(
       attestors.map(attestor => this.keyStore.signMessageWithAddress(attestor, buf)),
     );
-    //await this.keyStore.signMessage(buf);
-    return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig));
+    return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig, proposal.signature));
   }
 
   async signAttestationsAndSigners(

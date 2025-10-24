@@ -241,12 +241,15 @@ function build {
     build_wasm_threads
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast build_smt_verification)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+  fi
+  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+    builds+=(build_darwin_arm64 build_smt_verification)
   fi
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    builds+=(build_darwin_arm64 build_darwin_amd64)
+    builds+=(build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -281,8 +284,8 @@ function test_cmds {
     # Mostly arbitrary set that touches lots of the code.
     declare -A asan_tests=(
       ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["client_ivc_tests"]="ClientIVCTests.Basic"
+      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
       ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
     )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
@@ -294,7 +297,7 @@ function test_cmds {
   fi
 
   # Run the SMT compatibility tests
-  if [ "$(arch)" == "amd64" ] &&  [ "$CI" -eq 1 ]; then
+  if [ "$(arch)" == "amd64" ] &&  [ "$CI_FULL" -eq 1 ]; then
     local prefix="$hash:CPUS=4:MEM=8g"
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi

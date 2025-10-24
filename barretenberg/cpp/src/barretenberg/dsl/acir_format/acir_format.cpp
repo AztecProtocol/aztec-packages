@@ -412,7 +412,7 @@ void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
                                    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
 {
-    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+    using StdlibTranscript = UltraStdlibTranscript;
 
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
@@ -453,7 +453,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
-        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+        using StdlibTranscript = UltraStdlibTranscript;
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
         ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
@@ -529,8 +529,8 @@ process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-           "Root rollup must accumulate two IPA proofs.");
+    BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
+              "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 
@@ -540,11 +540,11 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                                       bool has_valid_witness_assignments,
                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
-    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
-    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
-    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
+    using StdlibVerificationKey = SumcheckClientIVC::RecursiveVerificationKey;
+    using StdlibVKAndHash = SumcheckClientIVC::RecursiveVKAndHash;
+    using StdlibFF = SumcheckClientIVC::RecursiveFlavor::FF;
 
-    // Lambda template to handle both ClientIVC and SumcheckClientIVC with the same code
+    // Lambda template to handle both SumcheckClientIVC and SumcheckClientIVC with the same code
     auto process_with_ivc = [&]<typename IVCType>(const std::shared_ptr<IVCType>& ivc) {
         // We expect the length of the internal verification queue to match the number of ivc recursion constraints
         BB_ASSERT_EQ(constraints.pg_recursion_constraints.size(),
@@ -606,23 +606,12 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
-        if (bb::bbapi::USE_SUMCHECK_IVC) {
-            auto mock_ivc = create_mock_sumcheck_ivc_from_constraints(constraints.pg_recursion_constraints);
-            process_with_ivc(mock_ivc);
-        } else {
-            auto mock_ivc =
-                create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
-            process_with_ivc(mock_ivc);
-        }
+
+        auto mock_ivc = create_mock_sumcheck_ivc_from_constraints(constraints.pg_recursion_constraints);
+        process_with_ivc(mock_ivc);
     } else {
-        // Use the global flag to cast to the correct IVC type
-        if (bb::bbapi::USE_SUMCHECK_IVC) {
-            auto sumcheck_ivc = std::static_pointer_cast<SumcheckClientIVC>(ivc_base);
-            process_with_ivc(sumcheck_ivc);
-        } else {
-            auto ivc = std::static_pointer_cast<ClientIVC>(ivc_base);
-            process_with_ivc(ivc);
-        }
+        auto sumcheck_ivc = std::static_pointer_cast<SumcheckClientIVC>(ivc_base);
+        process_with_ivc(sumcheck_ivc);
     }
 }
 

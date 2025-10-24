@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { OffenseType } from '@aztec/slasher';
 

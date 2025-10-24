@@ -53,7 +53,7 @@ inline bb::fr hash_native(std::vector<bb::fr> const& inputs)
  */
 inline bb::fr compute_tree_root_native(std::vector<bb::fr> const& input)
 {
-    ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
+    BB_ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
     auto layer = input;
     while (layer.size() > 1) {
         std::vector<bb::fr> next_layer(layer.size() / 2);
@@ -69,7 +69,7 @@ inline bb::fr compute_tree_root_native(std::vector<bb::fr> const& input)
 // TODO write test
 inline std::vector<bb::fr> compute_tree_native(std::vector<bb::fr> const& input)
 {
-    ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
+    BB_ASSERT(numeric::is_power_of_two(input.size()), "Check if the input vector size is a power of 2.");
     auto layer = input;
     std::vector<bb::fr> tree(input);
     while (layer.size() > 1) {

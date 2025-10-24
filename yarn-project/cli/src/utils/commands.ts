@@ -1,9 +1,8 @@
 import { FunctionSelector } from '@aztec/aztec.js/abi';
-import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { EthAddress } from '@aztec/aztec.js/eth_address';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import { LogId } from '@aztec/aztec.js/log_id';
-import { TxHash } from '@aztec/aztec.js/tx_hash';
+import { LogId } from '@aztec/aztec.js/log';
+import { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXE } from '@aztec/pxe/server';
 import { PublicKeys } from '@aztec/stdlib/keys';

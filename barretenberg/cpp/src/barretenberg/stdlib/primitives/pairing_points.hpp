@@ -9,7 +9,6 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -59,7 +58,7 @@ template <typename Builder_> struct PairingPoints {
     // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
-        ASSERT(other.has_data, "Cannot aggregate null pairing points.");
+        BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
 
         // If LHS is empty, simply set it equal to the incoming pairing points
         if (!this->has_data && other.has_data) {
@@ -67,7 +66,7 @@ template <typename Builder_> struct PairingPoints {
             return;
         }
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
-        BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>> transcript{};
+        StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
 
         transcript.add_to_hash_buffer("Accumulator_P0", P0);
@@ -82,8 +81,7 @@ template <typename Builder_> struct PairingPoints {
             P0 = Group::batch_mul({ P0, other.P0 }, { 1, recursion_separator });
             P1 = Group::batch_mul({ P1, other.P1 }, { 1, recursion_separator });
         } else {
-            // Save gates using short scalars. We don't apply `bn254_endo_batch_mul` to the vector {1,
-            // recursion_separator} directly to avoid edge cases.
+            // Save gates using short scalars.
             Group point_to_aggregate = other.P0.scalar_mul(recursion_separator, 128);
             P0 += point_to_aggregate;
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
@@ -98,7 +96,7 @@ template <typename Builder_> struct PairingPoints {
      */
     uint32_t set_public()
     {
-        ASSERT(this->has_data, "Calling set_public on empty pairing points.");
+        BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 

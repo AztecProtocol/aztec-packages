@@ -333,7 +333,7 @@ std::vector<field_t<Builder>> encrypt_buffer_cbc(const std::vector<field_t<Build
         }
     }
 
-    ASSERT(ctx);
+    BB_ASSERT(ctx);
 
     auto round_key = expand_key(ctx, key);
 

@@ -376,6 +376,18 @@ VkAsFields::Response VkAsFields::execute(BB_UNUSED const BBApiRequest& request) 
     return { std::move(fields) };
 }
 
+MegaVkAsFields::Response MegaVkAsFields::execute(BB_UNUSED const BBApiRequest& request) &&
+{
+    BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
+    std::vector<bb::fr> fields;
+
+    // MegaFlavor for private function verification keys
+    auto vk = from_buffer<MegaFlavor::VerificationKey>(verification_key);
+    fields = vk.to_field_elements();
+
+    return { std::move(fields) };
+}
+
 CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);

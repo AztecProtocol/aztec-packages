@@ -14,6 +14,7 @@ import { computeContractAddressFromInstance } from '../contract/contract_address
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
+import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
 import { Nullifier } from '../kernel/nullifier.js';
@@ -23,8 +24,8 @@ import {
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
-import { ExtendedNote, UniqueNote } from '../note/extended_note.js';
 import { Note } from '../note/note.js';
+import { UniqueNote } from '../note/unique_note.js';
 import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
@@ -38,22 +39,6 @@ import { TxHash } from '../tx/tx_hash.js';
 import { makeGas, makeGlobalVariables, makeL2BlockHeader, makePublicCallRequest } from './factories.js';
 
 export const randomTxHash = (): TxHash => TxHash.random();
-
-export const randomExtendedNote = async ({
-  note = Note.random(),
-  recipient = undefined,
-  contractAddress = undefined,
-  txHash = randomTxHash(),
-  storageSlot = Fr.random(),
-}: Partial<ExtendedNote> = {}) => {
-  return new ExtendedNote(
-    note,
-    recipient ?? (await AztecAddress.random()),
-    contractAddress ?? (await AztecAddress.random()),
-    storageSlot,
-    txHash,
-  );
-};
 
 export const randomUniqueNote = async ({
   note = Note.random(),
@@ -84,6 +69,7 @@ export const mockTx = async (
     feePayer,
     clientIvcProof = ClientIvcProof.random(),
     maxPriorityFeesPerGas,
+    gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
     version = Fr.ZERO,
     vkTreeRoot = Fr.ZERO,
@@ -97,6 +83,7 @@ export const mockTx = async (
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
     maxPriorityFeesPerGas?: GasFees;
+    gasUsed?: Gas;
     chainId?: Fr;
     version?: Fr;
     vkTreeRoot?: Fr;
@@ -115,6 +102,7 @@ export const mockTx = async (
     maxPriorityFeesPerGas,
   });
   data.feePayer = feePayer ?? (await AztecAddress.random());
+  data.gasUsed = gasUsed;
   data.constants.txContext.chainId = chainId;
   data.constants.txContext.version = version;
   data.constants.vkTreeRoot = vkTreeRoot;
@@ -184,6 +172,7 @@ const emptyPrivateCallExecutionResult = () =>
     [],
     [],
     [],
+    [],
   );
 
 const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);
@@ -241,6 +230,8 @@ export const randomDeployedContract = async () => {
 
 export interface MakeConsensusPayloadOptions {
   signer?: Secp256k1Signer;
+  attesterSigner?: Secp256k1Signer;
+  proposerSigner?: Secp256k1Signer;
   header?: L2BlockHeader;
   archive?: Fr;
   stateReference?: StateReference;
@@ -289,21 +280,58 @@ export const makeBlockProposal = (options?: MakeConsensusPayloadOptions): BlockP
 
 // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8028)
 export const makeBlockAttestation = (options?: MakeConsensusPayloadOptions): BlockAttestation => {
-  const { blockNumber, payload, signature } = makeAndSignConsensusPayload(
-    SignatureDomainSeparator.blockAttestation,
-    options,
-  );
-  return new BlockAttestation(blockNumber, payload, signature);
+  const header = options?.header ?? makeL2BlockHeader(1);
+  const {
+    signer,
+    attesterSigner = signer ?? Secp256k1Signer.random(),
+    proposerSigner = signer ?? Secp256k1Signer.random(),
+    archive = Fr.random(),
+    stateReference = header.state,
+  } = options ?? {};
+
+  const payload = ConsensusPayload.fromFields({
+    header: header.toCheckpointHeader(),
+    archive,
+    stateReference,
+  });
+
+  // Sign as attester
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSignature = attesterSigner.sign(attestationHash);
+
+  // Sign as proposer
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposerSignature = proposerSigner.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };
 
-export const makeBlockAttestationFromBlock = (block: L2Block, signer?: Secp256k1Signer): BlockAttestation => {
-  return makeBlockAttestation({
-    signer,
-    header: block.header,
-    archive: block.archive.root,
-    stateReference: block.header.state,
-    txHashes: block.body.txEffects.map(tx => tx.txHash),
+export const makeBlockAttestationFromBlock = (
+  block: L2Block,
+  attesterSigner?: Secp256k1Signer,
+  proposerSigner?: Secp256k1Signer,
+): BlockAttestation => {
+  const header = block.header;
+  const archive = block.archive.root;
+  const stateReference = block.header.state;
+
+  const payload = ConsensusPayload.fromFields({
+    header: header.toCheckpointHeader(),
+    archive,
+    stateReference,
   });
+
+  // Sign as attester
+  const attestationHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockAttestation);
+  const attestationSigner = attesterSigner ?? Secp256k1Signer.random();
+  const attestationSignature = attestationSigner.sign(attestationHash);
+
+  // Sign as proposer
+  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
+  const proposalSignerToUse = proposerSigner ?? Secp256k1Signer.random();
+  const proposerSignature = proposalSignerToUse.sign(proposalHash);
+
+  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
 };
 
 export async function randomPublishedL2Block(

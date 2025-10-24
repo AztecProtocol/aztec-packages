@@ -1,5 +1,7 @@
+#include "barretenberg/polynomials/eq_polynomial.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "gate_separator.hpp"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -50,13 +52,13 @@ class EqPolyTest : public ::testing::Test {
 };
 
 // -----------------------------------------------------------------------------
-// EqVerifierPolynomial tests
+// VerifierEqPolynomial tests
 // -----------------------------------------------------------------------------
 
 TEST_F(EqPolyTest, InitializeCoeffs)
 {
     const std::vector<FF> r = { 0, 1, 2, 3 };
-    EqVerifierPolynomial<FF> eq(r);
+    VerifierEqPolynomial<FF> eq(r);
 
     ASSERT_EQ(eq.r.size(), 4);
     ASSERT_EQ(eq.a.size(), 4);
@@ -79,7 +81,7 @@ TEST_F(EqPolyTest, EvaluateMatchesManualSmall)
     const std::vector<FF> r = { 0, 1, 2, 3, 4 };
     const std::vector<FF> u = { 5, 6, 7, 8, 9 };
 
-    EqVerifierPolynomial<FF> eq(r);
+    VerifierEqPolynomial<FF> eq(r);
     const FF got = eq.evaluate(u);
     const FF expect = eq_manual(r, u);
 
@@ -91,8 +93,8 @@ TEST_F(EqPolyTest, StaticEvalMatchesMemberEvaluate)
     const std::vector<FF> r = { 2, 0, 5, 1 };
     const std::vector<FF> u = { 3, 7, 4, 6 };
 
-    const FF s = EqVerifierPolynomial<FF>::eval(r, u);
-    EqVerifierPolynomial<FF> eq(r);
+    const FF s = VerifierEqPolynomial<FF>::eval(r, u);
+    VerifierEqPolynomial<FF> eq(r);
     const FF m = eq.evaluate(u);
 
     EXPECT_EQ(s, m);
@@ -103,8 +105,8 @@ TEST_F(EqPolyTest, SymmetryEqRUEqualsEqUR)
     const std::vector<FF> r = { 0, 2, 4, 6, 8 };
     const std::vector<FF> u = { 1, 3, 5, 7, 9 };
 
-    EqVerifierPolynomial<FF> eq_r(r);
-    EqVerifierPolynomial<FF> eq_u(u);
+    VerifierEqPolynomial<FF> eq_r(r);
+    VerifierEqPolynomial<FF> eq_u(u);
 
     const FF ru = eq_r.evaluate(u);
     const FF ur = eq_u.evaluate(r);
@@ -126,7 +128,7 @@ TEST_F(EqPolyTest, BooleanDeltaBehavior)
 
     for (size_t R = 0; R < (1u << d); ++R) {
         const auto r = make_bool_vec(R);
-        EqVerifierPolynomial<FF> eq(r);
+        VerifierEqPolynomial<FF> eq(r);
         for (size_t U = 0; U < (1u << d); ++U) {
             const auto u = make_bool_vec(U);
             const FF val = eq.evaluate(u);
@@ -144,7 +146,7 @@ TEST_F(EqPolyTest, EdgeCases)
     // d = 0: empty product = 1
     {
         std::vector<FF> r, u;
-        const FF val = EqVerifierPolynomial<FF>::eval(r, u);
+        const FF val = VerifierEqPolynomial<FF>::eval(r, u);
         EXPECT_EQ(val, FF(1));
     }
 
@@ -154,7 +156,7 @@ TEST_F(EqPolyTest, EdgeCases)
         const std::vector<FF> u = { 7 };
         const FF expect = (FF(1) - r[0]) * (FF(1) - u[0]) + r[0] * u[0];
 
-        EqVerifierPolynomial<FF> eq(r);
+        VerifierEqPolynomial<FF> eq(r);
         const FF got = eq.evaluate(u);
         EXPECT_EQ(got, expect);
     }
@@ -163,7 +165,7 @@ TEST_F(EqPolyTest, EdgeCases)
     {
         const std::vector<FF> r(8, FF(0));
         const std::vector<FF> u(8, FF(0));
-        EqVerifierPolynomial<FF> eq(r);
+        VerifierEqPolynomial<FF> eq(r);
         EXPECT_EQ(eq.evaluate(u), FF(1));
     }
 
@@ -171,7 +173,7 @@ TEST_F(EqPolyTest, EdgeCases)
     {
         const std::vector<FF> r(8, FF(1));
         const std::vector<FF> u(8, FF(1));
-        EqVerifierPolynomial<FF> eq(r);
+        VerifierEqPolynomial<FF> eq(r);
         EXPECT_EQ(eq.evaluate(u), FF(1));
     }
 
@@ -179,7 +181,7 @@ TEST_F(EqPolyTest, EdgeCases)
     {
         const std::vector<FF> r = { 0, 1, 0, 1, 0, 1, 0, 1 };
         const std::vector<FF> u = { 1, 0, 1, 0, 1, 0, 1, 0 };
-        EqVerifierPolynomial<FF> eq(r);
+        VerifierEqPolynomial<FF> eq(r);
         EXPECT_EQ(eq.evaluate(u), FF(0));
     }
 }
@@ -197,7 +199,7 @@ TEST_F(EqPolyTest, ProverTableMatchesVerifierOnBooleanPoints)
         r[i] = FF(2 * i + 7);
     }
 
-    EqVerifierPolynomial<FF> v(r);
+    VerifierEqPolynomial<FF> v(r);
     // Assumes a static factory `construct(r, logN)` and `.at(idx)` accessor exist.
     auto peq = ProverEqPolynomial<FF>::construct(r, d);
 
@@ -219,7 +221,7 @@ TEST_F(EqPolyTest, VerifierVsProverForArbitraryU)
         u[i] = FF(17 + 2 * i);
     }
 
-    EqVerifierPolynomial<FF> v(r);
+    VerifierEqPolynomial<FF> v(r);
     const FF ver_val = v.evaluate(u);
 
     // Prover-side normalized evaluation (no table here):
@@ -249,16 +251,16 @@ TEST_F(EqPolyTest, PartialEvaluationConsistency)
         u[i] = FF::random_element();
         u_part[i] = 0;
     }
-    auto current_element = EqVerifierPolynomial<FF>::eval(r, u_part);
+    auto current_element = VerifierEqPolynomial<FF>::eval(r, u_part);
     auto pol = ProverEqPolynomial<FF>::construct(r, d);
     for (size_t i = 0; i < d; i++) {
         u_part[i] = 1;
-        auto new_element = EqVerifierPolynomial<FF>::eval(r, u_part);
+        auto new_element = VerifierEqPolynomial<FF>::eval(r, u_part);
         current_element = current_element + u[i] * (new_element - current_element);
         u_part[i] = u[i];
-        EXPECT_EQ(current_element, EqVerifierPolynomial<FF>::eval(r, u_part));
+        EXPECT_EQ(current_element, VerifierEqPolynomial<FF>::eval(r, u_part));
     }
-    EXPECT_EQ(current_element, EqVerifierPolynomial<FF>::eval(r, u));
+    EXPECT_EQ(current_element, VerifierEqPolynomial<FF>::eval(r, u));
 }
 
 // -----------------------------------------------------------------------------
@@ -300,4 +302,59 @@ TEST_F(EqPolyTest, GateSeparatorBetaProductsOnPowers)
     };
 
     EXPECT_EQ(Polynomial<FF>(expected_values), Polynomial<FF>(poly.beta_products));
+}
+
+TEST_F(EqPolyTest, ProverEqAllChallengesAreOnes)
+{
+    // r = [1,1,...,1]  =>  eq(X,r) = ∏ X_i
+    // Coeff table is zero everywhere except the mask with all bits set.
+    const size_t d = 6;
+    const size_t N = 1UL << d;
+
+    const std::vector<FF> r(d, FF(1));
+
+    const auto coeffs = ProverEqPolynomial<FF>::construct(r, d);
+    ASSERT_EQ(coeffs.size(), N);
+
+    const size_t all_ones_mask = N - 1;
+
+    for (size_t m = 0; m < N; ++m) {
+        const FF got = coeffs.get(m);
+        const FF expect = (m == all_ones_mask) ? FF(1) : FF(0);
+        EXPECT_EQ(got, expect) << "mask=" << m;
+    }
+}
+
+TEST_F(EqPolyTest, ProverEqSomeChallengesAreOnes)
+{
+    // Force a couple of indices to 1 so those bits must be set in any nonzero coefficient.
+    // Choose unfixed entries away from 1 so batch invert is safe.
+    // d = 5, force bits {1,3}
+    const size_t d = 5;
+    const size_t N = 1UL << d;
+    std::vector<FF> r = { FF(7), FF(1), FF(9), FF(1), FF(11) }; // indices 1 and 3 are forced
+    const std::vector<size_t> forced = { 1, 3 };
+
+    const auto coeffs = ProverEqPolynomial<FF>::construct(r, d);
+    ASSERT_EQ(coeffs.size(), N);
+
+    VerifierEqPolynomial<FF> verifier(r);
+
+    for (size_t mask = 0; mask < N; ++mask) {
+        // Build Boolean u from mask and compare against verifier eval.
+        const auto u = bool_vec_from_mask(d, mask);
+        const FF verifier_val = verifier.evaluate(u);
+
+        // Structural property: coeff[mask] == 0 unless all forced bits are set in mask.
+        const bool has_all_forced = std::ranges::all_of(forced, [&](size_t bit) { return ((mask >> bit) & 1U) != 0; });
+
+        const FF table_val = coeffs.get(mask);
+
+        if (!has_all_forced) {
+            EXPECT_EQ(table_val, FF(0)) << "mask missing forced bits, mask=" << mask;
+        } else {
+            // When forced bits are present, table coefficient should match eq(r, u) on that Boolean point.
+            EXPECT_EQ(table_val, verifier_val) << "mask=" << mask;
+        }
+    }
 }

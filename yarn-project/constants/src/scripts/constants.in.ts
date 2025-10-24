@@ -32,6 +32,7 @@ const CPP_CONSTANTS = [
   'UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN',
   'PUBLIC_DATA_TREE_HEIGHT',
   'NULLIFIER_TREE_HEIGHT',
+  'NULLIFIER_SUBTREE_HEIGHT',
   'NOTE_HASH_TREE_HEIGHT',
   'L1_TO_L2_MSG_TREE_HEIGHT',
   'ARCHIVE_HEIGHT',
@@ -599,8 +600,9 @@ function evaluateExpressions(expressions: [string, string][]): { [key: string]: 
         .replaceAll(' as u8', '')
         .replaceAll(' as u32', '')
         .replaceAll(' as u64', '')
-        // Remove the 'AztecAddress::from_field(...)' pattern
-        .replace(/AztecAddress::from_field\((0x[a-fA-F0-9]+|[0-9]+)\)/g, '$1')
+        // Remove the 'AztecAddress::from_field(...)' pattern.
+        // Also copes with the noir formatter re-formatting over multiple lines.
+        .replace(/AztecAddress::from_field\(\s*(0x[a-fA-F0-9]+|\d+)\s*,?\s*\)/gs, '$1')
         // We make some space around the parentheses, so that constant numbers are still split.
         .replace(/\(/g, '( ')
         .replace(/\)/g, ' )')

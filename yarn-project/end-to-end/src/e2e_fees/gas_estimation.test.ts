@@ -1,12 +1,9 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AztecAddress,
-  type AztecNode,
-  type DeployOptions,
-  type FeePaymentMethod,
-  PublicFeePaymentMethod,
-  type Wallet,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { DeployOptions } from '@aztec/aztec.js/contracts';
+import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,

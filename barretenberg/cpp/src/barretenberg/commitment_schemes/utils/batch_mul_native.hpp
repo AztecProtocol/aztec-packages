@@ -10,6 +10,8 @@
 #include <vector>
 
 namespace bb {
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1552): Optimize batch_mul_native
 /**
  * @brief Utility for native batch multiplication of group elements
  * @note This is used only for native verification and is not optimized for efficiency

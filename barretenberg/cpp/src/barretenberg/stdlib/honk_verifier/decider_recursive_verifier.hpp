@@ -7,11 +7,11 @@
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class DeciderRecursiveVerifier_ {
@@ -25,7 +25,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<Flavor>;
     using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:

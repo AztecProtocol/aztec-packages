@@ -40,7 +40,7 @@ pub contract AMM {
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
     };
     use dep::aztec::{
-        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -61,7 +61,7 @@ pub contract AMM {
 
     // TODO(#9480): Either deploy the liquidity contract in the constructor or verify it that it corresponds to what
     // this contract expects (i.e. that the AMM has permission to mint and burn).
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress, liquidity_token: AztecAddress) {
         storage.config.initialize(Config { token0, token1, liquidity_token });
@@ -75,7 +75,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn add_liquidity(
         amount0_max: u128,
         amount1_max: u128,
@@ -99,7 +99,7 @@ pub contract AMM {
         let token1 = Token::at(config.token1);
         let liquidity_token = Token::at(config.liquidity_token);
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We don't yet know how many tokens the sender will actually supply - that can only be computed during public
         // execution since the amounts supplied must have the same ratio as the live balances. We therefore transfer the
@@ -145,7 +145,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _add_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
@@ -239,7 +239,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the liquidity provider is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn remove_liquidity(
         liquidity: u128,
         amount0_min: u128,
@@ -252,7 +252,7 @@ pub contract AMM {
         let token0 = Token::at(config.token0);
         let token1 = Token::at(config.token1);
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // Liquidity tokens are burned when liquidity is removed in order to reduce the total supply. However, we lack
         // a function to privately burn, so we instead transfer the tokens into the AMM's public balance, and then have
@@ -284,7 +284,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _remove_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
@@ -323,7 +323,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
@@ -337,7 +337,7 @@ pub contract AMM {
         assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We transfer the full amount in, since it is an exact amount, and prepare a partial note for the amount out,
         // which will only be known during public execution as it depends on the live balances.
@@ -358,7 +358,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
@@ -392,7 +392,7 @@ pub contract AMM {
     /// specific call.
     ///
     /// The identity of the swapper is not revealed, but the action and amounts are.
-    #[private]
+    #[external("private")]
     fn swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
@@ -406,7 +406,7 @@ pub contract AMM {
         assert((token_out == config.token0) | (token_out == config.token1), "TOKEN_OUT_IS_INVALID");
         assert(token_in != token_out, "SAME_TOKEN_SWAP");
 
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().unwrap();
 
         // We don't know how many tokens we'll receive from the user, since the swap amount will only be known during
         // public execution as it depends on the live balances. We therefore transfer the full maximum amount and
@@ -438,7 +438,7 @@ pub contract AMM {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
@@ -476,7 +476,7 @@ pub contract AMM {
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_amount_out_for_exact_in(
         balance_in: u128,
         balance_out: u128,
@@ -486,7 +486,7 @@ pub contract AMM {
         get_amount_out(amount_in, balance_in, balance_out)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_amount_in_for_exact_out(
         balance_in: u128,
         balance_out: u128,

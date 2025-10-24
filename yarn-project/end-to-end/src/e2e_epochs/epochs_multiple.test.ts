@@ -1,4 +1,4 @@
-import type { Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 
 import { jest } from '@jest/globals';

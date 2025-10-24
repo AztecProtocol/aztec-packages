@@ -14,7 +14,7 @@ pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
     use dep::uint_note::uint_note::PartialUintNote;
     use aztec::{
-        macros::{functions::{initializer, internal, private, public}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -27,7 +27,7 @@ pub contract FPC {
 
     /// Initializes the contract with an accepted asset (AA) and an admin (address that can pull accumulated AA funds
     /// from this contract).
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(accepted_asset: AztecAddress, admin: AztecAddress) {
         let config = Config { accepted_asset, admin };
@@ -76,11 +76,11 @@ pub contract FPC {
     /// - which FPC has been used to make the payment,
     /// - the asset which was used to make the payment.
     // docs:start:fee_entrypoint_private
-    #[private]
+    #[external("private")]
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
         let accepted_asset = storage.config.read().accepted_asset;
 
-        let user = context.msg_sender();
+        let user = context.msg_sender().unwrap();
         let token = Token::at(accepted_asset);
 
         // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
@@ -109,7 +109,7 @@ pub contract FPC {
     /// Executed as a public teardown function and is responsible for completing the refund in the private fee payment
     /// flow.
     // docs:start:complete_refund
-    #[public]
+    #[external("public")]
     #[internal]
     fn _complete_refund(
         accepted_asset: AztecAddress,
@@ -152,20 +152,24 @@ pub contract FPC {
     ///
     /// Protocol-enshrined fee-payment phase:
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
-    #[private]
+    #[external("private")]
     fn fee_entrypoint_public(max_fee: u128, authwit_nonce: Field) {
         let config = storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
         // docs:start:public_call
         Token::at(config.accepted_asset)
-            .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, authwit_nonce
-                )
+            .transfer_in_public(
+                context.msg_sender().unwrap(),
+                context.this_address(),
+                max_fee,
+                authwit_nonce,
+            )
             .enqueue(&mut context);
         // docs:end:public_call
 
         FPC::at(context.this_address())
-            ._pay_refund(context.msg_sender(), max_fee, config.accepted_asset)
+            ._pay_refund(context.msg_sender().unwrap(), max_fee, config.accepted_asset)
             .set_as_teardown(&mut context);
 
         // Set the FPC as the fee payer of the tx.
@@ -177,7 +181,7 @@ pub contract FPC {
     /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
     /// between the `max_fee` and the actual fee. `accepted_asset` is the asset in which the refund is paid.
     /// It's passed as an argument to avoid the need for another read from public storage.
-    #[public]
+    #[external("public")]
     #[internal]
     fn _pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
         let actual_fee = safe_cast_to_u128(context.transaction_fee());
@@ -193,11 +197,11 @@ pub contract FPC {
 
     /// Pulls all the accepted asset funds from this contract to the `to` address. Only the admin can call
     /// this function.
-    #[public]
+    #[external("public")]
     fn pull_funds(to: AztecAddress) {
         let config = storage.config.read();
 
-        assert(context.msg_sender() == config.admin, "Only admin can pull funds");
+        assert(context.msg_sender().unwrap() == config.admin, "Only admin can pull funds");
 
         let token = Token::at(config.accepted_asset);
 
@@ -208,7 +212,7 @@ pub contract FPC {
 
     /// Note: Not marked as view as we need it to be callable as an entrypoint since in some places we need to obtain
     /// this value before we have access to an account contract (kernels do not allow for static entrypoints).
-    #[private]
+    #[external("private")]
     fn get_accepted_asset() -> AztecAddress {
         storage.config.read().accepted_asset
     }

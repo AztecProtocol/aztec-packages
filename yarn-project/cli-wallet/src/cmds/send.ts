@@ -1,14 +1,9 @@
-import {
-  AuthWitness,
-  type AztecAddress,
-  type AztecNode,
-  Contract,
-  Fr,
-  type SendInteractionOptions,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
+import { Contract, type SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
-import { GasSettings } from '@aztec/stdlib/gas';
 
 import { DEFAULT_TX_TIMEOUT_S } from '../utils/cli_wallet_and_node_wrapper.js';
 import { CLIFeeArgs } from '../utils/options/fees.js';
@@ -35,8 +30,6 @@ export async function send(
   const contract = await Contract.at(contractAddress, contractArtifact, wallet);
   const call = contract.methods[functionName](...functionArgs);
 
-  const txNonce = Fr.random();
-
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, from);
   const sendOptions: SendInteractionOptions = {
     fee: { paymentMethod, gasSettings },
@@ -44,7 +37,7 @@ export async function send(
     authWitnesses,
   };
 
-  const { estimatedGas } = await call.simulate({
+  const { estimatedGas, stats } = await call.simulate({
     ...sendOptions,
     fee: { ...sendOptions.fee, estimateGas: true },
   });
@@ -53,12 +46,11 @@ export async function send(
     return;
   }
 
-  const provenTx = await call.prove({ ...sendOptions, fee: { ...sendOptions.fee, gasSettings: estimatedGas } });
+  const tx = call.send({ ...sendOptions, fee: { ...sendOptions.fee, gasSettings: estimatedGas } });
   if (verbose) {
-    printProfileResult(provenTx.stats!, log);
+    printProfileResult(stats!, log);
   }
 
-  const tx = provenTx.send();
   const txHash = await tx.getTxHash();
   log(`\nTransaction hash: ${txHash.toString()}`);
   if (wait) {
@@ -78,14 +70,7 @@ export async function send(
   } else {
     log('Transaction pending. Check status with check-tx');
   }
-  const finalGasSettings = GasSettings.from({
-    ...provenTx.data.constants.txContext.gasSettings,
-    ...estimatedGas,
-  });
   return {
     txHash,
-    txNonce,
-    cancellable,
-    gasSettings: finalGasSettings,
   };
 }

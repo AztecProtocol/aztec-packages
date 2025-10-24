@@ -39,6 +39,7 @@ import {
 } from '../side_effect_errors.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
+import type { PublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
@@ -102,14 +103,14 @@ class TxSimTeardownRevert extends Error {
   }
 }
 
-export class PublicTxSimulator {
+export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
   private config: PublicTxSimulatorConfig;
 
   constructor(
-    private merkleTree: MerkleTreeWriteOperations,
-    private contractsDB: PublicContractsDB,
-    private globalVariables: GlobalVariables,
+    protected merkleTree: MerkleTreeWriteOperations,
+    protected contractsDB: PublicContractsDB,
+    protected globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ) {
     this.config = {

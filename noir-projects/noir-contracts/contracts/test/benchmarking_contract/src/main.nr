@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract Benchmarking {
     use aztec::{
-        macros::{functions::{private, public}, storage::storage},
+        macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
@@ -23,7 +23,7 @@ pub contract Benchmarking {
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
-    #[private]
+    #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = ValueNote::new(value, owner);
         storage.notes.at(owner).insert(note).emit(
@@ -37,7 +37,7 @@ pub contract Benchmarking {
     // multiple txs that will land on the same block.
     // See https://discourse.aztec.network/t/utxo-concurrency-issues-for-private-state/635
     // by @rahul-kothari for a full explanation on why this is needed.
-    #[private]
+    #[external("private")]
     fn recreate_note(owner: AztecAddress, index: u32) {
         let owner_notes = storage.notes.at(owner);
         let mut getter_options = NoteGetterOptions::new();
@@ -47,7 +47,7 @@ pub contract Benchmarking {
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
-    #[public]
+    #[external("public")]
     fn increment_balance(owner: AztecAddress, value: Field) {
         let current = storage.balances.at(owner).read();
         storage.balances.at(owner).write(current + value);
@@ -55,13 +55,13 @@ pub contract Benchmarking {
     }
 
     // Emits a public log.
-    #[public]
+    #[external("public")]
     fn broadcast(owner: AztecAddress) {
         context.emit_public_log(storage.balances.at(owner).read());
     }
 
     // Does a bunch of heavy compute
-    #[public]
+    #[external("public")]
     fn sha256_hash_1024(data: [u8; 1024]) -> [u8; 32] {
         sha256::sha256_var(data, data.len() as u64)
     }

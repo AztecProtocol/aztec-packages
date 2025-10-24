@@ -328,7 +328,7 @@ void TranslatorCircuitBuilder::assert_well_formed_ultra_op(const UltraOp& ultra_
 {
     // Opcode should be {0,3,4,8}
     size_t op_code = ultra_op.op_code.value();
-    ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
+    BB_ASSERT(op_code == 0 || op_code == 3 || op_code == 4 || op_code == 8);
 
     // Check and insert x_lo and y_hi into wire 1
     BB_ASSERT_LTE(uint256_t(ultra_op.x_lo), MAX_LOW_WIDE_LIMB_SIZE);
@@ -511,10 +511,10 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     lay_limbs_in_row(acc_step.quotient_microlimbs[2], QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
     lay_limbs_in_row(top_quotient_microlimbs, QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
 
-    num_gates += 2;
+    increment_num_gates(2);
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates()); });
 }
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
@@ -535,24 +535,24 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         wire.push_back(zero_idx());
         wire.push_back(zero_idx());
     }
-    num_gates += 2;
+    increment_num_gates(2);
 
     auto process_random_op = [&](const UltraOp& ultra_op) {
-        ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
+        BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
         populate_wires_from_ultra_op(ultra_op);
         // Populate the other wires with zeros
         for (size_t i = WireIds::Y_LOW_Z_2 + 1; i < wires.size(); i++) {
             wires[i].push_back(zero_idx());
             wires[i].push_back(zero_idx());
         }
-        num_gates += 2;
+        increment_num_gates(2);
     };
 
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
     // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
-    // ClientIVC::hide_op_queue_content_hiding_kernel
+    // The position and number of these random ops are explained in LegacyClientIVC::hide_op_queue_content_tail_kernel
+    // and LegacyClientIVC::hide_op_queue_content_hiding_kernel
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
@@ -611,7 +611,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 wires[j].push_back(zero_idx());
                 wires[j].push_back(zero_idx());
             }
-            num_gates += 2;
+            increment_num_gates(2);
             continue;
         }
         Fq previous_accumulator{ 0 };

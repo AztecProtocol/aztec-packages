@@ -341,13 +341,13 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // EQ_OP_MAIN
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::alu_sel_op_eq)) *
-                   (FF(1) - static_cast<View>(in.get(C::alu_sel_tag_err))) *
-                   ((CView(alu_DIFF) *
-                         (static_cast<View>(in.get(C::alu_ic)) * (FF(1) - static_cast<View>(in.get(C::alu_helper1))) +
-                          static_cast<View>(in.get(C::alu_helper1))) -
-                     FF(1)) +
-                    static_cast<View>(in.get(C::alu_ic)));
+        auto tmp =
+            static_cast<View>(in.get(C::alu_sel_op_eq)) * (FF(1) - static_cast<View>(in.get(C::alu_sel_tag_err))) *
+            ((CView(alu_DIFF) *
+                  (static_cast<View>(in.get(C::alu_ic)) * (FF(1) - static_cast<View>(in.get(C::alu_ab_diff_inv))) +
+                   static_cast<View>(in.get(C::alu_ab_diff_inv))) -
+              FF(1)) +
+             static_cast<View>(in.get(C::alu_ic)));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
     {

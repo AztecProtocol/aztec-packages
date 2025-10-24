@@ -3,7 +3,10 @@ use crate::{context::inputs::PrivateContextInputs, test::helpers::utils::TestAcc
 use protocol_types::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX},
+    constants::{
+        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
 };
@@ -37,13 +40,16 @@ pub unconstrained fn private_call_new_flow<let N: u32>(
 }
 
 pub unconstrained fn public_call_new_flow<let N: u32>(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field],
     is_static_call: bool,
 ) -> [Field; N] {
     let calldata = args.push_front(function_selector.to_field());
+
+    let from = from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS);
+
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
 

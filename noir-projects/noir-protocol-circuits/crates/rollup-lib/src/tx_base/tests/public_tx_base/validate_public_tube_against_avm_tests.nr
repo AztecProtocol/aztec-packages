@@ -145,6 +145,15 @@ unconstrained fn mismatch_public_teardown_call_request() {
     builder.execute_and_fail();
 }
 
+#[test(should_fail_with = "Mismatched public_teardown_call_request length between private and avm")]
+unconstrained fn mismatch_public_teardown_call_request_length() {
+    let mut builder = TestBuilder::new();
+
+    builder.avm.public_call_request_array_lengths.teardown_call = true;
+
+    builder.execute_and_fail();
+}
+
 #[test(should_fail_with = "Mismatched non-revertible note_hashes between private and avm")]
 unconstrained fn mismatch_non_revertible_note_hashes() {
     let mut builder = TestBuilder::new();

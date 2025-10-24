@@ -1,8 +1,9 @@
 // CREATE_CHAOS_MESH should be set to true to run this test
-import { type AztecNode, sleep } from '@aztec/aztec.js';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet/server';
 
@@ -15,7 +16,13 @@ import {
   deploySponsoredTestAccounts,
   performTransfers,
 } from './setup_test_wallets.js';
-import { applyProverFailure, setupEnvironment, startPortForwardForEthereum, startPortForwardForRPC } from './utils.js';
+import {
+  applyProverFailure,
+  getGitProjectRoot,
+  setupEnvironment,
+  startPortForwardForEthereum,
+  startPortForwardForRPC,
+} from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
 const debugLogger = createLogger('e2e:spartan-test:reorg');
@@ -46,6 +53,8 @@ describe('reorg test', () => {
   const forwardProcesses: ChildProcess[] = [];
   let rpcUrl: string;
   let wallet: TestWallet;
+  let spartanDir: string;
+
   let testAccounts: TestAccounts;
   let aztecNode: AztecNode;
   let cleanup: undefined | (() => Promise<void>);
@@ -63,6 +72,7 @@ describe('reorg test', () => {
 
     rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
     ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    spartanDir = `${getGitProjectRoot()}/spartan`;
 
     ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, debugLogger));
     testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, debugLogger);
@@ -76,6 +86,7 @@ describe('reorg test', () => {
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
@@ -89,7 +100,7 @@ describe('reorg test', () => {
     // kill the provers
     const stdout = await applyProverFailure({
       namespace: config.NAMESPACE,
-      spartanDir: `/workspaces/aztec-packages/spartan`,
+      spartanDir,
       durationSeconds: Number(epochDuration * slotDuration) * 2,
       logger: debugLogger,
     });
@@ -114,6 +125,7 @@ describe('reorg test', () => {
     // TODO(#9327): end delete
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,

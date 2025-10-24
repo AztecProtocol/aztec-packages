@@ -16,6 +16,12 @@ class KeccakF1600TraceBuilder final {
                                TraceContainer& trace);
 
     static const InteractionDefinition interactions;
+
+  private:
+    void process_single_slice(const simulation::KeccakF1600Event& event,
+                              bool write,
+                              uint32_t& row,
+                              TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

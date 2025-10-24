@@ -1,5 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import type { LogFn } from '@aztec/foundation/log';
 

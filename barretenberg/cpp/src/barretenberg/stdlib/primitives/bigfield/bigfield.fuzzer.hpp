@@ -1015,13 +1015,14 @@ template <typename Builder> class BigFieldBase {
                 auto new_el = other.bf() + to_add;
 
                 this->bf().assert_equal(new_el);
+                return;
             }
 
             bigfield_t lhs, rhs;
             if (other.bf().is_constant() && !this->bf().is_constant()) {
                 auto to_add = bigfield_t(this->bigfield.context, uint256_t(this->base - other.base));
                 auto new_el = other.bf() + to_add;
-                ASSERT(new_el.is_constant());
+                BB_ASSERT(new_el.is_constant());
 
                 lhs = this->bigfield;
                 rhs = new_el;
@@ -1035,8 +1036,8 @@ template <typename Builder> class BigFieldBase {
                 rhs = this->bf();
             }
 
-            ASSERT(!lhs.is_constant());
-            ASSERT(rhs.is_constant());
+            BB_ASSERT(!lhs.is_constant());
+            BB_ASSERT(rhs.is_constant());
 
             bool overflow = lhs.get_value() >= bb::fq::modulus;
             bool reduce = VarianceRNG.next() & 1;

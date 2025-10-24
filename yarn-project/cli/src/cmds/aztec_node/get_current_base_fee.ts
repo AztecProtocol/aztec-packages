@@ -1,4 +1,4 @@
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 

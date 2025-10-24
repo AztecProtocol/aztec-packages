@@ -4,9 +4,21 @@ resource "google_storage_managed_folder" "aztec_testnet_auto_update_folder" {
   force_destroy = true
 }
 
+resource "google_storage_managed_folder" "aztec_mainnet_auto_update_folder" {
+  bucket        = google_storage_bucket.snapshots-bucket-mainnet.name
+  name          = "auto-update/"
+  force_destroy = true
+}
+
 resource "google_storage_managed_folder_iam_policy" "aztec_testnet_auto_update_folder_policy" {
   bucket         = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
   managed_folder = google_storage_managed_folder.aztec_testnet_auto_update_folder.name
+  policy_data    = data.google_iam_policy.all_users_storage_read.policy_data
+}
+
+resource "google_storage_managed_folder_iam_policy" "aztec_mainnet_auto_update_folder_policy" {
+  bucket         = google_storage_managed_folder.aztec_mainnet_auto_update_folder.bucket
+  managed_folder = google_storage_managed_folder.aztec_mainnet_auto_update_folder.name
   policy_data    = data.google_iam_policy.all_users_storage_read.policy_data
 }
 
@@ -55,6 +67,17 @@ resource "google_storage_bucket_object" "staging_public" {
 resource "google_storage_bucket_object" "testnet" {
   bucket        = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
   name          = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}testnet.json"
+  content_type  = "application/json"
+  cache_control = "no-store"
+  content = jsonencode({
+    version = ""
+    config  = {}
+  })
+}
+
+resource "google_storage_bucket_object" "ignition-mainnet" {
+  bucket        = google_storage_managed_folder.aztec_mainnet_auto_update_folder.bucket
+  name          = "${google_storage_managed_folder.aztec_mainnet_auto_update_folder.name}ignition-mainnet.json"
   content_type  = "application/json"
   cache_control = "no-store"
   content = jsonencode({

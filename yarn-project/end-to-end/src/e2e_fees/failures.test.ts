@@ -1,14 +1,11 @@
-import {
-  type AztecAddress,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  PrivateFeePaymentMethod,
-  PublicFeePaymentMethod,
-  SetPublicAuthwitContractInteraction,
-  TxStatus,
-  type Wallet,
-} from '@aztec/aztec.js';
+import { FunctionSelector } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
@@ -351,6 +348,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           args: [this.sender.toField(), this.paymentContract.toField(), maxFee, authwitNonce],
           selector: await FunctionSelector.fromSignature('transfer_in_public((Field),(Field),u128,Field)'),
           type: FunctionType.PUBLIC,
+          hideMsgSender: false /** the target function performs an authwit, so msg_sender is needed */,
           isStatic: false,
           to: asset,
           returnTypes: [],
@@ -367,6 +365,7 @@ class BuggedSetupFeePaymentMethod extends PublicFeePaymentMethod {
           to: this.paymentContract,
           selector: await FunctionSelector.fromSignature('fee_entrypoint_public(u128,Field)'),
           type: FunctionType.PRIVATE,
+          hideMsgSender: false,
           isStatic: false,
           args: [tooMuchFee, authwitNonce],
           returnTypes: [],

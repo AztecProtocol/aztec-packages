@@ -7,11 +7,7 @@ pub contract Crowdfunding {
     use crate::config::Config;
     use aztec::{
         event::event_emission::emit_event_in_public,
-        macros::{
-            events::event,
-            functions::{initializer, internal, private, public, utility},
-            storage::storage,
-        },
+        macros::{events::event, functions::{external, initializer, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateSet, PublicImmutable, storage::HasStorageSlot},
@@ -40,14 +36,14 @@ pub contract Crowdfunding {
     // docs:end:storage
 
     // TODO(#8367): Ensure deadline is quantized to improve privacy set.
-    #[public]
+    #[external("public")]
     #[initializer]
     // this-will-error:init-header-error
     fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
         storage.config.initialize(Config { donation_token, operator, deadline });
     }
 
-    #[private]
+    #[external("private")]
     fn donate(amount: u128) {
         let config = storage.config.read();
 
@@ -58,7 +54,7 @@ pub contract Crowdfunding {
         // docs:end:call-check-deadline
 
         // 2) Transfer the donation tokens from donor to this contract
-        let donor = context.msg_sender();
+        let donor = context.msg_sender().unwrap();
         Token::at(config.donation_token)
             .transfer_in_private(donor, context.this_address(), amount, 0)
             .call(&mut context);
@@ -77,13 +73,13 @@ pub contract Crowdfunding {
     }
 
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.
-    #[private]
+    #[external("private")]
     fn withdraw(amount: u128) {
         let config = storage.config.read();
         let operator_address = config.operator;
 
         // 1) Check that msg_sender() is the operator
-        assert(context.msg_sender() == operator_address, "Not an operator");
+        assert(context.msg_sender().unwrap() == operator_address, "Not an operator");
 
         // 2) Transfer the donation tokens from this contract to the operator
         Token::at(config.donation_token).transfer(operator_address, amount).call(&mut context);
@@ -93,13 +89,13 @@ pub contract Crowdfunding {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
         emit_event_in_public(WithdrawalProcessed { amount, who: to }, &mut context);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_donation_notes(
         donor: AztecAddress,
         page_index: u32,

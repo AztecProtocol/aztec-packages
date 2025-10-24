@@ -272,7 +272,7 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
     apply_databus_selectors(bus_idx);
 
     this->check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)

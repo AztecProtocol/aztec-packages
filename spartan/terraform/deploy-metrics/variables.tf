@@ -46,6 +46,12 @@ variable "SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME" {
   default     = "slack-webhook-next-scenario-url"
 }
 
+variable "SLACK_WEBHOOK_NEXT_NET_SECRET_NAME" {
+  description = "Webhook for next-net alerts"
+  type        = string
+  default     = "slack-webhook-next-net-url"
+}
+
 variable "SLACK_WEBHOOK_TESTNET_SECRET_NAME" {
   description = "Webhook for testnet alerts"
   type        = string

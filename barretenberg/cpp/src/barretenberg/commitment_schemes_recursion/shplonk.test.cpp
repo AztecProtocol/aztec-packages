@@ -4,7 +4,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -72,7 +71,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
@@ -116,7 +115,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
@@ -179,7 +178,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ", builder.num_gates());
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             info("Num MSM rows MegaCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ",
                  builder.op_queue->get_num_rows());
@@ -232,7 +231,7 @@ TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (efficient way: size-4 MSM): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (efficient way: size-4 MSM): ", builder.num_gates());
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             info("Num MSM rows MegaCircuitBuilder (efficient way: size-4 MSM): ", builder.op_queue->get_num_rows());
         }

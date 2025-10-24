@@ -24,34 +24,34 @@ concurrency:
   cancel-in-progress: false  # Don't cancel funding operations
 
 jobs:
-  # fund-staging-public:
-  #   uses: ./.github/workflows/ensure-funded-environment.yml
-  #   with:
-  #     environment: staging-public
-  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
-  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
-  #   secrets: inherit
+  fund-staging-public:
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: staging-public
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
+    secrets: inherit
 
   fund-next-net:
     uses: ./.github/workflows/ensure-funded-environment.yml
     with:
       environment: next-net
-      low_watermark: ${{ inputs.low_watermark || '0.5' }}
-      high_watermark: ${{ inputs.high_watermark || '1.0' }}
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
     secrets: inherit
 
-  # fund-staging-ignition:
-  #   uses: ./.github/workflows/ensure-funded-environment.yml
-  #   with:
-  #     environment: staging-ignition
-  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
-  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
-  #   secrets: inherit
+  fund-staging-ignition:
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: staging-ignition
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
+    secrets: inherit
 
-  # fund-testnet:
-  #   uses: ./.github/workflows/ensure-funded-environment.yml
-  #   with:
-  #     environment: testnet
-  #     low_watermark: ${{ inputs.low_watermark || '0.5' }}
-  #     high_watermark: ${{ inputs.high_watermark || '1.0' }}
-  #   secrets: inherit
+  fund-testnet:
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: testnet
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
+    secrets: inherit

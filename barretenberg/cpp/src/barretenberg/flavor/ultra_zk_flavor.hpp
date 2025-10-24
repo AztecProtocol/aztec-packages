@@ -29,8 +29,8 @@ class UltraZKFlavor : public UltraFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = UltraFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to UltraZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
-    static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
 
     // Proof length formula method
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N)
@@ -60,9 +60,9 @@ class UltraZKFlavor : public UltraFlavor {
      * functions.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1355): Deduplicate zk flavor transcripts.
      */
-    template <typename Params> class Transcript_ : public UltraFlavor::Transcript_<Params> {
+    class Transcript_ : public UltraFlavor::Transcript {
       public:
-        using Base = UltraFlavor::Transcript_<Params>::Base;
+        using Base = UltraFlavor::Transcript::Base;
         // Note: we have a different vector of univariates because the degree for ZK flavors differs
         std::vector<bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>> zk_sumcheck_univariates;
         Commitment libra_concatenation_commitment;
@@ -197,6 +197,6 @@ class UltraZKFlavor : public UltraFlavor {
             BB_ASSERT_EQ(proof_data.size(), old_proof_length);
         }
     };
-    using Transcript = Transcript_<NativeTranscriptParams>;
+    using Transcript = Transcript_;
 };
 } // namespace bb

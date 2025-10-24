@@ -2,6 +2,8 @@
 
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/events_container.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2 {
 
@@ -15,8 +17,15 @@ class AvmSimulationHelper {
                                                     std::vector<PublicDataWrite> public_data_writes);
 
     // Fast simulation without event collection.
-    // FIXME(fcarreiro): This should eventually only take the Tx, Globals and not much more.
-    void simulate_fast(const ExecutionHints& hints);
+    void simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
+
+  private:
+    // Helper called by simulate_fast* functions.
+    void simulate_fast(simulation::ContractDBInterface& raw_contract_db,
+                       simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+                       const Tx& tx,
+                       const GlobalVariables& global_variables,
+                       const ProtocolContracts& protocol_contracts);
 };
 
 } // namespace bb::avm2

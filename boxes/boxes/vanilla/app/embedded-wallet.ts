@@ -1,19 +1,11 @@
-import {
-  Fr,
-  createLogger,
-  createAztecNodeClient,
-  AztecAddress,
-  getContractInstanceFromInstantiationParams,
-  SponsoredFeePaymentMethod,
-  BaseWallet,
-  Account,
-  SignerlessAccount,
-  AccountManager,
-  FeeOptions,
-  UserFeeOptions,
-  DeployAccountOptions,
-  SimulateOptions,
-} from '@aztec/aztec.js';
+import { Account, SignerlessAccount } from '@aztec/aztec.js/account';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { type UserFeeOptions, type FeeOptions, BaseWallet, AccountManager, DeployAccountOptions, SimulateOptions } from '@aztec/aztec.js/wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { EcdsaRAccountContract } from '@aztec/accounts/ecdsa/lazy';
@@ -237,8 +229,7 @@ export class EmbeddedWallet extends BaseWallet {
       skipInstancePublication: true,
     };
 
-    const provenInteraction = await deployMethod.prove(deployOpts);
-    const receipt = await provenInteraction.send().wait({ timeout: 120 });
+    const receipt = await deployMethod.send(deployOpts).wait({ timeout: 120 });
 
     logger.info('Account deployed', receipt);
 

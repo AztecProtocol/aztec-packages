@@ -41,6 +41,8 @@ export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
 export const BLOCK_ARCHIVE = 'aztec.block.archive';
 /** The block number */
 export const BLOCK_NUMBER = 'aztec.block.number';
+/** The L2 block hash */
+export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
 /** The parent's block number */

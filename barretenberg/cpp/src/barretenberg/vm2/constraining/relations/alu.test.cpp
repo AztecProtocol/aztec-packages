@@ -1308,8 +1308,8 @@ TEST_P(AluEQConstrainingTest, NegativeAluEqHelper)
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
-    auto helper = trace.get(Column::alu_helper1, 0);
-    trace.set(Column::alu_helper1, 0, helper + 1);
+    auto ab_diff_inv = trace.get(Column::alu_ab_diff_inv, 0);
+    trace.set(Column::alu_ab_diff_inv, 0, ab_diff_inv + 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "EQ_OP_MAIN");
 }
 

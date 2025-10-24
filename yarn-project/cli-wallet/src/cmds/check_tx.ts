@@ -1,14 +1,12 @@
-import {
-  type AztecAddress,
-  type AztecNode,
-  type ContractArtifact,
-  type ExtendedNote,
-  Fr,
-  ProtocolContractAddress,
-  type TxHash,
-} from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
+import type { TxHash } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { siloNullifier } from '@aztec/stdlib/hash';
+import { UniqueNote } from '@aztec/stdlib/note';
 
 import type { CLIWallet } from '../utils/wallet.js';
 
@@ -123,7 +121,7 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   }
 }
 
-function inspectNote(note: ExtendedNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
+function inspectNote(note: UniqueNote, artifactMap: ArtifactMap, log: LogFn, text = 'Note') {
   const artifact = artifactMap[note.contractAddress.toString()];
   const contract = artifact?.name ?? note.contractAddress.toString();
   log(`  ${text} at ${contract}`);

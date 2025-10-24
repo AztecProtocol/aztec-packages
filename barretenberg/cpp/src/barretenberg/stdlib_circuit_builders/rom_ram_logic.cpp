@@ -91,7 +91,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_ROM_array(CircuitBuilder* builder,
     RomTranscript& rom_array = rom_arrays[rom_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(rom_array.state.size(), index);
-    BB_ASSERT_NEQ(rom_array.state[index][0], UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(rom_array.state[index][0]);
     const uint32_t value_witness = builder->add_variable(value);
     RomRecord new_record{
@@ -119,8 +119,8 @@ std::array<uint32_t, 2> RomRamLogic_<ExecutionTrace>::read_ROM_array_pair(Circui
     BB_ASSERT_GT(rom_arrays.size(), rom_id);
     RomTranscript& rom_array = rom_arrays[rom_id];
     BB_ASSERT_GT(rom_array.state.size(), index);
-    BB_ASSERT_NEQ(rom_array.state[index][0], UNINITIALIZED_MEMORY_RECORD);
-    BB_ASSERT_NEQ(rom_array.state[index][1], UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][0] != UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(rom_array.state[index][1] != UNINITIALIZED_MEMORY_RECORD);
     const auto value1 = builder->get_variable(rom_array.state[index][0]);
     const auto value2 = builder->get_variable(rom_array.state[index][1]);
     value_witnesses[0] = builder->add_variable(value1);
@@ -154,7 +154,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -169,7 +169,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builde
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -329,7 +329,7 @@ uint32_t RomRamLogic_<ExecutionTrace>::read_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    BB_ASSERT_NEQ(ram_array.state[index], UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
     const auto value = builder->get_variable(ram_array.state[index]);
     const uint32_t value_witness = builder->add_variable(value);
 
@@ -374,7 +374,7 @@ void RomRamLogic_<ExecutionTrace>::write_RAM_array(CircuitBuilder* builder,
     RamTranscript& ram_array = ram_arrays[ram_id];
     const uint32_t index = static_cast<uint32_t>(uint256_t(builder->get_variable(index_witness)));
     BB_ASSERT_GT(ram_array.state.size(), index);
-    BB_ASSERT_NEQ(ram_array.state[index], UNINITIALIZED_MEMORY_RECORD);
+    BB_ASSERT(ram_array.state[index] != UNINITIALIZED_MEMORY_RECORD);
 
     RamRecord new_record{ .index_witness = index_witness,
                           .timestamp_witness = builder->put_constant_variable((uint64_t)ram_array.access_count),
@@ -411,7 +411,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -424,7 +424,7 @@ void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builde
     // Note: record the index into the memory block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size() - 1;
     builder->check_selector_length_consistency();
-    ++builder->num_gates;
+    builder->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -584,7 +584,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         builder->blocks.memory.populate_wires(
             current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
 
-        ++builder->num_gates;
+        builder->increment_num_gates();
 
         // store timestamp offsets for later. Need to apply range checks to them, but calling
         // `create_new_range_constraint` can add gates, which could ruin the structure of our sorted timestamp list.

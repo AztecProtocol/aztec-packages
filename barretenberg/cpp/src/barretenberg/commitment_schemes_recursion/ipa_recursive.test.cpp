@@ -7,7 +7,6 @@
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
@@ -28,7 +27,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
     using Commitment = typename NativeCurve::AffineElement;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
-    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+    using StdlibTranscript = UltraStdlibTranscript;
     // `FailureMode::None` corresponds to a normal, completeness test. The other cases are legitimate failure modes,
     // where the test should fail. As neither `a_0` nor `G_0` are hashed, the corresponding variants will not fail for
     // Fiat-Shamir reasons. The last failure mode is: we send an OpeningClaim to the hash buffer, then
@@ -64,7 +63,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         const ProverOpeningClaim<NativeCurve> prover_claim{ poly, opening_pair };
         // initialize empty prover transcript
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        using DataType = NativeTranscriptParams::DataType;
+        using DataType = NativeTranscript::DataType;
         std::vector<DataType> proof;
         // Export proof
         switch (failure_mode) {
@@ -87,9 +86,9 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
             const size_t offset = log_poly_length * 2 * comm_frs; // we first send the L_i and R_i, then G_0.
             auto element_frs = std::span{ proof }.subspan(offset, comm_frs);
 
-            Commitment op_commitment = NativeTranscriptParams::template deserialize<Commitment>(element_frs);
+            Commitment op_commitment = NativeTranscript::template deserialize<Commitment>(element_frs);
             Commitment new_op_commitment = op_commitment + op_commitment;
-            auto new_op_commitment_reserialized = NativeTranscriptParams::serialize(new_op_commitment);
+            auto new_op_commitment_reserialized = NativeTranscript::serialize(new_op_commitment);
             std::copy(new_op_commitment_reserialized.begin(),
                       new_op_commitment_reserialized.end(),
                       proof.begin() + static_cast<std::ptrdiff_t>(offset));

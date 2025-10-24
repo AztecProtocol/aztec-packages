@@ -86,6 +86,7 @@ add_subdirectory(barretenberg/dsl)
 add_subdirectory(barretenberg/ecc)
 add_subdirectory(barretenberg/eccvm)
 add_subdirectory(barretenberg/env)
+add_subdirectory(barretenberg/hypernova)
 add_subdirectory(barretenberg/honk)
 add_subdirectory(barretenberg/trace_to_polynomials)
 add_subdirectory(barretenberg/ext/starknet/crypto)
@@ -93,12 +94,14 @@ add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
-add_subdirectory(barretenberg/lmdblib)
+if(NOT WASM)
+    add_subdirectory(barretenberg/ipc)
+    add_subdirectory(barretenberg/lmdblib)
+endif()
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/polynomials)
-add_subdirectory(barretenberg/protogalaxy)
 add_subdirectory(barretenberg/relations)
 add_subdirectory(barretenberg/serialize)
 add_subdirectory(barretenberg/solidity_helpers)
@@ -111,7 +114,9 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/wasi)
 if(NOT FUZZING)
-    add_subdirectory(barretenberg/world_state)
+    if(NOT WASM)
+        add_subdirectory(barretenberg/world_state)
+    endif()
     add_subdirectory(barretenberg/vm2)
 endif()
 
@@ -155,12 +160,12 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:trace_to_polynomials_objects>
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
+    $<TARGET_OBJECTS:hypernova_objects>
     $<TARGET_OBJECTS:honk>
     $<TARGET_OBJECTS:multilinear_batching_objects>
     $<TARGET_OBJECTS:numeric_objects>
     $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:polynomials_objects>
-    $<TARGET_OBJECTS:protogalaxy_objects>
     $<TARGET_OBJECTS:relations_objects>
     $<TARGET_OBJECTS:srs_objects>
     $<TARGET_OBJECTS:stdlib_aes128_objects>
@@ -177,7 +182,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_protogalaxy_verifier_objects>
     $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
@@ -189,6 +193,7 @@ set(BARRETENBERG_TARGET_OBJECTS
 if(NOT DISABLE_AZTEC_VM AND NOT FUZZING)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 
 if(NOT WASM AND NOT FUZZING)

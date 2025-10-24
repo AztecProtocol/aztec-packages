@@ -1,4 +1,7 @@
-import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import chunk from 'lodash.chunk';

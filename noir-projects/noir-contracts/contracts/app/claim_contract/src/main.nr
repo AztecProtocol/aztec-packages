@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 pub contract Claim {
     use dep::aztec::{
         history::note_inclusion::ProveNoteInclusion,
-        macros::{functions::{initializer, private, public}, storage::storage},
+        macros::{functions::{external, initializer}, storage::storage},
         note::{
             note_interface::NoteHash, retrieved_note::RetrievedNote,
             utils::compute_note_hash_for_nullification,
@@ -25,14 +25,14 @@ pub contract Claim {
         reward_token: PublicImmutable<AztecAddress, Context>,
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(target_contract: AztecAddress, reward_token: AztecAddress) {
         storage.target_contract.initialize(target_contract);
         storage.reward_token.initialize(reward_token);
     }
 
-    #[private]
+    #[external("private")]
     fn claim(proof_retrieved_note: RetrievedNote<UintNote>, recipient: AztecAddress) {
         // 1) Check that the note corresponds to the target contract and belongs to the sender
         let target_address = storage.target_contract.read();
@@ -41,7 +41,7 @@ pub contract Claim {
             target_address == proof_retrieved_note.contract_address,
             "Note does not correspond to the target contract",
         );
-        assert_eq(owner, context.msg_sender(), "Note does not belong to the sender");
+        assert_eq(owner, context.msg_sender().unwrap(), "Note does not belong to the sender");
 
         // 2) Prove that the note hash exists in the note hash tree
         // Note: The note has been inserted into the donation_receipts set in a map under the owner address in

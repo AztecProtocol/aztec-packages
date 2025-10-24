@@ -240,8 +240,6 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const kzg = Blob.getViemKzgInstance();
-
     const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
@@ -309,12 +307,21 @@ describe('SequencerPublisher', () => {
         gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
-      { blobs: expectedBlobs.map(b => b.data), kzg },
+      expect.objectContaining({
+        blobs: expect.any(Array),
+      }),
       mockRollupAddress,
       expect.anything(), // the logger
     );
 
     expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
+
+    // Verify blob data (Buffer comparison requires manual content check)
+    const actualBlobConfig = forwardSpy.mock.calls[0][3];
+    expect(actualBlobConfig!.blobs).toHaveLength(expectedBlobs.length);
+    expectedBlobs.forEach((expectedBlob, i) => {
+      expect(Buffer.from(actualBlobConfig!.blobs[i]).equals(expectedBlob.data)).toBe(true);
+    });
   });
 
   it('errors if forwarder tx fails', async () => {

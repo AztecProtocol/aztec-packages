@@ -1,4 +1,3 @@
-import { EthAddress } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -6,6 +5,7 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import {
   type DeployL1ContractsReturnType,
   type L1ContractsConfig,

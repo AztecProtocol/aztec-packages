@@ -9,6 +9,7 @@ import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { Tag } from '../../tagging/tag.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
@@ -33,13 +34,13 @@ export interface NoteData {
 }
 
 // These interfaces contain the list of oracles required by aztec-nr in order to simulate and execute transactions, i.e.
-// in order to call #[utility] and #[private] contract functions.
+// in order to call #[external("utility")] and #[external("private")] contract functions.
 // The full list of aztec-nr oracles is larger and includes the oracles also required to run Noir tests - these reside
 // in the TXE package.
 
 /**
  * Miscellaneous oracle methods, not very Aztec-specific and expected to be available all scenarios in which aztec-nr
- * code runs, except #[public] functions (since those are transpiled to AVM bytecode, where there are no oracles).
+ * code runs, except #[external("public")] functions (since those are transpiled to AVM bytecode, where there are no oracles).
  */
 export interface IMiscOracle {
   isMisc: true;
@@ -50,7 +51,7 @@ export interface IMiscOracle {
 }
 
 /**
- * Oracle methods associated with the execution of an Aztec #[utility] function. Note that the IMiscOracles are also
+ * Oracle methods associated with the execution of an Aztec #[external("utility")] function. Note that the IMiscOracles are also
  * expected to be available in these contexts.
  */
 export interface IUtilityExecutionOracle {
@@ -120,7 +121,7 @@ export interface IUtilityExecutionOracle {
 }
 
 /**
- * Oracle methods associated with the execution of an Aztec #[private] function. Note that both the IMiscOracles and
+ * Oracle methods associated with the execution of an Aztec #[external("private")] function. Note that both the IMiscOracles and
  * IUtilityExecutionOracle are also expected to be available in these contexts.
  */
 export interface IPrivateExecutionOracle {
@@ -154,6 +155,6 @@ export interface IPrivateExecutionOracle {
   privateNotifySetMinRevertibleSideEffectCounter(minRevertibleSideEffectCounter: number): Promise<void>;
   privateGetSenderForTags(): Promise<AztecAddress | undefined>;
   privateSetSenderForTags(senderForTags: AztecAddress): Promise<void>;
-  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Fr>;
+  privateGetNextAppTagAsSender(sender: AztecAddress, recipient: AztecAddress): Promise<Tag>;
   utilityEmitOffchainEffect(data: Fr[]): Promise<void>;
 }
