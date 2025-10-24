@@ -222,7 +222,8 @@ if(WASM)
     target_link_options(
         barretenberg-debug.wasm
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic,$<$<CONFIG:Debug>:--export-all>
+        # -nostartfiles -Wl,--no-entry,--export-dynamic,$<$<CONFIG:Debug>:--export-all>
+        -nostartfiles -Wl,--no-entry,--export-dynamic,--export-all
     )
 
 

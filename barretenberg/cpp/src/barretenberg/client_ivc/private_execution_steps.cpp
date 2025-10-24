@@ -29,6 +29,10 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input)
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
+#ifdef __wasm__
+    throw_or_abort(
+        "error: trying to decompress from inside WASM, not supported! This code path shouldn't be reachable.");
+#endif
     std::vector<uint8_t> content;
     // initial size guess
     content.resize(1024ULL * 128ULL);
