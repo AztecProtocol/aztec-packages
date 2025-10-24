@@ -23,8 +23,7 @@ target_sources(
     BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-# Function that allows specifying custom source and header files
-# while maintaining all the same functionality as barretenberg_module
+# Variant of barretenberg_module that allows specific sources and header files
 function(barretenberg_module_with_sources MODULE_NAME)
     # Parse named arguments for SOURCE_FILES and HEADER_FILES
     # All remaining arguments are treated as dependencies
@@ -304,8 +303,6 @@ function(barretenberg_module_with_sources MODULE_NAME)
     set(${MODULE_NAME}_exe_targets ${exe_targets} PARENT_SCOPE)
 endfunction()
 
-# Original barretenberg_module function that maintains backward compatibility
-# by auto-discovering source and header files, then calling barretenberg_module_with_sources
 function(barretenberg_module MODULE_NAME)
     file(GLOB_RECURSE SOURCE_FILES *.cpp)
     file(GLOB_RECURSE HEADER_FILES *.hpp *.tcc)
