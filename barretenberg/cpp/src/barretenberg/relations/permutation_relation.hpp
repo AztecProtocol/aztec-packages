@@ -36,11 +36,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
         3  // left-shiftable polynomial sub-relation
     };
 
-    static constexpr std::array<size_t, 2> TOTAL_LENGTH_ADJUSTMENTS{
-        5, // grand product construction sub-relation
-        0  // left-shiftable polynomial sub-relation
-    };
-
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
