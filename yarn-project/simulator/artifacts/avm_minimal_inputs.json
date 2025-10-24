@@ -88,6 +88,13 @@
         "commitment": "0x253955340ab6819b564797927db2433e18decc4b3f37cbd27dcf3b4d6222a694"
       }
     ],
+    "debugFunctionNames": [
+      {
+        "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
+        "selector": "0x000000000000000000000000000000000000000000000000000000000d6ab3ae",
+        "name": "0x0d6ab3ae"
+      }
+    ],
     "startingTreeRoots": {
       "l1ToL2MessageTree": {
         "root": "0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5",

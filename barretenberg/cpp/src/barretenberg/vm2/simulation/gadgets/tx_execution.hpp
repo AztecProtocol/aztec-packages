@@ -87,6 +87,8 @@ class TxExecution final {
     void cleanup();
 
     void emit_empty_phase(TransactionPhase phase);
+
+    std::string get_debug_function_name(const AztecAddress& contract_address, const std::vector<FF>& calldata);
 };
 
 } // namespace bb::avm2::simulation

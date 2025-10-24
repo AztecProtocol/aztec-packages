@@ -50,6 +50,12 @@ std::optional<FF> ContractDB::get_bytecode_commitment(const ContractClassId& cla
     return raw_contract_db.get_bytecode_commitment(class_id);
 }
 
+std::optional<std::string> ContractDB::get_debug_function_name(const AztecAddress& address,
+                                                               const FunctionSelector& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
 void ContractDB::add_new_non_revertible_contracts(const ContractDeploymentData& non_revertible_contract_deployment_data)
 {
     raw_contract_db.add_new_non_revertible_contracts(non_revertible_contract_deployment_data);

@@ -37,6 +37,9 @@ class ContractDB final : public ContractDBInterface {
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
     // Gets the bytecode commitment for a contract class ID.
     std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    // Gets the debug function name for a contract address and function selector.
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
 
     // Adds non-revertible contracts to the DB.
     void add_new_non_revertible_contracts(
