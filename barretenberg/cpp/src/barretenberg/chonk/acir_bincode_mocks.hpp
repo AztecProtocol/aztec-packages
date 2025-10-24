@@ -144,7 +144,7 @@ inline std::vector<uint8_t> create_simple_kernel(size_t vk_size, bool is_init_ke
     Acir::FunctionInput predicate{ .value = predicate_const };
 
     // Modeled after noir-projects/mock-protocol-circuits/crates/mock-private-kernel-init/src/main.nr
-    // We mock the init or tail kernels using OINK or PG respectively.
+    // We mock the init or tail kernels using OINK or HN respectively.
     Acir::BlackBoxFuncCall::RecursiveAggregation recursion{ .verification_key = vk_inputs,
                                                             .proof = {},
                                                             .public_inputs = {},

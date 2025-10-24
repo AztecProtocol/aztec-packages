@@ -1,6 +1,6 @@
 use types::{
     abis::kernel_circuit_public_inputs::PrivateToPublicKernelCircuitPublicInputs,
-    constants::{MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PROOF_TYPE_PG_FINAL},
+    constants::{MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX, PROOF_TYPE_HN_FINAL},
     proof::vk_data::VkData,
 };
 

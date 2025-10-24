@@ -1,6 +1,6 @@
 use types::{
     abis::kernel_circuit_public_inputs::PrivateToRollupKernelCircuitPublicInputs,
-    constants::{MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_TAIL_INDEX, PROOF_TYPE_HN_FINAL},
+    constants::{MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_TAIL_INDEX, PROOF_TYPE_PG_FINAL},
     proof::vk_data::VkData,
 };
 
