@@ -109,6 +109,7 @@ export async function deployNewRollupContracts(
   feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   realVerifier: boolean,
+  createVerificationJson: string | false,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createExtendedL1Client } = await import('@aztec/ethereum');
@@ -152,6 +153,7 @@ export async function deployNewRollupContracts(
     registryAddress,
     logger,
     config,
+    createVerificationJson,
   );
 
   return { rollup, slashFactoryAddress };
