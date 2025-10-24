@@ -77,7 +77,9 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
           "\n * contractClasses: ",
           hints.contractClasses.size(),
           "\n * bytecodeCommitments: ",
-          hints.bytecodeCommitments.size());
+          hints.bytecodeCommitments.size(),
+          "\n * debugFunctionNames: ",
+          hints.debugFunctionNames.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
         // TODO(fcarreiro): We are currently generating duplicates in TS.
@@ -95,6 +97,11 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
         // TODO(fcarreiro): We are currently generating duplicates in TS.
         // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
         bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
+    }
+
+    for (const auto& debug_function_name_hint : hints.debugFunctionNames) {
+        debug_function_names[std::make_pair(debug_function_name_hint.address, debug_function_name_hint.selector)] =
+            debug_function_name_hint.name;
     }
 }
 
@@ -152,6 +159,12 @@ std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractCla
         return std::nullopt;
     }
     return it->second;
+}
+
+std::optional<std::string> HintedRawContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                        const FunctionSelector& selector) const
+{
+    return debug_function_names.at(std::make_pair(address, selector));
 }
 
 void HintedRawContractDB::add_new_non_revertible_contracts(

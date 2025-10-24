@@ -28,6 +28,8 @@ class HintedRawContractDB final : public ContractDBInterface {
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
     std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
 
     void add_new_non_revertible_contracts(
         const ContractDeploymentData& non_revertible_contract_deployment_data) override;
@@ -37,6 +39,7 @@ class HintedRawContractDB final : public ContractDBInterface {
     unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
     unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
     unordered_flat_map<ContractClassId, FF> bytecode_commitments;
+    unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
 };
 
 // This class interacts with the external world, without emiting any simulation events.

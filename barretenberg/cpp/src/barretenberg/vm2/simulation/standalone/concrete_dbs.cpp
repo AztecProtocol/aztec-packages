@@ -23,6 +23,12 @@ std::optional<FF> PureContractDB::get_bytecode_commitment(const ContractClassId&
     return raw_contract_db.get_bytecode_commitment(class_id);
 }
 
+std::optional<std::string> PureContractDB::get_debug_function_name(const AztecAddress& address,
+                                                                   const FunctionSelector& selector) const
+{
+    return raw_contract_db.get_debug_function_name(address, selector);
+}
+
 void PureContractDB::add_new_non_revertible_contracts(
     const ContractDeploymentData& non_revertible_contract_deployment_data)
 {

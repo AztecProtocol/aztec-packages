@@ -164,6 +164,16 @@ struct BytecodeCommitmentHint {
     MSGPACK_FIELDS(classId, commitment);
 };
 
+struct DebugFunctionNameHint {
+    AztecAddress address;
+    FunctionSelector selector;
+    std::string name;
+
+    bool operator==(const DebugFunctionNameHint& other) const = default;
+
+    MSGPACK_FIELDS(address, selector, name);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (merkle db)
 ////////////////////////////////////////////////////////////////////////////
@@ -343,6 +353,7 @@ struct ExecutionHints {
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
+    std::vector<DebugFunctionNameHint> debugFunctionNames;
     // Merkle DB.
     TreeSnapshots startingTreeRoots;
     std::vector<GetSiblingPathHint> getSiblingPathHints;
@@ -367,6 +378,7 @@ struct ExecutionHints {
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
+                   debugFunctionNames,
                    startingTreeRoots,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,

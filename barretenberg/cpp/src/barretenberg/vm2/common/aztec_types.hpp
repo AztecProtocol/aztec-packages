@@ -19,6 +19,8 @@ using AffinePoint = grumpkin::g1::affine_element;
 // it's represented as a field element for simplicity
 using EthAddress = FF;
 
+using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF for simplicity
+
 enum TransactionPhase {
     NR_NULLIFIER_INSERTION = 1,
     NR_NOTE_INSERTION = 2,
