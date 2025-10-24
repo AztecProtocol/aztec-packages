@@ -389,7 +389,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
  */
 template <typename Builder>
 void perform_full_IPA_verification(Builder& builder,
-                                   const std::vector<OpeningClaim<bb::stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                                   const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
                                    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
 {
     using StdlibTranscript = UltraStdlibTranscript;
@@ -531,9 +531,8 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                      ivc->verification_queue.size(),
                      "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
-        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy
-        // values so that the present kernel circuit is constructed correctly. (Used for constructing VKs without
-        // witnesses).
+        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+        // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
         if (!has_valid_witness_assignments) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] :
