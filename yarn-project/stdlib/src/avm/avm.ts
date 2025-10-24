@@ -5,6 +5,7 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
 import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
@@ -395,6 +396,8 @@ export class AvmTxHint {
     public readonly hash: string,
     public readonly gasSettings: GasSettings,
     public readonly effectiveGasFees: GasFees,
+    public readonly nonRevertibleContractDeploymentData: ContractDeploymentData,
+    public readonly revertibleContractDeploymentData: ContractDeploymentData,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -420,6 +423,7 @@ export class AvmTxHint {
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
+    const allContractDeploymentData = AllContractDeploymentData.fromTx(tx);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = tx.getTxHash();
@@ -428,6 +432,8 @@ export class AvmTxHint {
       txHash.hash.toString(),
       gasSettings,
       effectiveGasFees,
+      allContractDeploymentData.getNonRevertibleContractDeploymentData(),
+      allContractDeploymentData.getRevertibleContractDeploymentData(),
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -451,6 +457,8 @@ export class AvmTxHint {
       '',
       GasSettings.empty(),
       GasFees.empty(),
+      ContractDeploymentData.empty(),
+      ContractDeploymentData.empty(),
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
@@ -467,6 +475,8 @@ export class AvmTxHint {
         hash: z.string(),
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
+        nonRevertibleContractDeploymentData: ContractDeploymentData.schema,
+        revertibleContractDeploymentData: ContractDeploymentData.schema,
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -488,6 +498,8 @@ export class AvmTxHint {
           hash,
           gasSettings,
           effectiveGasFees,
+          nonRevertibleContractDeploymentData,
+          revertibleContractDeploymentData,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -500,6 +512,8 @@ export class AvmTxHint {
             hash,
             gasSettings,
             effectiveGasFees,
+            nonRevertibleContractDeploymentData,
+            revertibleContractDeploymentData,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,

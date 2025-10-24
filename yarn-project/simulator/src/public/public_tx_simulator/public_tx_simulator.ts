@@ -155,7 +155,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
       // This will throw if there is a nullifier collision.
       // In that case the transaction will be thrown out.
-      await this.insertNonRevertiblesFromPrivate(context, tx);
+      await this.insertNonRevertiblesFromPrivate(context);
 
       const processedPhases: ProcessedPhase[] = [];
       if (context.hasPhase(TxExecutionPhase.SETUP)) {
@@ -175,7 +175,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
       try {
         // This will throw if there is a nullifier collision or other insertion error (limit reached).
-        await this.insertRevertiblesFromPrivate(context, tx);
+        await this.insertRevertiblesFromPrivate(context);
 
         // Only proceed with app logic if there was no revert during revertible insertion.
         if (context.hasPhase(TxExecutionPhase.APP_LOGIC)) {
@@ -235,8 +235,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
-      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
-      // However things should work as they are now because the hinted db would still pick up the new contracts.
+      // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
+      // However things should work as they are now because the hinting db would still pick up the new contracts.
       this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
 
       return {
@@ -255,8 +255,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     } finally {
       // Make sure there are no new contracts in the tx-level cache.
       // They should either be committed to block-level cache or cleared.
-      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
-      // However things should work as they are now because the hinted db would still pick up the new contracts.
+      // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
+      // However things should work as they are now because the hinting db would still pick up the new contracts.
       this.contractsDB.clearContractsForTx();
     }
   }
@@ -393,7 +393,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   /**
    * Insert the non-revertible accumulated data from private into the public state.
    */
-  protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
 
     for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
@@ -412,11 +412,12 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       }
     }
 
-    // add new contracts to the contracts db so that their functions may be found and called
-    // TODO(#6464): Should we allow emitting contracts in the private setup phase?
-    // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
-    // However things should work as they are now because the hinted db would still pick up the new contracts.
-    await this.contractsDB.addNewNonRevertibleContracts(tx);
+    // add new contracts to the contracts db so that their code may be found and called
+    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
+    // However, things work as expected because later calls to getters on the hintingContractsDB
+    // will pick up the new contracts and will generate the necessary hints.
+    // So, a consumer of the hints will always see the new contracts.
+    await this.contractsDB.addNewNonRevertibleContracts(context.nonRevertibleContractDeploymentData);
   }
 
   /**
@@ -428,7 +429,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
    * - NoteHashLimitReachedError
    * - L2ToL1MessageLimitReachedError
    */
-  protected async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
+  protected async insertRevertiblesFromPrivate(context: PublicTxContext) {
     const stateManager = context.state.getActiveStateManager();
 
     try {
@@ -497,9 +498,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     }
 
     // add new contracts to the contracts db so that their functions may be found and called
-    // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
-    // However things should work as they are now because the hinted db would still pick up the new contracts.
-    await this.contractsDB.addNewRevertibleContracts(tx);
+    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
+    // However, things work as expected because later calls to getters on the hintingContractsDB
+    // will pick up the new contracts and will generate the necessary hints.
+    // So, a consumer of the hints will always see the new contracts.
+    await this.contractsDB.addNewRevertibleContracts(context.revertibleContractDeploymentData);
   }
 
   private async payFee(context: PublicTxContext) {

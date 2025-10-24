@@ -19,6 +19,8 @@
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
       "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
+      "nonRevertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
+      "revertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],

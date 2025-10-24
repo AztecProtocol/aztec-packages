@@ -36,6 +36,12 @@ class ContractDB final : public ContractDBInterface {
     // Silo the class id and use the MerkleDB to prove that.
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
+    // Adds non-revertible contracts to the DB.
+    void add_new_non_revertible_contracts(
+        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
+    // Adds revertible contracts to the DB.
+    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+
   private:
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;

@@ -509,7 +509,7 @@ export class PublicProcessor implements Traceable {
 
     // Add any contracts registered/deployed in this private-only tx to the block-level cache
     // (add to tx-level cache and then commit to block-level cache)
-    await this.contractsDB.addNewContracts(tx);
+    await this.contractsDB.addNewContractsForTx(tx);
     this.contractsDB.commitContractsForTx();
 
     return [processedTx, undefined];

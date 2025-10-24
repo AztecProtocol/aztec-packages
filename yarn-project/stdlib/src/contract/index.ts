@@ -3,6 +3,7 @@ export * from './contract_address.js';
 export * from './contract_class.js';
 export * from './contract_class_metadata.js';
 export * from './contract_class_id.js';
+export * from './contract_deployment_data.js';
 export * from './contract_instance.js';
 export * from './contract_metadata.js';
 export * from './contract_instance_update.js';
