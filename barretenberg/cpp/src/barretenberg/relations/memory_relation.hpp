@@ -154,7 +154,6 @@ template <typename FF_> class MemoryRelationImpl {
         memory_record_check_m += q_c_m;
         auto partial_record_check_m = memory_record_check_m; // degree 1. used later in RAM consistency check
         memory_record_check_m = memory_record_check_m - w_4_m;
-        // if prover is honest, `memory_record_check` is `record - q_c`. For a ROM gate, this is `record`.
         auto memory_record_check = Accumulator(memory_record_check_m);
         /**
          * ROM Consistency Check
@@ -257,7 +256,13 @@ template <typename FF_> class MemoryRelationImpl {
         /**
          * RAM Timestamp Consistency Check
          *
-         * | w1 | w2 | w3 | w4 |
+         * The gates constructed to witness the consistency of the jumps in the timestamp have the following form. They
+         * are constructed to be sorted, first with respect to `index`, then with respect to `timestamp`. (This is the
+         * same structure as the sorted RAM gates.) This is enforced by copy constraints (the witness indices of the
+         * gates are _the same_ as those of the sorted RAM gates, so we _do not_ need to explicitly check the
+         * lexicographic ordering again.)
+         *
+         * | w1    | w2        | w3              | w4 |
          * | index | timestamp | timestamp_check | -- |
          *
          * Let delta_index = index_{i + 1} - index_{i}

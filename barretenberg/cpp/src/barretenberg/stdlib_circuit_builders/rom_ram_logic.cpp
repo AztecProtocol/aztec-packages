@@ -578,7 +578,9 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         }
 
         uint32_t timestamp_delta_witness = builder->add_variable(timestamp_delta);
-
+        // note that the `index_witness` and `timestamp_witness` are taken from `current`. This means that there are
+        // copy constraints, which will mean that once we constrain the sorted gates to be in lexicographic order, these
+        // gates will _automatically_ be in lexicographic order.
         builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
         builder->blocks.memory.populate_wires(
             current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
@@ -596,9 +598,10 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     builder->create_unconstrained_gate(
         builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx(), builder->zero_idx());
 
-    // Step 3: validate difference in timestamps is monotonically increasing. i.e. is <= maximum timestamp
-    // NOTE: we do _not_ check that every possible timestamp between 0 and `max_timestamp` occurs at least once (which
-    // corresponds to an honest trace)
+    // Step 3: validate that the timestamp_deltas (successive difference of timestamps for the same index) are
+    // monotonically increasing. i.e. are <= maximum timestamp. NOTE: we do _not_ check that every possible timestamp
+    // between 0 and `max_timestamp` occurs at least once (which corresponds to an "honest trace," e.g., one generated
+    // by the code in this file). However, our check nonetheless suffices for correct memory accesses.
     const size_t max_timestamp = ram_array.access_count - 1;
     for (auto& w : timestamp_deltas) {
         builder->create_new_range_constraint(w, max_timestamp);
