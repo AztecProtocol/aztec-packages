@@ -13,6 +13,13 @@ if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   export hash="$hash-no-avm"
 fi
 
+# Mix whether we're building multi-arch or single-arch into the hash
+if semver check "$REF_NAME"; then
+  export hash="$hash-multiarch"
+else
+  export hash="$hash-singlearch"
+fi
+
 function ensure_zig {
   if command -v zig &>/dev/null; then
     return
@@ -92,11 +99,17 @@ function build_nodejs_module {
   ensure_zig
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
-      zig-node-amd64-linux \
-      zig-node-arm64-linux \
-      zig-node-amd64-macos \
-      zig-node-arm64-macos
+    if semver check "$REF_NAME"; then
+      # Build all architectures for releases
+      parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
+        zig-node-amd64-linux \
+        zig-node-arm64-linux \
+        zig-node-amd64-macos \
+        zig-node-arm64-macos
+    else
+      # Build only current arch when not releasing (faster for dev and CI)
+      build_preset zig-node-$(arch)-linux
+    fi
     cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
   fi
 }
