@@ -296,6 +296,80 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
     os << '}' << "\n";
 }
 
+void GlobalBenchStatsContainer::serialize_aggregate_data_json(std::ostream& os) const
+{
+    AggregateData data = aggregate();
+
+    os << "{\n";
+    bool first_key = true;
+
+    for (const auto& [key, parent_map] : data) {
+        // Escape quotes in key
+        std::string escaped_key;
+        for (char c : std::string(key)) {
+            if (c == '"' || c == '\\') {
+                escaped_key += '\\';
+            }
+            escaped_key += c;
+        }
+
+        // Collect non-empty parent entries (skip _root entries with no data)
+        std::vector<const AggregateEntry*> non_empty_entries;
+        for (const auto& [parent_key, entry] : parent_map) {
+            // Skip _root entries that have zero time (never called at root level)
+            if (parent_key.empty() && entry.time == 0) {
+                continue;
+            }
+            non_empty_entries.push_back(&entry);
+        }
+
+        // Skip this key entirely if it has no non-empty entries
+        if (non_empty_entries.empty()) {
+            continue;
+        }
+
+        if (!first_key) {
+            os << ",\n";
+        }
+        first_key = false;
+
+        os << "  \"" << escaped_key << "\": [\n";
+
+        bool first_entry = true;
+        for (const AggregateEntry* entry_ptr : non_empty_entries) {
+            if (!first_entry) {
+                os << ",\n";
+            }
+            first_entry = false;
+
+            const AggregateEntry& entry = *entry_ptr;
+
+            // Escape quotes in parent key
+            std::string escaped_parent;
+            for (char c : std::string(entry.parent)) {
+                if (c == '"' || c == '\\') {
+                    escaped_parent += '\\';
+                }
+                escaped_parent += c;
+            }
+
+            os << "    {\n";
+            os << "      \"parent\": \"" << (escaped_parent.empty() ? "_root" : escaped_parent) << "\",\n";
+            os << "      \"time\": " << entry.time << ",\n";
+            os << "      \"time_max\": " << entry.time_max << ",\n";
+            os << "      \"time_mean\": " << entry.time_mean << ",\n";
+            os << "      \"time_stddev\": " << entry.get_std_dev() << ",\n";
+            os << "      \"count\": " << entry.count << ",\n";
+            os << "      \"num_threads\": " << entry.num_threads << "\n";
+            os << "    }";
+        }
+
+        os << "\n  ]";
+    }
+
+    os << "\n}\n";
+}
+
 void GlobalBenchStatsContainer::print_aggregate_counts_hierarchical(std::ostream& os) const
 {
     AggregateData aggregated = aggregate();
