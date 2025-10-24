@@ -27,6 +27,7 @@ static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
  * multiple sets of pairing points.
  *
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
 template <typename Builder_> struct PairingPoints {
@@ -88,11 +89,7 @@ template <typename Builder_> struct PairingPoints {
             idx++;
         }
 
-        std::vector<Fr> challenges;
-        challenges.reserve(num_points);
-        for (size_t idx = 0; idx < num_points; idx++) {
-            challenges.emplace_back(transcript.template get_challenge<Fr>(labels[idx]));
-        }
+        std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
 
         // Batch mul
         auto P0 = Group::batch_mul(first_components, challenges);
@@ -108,8 +105,6 @@ template <typename Builder_> struct PairingPoints {
      * @param other
      * @param recursion_separator
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Potentially switch a batch_mul approach to
-    // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
         BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
@@ -122,7 +117,6 @@ template <typename Builder_> struct PairingPoints {
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-
         transcript.add_to_hash_buffer("Accumulator_P0", P0);
         transcript.add_to_hash_buffer("Accumulator_P1", P1);
         transcript.add_to_hash_buffer("Aggregated_P0", other.P0);
