@@ -43,7 +43,17 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
+    // Coordinates should not have mixed constancy. In the case they do, convert constant coordinate to fixed witness.
     BB_ASSERT_EQ(input_x.is_constant, input_y.is_constant, "to_grumpkin_point: Inconsistent constancy of coordinates");
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/17514): Avoid mixing constant/witness coordinates
+    if (point_x.is_constant() != point_y.is_constant()) {
+        if (point_x.is_constant()) {
+            point_x.convert_constant_to_fixed_witness(&builder);
+        } else if (point_y.is_constant()) {
+            point_y.convert_constant_to_fixed_witness(&builder);
+        }
+    }
+
     bool constant_coordinates = input_x.is_constant && input_y.is_constant;
 
     // In a witness is not provided, or the relevant predicate is constant false, we ensure the coordinates correspond

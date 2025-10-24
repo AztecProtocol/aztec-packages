@@ -36,20 +36,12 @@ void create_multi_scalar_mul_constraint(Builder& builder,
                                                        has_valid_witness_assignments,
                                                        input.predicate,
                                                        builder);
+
         //  Reconstruct the scalar from the low and high limbs
         field_ct scalar_low_as_field = to_field_ct(input.scalars[2 * (i / 3)], builder);
         field_ct scalar_high_as_field = to_field_ct(input.scalars[2 * (i / 3) + 1], builder);
         cycle_scalar_ct scalar(scalar_low_as_field, scalar_high_as_field);
 
-        // Avoid mixing constant/witness coordinates because of issue
-        // https://github.com/AztecProtocol/aztec-packages/issues/17514
-        if (input_point.x.is_constant() != input_point.y.is_constant()) {
-            if (input_point.x.is_constant()) {
-                input_point.x.convert_constant_to_fixed_witness(&builder);
-            } else if (input_point.y.is_constant()) {
-                input_point.y.convert_constant_to_fixed_witness(&builder);
-            }
-        }
         // Add the point and scalar to the vectors
         points.push_back(input_point);
         scalars.push_back(scalar);
@@ -64,15 +56,15 @@ void create_multi_scalar_mul_constraint(Builder& builder,
         builder.assert_equal(output_point.is_point_at_infinity().get_normalized_witness_index(),
                              input.out_point_is_infinite);
     }
-    if (output_point.x.is_constant()) {
-        builder.fix_witness(input.out_point_x, output_point.x.get_value());
+    if (output_point.x().is_constant()) {
+        builder.fix_witness(input.out_point_x, output_point.x().get_value());
     } else {
-        builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);
+        builder.assert_equal(output_point.x().get_witness_index(), input.out_point_x);
     }
-    if (output_point.y.is_constant()) {
-        builder.fix_witness(input.out_point_y, output_point.y.get_value());
+    if (output_point.y().is_constant()) {
+        builder.fix_witness(input.out_point_y, output_point.y().get_value());
     } else {
-        builder.assert_equal(output_point.y.get_witness_index(), input.out_point_y);
+        builder.assert_equal(output_point.y().get_witness_index(), input.out_point_y);
     }
 }
 
