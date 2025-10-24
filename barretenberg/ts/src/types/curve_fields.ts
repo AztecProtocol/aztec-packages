@@ -90,6 +90,8 @@ abstract class BaseField {
  * BN254 Fr field (scalar field)
  */
 export class Bn254Fr extends BaseField {
+  private readonly __brand: 'Bn254Fr' = 'Bn254Fr';
+
   static MODULUS = BN254_FR_MODULUS;
   static MAX_VALUE = Bn254Fr.MODULUS - 1n;
   static ZERO = new Bn254Fr(0n);
@@ -113,12 +115,28 @@ export class Bn254Fr extends BaseField {
   static fromString(str: string) {
     return super.fromString(str, Bn254Fr);
   }
+
+  /**
+   * Convert to GrumpkinFq (trivial conversion since they use the same modulus)
+   */
+  toGrumpkinFq(): GrumpkinFq {
+    return new GrumpkinFq(this.value);
+  }
+
+  /**
+   * Create Bn254Fr from GrumpkinFq (trivial conversion since they use the same modulus)
+   */
+  static fromGrumpkinFq(fq: GrumpkinFq): Bn254Fr {
+    return new Bn254Fr(fq.value);
+  }
 }
 
 /**
  * BN254 Fq field (base field)
  */
 export class Bn254Fq extends BaseField {
+  private readonly __brand: 'Bn254Fq' = 'Bn254Fq';
+
   static MODULUS = BN254_FQ_MODULUS;
   static MAX_VALUE = Bn254Fq.MODULUS - 1n;
   static ZERO = new Bn254Fq(0n);
@@ -142,6 +160,20 @@ export class Bn254Fq extends BaseField {
   static fromString(str: string) {
     return super.fromString(str, Bn254Fq);
   }
+
+  /**
+   * Convert to GrumpkinFr (trivial conversion since they use the same modulus)
+   */
+  toGrumpkinFr(): GrumpkinFr {
+    return new GrumpkinFr(this.value);
+  }
+
+  /**
+   * Create Bn254Fq from GrumpkinFr (trivial conversion since they use the same modulus)
+   */
+  static fromGrumpkinFr(fr: GrumpkinFr): Bn254Fq {
+    return new Bn254Fq(fr.value);
+  }
 }
 
 // ============================================================================
@@ -153,6 +185,8 @@ export class Bn254Fq extends BaseField {
  * Note: Grumpkin's Fr is BN254's Fq
  */
 export class GrumpkinFr extends BaseField {
+  private readonly __brand: 'GrumpkinFr' = 'GrumpkinFr';
+
   static MODULUS = GRUMPKIN_FR_MODULUS;
   static MAX_VALUE = GrumpkinFr.MODULUS - 1n;
   static ZERO = new GrumpkinFr(0n);
@@ -176,6 +210,20 @@ export class GrumpkinFr extends BaseField {
   static fromString(str: string) {
     return super.fromString(str, GrumpkinFr);
   }
+
+  /**
+   * Convert to Bn254Fq (trivial conversion since they use the same modulus)
+   */
+  toBn254Fq(): Bn254Fq {
+    return new Bn254Fq(this.value);
+  }
+
+  /**
+   * Create GrumpkinFr from Bn254Fq (trivial conversion since they use the same modulus)
+   */
+  static fromBn254Fq(fq: Bn254Fq): GrumpkinFr {
+    return new GrumpkinFr(fq.value);
+  }
 }
 
 /**
@@ -183,6 +231,8 @@ export class GrumpkinFr extends BaseField {
  * Note: Grumpkin's Fq is BN254's Fr
  */
 export class GrumpkinFq extends BaseField {
+  private readonly __brand: 'GrumpkinFq' = 'GrumpkinFq';
+
   static MODULUS = GRUMPKIN_FQ_MODULUS;
   static MAX_VALUE = GrumpkinFq.MODULUS - 1n;
   static ZERO = new GrumpkinFq(0n);
@@ -206,6 +256,20 @@ export class GrumpkinFq extends BaseField {
   static fromString(str: string) {
     return super.fromString(str, GrumpkinFq);
   }
+
+  /**
+   * Convert to Bn254Fr (trivial conversion since they use the same modulus)
+   */
+  toBn254Fr(): Bn254Fr {
+    return new Bn254Fr(this.value);
+  }
+
+  /**
+   * Create GrumpkinFq from Bn254Fr (trivial conversion since they use the same modulus)
+   */
+  static fromBn254Fr(fr: Bn254Fr): GrumpkinFq {
+    return new GrumpkinFq(fr.value);
+  }
 }
 
 // ============================================================================
@@ -216,6 +280,8 @@ export class GrumpkinFq extends BaseField {
  * Secp256k1 Fr field (scalar field)
  */
 export class Secp256k1Fr extends BaseField {
+  private readonly __brand: 'Secp256k1Fr' = 'Secp256k1Fr';
+
   static MODULUS = SECP256K1_FR_MODULUS;
   static MAX_VALUE = Secp256k1Fr.MODULUS - 1n;
   static ZERO = new Secp256k1Fr(0n);
@@ -245,6 +311,8 @@ export class Secp256k1Fr extends BaseField {
  * Secp256k1 Fq field (base field)
  */
 export class Secp256k1Fq extends BaseField {
+  private readonly __brand: 'Secp256k1Fq' = 'Secp256k1Fq';
+
   static MODULUS = SECP256K1_FQ_MODULUS;
   static MAX_VALUE = Secp256k1Fq.MODULUS - 1n;
   static ZERO = new Secp256k1Fq(0n);
@@ -278,6 +346,8 @@ export class Secp256k1Fq extends BaseField {
  * Secp256r1 Fr field (scalar field)
  */
 export class Secp256r1Fr extends BaseField {
+  private readonly __brand: 'Secp256r1Fr' = 'Secp256r1Fr';
+
   static MODULUS = SECP256R1_FR_MODULUS;
   static MAX_VALUE = Secp256r1Fr.MODULUS - 1n;
   static ZERO = new Secp256r1Fr(0n);
@@ -307,6 +377,8 @@ export class Secp256r1Fr extends BaseField {
  * Secp256r1 Fq field (base field)
  */
 export class Secp256r1Fq extends BaseField {
+  private readonly __brand: 'Secp256r1Fq' = 'Secp256r1Fq';
+
   static MODULUS = SECP256R1_FQ_MODULUS;
   static MAX_VALUE = Secp256r1Fq.MODULUS - 1n;
   static ZERO = new Secp256r1Fq(0n);
@@ -332,16 +404,3 @@ export class Secp256r1Fq extends BaseField {
   }
 }
 
-// ============================================================================
-// Legacy aliases for backward compatibility
-// ============================================================================
-
-/**
- * @deprecated Use Bn254Fr instead
- */
-export const Fr = Bn254Fr;
-
-/**
- * @deprecated Use Bn254Fq instead
- */
-export const Fq = Bn254Fq;
