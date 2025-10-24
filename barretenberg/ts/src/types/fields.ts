@@ -6,6 +6,7 @@ import {
   bigIntToUint8ArrayBE,
 } from '../bigint-array/index.js';
 import { BufferReader } from '../serialize/index.js';
+import { BN254_FR_MODULUS, BN254_FQ_MODULUS } from '../cbind/generated/curve_constants.js';
 
 // TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
 /**
@@ -15,8 +16,8 @@ import { BufferReader } from '../serialize/index.js';
  */
 export class Fr {
   static ZERO = new Fr(0n);
-  static MODULUS = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001n;
-  static MAX_VALUE = this.MODULUS - 1n;
+  static MODULUS = BN254_FR_MODULUS;
+  static MAX_VALUE = Fr.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
   value: Uint8Array;
 
@@ -79,8 +80,8 @@ export class Fr {
  * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
  */
 export class Fq {
-  static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
-  static MAX_VALUE = this.MODULUS - 1n;
+  static MODULUS = BN254_FQ_MODULUS;
+  static MAX_VALUE = Fq.MODULUS - 1n;
   static SIZE_IN_BYTES = 32;
 
   constructor(public readonly value: bigint) {

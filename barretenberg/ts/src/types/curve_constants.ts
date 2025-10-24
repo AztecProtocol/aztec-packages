@@ -1,8 +1,30 @@
-import { BarretenbergSync } from '../barretenberg/index.js';
+/**
+ * Re-export generated curve constants for all curves.
+ * These constants are generated at build time from barretenberg native binary.
+ *
+ * @deprecated This file exists for backward compatibility.
+ * Import directly from '../cbind/generated/curve_constants.js' instead.
+ */
+
+export {
+  BN254_FR_MODULUS,
+  BN254_FQ_MODULUS,
+  BN254_G1_GENERATOR,
+  BN254_G2_GENERATOR,
+  GRUMPKIN_FR_MODULUS,
+  GRUMPKIN_FQ_MODULUS,
+  GRUMPKIN_G1_GENERATOR,
+  SECP256K1_FR_MODULUS,
+  SECP256K1_FQ_MODULUS,
+  SECP256K1_G1_GENERATOR,
+  SECP256R1_FR_MODULUS,
+  SECP256R1_FQ_MODULUS,
+  SECP256R1_G1_GENERATOR,
+} from '../cbind/generated/curve_constants.js';
 
 /**
- * BN254 curve constants lazily initialized from barretenberg.
- * Provides field moduli and generator points.
+ * Legacy class for backward compatibility
+ * @deprecated Use direct imports from curve_constants instead
  */
 export class CurveConstants {
   private static instance: CurveConstants | null = null;
@@ -13,41 +35,25 @@ export class CurveConstants {
   public readonly bn254G2Generator: { x: Uint8Array; y: Uint8Array };
 
   private constructor() {
-    const api = BarretenbergSync.getSingleton();
-    const response = api.bn254GetCurveConstants({ dummy: 0 });
+    const {
+      BN254_FR_MODULUS,
+      BN254_FQ_MODULUS,
+      BN254_G1_GENERATOR,
+      BN254_G2_GENERATOR,
+    } = require('../cbind/generated/curve_constants.js');
 
-    // Convert moduli from big-endian byte arrays to bigint
-    this.bn254FrModulus = this.bytesToBigInt(response.frModulus);
-    this.bn254FqModulus = this.bytesToBigInt(response.fqModulus);
-
-    // Store generator points as raw bytes
-    this.bn254G1Generator = {
-      x: response.g1Generator.x,
-      y: response.g1Generator.y,
-    };
-
-    this.bn254G2Generator = {
-      x: response.g2Generator.x,
-      y: response.g2Generator.y,
-    };
-  }
-
-  private bytesToBigInt(bytes: Uint8Array): bigint {
-    let result = 0n;
-    for (const byte of bytes) {
-      result = (result << 8n) | BigInt(byte);
-    }
-    return result;
+    this.bn254FrModulus = BN254_FR_MODULUS;
+    this.bn254FqModulus = BN254_FQ_MODULUS;
+    this.bn254G1Generator = BN254_G1_GENERATOR;
+    this.bn254G2Generator = BN254_G2_GENERATOR;
   }
 
   /**
    * Get the singleton instance of curve constants.
-   * Lazily initializes on first access.
+   * @deprecated Use direct imports from curve_constants instead
    */
   public static getInstance(): CurveConstants {
     if (!CurveConstants.instance) {
-      // Ensure barretenberg is initialized
-      BarretenbergSync.initSingleton();
       CurveConstants.instance = new CurveConstants();
     }
     return CurveConstants.instance;
