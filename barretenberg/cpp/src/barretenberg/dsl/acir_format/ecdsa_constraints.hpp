@@ -35,7 +35,7 @@ using namespace bb;
  *     `predicate` is set to witness false, we override some values to ensure that all the circuit constraints are
  *     satisfied:
  *      - We set the first byte of each component of the signature to 1 (NOTE: This only works when the order of the
- *        curve divided by two is bigger than \f$2^241\f$).
+ *        curve divided by two is bigger than \f$2^{241}\f$).
  *      - We set the public key to be 2 times the generator of the curve.
  *
  * @note There is a small chance that when the predicate is witness false, the circuit still fails. This is due to ECDSA

@@ -26,7 +26,7 @@ using namespace bb;
  *  3. Conditionally select the public key, the signature, and the hash of the message when the predicate is witness
  *     false. This ensures that the circuit is satisfied when the predicate is false. We set:
  *      - The first byte of r and s to 1 (NOTE: This only works when the order of the curve divided by two is bigger
- *        than \f$2^241\f$).
+ *        than \f$2^{241}\f$).
  *      - The public key to 2 times the generator of the curve (this is to avoid problems with lookup tables in
  *        secp265r1). Furthermore, we make sure all the coordinates of the public key are either constant or witness.
  *  4. Verify the signature against the public key and the hash of the message. We return a bool_t bearing witness to
