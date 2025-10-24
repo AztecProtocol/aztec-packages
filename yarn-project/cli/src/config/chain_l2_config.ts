@@ -42,6 +42,7 @@ export type L2ChainConfig = L1ContractsConfig &
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
+    disableTransactions: boolean;
   };
 
 const DefaultSlashConfig = {
@@ -93,6 +94,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: false,
+  disableTransactions: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -173,6 +175,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
+  disableTransactions: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -226,6 +229,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   testAccounts: true,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: false,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 8,
@@ -278,9 +282,10 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
+  seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -314,7 +319,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** Governance proposing round size */
   governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
-  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  manaTarget: 0n,
   /** The proving cost per mana */
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
@@ -332,6 +337,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
@@ -414,6 +420,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   testAccounts: true,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: false,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 8,
@@ -574,4 +581,5 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
+  enrichVar('TRANSACTIONS_DISABLED', config.disableTransactions.toString());
 }
