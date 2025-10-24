@@ -63,11 +63,9 @@ class MultilinearBatchingFlavor {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = false;
@@ -218,7 +216,7 @@ class MultilinearBatchingFlavor {
     };
 
     /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @brief A container for univariates used in sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;

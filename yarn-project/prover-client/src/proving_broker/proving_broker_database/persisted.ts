@@ -111,7 +111,7 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   private async estimateSize() {
     const sizes = await Promise.all(Array.from(this.epochs.values()).map(x => x.estimateSize()));
     return {
-      mappingSize: this.config.dataStoreMapSizeKB,
+      mappingSize: this.config.dataStoreMapSizeKb,
       physicalFileSize: sizes.reduce((prev, curr) => prev + curr.physicalFileSize, 0),
       numItems: sizes.reduce((prev, curr) => prev + curr.numItems, 0),
       actualSize: sizes.reduce((prev, curr) => prev + curr.actualSize, 0),
@@ -137,13 +137,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
         continue;
       }
       logger.info(
-        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKB}KB`,
+        `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKb}KB`,
       );
       const db = await openVersionedStoreAt(
         fullDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
         config.l1Contracts.rollupAddress,
-        config.dataStoreMapSizeKB,
+        config.dataStoreMapSizeKb,
       );
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
@@ -202,13 +202,13 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       const newEpochDirectory = join(this.config.dataDirectory!, epochNumber.toString());
       await mkdir(newEpochDirectory, { recursive: true });
       this.logger.info(
-        `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
+        `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKb}`,
       );
       const db = await openVersionedStoreAt(
         newEpochDirectory,
         SingleEpochDatabase.SCHEMA_VERSION,
         this.config.l1Contracts.rollupAddress,
-        this.config.dataStoreMapSizeKB,
+        this.config.dataStoreMapSizeKb,
       );
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(epochNumber, epochDb);

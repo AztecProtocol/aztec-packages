@@ -526,7 +526,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
     // Copy values of wires used in the non-native field relation from the circuit builder
     for (size_t i = Builder::NUM_NO_OPS_START + Builder::NUM_RANDOM_OPS_START;
-         i < circuit_builder.num_gates - Builder::NUM_RANDOM_OPS_END;
+         i < circuit_builder.num_gates() - Builder::NUM_RANDOM_OPS_END;
          i++) {
         prover_polynomials.op.at(i) = circuit_builder.get_variable(circuit_builder.wires[circuit_builder.OP][i]);
         prover_polynomials.p_x_low_limbs.at(i) =

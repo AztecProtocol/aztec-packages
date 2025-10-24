@@ -21,7 +21,7 @@ library RelationsLib {
     function accumulateRelationEvaluations(
         Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations,
         Honk.RelationParameters memory rp,
-        Fr[NUMBER_OF_ALPHAS] memory alphas,
+        Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges,
         Fr powPartialEval
     ) internal pure returns (Fr accumulator) {
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
@@ -37,8 +37,8 @@ library RelationsLib {
         accumulatePoseidonExternalRelation(purportedEvaluations, evaluations, powPartialEval);
         accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
 
-        // batch the subrelations with the alpha challenges to obtain the full honk relation
-        accumulator = scaleAndBatchSubrelations(evaluations, alphas);
+        // batch the subrelations with the precomputed alpha powers to obtain the full honk relation
+        accumulator = scaleAndBatchSubrelations(evaluations, subrelationChallenges);
     }
 
     /**
@@ -715,6 +715,8 @@ library RelationsLib {
         evals[27] = evals[27] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
     }
 
+    // Batch subrelation evaluations using precomputed powers of alpha
+    // First subrelation is implicitly scaled by 1, subsequent ones use powers from the subrelationChallenges array
     function scaleAndBatchSubrelations(
         Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
         Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges

@@ -108,7 +108,7 @@ Options:
 #### World State Options
 
 - `--world-state-data-directory <value>`: Optional directory for the world state database.
-- `--world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--world-state-block-history <value>`: The number of historic blocks to maintain. Values less than 1 mean all history is maintained (default: 64).
 
 #### Aztec Node Options
@@ -146,12 +146,12 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 
 - `--archiver`: Starts Aztec Archiver with options.
 - `--archiver.blobSinkUrl <value>`: The URL of the blob sink.
-- `--archiver.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--archiver.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--archiver.archiveApiUrl <value>`: The URL of the archive API.
 - `--archiver.archiverPollingIntervalMS <value>`: The polling interval in ms for retrieving new L2 blocks and encrypted logs (default: 500).
 - `--archiver.archiverBatchSize <value>`: The number of L2 blocks the archiver will attempt to download at a time (default: 100).
 - `--archiver.maxLogs <value>`: The max number of logs that can be obtained in 1 "getPublicLogs" call (default: 1000).
-- `--archiver.archiverStoreMapSizeKb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--archiver.archiverStoreMapSizeKb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--archiver.skipValidateBlockAttestations <value>`: Whether to skip validating block attestations (use only for testing).
 
 #### Sequencer Options
@@ -168,7 +168,7 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 - `--sequencer.transactionPollingIntervalMS <value>`: The number of ms to wait between polling for pending txs (default: 500).
 - `--sequencer.maxTxsPerBlock <value>`: The maximum number of txs to include in a block (default: 32).
 - `--sequencer.minTxsPerBlock <value>`: The minimum number of txs to include in a block (default: 1).
-- `--sequencer.publishTxsWithProposals <value>`:  Whether to publish txs with proposals.
+- `--sequencer.publishTxsWithProposals <value>`: Whether to publish txs with proposals.
 - `--sequencer.maxL2BlockGas <value>`: The maximum L2 block gas (default: 10000000000).
 - `--sequencer.maxDABlockGas <value>`: The maximum DA block gas (default: 10000000000).
 - `--sequencer.coinbase <value>`: Recipient of block reward.
@@ -201,7 +201,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 
 - `--blob-sink`: Starts Aztec Blob Sink with options.
 - `--blobSink.port <value>`: The port to run the blob sink server on.
-- `--blobSink.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--blobSink.blobSinkMapSizeKb <value>`: The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--blobSink.archiveApiUrl <value>`: The URL of the archive API.
 
 #### Prover Node Options
@@ -241,7 +241,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 - `--proverBroker.proverBrokerBatchSize <value>`: The prover broker writes jobs to disk in batches (default: 100).
 - `--proverBroker.proverBrokerBatchIntervalMs <value>`: How often to flush batches to disk (default: 50).
 - `--proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>`: The maximum number of epochs to keep results for (default: 1).
-- `--proverBroker.proverBrokerStoreMapSizeKb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
+- `--proverBroker.proverBrokerStoreMapSizeKb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
 
 #### Prover Agent Options
 
@@ -293,7 +293,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 - `--p2p.trustedPeers <value>`: A list of trusted peer ENRs that will always be persisted. Separated by commas.
 - `--p2p.privatePeers <value>`: A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
 - `--p2p.preferredPeers <value>`: A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
-- `--p2p.p2pStoreMapSizeKb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--p2p.p2pStoreMapSizeKb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--p2p.txPublicSetupAllowList <value>`: The list of functions calls allowed to run in setup.
 - `--p2p.maxTxPoolSize <value>`: The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs (default: 100000000).
 - `--p2p.txPoolOverflowFactor <value>`: How much the tx pool can overflow before it starts evicting txs. Must be greater than 1 (default: 1.1).
@@ -368,6 +368,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 - `--bot.ammTxs <value>`: Deploy an AMM and send swaps to it.
 
 #### PXE Options
+
 - `--pxe`: Starts Aztec PXE with options.
 - `--pxe.l2BlockBatchSize <value>`: Maximum amount of blocks to pull from the stream in one request when synchronizing (default: 50).
 - `--pxe.bbBinaryPath <value>`: Path to the BB binary.

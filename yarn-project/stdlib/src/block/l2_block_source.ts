@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -67,6 +68,34 @@ export interface L2BlockSource {
   getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
 
   /**
+   * Gets a published block by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested published block (or undefined if not found).
+   */
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets a published block by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested published block (or undefined if not found).
+   */
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets a block header by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested block header (or undefined if not found).
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Gets a block header by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested block header (or undefined if not found).
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -119,6 +148,9 @@ export interface L2BlockSource {
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
+
+  /** Returns values for the genesis block */
+  getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
   /** Latest synced L1 timestamp. */
   getL1Timestamp(): Promise<bigint>;

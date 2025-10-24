@@ -5,7 +5,7 @@ pub mod nft;
 #[aztec]
 pub contract NFTPunk {
     use dep::aztec::{
-        macros::{storage::storage, functions::{utility, private, public, initializer, internal}},
+        macros::{storage::storage, functions::{external, utility, initializer, internal}},
         protocol_types::{address::AztecAddress},
         state_vars::{PrivateSet, PublicImmutable, delayed_public_mutable::DelayedPublicMutable, Map}
     };
@@ -21,7 +21,7 @@ pub contract NFTPunk {
         nfts: Map<Field, DelayedPublicMutable<bool, 2, Context>, Context>,
         owners: Map<AztecAddress, PrivateSet<NFTNote, Context>, Context>,
     }
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
         storage.admin.initialize(admin);
@@ -29,7 +29,7 @@ pub contract NFTPunk {
     // docs:end:contract_setup
 
     // docs:start:set_minter
-    #[public]
+    #[external("public")]
     fn set_minter(minter: AztecAddress) {
         assert(storage.admin.read().eq(context.msg_sender().unwrap()), "caller is not admin");
         storage.minter.initialize(minter);
@@ -37,7 +37,7 @@ pub contract NFTPunk {
     // docs:end:set_minter
 
     // docs:start:mark_nft_exists
-    #[public]
+    #[external("public")]
     #[internal]
     fn _mark_nft_exists(token_id: Field, exists: bool) {
         storage.nfts.at(token_id).schedule_value_change(exists);
@@ -45,7 +45,7 @@ pub contract NFTPunk {
     // docs:end:mark_nft_exists
 
     // docs:start:mint
-    #[private]
+    #[external("private")]
     fn mint(to: AztecAddress, token_id: Field) {
         assert(storage.minter.read().eq(context.msg_sender().unwrap()), "caller is not the authorized minter");
 
@@ -67,7 +67,7 @@ pub contract NFTPunk {
     // docs:end:notes_of
 
     // docs:start:burn
-    #[private]
+    #[external("private")]
     fn burn(from: AztecAddress, token_id: Field) {
         assert(storage.minter.read().eq(context.msg_sender().unwrap()), "caller is not the authorized minter");
 

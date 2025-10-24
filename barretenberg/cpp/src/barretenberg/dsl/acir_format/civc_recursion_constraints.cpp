@@ -33,11 +33,11 @@ using namespace bb;
  * @param key_fields
  * @param proof_fields
  */
-void create_dummy_vkey_and_proof(Builder& builder,
-                                 size_t proof_size,
-                                 size_t public_inputs_size,
-                                 const std::vector<field_ct>& key_fields,
-                                 const std::vector<field_ct>& proof_fields)
+static void create_dummy_vkey_and_proof(Builder& builder,
+                                        size_t proof_size,
+                                        size_t public_inputs_size,
+                                        const std::vector<field_ct>& key_fields,
+                                        const std::vector<field_ct>& proof_fields)
 {
     using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;

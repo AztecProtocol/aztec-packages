@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { TimeoutError } from '@aztec/foundation/error';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -7,12 +8,12 @@ import type { P2P, PeerId } from '@aztec/p2p';
 import { TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import { computeInHashFromL1ToL2Messages } from '@aztec/prover-client/helpers';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { IFullNodeBlockBuilder, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { type BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
-import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
+import { BlockHeader, type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import {
   ReExFailedTxsError,
   ReExStateMismatchError,
@@ -26,7 +27,7 @@ import type { ValidatorMetrics } from './metrics.js';
 export type BlockProposalValidationFailureReason =
   | 'invalid_proposal'
   | 'parent_block_not_found'
-  | 'parent_block_does_not_match'
+  | 'parent_block_wrong_slot'
   | 'in_hash_mismatch'
   | 'block_number_already_exists'
   | 'txs_not_available'
@@ -35,16 +36,27 @@ export type BlockProposalValidationFailureReason =
   | 'timeout'
   | 'unknown_error';
 
-export interface BlockProposalValidationResult {
-  isValid: boolean;
-  reason?: BlockProposalValidationFailureReason;
-  reexecutionResult?: {
-    block: any;
-    failedTxs: FailedTx[];
-    reexecutionTimeMs: number;
-    totalManaUsed: number;
-  };
-}
+type ReexecuteTransactionsResult = {
+  block: L2Block;
+  failedTxs: FailedTx[];
+  reexecutionTimeMs: number;
+  totalManaUsed: number;
+};
+
+export type BlockProposalValidationSuccessResult = {
+  isValid: true;
+  blockNumber: number;
+  reexecutionResult?: ReexecuteTransactionsResult;
+};
+
+export type BlockProposalValidationFailureResult = {
+  isValid: false;
+  reason: BlockProposalValidationFailureReason;
+  blockNumber?: number;
+  reexecutionResult?: ReexecuteTransactionsResult;
+};
+
+export type BlockProposalValidationResult = BlockProposalValidationSuccessResult | BlockProposalValidationFailureResult;
 
 export class BlockProposalHandler {
   public readonly tracer: Tracer;
@@ -68,16 +80,16 @@ export class BlockProposalHandler {
     const handler = async (proposal: BlockProposal, proposalSender: PeerId) => {
       try {
         const result = await this.handleBlockProposal(proposal, proposalSender, true);
-        if (result.isValid && result.reexecutionResult) {
+        if (result.isValid) {
           this.log.info(`Non-validator reexecution completed for slot ${proposal.slotNumber.toBigInt()}`, {
-            blockNumber: proposal.blockNumber,
-            reexecutionTimeMs: result.reexecutionResult.reexecutionTimeMs,
-            totalManaUsed: result.reexecutionResult.totalManaUsed,
-            numTxs: result.reexecutionResult.block?.body?.txEffects?.length ?? 0,
+            blockNumber: result.blockNumber,
+            reexecutionTimeMs: result.reexecutionResult?.reexecutionTimeMs,
+            totalManaUsed: result.reexecutionResult?.totalManaUsed,
+            numTxs: result.reexecutionResult?.block?.body?.txEffects?.length ?? 0,
           });
         } else {
           this.log.warn(`Non-validator reexecution failed for slot ${proposal.slotNumber.toBigInt()}`, {
-            blockNumber: proposal.blockNumber,
+            blockNumber: result.blockNumber,
             reason: result.reason,
           });
         }
@@ -97,8 +109,8 @@ export class BlockProposalHandler {
     shouldReexecute: boolean,
   ): Promise<BlockProposalValidationResult> {
     const slotNumber = proposal.slotNumber.toBigInt();
-    const blockNumber = proposal.blockNumber;
     const proposer = proposal.getSender();
+    const config = this.blockBuilder.getConfig();
 
     // Reject proposals with invalid signatures
     if (!proposer) {
@@ -120,48 +132,39 @@ export class BlockProposalHandler {
       return { isValid: false, reason: 'invalid_proposal' };
     }
 
-    // Collect txs from the proposal. We start doing this as early as possible,
-    // and we do it even if we don't plan to re-execute the txs, so that we have them
-    // if another node needs them.
-    const config = this.blockBuilder.getConfig();
-    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, {
-      pinnedPeer: proposalSender,
-      deadline: this.getReexecutionDeadline(proposal, config),
-    });
-
     // Check that the parent proposal is a block we know, otherwise reexecution would fail
-    if (blockNumber > INITIAL_L2_BLOCK_NUM) {
-      const deadline = this.getReexecutionDeadline(proposal, config);
-      const currentTime = this.dateProvider.now();
-      const timeoutDurationMs = deadline.getTime() - currentTime;
-      const parentBlock =
-        (await this.blockSource.getBlock(blockNumber - 1)) ??
-        (timeoutDurationMs <= 0
-          ? undefined
-          : await retryUntil(
-              async () => {
-                await this.blockSource.syncImmediate();
-                return await this.blockSource.getBlock(blockNumber - 1);
-              },
-              'Force Archiver Sync',
-              timeoutDurationMs / 1000,
-              0.5,
-            ));
-
-      if (parentBlock === undefined) {
-        this.log.warn(`Parent block for ${blockNumber} not found, skipping processing`, proposalInfo);
-        return { isValid: false, reason: 'parent_block_not_found' };
-      }
-
-      if (!proposal.payload.header.lastArchiveRoot.equals(parentBlock.archive.root)) {
-        this.log.warn(`Parent block archive root for proposal does not match, skipping processing`, {
-          proposalLastArchiveRoot: proposal.payload.header.lastArchiveRoot.toString(),
-          parentBlockArchiveRoot: parentBlock.archive.root.toString(),
-          ...proposalInfo,
-        });
-        return { isValid: false, reason: 'parent_block_does_not_match' };
-      }
+    const parentBlockHeader = await this.getParentBlock(proposal);
+    if (parentBlockHeader === undefined) {
+      this.log.warn(`Parent block for proposal not found, skipping processing`, proposalInfo);
+      return { isValid: false, reason: 'parent_block_not_found' };
     }
+
+    // Check that the parent block's slot is less than the proposal's slot (should not happen, but we check anyway)
+    if (parentBlockHeader !== 'genesis' && parentBlockHeader.getSlot() >= slotNumber) {
+      this.log.warn(`Parent block slot is greater than or equal to proposal slot, skipping processing`, {
+        parentBlockSlot: parentBlockHeader.getSlot().toString(),
+        proposalSlot: slotNumber.toString(),
+        ...proposalInfo,
+      });
+      return { isValid: false, reason: 'parent_block_wrong_slot' };
+    }
+
+    // Compute the block number based on the parent block
+    const blockNumber = parentBlockHeader === 'genesis' ? INITIAL_L2_BLOCK_NUM : parentBlockHeader.getBlockNumber() + 1;
+
+    // Check that this block number does not exist already
+    const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
+    if (existingBlock) {
+      this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
+      return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
+    }
+
+    // Collect txs from the proposal. We start doing this as early as possible,
+    // and we do it even if we don't plan to re-execute the txs, so that we have them if another node needs them.
+    const { txs, missingTxs } = await this.txProvider.getTxsForBlockProposal(proposal, blockNumber, {
+      pinnedPeer: proposalSender,
+      deadline: this.getReexecutionDeadline(slotNumber, config),
+    });
 
     // Check that I have the same set of l1ToL2Messages as the proposal
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(blockNumber);
@@ -173,20 +176,13 @@ export class BlockProposalHandler {
         computedInHash: computedInHash.toString(),
         ...proposalInfo,
       });
-      return { isValid: false, reason: 'in_hash_mismatch' };
-    }
-
-    // Check that this block number does not exist already
-    const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
-    if (existingBlock) {
-      this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
-      return { isValid: false, reason: 'block_number_already_exists' };
+      return { isValid: false, blockNumber, reason: 'in_hash_mismatch' };
     }
 
     // Check that all of the transactions in the proposal are available
     if (missingTxs.length > 0) {
       this.log.warn(`Missing ${missingTxs.length} txs to process proposal`, { ...proposalInfo, missingTxs });
-      return { isValid: false, reason: 'txs_not_available' };
+      return { isValid: false, blockNumber, reason: 'txs_not_available' };
     }
 
     // Try re-executing the transactions in the proposal if needed
@@ -194,23 +190,57 @@ export class BlockProposalHandler {
     if (shouldReexecute) {
       try {
         this.log.verbose(`Re-executing transactions in the proposal`, proposalInfo);
-        reexecutionResult = await this.reexecuteTransactions(proposal, txs, l1ToL2Messages);
+        reexecutionResult = await this.reexecuteTransactions(proposal, blockNumber, txs, l1ToL2Messages);
       } catch (error) {
         this.log.error(`Error reexecuting txs while processing block proposal`, error, proposalInfo);
         const reason = this.getReexecuteFailureReason(error);
-        return { isValid: false, reason, reexecutionResult };
+        return { isValid: false, blockNumber, reason, reexecutionResult };
       }
     }
 
     this.log.info(`Successfully processed proposal for slot ${slotNumber}`, proposalInfo);
-    return { isValid: true, reexecutionResult };
+    return { isValid: true, blockNumber, reexecutionResult };
   }
 
-  private getReexecutionDeadline(
-    proposal: BlockProposal,
-    config: { l1GenesisTime: bigint; slotDuration: number },
-  ): Date {
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(proposal.slotNumber.toBigInt() + 1n, config));
+  private async getParentBlock(proposal: BlockProposal): Promise<'genesis' | BlockHeader | undefined> {
+    const parentArchive = proposal.payload.header.lastArchiveRoot;
+    const slot = proposal.slotNumber.toBigInt();
+    const config = this.blockBuilder.getConfig();
+    const { genesisArchiveRoot } = await this.blockSource.getGenesisValues();
+
+    if (parentArchive.equals(genesisArchiveRoot)) {
+      return 'genesis';
+    }
+
+    const deadline = this.getReexecutionDeadline(slot, config);
+    const currentTime = this.dateProvider.now();
+    const timeoutDurationMs = deadline.getTime() - currentTime;
+
+    try {
+      return (
+        (await this.blockSource.getBlockHeaderByArchive(parentArchive)) ??
+        (timeoutDurationMs <= 0
+          ? undefined
+          : await retryUntil(
+              () =>
+                this.blockSource.syncImmediate().then(() => this.blockSource.getBlockHeaderByArchive(parentArchive)),
+              'force archiver sync',
+              timeoutDurationMs / 1000,
+              0.5,
+            ))
+      );
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        this.log.debug(`Timed out getting parent block by archive root`, { parentArchive });
+      } else {
+        this.log.error('Error getting parent block by archive root', err, { parentArchive });
+      }
+      return undefined;
+    }
+  }
+
+  private getReexecutionDeadline(slot: bigint, config: { l1GenesisTime: bigint; slotDuration: number }): Date {
+    const nextSlotTimestampSeconds = Number(getTimestampForSlot(slot + 1n, config));
     const msNeededForPropagationAndPublishing = this.config.validatorReexecuteDeadlineMs;
     return new Date(nextSlotTimestampSeconds * 1000 - msNeededForPropagationAndPublishing);
   }
@@ -222,21 +252,17 @@ export class BlockProposalHandler {
       return 'failed_txs';
     } else if (err instanceof ReExTimeoutError) {
       return 'timeout';
-    } else if (err instanceof Error) {
+    } else {
       return 'unknown_error';
     }
   }
 
   async reexecuteTransactions(
     proposal: BlockProposal,
+    blockNumber: number,
     txs: Tx[],
     l1ToL2Messages: Fr[],
-  ): Promise<{
-    block: any;
-    failedTxs: FailedTx[];
-    reexecutionTimeMs: number;
-    totalManaUsed: number;
-  }> {
+  ): Promise<ReexecuteTransactionsResult> {
     const { header } = proposal.payload;
     const { txHashes } = proposal;
 
@@ -257,14 +283,14 @@ export class BlockProposalHandler {
       coinbase: proposal.payload.header.coinbase, // set arbitrarily by the proposer
       feeRecipient: proposal.payload.header.feeRecipient, // set arbitrarily by the proposer
       gasFees: proposal.payload.header.gasFees, // validated by the rollup contract
-      blockNumber: proposal.blockNumber, // checked blockNumber-1 exists in archiver but blockNumber doesnt
+      blockNumber, // computed from the parent block and checked it does not exist in archiver
       timestamp: header.timestamp, // checked in the rollup contract against the slot number
       chainId: new Fr(config.l1ChainId),
       version: new Fr(config.rollupVersion),
     });
 
     const { block, failedTxs } = await this.blockBuilder.buildBlock(txs, l1ToL2Messages, globalVariables, {
-      deadline: this.getReexecutionDeadline(proposal, config),
+      deadline: this.getReexecutionDeadline(proposal.payload.header.slotNumber.toBigInt(), config),
     });
 
     const numFailedTxs = failedTxs.length;

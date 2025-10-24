@@ -83,7 +83,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selec
 
     // Define gate selectors over the block they are isolated to
     for (auto [selector, block] : zip_view(polynomials.get_gate_selectors(), circuit.blocks.get_gate_blocks())) {
-        selector = Polynomial(block.get_fixed_size(is_structured), dyadic_size(), block.trace_offset());
+        selector = Polynomial(block.size(), dyadic_size(), block.trace_offset());
     }
 
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to full size
@@ -115,7 +115,7 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_offset);
 
     const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.get_fixed_size(is_structured));
+        static_cast<size_t>(circuit.blocks.lookup.trace_offset()) + circuit.blocks.lookup.size();
     const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
 
     // Allocate the lookup_inverses polynomial
@@ -134,7 +134,7 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    const size_t ecc_op_block_size = circuit.blocks.ecc_op.get_fixed_size(is_structured);
+    const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
     for (auto& wire : polynomials.get_ecc_op_wires()) {
         wire = Polynomial(ecc_op_block_size, dyadic_size());
     }
@@ -160,8 +160,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     polynomials.return_data_read_tags = Polynomial(poly_size, dyadic_size());
 
     // Allocate log derivative lookup argument inverse polynomials
-    const size_t q_busread_end =
-        circuit.blocks.busread.trace_offset() + circuit.blocks.busread.get_fixed_size(is_structured);
+    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
     const size_t calldata_size = circuit.get_calldata().size();
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
@@ -228,119 +227,6 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Compute a simple identity polynomial for use in the databus lookup argument
     for (size_t i = 0; i < databus_id.size(); ++i) {
         databus_id.at(i) = i;
-    }
-}
-
-/**
- * @brief Check that the number of gates in each block does not exceed its fixed capacity. Move any overflow to the
- * overflow block.
- * @details Using a structured trace (fixed capcity for each gate type) optimizes the efficiency of folding. However,
- * to accommodate circuits which cannot fit into a prescribed trace, gates which overflow their corresponding block are
- * placed into an overflow block which can contain arbitrary gate types.
- * @note One sublety is that gates at row i may in general utilize the values at row i+1 via shifts. If the last row in
- * a full-capacity block is such a gate, then moving the overflow out of sequence will cause that gate not to be
- * satisfied. To avoid this, when a block overflows, the final gate in the block is duplicated, once in the main block
- * with the selectors turned off but the wires values maintained (so that the prior gate can read into it but it does
- * not itself try to read into the next row) and again as a normal gate in the overflow block. Therefore, the total
- * number of gates in the circuit increases by one for each block that overflows.
- *
- * @tparam Flavor
- * @param circuit
- */
-template <IsUltraOrMegaHonk Flavor>
-void ProverInstance_<Flavor>::move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-    requires IsMegaFlavor<Flavor>
-{
-    auto& blocks = circuit.blocks;
-    auto& overflow_block = circuit.blocks.overflow;
-
-    // Set has_overflow to true if a nonzero fixed size has been prescribed for the overflow block
-    blocks.has_overflow = (overflow_block.get_fixed_size() > 0);
-
-    blocks.compute_offsets(/*is_structured=*/true); // compute the offset of each fixed size block
-
-    // Check each block for capacity overflow; if necessary move gates into the overflow block
-    for (auto& block : blocks.get()) {
-        size_t block_size = block.size();
-        uint32_t fixed_block_size = block.get_fixed_size();
-        if (block_size > fixed_block_size && block != overflow_block) {
-            // Disallow overflow in blocks that are not expected to be used by App circuits
-            if (&block == &blocks.pub_inputs) {
-                std::ostringstream oss;
-                oss << "WARNING: Number of public inputs (" << block_size
-                    << ") cannot exceed capacity specified in structured trace: " << fixed_block_size;
-                throw_or_abort(oss.str());
-            }
-            if (&block == &blocks.ecc_op) {
-                std::ostringstream oss;
-                oss << "WARNING: Number of ecc op gates (" << block_size
-                    << ") cannot exceed capacity specified in structured trace: " << fixed_block_size;
-                throw_or_abort(oss.str());
-            }
-
-            // Set has_overflow to true if at least one block exceeds its capacity
-            blocks.has_overflow = true;
-
-            // The circuit memory read/write records store the indices at which a RAM/ROM read/write has occurred. If
-            // the block containing RAM/ROM gates overflows, the indices of the corresponding gates in the memory
-            // records need to be updated to reflect their new position in the overflow block
-            if (&block == &blocks.memory) {
-                uint32_t overflow_cur_idx =
-                    overflow_block.trace_offset() + static_cast<uint32_t>(overflow_block.size());
-                overflow_cur_idx -= block.trace_offset(); // we'll add block.trace_offset to everything later
-                uint32_t offset = overflow_cur_idx + 1;   // +1 accounts for duplication of final gate
-                for (auto& idx : circuit.memory_read_records) {
-                    // last gate in the main block will be duplicated; if necessary, duplicate the memory read idx too
-                    if (idx == fixed_block_size - 1) {
-                        circuit.memory_read_records.push_back(overflow_cur_idx);
-                    }
-                    if (idx >= fixed_block_size) {
-                        idx -= fixed_block_size; // redefine index from zero
-                        idx += offset;           // shift to correct location in overflow block
-                    }
-                }
-                for (auto& idx : circuit.memory_write_records) {
-                    // last gate in the main block will be duplicated; if necessary, duplicate the memory write idx too
-                    if (idx == fixed_block_size - 1) {
-                        circuit.memory_write_records.push_back(overflow_cur_idx);
-                    }
-                    if (idx >= fixed_block_size) {
-                        idx -= fixed_block_size; // redefine index from zero
-                        idx += offset;           // shift to correct location in overflow block
-                    }
-                }
-            }
-
-            // Move the excess wire and selector data from the offending block to the overflow block
-            size_t overflow_start = fixed_block_size - 1; // the final gate in the main block is duplicated
-            size_t overflow_end = block_size;
-            for (auto [wire, overflow_wire] : zip_view(block.wires, overflow_block.wires)) {
-                for (size_t i = overflow_start; i < overflow_end; ++i) {
-                    overflow_wire.push_back(wire[i]);
-                }
-                wire.resize(fixed_block_size); // shrink the main block to its max capacity
-            }
-            for (auto [selector, overflow_selector] : zip_view(block.get_selectors(), overflow_block.get_selectors())) {
-                for (size_t i = overflow_start; i < overflow_end; ++i) {
-                    overflow_selector.push_back(selector[i]);
-                }
-                selector.resize(fixed_block_size); // shrink the main block to its max capacity
-            }
-
-            // Convert duplicated final gate in the main block to a 'dummy' gate by turning off all selectors. This
-            // ensures it can be read into by the previous gate but does not itself try to read into the next gate.
-            for (auto& selector : block.get_gate_selectors()) {
-                BB_ASSERT_EQ(selector.empty(), false);
-                selector.set_back(0);
-            }
-        }
-    }
-
-    // Set the fixed size of the overflow block to its current size
-    if (overflow_block.size() > overflow_block.get_fixed_size()) {
-        info("WARNING: Structured trace overflow mechanism in use. Performance may be degraded!");
-        overflow_block.fixed_size = static_cast<uint32_t>(overflow_block.size());
-        blocks.summarize();
     }
 }
 

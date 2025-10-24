@@ -57,7 +57,7 @@ struct lookup_merkle_check_merkle_poseidon2_write_settings_ {
         ColumnAndShifts::merkle_check_write_left_node,
         ColumnAndShifts::merkle_check_write_right_node,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::merkle_check_sel,
+        ColumnAndShifts::merkle_check_write,
         ColumnAndShifts::merkle_check_write_output_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {

@@ -45,7 +45,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, internal, noinitcheck, private, public, utility},
+            functions::{initializer, internal, noinitcheck, external},
             storage::storage,
         },
         // Contract instance management
@@ -97,16 +97,16 @@ pub contract Test {
     }
 
     #[initializer]
-    #[private]
+    #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize() {}
 
-    #[private]
+    #[external("private")]
     fn get_ovsk_app(ovpk_m_hash: Field) -> Field {
         context.request_ovsk_app(ovpk_m_hash)
     }
 
-    #[private]
+    #[external("private")]
     fn get_master_incoming_viewing_public_key(address: AztecAddress) -> [Field; 2] {
         let ivpk_m = get_public_keys(address).ivpk_m;
 
@@ -114,12 +114,12 @@ pub contract Test {
     }
 
     // Get the address of this contract (taken from the input context)
-    #[private]
+    #[external("private")]
     fn get_this_address() -> AztecAddress {
         context.this_address()
     }
 
-    #[private]
+    #[external("private")]
     fn set_include_by_timestamp(include_by_timestamp: u64, make_tx_hybrid: bool) {
         context.set_include_by_timestamp(include_by_timestamp);
 
@@ -128,11 +128,11 @@ pub contract Test {
         }
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn dummy_public_call() {}
 
-    #[private]
+    #[external("private")]
     fn call_create_note(
         value: u128,
         owner: AztecAddress,
@@ -151,7 +151,7 @@ pub contract Test {
         }
     }
 
-    #[private]
+    #[external("private")]
     fn call_create_partial_note(owner: AztecAddress, storage_slot: Field) -> PartialUintNote {
         UintNote::partial(
             owner,
@@ -162,12 +162,12 @@ pub contract Test {
         )
     }
 
-    #[public]
+    #[external("public")]
     fn call_complete_partial_note(partial_note: PartialUintNote, value: u128) {
         partial_note.complete(&mut context, context.this_address(), value);
     }
 
-    #[private]
+    #[external("private")]
     fn call_create_and_complete_partial_note(
         owner: AztecAddress,
         storage_slot: Field,
@@ -186,7 +186,7 @@ pub contract Test {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn call_get_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
@@ -199,7 +199,7 @@ pub contract Test {
         retrieved_notes.get(0).note.get_value()
     }
 
-    #[private]
+    #[external("private")]
     fn call_get_notes_many(storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
         let mut options = NoteGetterOptions::new();
         if (active_or_nullified) {
@@ -212,7 +212,7 @@ pub contract Test {
         [retrieved_notes.get(0).note.get_value(), retrieved_notes.get(1).note.get_value()]
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteViewerOptions::new();
         if (active_or_nullified) {
@@ -224,7 +224,7 @@ pub contract Test {
         notes.get(0).get_value()
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn call_view_notes_many(
         storage_slot: Field,
         active_or_nullified: bool,
@@ -239,7 +239,7 @@ pub contract Test {
         [notes.get(0).get_value(), notes.get(1).get_value()]
     }
 
-    #[private]
+    #[external("private")]
     fn call_destroy_note(storage_slot: Field) {
         let options = NoteGetterOptions::new();
         let (retrieved_notes, note_hashes): (BoundedVec<RetrievedNote<UintNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
@@ -251,7 +251,7 @@ pub contract Test {
         destroy_note_unsafe(&mut context, retrieved_note, note_hash);
     }
 
-    #[private]
+    #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
         let mut options = NoteGetterOptions::new();
         options = options.set_limit(1);
@@ -264,7 +264,7 @@ pub contract Test {
         header.prove_note_inclusion(retrieved_notes.get(0), storage_slot);
     }
 
-    #[private]
+    #[external("private")]
     fn test_setting_teardown() {
         context.set_public_teardown_function(
             context.this_address(),
@@ -274,36 +274,36 @@ pub contract Test {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn test_setting_fee_payer() {
         context.set_as_fee_payer();
     }
 
-    #[public]
+    #[external("public")]
     fn create_l2_to_l1_message_arbitrary_recipient_public(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
         context.message_portal(recipient, content);
     }
 
-    #[private]
+    #[external("private")]
     fn create_l2_to_l1_message_arbitrary_recipient_private(content: Field, recipient: EthAddress) {
         // Public oracle call to emit new commitment.
         context.message_portal(recipient, content);
     }
 
-    #[public]
+    #[external("public")]
     fn emit_nullifier_public(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     fn emit_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
     // For testing non-note encrypted logs
-    #[private]
+    #[external("private")]
     fn emit_array_as_encrypted_log(fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let event = ExampleEvent {
             value0: fields[0],
@@ -333,14 +333,14 @@ pub contract Test {
         }
     }
 
-    #[public]
+    #[external("public")]
     fn emit_public(value: Field) {
         context.emit_public_log(/*message=*/ value);
         context.emit_public_log(/*message=*/ [10, 20, 30]);
         context.emit_public_log(/*message=*/ "Hello, world!");
     }
 
-    #[private]
+    #[external("private")]
     fn consume_mint_to_private_message(
         amount: u128,
         secret_for_L1_to_L2_message_consumption: Field,
@@ -357,7 +357,7 @@ pub contract Test {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn consume_message_from_arbitrary_sender_public(
         content: Field,
         secret: Field,
@@ -368,7 +368,7 @@ pub contract Test {
         context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
-    #[private]
+    #[external("private")]
     fn consume_message_from_arbitrary_sender_private(
         content: Field,
         secret: Field,
@@ -379,24 +379,24 @@ pub contract Test {
         context.consume_l1_to_l2_message(content, secret, sender, message_leaf_index);
     }
 
-    #[private]
+    #[external("private")]
     fn assert_private_global_vars(chain_id: Field, version: Field) {
         assert(context.chain_id() == chain_id, "Invalid chain id");
         assert(context.version() == version, "Invalid version");
     }
 
-    #[private]
+    #[external("private")]
     fn assert_header_private(header_hash: Field) {
         assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)
-    //#[public]
+    //#[external("public")]
     //fn assert_header_public(header_hash: Field) {
     //    assert(context.anchor_block_header.hash() == header_hash, "Invalid header hash");
     //}
 
-    #[private]
+    #[external("private")]
     fn publish_contract_instance(target: AztecAddress) {
         publish_contract_instance_for_public_execution(&mut context, target);
     }

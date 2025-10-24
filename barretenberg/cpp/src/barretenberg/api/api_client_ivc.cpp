@@ -2,9 +2,9 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/client_ivc/private_execution_steps.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -27,16 +27,12 @@ namespace { // anonymous namespace
  *
  * @param bytecode_path
  * @param witness_path
- * @param use_structured_trace Whether to utilize structured trace when computing VK for circuit
  */
-void write_standalone_vk(std::vector<uint8_t> bytecode,
-                         const std::filesystem::path& output_path,
-                         bool use_structured_trace = true)
+void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path)
 {
-    auto trace_settings = use_structured_trace ? TraceSettings{ AZTEC_TRACE_STRUCTURE } : TraceSettings{};
     auto response = bbapi::ClientIvcComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
-    }.execute({ .trace_settings = trace_settings });
+    }.execute();
 
     bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -48,9 +44,8 @@ void write_standalone_vk(std::vector<uint8_t> bytecode,
 void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
     // compute the hiding kernel's vk
-    info("ClientIVC: computing IVC vk for hiding kernel circuit");
-    auto response =
-        bbapi::ClientIvcComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute({ .trace_settings = {} });
+    info("SumcheckClientIVC: computing IVC vk for hiding kernel circuit");
+    auto response = bbapi::ClientIvcComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
@@ -70,17 +65,14 @@ void ClientIVCAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("ClientIVC: starting with ",
-         raw_steps.size(),
-         " circuits",
-         bbapi::USE_SUMCHECK_IVC ? " (using SumcheckClientIVC)" : "");
+    info("SumcheckClientIVC: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
         bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        info("ClientIVC: accumulating " + step.function_name);
+        info("SumcheckClientIVC: accumulating " + step.function_name);
         bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
@@ -93,10 +85,10 @@ void ClientIVCAPI::prove(const Flags& flags,
     const auto write_proof = [&]() {
         const auto buf = to_buffer(proof.to_field_elements());
         if (output_to_stdout) {
-            vinfo("writing ClientIVC proof to stdout");
+            vinfo("writing SumcheckClientIVC proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
-            vinfo("writing ClientIVC proof in directory ", output_dir);
+            vinfo("writing SumcheckClientIVC proof in directory ", output_dir);
             write_file(output_dir / "proof", buf);
         }
     };
@@ -104,7 +96,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     write_proof();
 
     if (flags.write_vk) {
-        vinfo("writing ClientIVC vk in directory ", output_dir);
+        vinfo("writing SumcheckClientIVC vk in directory ", output_dir);
         // write CIVC vk using the bytecode of the hiding circuit (the last step of the execution)
         write_civc_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
@@ -117,7 +109,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ClientIVCAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = ClientIVC::Proof::from_field_elements(proof_fields);
+    auto proof = SumcheckClientIVC::Proof::from_field_elements(proof_fields);
 
     auto vk_buffer = read_file(vk_path);
 
@@ -131,11 +123,11 @@ bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    std::shared_ptr<SumcheckClientIVC> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = ClientIVC::verify(proof, ivc->get_vk());
+    const bool verified = SumcheckClientIVC::verify(proof, ivc->get_vk());
     return verified;
 }
 
@@ -196,7 +188,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
         write_standalone_vk(bytecode, output_path);
     } else if (flags.verifier_type == "standalone_hiding") {
         // write the VK for the hiding kernel which DOES NOT utilize a structured trace
-        write_standalone_vk(bytecode, output_path, false);
+        write_standalone_vk(bytecode, output_path);
     } else {
         const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);
@@ -217,7 +209,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // All circuit reports will be built into the std::string below
     std::string functions_string = "{\"functions\": [\n  ";
 
-    bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
+    bbapi::BBApiRequest request;
 
     auto bytecode = get_bytecode(bytecode_path);
     auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },

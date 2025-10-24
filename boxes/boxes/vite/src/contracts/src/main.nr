@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 contract BoxReact {
     use aztec::{
         messages::message_delivery::MessageDelivery,
-        macros::{functions::{initializer, private, utility}, storage::storage},
+        macros::{functions::{external, initializer}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateMutable},
     };
@@ -15,7 +15,7 @@ contract BoxReact {
         numbers: Map<AztecAddress, PrivateMutable<ValueNote, Context>, Context>,
     }
 
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
@@ -28,7 +28,7 @@ contract BoxReact {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn setNumber(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
 
@@ -43,7 +43,7 @@ contract BoxReact {
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
         let numbers = storage.numbers;
         numbers.at(owner).view_note()
