@@ -49,7 +49,7 @@ class ECCVMFlavor {
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.

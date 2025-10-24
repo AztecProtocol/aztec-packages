@@ -90,8 +90,6 @@ class MegaFlavor {
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
     // length = 3
@@ -121,11 +119,9 @@ class MegaFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
@@ -483,14 +479,6 @@ class MegaFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-
-    /**
-     * @brief A container for univariates used in sumcheck with some of the computation
-     * optmistically ignored.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

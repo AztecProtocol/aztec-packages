@@ -25,7 +25,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     using VKAndHash = typename Flavor::VKAndHash;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
     using Builder = typename Flavor::CircuitBuilder;
     using NativeFlavor = typename Flavor::NativeFlavor;
     using NativeVerificationKey = typename Flavor::NativeFlavor::VerificationKey;
@@ -40,8 +40,8 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     bool is_complete = false;      // whether this instance has been completely populated
     std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
-    // An array {1, α₁, …, αₖ}, where k = NUM_SUBRELATIONS - 1.
-    SubrelationSeparators alphas;
+    // Single alpha challenge from which powers are computed for batching subrelations
+    SubrelationSeparator alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
@@ -77,9 +77,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     {
         is_complete = verification_key->is_complete;
         if (is_complete) {
-            for (size_t alpha_idx = 0; alpha_idx < Flavor::NUM_SUBRELATIONS - 1; alpha_idx++) {
-                alphas[alpha_idx] = FF::from_witness(builder, verification_key->alphas[alpha_idx]);
-            }
+            alpha = FF::from_witness(builder, verification_key->alpha);
 
             auto other_comms = verification_key->witness_commitments.get_all();
             size_t comm_idx = 0;
@@ -126,9 +124,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         NativeVerifierInstance verifier_inst(native_honk_vk);
         verifier_inst.is_complete = is_complete;
 
-        for (auto [alpha, inst_alpha] : zip_view(alphas, verifier_inst.alphas)) {
-            inst_alpha = alpha.get_value();
-        }
+        verifier_inst.alpha = alpha.get_value();
 
         for (auto [comm, inst_comm] :
              zip_view(witness_commitments.get_all(), verifier_inst.witness_commitments.get_all())) {
@@ -166,7 +162,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
         for (const Commitment& comm : witness_commitments.get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
         }
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alpha", this->alpha);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
                                                   this->relation_parameters.eta);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",

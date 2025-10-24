@@ -34,8 +34,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // Generate relation separators alphas for sumcheck computation
-    prover_instance->alphas = generate_alphas_round();
+    // Generate relation separator alpha for sumcheck computation
+    prover_instance->alpha = generate_alpha_round();
 
     // #ifndef __wasm__
     // Free the commitment key
@@ -234,20 +234,13 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparator OinkProver<Flavor>::generate_alpha_round()
 {
-    BB_BENCH_NAME("OinkProver::generate_alphas_round");
+    BB_BENCH_NAME("OinkProver::generate_alpha_round");
 
-    // Get the relation separation challenges for sumcheck computation
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
-
-    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
-        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
-    }
-    // It is more efficient to generate an array of challenges than to generate them individually.
-    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
-
-    return alphas;
+    // Get the single alpha challenge for sumcheck computation
+    // Powers of this challenge will be used to batch subrelations
+    return transcript->template get_challenge<FF>(domain_separator + "alpha");
 }
 
 /**

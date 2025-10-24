@@ -87,7 +87,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
             compute_padding_indicator_array<Curve, VIRTUAL_LOG_N>(verifier_instance->vk_and_hash->vk->log_circuit_size);
     }
 
-    Sumcheck sumcheck(transcript, verifier_instance->alphas, VIRTUAL_LOG_N);
+    Sumcheck sumcheck(transcript, verifier_instance->alpha, VIRTUAL_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};

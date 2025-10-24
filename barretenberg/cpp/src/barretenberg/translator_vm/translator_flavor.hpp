@@ -42,7 +42,7 @@ class TranslatorFlavor {
     using Polynomial = bb::Polynomial<FF>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.
@@ -166,7 +166,6 @@ class TranslatorFlavor {
     using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation

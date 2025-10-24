@@ -25,10 +25,11 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     /**
      * Utility methods for tuple of tuples of Univariates

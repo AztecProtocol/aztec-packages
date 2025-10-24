@@ -74,7 +74,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using Relations = MegaFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -85,11 +84,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) to much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated

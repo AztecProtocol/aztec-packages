@@ -91,7 +91,7 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
     // Sumcheck verification
     vinfo("HypernovaFoldingVerifier: verifying Sumcheck to turn instance into an accumulator...");
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
-    SumcheckVerifier sumcheck(transcript, instance->alphas, Flavor::VIRTUAL_LOG_N, instance->target_sum);
+    SumcheckVerifier sumcheck(transcript, instance->alpha, Flavor::VIRTUAL_LOG_N, instance->target_sum);
     SumcheckOutput<Flavor> sumcheck_output =
         sumcheck.verify(instance->relation_parameters, instance->gate_challenges, padding_indicator_array);
 
