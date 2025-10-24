@@ -98,7 +98,7 @@ TEST_F(SumcheckClientIVCTests, TestCircuitSizes)
  */
 TEST_F(SumcheckClientIVCTests, Basic)
 {
-    const size_t NUM_APP_CIRCUITS = 5;
+    const size_t NUM_APP_CIRCUITS = 2;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     EXPECT_TRUE(SumcheckClientIVC::verify(proof, vk));

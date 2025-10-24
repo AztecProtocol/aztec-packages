@@ -43,7 +43,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555):Wires can be allocated based on final active row
     // rather than dyadic size.
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(dyadic_size());
+        wire = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
 }
 
@@ -54,12 +54,12 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Sigma and id polynomials can be allocated based
     // on final active row rather than dyadic size.
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial(dyadic_size());
+        sigma = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial(dyadic_size());
+        id = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
-    polynomials.z_perm = Polynomial::shiftable(dyadic_size());
+    polynomials.z_perm = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
 }
 
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
@@ -99,10 +99,8 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_ASSERT_GT(dyadic_size(), tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(tables_size, dyadic_size(), table_offset);
-        }
+    for (auto& poly : polynomials.get_tables()) {
+        poly = Polynomial(tables_size, dyadic_size(), table_offset);
     }
 
     // Allocate the read counts and tags polynomials
