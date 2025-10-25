@@ -15,14 +15,27 @@ test.beforeAll(async () => {
 });
 
 test('create account and cast vote', async ({ page }, testInfo) => {
-  await page.goto('/');
   page.on('console', (msg) => {
+    const text = msg.text();
     if (msg.type() === 'error') {
-      console.error(msg.text());
+      console.error(text);
+      // NOTE: this block is speculative. We were too busy to test if it worked - if we get real errors
+      // distinguished from timeouts, then it worked.
+      // Fail immediately on JavaScript errors to avoid timeout
+      if (
+        text.includes('Uncaught') ||
+        text.includes('TypeError') ||
+        text.includes('ReferenceError') ||
+        text.includes('SyntaxError') ||
+        text.includes('RangeError')
+      ) {
+        throw new Error(`JavaScript error detected: ${text}`);
+      }
     } else {
-      console.log(msg.text());
+      console.log(text);
     }
   });
+  await page.goto('/');
   await expect(page).toHaveTitle(/Private Voting/);
 
   const connectTestAccount = await page.locator('#connect-test-account');
