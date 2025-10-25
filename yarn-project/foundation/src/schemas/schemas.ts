@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Buffer32 } from '../buffer/buffer32.js';
 import { SecretValue } from '../config/secret_value.js';
 import { EthAddress } from '../eth-address/index.js';
-import { Fq, Fr } from '../fields/fields.js';
+import { type Fq, FqSchema, type Fr, FrSchema } from '../fields/fields.js';
 import { Point } from '../fields/point.js';
 import { isHex, withoutHexPrefix } from '../string/index.js';
 import { bufferSchema, hexSchema } from './utils.js';
@@ -13,10 +13,10 @@ export const schemas = {
   EthAddress: EthAddress.schema,
 
   /** Accepts a hex string. */
-  Fr: Fr.schema,
+  Fr: FrSchema,
 
   /** Accepts a hex string. */
-  Fq: Fq.schema,
+  Fq: FqSchema,
 
   /** Point. Serialized as a hex string. */
   Point: Point.schema,
