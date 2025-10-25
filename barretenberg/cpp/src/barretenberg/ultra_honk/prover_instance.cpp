@@ -40,8 +40,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
 {
     BB_BENCH_NAME("allocate_wires");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555):Wires can be allocated based on final active row
-    // rather than dyadic size.
+    // Allocate only enough memory for the active range; wires are zero outside this range
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
@@ -51,8 +50,7 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Sigma and id polynomials can be allocated based
-    // on final active row rather than dyadic size.
+    // Allocate only enough memory for the active range; permutation polynomials are zero outside this range
     for (auto& sigma : polynomials.get_sigmas()) {
         sigma = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
@@ -66,7 +64,6 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagra
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
-    // First and last lagrange polynomials (in the full circuit size)
     polynomials.lagrange_first = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
 
@@ -140,8 +137,6 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     requires HasDataBus<Flavor>
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Each triple of databus polynomials can be
-    // allocated based on the size of the corresponding column (except for ZK case).
 
     const size_t calldata_size = circuit.get_calldata().size();
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
@@ -166,12 +161,9 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // between the three databus columns. It currently uses dyadic_size because its values are later set based on its
     // size(). This means when we naively construct all ProverPolynomials with dyadic size (e.g. for ZK), we get a
     // different databus_id polynomial and therefore a different VK.
-    [[maybe_unused]] const size_t max_databus_size =
-        std::max({ calldata_size, secondary_calldata_size, return_data_size });
-    // WORKTODO: didn't notice we were doing this - shouldnt be needed
-    [[maybe_unused]] const size_t databus_id_size = std::max(max_databus_size, q_busread_end);
-    // polynomials.databus_id = Polynomial(databus_id_size, dyadic_size());
     polynomials.databus_id = Polynomial(dyadic_size(), dyadic_size());
+    // polynomials.databus_id = Polynomial(std::max({ calldata_size, secondary_calldata_size, return_data_size,
+    // q_busread_end }), dyadic_size());
 
     polynomials.calldata_inverses = Polynomial(std::max(calldata_size, q_busread_end), dyadic_size());
     polynomials.secondary_calldata_inverses =
