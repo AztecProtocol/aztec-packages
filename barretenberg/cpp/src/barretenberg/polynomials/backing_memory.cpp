@@ -10,8 +10,8 @@
 bool slow_low_memory =
     std::getenv("BB_SLOW_LOW_MEMORY") == nullptr ? false : std::string(std::getenv("BB_SLOW_LOW_MEMORY")) == "1";
 
-// Storage budget is disabled for WASM builds
-#ifndef __wasm__
+// Storage budget is disabled for WASM builds unless ENABLE_WASM_BENCH is defined
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
 
 // Parse storage size string (e.g., "500m", "2g", "1024k")
 size_t parse_size_string(const std::string& size_str)
@@ -75,4 +75,4 @@ size_t storage_budget = parse_storage_budget();
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<size_t> current_storage_usage{ 0 };
 
-#endif // __wasm__
+#endif // !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
