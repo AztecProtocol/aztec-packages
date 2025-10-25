@@ -93,7 +93,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // The size of the iteration domain is one less than the number of active rows since the final value of the
     // grand product is constructed only in the relation and not explicitly in the polynomial
-    const MultithreadData active_range_thread_data = calculate_thread_data(active_domain_size - 1);
+    const size_t iteration_size = active_domain_size - 1;
 
     // Allocate numerator/denominator polynomials that will serve as scratch space
     // TODO(zac) we can re-use the permutation polynomial as the numerator polynomial. Reduces readability
@@ -102,11 +102,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
-    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
-        const size_t start = active_range_thread_data.start[thread_idx];
-        const size_t end = active_range_thread_data.end[thread_idx];
+    parallel_for([&](const ThreadChunk& chunk) {
         typename Flavor::AllValues row;
-        for (size_t i = start; i < end; ++i) {
+        for (size_t i : chunk.range(iteration_size)) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             auto row_idx = get_active_range_poly_idx(i);
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
@@ -136,46 +134,30 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // (ii)  Take partial products P = { 1, a0a1, a2a3, a4a5 }
     // (iii) Each thread j computes N[i][j]*P[j]=
     //      {{a0,a0a1},{a0a1a2,a0a1a2a3},{a0a1a2a3a4,a0a1a2a3a4a5},{a0a1a2a3a4a5a6,a0a1a2a3a4a5a6a7}}
-    std::vector<FF> partial_numerators(active_range_thread_data.num_threads);
-    std::vector<FF> partial_denominators(active_range_thread_data.num_threads);
+    const size_t num_threads = get_num_cpus();
+    std::vector<FF> partial_numerators(num_threads);
+    std::vector<FF> partial_denominators(num_threads);
 
-    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
-        const size_t start = active_range_thread_data.start[thread_idx];
-        const size_t end = active_range_thread_data.end[thread_idx];
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(iteration_size);
+        auto range_begin = range.begin();
+        auto range_end = range.end();
+        if (range_begin == range_end) {
+            return; // Empty range for this thread
+        }
+        const size_t start = *range_begin;
+        const size_t end = *(--range_end) + 1; // Convert from inclusive to exclusive
+
         for (size_t i = start; i < end - 1; ++i) {
             numerator.at(i + 1) *= numerator[i];
             denominator.at(i + 1) *= denominator[i];
         }
-        partial_numerators[thread_idx] = numerator[end - 1];
-        partial_denominators[thread_idx] = denominator[end - 1];
+        partial_numerators[chunk.thread_index] = numerator[end - 1];
+        partial_denominators[chunk.thread_index] = denominator[end - 1];
     });
 
     DEBUG_LOG_ALL(partial_numerators);
     DEBUG_LOG_ALL(partial_denominators);
-
-    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
-        const size_t start = active_range_thread_data.start[thread_idx];
-        const size_t end = active_range_thread_data.end[thread_idx];
-        if (thread_idx > 0) {
-            FF numerator_scaling = 1;
-            FF denominator_scaling = 1;
-
-            for (size_t j = 0; j < thread_idx; ++j) {
-                numerator_scaling *= partial_numerators[j];
-                denominator_scaling *= partial_denominators[j];
-            }
-            for (size_t i = start; i < end; ++i) {
-                numerator.at(i) = numerator[i] * numerator_scaling;
-                denominator.at(i) = denominator[i] * denominator_scaling;
-            }
-        }
-
-        // Final step: invert denominator
-        FF::batch_invert(std::span{ &denominator.data()[start], end - start });
-    });
-
-    DEBUG_LOG_ALL(numerator.coeffs());
-    DEBUG_LOG_ALL(denominator.coeffs());
 
     // Step (3) Compute z_perm[i] = numerator[i] / denominator[i]
     auto& grand_product_polynomial = GrandProdRelation::get_grand_product_polynomial(full_polynomials);
@@ -187,26 +169,51 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         grand_product_polynomial.at(1) = 1;
     }
 
-    // Compute grand product values corresponding only to the active regions of the trace
-    parallel_for(active_range_thread_data.num_threads, [&](size_t thread_idx) {
-        const size_t start = active_range_thread_data.start[thread_idx];
-        const size_t end = active_range_thread_data.end[thread_idx];
+    // Combine scaling, batch inversion, and grand product computation in a single parallel loop
+    parallel_for([&](const ThreadChunk& chunk) {
+        auto range = chunk.range(iteration_size);
+        auto range_begin = range.begin();
+        auto range_end = range.end();
+        if (range_begin == range_end) {
+            return; // Empty range for this thread
+        }
+        const size_t start = *range_begin;
+        const size_t end = *(--range_end) + 1; // Convert from inclusive to exclusive
+
+        if (chunk.thread_index > 0) {
+            FF numerator_scaling = 1;
+            FF denominator_scaling = 1;
+
+            for (size_t j = 0; j < chunk.thread_index; ++j) {
+                numerator_scaling *= partial_numerators[j];
+                denominator_scaling *= partial_denominators[j];
+            }
+            for (size_t i = start; i < end; ++i) {
+                numerator.at(i) = numerator[i] * numerator_scaling;
+                denominator.at(i) = denominator[i] * denominator_scaling;
+            }
+        }
+
+        // Batch invert denominator for this chunk
+        FF::batch_invert(std::span{ &denominator.data()[start], end - start });
+
+        // Immediately compute grand product values for this chunk
         for (size_t i = start; i < end; ++i) {
             const auto poly_idx = get_active_range_poly_idx(i + 1);
             grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
         }
     });
 
+    DEBUG_LOG_ALL(numerator.coeffs());
+    DEBUG_LOG_ALL(denominator.coeffs());
+
     // Final step: If active/inactive regions have been specified, the value of the grand product in the inactive
     // regions have not yet been set. The polynomial takes an already computed constant value across each inactive
     // region (since no copy constraints are present there) equal to the value of the grand product at the first index
     // of the subsequent active region.
     if (has_active_ranges) {
-        MultithreadData full_domain_thread_data = calculate_thread_data(domain_size);
-        parallel_for(full_domain_thread_data.num_threads, [&](size_t thread_idx) {
-            const size_t start = full_domain_thread_data.start[thread_idx];
-            const size_t end = full_domain_thread_data.end[thread_idx];
-            for (size_t i = start; i < end; ++i) {
+        parallel_for([&](const ThreadChunk& chunk) {
+            for (size_t i : chunk.range(domain_size)) {
                 for (size_t j = 0; j < active_region_data.num_ranges() - 1; ++j) {
                     const size_t previous_range_end = active_region_data.get_range(j).second;
                     const size_t next_range_start = active_region_data.get_range(j + 1).first;
