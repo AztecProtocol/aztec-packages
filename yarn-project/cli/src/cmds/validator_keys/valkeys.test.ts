@@ -1,4 +1,4 @@
-import { decryptEip2335Keystore } from '@aztec/foundation/crypto';
+import { decryptEip2335Keystore, deriveBlsPrivateKey } from '@aztec/foundation/crypto';
 import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -14,7 +14,6 @@ import { newValidatorKeystore } from './new.js';
 import {
   buildValidatorEntries,
   computeBlsPublicKeyCompressed,
-  deriveBlsPrivateKey,
   deriveEthAttester,
   logValidatorSummaries,
   resolveKeystoreOutputPath,
