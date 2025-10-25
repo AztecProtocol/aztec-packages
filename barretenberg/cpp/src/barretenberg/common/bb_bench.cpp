@@ -648,3 +648,4 @@ BenchReporter::~BenchReporter()
     GlobalBenchStatsContainer::parent = parent;
 }
 } // namespace bb::detail
+#endif
