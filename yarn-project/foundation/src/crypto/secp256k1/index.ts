@@ -1,4 +1,10 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+/**
+ * Secp256k1 elliptic curve operations - delegates to barretenberg/ts.
+ * This wrapper maintains Buffer return types for backward compatibility.
+ */
+import { Secp256k1 as Secp256k1Impl } from '@aztec/bb.js/crypto/secp256k1';
+
+const secp256k1Impl = new Secp256k1Impl();
 
 /**
  * Secp256k1 elliptic curve operations.
@@ -27,13 +33,8 @@ export class Secp256k1 {
    * @returns Result of the multiplication.
    */
   public async mul(point: Uint8Array, scalar: Uint8Array) {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.secp256k1Mul({
-      point: { x: point.subarray(0, 32), y: point.subarray(32, 64) },
-      scalar,
-    });
-    return Buffer.concat([Buffer.from(response.point.x), Buffer.from(response.point.y)]);
+    const result = await secp256k1Impl.mul(point, scalar);
+    return Buffer.from(result);
   }
 
   /**
@@ -41,10 +42,8 @@ export class Secp256k1 {
    * @returns Random field element.
    */
   public async getRandomFr() {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.secp256k1GetRandomFr({ dummy: 0 });
-    return Buffer.from(response.value);
+    const result = await secp256k1Impl.getRandomFr();
+    return Buffer.from(result);
   }
 
   /**
@@ -53,9 +52,7 @@ export class Secp256k1 {
    * @returns Buffer representation of the field element.
    */
   public async reduce512BufferToFr(uint512Buf: Buffer) {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.secp256k1Reduce512({ input: uint512Buf });
-    return Buffer.from(response.value);
+    const result = await secp256k1Impl.reduce512BufferToFr(uint512Buf);
+    return Buffer.from(result);
   }
 }

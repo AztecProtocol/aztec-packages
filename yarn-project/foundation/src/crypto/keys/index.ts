@@ -1,10 +1,12 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+/**
+ * Verification key utilities - delegates to barretenberg/ts.
+ * This wrapper maintains Fr return types for backward compatibility.
+ */
+import { vkAsFieldsMegaHonk as vkAsFieldsMegaHonkImpl } from '@aztec/bb.js/crypto/keys';
 
 import { Fr } from '../../fields/fields.js';
 
 export async function vkAsFieldsMegaHonk(input: Buffer): Promise<Fr[]> {
-  await BarretenbergSync.initSingleton();
-  const api = BarretenbergSync.getSingleton();
-  const response = api.megaVkAsFields({ verificationKey: input });
-  return response.fields.map(field => Fr.fromBuffer(Buffer.from(field)));
+  const results = await vkAsFieldsMegaHonkImpl(input);
+  return results.map(field => Fr.fromBuffer(Buffer.from(field.toBuffer())));
 }

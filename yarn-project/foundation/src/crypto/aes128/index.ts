@@ -1,6 +1,12 @@
-import { BarretenbergSync } from '@aztec/bb.js';
+/**
+ * AES-128-CBC encryption/decryption - delegates to barretenberg/ts.
+ * This wrapper maintains Buffer return types for backward compatibility.
+ */
+import { Aes128 as Aes128Impl } from '@aztec/bb.js/crypto/aes128';
 
 import { Buffer } from 'buffer';
+
+const aesImpl = new Aes128Impl();
 
 /**
  * AES-128-CBC encryption/decryption.
@@ -14,23 +20,8 @@ export class Aes128 {
    * @returns Encrypted data.
    */
   public async encryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
-    const rawLength = data.length;
-    const numPaddingBytes = 16 - (rawLength % 16);
-    const paddingBuffer = Buffer.alloc(numPaddingBytes);
-    // input num bytes needs to be a multiple of 16 and at least 1 byte
-    // node uses PKCS#7-Padding scheme, where padding byte value = the number of padding bytes
-    paddingBuffer.fill(numPaddingBytes);
-    const input = Buffer.concat([data, paddingBuffer]);
-
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.aesEncrypt({
-      plaintext: input,
-      iv,
-      key,
-      length: input.length,
-    });
-    return Buffer.from(response.ciphertext);
+    const result = await aesImpl.encryptBufferCBC(data, iv, key);
+    return Buffer.from(result);
   }
 
   /**
@@ -42,15 +33,8 @@ export class Aes128 {
    * @returns Decrypted data.
    */
   public async decryptBufferCBCKeepPadding(data: Uint8Array, iv: Uint8Array, key: Uint8Array): Promise<Buffer> {
-    await BarretenbergSync.initSingleton();
-    const api = BarretenbergSync.getSingleton();
-    const response = api.aesDecrypt({
-      ciphertext: data,
-      iv,
-      key,
-      length: data.length,
-    });
-    return Buffer.from(response.plaintext);
+    const result = await aesImpl.decryptBufferCBCKeepPadding(data, iv, key);
+    return Buffer.from(result);
   }
 
   /**
@@ -61,8 +45,7 @@ export class Aes128 {
    * @returns Decrypted data.
    */
   public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
-    const paddedBuffer = await this.decryptBufferCBCKeepPadding(data, iv, key);
-    const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
-    return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);
+    const result = await aesImpl.decryptBufferCBC(data, iv, key);
+    return Buffer.from(result);
   }
 }

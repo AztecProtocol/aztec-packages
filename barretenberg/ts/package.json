@@ -48,6 +48,36 @@
       "require": "./dest/node-cjs/crypto/pedersen/index.js",
       "browser": "./dest/browser/crypto/pedersen/index.js",
       "default": "./dest/node/crypto/pedersen/index.js"
+    },
+    "./crypto/poseidon": {
+      "types": "./dest/node/crypto/poseidon/index.d.ts",
+      "require": "./dest/node-cjs/crypto/poseidon/index.js",
+      "browser": "./dest/browser/crypto/poseidon/index.js",
+      "default": "./dest/node/crypto/poseidon/index.js"
+    },
+    "./crypto/aes128": {
+      "types": "./dest/node/crypto/aes128/index.d.ts",
+      "require": "./dest/node-cjs/crypto/aes128/index.js",
+      "browser": "./dest/browser/crypto/aes128/index.js",
+      "default": "./dest/node/crypto/aes128/index.js"
+    },
+    "./crypto/secp256k1": {
+      "types": "./dest/node/crypto/secp256k1/index.d.ts",
+      "require": "./dest/node-cjs/crypto/secp256k1/index.js",
+      "browser": "./dest/browser/crypto/secp256k1/index.js",
+      "default": "./dest/node/crypto/secp256k1/index.js"
+    },
+    "./crypto/bn254": {
+      "types": "./dest/node/crypto/bn254/index.d.ts",
+      "require": "./dest/node-cjs/crypto/bn254/index.js",
+      "browser": "./dest/browser/crypto/bn254/index.js",
+      "default": "./dest/node/crypto/bn254/index.js"
+    },
+    "./crypto/keys": {
+      "types": "./dest/node/crypto/keys/index.d.ts",
+      "require": "./dest/node-cjs/crypto/keys/index.js",
+      "browser": "./dest/browser/crypto/keys/index.js",
+      "default": "./dest/node/crypto/keys/index.js"
     }
   },
   "bin": "dest/node/main.js",
