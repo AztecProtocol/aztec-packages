@@ -61,14 +61,14 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
         4, // transfer accumulator limb 1 at odd index subrelation
         4, // transfer accumulator limb 2 at odd index subrelation
         4, // transfer accumulator limb 3 at odd index subrelation
-        4, // accumulator limb 0 is zero at the start of accumulation subrelation
-        4, // accumulator limb 1 is zero at the start of accumulation subrelation
-        4, // accumulator limb 2 is zero at the start of accumulation subrelation
-        4, // accumulator limb 3 is zero at the start of accumulation subrelation
-        4, // accumulator limb 0 is equal to given result at the end of accumulation subrelation
-        4, // accumulator limb 1 is equal to given result at the end of accumulation subrelation
-        4, // accumulator limb 2 is equal to given result at the end of accumulation subrelation
-        4  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
+        3, // accumulator limb 0 is zero at the start of accumulation subrelation
+        3, // accumulator limb 1 is zero at the start of accumulation subrelation
+        3, // accumulator limb 2 is zero at the start of accumulation subrelation
+        3, // accumulator limb 3 is zero at the start of accumulation subrelation
+        3, // accumulator limb 0 is equal to given result at the end of accumulation subrelation
+        3, // accumulator limb 1 is equal to given result at the end of accumulation subrelation
+        3, // accumulator limb 2 is equal to given result at the end of accumulation subrelation
+        3  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
 
     };
 

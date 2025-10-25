@@ -25,13 +25,15 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     for (size_t idx = 0; idx < Flavor::NUM_SHIFTED_ENTITIES; idx++) {
         labels_shifted_witnesses[idx] = "shifted_challenge_" + std::to_string(idx);
     }
-    auto unshifted_challenges = transcript->template get_challenges<FF>(labels_unshifted_entities);
-    auto shifted_challenges = transcript->template get_challenges<FF>(labels_shifted_witnesses);
+    std::array<FF, Flavor::NUM_UNSHIFTED_ENTITIES> unshifted_challenges =
+        transcript->template get_challenges<FF>(labels_unshifted_entities);
+    std::array<FF, Flavor::NUM_SHIFTED_ENTITIES> shifted_challenges =
+        transcript->template get_challenges<FF>(labels_shifted_witnesses);
 
     // Batch polynomials
-    auto batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
+    Polynomial<FF> batched_unshifted_polynomial = batch_polynomials<Flavor::NUM_UNSHIFTED_ENTITIES>(
         instance->polynomials.get_unshifted(), instance->dyadic_size(), unshifted_challenges);
-    auto batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
+    Polynomial<FF> batched_shifted_polynomial = batch_polynomials<Flavor::NUM_SHIFTED_ENTITIES>(
         instance->polynomials.get_to_be_shifted(), instance->dyadic_size(), shifted_challenges);
 
     // Batch evaluations
@@ -70,11 +72,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
     batched_shifted_commitment = batch_mul_native(points, scalars);
 
     return Accumulator{
-        .challenge = sumcheck_output.challenge,
+        .challenge = std::move(sumcheck_output.challenge),
         .shifted_evaluation = batched_shifted_evaluation,
         .non_shifted_evaluation = batched_unshifted_evaluation,
-        .non_shifted_polynomial = batched_unshifted_polynomial,
-        .shifted_polynomial = batched_shifted_polynomial,
+        .non_shifted_polynomial = std::move(batched_unshifted_polynomial),
+        .shifted_polynomial = std::move(batched_shifted_polynomial),
         .non_shifted_commitment = batched_unshifted_commitment,
         .shifted_commitment = batched_shifted_commitment,
         .dyadic_size = instance->dyadic_size(),
@@ -82,8 +84,10 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::sumcheck_output_to_a
 };
 
 template <size_t N>
-HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
-    RefArray<Polynomial, N> polynomials_to_batch, const size_t& full_batched_size, const std::array<FF, N>& challenges)
+Polynomial<HypernovaFoldingProver::FF> HypernovaFoldingProver::batch_polynomials(
+    RefArray<Polynomial<FF>, N> polynomials_to_batch,
+    const size_t& full_batched_size,
+    const std::array<FF, N>& challenges)
 {
     BB_BENCH();
     BB_ASSERT_EQ(full_batched_size,
@@ -105,15 +109,16 @@ HypernovaFoldingProver::Polynomial HypernovaFoldingProver::batch_polynomials(
 };
 
 HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumulator(
-    const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance)
+    const std::shared_ptr<typename HypernovaFoldingProver::ProverInstance>& instance,
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
     BB_BENCH();
 
     vinfo("HypernovaFoldingProver: converting instance to accumulator...");
 
     // Complete the incoming instance
-    auto honk_vk = std::make_shared<VerificationKey>(instance->get_precomputed());
-    MegaOinkProver oink_prover{ instance, honk_vk, transcript };
+    auto precomputed_vk = honk_vk ? honk_vk : std::make_shared<VerificationKey>(instance->get_precomputed());
+    MegaOinkProver oink_prover{ instance, precomputed_vk, transcript };
     oink_prover.prove();
 
     instance->gate_challenges = transcript->template get_powers_of_challenge<FF>(
@@ -123,13 +128,13 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     MegaSumcheckProver sumcheck(instance->dyadic_size(),
                                 instance->polynomials,
                                 transcript,
-                                instance->alphas,
+                                instance->alpha,
                                 instance->gate_challenges,
                                 instance->relation_parameters,
                                 Flavor::VIRTUAL_LOG_N);
     auto sumcheck_output = sumcheck.prove();
 
-    Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, honk_vk);
+    Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 
     vinfo("HypernovaFoldingProver: accumulator constructed.");
 
@@ -137,9 +142,11 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 }
 
 std::pair<HonkProof, HypernovaFoldingProver::Accumulator> HypernovaFoldingProver::fold(
-    const Accumulator& accumulator, const std::shared_ptr<ProverInstance>& instance)
+    const Accumulator& accumulator,
+    const std::shared_ptr<ProverInstance>& instance,
+    const std::shared_ptr<VerificationKey>& honk_vk)
 {
-    Accumulator incoming_accumulator = instance_to_accumulator(instance);
+    Accumulator incoming_accumulator = instance_to_accumulator(instance, honk_vk);
 
     // Sumcheck
     MultilinearBatchingProver batching_prover(std::make_shared<MultilinearBatchingProverClaim>(accumulator),

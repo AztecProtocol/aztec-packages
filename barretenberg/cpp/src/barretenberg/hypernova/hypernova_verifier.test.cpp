@@ -136,7 +136,8 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         EXPECT_EQ(first_sumcheck_recursive, first_sumcheck_native);
         EXPECT_TRUE(second_sumcheck_recursive);
         EXPECT_EQ(second_sumcheck_recursive, second_sumcheck_native);
-        EXPECT_TRUE(compare_prover_verifier_accumulators(folded_accumulator, folded_verifier_accumulator.get_value()));
+        EXPECT_TRUE(compare_prover_verifier_accumulators(
+            folded_accumulator, folded_verifier_accumulator.get_value<NativeVerifierAccumulator>()));
     }
 };
 

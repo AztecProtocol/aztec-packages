@@ -119,7 +119,7 @@ grafana:
     PRODUCTION_NAMESPACES_REGEX: "v2-testnet|staging-public|staging-ignition"
     NIGHTLY_NAMESPACES_REGEX: "next-rc-1"
     STAGING_PUBLIC_REGEX: "staging-public"
-    STAGING_IGNITION_REGEX: "staging-ignition"
+    STAGING_IGNITION_REGEX: "staging-ignition|ignition-fisherman-sepolia"
     NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario"
     NEXT_NEXT_REGEX: "next-net"
     TESTNET_NAMESPACES_REGEX: "testnet|v[0-9]+-testnet"

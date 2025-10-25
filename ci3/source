@@ -8,7 +8,12 @@
 # We export so we can use from exported functions.
 export root=${root:-$(git rev-parse --show-toplevel)}
 export ci3="$root/ci3"
-[[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
+if [[ "$PATH" != *"$ci3:" ]]; then
+  export PATH=$ci3:$PATH
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    export PATH=$ci3/bin:$PATH
+  fi
+fi
 
 [ -z "${CI:-}" ] && export CI=0
 [ "$CI" == "true" ] && export CI=1

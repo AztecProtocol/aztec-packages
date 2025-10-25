@@ -131,8 +131,8 @@ class Goblin {
 
     /**
      * @brief Translator requires the op queue to start with a no-op to ensure op queue polynomials are shiftable and
-     * then expects three random ops. This is due to the ZK requirement in ClientIVC.  We need to also ensure these ops
-     * are present when Goblin is used for AVM, although we only ever have a single table of ecc ops and no ZK
+     * then expects three random ops. This is due to the ZK requirement in LegacyClientIVC.  We need to also ensure
+     * these ops are present when Goblin is used for AVM, although we only ever have a single table of ecc ops and no ZK
      * requiements.
      *
      * @todo (https://github.com/AztecProtocol/barretenberg/issues/1537) Asses whether two Translator variants (one with

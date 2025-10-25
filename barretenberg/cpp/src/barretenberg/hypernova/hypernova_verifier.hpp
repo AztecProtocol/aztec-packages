@@ -11,7 +11,6 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
@@ -27,7 +26,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using VerifierCommitments = Flavor::VerifierCommitments;
     using Transcript = Flavor::Transcript;
     using Accumulator = MultilinearBatchingVerifierClaim<Curve>;
-    using OinkVerifier = OinkVerifier<Flavor>;
+    using OinkVerifier = bb::OinkVerifier<Flavor>;
     using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
     // Types conditionally assigned based on the Flavor being recursive
@@ -47,7 +46,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
 
     std::shared_ptr<Transcript> transcript;
 
-    HypernovaFoldingVerifier(std::shared_ptr<Transcript>& transcript)
+    HypernovaFoldingVerifier(const std::shared_ptr<Transcript>& transcript)
         : transcript(transcript) {};
 
     /**

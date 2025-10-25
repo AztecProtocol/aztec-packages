@@ -9,6 +9,7 @@ export interface ITxProvider {
 
   getTxsForBlockProposal(
     blockProposal: BlockProposal,
+    blockNumber: number,
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ): Promise<{ txs: Tx[]; missingTxs: TxHash[] }>;
 

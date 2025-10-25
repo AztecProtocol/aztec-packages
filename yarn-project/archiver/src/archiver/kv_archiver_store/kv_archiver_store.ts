@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, CustomRange, StoreSize } from '@aztec/kv-store';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Block, ValidateBlockResult } from '@aztec/stdlib/block';
+import { type L2Block, L2BlockHash, type ValidateBlockResult } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -204,6 +204,14 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
     return this.#blockStore.getBlock(number);
   }
 
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlockByHash(L2BlockHash.fromField(blockHash));
+  }
+
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    return this.#blockStore.getBlockByArchive(archive);
+  }
+
   /**
    * Gets up to `limit` amount of L2 blocks starting from `from`.
    *
@@ -224,6 +232,14 @@ export class KVArchiverDataStore implements ArchiverDataStore, ContractDataSourc
    */
   getBlockHeaders(start: number, limit: number): Promise<BlockHeader[]> {
     return toArray(this.#blockStore.getBlockHeaders(start, limit));
+  }
+
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return this.#blockStore.getBlockHeaderByHash(L2BlockHash.fromField(blockHash));
+  }
+
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return this.#blockStore.getBlockHeaderByArchive(archive);
   }
 
   /**

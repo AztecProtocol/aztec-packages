@@ -12,19 +12,16 @@ contract ParityTest is Test {
 
   // Checks whether sha root matches output of base parity circuit
   function testRootMatchesBaseParity() public {
-    // matches noir-protocol-circuits/crates/parity-lib/src/base/base_parity_inputs.nr
-    uint248[4] memory msgs = [
-      0x151de48ca3efbae39f180fe00b8f472ec9f25be10b4f283a87c6d783935370,
-      0x14c2ea9dedf77698d4afe23bc663263eed0bf9aa3a8b17d9b74812f185610f,
-      0x1570cc6641699e3ae87fa258d80a6d853f7b8ccb211dc244d017e2ca6530f8,
-      0x2806c860af67e9cd50000378411b8c4c4db172ceb2daa862b259b689ccbdc1
-    ];
+    uint248[256] memory msgs;
+    for (uint248 i = 0; i < msgs.length; i++) {
+      msgs[i] = i;
+    }
 
     // We can't use Constants.NUM_MSGS_PER_BASE_PARITY directly when defining the array so we do the check here to
     // ensure it does not get outdated.
     assertEq(msgs.length, Constants.NUM_MSGS_PER_BASE_PARITY, "NUM_MSGS_PER_BASE_PARITY changed, update msgs.");
 
-    uint256 treeHeight = 2; // log_2(NUM_MSGS_PER_BASE_PARITY)
+    uint256 treeHeight = 8; // log_2(NUM_MSGS_PER_BASE_PARITY)
     // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
     // the hardcoded value is not outdated.
     assertEq(
@@ -38,8 +35,8 @@ contract ParityTest is Test {
     for (uint256 i = 0; i < msgs.length; i++) {
       frontier.insertLeaf(bytes32(bytes.concat(new bytes(1), bytes31(msgs[i]))));
     }
-
-    bytes32 expectedRoot = 0x00fc986d54a5e0af4f6e0d49399b9806c2b225e6c652fa5a831ecf6c6c29719d;
+    // matches noir-protocol-circuits/crates/parity-lib/src/tests/parity_base_tests.nr
+    bytes32 expectedRoot = 0x00279d4d4dd5bcb9b1a4e742640588b917102f9f8bc97a6c95706ca4e7a8a76b;
     assertEq(frontier.root(), expectedRoot, "Root does not match base parity circuit root");
   }
 

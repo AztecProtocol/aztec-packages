@@ -6,6 +6,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 
 using namespace cdg;
@@ -72,8 +73,8 @@ template <typename Builder> class BoomerangStdlibPedersen : public testing::Test
         fr_ct left = public_witness_ct(&builder, left_in);
         fr_ct right = witness_ct(&builder, right_in);
 
-        builder.fix_witness(left.witness_index, left.get_value());
-        builder.fix_witness(right.witness_index, right.get_value());
+        left.fix_witness();
+        right.fix_witness();
 
         fr_ct out = pedersen_hash::hash({ left, right });
         out.fix_witness();
@@ -94,13 +95,13 @@ template <typename Builder> class BoomerangStdlibPedersen : public testing::Test
             right_in += fr::one();
         }
         fr_ct left = witness_ct(&builder, left_in);
-        builder.update_used_witnesses(left.witness_index);
+        mark_witness_as_used(left);
         fr_ct right = witness_ct(&builder, right_in);
         for (size_t i = 0; i < 256; ++i) {
             left = pedersen_hash::hash({ left, right });
         }
         left.fix_witness();
-        builder.set_public_input(left.witness_index);
+        left.set_public();
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
         analyze_circuit(builder);
@@ -120,7 +121,7 @@ template <typename Builder> class BoomerangStdlibPedersen : public testing::Test
         }
         std::vector<uint32_t> witness_indices;
         for (auto& wi : witness_inputs) {
-            witness_indices.emplace_back(wi.witness_index);
+            witness_indices.emplace_back(wi.get_witness_index());
         }
         // In a test we don't have additional constraints except for constraint for splitting inputs on 2 scalars for
         // batch_mul and checking linear_identity. So we can put them into used_witnesses.
@@ -172,7 +173,7 @@ template <typename Builder> class BoomerangStdlibPedersen : public testing::Test
             // In a test we don't have additional constraints except for constraint for splitting inputs on 2 scalars
             // for batch_mul and checking linear_identity. So we can put them into used_witnesses.
             for (auto wit : witnesses) {
-                builder.update_used_witnesses(wit.witness_index);
+                mark_witness_as_used(wit);
             }
             fr_ct result = pedersen_hash::hash(witnesses);
             result.fix_witness();
@@ -194,7 +195,7 @@ template <typename Builder> class BoomerangStdlibPedersen : public testing::Test
         // In a test we don't have additional constraints except for constraint for splitting inputs on 2 scalars for
         // batch_mul and checking linear_identity. So we can put them into used_witnesses.
         for (auto wi : witness_inputs) {
-            builder.update_used_witnesses(wi.witness_index);
+            mark_witness_as_used(wi);
         }
         auto result = pedersen_hash::hash(witness_inputs);
         result.fix_witness();

@@ -73,7 +73,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // Set honk vk in builder
     for (auto& vk_element : honk_vk->to_field_elements()) {
-        builder.set_variable(key_fields[offset].witness_index, vk_element);
+        builder.set_variable(key_fields[offset].get_witness_index(), vk_element);
         offset++;
     }
 
@@ -83,7 +83,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     offset = 0;
     // Set honk proof in builder
     for (auto& proof_element : honk_proof) {
-        builder.set_variable(proof_fields[offset].witness_index, proof_element);
+        builder.set_variable(proof_fields[offset].get_witness_index(), proof_element);
         offset++;
     }
 
@@ -172,7 +172,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                                   stdlib::recursion::honk::RollupIO,
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
-    ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
+    BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
     // Construct an in-circuit representation of the verification key.

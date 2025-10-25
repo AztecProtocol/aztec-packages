@@ -1,4 +1,7 @@
-import { type AztecAddress, BatchCall, Fr, toBigIntBE } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NestedContractTest } from './nested_contract_test.js';

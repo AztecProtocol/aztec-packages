@@ -15,8 +15,8 @@ namespace bb {
 /**
  * @brief Base class interface for IVC schemes
  *
- * Provides common interface for different IVC implementations (ClientIVC, SumcheckClientIVC) allowing them to be used
- * polymorphically in the API.
+ * Provides common interface for different IVC implementations SumcheckClientIVC allowing them to be
+ * used polymorphically in the API.
  */
 class IVCBase {
   public:

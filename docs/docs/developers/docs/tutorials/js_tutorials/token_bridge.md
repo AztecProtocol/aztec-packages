@@ -1,304 +1,475 @@
 ---
-title: "Token Bridge Tutorial"
-description: Code-along tutorial for building a token bridge between L1 and Aztec.
-sidebar_position: 4
+title: "Bridge Your NFT to Aztec"
+sidebar_position: 1
+description: "Build a private NFT bridge that moves CryptoPunks between Ethereum and Aztec with encrypted ownership using custom notes and PrivateSet."
 ---
 
-This tutorial goes over how to create the contracts necessary to create a portal (aka token bridge) and how a developer can use it.
+## Why Bridge an NFT?
 
-In this tutorial, we will go over the components of a token bridge and how to deploy them, as well as show how to bridge tokens publicly from L1 to L2 and back, using aztec.js.
+Imagine you own a CryptoPunk NFT on Ethereum. You want to use it in games, social apps, or DeFi protocols, but gas fees on Ethereum make every interaction expensive. What if you could move your Punk to Aztec (L2), use it **privately** in dozens of applications, and then bring it back to Ethereum when you're ready to sell?
 
-:::note
-The JavaScript in this tutorial is for the sandbox and will need adjustments if deploying to testnet. Install the sandbox [here](../../../getting_started_on_sandbox.md).
-:::
+In this tutorial, you'll build a **private NFT bridge**. By the end, you'll understand how **portals** work and how **cross-chain messages** flow between L1 and L2.
 
-The first half of this page reviews the process and contracts for bridging token from Ethereum (L1) to Aztec (L2). The second half the page (starting with [Running with Aztec.js](#running-with-aztecjs)) goes over writing your own Typescript script for:
+Before starting, make sure you have the Aztec sandbox running at version #include_aztec_version. Check out [the sandbox guide](../../../getting_started_on_sandbox.md) for setup instructions.
 
-- deploying and initializing contracts to L1 and L2
-- minting tokens on L1
-- sending tokens into the portal on L1
-- minting tokens on L2
-- sending tokens from L2 back to L1
-- withdrawing tokens from the L1 portal
+## What You'll Build
 
-This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `aztec-up -v #include_version_without_prefix`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
+You'll create two contracts with **privacy at the core**:
+- **NFTPunk (L2)** - An NFT contract with encrypted ownership using `PrivateSet`
+- **NFTBridge (L2)** - A bridge that mints NFTs privately when claiming L1 messages
 
-## Components
+This tutorial focuses on the L2 side to keep things manageable. You'll learn the essential privacy patterns that apply to any asset bridge on Aztec.
 
-Bridges in Aztec involve several components across L1 and L2:
+## Project Setup
 
-- L1 contracts:
-  - `ERC20.sol`: An ERC20 contract that represents assets on L1
-  - `TokenPortal.sol`: Manages the passing of messages from L1 to L2. It is deployed on L1, is linked to a specific token on L1 and a corresponding contract on L2. The `registry` is used to find the rollup and the corresponding `inbox` and `outbox` contracts.
-- L2 contracts:
-  - `Token`: Manages the tokens on L2
-  - `TokenBridge`: Manages the bridging of tokens between L2 and L1
-
-`TokenPortal.sol` is the contract that manages the passing of messages from L1 to L2. It is deployed on L1, is linked to a specific token on L1 and a corresponding contract on L2. The `registry` is used to find the rollup and the corresponding `inbox` and `outbox` contracts.
-
-## How it works
-
-### Deposit to Aztec
-
-`TokenPortal.sol` passes messages to Aztec both publicly and privately.
-
-This diagram shows the logical flow of information among components involved in depositing to Aztec.
-
-```mermaid
-sequenceDiagram
-    participant L1 User
-    participant L1 TokenPortal
-    participant L1 Aztec Inbox
-    participant L2 Bridge Contract
-    participant L2 Token Contract
-
-    L1 User->>L1 TokenPortal: Deposit Tokens
-
-    Note over L1 TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
-
-    L1 TokenPortal->>L1 Aztec Inbox: Send message
-    Note over L1 Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
-
-    L1 Aztec Inbox-->>L2 Bridge Contract: Forward message
-    Note over L2 Bridge Contract: 1. Verify message<br/>2. Process secret<br/>3. Decode mint parameters
-
-    L2 Bridge Contract->>L2 Token Contract: Call mint function
-    Note over L2 Token Contract: Mints tokens to<br/>specified recipient
-```
-
-Message content that is passed to Aztec is limited to a single field element (~254 bits), so if the message content is larger than that, it is hashed, and the message hash is passed and verified on the receiving contract. There is a utility function in the `Hash` library to hash messages (using `sha256`) to field elements.
-
-The Aztec message Inbox expects a recipient Aztec address that can consume the message (the corresponding L2 bridge contract), the Aztec version (similar to Ethereum's `chainId`), the message content hash (which includes the token recipient and amount in this case), and a `secretHash`, where the corresponding `secret` is used to consume the message on the receiving contract.
-
-So in summary, it deposits tokens to the portal, encodes a mint message, hashes it, and sends it to the Aztec rollup via the Inbox. The L2 token contract can then mint the tokens when the corresponding L2 bridge contract processes the message.
-
-Note that because L1 is public, everyone can inspect and figure out the contentHash and the recipient contract address.
-
-#### `depositToAztecPublic` (TokenPortal.sol)
-
-#include_code deposit_public l1-contracts/test/portals/TokenPortal.sol solidity
-
-#### `depositToAztecPrivate` (TokenPortal.sol)
-
-#include_code deposit_private l1-contracts/test/portals/TokenPortal.sol solidity
-
-**So how do we privately consume the message on Aztec?**
-
-On Aztec, anytime something is consumed (i.e. deleted), we emit a nullifier hash and add it to the nullifier tree. This prevents double-spends. The nullifier hash is a hash of the message that is consumed. So without the secret, one could reverse engineer the expected nullifier hash that might be emitted on L2 upon message consumption. To consume the message on L2, the user provides a secret to the private function, which computes the hash and asserts that it matches to what was provided in the L1->L2 message. This secret is included in the nullifier hash computation and the nullifier is added to the nullifier tree. Anyone inspecting the blockchain won’t know which nullifier hash corresponds to the L1->L2 message consumption.
-
-### Minting on Aztec
-
-The previous code snippets moved funds to the bridge and created a L1->L2 message. Upon building the next rollup block, the sequencer asks the L1 inbox contract for any incoming messages and adds them to the Aztec block's L1->L2 message tree, so an application on L2 can prove that the message exists and can consume it.
-
-This happens inside the `TokenBridge` contract on Aztec.
-
-#include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
-
-What's happening here?
-
-1. compute the content hash of the message
-2. consume the message
-3. mint the tokens
-
-:::note
-
-The Aztec `TokenBridge` contract should be an authorized minter in the corresponding Aztec `Token` contract so that it is able to complete mints to the intended recipient.
-
-:::
-
-The token bridge also allows tokens to be withdrawn back to L1 from L2. You can withdraw part of a public or private balance to L1, but the amount and the recipient on L1 will be public.
-
-Sending tokens to L1 involves burning the tokens on L2 and creating a L2->L1 message. The message content is the `amount` to burn, the recipient address, and who can execute the withdraw on the L1 portal on behalf of the user. It can be `0x0` for anyone, or a specified address.
-
-For both the public and private flow, we use the same mechanism to determine the content hash. This is because on L1, things are public anyway. The only difference between the two functions is that in the private domain we have to nullify user’s notes whereas in the public domain we subtract the balance from the user.
-
-#### `exit_to_L1_public` (TokenBridge.nr)
-
-#include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
-
-#### `exit_to_L1_private` (TokenBridge.nr)
-
-This function works very similarly to the public version, except here we burn user’s private notes.
-
-#include_code exit_to_l1_private /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
-
-Since this is a private method, it can't read what token is publicly stored. So instead the user passes a token address, and `_assert_token_is_same()` checks that this user provided address is same as the one in storage.
-
-Because public functions are executed by the sequencer while private methods are executed locally, all public calls are always done _after_ all private calls are completed. So first the burn would happen and only later the sequencer asserts that the token is same. The sequencer just sees a request to `execute_assert_token_is_same` and therefore has no context on what the appropriate private method was. If the assertion fails, then the kernel circuit will fail to create a proof and hence the transaction will be dropped.
-
-A user must sign an approval message to let the contract burn tokens on their behalf. The nonce refers to this approval message.
-
-### Claiming on L1
-
-After the transaction is completed on L2, the portal must call the outbox to successfully transfer funds to the user on L1. Like with deposits, things can be complex here. For example, what happens if the transaction was done on L2 to burn tokens but can’t be withdrawn to L1? Then the funds are lost forever! How do we prevent this?
-
-#include_code token_portal_withdraw /l1-contracts/test/portals/TokenPortal.sol solidity
-
-#### `token_portal_withdraw` (TokenPortal.sol)
-
-Here we reconstruct the L2 to L1 message and check that this message exists on the outbox. If so, we consume it and transfer the funds to the recipient. As part of the reconstruction, the content hash looks similar to what we did in our bridge contract on Aztec where we pass the amount and recipient to the hash. This way a malicious actor can’t change the recipient parameter to the address and withdraw funds to themselves.
-
-We also use a `_withCaller` parameter to determine the appropriate party that can execute this function on behalf of the recipient. If `withCaller` is false, then anyone can call the method and hence we use address(0), otherwise only msg.sender should be able to execute. This address should match the `callerOnL1` address we passed in aztec when withdrawing from L2.
-
-We call this pattern _designed caller_ which enables a new paradigm **where we can construct other such portals that talk to the token portal and therefore create more seamless crosschain legos** between L1 and L2.
-
-## Running with Aztec.js
-
-Let's run through the entire process of depositing, minting and withdrawing tokens in Typescript, so you can see how it works in practice.
-
-Make sure you are using version #include_aztec_version of the sandbox. Install with `aztec-up #include_version_without_prefix`.
-
-### Prerequisites
-
-Same prerequisites as the [getting started guide](../../../getting_started_on_sandbox.md#prerequisites) and the sandbox.
-
-### ProjectSetup
-
-Create a new directory for the tutorial and install the dependencies:
+Let's start simple. Since this is an Ethereum project, it's easier to just start with Hardhat:
 
 ```bash
-mkdir token-bridge-tutorial
-cd token-bridge-tutorial
-yarn init -y
-echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/noir-contracts.js@#include_version_without_prefix @aztec/l1-artifacts@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/ethereum@#include_version_without_prefix @types/node typescript@^5.0.4 viem@^2.22.8 tsx
-touch tsconfig.json
-touch index.ts
+git clone https://github.com/signorecello/hardhat-aztec-example
 ```
 
-Add this to your `tsconfig.json`:
+You're cloning a repo here to make it easier for Aztec's `l1-contracts` to be mapped correctly. You should now have a `hardhat-aztec-example` folder with Hardhat's default starter, with a few changes in `package.json`.
 
-```json
-{
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "./dest",
-    "target": "es2020",
-    "lib": ["dom", "esnext", "es2017.object"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "strict": true,
-    "declaration": true,
-    "allowSyntheticDefaultImports": true,
-    "esModuleInterop": true,
-    "downlevelIteration": true,
-    "inlineSourceMap": true,
-    "declarationMap": true,
-    "importHelpers": true,
-    "resolveJsonModule": true,
-    "composite": true,
-    "skipLibCheck": true
-  }
-}
+We want to add a few more dependencies now before we start:
+
+```bash
+cd hardhat-aztec-example
+yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/accounts@#include_version_without_prefix @aztec/stdlib@#include_version_without_prefix @aztec/test-wallet@#include_version_without_prefix tsx
 ```
 
-and add this to your `package.json`:
-
-```json
-  // ...
-  "type": "module",
-  "scripts": {
-    "start": "node --import tsx index.ts"
-  },
-  // ...
-```
-
-You can run the script we will build in `index.ts` at any point with `yarn start`.
-
-### Imports
-
-Add the following imports to your `index.ts`:
-
-#include_code imports /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
-
-### Utility functions
-
-Add the following utility functions to your `index.ts` below the imports:
-
-#include_code utils /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
-
-### Sandbox Setup
-
-Start the sandbox with:
+Now start the sandbox in another terminal:
 
 ```bash
 aztec start --sandbox
 ```
 
-And add the following code to your `index.ts`:
+This should start two important services on ports 8080 and 8545, respectively: Aztec and Anvil (an Ethereum development node).
 
-```ts
-async function main() {
-    #include_code setup /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts raw
-}
+## Part 1: Building the NFT Contract
 
-main();
+Let's start with a basic NFT contract on Aztec. That's the representation of the NFT locked on the L2 side:
+
+```mermaid
+graph LR
+    subgraph Ethereum["Ethereum (L1)"]
+        L1NFT["🎨 L1 NFT<br/>(CryptoPunk)"]
+        L1Portal["🌉 L1 Portal<br/>(TokenPortal)"]
+    end
+
+    subgraph Aztec["Aztec (L2)"]
+        L2Bridge["🔗 L2 Bridge<br/>(NFTBridge)"]
+        L2NFT["🎭 L2 NFT<br/>(NFTPunk)"]
+    end
+
+    L1NFT -->|"Lock NFT"| L1Portal
+    L1Portal -->|"L1→L2 Message"| L2Bridge
+    L2Bridge -->|"Mint Private"| L2NFT
+
+    L2NFT -.->|"Burn"| L2Bridge
+    L2Bridge -.->|"L2→L1 Message"| L1Portal
+    L1Portal -.->|"Unlock NFT"| L1NFT
+
+    style L2NFT fill:#4ade80,stroke:#22c55e,stroke-width:3px
+    style L2Bridge fill:#f0f0f0,stroke:#999,stroke-width:2px
+    style L1Portal fill:#f0f0f0,stroke:#999,stroke-width:2px
+    style L1NFT fill:#f0f0f0,stroke:#999,stroke-width:2px
+
+    classDef highlight fill:#4ade80,stroke:#22c55e,stroke-width:3px
 ```
 
-The rest of the code in the tutorial will go inside the `main()` function.
+Let's create that crate in the `contracts` folder so it looks tidy:
 
-Run the script with `yarn start` and you should see the L1 contract addresses printed out.
+```bash
+aztec-nargo new --contract contracts/aztec/nft
+cd contracts/aztec/nft
+```
 
-### Deploying the contracts
+Open `Nargo.toml` and make sure you add `aztec` as a dependency:
 
-Add the following code to `index.ts` to deploy the L2 token contract:
+```toml
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
+```
 
-#include_code deploy-l2-token /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+### Create the NFT Note
 
-Add the following code to `index.ts` to deploy the L1 token contract and set up the `L1TokenManager` (a utility class to interact with the L1 token contract):
+First, let's create a custom note type for private NFT ownership. In the `src/` directory, create a new file called `nft.nr`:
 
-#include_code deploy-l1-token /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+```bash
+touch src/nft.nr
+```
 
-Add the following code to `index.ts` to deploy the L1 portal contract:
+In this file, you're going to create a **private note** that represents NFT ownership. This is a struct with macros that indicate it is a note that can be compared and packed:
 
-#include_code deploy-portal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code nft_note_struct /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
 
-Add the following code to `index.ts` to deploy the L2 bridge contract:
+Now add a `new` method to make creating notes easier. For simplicity, set the randomness within the method. This approach is unsafe because it's unconstrained, but in the current case this won't cause problems:
 
-#include_code deploy-l2-bridge /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code nft_note_new /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/nft.nr rust
 
-Run `yarn start` to confirm that all of the contracts are deployed.
+You now have a note that represents the owner of a particular NFT. Next, move on to the contract itself.
 
-### Setup contracts
+:::tip Custom Notes
 
-Add the following code to `index.ts` to authorize the L2 bridge contract to mint tokens on the L2 token contract:
+Notes are powerful concepts. Learn more about how to use them in the [notes guide](../../concepts/storage/notes.md).
 
-#include_code authorize-l2-bridge /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+:::
 
-Add the following code to `index.ts` to set up the L1 portal contract and `L1TokenPortalManager` (a utility class to interact with the L1 portal contract):
 
-#include_code setup-portal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+### Define Storage
 
-### Bridge tokens
+Back in `main.nr`, you can now build the contract storage. You need:
+- **admin**: Who controls the contract (set once, never changes)
+- **minter**: The bridge address (set once by admin)
+- **nfts**: Track which NFTs exist (public, needed for bridging)
+- **owners**: Private ownership using the NFTNote
 
-Add the following code to `index.ts` to bridge tokens from L1 to L2:
+One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../guides/smart_contracts/how_to_define_storage.md).
 
-#include_code l1-bridge-public /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+Write the storage struct and a simple [initializer](../../concepts/smart_contracts/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
-We have to send two additional transactions because the network must process 2 blocks for the message to be processed by the archiver. We need to progress by 2 because there is a 1 block lag between when the message is sent to Inbox and when the subtree containing the message is included in the block. Then when it's included it becomes available for consumption in the next block.
+#include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-### Claim on Aztec
 
-Add the following code to `index.ts` to claim the tokens publicly on Aztec:
+### Utility Functions
 
-#include_code claim /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and internal with [specific macros](../../reference/smart_contract_reference/macros.md):
 
-Run `yarn start` to confirm that tokens are claimed on Aztec.
+#include_code mark_nft_exists /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-### Withdraw
+This internal function uses `schedule_value_change` to update the `nfts` storage, preventing the same NFT from being minted twice or burned when it doesn't exist. You'll call this public function from a private function later.
 
-Add the following code to `index.ts` to start the withdraw the tokens to L1:
+Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
-#include_code setup-withdrawal /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code notes_of /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-We have to send a public authwit to allow the bridge contract to burn tokens on behalf of the user.
+### Add Minting and Burning
 
-Add the following code to `index.ts` to start the withdraw process on Aztec:
+Before anything else, you need to set the minter. This will be the bridge contract, so only the bridge contract can mint NFTs. This value doesn't need to change after initialization. Here's how to initialize the `PublicImmutable`:
 
-#include_code l2-withdraw /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code set_minter /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-Add the following code to `index.ts` to complete the withdraw process on L1:
+Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, emit a new [constrained event](../../guides/smart_contracts/how_to_emit_event.md) (best practice when "sending someone a note"), and then [enqueue a public call](../../guides/smart_contracts/how_to_call_contracts.md) to the `_mark_nft_exists` function:
 
-#include_code l1-withdraw /yarn-project/end-to-end/src/composed/e2e_token_bridge_tutorial_test.test.ts typescript
+#include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-Run `yarn start` to run the script and see the entire process in action.
+The bridge will also need to burn NFTs when users withdraw back to L1:
+
+#include_code burn /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
+
+### Compiling!
+
+Let's verify it compiles:
+
+```bash
+aztec-nargo compile
+```
+
+🎉 You should see "Compiled successfully!" This means our private NFT contract is ready. Now let's build the bridge.
+
+## Part 2: Building the Bridge
+
+We have built the L2 NFT contract. This is the L2 representation of an NFT that is locked on the L1 bridge.
+
+The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/concepts/communication/cross_chain_calls.md).
+
+```mermaid
+graph LR
+    subgraph Ethereum["Ethereum (L1)"]
+        L1NFT["🎨 L1 NFT<br/>(CryptoPunk)"]
+        L1Portal["🌉 L1 Portal<br/>(TokenPortal)"]
+    end
+
+    subgraph Aztec["Aztec (L2)"]
+        L2Bridge["🔗 L2 Bridge<br/>(NFTBridge)"]
+        L2NFT["🎭 L2 NFT<br/>(NFTPunk)"]
+    end
+
+    L1NFT -->|"Lock NFT"| L1Portal
+    L1Portal -->|"L1→L2 Message"| L2Bridge
+    L2Bridge -->|"Mint Private"| L2NFT
+
+    L2NFT -.->|"Burn"| L2Bridge
+    L2Bridge -.->|"L2→L1 Message"| L1Portal
+    L1Portal -.->|"Unlock NFT"| L1NFT
+
+    style L2Bridge fill:#4ade80,stroke:#22c55e,stroke-width:3px
+    style L2NFT fill:#f0f0f0,stroke:#999,stroke-width:2px
+    style L1Portal fill:#f0f0f0,stroke:#999,stroke-width:2px
+    style L1NFT fill:#f0f0f0,stroke:#999,stroke-width:2px
+
+    classDef highlight fill:#4ade80,stroke:#22c55e,stroke-width:3px
+```
+
+Let's create a new contract in the same tidy `contracts/aztec` folder:
+
+```bash
+cd ..
+aztec-nargo new --contract nft_bridge
+cd nft_bridge
+```
+
+And again, add the `aztec-nr` dependency to `Nargo.toml`. We also need to add the `NFTPunk` contract we just wrote above:
+
+```toml
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/aztec-nr/aztec" }
+NFTPunk = { path = "../nft" }
+```
+
+### Understanding Bridges
+
+A bridge has two jobs:
+1. **Claim**: When someone deposits an NFT on L1, mint it on L2
+2. **Exit**: When someone wants to withdraw, burn on L2 and unlock on L1
+
+This means having knowledge about the L2 NFT contract, and the bridge on the L1 side. That's what goes into our bridge's storage.
+
+### Bridge Storage
+
+Clean up `main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
+
+#include_code bridge_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+
+
+You can't initialize the `portal` value in the constructor because the L1 portal hasn't been deployed yet. You'll need another function to set it up after the L1 portal is deployed.
+
+### Adding the Bridge Functions
+
+The Aztec network provides a way to consume messages from L1 to L2 called `consume_l1_to_l2_message`.
+
+You need to define how to encode messages. Here's a simple approach: when an NFT is being bridged, the L1 portal sends a hash of its `token_id` through the bridge, signaling which `token_id` was locked and can be minted on L2. This approach is simple but sufficient for this tutorial.
+
+Build the `claim` function, which consumes the message and mints the NFT on the L2 side:
+
+#include_code claim /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+
+:::tip Secret
+
+The secret prevents front-running. Certainly you don't want anyone to claim your NFT on the L2 side by just being faster. Adding a secret acts like a "password": you can only claim it if you know it.
+
+:::
+
+Similarly, exiting to L1 means burning the NFT on the L2 side and pushing a message through the protocol. To ensure only the L1 recipient can claim it, hash the `token_id` together with the `recipient`:
+
+#include_code exit /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
+
+Cross-chain messaging on Aztec is powerful because it doesn't conform to any specific format—you can structure messages however you want. Learn more about cross-chain messaging in the [portal reference](../../reference/smart_contract_reference/portals/inbox.md).
+
+:::tip Private Functions
+
+Both `claim` and `exit` are `#[private]`, which means the bridging process is private—nobody can see who's bridging which NFT by watching the chain.
+
+:::
+
+### Compile the Bridge
+
+```bash
+aztec-nargo compile
+```
+
+Bridge compiled successfully! Now process both contracts and generate TypeScript bindings:
+
+```bash
+cd ../nft
+aztec-postprocess-contract
+aztec codegen target --outdir ../artifacts
+
+cd ../nft_bridge
+aztec-postprocess-contract
+aztec codegen target --outdir ../artifacts
+```
+
+An `artifacts` folder should appear with TypeScript bindings for each contract. You'll use these when deploying the contracts.
+
+## Part 3: The Ethereum Side
+
+Now build the L1 contracts. You need:
+- A simple ERC721 NFT contract (the "CryptoPunk")
+- A portal contract that locks/unlocks NFTs and communicates with Aztec
+
+### Install Dependencies
+
+Aztec's contracts are already in your `package.json`. You just need to add the OpenZeppelin contracts that provide the default ERC721 implementation:
+
+```bash
+cd ../../..
+yarn add @openzeppelin/contracts
+```
+
+### Create a Simple NFT
+
+Delete the "Counter" contracts that show up by default in `contracts` and create `contracts/SimpleNFT.sol`:
+
+```bash
+touch contracts/SimpleNFT.sol
+```
+
+Create a minimal NFT contract sufficient for demonstrating bridging:
+
+#include_code simple_nft /docs/examples/tutorials/token_bridge_contract/contracts/SimpleNFT.sol solidity
+
+### Create the NFT Portal
+
+The NFT Portal has more code, so build it step-by-step. Create `contracts/NFTPortal.sol`:
+
+```bash
+touch contracts/NFTPortal.sol
+```
+
+Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
+
+#include_code portal_setup /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol solidity
+
+The core logic is similar to the L2 logic. `depositToAztec` calls the `Inbox` canonical contract to send a message to Aztec, and `withdraw` calls the `Outbox` contract.
+
+Add these two functions with explanatory comments:
+
+#include_code portal_deposit_and_withdraw /docs/examples/tutorials/token_bridge_contract/contracts/NFTPortal.sol solidity
+
+The portal handles two flows:
+- **depositToAztec**: Locks NFT on L1, sends message to L2
+- **withdraw**: Verifies L2 message, unlocks NFT on L1
+
+
+### Compile
+
+Let's make sure everything compiles:
+
+```bash
+npx hardhat compile
+```
+
+You should see successful compilation of both contracts!
+
+## Part 4: Compiling, Deploying, and Testing
+
+Now deploy everything and test the full flow. This will help you understand how everything fits together.
+
+Delete the placeholders in `scripts` and create `index.ts`:
+
+```bash
+touch scripts/index.ts
+```
+
+This script will implement the user flow.
+
+:::warning Testnet
+
+This section assumes you're working locally using Sandbox. For the testnet, you need to account for some things:
+
+- Your clients need to point to some Sepolia Node and to the public Aztec Full Node
+- You need to [deploy your own Aztec accounts](../../guides/aztec-js/how_to_create_account.md)
+- You need to pay fees in some other way. Learn how in the [fees guide](../../guides/aztec-js/how_to_pay_fees.md)
+
+:::
+
+
+### Deploying and Initializing
+
+First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
+
+#include_code setup /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
+
+#include_code deploy_l1_contracts /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+Now deploy the L2 contracts. Thanks to the TypeScript bindings generated with `aztec codegen`, deployment is straightforward:
+
+#include_code deploy_l2_contracts /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+Now that you have the L2 bridge's contract address, initialize the L1 bridge:
+
+#include_code initialize_portal /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+The L2 contracts were already initialized when you deployed them, but you still need to:
+
+- Tell the L2 bridge about Ethereum's portal address (by calling `set_portal` on the bridge)
+- Tell the L2 NFT contract who the minter is (by calling `set_minter` on the L2 NFT contract)
+
+Complete these initialization steps:
+
+#include_code initialize_l2_bridge /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+This completes the setup. It's a lot of configuration, but you're dealing with four contracts across two chains.
+
+
+### L1 → L2 Flow
+
+Now for the main flow. Mint a CryptoPunk on L1, deposit it to Aztec, and claim it on Aztec. Put everything in the same script. To mint, call the L1 contract with `mint`, which will mint `tokenId = 0`:
+
+#include_code mint_nft_l1 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+To bridge, first approve the portal address to transfer the NFT, then transfer it by calling `depositToAztec`:
+
+#include_code deposit_to_aztec /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../concepts/communication/cross_chain_calls.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
+
+Use viem to extract this information:
+
+#include_code get_message_leaf_index /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+This extracts the logs from the deposit and retrieves the leaf index. You can now claim it on L2. However, for security reasons, at least 2 blocks must pass before a message can be claimed on L2. If you called `claim` on the L2 contract immediately, it would return "no message available".
+
+Add a utility function to mine two blocks (it deploys a contract with a random salt):
+
+#include_code mine_blocks /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+Now claim the message on L2:
+
+#include_code claim_on_l2 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+### L2 → L1 Flow
+
+Great! You can expand the L2 contract to add features like NFT transfers. For now, exit the NFT on L2 and redeem it on L1. Mine two blocks because of `DelayedMutable`:
+
+#include_code exit_from_l2 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use the utility `computeL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
+
+#include_code get_withdrawal_witness /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
+
+#include_code withdraw_on_l1 /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
+
+You can now try the whole flow with:
+
+```typescript
+npx hardhat run scripts/index.ts --network localhost
+```
+
+## What You Built
+
+A complete private NFT bridge with:
+
+1. **L1 Contracts** (Solidity)
+   - `SimpleNFT`: Basic ERC721 for testing
+   - `NFTPortal`: Locks/unlocks NFTs and handles L1↔L2 messaging
+
+2. **L2 Contracts** (Noir)
+   - `NFTPunk`: Private NFT with encrypted ownership using `PrivateSet`
+   - `NFTBridge`: Claims L1 messages and mints NFTs privately
+
+3. **Full Flow**
+   - Mint NFT on L1
+   - Deploy portal and bridge
+   - Lock NFT on L1 → message sent to L2
+   - Claim on L2 → private NFT minted
+   - Later: Burn on L2 → message to L1 → unlock
+
+## Next Steps
+
+- Add a web frontend for easy bridging
+- Implement batch bridging for multiple NFTs
+- Add metadata bridging
+- Write comprehensive tests
+- Add proper access controls
+
+:::tip Learn More
+- [Portal reference](../../reference/smart_contract_reference/portals/inbox.md)
+- [Notes concepts page](../../concepts/storage/notes.md)
+- [Cross-chain messaging](../../concepts/communication/cross_chain_calls.md)
+:::

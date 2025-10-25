@@ -330,25 +330,6 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
 }
 
 /**
- * @brief Create a mock PG proof that has the correct structure but is not in general valid
- *
- */
-template <typename Flavor, class PublicInputs> HonkProof create_mock_pg_proof()
-{
-    // The first part of a PG proof is an Oink proof
-    HonkProof proof = create_mock_oink_proof<Flavor, PublicInputs>();
-
-    // Populate mock perturbator coefficients
-    populate_field_elements<fr>(proof, CONST_PG_LOG_N, /*value=*/fr::zero());
-
-    // Populate mock combiner quotient coefficients
-    size_t NUM_COEFF_COMBINER_QUOTIENT = computed_batched_extended_length<Flavor>() - NUM_INSTANCES;
-    populate_field_elements<fr>(proof, NUM_COEFF_COMBINER_QUOTIENT, /*value=*/fr::zero());
-
-    return proof;
-}
-
-/**
  * @brief Create a mock merge proof which has the correct structure but is not necessarily valid
  *
  * @return Goblin::MergeProof
@@ -395,7 +376,7 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    SumcheckClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
     proof = civc_proof.to_field_elements();
 
     return proof;
@@ -655,9 +636,9 @@ template std::pair<HonkProof, std::shared_ptr<UltraZKFlavor::VerificationKey>> c
 template std::pair<HonkProof, std::shared_ptr<UltraRollupFlavor::VerificationKey>>
 construct_honk_proof_for_simple_circuit<UltraRollupFlavor>(size_t num_public_inputs);
 
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
-template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
+// template HonkProof create_mock_pg_proof<MegaFlavor, stdlib::recursion::honk::HidingKernelIO<MegaCircuitBuilder>>();
 
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>(
     bool);

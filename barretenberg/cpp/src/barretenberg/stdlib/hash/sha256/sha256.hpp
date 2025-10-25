@@ -88,7 +88,7 @@ template <typename Builder> class SHA256 {
         sparse_value(const field_ct& in = 0)
         {
             normal = in;
-            if (normal.witness_index == IS_CONSTANT) {
+            if (normal.is_constant()) {
                 sparse = field_ct(in.get_context(),
                                   bb::fr(numeric::map_into_sparse_form<16>(uint256_t(in.get_value()).data[0])));
             }

@@ -1,6 +1,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import {
   type EmpireSlashingProposerContract,
   type ExtendedViemWalletClient,

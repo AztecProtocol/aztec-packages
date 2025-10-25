@@ -55,6 +55,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
+            "showValues": false,
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -101,14 +102,16 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.1.0-89781",
+      "pluginVersion": "12.3.0-18356121373.patch4",
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rollup_pending_block_number{network=\"$network\"}",
-          "legendFormat": "Pending block height ($network)",
+          "exemplar": false,
+          "expr": "max(rollup_pending_block_number) by (network)",
+          "instant": false,
+          "legendFormat": "Pending block height - {{network}}",
           "range": true,
-          "refId": "A"
+          "refId": "Pending Block Height"
         },
         {
           "datasource": {
@@ -116,19 +119,19 @@
             "uid": "grafanacloud-prom"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "rollup_proven_block_number{network=\"$network\"}",
+          "editorMode": "code",
+          "expr": "max(rollup_proven_block_number) by (network)",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Proven block height",
+          "legendFormat": "Proven block height - {{network}}",
           "range": true,
           "refId": "B",
           "useBackend": false
         }
       ],
-      "title": "Pending Block Number",
+      "title": "Pending & Proven Block Number",
       "type": "timeseries"
     },
     {
@@ -165,6 +168,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
+            "showValues": false,
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -211,11 +215,13 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.1.0-89781",
+      "pluginVersion": "12.3.0-18356121373.patch4",
       "targets": [
         {
-          "expr": "rollup_pending_block_number{network=\"$network\"}",
+          "editorMode": "code",
+          "expr": "rollup_pending_block_number",
           "legendFormat": "{{network}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -256,6 +262,7 @@
               "type": "linear"
             },
             "showPoints": "auto",
+            "showValues": false,
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -302,11 +309,13 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.1.0-89781",
+      "pluginVersion": "12.3.0-18356121373.patch4",
       "targets": [
         {
-          "expr": "rollup_proven_block_number{network=\"$network\"}",
+          "editorMode": "code",
+          "expr": "rollup_proven_block_number",
           "legendFormat": "{{network}}",
+          "range": true,
           "refId": "A"
         }
       ],
@@ -316,18 +325,18 @@
   ],
   "preload": false,
   "refresh": "",
-  "schemaVersion": 41,
+  "schemaVersion": 42,
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-6h",
+    "from": "now-3h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Alpha Testnet Block Height Monitor",
-  "uid": "testnet-monitor",
-  "version": 5
+  "title": "Aztec Testnet Block Height Monitor",
+  "uid": "alpha-testnet-monitor",
+  "version": 11
 }

@@ -6,10 +6,8 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import type {
-  Tx,
   TxExecutionRequest,
   TxHash,
-  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
@@ -28,8 +26,6 @@ describe('Contract Class', () => {
   let accountAddress: CompleteAddress;
   let contractInstance: ContractInstanceWithAddress;
 
-  const mockTx = { type: 'Tx' } as any as Tx;
-  const mockTxProvingResult = { type: 'TxProvingResult', toTx: () => mockTx } as any as TxProvingResult;
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
@@ -142,7 +138,7 @@ describe('Contract Class', () => {
     wallet.sendTx.mockResolvedValue(mockTxHash);
     wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
-    wallet.proveTx.mockResolvedValue(mockTxProvingResult);
+    wallet.sendTx.mockResolvedValue(mockTxHash);
   });
 
   it('should create and send a contract method tx', async () => {
@@ -156,7 +152,6 @@ describe('Contract Class', () => {
     expect(txHash).toBe(mockTxHash);
     expect(receipt).toBe(mockTxReceipt);
     expect(wallet.sendTx).toHaveBeenCalledTimes(1);
-    expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
 
   it('should call view on a utility function', async () => {

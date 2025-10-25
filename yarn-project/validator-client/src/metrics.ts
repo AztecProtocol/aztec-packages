@@ -74,9 +74,10 @@ export class ValidatorMetrics {
   }
 
   public recordFailedReexecution(proposal: BlockProposal) {
+    const proposer = proposal.getSender();
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_PROPOSER]: proposal.getSender().toString(),
+      [Attributes.BLOCK_PROPOSER]: proposer?.toString() ?? 'unknown',
     });
   }
 

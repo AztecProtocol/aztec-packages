@@ -91,6 +91,7 @@ struct GlobalBenchStatsContainer {
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
+    void serialize_aggregate_data_json(std::ostream&) const;
 
     // Normalize the raw benchmark data into a clean structure for display
     AggregateData aggregate() const;

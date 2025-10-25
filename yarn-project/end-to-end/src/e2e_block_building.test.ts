@@ -1,23 +1,18 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  type AztecNode,
-  BatchCall,
-  ContractDeployer,
-  ContractFunctionInteraction,
-  Fr,
-  type Logger,
-  TxStatus,
-  type Wallet,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall, ContractFunctionInteraction, type DeployOptions } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
@@ -26,7 +21,7 @@ import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server'
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
-import { TestWallet } from '@aztec/test-wallet/server';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -38,7 +33,7 @@ describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
-  let wallet: Wallet;
+  let wallet: TestWallet;
 
   let ownerAddress: AztecAddress;
   let minterAddress: AztecAddress;
@@ -54,8 +49,6 @@ describe('e2e_block_building', () => {
   });
 
   describe('multi-txs block', () => {
-    const artifact = StatefulTestContractArtifact;
-
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
       let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
@@ -125,7 +118,7 @@ describe('e2e_block_building', () => {
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove({ from: ownerAddress }));
+      const provenTxs = await asyncMap(methods, method => proveInteraction(wallet, method, { from: ownerAddress }));
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, {
@@ -144,22 +137,23 @@ describe('e2e_block_building', () => {
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
-      const deployer = new ContractDeployer(artifact, wallet);
 
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, i + 1));
+      const methods = times(TX_COUNT, i => StatefulTestContract.deploy(wallet, ownerAddress, i + 1));
       const provenTxs = [];
+      const addresses = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        provenTxs.push(
-          await methods[i].prove({
-            from: ownerAddress,
-            contractAddressSalt: new Fr(BigInt(i + 1)),
-            skipClassPublication: true,
-            skipInstancePublication: true,
-          }),
-        );
+        const options: DeployOptions = {
+          from: ownerAddress,
+          contractAddressSalt: new Fr(BigInt(i + 1)),
+          skipClassPublication: true,
+          skipInstancePublication: true,
+        };
+        const instance = await methods[i].getInstance(options);
+        addresses.push(instance.address);
+        provenTxs.push(await proveInteraction(wallet, methods[i], options));
       }
 
       // Send them simultaneously to be picked up by the sequencer
@@ -176,7 +170,7 @@ describe('e2e_block_building', () => {
       // Assert all contracts got deployed
       const isContractDeployed = async (address: AztecAddress) =>
         !!(await wallet.getContractMetadata(address)).contractInstance;
-      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
+      const areDeployed = await Promise.all(addresses.map(a => isContractDeployed(a)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
 
@@ -194,7 +188,7 @@ describe('e2e_block_building', () => {
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        provenTxs.push(await methods[i].prove({ from: ownerAddress }));
+        provenTxs.push(await proveInteraction(wallet, methods[i], { from: ownerAddress }));
       }
 
       // Send them simultaneously to be picked up by the sequencer
@@ -262,12 +256,9 @@ describe('e2e_block_building', () => {
         [minterAddress, true],
       );
 
-      const deployerTx = await deployMethod.prove({ from: ownerAddress });
-      const callInteractionTx = await callInteraction.prove({ from: ownerAddress });
-
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        deployerTx.send().wait(),
-        callInteractionTx.send().wait(),
+        deployMethod.send({ from: ownerAddress }).wait(),
+        callInteraction.send({ from: ownerAddress }).wait(),
       ]);
 
       expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
@@ -438,7 +429,7 @@ describe('e2e_block_building', () => {
       const valuesAsArray = Object.values(values);
 
       const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, ownerAddress, true);
-      const tx = await action.prove({ from: ownerAddress });
+      const tx = await proveInteraction(wallet, action, { from: ownerAddress });
       const rct = await tx.send().wait();
 
       // compare logs

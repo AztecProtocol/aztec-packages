@@ -4,6 +4,7 @@ import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/Av
 import { TestExecutorMetrics, defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
@@ -15,19 +16,30 @@ describe.skip('AVM proven gadgets test', () => {
   const logger = createLogger('avm-proven-gadgets-test');
   let tester: AvmProvingTester;
   const metrics = new TestExecutorMetrics();
+  let worldStateService: NativeWorldStateService;
 
   const sender = AztecAddress.fromNumber(42);
   let avmGadgetsTestContract: ContractInstanceWithAddress;
 
   beforeEach(async () => {
     // FULL PROVING! Not check-circuit.
-    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ false, /*globals=*/ defaultGlobals(), metrics);
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(
+      worldStateService,
+      /*checkCircuitOnly=*/ false,
+      /*globals=*/ defaultGlobals(),
+      metrics,
+    );
     tester.setMetricsPrefix(`AvmGadgetsTest contract tests`);
     avmGadgetsTestContract = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       sender,
       /*contractArtifact=*/ AvmGadgetsTestContractArtifact,
     );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   afterAll(() => {

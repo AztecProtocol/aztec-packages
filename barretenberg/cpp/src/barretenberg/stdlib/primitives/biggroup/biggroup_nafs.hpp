@@ -88,7 +88,7 @@ std::vector<field_t<C>> element<C, Fq, Fr, G>::convert_wnaf_values_to_witnesses(
         } else {
             offset_wnaf_entry = wnaf_window_size - wnaf_magnitude - 1;
         }
-        field_t<C> wnaf_entry(witness_t<C>(builder, offset_wnaf_entry));
+        field_t<C> wnaf_entry(witness_ct(builder, offset_wnaf_entry));
 
         // In some cases we may want to skip range constraining the wnaf entries. For example when we use these
         // entries to lookup in a ROM or regular table, it implicitly enforces the range constraint.
@@ -203,8 +203,8 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
         builder, &wnaf_values[0], is_negative, num_rounds_excluding_stagger_bits, range_constrain_wnaf);
 
     // Compute and constrain skews
-    bool_ct negative_skew(witness_t<Builder>(builder, is_negative ? 0 : skew), /*use_range_constraint*/ true);
-    bool_ct positive_skew(witness_t<Builder>(builder, is_negative ? skew : 0), /*use_range_constraint*/ true);
+    bool_ct negative_skew(witness_ct(builder, is_negative ? 0 : skew), /*use_range_constraint*/ true);
+    bool_ct positive_skew(witness_ct(builder, is_negative ? skew : 0), /*use_range_constraint*/ true);
 
     // Enforce that both positive_skew, negative_skew are not set at the same time
     bool_ct both_skews_cannot_be_one = !(positive_skew & negative_skew);
@@ -212,7 +212,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
         bool_ct(builder, true), "biggroup_nafs: both positive and negative skews cannot be set at the same time");
 
     // Initialize stagger witness
-    field_t<C> stagger_fragment = witness_t<C>(builder, first_fragment);
+    field_t<C> stagger_fragment = witness_ct(builder, first_fragment);
 
     // We only range constrain the stagger fragment if range_constrain_wnaf is set. This is because in some cases
     // we may use the stagger fragment to lookup in a ROM/regular table, which implicitly enforces the range constraint.
@@ -401,180 +401,68 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
 }
 
 template <typename C, class Fq, class Fr, class G>
-template <size_t max_num_bits, size_t WNAF_SIZE>
-std::vector<field_t<C>> element<C, Fq, Fr, G>::compute_wnaf(const Fr& scalar)
-{
-    C* ctx = scalar.context;
-    uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
-    uint256_t scalar_multiplier = scalar_multiplier_512.lo;
-
-    constexpr size_t num_bits = (max_num_bits == 0) ? (Fr::modulus.get_msb() + 1) : (max_num_bits);
-    constexpr size_t num_rounds = ((num_bits + WNAF_SIZE - 1) / WNAF_SIZE);
-
-    uint64_t wnaf_values[num_rounds] = { 0 };
-    bool skew = false;
-    bb::wnaf::fixed_wnaf<num_bits, 1, WNAF_SIZE>(&scalar_multiplier.data[0], &wnaf_values[0], skew, 0);
-
-    std::vector<field_t<C>> wnaf_entries;
-    for (size_t i = 0; i < num_rounds; ++i) {
-        bool predicate = bool((wnaf_values[i] >> 31U) & 1U);
-        uint64_t offset_entry;
-        if (!predicate) {
-            offset_entry = (1ULL << (WNAF_SIZE - 1)) + (wnaf_values[i] & 0xffffff);
-        } else {
-            offset_entry = (1ULL << (WNAF_SIZE - 1)) - 1 - (wnaf_values[i] & 0xffffff);
-        }
-        field_t<C> entry(witness_t<C>(ctx, offset_entry));
-        ctx->create_new_range_constraint(entry.witness_index, 1ULL << (WNAF_SIZE), "biggroup_nafs");
-
-        wnaf_entries.emplace_back(entry);
-    }
-
-    // add skew
-    wnaf_entries.emplace_back(witness_t<C>(ctx, skew));
-    ctx->create_new_range_constraint(wnaf_entries[wnaf_entries.size() - 1].witness_index, 1, "biggroup_nafs");
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/664)
-    // VALIDATE SUM DOES NOT OVERFLOW P
-
-    // validate correctness of wNAF
-    if constexpr (!Fr::is_composite) {
-        std::vector<Fr> accumulators;
-        for (size_t i = 0; i < num_rounds; ++i) {
-            Fr entry = wnaf_entries[wnaf_entries.size() - 2 - i];
-            entry *= 2;
-            // entry -= 15;
-            entry *= static_cast<Fr>(uint256_t(1) << (i * WNAF_SIZE));
-            accumulators.emplace_back(entry);
-        }
-        accumulators.emplace_back(wnaf_entries[wnaf_entries.size() - 1] * -1);
-        uint256_t negative_offset(0);
-        for (size_t i = 0; i < num_rounds; ++i) {
-            negative_offset += uint256_t((1ULL << WNAF_SIZE) - 1) * (uint256_t(1) << (i * WNAF_SIZE));
-        }
-        accumulators.emplace_back(-Fr(negative_offset));
-        Fr accumulator_result = Fr::accumulate(accumulators);
-        scalar.assert_equal(accumulator_result);
-    } else {
-        // If Fr is a non-native field element, we can't just accumulate the wnaf entries into a single value,
-        // as we could overflow the circuit modulus
-        //
-        // We add the first 34 wnaf entries into a 'low' 136-bit accumulator (136 = 2 68 bit limbs)
-        // We add the remaining wnaf entries into a 'high' accumulator
-        // We can then directly construct a Fr element from the accumulators.
-        // However we cannot underflow our accumulators, and our wnafs represent negative and positive values
-        // The raw value of each wnaf value is contained in the range [0, 15], however these values represent integers
-        // [-15, -13, -11, ..., 13, 15]
-        //
-        // To map from the raw value to the actual value, we must compute `value * 2 - 15`
-        // However, we do not subtract off the -15 term when constructing our low and high accumulators. Instead of
-        // multiplying by two when accumulating we simply add the accumulated value to itself. This way it automatically
-        // updates multiplicative constants without computing new witnesses. This ensures the low accumulator will not
-        // underflow
-        //
-        // Once we have reconstructed an Fr element out of our accumulators,
-        // we ALSO construct an Fr element from the constant offset terms we left out
-        // We then subtract off the constant term and call `Fr::assert_is_in_field` to reduce the value modulo
-        // Fr::modulus
-        const auto reconstruct_half_wnaf = [](field_t<C>* wnafs, const size_t half_round_length) {
-            std::vector<field_t<C>> half_accumulators;
-            for (size_t i = 0; i < half_round_length; ++i) {
-                field_t<C> entry = wnafs[half_round_length - 1 - i];
-                entry *= static_cast<field_t<C>>(uint256_t(1) << (i * 4));
-                half_accumulators.emplace_back(entry);
-            }
-            return field_t<C>::accumulate(half_accumulators);
-        };
-        const size_t midpoint = num_rounds - (Fr::NUM_LIMB_BITS * 2) / WNAF_SIZE;
-        auto hi_accumulators = reconstruct_half_wnaf(&wnaf_entries[0], midpoint);
-        auto lo_accumulators = reconstruct_half_wnaf(&wnaf_entries[midpoint], num_rounds - midpoint);
-        uint256_t negative_lo(0);
-        uint256_t negative_hi(0);
-        for (size_t i = 0; i < midpoint; ++i) {
-            negative_hi += uint256_t(15) * (uint256_t(1) << (i * 4));
-        }
-        for (size_t i = 0; i < (num_rounds - midpoint); ++i) {
-            negative_lo += uint256_t(15) * (uint256_t(1) << (i * 4));
-        }
-        BB_ASSERT_EQ((num_rounds - midpoint) * 4, 136U);
-        // If skew == 1 lo_offset = 0, else = 0xf...f
-        field_t<C> lo_offset = (-field_t<C>(bb::fr(negative_lo)))
-                                   .madd(wnaf_entries[wnaf_entries.size() - 1], field_t<C>(bb::fr(negative_lo)))
-                                   .normalize();
-        Fr offset = Fr(lo_offset, field_t<C>(bb::fr(negative_hi)) + wnaf_entries[wnaf_entries.size() - 1], true);
-        Fr reconstructed = Fr(lo_accumulators, hi_accumulators, true);
-        reconstructed = (reconstructed + reconstructed) - offset;
-        reconstructed.reduce_mod_target_modulus();
-        reconstructed.assert_equal(scalar);
-    }
-
-    // Set tags of wnaf_entries to the original scalar tag
-    const auto original_tag = scalar.get_origin_tag();
-    for (auto& entry : wnaf_entries) {
-        entry.set_origin_tag(original_tag);
-    }
-    return wnaf_entries;
-}
-
-template <typename C, class Fq, class Fr, class G>
 std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, const size_t max_num_bits)
 {
-    // We are not handling the case of odd bit lengths here.
-    BB_ASSERT_EQ(max_num_bits % 2, 0U);
-    // Apply range constraint gates instead of arithmetic gates to constrain boolean witnesses
-    static constexpr bool use_bool_range_constraint = true;
-
+    // Get the circuit builder
     C* ctx = scalar.context;
-    uint512_t scalar_multiplier_512 = uint512_t(uint256_t(scalar.get_value()) % Fr::modulus);
+
+    // To compute the NAF representation, we first reduce the scalar modulo r (the scalar field modulus).
+    uint512_t scalar_multiplier_512 = uint512_t(scalar.get_value()) % uint512_t(Fr::modulus);
     uint256_t scalar_multiplier = scalar_multiplier_512.lo;
-    // NAF can't handle 0
+
+    // Number of rounds is either the max_num_bits provided, or the full size of the scalar field modulus.
+    // If the scalar is zero, we use the full size of the scalar field modulus as we use scalar = r in this case.
+    const size_t num_rounds = (max_num_bits == 0 || scalar_multiplier == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+
+    // NAF can't handle 0 so we set scalar = r in this case.
     if (scalar_multiplier == 0) {
         scalar_multiplier = Fr::modulus;
     }
 
-    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
+    // NAF representation consists of num_rounds bits and a skew bit.
     std::vector<bool_ct> naf_entries(num_rounds + 1);
 
-    // if boolean is false => do NOT flip y
-    // if boolean is true => DO flip y
-    // first entry is skew. i.e. do we subtract one from the final result or not
-    naf_entries[num_rounds] = bool_ct(witness_t(ctx, !scalar_multiplier.get_bit(0)), use_bool_range_constraint);
-    scalar_multiplier += uint256_t(!scalar_multiplier.get_bit(0));
+    // If the scalar is even, we set the skew flag to true and add 1 to the scalar.
+    // Sidenote: we apply range constraints to the boolean witnesses instead of full 1-bit range gates.
+    const bool skew_value = !scalar_multiplier.get_bit(0);
+    scalar_multiplier += uint256_t(static_cast<uint64_t>(skew_value));
+    naf_entries[num_rounds] = bool_ct(witness_ct(ctx, skew_value), /*use_range_constraint*/ true);
 
     // We need to manually propagate the origin tag
     naf_entries[num_rounds].set_origin_tag(scalar.get_origin_tag());
 
     for (size_t i = 0; i < num_rounds - 1; ++i) {
-        bool next_entry = scalar_multiplier.get_bit(i + 1);
-        // if the next entry is false, we need to flip the sign of the current entry. i.e. make negative
+        // If the next entry is false, we need to flip the sign of the current entry (naf_entry := (1 - next_bit)).
         // Apply a basic range constraint per bool, and not a full 1-bit range gate. Results in ~`num_rounds`/4 gates
         // per scalar.
-        bool_ct bit(witness_t<C>(ctx, !next_entry), use_bool_range_constraint);
-
-        naf_entries[num_rounds - i - 1] = bit;
+        const bool next_entry = scalar_multiplier.get_bit(i + 1);
+        naf_entries[num_rounds - i - 1] = bool_ct(witness_ct(ctx, !next_entry), /*use_range_constraint*/ true);
 
         // We need to manually propagate the origin tag
         naf_entries[num_rounds - i - 1].set_origin_tag(scalar.get_origin_tag());
     }
-    naf_entries[0] = bool_ct(ctx, false); // most significant entry is always true
+
+    // The most significant NAF entry is always (+1) as we are working with scalars < 2^{max_num_bits}.
+    // Recall that true represents (-1) and false represents (+1).
+    naf_entries[0] = bool_ct(witness_ct(ctx, false), /*use_range_constraint*/ true);
+    naf_entries[0].set_origin_tag(scalar.get_origin_tag());
 
     // validate correctness of NAF
     if constexpr (!Fr::is_composite) {
         std::vector<Fr> accumulators;
         for (size_t i = 0; i < num_rounds; ++i) {
             // bit = 1 - 2 * naf
-            Fr entry(naf_entries[naf_entries.size() - 2 - i]);
+            Fr entry(naf_entries[num_rounds - i - 1]);
             entry *= -2;
             entry += 1;
             entry *= static_cast<Fr>(uint256_t(1) << (i));
             accumulators.emplace_back(entry);
         }
-        accumulators.emplace_back(Fr(naf_entries[naf_entries.size() - 1]) * -1); // skew
+        accumulators.emplace_back(Fr(naf_entries[num_rounds]) * -1); // skew
         Fr accumulator_result = Fr::accumulate(accumulators);
         scalar.assert_equal(accumulator_result);
     } else {
         const auto reconstruct_half_naf = [](bool_ct* nafs, const size_t half_round_length) {
-            // Q: need constraint to start from zero?
             field_t<C> negative_accumulator(0);
             field_t<C> positive_accumulator(0);
             for (size_t i = 0; i < half_round_length; ++i) {
@@ -584,16 +472,14 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             }
             return std::make_pair(positive_accumulator, negative_accumulator);
         };
-        const size_t midpoint =
-            (num_rounds > Fr::NUM_LIMB_BITS * 2) ? num_rounds - Fr::NUM_LIMB_BITS * 2 : num_rounds / 2;
 
         std::pair<field_t<C>, field_t<C>> hi_accumulators;
         std::pair<field_t<C>, field_t<C>> lo_accumulators;
 
         if (num_rounds > Fr::NUM_LIMB_BITS * 2) {
+            const size_t midpoint = num_rounds - (Fr::NUM_LIMB_BITS * 2);
             hi_accumulators = reconstruct_half_naf(&naf_entries[0], midpoint);
             lo_accumulators = reconstruct_half_naf(&naf_entries[midpoint], num_rounds - midpoint);
-
         } else {
             // If the number of rounds is smaller than Fr::NUM_LIMB_BITS, the high bits of the resulting Fr element are
             // 0.
@@ -602,6 +488,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
             hi_accumulators = std::make_pair(zero, zero);
         }
 
+        // Add the skew bit to the low accumulator's negative part
         lo_accumulators.second = lo_accumulators.second + field_t<C>(naf_entries[num_rounds]);
 
         Fr reconstructed_positive = Fr(lo_accumulators.first, hi_accumulators.first);
@@ -609,6 +496,7 @@ std::vector<bool_t<C>> element<C, Fq, Fr, G>::compute_naf(const Fr& scalar, cons
         Fr accumulator = reconstructed_positive - reconstructed_negative;
         accumulator.assert_equal(scalar);
     }
+
     // Propagate tags to naf
     const auto original_tag = scalar.get_origin_tag();
     for (auto& naf_entry : naf_entries) {

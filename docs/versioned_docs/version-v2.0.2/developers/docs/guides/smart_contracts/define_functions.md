@@ -5,7 +5,7 @@ tags: [functions, smart-contracts]
 description: Learn how to define functions in your Aztec smart contracts.
 ---
 
-There are several types of functions in Aztec contracts that correspond the the different execution environments in which they run. These include:
+There are several types of functions in Aztec contracts that correspond the different execution environments in which they run. These include:
 
 - private functions
 - public functions

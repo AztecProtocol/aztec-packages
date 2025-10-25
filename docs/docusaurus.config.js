@@ -45,7 +45,7 @@ const config = {
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: process.env.ENV === "dev" ? "warn" : "throw",
-    }
+    },
   },
   themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
@@ -64,7 +64,6 @@ const config = {
           },
           routeBasePath: "/",
           include: ["**/*.{md,mdx}"],
-          exclude: ["protocol-specs/**"],
           // Don't show latest since nightlies are published
           includeCurrentVersion: process.env.ENV === "dev",
           // There should be 2 versions, nightly and stable
@@ -118,7 +117,6 @@ const config = {
         docsDir: `versioned_docs/version-${versions[0]}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        ignoreFiles: [`versioned_docs/**/protocol-specs/*`],
         version: versions[0],
         pathTransformation: {
           ignorePaths: ["docs"],

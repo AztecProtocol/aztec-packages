@@ -206,13 +206,13 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders should also have index 1 = offset + 1
-      // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 0 since they were built using the same tag
+      // Next 4 senders should also have index 0 = offset + 0
+      // Last 5 senders should have index 1 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
@@ -244,10 +244,21 @@ describe('PXEOracleInterface', () => {
       );
 
       const getTaggingSecretsIndexesAsSenderForSenders = () =>
-        Promise.all(secrets.map(secret => taggingDataProvider.getNextIndexAsSender(secret)));
+        Promise.all(secrets.map(secret => taggingDataProvider.getLastUsedIndexesAsSender(secret)));
 
       const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(indexesAsSender).toStrictEqual([
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+      ]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
@@ -263,7 +274,7 @@ describe('PXEOracleInterface', () => {
       }
 
       let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // Only 1 window is obtained for each sender
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
@@ -285,7 +296,7 @@ describe('PXEOracleInterface', () => {
       }
 
       indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([10, 10, 10, 10, 10, 11, 11, 11, 11, 11]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
@@ -313,13 +324,13 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // First sender should have 2 logs, but keep index 6 since they were built using the same tag
-      // Next 4 senders should also have index 6 = offset + 1
-      // Last 5 senders should have index 7 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 5 since they were built using the same tag
+      // Next 4 senders should also have index 5 = offset
+      // Last 5 senders should have index 6 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
+      expect(indexes).toEqual([5, 5, 5, 5, 5, 6, 6, 6, 6, 6]);
 
       // We should have called the node 2 times:
       // 2 times: first time during initial request, second time after pushing the edge of the window once
@@ -344,8 +355,8 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // Increase our indexes to 2
-      await taggingDataProvider.setNextIndexesAsRecipient(secrets.map(secret => ({ secret, index: 2 })));
+      // Set last used indexes to 1 (so next scan starts at 2)
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index: 1 })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -353,13 +364,13 @@ describe('PXEOracleInterface', () => {
       // since the window starts at Math.max(0, 2 - window_size) = 0
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
-      // First sender should have 2 logs, but keep index 2 since they were built using the same tag
-      // Next 4 senders should also have index 2 = tagIndex + 1
-      // Last 5 senders should have index 3 = tagIndex + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
+      // Next 4 senders should also have index 1 = tagIndex
+      // Last 5 senders should have index 2 = tagIndex + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
+      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once
@@ -384,10 +395,10 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
-      // should be triggered.
+      // We set the last used indexes to WINDOW_HALF_SIZE so that next scan starts at WINDOW_HALF_SIZE + 1,
+      // which is outside the window, and for this reason no updates should be triggered.
       const index = WINDOW_HALF_SIZE + 1;
-      await taggingDataProvider.setNextIndexesAsRecipient(secrets.map(secret => ({ secret, index })));
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(secrets.map(secret => ({ secret, index })));
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
@@ -395,8 +406,8 @@ describe('PXEOracleInterface', () => {
       // be skipped
       await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS / 2);
 
-      // Indexes should remain where we set them (window_size + 1)
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // Indexes should remain where we set them (window_size)
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
@@ -423,7 +434,7 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      await taggingDataProvider.setNextIndexesAsRecipient(
+      await taggingDataProvider.setLastUsedIndexesAsRecipient(
         secrets.map(secret => ({ secret, index: WINDOW_HALF_SIZE + 2 })),
       );
 
@@ -443,13 +454,13 @@ describe('PXEOracleInterface', () => {
 
       await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
-      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
-      // Next 4 senders should also have index 1 = offset + 1
-      // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getNextIndexesAsRecipient(secrets);
+      // First sender should have 2 logs, but keep index 0 since they were built using the same tag
+      // Next 4 senders should also have index 0 = offset
+      // Last 5 senders should have index 1 = offset + 1
+      const indexes = await taggingDataProvider.getLastUsedIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexes).toEqual([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]);
 
       // We should have called the node 2 times:
       // first time during initial request, second time after pushing the edge of the window once
@@ -522,9 +533,11 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was stored
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
-      expect(notes).toHaveLength(1);
-      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+      const notes = await noteDataProvider.getNotes({ contractAddress });
+
+      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
+      expect(matchingNotes).toHaveLength(1);
+      expect(matchingNotes[0].noteHash.equals(noteHash)).toBe(true);
     });
 
     it('should throw if note does not exist in note hash tree', async () => {
@@ -572,8 +585,9 @@ describe('PXEOracleInterface', () => {
       );
 
       // Verify note was removed
-      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, contractAddress });
-      expect(notes).toHaveLength(0);
+      const notes = await noteDataProvider.getNotes({ contractAddress });
+      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
+      expect(matchingNotes).toHaveLength(0);
     });
 
     // Verifies that notes are only accepted from blocks that have been synced by PXE. We mock
@@ -643,12 +657,12 @@ describe('PXEOracleInterface', () => {
 
       // Verify note was stored and not removed
       const notes = await noteDataProvider.getNotes({
-        recipient: recipient.address,
         contractAddress,
         status: NoteStatus.ACTIVE,
       });
-      expect(notes).toHaveLength(1);
-      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+      const matchingNotes = notes.filter(n => n.recipient.equals(recipient.address));
+      expect(matchingNotes).toHaveLength(1);
+      expect(matchingNotes[0].noteHash.equals(noteHash)).toBe(true);
     });
   });
 
@@ -890,8 +904,9 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify the note was removed by checking storage
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
-      expect(remainingNotes).toHaveLength(0);
+      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
+      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
+      expect(matchingNotes).toHaveLength(0);
 
       // Verify the note was removed by checking the spy
       expect(noteDataProvider.applyNullifiers).toHaveBeenCalledTimes(1);
@@ -911,9 +926,10 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
-      expect(remainingNotes).toHaveLength(1);
-      expect(remainingNotes[0]).toEqual(noteDao);
+      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
+      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
+      expect(matchingNotes).toHaveLength(1);
+      expect(matchingNotes[0]).toEqual(noteDao);
     });
 
     // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
@@ -940,9 +956,10 @@ describe('PXEOracleInterface', () => {
       await pxeOracleInterface.syncNoteNullifiers(contractAddress);
 
       // Verify note still exists
-      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
-      expect(remainingNotes).toHaveLength(1);
-      expect(remainingNotes[0]).toEqual(noteDao);
+      const remainingNotes = await noteDataProvider.getNotes({ contractAddress, status: NoteStatus.ACTIVE });
+      const matchingNotes = remainingNotes.filter(n => n.recipient.equals(recipient));
+      expect(matchingNotes).toHaveLength(1);
+      expect(matchingNotes[0]).toEqual(noteDao);
     });
 
     it('should search for notes from all accounts', async () => {

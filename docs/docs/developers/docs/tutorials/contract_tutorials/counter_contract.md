@@ -50,7 +50,7 @@ easy_private_state = { git="https://github.com/AztecProtocol/aztec-packages/", t
 Go to `main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
-#include_code setup /docs/examples/tutorials/counter_contract/src/main.nr raw
+#include_code setup /docs/examples/contracts/counter_contract/src/main.nr raw
 }
 ```
 
@@ -68,10 +68,10 @@ pub contract Counter {
 }
 ```
 
-#include_code imports /docs/examples/tutorials/counter_contract/src/main.nr rust
+#include_code imports /docs/examples/contracts/counter_contract/src/main.nr rust
 
-- `use aztec::macros::{functions::{initializer, private, utility}, storage::storage},`
-  Imports the macros needed to define function types (`initializer`, `private`, and `utility`) and the `storage` macro for declaring contract storage structures.
+- `use aztec::macros::{functions::{external, initializer}, storage::storage},`
+  Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
 
 - `protocol_types::{address::AztecAddress, traits::ToField},`
   Brings in `AztecAddress` (used to identify accounts/contracts) and traits for converting values to and from field elements, necessary for serialization and formatting inside Aztec.
@@ -86,7 +86,7 @@ pub contract Counter {
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-#include_code storage_struct /docs/examples/tutorials/counter_contract/src/main.nr rust
+#include_code storage_struct /docs/examples/contracts/counter_contract/src/main.nr rust
 
 ## Keep the counter private
 
@@ -94,17 +94,17 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-#include_code constructor /docs/examples/tutorials/counter_contract/src/main.nr rust
+#include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
 
-We have annotated this and other functions with `#[private]` which are ABI macros so the compiler understands it will handle private inputs.
+We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 
 ## Incrementing our counter
 
 Now let’s implement the `increment` function we defined in the first step.
 
-#include_code increment /docs/examples/tutorials/counter_contract/src/main.nr rust
+#include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
 
@@ -112,7 +112,7 @@ The `increment` function works very similarly to the `constructor`, but instead 
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-#include_code get_counter /docs/examples/tutorials/counter_contract/src/main.nr rust
+#include_code get_counter /docs/examples/contracts/counter_contract/src/main.nr rust
 
 This is a `utility` function which is used to obtain the counter information outside of a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
@@ -145,4 +145,4 @@ You can now use the artifact and/or the TS class in your Aztec.js!
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions and annotations like `#[private]`](../../concepts/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[external("private")]`](../../concepts/smart_contracts/functions/function_transforms.md#private-functions)

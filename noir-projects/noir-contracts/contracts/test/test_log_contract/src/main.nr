@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 pub contract TestLog {
     use aztec::{
         event::event_emission::{emit_event_in_private, emit_event_in_public},
-        macros::{events::event, functions::{private, public}, storage::storage},
+        macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::random::random,
         protocol_types::{address::AztecAddress, traits::FromField},
@@ -29,7 +29,7 @@ pub contract TestLog {
         example_set: PrivateSet<ValueNote, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
@@ -61,7 +61,7 @@ pub contract TestLog {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         emit_event_in_public(
             ExampleEvent0 { value0: preimages[0], value1: preimages[1] },
@@ -77,7 +77,7 @@ pub contract TestLog {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn emit_encrypted_events_nested(other: AztecAddress, num_nested_calls: u32) {
         // Safety: We use the following just as an arbitrary test value
         let random_value_0 = unsafe { random() };

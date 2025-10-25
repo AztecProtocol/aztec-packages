@@ -11,7 +11,6 @@ import {
   createSharedTypesCompiler,
   createSyncApiCompiler,
   createAsyncApiCompiler,
-  createNativeApiCompiler,
   type SchemaCompiler,
 } from './schema_compiler.js';
 
@@ -38,11 +37,6 @@ const GENERATORS: GeneratorConfig[] = [
     name: 'Async API',
     outputFile: 'generated/async.ts',
     createCompiler: createAsyncApiCompiler,
-  },
-  {
-    name: 'Native API',
-    outputFile: 'generated/native.ts',
-    createCompiler: createNativeApiCompiler,
   },
 ];
 

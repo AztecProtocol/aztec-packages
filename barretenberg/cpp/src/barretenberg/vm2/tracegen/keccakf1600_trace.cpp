@@ -379,23 +379,22 @@ constexpr std::array<C, AVM_KECCAKF1600_STATE_SIZE> MEM_VAL_COLS = {
     },
 };
 
-// Precomputed inverses from 0, 1 ... AVM_KECCAKF1600_STATE_SIZE.
-std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> generate_precomputed_inverses()
+// Get inverse for a given index using static precomputed inverses.
+const FF& get_precomputed_inverse(size_t index)
 {
-    std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses;
-    for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE + 1; i++) {
-        precomputed_inverses.at(i) = FF(i);
-    }
-    FF::batch_invert(precomputed_inverses);
-    return precomputed_inverses;
+    static const std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> precomputed_inverses = []() {
+        std::array<FF, AVM_KECCAKF1600_STATE_SIZE + 1> inverses;
+        for (size_t i = 0; i < AVM_KECCAKF1600_STATE_SIZE + 1; i++) {
+            inverses.at(i) = FF(i);
+        }
+        FF::batch_invert(inverses);
+        return inverses;
+    }();
+
+    return precomputed_inverses.at(index);
 }
 
 } // namespace
-
-KeccakF1600TraceBuilder::KeccakF1600TraceBuilder()
-{
-    precomputed_inverses = generate_precomputed_inverses();
-}
 
 // Populate a memory slice read or write operation for the Keccak permutation.
 void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600Event& event,
@@ -450,9 +449,9 @@ void KeccakF1600TraceBuilder::process_single_slice(const simulation::KeccakF1600
                 { C::keccak_memory_sel, 1 },
                 { C::keccak_memory_clk, event.execution_clk },
                 { C::keccak_memory_ctr, i + 1 },
-                { C::keccak_memory_ctr_inv, precomputed_inverses.at(i + 1) },
+                { C::keccak_memory_ctr_inv, get_precomputed_inverse(i + 1) },
                 { C::keccak_memory_state_size_min_ctr_inv,
-                  precomputed_inverses.at(AVM_KECCAKF1600_STATE_SIZE - i - 1) },
+                  get_precomputed_inverse(AVM_KECCAKF1600_STATE_SIZE - i - 1) },
                 { C::keccak_memory_start_read, (i == 0 && !write) ? 1 : 0 },
                 { C::keccak_memory_start_write, (i == 0 && write) ? 1 : 0 },
                 { C::keccak_memory_ctr_end, i == AVM_KECCAKF1600_STATE_SIZE - 1 ? 1 : 0 },
@@ -555,7 +554,7 @@ void KeccakF1600TraceBuilder::process_permutation(
                           { C::keccakf1600_dst_addr, event.dst_addr },
                           { C::keccakf1600_sel_no_error, error ? 0 : 1 },
                           { C::keccakf1600_space_id, event.space_id },
-                          { C::keccakf1600_round_inv, precomputed_inverses.at(round_idx + 1) },
+                          { C::keccakf1600_round_inv, get_precomputed_inverse(round_idx + 1) },
                       } });
 
             // When no out-of-range value occured but a tag value error, we

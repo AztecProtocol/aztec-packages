@@ -50,7 +50,7 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
 {
     using native = typename field_t<Builder>::native;
     static constexpr size_t max_bits = native::modulus.get_msb() + 1;
-    ASSERT(lo_bits < max_bits);
+    BB_ASSERT(lo_bits < max_bits);
 
     const uint256_t value(field.get_value());
     const uint256_t lo_val = value.slice(0, lo_bits);
@@ -90,6 +90,14 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     return { lo, hi };
 }
 
+template <typename Builder> void mark_witness_as_used(const field_t<Builder>& field)
+{
+    if (!field.is_constant()) {
+        // Use raw witness_index to avoid normalization overhead
+        field.get_context()->update_used_witnesses(field.witness_index);
+    }
+}
+
 // Explicit instantiations for split_unique
 template std::pair<field_t<bb::UltraCircuitBuilder>, field_t<bb::UltraCircuitBuilder>> split_unique(
     const field_t<bb::UltraCircuitBuilder>& field, const size_t lo_bits, const bool skip_range_constraints);
@@ -105,5 +113,9 @@ template void validate_split_in_field(const field_t<bb::MegaCircuitBuilder>& lo,
                                       const field_t<bb::MegaCircuitBuilder>& hi,
                                       const size_t lo_bits,
                                       const uint256_t& field_modulus);
+
+// Explicit instantiations for mark_witness_as_used
+template void mark_witness_as_used(const field_t<bb::UltraCircuitBuilder>& field);
+template void mark_witness_as_used(const field_t<bb::MegaCircuitBuilder>& field);
 
 } // namespace bb::stdlib

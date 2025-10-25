@@ -44,7 +44,7 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{initializer, private, public, utility}, storage::storage},
+        macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
         protocol_types::address::AztecAddress,
@@ -63,7 +63,7 @@ pub contract AppSubscription {
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
     global SUBSCRIPTION_TXS: u32 = 5;
 
-    #[private]
+    #[external("private")]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -104,7 +104,7 @@ pub contract AppSubscription {
         payload.execute_calls(&mut context, config.target_address);
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(
         target_address: AztecAddress,
@@ -124,7 +124,7 @@ pub contract AppSubscription {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn subscribe(
         subscriber: AztecAddress,
         authwit_nonce: Field,
@@ -161,7 +161,7 @@ pub contract AppSubscription {
             .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         storage.subscriptions.at(subscriber).is_initialized()
     }

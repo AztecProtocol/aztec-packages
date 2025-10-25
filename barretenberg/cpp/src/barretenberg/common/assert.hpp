@@ -41,7 +41,7 @@ struct AssertGuard {
 #if NDEBUG
 
 // All assertion macros accept an optional message but do nothing in release.
-#define ASSERT_DEBUG(expression, ...) DONT_EVALUATE((expression))
+#define BB_ASSERT_DEBUG(expression, ...) DONT_EVALUATE((expression))
 
 #else
 #include "barretenberg/common/log.hpp"
@@ -51,12 +51,11 @@ struct AssertGuard {
 #include <string>
 
 // Basic assert with optional error message
-#define ASSERT_DEBUG(expression, ...) ASSERT(expression, __VA_ARGS__)
+#define BB_ASSERT_DEBUG(expression, ...) BB_ASSERT(expression, __VA_ARGS__)
 #endif // NDEBUG
 
 #ifdef __wasm__
-#define ASSERT_IN_CONSTEXPR(expression, ...) DONT_EVALUATE((expression))
-#define ASSERT(expression, ...) DONT_EVALUATE((expression))
+#define BB_ASSERT(expression, ...) DONT_EVALUATE((expression))
 
 #define BB_ASSERT_EQ(actual, expected, ...) DONT_EVALUATE((actual) == (expected))
 #define BB_ASSERT_NEQ(actual, expected, ...) DONT_EVALUATE((actual) != (expected))
@@ -65,23 +64,13 @@ struct AssertGuard {
 #define BB_ASSERT_LT(left, right, ...) DONT_EVALUATE((left) < (right))
 #define BB_ASSERT_LTE(left, right, ...) DONT_EVALUATE((left) <= (right))
 #else
-#define ASSERT_IN_CONSTEXPR(expression, ...)                                                                           \
+#define BB_ASSERT(expression, ...)                                                                                     \
     do {                                                                                                               \
+        BB_BENCH_ASSERT("BB_ASSERT" #expression);                                                                      \
         if (!(BB_LIKELY(expression))) {                                                                                \
             info("Assertion failed: (" #expression ")");                                                               \
             __VA_OPT__(info("Reason   : ", __VA_ARGS__);)                                                              \
             bb::assert_failure("");                                                                                    \
-        }                                                                                                              \
-    } while (0)
-
-#define ASSERT(expression, ...)                                                                                        \
-    do {                                                                                                               \
-        BB_BENCH_ASSERT("ASSERT" #expression);                                                                         \
-        if (!(BB_LIKELY(expression))) {                                                                                \
-            std::ostringstream oss;                                                                                    \
-            oss << "Assertion failed: (" #expression ")";                                                              \
-            __VA_OPT__(oss << " | Reason: " << __VA_ARGS__;)                                                           \
-            bb::assert_failure(oss.str());                                                                             \
         }                                                                                                              \
     } while (0)
 

@@ -30,6 +30,7 @@ on:
         - next-net
         - staging-ignition
         - testnet
+        - devnet
       low_watermark:
         description: 'Minimum ETH balance'
         required: false

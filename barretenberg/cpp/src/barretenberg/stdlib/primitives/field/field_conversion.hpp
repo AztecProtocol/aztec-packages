@@ -69,8 +69,8 @@ template <typename Field> class StdlibCodec {
                          "field_conversion: convert_challenge");
             Builder* builder = challenge.get_context();
             // All challenges must be circuit witnesses.
-            ASSERT(builder);
-            ASSERT(!challenge.is_constant());
+            BB_ASSERT(builder);
+            BB_ASSERT(!challenge.is_constant());
             return T(challenge, fr::from_witness_index(builder, builder->zero_idx()));
         }
     }
@@ -150,7 +150,7 @@ template <typename Field> class StdlibCodec {
         constexpr size_t expected_size = calc_num_fields<T>();
         BB_ASSERT_EQ(fr_vec.size(), expected_size);
 
-        ASSERT(validate_context<Builder>(fr_vec));
+        BB_ASSERT(validate_context<Builder>(fr_vec));
 
         if constexpr (IsAnyOf<T, field_ct>) {
             // Case 1: input type matches the output type
@@ -167,7 +167,12 @@ template <typename Field> class StdlibCodec {
             Basefield x = deserialize_from_fields<Basefield>(fr_vec.subspan(0, base_field_frs));
             Basefield y = deserialize_from_fields<Basefield>(fr_vec.subspan(base_field_frs, base_field_frs));
 
-            T out(x, y, check_point_at_infinity<T>(fr_vec));
+            T out;
+            if constexpr (IsAnyOf<T, grumpkin_element>) {
+                out = T(x, y, check_point_at_infinity<T>(fr_vec), /*assert_on_curve=*/false);
+            } else {
+                out = T(x, y, check_point_at_infinity<T>(fr_vec));
+            }
             // Note that in the case of bn254 with Mega arithmetization, the check is delegated to ECCVM, see
             // `on_curve_check` in `ECCVMTranscriptRelationImpl`.
             out.validate_on_curve();
@@ -248,7 +253,15 @@ template <typename Field> class StdlibCodec {
             return convert_grumpkin_fr_to_bn254_frs(val);
         } else if constexpr (IsAnyOf<T, goblin_field<Builder>>) {
             return convert_goblin_fr_to_bn254_frs(val);
-        } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
+        } else if constexpr (IsAnyOf<T, grumpkin_element>) {
+            using BaseField = typename T::BaseField;
+
+            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
+            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
+            std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
+            return fr_vec;
+        } else if constexpr (IsAnyOf<T, bn254_element>) {
             using BaseField = typename T::BaseField;
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x);

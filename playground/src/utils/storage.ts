@@ -1,12 +1,8 @@
-import {
-  type ContractArtifact,
-  AztecAddress,
-  TxReceipt,
-  type AuthWitness,
-  type TxHash,
-  TxStatus,
-  type Aliased,
-} from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Aliased } from '@aztec/aztec.js/wallet';
+import type { AuthWitness } from '@aztec/aztec.js/authorization';
+import { type TxHash, TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import type { LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
@@ -16,8 +12,6 @@ export type AliasType = (typeof Aliases)[number];
 
 export class PlaygroundDB {
   private aliases: AztecAsyncMap<string, Buffer>;
-  private contracts: AztecAsyncMap<string, Buffer>;
-  private artifacts!: AztecAsyncMap<string, Buffer>;
   private networks!: AztecAsyncMap<string, Buffer>;
   private transactions: AztecAsyncMap<string, Buffer>;
   private transactionsPerContract: AztecAsyncMultiMap<string, Buffer>;
@@ -38,8 +32,6 @@ export class PlaygroundDB {
     this.networks = store.openMap('networks');
     this.transactions = store.openMap<string, Buffer>('transactions');
     this.transactionsPerContract = store.openMultiMap<string, Buffer>('transactionsPerContract');
-    this.contracts = store.openMap<string, Buffer>('contracts');
-    this.artifacts = store.openMap<string, Buffer>('artifacts');
     this.userLog = userLog;
   }
 

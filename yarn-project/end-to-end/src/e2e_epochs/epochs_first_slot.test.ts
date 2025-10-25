@@ -1,20 +1,19 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  EthAddress,
-  Fr,
-  INITIAL_L2_BLOCK_NUM,
-  type Logger,
-  getTimestampRangeForEpoch,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { Operator } from '@aztec/ethereum';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -94,7 +93,7 @@ describe('e2e_epochs/epochs_first_slot', () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
     const txs = await timesAsync(TX_COUNT, i =>
-      contract.methods.spam(i, 1n, false).prove({ from: context.accounts[0] }),
+      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from: context.accounts[0] }),
     );
     const sentTxs = await Promise.all(txs.map(tx => tx.send()));
     logger.warn(`Sent ${sentTxs.length} transactions`, {

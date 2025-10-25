@@ -43,13 +43,13 @@ polynomials to \f$ T^i(X_i)\f$
 
 template <typename Flavor> class SumcheckProverRound {
 
+    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using SumcheckTupleOfTuplesOfUnivariates = decltype(create_sumcheck_tuple_of_tuples_of_univariates<Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
 
   public:
-    using FF = typename Flavor::FF;
     using ExtendedEdges = std::conditional_t<Flavor::USE_SHORT_MONOMIALS,
                                              typename Flavor::template ProverUnivariates<2>,
                                              typename Flavor::ExtendedEdges>;
@@ -443,10 +443,15 @@ template <typename Flavor> class SumcheckProverRound {
                 // \tilde{S}^i(X_i) \f$. If \f$ \ell \f$'s binary representation is given by \f$ (\ell_{i+1},\ldots,
                 // \ell_{d-1})\f$, the \f$ pow_{\beta}\f$-contribution is \f$\beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
                 // \beta_{d-1}^{\ell_{d-1}}\f$.
-                accumulate_relation_univariates(thread_univariate_accumulators[thread_idx],
-                                                extended_edges,
-                                                relation_parameters,
-                                                gate_separators[(edge_idx >> 1) * gate_separators.periodicity]);
+
+                FF scaling_factor;
+                // All subrelation in MultilinearBatchingFlavor are linearly dependent, i.e. they are not scaled by
+                // `pow`-polynomial, hence we don't need to initialize `scaling_factor`.
+                if constexpr (!isMultilinearBatchingFlavor<Flavor>) {
+                    scaling_factor = gate_separators[(edge_idx >> 1) * gate_separators.periodicity];
+                }
+                accumulate_relation_univariates(
+                    thread_univariate_accumulators[thread_idx], extended_edges, relation_parameters, scaling_factor);
             }
         });
 
@@ -618,13 +623,13 @@ template <typename Flavor> class SumcheckProverRound {
             auto extended = element.template extend_to<ExtendedUnivariate::LENGTH>();
 
             using Relation = typename std::tuple_element_t<relation_idx, Relations>;
-            const bool is_subrelation_linearly_independent =
+            constexpr bool is_subrelation_linearly_independent =
                 bb::subrelation_is_linearly_independent<Relation, subrelation_idx>();
             // Except from the log derivative subrelation, each other subrelation in part is required to be 0 hence we
             // multiply by the power polynomial. As the sumcheck prover is required to send a univariate to the
             // verifier, we additionally need a univariate contribution from the pow polynomial which is the
             // extended_random_polynomial which is the
-            if (!is_subrelation_linearly_independent) {
+            if constexpr (!is_subrelation_linearly_independent) {
                 result += extended;
             } else {
                 // Multiply by the pow polynomial univariate contribution and the partial
@@ -734,13 +739,13 @@ template <typename Flavor> class SumcheckProverRound {
  * - \ref compute_full_relation_purported_value method needed at the last verification step.
  */
 template <typename Flavor> class SumcheckVerifierRound {
+    using FF = typename Flavor::FF;
     using Utils = bb::RelationUtils<Flavor>;
     using Relations = typename Flavor::Relations;
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
 
   public:
-    using FF = typename Flavor::FF;
     using ClaimedEvaluations = typename Flavor::AllValues;
     using ClaimedLibraEvaluations = typename std::vector<FF>;
 

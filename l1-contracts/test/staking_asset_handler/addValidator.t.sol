@@ -183,9 +183,11 @@ contract AddValidatorTest is StakingAssetHandlerBase {
       _attester, validMerkleProof, _proof, BN254Lib.g1Zero(), BN254Lib.g2Zero(), BN254Lib.g1Zero()
     );
 
-    uint256 uniqueIdentifierLocation = _proof.publicInputs.length - 1;
+    uint256 uniqueIdentifierLocation = _proof.proofVerificationData.publicInputs.length - 1;
     vm.expectRevert(
-      abi.encodeWithSelector(IStakingAssetHandler.SybilDetected.selector, _proof.publicInputs[uniqueIdentifierLocation])
+      abi.encodeWithSelector(
+        IStakingAssetHandler.SybilDetected.selector, _proof.proofVerificationData.publicInputs[uniqueIdentifierLocation]
+      )
     );
     // Call from somebody else
     vm.prank(_caller);
@@ -201,7 +203,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
     givenPassportProofIsValid
   {
     // it reverts
-    _proof.devMode = true;
+    _proof.serviceConfig.devMode = true;
 
     vm.assume(
       _attester != address(0) && _caller != address(this) && _attester != address(this) && _attester != unhinged

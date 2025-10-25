@@ -7,7 +7,9 @@ import {IMintableERC20} from "@aztec/shared/interfaces/IMintableERC20.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
-import {ZKPassportVerifier, ProofVerificationParams, BoundData} from "@zkpassport/ZKPassportVerifier.sol";
+import {
+  ZKPassportVerifier, ProofVerificationParams, BoundData, OS, FaceMatchMode
+} from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
  * @title StakingAssetHandler
@@ -56,6 +58,7 @@ interface IStakingAssetHandler {
   error InvalidAge();
   error InvalidCountry();
   error InvalidValidityPeriod();
+  error InvalidFaceMatch();
   error ExtraDiscloseDataNonZero();
   error SybilDetected(bytes32 _nullifier);
   error AttesterDoesNotExist(address _attester);
@@ -120,6 +123,12 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   string internal constant IRN = "IRN";
   string internal constant CUB = "CUB";
 
+  // Minimum age
+  uint8 public constant MIN_AGE = 18;
+
+  // Validity period in seconds
+  uint256 public constant VALIDITY_PERIOD = 7 days;
+
   IMintableERC20 public immutable STAKING_ASSET;
   IRegistry public immutable REGISTRY;
 
@@ -143,9 +152,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   // ZKPassport constraints
   string public validDomain;
   string public validScope;
-  uint256 public validValidityPeriodInSeconds = 7 days;
-  uint8 public minAge = 18;
-  string[] internal excludedCountries;
 
   constructor(StakingAssetHandlerArgs memory _args) Ownable(_args.owner) {
     require(_args.depositsPerMint > 0, CannotMintZeroAmount());
@@ -180,12 +186,6 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
 
     validDomain = _args.domain;
     validScope = _args.scope;
-
-    excludedCountries = new string[](4);
-    excludedCountries[0] = CUB;
-    excludedCountries[1] = IRN;
-    excludedCountries[2] = PKR;
-    excludedCountries[3] = UKR;
 
     skipBindCheck = _args.skipBindCheck;
     skipMerkleCheck = _args.skipMerkleCheck;
@@ -323,10 +323,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
   function _validatePassportProof(address _attester, ProofVerificationParams calldata _params) internal {
     // Must NOT be using dev mode - https://docs.zkpassport.id/getting-started/dev-mode
     // If active, nullifiers will end up being zero, but it is user provided input, so we are sanity checking it
-    require(_params.devMode == false, InvalidProof());
+    require(_params.serviceConfig.devMode == false, InvalidProof());
 
-    require(keccak256(bytes(_params.domain)) == keccak256(bytes(validDomain)), InvalidDomain());
-    require(keccak256(bytes(_params.scope)) == keccak256(bytes(validScope)), InvalidScope());
+    require(keccak256(bytes(_params.serviceConfig.domain)) == keccak256(bytes(validDomain)), InvalidDomain());
+    require(keccak256(bytes(_params.serviceConfig.scope)) == keccak256(bytes(validScope)), InvalidScope());
+    require(_params.serviceConfig.validityPeriodInSeconds == VALIDITY_PERIOD, InvalidValidityPeriod());
 
     (bool verified, bytes32 nullifier) = zkPassportVerifier.verifyProof(_params);
 
@@ -334,7 +335,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     require(!nullifiers[nullifier], SybilDetected(nullifier));
 
     if (!skipBindCheck) {
-      BoundData memory boundData = zkPassportVerifier.getBoundData(_params);
+      BoundData memory boundData = zkPassportVerifier.getBoundData(_params.commitments);
 
       // Make sure the bound user address is the same as the _attester
       require(boundData.senderAddress == _attester, InvalidBoundAddress(boundData.senderAddress, _attester));
@@ -343,19 +344,26 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       // Make sure the custom data is empty
       require(bytes(boundData.customData).length == 0, ExtraDiscloseDataNonZero());
 
-      // Validity period check
-      require(validValidityPeriodInSeconds == _params.validityPeriodInSeconds, InvalidValidityPeriod());
-
       // Age check
-      bool isAgeValid = zkPassportVerifier.isAgeAboveOrEqual(minAge, _params);
+      bool isAgeValid = zkPassportVerifier.isAgeAboveOrEqual(MIN_AGE, _params.commitments, _params.serviceConfig);
       require(isAgeValid, InvalidAge());
 
       // Country exclusion check
-      bool isCountryValid = zkPassportVerifier.isNationalityOut(excludedCountries, _params);
+      string[] memory excludedCountries = new string[](4);
+      excludedCountries[0] = CUB;
+      excludedCountries[1] = IRN;
+      excludedCountries[2] = PKR;
+      excludedCountries[3] = UKR;
+      bool isCountryValid = zkPassportVerifier.isNationalityOut(excludedCountries, _params.commitments);
       require(isCountryValid, InvalidCountry());
 
       // Sanctions check
-      zkPassportVerifier.enforceSanctionsRoot(_params);
+      zkPassportVerifier.enforceSanctionsRoot(_params.commitments);
+
+      // Face match check
+      bool isFaceMatchValid =
+        zkPassportVerifier.isFaceMatchVerified(FaceMatchMode.STRICT, OS.ANY, _params.commitments, _params.serviceConfig);
+      require(isFaceMatchValid, InvalidFaceMatch());
     }
 
     // Set nullifier to consumed

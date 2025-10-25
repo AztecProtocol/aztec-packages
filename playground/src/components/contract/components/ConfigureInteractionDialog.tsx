@@ -1,7 +1,8 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import { AuthWitness, ContractFunctionInteraction, type SendInteractionOptions } from '@aztec/aztec.js';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
+import { type SendInteractionOptions, ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import { useContext, useEffect, useState } from 'react';
 import { AztecContext } from '../../../aztecContext';

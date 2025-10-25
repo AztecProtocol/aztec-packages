@@ -28,7 +28,12 @@ import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.j
 import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import { getPublicFunctionDebugName } from '../debug_fn_name.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
-import { MaxCallsToUniqueContractClassIdsError, NullifierCollisionError } from '../side_effect_errors.js';
+import {
+  L1ToL2MessageIndexOutOfRangeError,
+  MaxCallsToUniqueContractClassIdsError,
+  NoteHashIndexOutOfRangeError,
+  NullifierCollisionError,
+} from '../side_effect_errors.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
 import { NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
@@ -185,12 +190,21 @@ export class PublicPersistableStateManager {
    * @returns true if the note hash exists at the given leaf index, false otherwise
    */
   public async checkNoteHashExists(contractAddress: AztecAddress, noteHash: Fr, leafIndex: bigint): Promise<boolean> {
-    const gotLeafValue = await this.treesDB.getNoteHash(leafIndex);
-    const exists = gotLeafValue !== undefined && gotLeafValue.equals(noteHash);
-    this.log.trace(
-      `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
-    );
-    return Promise.resolve(exists);
+    try {
+      const gotLeafValue = await this.treesDB.getNoteHash(leafIndex);
+      const exists = gotLeafValue.equals(noteHash);
+      this.log.trace(
+        `noteHashes(${contractAddress})@${noteHash} ?? leafIndex: ${leafIndex} | gotLeafValue: ${gotLeafValue}, exists: ${exists}.`,
+      );
+      return Promise.resolve(exists);
+    } catch (error) {
+      // If the index is out of range, note_hash_leaf_in_range = 0 and the circuit returns false:
+      if (error instanceof NoteHashIndexOutOfRangeError) {
+        return Promise.resolve(false);
+      }
+      // Otherwise, unknown error. This is a bug.
+      throw error;
+    }
   }
 
   /**
@@ -290,12 +304,21 @@ export class PublicPersistableStateManager {
    * @returns exists - whether the message exists in the L1 to L2 Messages tree
    */
   public async checkL1ToL2MessageExists(msgHash: Fr, msgLeafIndex: Fr): Promise<boolean> {
-    const valueAtIndex = await this.treesDB.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
-    const exists = valueAtIndex !== undefined && valueAtIndex.equals(msgHash);
-    this.log.trace(
-      `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
-    );
-    return Promise.resolve(exists);
+    try {
+      const valueAtIndex = await this.treesDB.getL1ToL2LeafValue(msgLeafIndex.toBigInt());
+      const exists = valueAtIndex.equals(msgHash);
+      this.log.trace(
+        `l1ToL2Messages(@${msgLeafIndex}) ?? exists: ${exists}, expected: ${msgHash}, found: ${valueAtIndex}.`,
+      );
+      return Promise.resolve(exists);
+    } catch (error) {
+      // If the index is out of range, l1_to_l2_msg_leaf_in_range = 0 and the circuit returns false:
+      if (error instanceof L1ToL2MessageIndexOutOfRangeError) {
+        return Promise.resolve(false);
+      }
+      // Otherwise, unknown error. This is a bug.
+      throw error;
+    }
   }
 
   /**

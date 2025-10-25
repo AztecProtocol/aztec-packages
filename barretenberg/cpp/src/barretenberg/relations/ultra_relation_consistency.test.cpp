@@ -247,6 +247,7 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         using SumcheckArrayOfValuesOverSubrelations = typename Relation::SumcheckArrayOfValuesOverSubrelations;
 
         const InputElements input_elements = random_inputs ? InputElements::get_random() : InputElements::get_special();
+
         const auto& x_1 = input_elements.w_r;
         const auto& y_1 = input_elements.w_o;
 
@@ -255,42 +256,55 @@ TEST_F(UltraRelationConsistency, EllipticRelation)
         const auto& x_3 = input_elements.w_r_shift;
         const auto& y_3 = input_elements.w_o_shift;
 
+        // In the EllipticRelation, q_l is interpreted as q_sign and can be +1 or -1. Here we explicitly set it to -1
+        // (arbitrary, could also be +1) because the relation algebra makes use of the assumption that q_sign^2 = 1.
+        // This allows writing the simplified constraint algebra in this test in a more straightforward way.
+        input_elements.q_l = FF(-1);
         const auto& q_sign = input_elements.q_l;
         const auto& q_elliptic = input_elements.q_elliptic;
         const auto& q_is_double = input_elements.q_m;
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
         // Compute x/y coordinate identities
-
         {
-            // Contribution (1) point addition, x-coordinate check
-            // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+            auto y_diff = (q_sign * y_2 - y_1);
             auto x_diff = (x_2 - x_1);
-            auto y2_sqr = (y_2 * y_2);
-            auto y1_sqr = (y_1 * y_1);
-            auto y1y2 = y_1 * y_2 * q_sign;
-            auto x_add_identity = (x_3 + x_2 + x_1) * x_diff * x_diff - y2_sqr - y1_sqr + y1y2 + y1y2;
+            auto x_diff_sqr = x_diff * x_diff;
+            auto lambda = y_diff / x_diff;
+            auto lambda_sqr = lambda * lambda;
 
-            // Contribution (2) point addition, x-coordinate check
-            // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
-            auto y1_plus_y3 = y_1 + y_3;
-            auto y_diff = y_2 * q_sign - y_1;
-            auto y_add_identity = y1_plus_y3 * x_diff + (x_3 - x_1) * y_diff;
+            // Contribution (1) point addition, x-coordinate check
+            // Formula: x3 = lambda^2 - (x1 + x2)
+            // lambda = (y2 - y1) / (x2 - x1)
+            // Constraint: (x3 - lambda^2 + (x1 + x2)) * (x2 - x1)^2 = 0
+            auto x_add_identity = (x_3 - lambda_sqr + (x_1 + x_2)) * x_diff_sqr;
+
+            // Contribution (2) point addition, y-coordinate check
+            // Formula: y3 = lambda * (x1 - x3) - y1
+            // Constraint: (y3 - lambda * (x1 - x3) + y1) * (x2 - x1) = 0
+            auto y_add_identity = (y_3 - lambda * (x_1 - x_3) + y_1) * x_diff;
+
+            // N.B. the relation uses the equivalence x1^3 === y1^2 - curve_b to reduce degree by 1 so we must do the
+            // same here
+            const auto curve_b = EllipticRelationImpl<FF>::get_curve_b();
+            auto y1_sqr = (y_1 * y_1);
+            auto x_pow_4 = (y1_sqr - curve_b) * x_1; // curve equation substitution
+            lambda_sqr = x_pow_4 * 9 / (y1_sqr * 4);
+            lambda = (x_1 * x_1 * 3) / (y_1 * 2);
 
             // Contribution (3) point doubling, x-coordinate check
-            // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-            // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
-            const auto curve_b = EllipticRelationImpl<FF>::get_curve_b();
-            auto x_pow_4 = (y1_sqr - curve_b) * x_1;
-            auto y1_sqr_mul_4 = y1_sqr + y1_sqr;
-            y1_sqr_mul_4 += y1_sqr_mul_4;
-            auto x1_pow_4_mul_9 = x_pow_4 * 9;
-            auto x_double_identity = (x_3 + x_1 + x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+            // Formula: x3 = lambda^2 - 2*x1
+            // lambda = (3*x1 * x1) / (2*y1)
+            // Constraint: (x3 - lambda^2 + 2*x1) * (2*y1) = 0
+            auto x_double_identity = (x_3 - lambda_sqr + x_1 * 2) * (y1_sqr * 4);
 
             // Contribution (4) point doubling, y-coordinate check
-            // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
-            auto x1_sqr_mul_3 = (x_1 + x_1 + x_1) * x_1;
-            auto y_double_identity = x1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
+            // Formula: y3 = lambda * (x1 - x3) - y1
+            // Constraint: (y3 - lambda * (x1 - x3) + y1) * (2*y1) * FF(-1) = 0
+            // N.B. multiply by -1 to match form used for efficient accumulation in relation
+            auto y_double_identity = (y_3 - lambda * (x_1 - x_3) + y_1) * (y_1 * 2) * FF(-1);
+
+            // Combine addition and doubling subidentities, each scaled by q_is_double
             expected_values[0] = (x_add_identity * (-q_is_double + 1) + (x_double_identity * q_is_double)) * q_elliptic;
             expected_values[1] = (y_add_identity * (-q_is_double + 1) + (y_double_identity * q_is_double)) * q_elliptic;
         }

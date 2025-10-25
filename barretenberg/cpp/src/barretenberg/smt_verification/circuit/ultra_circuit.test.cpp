@@ -42,10 +42,10 @@ TEST(UltraCircuitSMT, AssertEqual)
 
     field_t a(witness_t(&builder, fr::random_element()));
     field_t b(witness_t(&builder, fr::random_element()));
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
     field_t c = (a + a) / (b + b + b);
-    builder.set_variable_name(c.witness_index, "c");
+    builder.set_variable_name(c.get_witness_index(), "c");
 
     field_t d(witness_t(&builder, a.get_value()));
     field_t e(witness_t(&builder, b.get_value()));
@@ -112,22 +112,22 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
         cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
     auto p3 = p1.unconditional_add(p2);
 
-    builder.set_variable_name(p1.x.get_witness_index(), "x1");
-    builder.set_variable_name(p2.x.get_witness_index(), "x2");
-    builder.set_variable_name(p3.x.get_witness_index(), "x3");
-    builder.set_variable_name(p1.y.get_witness_index(), "y1");
-    builder.set_variable_name(p2.y.get_witness_index(), "y2");
-    builder.set_variable_name(p3.y.get_witness_index(), "y3");
+    builder.set_variable_name(p1.x().get_witness_index(), "x1");
+    builder.set_variable_name(p2.x().get_witness_index(), "x2");
+    builder.set_variable_name(p3.x().get_witness_index(), "x3");
+    builder.set_variable_name(p1.y().get_witness_index(), "y1");
+    builder.set_variable_name(p2.y().get_witness_index(), "y2");
+    builder.set_variable_name(p3.y().get_witness_index(), "y3");
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
     ASSERT_EQ(cir.get_num_gates(), builder.get_estimated_num_finalized_gates());
 
-    cir["x1"] == p1.x.get_value();
-    cir["x2"] == p2.x.get_value();
-    cir["y1"] == p1.y.get_value();
-    cir["y2"] == p2.y.get_value();
+    cir["x1"] == p1.x().get_value();
+    cir["x2"] == p2.x().get_value();
+    cir["y1"] == p1.y().get_value();
+    cir["y2"] == p2.y().get_value();
 
     bool res = s.check();
     ASSERT_TRUE(res);
@@ -135,8 +135,8 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
     bb::fr x3_solver_val = string_to_fr(s[cir["x3"]], /*base=*/10);
     bb::fr y3_solver_val = string_to_fr(s[cir["y3"]], /*base=*/10);
 
-    bb::fr x3_builder_val = p3.x.get_value();
-    bb::fr y3_builder_val = p3.y.get_value();
+    bb::fr x3_builder_val = p3.x().get_value();
+    bb::fr y3_builder_val = p3.y().get_value();
 
     ASSERT_EQ(x3_solver_val, x3_builder_val);
     ASSERT_EQ(y3_solver_val, y3_builder_val);
@@ -156,19 +156,19 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
         cycle_group_t::from_witness(&builder, bb::stdlib::cycle_group<Builder>::Curve::AffineElement::random_element());
     auto p2 = p1.dbl();
 
-    builder.set_variable_name(p1.x.get_witness_index(), "x1");
-    builder.set_variable_name(p2.x.get_witness_index(), "x2");
-    builder.set_variable_name(p1.y.get_witness_index(), "y1");
-    builder.set_variable_name(p2.y.get_witness_index(), "y2");
-    builder.set_variable_name(p1.is_point_at_infinity().get_normalized_witness_index(), "is_inf");
+    builder.set_variable_name(p1.x().get_witness_index(), "x1");
+    builder.set_variable_name(p2.x().get_witness_index(), "x2");
+    builder.set_variable_name(p1.y().get_witness_index(), "y1");
+    builder.set_variable_name(p2.y().get_witness_index(), "y2");
+    builder.set_variable_name(p1.is_point_at_infinity().get_witness_index(), "is_inf");
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
     ASSERT_EQ(cir.get_num_gates(), builder.get_estimated_num_finalized_gates());
 
-    cir["x1"] == p1.x.get_value();
-    cir["y1"] == p1.y.get_value();
+    cir["x1"] == p1.x().get_value();
+    cir["y1"] == p1.y().get_value();
     cir["is_inf"] == static_cast<size_t>(p1.is_point_at_infinity().get_value());
 
     bool res = s.check();
@@ -177,8 +177,8 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
     bb::fr x2_solver_val = string_to_fr(s[cir["x2"]], /*base=*/10);
     bb::fr y2_solver_val = string_to_fr(s[cir["y2"]], /*base=*/10);
 
-    bb::fr x2_builder_val = p2.x.get_value();
-    bb::fr y2_builder_val = p2.y.get_value();
+    bb::fr x2_builder_val = p2.x().get_value();
+    bb::fr y2_builder_val = p2.y().get_value();
 
     ASSERT_EQ(x2_solver_val, x2_builder_val);
     ASSERT_EQ(y2_solver_val, y2_builder_val);

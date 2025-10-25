@@ -14,8 +14,8 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 3, 3, 3, 3, 3, 4, 4, 4, 4,
-                                                                            5, 3, 4, 4, 4, 4, 4, 4, 4, 4, 3, 3 };
+    static constexpr std::array<size_t, 21> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 4, 3, 3, 3, 3, 4, 3,
+                                                                            4, 3, 3, 3, 4, 4, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -36,34 +36,33 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr const std::string_view NAME = "merkle_check";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TRACE_CONTINUITY = 1;
-    static constexpr size_t SR_START_AFTER_LATCH = 6;
-    static constexpr size_t SR_SELECTOR_ON_END = 7;
-    static constexpr size_t SR_PROPAGATE_READ_ROOT = 8;
-    static constexpr size_t SR_PROPAGATE_WRITE = 9;
-    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 10;
-    static constexpr size_t SR_PATH_LEN_DECREMENTS = 11;
-    static constexpr size_t SR_END_WHEN_PATH_EMPTY = 12;
-    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 14;
-    static constexpr size_t SR_FINAL_INDEX_IS_0_OR_1 = 15;
-    static constexpr size_t SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ = 16;
-    static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ = 17;
-    static constexpr size_t SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE = 18;
-    static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE = 19;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 20;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 21;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 22;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 23;
+    static constexpr size_t SR_END_IFF_REM_PATH_EMPTY = 3;
+    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 4;
+    static constexpr size_t SR_SELECTOR_ON_START_OR_END = 5;
+    static constexpr size_t SR_PROPAGATE_READ_ROOT = 6;
+    static constexpr size_t SR_PROPAGATE_WRITE = 7;
+    static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 8;
+    static constexpr size_t SR_PATH_LEN_DECREMENTS = 9;
+    static constexpr size_t SR_NEXT_INDEX_IS_HALVED = 11;
+    static constexpr size_t SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT = 12;
+    static constexpr size_t SR_READ_LEFT_NODE = 13;
+    static constexpr size_t SR_READ_RIGHT_NODE = 14;
+    static constexpr size_t SR_WRITE_LEFT_NODE = 15;
+    static constexpr size_t SR_WRITE_RIGHT_NODE = 16;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 17;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 18;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 19;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 20;
 
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case SR_TRACE_CONTINUITY:
-            return "TRACE_CONTINUITY";
-        case SR_START_AFTER_LATCH:
-            return "START_AFTER_LATCH";
-        case SR_SELECTOR_ON_END:
-            return "SELECTOR_ON_END";
+        case SR_END_IFF_REM_PATH_EMPTY:
+            return "END_IFF_REM_PATH_EMPTY";
+        case SR_COMPUTATION_FINISH_AT_END:
+            return "COMPUTATION_FINISH_AT_END";
+        case SR_SELECTOR_ON_START_OR_END:
+            return "SELECTOR_ON_START_OR_END";
         case SR_PROPAGATE_READ_ROOT:
             return "PROPAGATE_READ_ROOT";
         case SR_PROPAGATE_WRITE:
@@ -72,20 +71,18 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
             return "PROPAGATE_WRITE_ROOT";
         case SR_PATH_LEN_DECREMENTS:
             return "PATH_LEN_DECREMENTS";
-        case SR_END_WHEN_PATH_EMPTY:
-            return "END_WHEN_PATH_EMPTY";
         case SR_NEXT_INDEX_IS_HALVED:
             return "NEXT_INDEX_IS_HALVED";
-        case SR_FINAL_INDEX_IS_0_OR_1:
-            return "FINAL_INDEX_IS_0_OR_1";
-        case SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ:
-            return "ASSIGN_NODE_LEFT_OR_RIGHT_READ";
-        case SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ:
-            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ";
-        case SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE:
-            return "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE";
-        case SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE:
-            return "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE";
+        case SR_FINAL_INDEX_EQUAL_TO_FIRST_BIT:
+            return "FINAL_INDEX_EQUAL_TO_FIRST_BIT";
+        case SR_READ_LEFT_NODE:
+            return "READ_LEFT_NODE";
+        case SR_READ_RIGHT_NODE:
+            return "READ_RIGHT_NODE";
+        case SR_WRITE_LEFT_NODE:
+            return "WRITE_LEFT_NODE";
+        case SR_WRITE_RIGHT_NODE:
+            return "WRITE_RIGHT_NODE";
         case SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE:
             return "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE";
         case SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE:

@@ -25,11 +25,9 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type {
-  Tx,
   TxExecutionRequest,
   TxHash,
   TxProfileResult,
-  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
   UtilitySimulationResult,
@@ -89,7 +87,14 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getAccounts(): Promise<Aliased<AztecAddress>[]>;
 
-  async getSenders(): Promise<Aliased<AztecAddress>[]> {
+  /**
+   * Returns the list of aliased contacts associated with the wallet.
+   * This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders.
+   *  - Senders: Addresses we check during synching in case they sent us notes,
+   *  - Contacts: more general concept akin to a phone's contact list.
+   * @returns The aliased collection of AztecAddresses that form this wallet's address book
+   */
+  async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const senders: AztecAddress[] = await this.pxe.getSenders();
     return senders.map(sender => ({ item: sender, alias: '' }));
   }
@@ -139,7 +144,8 @@ export abstract class BaseWallet implements Wallet {
 
       const fn = this[name] as (...args: any[]) => Promise<any>;
       const result = await fn.apply(this, args);
-      results.push(result);
+      // Wrap result with method name for discriminated union deserialization
+      results.push({ name, result });
     }
     return results as BatchResults<T>;
   }
@@ -280,26 +286,24 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.profileTx(txRequest, opts.profileMode, opts.skipProofGeneration ?? true);
   }
 
-  async proveTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxProvingResult> {
+  async sendTx(executionPayload: ExecutionPayload, opts: SendOptions): Promise<TxHash> {
     const fee = await this.getDefaultFeeOptions(opts.from, opts.fee);
-    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
-    return this.pxe.proveTx(txRequest);
-  }
-
-  async sendTx(tx: Tx): Promise<TxHash> {
+    const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, fee);
+    const provenTx = await this.pxe.proveTx(txRequest);
+    const tx = await provenTx.toTx();
     const txHash = tx.getTxHash();
     if (await this.aztecNode.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.debug(`Sending transaction ${txHash}`);
     await this.aztecNode.sendTx(tx).catch(err => {
-      throw this.#contextualizeError(err, inspect(tx));
+      throw this.contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
     return txHash;
   }
 
-  #contextualizeError(err: Error, ...context: string[]): Error {
+  protected contextualizeError(err: Error, ...context: string[]): Error {
     let contextStr = '';
     if (context.length > 0) {
       contextStr = `\nContext:\n${context.join('\n')}`;

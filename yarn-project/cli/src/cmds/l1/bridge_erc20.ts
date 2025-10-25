@@ -1,4 +1,6 @@
-import { type AztecAddress, type EthAddress, type Fr, L1ToL2TokenPortalManager } from '@aztec/aztec.js';
+import type { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { L1ToL2TokenPortalManager } from '@aztec/aztec.js/ethereum';
+import type { Fr } from '@aztec/aztec.js/fields';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 

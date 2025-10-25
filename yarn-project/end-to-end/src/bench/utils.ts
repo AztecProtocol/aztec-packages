@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import type { MetricsType } from '@aztec/telemetry-client';
@@ -129,18 +129,17 @@ function makeCall(
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns Array of sent txs.
  */
-export async function sendTxs(
+export function sendTxs(
   txCount: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
-): Promise<SentTx[]> {
+): SentTx[] {
   const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
   const [from] = context.accounts;
-  const provenTxs = await Promise.all(calls.map(call => call.prove({ from })));
   context.logger.info(`Sending ${txCount} txs`);
-  return provenTxs.map(tx => tx.send());
+  return calls.map(call => call.send({ from }));
 }
 
 export async function waitTxs(txs: SentTx[], context: EndToEndContext, txWaitOpts?: WaitOpts) {

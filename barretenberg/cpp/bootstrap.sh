@@ -13,6 +13,13 @@ if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
   export hash="$hash-no-avm"
 fi
 
+# Mix whether we're building multi-arch or single-arch into the hash
+if semver check "$REF_NAME"; then
+  export hash="$hash-multiarch"
+else
+  export hash="$hash-singlearch"
+fi
+
 function ensure_zig {
   if command -v zig &>/dev/null; then
     return
@@ -92,11 +99,17 @@ function build_nodejs_module {
   ensure_zig
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
-      zig-node-amd64-linux \
-      zig-node-arm64-linux \
-      zig-node-amd64-macos \
-      zig-node-arm64-macos
+    if semver check "$REF_NAME"; then
+      # Build all architectures for releases
+      parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
+        zig-node-amd64-linux \
+        zig-node-arm64-linux \
+        zig-node-amd64-macos \
+        zig-node-arm64-macos
+    else
+      # Build only current arch when not releasing (faster for dev and CI)
+      build_preset zig-node-$(arch)-linux
+    fi
     cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
   fi
 }
@@ -244,12 +257,12 @@ function build {
     builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
   fi
   if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_smt_verification)
+    builds+=(build_darwin_arm64 build_smt_verification)
   fi
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # macOS builds require the avm-transpiler linked.
     # We build them using zig cross-compilation.
-    builds+=(build_darwin_arm64 build_darwin_amd64)
+    builds+=(build_darwin_amd64)
   fi
   parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
   build_release
@@ -284,8 +297,8 @@ function test_cmds {
     # Mostly arbitrary set that touches lots of the code.
     declare -A asan_tests=(
       ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["client_ivc_tests"]="ClientIVCTests.BasicStructured"
-      ["ultra_honk_tests"]="MegaHonkTests/0.BasicStructured"
+      ["client_ivc_tests"]="ClientIVCTests.Basic"
+      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
       ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
     )
     # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.

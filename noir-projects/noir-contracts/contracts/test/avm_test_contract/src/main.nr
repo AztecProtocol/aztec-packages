@@ -16,7 +16,7 @@ pub contract AvmTest {
         avm_return, avm_revert, call, returndata_copy, returndata_size, success_copy,
     };
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::macros::{functions::{private, public}, storage::storage};
+    use dep::aztec::macros::{functions::external, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
         get_contract_instance_initialization_hash_avm,
@@ -59,47 +59,47 @@ pub contract AvmTest {
     /************************************************************************
      * Storage
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn set_storage_single(a: Field) {
         storage.single.write(a);
     }
 
-    #[public]
+    #[external("public")]
     fn read_storage_single() -> Field {
         storage.single.read()
     }
 
-    #[public]
+    #[external("public")]
     fn read_assert_storage_single(a: Field) {
         assert(a == storage.single.read(), "Storage value does not match input");
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
-    #[public]
+    #[external("public")]
     fn set_read_storage_single(a: Field) -> pub Field {
         storage.single.write(a);
         storage.single.read()
     }
 
-    #[public]
+    #[external("public")]
     fn set_storage_list(a: Field, b: Field) {
         storage.list.write(Note { a, b });
     }
 
-    #[public]
+    #[external("public")]
     fn read_storage_list() -> [Field; 2] {
         let note: Note = storage.list.read();
         note.serialize()
     }
 
-    #[public]
+    #[external("public")]
     fn set_storage_map(to: AztecAddress, amount: u32) -> Field {
         storage.map.at(to).write(amount);
         // returns storage slot for key
         derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
-    #[public]
+    #[external("public")]
     fn add_storage_map(to: AztecAddress, amount: u32) -> Field {
         let new_balance = storage.map.at(to).read().add(amount);
         storage.map.at(to).write(new_balance);
@@ -107,12 +107,12 @@ pub contract AvmTest {
         derive_storage_slot_in_map(storage.map.get_storage_slot(), to)
     }
 
-    #[public]
+    #[external("public")]
     fn read_storage_map(address: AztecAddress) -> u32 {
         storage.map.at(address).read()
     }
 
-    #[public]
+    #[external("public")]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
         add(arg_a, arg_b)
     }
@@ -126,52 +126,52 @@ pub contract AvmTest {
     /************************************************************************
      * General Opcodes
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn set_opcode_u8() -> u8 {
         8
     }
 
-    #[public]
+    #[external("public")]
     fn set_opcode_u32() -> u32 {
         1 << 30
     }
 
-    #[public]
+    #[external("public")]
     fn set_opcode_u64() -> u64 {
         1 << 60
     }
 
-    #[public]
+    #[external("public")]
     fn set_opcode_small_field() -> Field {
         big_field_128_bits
     }
 
-    #[public]
+    #[external("public")]
     fn set_opcode_big_field() -> Field {
         big_field_136_bits
     }
 
-    #[public]
+    #[external("public")]
     fn set_opcode_really_big_field() -> Field {
         big_field_254_bits
     }
 
-    #[public]
+    #[external("public")]
     fn add_u128(a: u128, b: u128) -> u128 {
         a + b
     }
 
-    #[public]
+    #[external("public")]
     fn modulo2(a: u64) -> u64 {
         a % 2
     }
 
-    #[public]
+    #[external("public")]
     fn elliptic_curve_add(lhs: Point, rhs: Point) -> Point {
         lhs + rhs
     }
 
-    #[public]
+    #[external("public")]
     fn elliptic_curve_add_and_double() -> Point {
         let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
@@ -180,7 +180,7 @@ pub contract AvmTest {
         added
     }
 
-    #[public]
+    #[external("public")]
     fn variable_base_msm(
         scalar_lo: Field,
         scalar_hi: Field,
@@ -196,13 +196,13 @@ pub contract AvmTest {
         triple_g
     }
 
-    #[public]
+    #[external("public")]
     fn pedersen_commit(x: Field, y: Field) -> EmbeddedCurvePoint {
         let commitment = dep::std::hash::pedersen_commitment_with_separator([x, y], 20);
         commitment
     }
 
-    #[public]
+    #[external("public")]
     fn conditional_move(x: [Field; 1], y: [Field; 1], b: bool) -> [Field; 1] {
         if b {
             x
@@ -211,7 +211,7 @@ pub contract AvmTest {
         }
     }
 
-    #[public]
+    #[external("public")]
     fn bitwise_ops(x: u32, y: u32) -> u32 {
         let mut result = x & y;
         result = result | x;
@@ -224,29 +224,29 @@ pub contract AvmTest {
      * Misc
      ************************************************************************/
 
-    #[public]
+    #[external("public")]
     fn u128_addition_overflow() -> u128 {
         let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
         let one: u128 = 1;
         max_u128 + one
     }
 
-    #[public]
+    #[external("public")]
     fn integer_division(x: u8, y: u8) -> u8 {
         x / y
     }
 
-    #[public]
+    #[external("public")]
     fn field_division(x: Field, y: Field) -> Field {
         x / y
     }
 
-    #[public]
+    #[external("public")]
     fn to_le_bytes(input: Field) -> [u8; 10] {
         input.to_le_bytes()
     }
 
-    #[public]
+    #[external("public")]
     fn to_le_bits(input: Field) -> [u1; 16] {
         input.to_le_bits()
     }
@@ -263,28 +263,28 @@ pub contract AvmTest {
         inner_helper_with_failed_assertion();
     }
 
-    #[public]
+    #[external("public")]
     fn assertion_failure() {
         helper_with_failed_assertion()
     }
 
-    #[public]
+    #[external("public")]
     fn external_call_to_assertion_failure() {
         AvmTest::at(context.this_address()).assertion_failure().call(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     // Must be called with `denominator == 0`
     fn divide_by_zero(denominator: u8) -> u8 {
         1 / denominator
     }
 
-    #[public]
+    #[external("public")]
     fn external_call_to_divide_by_zero() {
         let _ = AvmTest::at(context.this_address()).divide_by_zero(0).call(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     fn external_call_to_divide_by_zero_recovers() {
         // Be sure to allocate ~200k+ gas to this function~
 
@@ -313,7 +313,7 @@ pub contract AvmTest {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn debug_logging() {
         dep::aztec::oracle::debug_log::debug_log("just text");
         dep::aztec::oracle::debug_log::debug_log_format("second: {1}", [1, 2, 3, 4]);
@@ -330,27 +330,27 @@ pub contract AvmTest {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         assert(arg_a == arg_b, "Values are not equal");
         1
     }
 
-    #[public]
+    #[external("public")]
     fn assert_calldata_copy(args: [Field; 3], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
         let cd: [Field; 3] = dep::aztec::context::public_context::calldata_copy(offset, 3);
         assert(cd == args, "Calldata copy failed");
     }
 
-    #[public]
+    #[external("public")]
     fn assert_calldata_copy_large(args: [Field; 300], with_selector: bool) {
         let offset = with_selector as u32; // Skip the selector stored at i = 0 if used
         let cd: [Field; 300] = dep::aztec::context::public_context::calldata_copy(offset, 300);
         assert(cd == args, "Calldata copy failed");
     }
 
-    #[public]
+    #[external("public")]
     fn returndata_copy_oracle() {
         let _ = AvmTest::at(context.this_address()).return_oracle().call(&mut context);
         let returndatasize = returndata_size();
@@ -358,13 +358,13 @@ pub contract AvmTest {
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
     }
 
-    #[public]
+    #[external("public")]
     fn return_oracle() -> [Field; 3] {
         avm_return([1, 2, 3]);
         [4, 5, 6] // Should not get here.
     }
 
-    #[public]
+    #[external("public")]
     fn revert_oracle() -> [Field; 3] {
         avm_revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
@@ -373,7 +373,7 @@ pub contract AvmTest {
     /************************************************************************
      * Contract instance
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn test_get_contract_instance(address: AztecAddress) {
         let deployer = get_contract_instance_deployer_avm(address);
         let class_id = get_contract_instance_class_id_avm(address);
@@ -392,7 +392,7 @@ pub contract AvmTest {
         assert(initialization_hash.unwrap() == 0x101112);
     }
 
-    #[public]
+    #[external("public")]
     fn test_get_contract_instance_matches(
         address: AztecAddress,
         expected_deployer: AztecAddress,
@@ -429,67 +429,67 @@ pub contract AvmTest {
     /************************************************************************
      * AvmContext functions
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn get_address() -> AztecAddress {
         context.this_address()
     }
 
-    #[public]
+    #[external("public")]
     fn get_sender() -> AztecAddress {
         context.msg_sender_unsafe()
     }
 
-    #[public]
+    #[external("public")]
     fn get_transaction_fee() -> Field {
         context.transaction_fee()
     }
 
-    #[public]
+    #[external("public")]
     fn get_chain_id() -> Field {
         context.chain_id()
     }
 
-    #[public]
+    #[external("public")]
     fn get_version() -> Field {
         context.version()
     }
 
-    #[public]
+    #[external("public")]
     fn get_block_number() -> u32 {
         context.block_number()
     }
 
-    #[public]
+    #[external("public")]
     fn get_timestamp() -> u64 {
         context.timestamp()
     }
 
-    #[public]
+    #[external("public")]
     fn get_fee_per_l2_gas() -> u128 {
         context.base_fee_per_l2_gas()
     }
 
-    #[public]
+    #[external("public")]
     fn get_fee_per_da_gas() -> u128 {
         context.base_fee_per_da_gas()
     }
 
-    #[public]
+    #[external("public")]
     fn get_l2_gas_left() -> u32 {
         context.l2_gas_left()
     }
 
-    #[public]
+    #[external("public")]
     fn get_da_gas_left() -> u32 {
         context.da_gas_left()
     }
 
-    #[public]
+    #[external("public")]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
 
-    #[public]
+    #[external("public")]
     fn emit_public_log() {
         context.emit_public_log(/*message=*/ [10, 20, 30]);
         context.emit_public_log(/*message=*/ "Hello, world!");
@@ -502,52 +502,52 @@ pub contract AvmTest {
         ]); // Large log
     }
 
-    #[public]
+    #[external("public")]
     fn note_hash_exists(note_hash: Field, leaf_index: u64) -> bool {
         context.note_hash_exists(note_hash, leaf_index)
     }
 
     // Use the standard context interface to emit a new note hash
-    #[public]
+    #[external("public")]
     fn new_note_hash(note_hash: Field) {
         context.push_note_hash(note_hash);
     }
 
     // Use the standard context interface to emit a new nullifier
-    #[public]
+    #[external("public")]
     fn new_nullifier(nullifier: Field) {
         context.push_nullifier(nullifier);
     }
 
-    #[public]
+    #[external("public")]
     fn n_storage_writes(num: u32) {
         for i in 0..num {
             storage.map.at(AztecAddress::from_field(i as Field)).write(i);
         }
     }
 
-    #[public]
+    #[external("public")]
     fn n_new_note_hashes(num: u32) {
         for i in 0..num {
             context.push_note_hash(i as Field);
         }
     }
 
-    #[public]
+    #[external("public")]
     fn n_new_nullifiers(num: u32) {
         for i in 0..num {
             context.push_nullifier(i as Field);
         }
     }
 
-    #[public]
+    #[external("public")]
     fn n_new_l2_to_l1_msgs(num: u32) {
         for i in 0..num {
             context.message_portal(EthAddress::from_field(i as Field), i as Field)
         }
     }
 
-    #[public]
+    #[external("public")]
     fn n_new_public_logs(num: u32) {
         for i in 0..num {
             context.emit_public_log(/*message=*/ [i as Field]);
@@ -555,12 +555,12 @@ pub contract AvmTest {
     }
 
     // Use the standard context interface to check for a nullifier
-    #[public]
+    #[external("public")]
     fn nullifier_exists(nullifier: Field) -> bool {
         context.nullifier_exists(nullifier, context.this_address())
     }
 
-    #[public]
+    #[external("public")]
     fn assert_nullifier_exists(nullifier: Field) {
         assert(
             context.nullifier_exists(nullifier, context.this_address()),
@@ -569,7 +569,7 @@ pub contract AvmTest {
     }
 
     // Use the standard context interface to emit a new nullifier
-    #[public]
+    #[external("public")]
     fn emit_nullifier_and_check(nullifier: Field) {
         context.push_nullifier(nullifier);
         let exists = context.nullifier_exists(nullifier, context.this_address());
@@ -577,19 +577,19 @@ pub contract AvmTest {
     }
 
     // Create the same nullifier twice (shouldn't work!)
-    #[public]
+    #[external("public")]
     fn nullifier_collision(nullifier: Field) {
         context.push_nullifier(nullifier);
         // Can't do this twice!
         context.push_nullifier(nullifier);
     }
 
-    #[public]
+    #[external("public")]
     fn l1_to_l2_msg_exists(msg_hash: Field, msg_leaf_index: Field) -> bool {
         context.l1_to_l2_msg_exists(msg_hash, msg_leaf_index)
     }
 
-    #[public]
+    #[external("public")]
     fn send_l2_to_l1_msg(recipient: EthAddress, content: Field) {
         context.message_portal(recipient, content)
     }
@@ -597,13 +597,13 @@ pub contract AvmTest {
     /************************************************************************
      * Nested calls
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn nested_call_to_nothing() {
         let garbageAddress = AztecAddress::from_field(42);
         AvmTest::at(garbageAddress).nested_call_to_nothing().call(&mut context)
     }
 
-    #[public]
+    #[external("public")]
     fn nested_call_to_nothing_recovers() {
         let garbageAddress = AztecAddress::from_field(42);
         call(1, 1, garbageAddress, &[]);
@@ -614,7 +614,7 @@ pub contract AvmTest {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn nested_call_to_add_with_gas(
         arg_a: Field,
         arg_b: Field,
@@ -628,12 +628,12 @@ pub contract AvmTest {
     }
 
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
-    #[public]
+    #[external("public")]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
     }
 
-    #[public]
+    #[external("public")]
     fn nested_call_to_add_n_times_different_addresses(
         addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2],
     ) {
@@ -646,41 +646,41 @@ pub contract AvmTest {
     }
 
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
-    #[public]
+    #[external("public")]
     fn nested_static_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).view(&mut context)
     }
 
     // Indirectly call_static `set_storage_single`. Should revert since it's accessing storage.
-    #[public]
+    #[external("public")]
     fn nested_static_call_to_set_storage() {
         AvmTest::at(context.this_address()).set_storage_single(20).view(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     fn create_same_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier).call(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     fn create_different_nullifier_in_nested_call(nestedAddress: AztecAddress, nullifier: Field) {
         context.push_nullifier(nullifier);
         AvmTest::at(nestedAddress).new_nullifier(nullifier + 1).call(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).assert_same(arg_a, arg_b).call(&mut context)
     }
 
     // function with large array as calldata (for benchmarking call interface macros)
-    #[public]
+    #[external("public")]
     fn fn_w_large_calldata(_arr: [Field; 300]) -> pub Field {
         // do nothing and return...
         5
     }
-    #[public]
+    #[external("public")]
     fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
         AvmTest::at(context.this_address()).fn_w_large_calldata(arr).call(&mut context)
     }
@@ -688,7 +688,7 @@ pub contract AvmTest {
     /**
      * Enqueue a public call from private
      */
-    #[private]
+    #[external("private")]
     fn enqueue_public_from_private() {
         AvmTest::at(context.this_address()).set_opcode_u8().enqueue_view(&mut context);
         AvmTest::at(context.this_address()).set_read_storage_single(5).enqueue(&mut context);
@@ -697,21 +697,21 @@ pub contract AvmTest {
     /************************************************************************
      * Protocol Contract Calls
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn call_fee_juice() {
         let _ = FeeJuice::at(FEE_JUICE_ADDRESS).balance_of_public(context.this_address()).view(
             &mut context,
         );
     }
 
-    #[public]
+    #[external("public")]
     fn call_auth_registry() {
         let _ = AuthRegistry::at(CANONICAL_AUTH_REGISTRY_ADDRESS)
             .is_reject_all(context.this_address())
             .view(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     fn call_instance_registry() {
         let _ = ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
@@ -724,7 +724,7 @@ pub contract AvmTest {
      * calls - but not blackboxes!), since otherwise the whole call will
      * be optimized away.
      ************************************************************************/
-    #[public]
+    #[external("public")]
     fn bulk_testing(
         args_field: [Field; 10],
         args_u8: [u8; 10],
