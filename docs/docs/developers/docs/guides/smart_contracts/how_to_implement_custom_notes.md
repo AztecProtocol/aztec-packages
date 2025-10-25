@@ -218,7 +218,7 @@ struct Storage<Context> {
 ### Creating and storing notes
 
 ```rust
-#[private]
+#[external("private")]
 fn create_note(owner: AztecAddress, value: Field, data: u32) {
     // Create the note
     let note = CustomNote::new(value, data, owner);
@@ -233,7 +233,7 @@ fn create_note(owner: AztecAddress, value: Field, data: u32) {
 ```rust
 use aztec::note::note_getter_options::NoteGetterOptions;
 
-#[private]
+#[external("private")]
 fn get_notes(owner: AztecAddress) -> BoundedVec<CustomNote, MAX_NOTES_PER_PAGE> {
     // Get all notes for the owner
     let notes = storage.private_notes.at(owner).get_notes(
@@ -243,7 +243,7 @@ fn get_notes(owner: AztecAddress) -> BoundedVec<CustomNote, MAX_NOTES_PER_PAGE> 
     notes
 }
 
-#[private]
+#[external("private")]
 fn find_note_by_value(owner: AztecAddress, target_value: Field) -> CustomNote {
     let options = NoteGetterOptions::new()
         .select(CustomNote::properties().value, target_value, Option::none())
@@ -261,7 +261,7 @@ fn find_note_by_value(owner: AztecAddress, target_value: Field) -> CustomNote {
 To transfer a custom note between users:
 
 ```rust
-#[private]
+#[external("private")]
 fn transfer_note(from: AztecAddress, to: AztecAddress, value: Field) {
     // Find and remove from sender (nullifies the old note)
     let note = find_note_by_value(from, value);
@@ -287,7 +287,7 @@ pub struct ProfileNote {
     randomness: Field,
 }
 
-#[private]
+#[external("private")]
 fn update_profile(new_data: Field) {
     let owner = context.msg_sender();
 

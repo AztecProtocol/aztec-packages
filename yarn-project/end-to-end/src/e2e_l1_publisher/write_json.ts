@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, type L2Block } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { L2Block } from '@aztec/aztec.js/block';
+import { Fr } from '@aztec/aztec.js/fields';
 import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
@@ -32,12 +34,12 @@ export async function writeJson(
 
   const jsonObject = {
     populate: {
-      l1ToL2Content: l1ToL2Content.map(asHex),
+      l1ToL2Content: l1ToL2Content.map(value => asHex(value)),
       recipient: asHex(recipientAddress.toField()),
       sender: deployerAddress,
     },
     messages: {
-      l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(asHex),
+      l2ToL1Messages: block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs).map(value => asHex(value)),
     },
     block: {
       // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.

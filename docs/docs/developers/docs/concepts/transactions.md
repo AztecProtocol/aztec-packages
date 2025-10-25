@@ -85,10 +85,6 @@ Most transaction requests are created as interactions with specific contracts. T
 
 #include_code simulate yarn-project/aztec.js/src/contract/contract_function_interaction.ts javascript
 
-##### `prove`
-
-#include_code prove yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
-
 ##### `send`
 
 #include_code send yarn-project/aztec.js/src/contract/base_contract_interaction.ts javascript
@@ -101,7 +97,7 @@ Batched transactions are a way to send multiple transactions in a single call. T
 
 There are two kernel circuits in Aztec, the private kernel and the public kernel. Each circuit validates the correct execution of a particular function call.
 
-A transaction is built up by generating proofs for multiple recursive iterations of kernel circuits. Each call in the call stack is modeled as new iteration of the kernel circuit and are managed by a [FIFO](https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)) queue containing pending function calls. There are two call stacks, one for private calls and one for public calls.
+A transaction is built up by generating proofs for multiple recursive iterations of kernel circuits. Each call in the call stack is modeled as new iteration of the kernel circuit and are managed by a [FIFO](<https://en.wikipedia.org/wiki/FIFO_(computing_and_electronics)>) queue containing pending function calls. There are two call stacks, one for private calls and one for public calls.
 
 One iteration of a kernel circuit will pop a call off of the stack and execute the call. If the call triggers subsequent contract calls, these are pushed onto the stack.
 

@@ -1,21 +1,21 @@
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
 import {
-  AuthWitness,
-  type AztecAddress,
-  type AztecNode,
-  EthAddress,
-  type FieldsOf,
-  Fr,
   type L1TokenManager,
   L1TokenPortalManager,
   type L2AmountClaim,
   type L2AmountClaimWithRecipient,
-  type Logger,
-  type SiblingPath,
-  type TxReceipt,
-  type Wallet,
-  retryUntil,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { SiblingPath } from '@aztec/aztec.js/trees';
+import type { TxReceipt } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { type ExtendedViemWalletClient, type L1ContractAddresses, deployL1Contract } from '@aztec/ethereum';
+import { retryUntil } from '@aztec/foundation/retry';
+import type { FieldsOf } from '@aztec/foundation/types';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';

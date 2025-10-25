@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
@@ -20,7 +20,7 @@ template <typename Flavor> bb::HonkProof create_mock_decider_proof();
 template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size = 0);
 template <typename Flavor> bb::HonkProof create_mock_pcs_proof();
-template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_pg_proof();
+// template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_pg_proof();
 template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_hyper_nova_proof(bool include_fold = false);
 bb::Goblin::MergeProof create_mock_merge_proof();
 bb::HonkProof create_mock_pre_ipa_proof();

@@ -61,11 +61,13 @@ client.register.setDefaultLabels({ network: NETWORK as string });
 const provenBlockNumberGauge = new client.Gauge({
   name: "rollup_proven_block_number",
   help: "The latest proven block number of the rollup",
+  labelNames: ["network"],
 });
 
 const pendingBlockNumberGauge = new client.Gauge({
   name: "rollup_pending_block_number",
   help: "The latest pending block number of the rollup",
+  labelNames: ["network"],
 });
 
 async function updateBlockNumbers(): Promise<void> {

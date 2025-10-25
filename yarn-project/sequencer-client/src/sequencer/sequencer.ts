@@ -1,4 +1,4 @@
-import type { L2Block } from '@aztec/aztec.js';
+import { L2Block } from '@aztec/aztec.js/block';
 import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { FormattedViemError, NoCommitteeError, type RollupContract } from '@aztec/ethereum';

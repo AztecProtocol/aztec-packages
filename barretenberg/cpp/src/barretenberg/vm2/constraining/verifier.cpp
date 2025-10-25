@@ -83,9 +83,9 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
 
-    auto [beta, gamm] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.beta = beta;
-    relation_parameters.gamma = gamm;
+    relation_parameters.gamma = gamma;
 
     // Get commitments to inverses
     for (auto [label, commitment] : zip_view(commitments.get_derived_labels(), commitments.get_derived())) {

@@ -23,6 +23,7 @@ tags:
 ---
 
 **Configuration notes:**
+
 - The environment variable name corresponding to each flag is shown as $ENV_VAR on the right hand side.
 - If two subsystems can contain the same configuration option, only one needs to be provided. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value if the node is started with both the `--archiver` and `--sequencer` options.
 
@@ -108,7 +109,7 @@ tags:
           Optional directory for the world state database
 
     --world-state-db-map-size-kb <value>                                                                                                   ($WS_DB_MAP_SIZE_KB)
-          The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --world-state-block-history <value>                                      (default: 64)                                                 ($WS_NUM_HISTORIC_BLOCKS)
           The number of historic blocks to maintain. Values less than 1 mean all history is maintained
@@ -127,7 +128,7 @@ tags:
           The URL of the blob sink
 
     --archiver.blobSinkMapSizeKb <value>                                                                                                   ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --archiver.archiveApiUrl <value>                                                                                                       ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -142,7 +143,7 @@ tags:
           The max number of logs that can be obtained in 1 "getPublicLogs" call.
 
     --archiver.archiverStoreMapSizeKb <value>                                                                                              ($ARCHIVER_STORE_MAP_SIZE_KB)
-          The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --archiver.skipValidateBlockAttestations <value>
           Whether to skip validating block attestations (use only for testing).
@@ -260,7 +261,7 @@ tags:
           The port to run the blob sink server on
 
     --blobSink.blobSinkMapSizeKb <value>                                                                                                   ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --blobSink.archiveApiUrl <value>                                                                                                       ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -365,8 +366,8 @@ tags:
     --proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>             (default: 1)                                                  ($PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR)
           The maximum number of epochs to keep results for
 
-    --proverBroker.proverBrokerStoreMapSizeKB <value>                                                                                      ($PROVER_BROKER_STORE_MAP_SIZE_KB)
-          The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
+    --proverBroker.proverBrokerStoreMapSizeKb <value>                                                                                      ($PROVER_BROKER_STORE_MAP_SIZE_KB)
+          The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
 
   PROVER AGENT
 
@@ -508,7 +509,7 @@ tags:
           A list of preferred peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
 
     --p2p.p2pStoreMapSizeKb <value>                                                                                                        ($P2P_STORE_MAP_SIZE_KB)
-          The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --p2p.txPublicSetupAllowList <value>                                                                                                   ($TX_PUBLIC_SETUP_ALLOWLIST)
           The list of functions calls allowed to run in setup

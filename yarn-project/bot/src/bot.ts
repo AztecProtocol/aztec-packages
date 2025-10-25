@@ -1,4 +1,5 @@
-import { type AztecAddress, BatchCall, SentTx } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall, SentTx } from '@aztec/aztec.js/contracts';
 import { times } from '@aztec/foundation/collection';
 import type { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -73,9 +74,8 @@ export class Bot extends BaseBot {
     this.log.verbose(`Simulating transaction with ${calls.length}`, logCtx);
     await batch.simulate({ from: this.defaultAccountAddress });
 
-    this.log.verbose(`Proving transaction`, logCtx);
-    const provenTx = await batch.prove(opts);
-    return provenTx.send();
+    this.log.verbose(`Sending transaction`, logCtx);
+    return batch.send(opts);
   }
 
   public async getBalances() {

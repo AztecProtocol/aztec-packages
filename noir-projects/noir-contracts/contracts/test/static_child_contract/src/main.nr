@@ -4,7 +4,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract StaticChild {
     use dep::aztec::{
-        macros::{functions::{private, public, view}, storage::storage},
+        macros::{functions::{external, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
@@ -21,7 +21,7 @@ pub contract StaticChild {
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp statically
-    #[public]
+    #[external("public")]
     #[view]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
@@ -34,7 +34,7 @@ pub contract StaticChild {
     }
 
     // Sets `current_value` to `new_value`
-    #[public]
+    #[external("public")]
     fn pub_set_value(new_value: Field) -> Field {
         storage.current_value.write(new_value);
         context.emit_public_log(new_value);
@@ -42,7 +42,7 @@ pub contract StaticChild {
     }
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
-    #[private]
+    #[external("private")]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
@@ -55,7 +55,7 @@ pub contract StaticChild {
     }
 
     // Modify a note
-    #[private]
+    #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
 
@@ -68,7 +68,7 @@ pub contract StaticChild {
     }
 
     // Retrieve note value statically
-    #[private]
+    #[external("private")]
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
@@ -81,7 +81,7 @@ pub contract StaticChild {
     }
 
     // Increments `current_value` by `new_value`
-    #[public]
+    #[external("public")]
     fn pub_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();
         storage.current_value.write(old_value + new_value);
@@ -90,7 +90,7 @@ pub contract StaticChild {
     }
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
-    #[public]
+    #[external("public")]
     #[view]
     fn pub_illegal_inc_value(new_value: Field) -> Field {
         let old_value = storage.current_value.read();

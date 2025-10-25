@@ -1,16 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  type AztecNode,
-  ContractDeployer,
-  EthAddress,
-  Fr,
-  type Logger,
-  type Wallet,
-  retryUntil,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
@@ -20,6 +16,7 @@ import {
 } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -118,13 +115,15 @@ describe('e2e_multi_validator_node', () => {
 
     const sender = ownerAddress;
     logger.info(`Deploying contract from ${sender}`);
-    const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
-    });
-    const tx = await provenTx.send().wait();
+    const tx = await deployer
+      .deploy(ownerAddress, sender, 1)
+      .send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(BigInt(1)),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+      })
+      .wait();
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -135,7 +134,7 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
+      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
@@ -175,13 +174,15 @@ describe('e2e_multi_validator_node', () => {
 
     logger.info(`Deploying contract from ${sender}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      skipClassPublication: true,
-      skipInstancePublication: true,
-    });
-    const tx = await provenTx.send().wait();
+    const tx = await deployer
+      .deploy(ownerAddress, sender, 1)
+      .send({
+        from: ownerAddress,
+        contractAddressSalt: new Fr(BigInt(1)),
+        skipClassPublication: true,
+        skipInstancePublication: true,
+      })
+      .wait();
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -192,7 +193,7 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
+      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 

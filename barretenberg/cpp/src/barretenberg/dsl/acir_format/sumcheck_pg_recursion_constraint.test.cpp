@@ -283,17 +283,7 @@ class SumcheckIvcRecursionConstraintTest : public ::testing::Test {
     }
 
   protected:
-    void SetUp() override
-    {
-        bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-        // Set the global flag to use SumcheckClientIVC
-        bb::bbapi::USE_SUMCHECK_IVC = true;
-    }
-    void TearDown() override
-    {
-        // Reset the flag after tests
-        bb::bbapi::USE_SUMCHECK_IVC = false;
-    }
+    void SetUp() override { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 /**

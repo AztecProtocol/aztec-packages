@@ -1,5 +1,6 @@
-import { type Logger, retryUntil } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import type { ChainMonitor } from '@aztec/ethereum/test';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 

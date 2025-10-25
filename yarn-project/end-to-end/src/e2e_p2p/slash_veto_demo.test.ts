@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger, createLogger, retryUntil } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import {
   EmpireSlashingProposerArtifact,
   EmpireSlashingProposerContract,
@@ -15,6 +16,7 @@ import {
 } from '@aztec/ethereum';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';

@@ -1,4 +1,5 @@
-import { BaseAccount, type ChainInfo, type CompleteAddress } from '@aztec/aztec.js';
+import { BaseAccount, type ChainInfo } from '@aztec/aztec.js/account';
+import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 

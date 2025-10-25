@@ -132,15 +132,6 @@ class UltraFlavor {
         return OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS + DECIDER_PROOF_LENGTH(virtual_log_n);
     }
 
-    template <size_t NUM_INSTANCES>
-    using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations, NUM_INSTANCES>());
-    template <size_t NUM_INSTANCES>
-    using ProtogalaxyTupleOfTuplesOfUnivariates =
-        decltype(create_protogalaxy_tuple_of_tuples_of_univariates<Relations,
-                                                                   NUM_INSTANCES,
-                                                                   /*optimized=*/true>());
-
     // Whether or not the first row of the execution trace is reserved for 0s to enable shifts
     static constexpr bool has_zero_row = true;
 
@@ -520,12 +511,12 @@ class UltraFlavor {
     };
 
     /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @brief A container for univariates used in sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
     /**
-     * @brief A container for univariates used during Protogalaxy folding and sumcheck.
+     * @brief A container for univariates used in sumcheck.
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH, size_t SKIP_COUNT>

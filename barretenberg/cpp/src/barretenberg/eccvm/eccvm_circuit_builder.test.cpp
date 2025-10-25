@@ -116,7 +116,7 @@ TEST(ECCVMCircuitBuilderTests, MulInfinity)
     typename G1::element a = generators[0];
     Fr x = Fr::random_element(&engine);
     G1::element b = -a * x;
-    // G1::affine_element c = G1::affine_point_at_infinity;
+
     op_queue->add_accumulate(b);
     op_queue->mul_accumulate(a, x);
     op_queue->eq_and_reset();
@@ -523,4 +523,26 @@ TEST(ECCVMCircuitBuilderTests, InfinityFailure)
     bool circuit_checked = ECCVMTraceChecker::check(eccvm_builder);
 
     EXPECT_TRUE(failure && row_op_code_correct && circuit_checked);
+}
+/**
+ * @brief Test multiplication with boundary scalar edge case
+ * @details This test validates scalar multiplication with  (2^128) to ensure proper handling
+ * of edge cases associated with WNAF decomposition.
+ */
+TEST(ECCVMCircuitBuilderTests, ScalarEdgeCase)
+{
+    std::shared_ptr<ECCOpQueue> op_queue = std::make_shared<ECCOpQueue>();
+
+    auto generators = G1::derive_generators("test generators", 1);
+    typename G1::element a = generators[0];
+
+    // Test with scalar = 2^128 (edge case for scalar decomposition)
+    Fr two_to_the_128 = Fr(uint256_t(1) << 128);
+    op_queue->mul_accumulate(a, two_to_the_128);
+
+    op_queue->merge();
+
+    ECCVMCircuitBuilder circuit{ op_queue };
+    bool result = ECCVMTraceChecker::check(circuit, &engine);
+    EXPECT_EQ(result, true);
 }

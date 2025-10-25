@@ -33,15 +33,15 @@ export async function createStore(
       rollupAddress,
       dataDirectory: subDir,
       onOpen: dbDirectory =>
-        AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKB, MAX_READERS, () => Promise.resolve(), log),
+        AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), log),
     });
 
     log.info(
-      `Creating ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKB} KB (LMDB v2)`,
+      `Creating ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKb} KB (LMDB v2)`,
     );
     [store] = await versionManager.open();
   } else {
-    store = await openTmpStore(name, true, config.dataStoreMapSizeKB, MAX_READERS, log);
+    store = await openTmpStore(name, true, config.dataStoreMapSizeKb, MAX_READERS, log);
   }
 
   return store;

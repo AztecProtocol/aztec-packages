@@ -5,15 +5,21 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { withoutHexPrefix } from '@aztec/foundation/string';
 
 export type ViemZkPassportProofParams = {
-  vkeyHash: `0x${string}`;
-  proof: `0x${string}`;
-  publicInputs: `0x${string}`[];
-  committedInputs: `0x${string}`;
-  committedInputCounts: bigint[];
-  validityPeriodInSeconds: bigint;
-  domain: string;
-  scope: string;
-  devMode: boolean;
+  proofVerificationData: {
+    vkeyHash: `0x${string}`;
+    proof: `0x${string}`;
+    publicInputs: `0x${string}`[];
+  };
+  commitments: {
+    committedInputs: `0x${string}`;
+    committedInputCounts: bigint[];
+  };
+  serviceConfig: {
+    validityPeriodInSeconds: bigint;
+    domain: string;
+    scope: string;
+    devMode: boolean;
+  };
 };
 
 // NOTE: Must match the ZkPassportProofParams struct in the zkpassport verifier contract
@@ -64,7 +70,7 @@ export class ZkPassportProofParams {
       publicInputs,
       committedInputs,
       committedInputCounts,
-      BigInt(100 * 60 * 60 * 24),
+      BigInt(7 * 24 * 60 * 60), // 7 days
       'sequencer.alpha-testnet.aztec.network',
       'personhood',
     );
@@ -87,29 +93,35 @@ export class ZkPassportProofParams {
 
   static fromViem(params: ViemZkPassportProofParams) {
     return new ZkPassportProofParams(
-      params.devMode,
-      Buffer32.fromString(params.vkeyHash),
-      Buffer.from(withoutHexPrefix(params.proof), 'hex'),
-      params.publicInputs.map(input => Fr.fromString(input)),
-      Buffer.from(withoutHexPrefix(params.committedInputs), 'hex'),
-      params.committedInputCounts,
-      params.validityPeriodInSeconds,
-      params.domain,
-      params.scope,
+      params.serviceConfig.devMode,
+      Buffer32.fromString(params.proofVerificationData.vkeyHash),
+      Buffer.from(withoutHexPrefix(params.proofVerificationData.proof), 'hex'),
+      params.proofVerificationData.publicInputs.map(input => Fr.fromString(input)),
+      Buffer.from(withoutHexPrefix(params.commitments.committedInputs), 'hex'),
+      params.commitments.committedInputCounts,
+      params.serviceConfig.validityPeriodInSeconds,
+      params.serviceConfig.domain,
+      params.serviceConfig.scope,
     );
   }
 
   toViem(): ViemZkPassportProofParams {
     return {
-      devMode: this.devMode,
-      vkeyHash: this.vkeyHash.toString(),
-      proof: `0x${this.proof.toString('hex')}`,
-      publicInputs: this.publicInputs.map(input => input.toString()),
-      committedInputs: `0x${this.committedInputs.toString('hex')}`,
-      committedInputCounts: this.committedInputCounts,
-      validityPeriodInSeconds: this.validityPeriodInSeconds,
-      domain: this.domain,
-      scope: this.scope,
+      serviceConfig: {
+        devMode: this.devMode,
+        validityPeriodInSeconds: this.validityPeriodInSeconds,
+        domain: this.domain,
+        scope: this.scope,
+      },
+      proofVerificationData: {
+        vkeyHash: this.vkeyHash.toString(),
+        proof: `0x${this.proof.toString('hex')}`,
+        publicInputs: this.publicInputs.map(input => input.toString()),
+      },
+      commitments: {
+        committedInputs: `0x${this.committedInputs.toString('hex')}`,
+        committedInputCounts: this.committedInputCounts,
+      },
     };
   }
 }

@@ -142,7 +142,7 @@ contract TokenPortal {
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-    underlying.transfer(_recipient, _amount);
+    underlying.safeTransfer(_recipient, _amount);
   }
   // docs:end:token_portal_withdraw
 }

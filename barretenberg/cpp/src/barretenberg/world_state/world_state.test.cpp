@@ -55,7 +55,14 @@ void assert_leaf_status(
     const WorldState& ws, WorldStateRevision revision, MerkleTreeId tree_id, index_t leaf_index, bool exists)
 {
     std::optional<Leaf> leaf = ws.get_leaf<Leaf>(revision, tree_id, leaf_index);
-    EXPECT_EQ(leaf.has_value(), exists);
+    // TODO(#17755): Unwritten leaves at valid indices (index <= max_index) now return 0-value leaves with a message in
+    // the response from the tree, so leaf.has_value() is always true:
+    EXPECT_EQ(leaf.has_value(), true);
+    if (exists) {
+        EXPECT_NE(leaf.value(), fr::zero());
+    } else {
+        EXPECT_EQ(leaf.value(), fr::zero());
+    }
 }
 
 template <typename Leaf>

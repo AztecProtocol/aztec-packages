@@ -1,4 +1,4 @@
-import type { L2Block } from '@aztec/aztec.js';
+import { L2Block } from '@aztec/aztec.js/block';
 import { Blob } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';

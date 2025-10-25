@@ -9,7 +9,7 @@ import { type ArchiverSpecificConfig, ArchiverSpecificConfigSchema } from './arc
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
-import { ValidatorClientConfigSchema, type ValidatorClientFullConfig } from './validator.js';
+import { type ValidatorClientFullConfig, ValidatorClientFullConfigSchema } from './validator.js';
 
 /**
  * Aztec node admin API.
@@ -62,7 +62,7 @@ export type AztecNodeAdminConfig = ValidatorClientFullConfig &
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
-  .merge(ValidatorClientConfigSchema)
+  .merge(ValidatorClientFullConfigSchema)
   .merge(
     ArchiverSpecificConfigSchema.pick({
       archiverPollingIntervalMS: true,

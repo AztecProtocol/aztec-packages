@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { LocalSigner, RemoteSigner } from '@aztec/node-keystore';
 

@@ -1,9 +1,9 @@
 import {
   type ContractInstanceWithAddress,
-  Fr,
-  type Wallet,
   getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 

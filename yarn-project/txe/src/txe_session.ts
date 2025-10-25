@@ -60,7 +60,7 @@ type SessionState =
       name: 'TOP_LEVEL';
     }
   /**
-   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[private]`
+   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[external("private")]`
    * functions use are available, such as those related to note retrieval, notification of side-effects, capsule access,
    * etc. */
   | {
@@ -71,13 +71,13 @@ type SessionState =
       taggingIndexCache: ExecutionTaggingIndexCache;
     }
   /**
-   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[public]`
+   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[external("public")]`
    * functions execute are resolved as oracles by TXE, since Noir tests are not transpiled. */
   | {
       name: 'PUBLIC';
     }
   /**
-   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[utility]`
+   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[external("utility")]`
    * functions use are available, such as those related to (unconstrained) note retrieval, capsule access, public
    * storage reads, etc.
    */

@@ -275,7 +275,7 @@ void UltraCircuitChecker::populate_values(
         }
         uint32_t tag_in = builder.real_variable_tags[real_index];
         if (tag_in != DUMMY_TAG) {
-            uint32_t tag_out = builder.tau.at(tag_in);
+            uint32_t tag_out = builder.tau().at(tag_in);
             tag_data.left_product *= value + tag_data.gamma * FF(tag_in);
             tag_data.right_product *= value + tag_data.gamma * FF(tag_out);
             tag_data.encountered_variables.insert(real_index);

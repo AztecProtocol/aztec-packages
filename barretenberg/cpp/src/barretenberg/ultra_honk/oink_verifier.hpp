@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {

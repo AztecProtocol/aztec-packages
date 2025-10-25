@@ -44,7 +44,7 @@ describe('Discv5Service', () => {
     p2pPort: basePort + 100,
     listenAddress: '127.0.0.1',
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 0,
+    dataStoreMapSizeKb: 0,
     bootstrapNodes: [],
     queryForIp: false,
     ...emptyChainConfig,

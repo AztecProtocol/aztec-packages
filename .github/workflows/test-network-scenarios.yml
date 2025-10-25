@@ -34,10 +34,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-should-run:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.check.outputs.should_run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check for semver tag
+        id: check
+        run: |
+          git fetch --tags --force
+          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+          if echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Found semver tag: $tag"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+          fi
+
   deploy-and-test-scenarios:
+    needs: check-should-run
     if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch')
+      always() &&
+      ((github.event_name == 'workflow_run' && needs.check-should-run.outputs.should_run == 'true') ||
+      (github.event_name == 'workflow_dispatch'))
     runs-on: ubuntu-latest
     env:
       NETWORK_ENV_FILE: /tmp/network.env
@@ -65,10 +92,6 @@ jobs:
         run: |
           git fetch --tags --force
           tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
-            exit 0
-          fi
           semver="${tag#v}"
           major_version="${semver%%.*}"
           echo "SEMVER=$semver" >> $GITHUB_ENV
@@ -91,7 +114,7 @@ jobs:
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
-          sudo apt install -y --no-install-recommends redis-tools parallel
+          sudo apt update && sudo apt install -y --no-install-recommends redis-tools parallel
 
       - name: Store the GCP key in a file
         if: env.SEMVER != '' || env.DOCKER_IMAGE != ''

@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, type Logger } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsReturnType, RollupContract } from '@aztec/ethereum';
 import type { TestDateProvider } from '@aztec/foundation/timer';

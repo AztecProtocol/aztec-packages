@@ -1,18 +1,13 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  type AztecNode,
-  BatchCall,
-  type ContractFunctionInteraction,
-  EthAddress,
-  type Logger,
-  type Wallet,
-  getContractClassFromArtifact,
-  waitForProven,
-} from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
+import { BatchCall, type ContractFunctionInteraction, waitForProven } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -411,7 +406,7 @@ async function setupFromFresh(
       l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: aztecNodeConfig.dataDirectory,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
     },
     telemetry,
   );
@@ -539,7 +534,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
     },
     telemetry,
   );

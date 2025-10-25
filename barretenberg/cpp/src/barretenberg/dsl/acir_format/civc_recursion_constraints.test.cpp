@@ -14,17 +14,17 @@ class CivcRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
-    // Types for ClientIVC recursive verifier
+    // Types for LegacyClientIVC recursive verifier
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
 
-    // Types for ClientIVC
+    // Types for LegacyClientIVC
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
-    // Public inputs added by bb to a ClientIVC proof
+    // Public inputs added by bb to a LegacyClientIVC proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     struct ClientIVCData {

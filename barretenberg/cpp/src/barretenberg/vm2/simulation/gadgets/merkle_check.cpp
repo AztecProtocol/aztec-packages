@@ -1,18 +1,30 @@
 #include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
 
 #include <cassert>
-#include <cstdint>
-
-#include "barretenberg/vm2/common/constants.hpp"
+#include <stdexcept>
+#include <vector>
 
 namespace bb::avm2::simulation {
 
+/**
+ * @brief Assert membership of a leaf in a Merkle tree, i.e., verify that the leaf value,
+ * leaf index, and the sibling path lead to the given root. Size of the tree is implicitly
+ * given by the sibling path length.
+ * @note A precondition is that sibling_path.size() <= 64
+ *
+ * @throws std::runtime_error if the membership check fails.
+ *
+ * @param leaf_value The value of the leaf to check.
+ * @param leaf_index The index of the leaf to check.
+ * @param sibling_path The sibling path to the leaf to check.
+ * @param root The root of the Merkle tree.
+ */
 void MerkleCheck::assert_membership(const FF& leaf_value,
                                     const uint64_t leaf_index,
                                     std::span<const FF> sibling_path,
                                     const FF& root)
 {
-    // Gadget breaks if tree_height > 64
+    // Gadget breaks if tree_height > 64 (leaf_index is of type uint64_t)
     assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
 
     FF curr_value = leaf_value;
@@ -34,17 +46,37 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
     }
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
-    events.emit(
-        { .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = std::move(sibling_vec), .root = root });
+    events.emit({
+        .leaf_value = leaf_value,
+        .leaf_index = leaf_index,
+        .sibling_path = std::move(sibling_vec),
+        .root = root,
+    });
 }
 
+/**
+ * @brief Assert the membership of the current leaf value (same logic as assert_membership()).
+ * Write the new leaf value in the tree, i.e., compute the new root of the tree after the
+ * insertion of the new leaf value. Size of the tree is implicitly given by the sibling path length.
+ *
+ * @note A precondition is that sibling_path.size() <= 64
+ *
+ * @throws std::runtime_error if the membership check fails.
+ *
+ * @param current_value The value of the current leaf.
+ * @param new_value The value of the new leaf.
+ * @param leaf_index The index of the leaf to write.
+ * @param sibling_path The sibling path to the leaf to write.
+ * @param current_root The root of the Merkle tree before the write.
+ * @return The new root of the Merkle tree after the write.
+ */
 FF MerkleCheck::write(const FF& current_value,
                       const FF& new_value,
                       const uint64_t leaf_index,
                       std::span<const FF> sibling_path,
                       const FF& current_root)
 {
-    // Gadget breaks if tree_height > 64
+    // Gadget breaks if tree_height > 64 (leaf_index is of type uint64_t)
     assert(sibling_path.size() <= 64 && "Merkle path length must be less than or equal to 64");
 
     FF read_value = current_value;
@@ -70,12 +102,14 @@ FF MerkleCheck::write(const FF& current_value,
     }
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
-    events.emit({ .leaf_value = current_value,
-                  .new_leaf_value = new_value,
-                  .leaf_index = leaf_index,
-                  .sibling_path = std::move(sibling_vec),
-                  .root = current_root,
-                  .new_root = write_value });
+    events.emit({
+        .leaf_value = current_value,
+        .new_leaf_value = new_value,
+        .leaf_index = leaf_index,
+        .sibling_path = std::move(sibling_vec),
+        .root = current_root,
+        .new_root = write_value,
+    });
 
     return write_value;
 }

@@ -53,6 +53,11 @@ function test {
   test_cmds | parallelize
 }
 
+function check_references {
+  echo_header "Check doc references"
+  ./scripts/check_doc_references.sh docs
+}
+
 function build_examples {
   echo_header "Building examples"
   (cd examples && ./bootstrap.sh "$@")
@@ -66,10 +71,12 @@ case "$cmd" in
     build_examples
     build_docs
     test
+    check_references
     ;;
   ""|"full"|"fast")
     build_examples
     build_docs
+    check_references
     ;;
   "hash")
     echo "$hash"
