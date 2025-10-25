@@ -3,79 +3,36 @@
  * Parallels schema_compiler.ts but outputs Rust instead of TypeScript
  */
 
-export type Schema =
-  | string
-  | ObjectSchema
-  | ['tuple', Schema[]]
-  | ['map', [Schema, Schema]]
-  | ['optional', [Schema]]
-  | ['vector', [Schema]]
-  | ['variant', Schema[]]
-  | ['named_union', Array<[string, Schema]>]
-  | ['shared_ptr', [Schema]]
-  | ['array', [Schema, number]]
-  | ['alias', [string, string]];
+import {
+  SchemaCompilerBase,
+  Schema,
+  ObjectSchema,
+  toSnakeCase,
+  toPascalCase,
+} from './schema_compiler_base.js';
 
-export type ObjectSchema = { [key: string]: Schema };
-
-interface TypeInfo {
+interface RustTypeInfo {
   rustType: string;
   needsSerde: boolean;
   isCustomType: boolean;
 }
 
-interface FunctionMetadata {
-  name: string;
-  commandType: string;
-  responseType: string;
-}
-
-function toSnakeCase(s: string): string {
-  return s
-    .replace(/([A-Z])/g, '_$1')
-    .toLowerCase()
-    .replace(/^_/, '');
-}
-
-function toPascalCase(s: string): string {
-  return s
-    .split('_')
-    .map(part => part.charAt(0).toUpperCase() + part.substring(1))
-    .join('');
-}
-
-export class RustSchemaCompiler {
-  private typeCache = new Map<string, TypeInfo>();
-  private functionMetadata: FunctionMetadata[] = [];
+export class RustSchemaCompiler extends SchemaCompilerBase<RustTypeInfo> {
   private customTypes = new Set<string>();
+  private commandTypes = new Set<string>();
+  private responseTypes = new Set<string>();
 
+  /**
+   * Override to track command and response types for constructor generation
+   */
   processApiSchema(commandsSchema: Schema, responsesSchema: Schema): void {
-    // Process types
-    this.processSchema(commandsSchema);
-    this.processSchema(responsesSchema);
+    // Call base implementation
+    super.processApiSchema(commandsSchema, responsesSchema);
 
-    // Extract function metadata
-    if (
-      !Array.isArray(commandsSchema) ||
-      commandsSchema[0] !== 'named_union' ||
-      !Array.isArray(responsesSchema) ||
-      responsesSchema[0] !== 'named_union'
-    ) {
-      throw new Error('Expected named_union schema format');
-    }
-
-    const commands = commandsSchema[1] as Array<[string, Schema]>;
-    const responses = responsesSchema[1] as Array<[string, Schema]>;
-
-    for (let i = 0; i < commands.length; i++) {
-      const [commandName] = commands[i];
-      const [responseName] = responses[i];
-
-      this.functionMetadata.push({
-        name: toSnakeCase(commandName),
-        commandType: toPascalCase(commandName),
-        responseType: toPascalCase(responseName),
-      });
+    // Track command and response types for constructor generation
+    for (const metadata of this.functionMetadata) {
+      this.commandTypes.add(metadata.commandType);
+      this.responseTypes.add(metadata.responseType);
     }
   }
 
@@ -128,36 +85,24 @@ export class RustSchemaCompiler {
     return parts.join('\n');
   }
 
-  private processSchema(schema: Schema): TypeInfo {
-    const key = this.getSchemaKey(schema);
-    if (this.typeCache.has(key)) {
-      return this.typeCache.get(key)!;
-    }
-
-    const typeInfo = this.generateTypeInfo(schema);
-    this.typeCache.set(key, typeInfo);
-    return typeInfo;
+  /**
+   * Convert function name to Rust snake_case convention
+   */
+  protected convertFunctionName(name: string): string {
+    return toSnakeCase(name);
   }
 
-  private getSchemaKey(schema: Schema): string {
-    if (typeof schema === 'string') return schema;
-    if (Array.isArray(schema)) return JSON.stringify(schema);
-    if (typeof schema === 'object') return (schema as any).__typename || JSON.stringify(schema);
-    return String(schema);
+  /**
+   * Convert type name to Rust PascalCase convention
+   */
+  protected convertTypeName(name: string): string {
+    return toPascalCase(name);
   }
 
-  private generateTypeInfo(schema: Schema): TypeInfo {
-    if (Array.isArray(schema)) {
-      return this.processArraySchema(schema);
-    } else if (typeof schema === 'string') {
-      return this.processPrimitiveSchema(schema);
-    } else if (typeof schema === 'object') {
-      return this.processObjectSchema(schema);
-    }
-    throw new Error(`Unsupported schema type: ${schema}`);
-  }
-
-  private processArraySchema(schema: any[]): TypeInfo {
+  /**
+   * Process array-based schema types (Rust-specific implementation)
+   */
+  protected processArraySchema(schema: any[]): RustTypeInfo {
     const [type, ...args] = schema;
 
     switch (type) {
@@ -234,7 +179,10 @@ export class RustSchemaCompiler {
     }
   }
 
-  private processPrimitiveSchema(schema: string): TypeInfo {
+  /**
+   * Process primitive schema types (Rust-specific implementation)
+   */
+  protected processPrimitiveSchema(schema: string): RustTypeInfo {
     switch (schema) {
       case 'bool':
         return { rustType: 'bool', needsSerde: true, isCustomType: false };
@@ -261,35 +209,41 @@ export class RustSchemaCompiler {
     }
   }
 
-  private processObjectSchema(schema: ObjectSchema): TypeInfo {
+  /**
+   * Process object schema types (Rust-specific implementation)
+   */
+  protected processObjectSchema(schema: ObjectSchema): RustTypeInfo {
     const typeName = toPascalCase(schema.__typename as string);
     this.customTypes.add(typeName);
+    this.objectSchemas.set(typeName, schema);
+
+    // Recursively process all fields to discover nested types
+    for (const [key, value] of Object.entries(schema)) {
+      if (key !== '__typename') {
+        this.processSchema(value);
+      }
+    }
+
     return { rustType: typeName, needsSerde: true, isCustomType: true };
   }
 
   private findTypeByName(typeName: string): ObjectSchema | null {
-    for (const [key, _] of this.typeCache.entries()) {
-      try {
-        const schema = JSON.parse(key);
-        if (schema.__typename && toPascalCase(schema.__typename) === typeName) {
-          return schema;
-        }
-      } catch {
-        // Not a JSON key
-      }
-    }
-    return null;
+    return this.objectSchemas.get(typeName) || null;
   }
 
   private generateTypeDefinition(typeName: string, schema: ObjectSchema): string {
     const fields = Object.entries(schema)
-      .filter(([key]) => key !== '__typename')
       .map(([key, value]) => {
         const typeInfo = this.processSchema(value);
         const fieldName = toSnakeCase(key);
 
         // Add serde attributes
         let serdeAttrs = '';
+
+        // Handle __typename specially
+        if (key === '__typename') {
+          return `    #[serde(rename = "__typename")]\n    pub type_name: String,`;
+        }
 
         // If field name differs from original key, add rename attribute
         if (fieldName !== key) {
@@ -304,42 +258,218 @@ export class RustSchemaCompiler {
         return `${serdeAttrs}    pub ${fieldName}: ${typeInfo.rustType},`;
       });
 
+    // Generate constructor for command types
+    const isCommand = this.commandTypes.has(typeName);
+    const constructor = isCommand ? this.generateConstructor(typeName, schema) : '';
+
     return `/// ${typeName} type from msgpack schema
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ${typeName} {
 ${fields.join('\n')}
+}
+${constructor}`;
+  }
+
+  private generateConstructor(typeName: string, schema: ObjectSchema): string {
+    const typename = schema.__typename as string;
+    const params = Object.entries(schema)
+      .filter(([key]) => key !== '__typename')
+      .map(([key, value]) => {
+        const typeInfo = this.processSchema(value);
+        const fieldName = toSnakeCase(key);
+        return `${fieldName}: ${typeInfo.rustType}`;
+      });
+
+    const fieldInits = Object.entries(schema)
+      .map(([key]) => {
+        if (key === '__typename') {
+          return `            type_name: "${typename}".to_string(),`;
+        }
+        const fieldName = toSnakeCase(key);
+        return `            ${fieldName},`;
+      });
+
+    return `
+impl ${typeName} {
+    pub fn new(${params.join(', ')}) -> Self {
+        Self {
+${fieldInits.join('\n')}
+        }
+    }
+}
+
+impl Default for ${typeName} {
+    fn default() -> Self {
+        Self::new(${Object.keys(schema).filter(k => k !== '__typename').map(() => 'Default::default()').join(', ')})
+    }
 }`;
   }
 
   private generateCommandEnum(): string {
     const variants = this.functionMetadata.map(m => {
-      // Keep original casing for the variant name tag
-      const originalName = m.name.split('_').map((part, i) =>
-        i === 0 ? part.charAt(0).toUpperCase() + part.slice(1) :
-        part.charAt(0).toUpperCase() + part.slice(1)
-      ).join('');
-
-      return `    #[serde(rename = "${m.commandType}")]\n    ${m.commandType}(${m.commandType}),`;
+      return `    ${m.commandType}(${m.commandType}),`;
     });
 
+    const serializeCases = this.functionMetadata.map(m => {
+      return `            Command::${m.commandType}(data) => {
+                tuple.serialize_element("${m.commandType}")?;
+                tuple.serialize_element(data)?;
+            }`;
+    });
+
+    const deserializeCases = this.functionMetadata.map(m => {
+      return `                    "${m.commandType}" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::${m.commandType}(data))
+                    }`;
+    });
+
+    const variantNames = this.functionMetadata.map(m => `"${m.commandType}"`).join(', ');
+
     return `/// Command enum wrapping all possible commands
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "0", content = "1")]
+/// Serializes as msgpack array: ["VariantName", {...}]
+#[derive(Debug, Clone)]
 pub enum Command {
 ${variants.join('\n')}
+}
+
+// Custom serialization to create array format: ["CommandName", {...}]
+impl Serialize for Command {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tuple = serializer.serialize_tuple(2)?;
+
+        match self {
+${serializeCases.join('\n')}
+        }
+
+        tuple.end()
+    }
+}
+
+// Custom deserialization from array format: ["CommandName", {...}]
+impl<'de> Deserialize<'de> for Command {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{SeqAccess, Visitor};
+
+        struct CommandVisitor;
+
+        impl<'de> Visitor<'de> for CommandVisitor {
+            type Value = Command;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a 2-element array [command_name, payload]")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let name: String = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+
+                match name.as_str() {
+${deserializeCases.join('\n')}
+                    _ => Err(serde::de::Error::unknown_variant(&name, &[
+                        ${variantNames}
+                    ])),
+                }
+            }
+        }
+
+        deserializer.deserialize_tuple(2, CommandVisitor)
+    }
 }`;
   }
 
   private generateResponseEnum(): string {
     const variants = this.functionMetadata.map(m => {
-      return `    #[serde(rename = "${m.responseType}")]\n    ${m.responseType}(${m.responseType}),`;
+      return `    ${m.responseType}(${m.responseType}),`;
     });
 
+    const serializeCases = this.functionMetadata.map(m => {
+      return `            Response::${m.responseType}(data) => {
+                tuple.serialize_element("${m.responseType}")?;
+                tuple.serialize_element(data)?;
+            }`;
+    });
+
+    const deserializeCases = this.functionMetadata.map(m => {
+      return `                    "${m.responseType}" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Response::${m.responseType}(data))
+                    }`;
+    });
+
+    const variantNames = this.functionMetadata.map(m => `"${m.responseType}"`).join(', ');
+
     return `/// Response enum wrapping all possible responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "0", content = "1")]
+/// Serializes as msgpack array: ["VariantName", {...}]
+#[derive(Debug, Clone)]
 pub enum Response {
 ${variants.join('\n')}
+}
+
+// Custom serialization to create array format: ["ResponseName", {...}]
+impl Serialize for Response {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeTuple;
+        let mut tuple = serializer.serialize_tuple(2)?;
+
+        match self {
+${serializeCases.join('\n')}
+        }
+
+        tuple.end()
+    }
+}
+
+// Custom deserialization from array format: ["ResponseName", {...}]
+impl<'de> Deserialize<'de> for Response {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::{SeqAccess, Visitor};
+
+        struct ResponseVisitor;
+
+        impl<'de> Visitor<'de> for ResponseVisitor {
+            type Value = Response;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a 2-element array [response_name, payload]")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let name: String = seq.next_element()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+
+                match name.as_str() {
+${deserializeCases.join('\n')}
+                    _ => Err(serde::de::Error::unknown_variant(&name, &[
+                        ${variantNames}
+                    ])),
+                }
+            }
+        }
+
+        deserializer.deserialize_tuple(2, ResponseVisitor)
+    }
 }`;
   }
 }

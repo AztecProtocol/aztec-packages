@@ -2,21 +2,15 @@
  * Unified schema compiler with integrated strategies
  */
 
-// Core type definitions
-export type Schema =
-  | string
-  | ObjectSchema
-  | ['tuple', Schema[]]
-  | ['map', [Schema, Schema]]
-  | ['optional', [Schema]]
-  | ['vector', [Schema]]
-  | ['variant', Schema[]]
-  | ['named_union', Array<[string, Schema]>]
-  | ['shared_ptr', [Schema]]
-  | ['array', [Schema, number]]
-  | ['alias', [string, string]];
-
-export type ObjectSchema = { [key: string]: Schema };
+import {
+  SchemaCompilerBase,
+  Schema,
+  ObjectSchema,
+  FunctionMetadata,
+  capitalize,
+  camelCase,
+  pascalCase,
+} from './schema_compiler_base.js';
 
 export interface TypeInfo {
   typeName: string;
@@ -26,12 +20,6 @@ export interface TypeInfo {
   fromMethod?: string;
 }
 
-export interface FunctionMetadata {
-  name: string;
-  commandType: string;
-  responseType: string;
-}
-
 // Compiler configuration
 export interface CompilerConfig {
   mode: 'types' | 'sync' | 'async';
@@ -39,39 +27,23 @@ export interface CompilerConfig {
   wasmImport?: string;
 }
 
-// Helper functions
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.substring(1);
-}
-
-function camelCase(s: string): string {
-  return s
-    .split('_')
-    .map((part, index) => (index === 0 ? part.charAt(0).toLowerCase() + part.substring(1) : capitalize(part)))
-    .join('');
-}
-
-function pascalCase(s: string): string {
-  return s.split('_').map(capitalize).join('');
-}
-
-export class SchemaCompiler {
-  private typeCache = new Map<string, TypeInfo>();
-  private functionMetadata: FunctionMetadata[] = [];
+export class SchemaCompiler extends SchemaCompilerBase<TypeInfo> {
   // WORKTODO(bbapi): AI slop fixup - redundant with typeCache, remove
   private referencedTypes = new Set<string>();
 
-  constructor(private config: CompilerConfig) {}
+  constructor(private config: CompilerConfig) {
+    super();
+  }
 
   /**
-   * Process API schema and extract function metadata
+   * Override to customize processing order and add recursive check
    */
   processApiSchema(commandsSchema: Schema, responsesSchema: Schema): void {
-    // Process types
+    // Process types first (different order from base implementation)
     this.processSchema(commandsSchema);
     this.processSchema(responsesSchema);
 
-    // Extract function metadata from named unions
+    // Validate schema format
     if (
       !Array.isArray(commandsSchema) ||
       commandsSchema[0] !== 'named_union' ||
@@ -84,6 +56,7 @@ export class SchemaCompiler {
     const commands = commandsSchema[1] as Array<[string, Schema]>;
     const responses = responsesSchema[1] as Array<[string, Schema]>;
 
+    // Extract function metadata
     for (let i = 0; i < commands.length; i++) {
       const [commandName] = commands[i];
       const [responseName] = responses[i];
@@ -97,7 +70,7 @@ export class SchemaCompiler {
   }
 
   /**
-   * Process a schema and populate type cache
+   * Override to add recursive schema detection
    */
   processSchema(schema: Schema): TypeInfo {
     const key = this.getSchemaKey(schema);
@@ -113,6 +86,20 @@ export class SchemaCompiler {
     const typeInfo = this.generateTypeInfo(schema);
     this.typeCache.set(key, typeInfo);
     return typeInfo;
+  }
+
+  /**
+   * Convert function name to TypeScript camelCase convention
+   */
+  protected convertFunctionName(name: string): string {
+    return camelCase(name);
+  }
+
+  /**
+   * Convert type name to TypeScript PascalCase convention
+   */
+  protected convertTypeName(name: string): string {
+    return pascalCase(name);
   }
 
   /**
@@ -207,13 +194,6 @@ export class SchemaCompiler {
     return parts.join('\n') + '\n';
   }
 
-  private getSchemaKey(schema: Schema): string {
-    if (typeof schema === 'string') return schema;
-    if (Array.isArray(schema)) return JSON.stringify(schema);
-    if (typeof schema === 'object') return (schema as any).__typename || JSON.stringify(schema);
-    return String(schema);
-  }
-
   private needsTupleHelper(): boolean {
     return Array.from(this.typeCache.values()).some(t => t.typeName.includes('Tuple<'));
   }
@@ -274,18 +254,10 @@ export class SchemaCompiler {
     return types;
   }
 
-  private generateTypeInfo(schema: Schema): TypeInfo {
-    if (Array.isArray(schema)) {
-      return this.processArraySchema(schema);
-    } else if (typeof schema === 'string') {
-      return this.processPrimitiveSchema(schema);
-    } else if (typeof schema === 'object') {
-      return this.processObjectSchema(schema);
-    }
-    throw new Error(`Unsupported schema type: ${schema}`);
-  }
-
-  private processArraySchema(schema: any[]): TypeInfo {
+  /**
+   * Process array-based schema types (TypeScript-specific implementation)
+   */
+  protected processArraySchema(schema: any[]): TypeInfo {
     const [type, ...args] = schema;
 
     switch (type) {
@@ -384,7 +356,10 @@ export class SchemaCompiler {
     }
   }
 
-  private processPrimitiveSchema(schema: string): TypeInfo {
+  /**
+   * Process primitive schema types (TypeScript-specific implementation)
+   */
+  protected processPrimitiveSchema(schema: string): TypeInfo {
     switch (schema) {
       case 'bool':
         return { typeName: 'boolean' };
@@ -404,7 +379,10 @@ export class SchemaCompiler {
     }
   }
 
-  private processObjectSchema(schema: ObjectSchema): TypeInfo {
+  /**
+   * Process object schema types (TypeScript-specific implementation)
+   */
+  protected processObjectSchema(schema: ObjectSchema): TypeInfo {
     const typeName = pascalCase(schema.__typename as string);
     const msgpackTypeName = 'Msgpack' + typeName;
 
