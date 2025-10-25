@@ -102,9 +102,9 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
 
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
-    parallel_for([&](const ThreadChunk& chunk) {
+    parallel_for_range(iteration_size, [&](size_t start, size_t end) {
         typename Flavor::AllValues row;
-        for (size_t i : chunk.range(iteration_size)) {
+        for (size_t i = start; i < end; ++i) {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/940):consider avoiding get_row if possible.
             auto row_idx = get_active_range_poly_idx(i);
             if constexpr (IsUltraOrMegaHonk<Flavor>) {
@@ -138,23 +138,14 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     std::vector<FF> partial_numerators(num_threads);
     std::vector<FF> partial_denominators(num_threads);
 
-    parallel_for([&](const ThreadChunk& chunk) {
-        auto range = chunk.range(iteration_size);
-        auto range_begin = range.begin();
-        auto range_end = range.end();
-        if (range_begin == range_end) {
-            return; // Empty range for this thread
-        }
-        const size_t start = *range_begin;
-        const size_t end = *(--range_end) + 1; // Convert from inclusive to exclusive
-
+    parallel_for_heuristic(iteration_size, [&](size_t start, size_t end, size_t chunk_index) {
         for (size_t i = start; i < end - 1; ++i) {
             numerator.at(i + 1) *= numerator[i];
             denominator.at(i + 1) *= denominator[i];
         }
-        partial_numerators[chunk.thread_index] = numerator[end - 1];
-        partial_denominators[chunk.thread_index] = denominator[end - 1];
-    });
+        partial_numerators[chunk_index] = numerator[end - 1];
+        partial_denominators[chunk_index] = denominator[end - 1];
+    }, thread_heuristics::ALWAYS_MULTITHREAD);
 
     DEBUG_LOG_ALL(partial_numerators);
     DEBUG_LOG_ALL(partial_denominators);
@@ -170,21 +161,12 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     }
 
     // Combine scaling, batch inversion, and grand product computation in a single parallel loop
-    parallel_for([&](const ThreadChunk& chunk) {
-        auto range = chunk.range(iteration_size);
-        auto range_begin = range.begin();
-        auto range_end = range.end();
-        if (range_begin == range_end) {
-            return; // Empty range for this thread
-        }
-        const size_t start = *range_begin;
-        const size_t end = *(--range_end) + 1; // Convert from inclusive to exclusive
-
-        if (chunk.thread_index > 0) {
+    parallel_for_heuristic(iteration_size, [&](size_t start, size_t end, size_t chunk_index) {
+        if (chunk_index > 0) {
             FF numerator_scaling = 1;
             FF denominator_scaling = 1;
 
-            for (size_t j = 0; j < chunk.thread_index; ++j) {
+            for (size_t j = 0; j < chunk_index; ++j) {
                 numerator_scaling *= partial_numerators[j];
                 denominator_scaling *= partial_denominators[j];
             }
@@ -202,7 +184,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
             const auto poly_idx = get_active_range_poly_idx(i + 1);
             grand_product_polynomial.at(poly_idx) = numerator[i] * denominator[i];
         }
-    });
+    }, thread_heuristics::ALWAYS_MULTITHREAD);
 
     DEBUG_LOG_ALL(numerator.coeffs());
     DEBUG_LOG_ALL(denominator.coeffs());
@@ -212,8 +194,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     // region (since no copy constraints are present there) equal to the value of the grand product at the first index
     // of the subsequent active region.
     if (has_active_ranges) {
-        parallel_for([&](const ThreadChunk& chunk) {
-            for (size_t i : chunk.range(domain_size)) {
+        parallel_for_range(domain_size, [&](size_t start, size_t end) {
+            for (size_t i = start; i < end; ++i) {
                 for (size_t j = 0; j < active_region_data.num_ranges() - 1; ++j) {
                     const size_t previous_range_end = active_region_data.get_range(j).second;
                     const size_t next_range_start = active_region_data.get_range(j + 1).first;
