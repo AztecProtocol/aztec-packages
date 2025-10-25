@@ -300,12 +300,12 @@ void GlobalBenchStatsContainer::print_aggregate_counts(std::ostream& os, size_t 
 // Serializable structure for a single benchmark entry (msgpack-compatible)
 struct SerializableEntry {
     std::string parent;
-    std::size_t time;
-    std::size_t time_max;
+    uint64_t time;
+    uint64_t time_max;
     double time_mean;
     double time_stddev;
-    std::size_t count;
-    std::size_t num_threads;
+    uint64_t count;
+    uint64_t num_threads;
 
     MSGPACK_FIELDS(parent, time, time_max, time_mean, time_stddev, count, num_threads);
 };
