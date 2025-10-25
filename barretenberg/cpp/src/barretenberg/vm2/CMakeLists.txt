@@ -1,23 +1,49 @@
-if(NOT DISABLE_AZTEC_VM)
-  barretenberg_module(vm2 sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state)
-endif()
-
-# Include only simulation-related sources from vm2
+# Collect simulation-related sources (for vm2_sim module)
 file(GLOB_RECURSE VM2_SIM_SOURCE_FILES
   simulation/*.cpp
   common/*.cpp
   tooling/*.cpp
 )
 
+# Add top-level sim-related files
+list(APPEND VM2_SIM_SOURCE_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/simulation_helper.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/avm_sim_api.cpp
+)
+
 # Exclude test, bench, and fuzzer files
 list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
 
-# TODO: this isn't a proper module. We should look into creating something we actually link.
-# This can be done by using barretenberg_module_with_sources above, linking this, but with the these files explicitly excluded.
+# Build vm2_sim module (for nodejs bindings)
 barretenberg_module_with_sources(
   vm2_sim
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
-    simulation_helper.cpp
-    avm_sim_api.cpp
   DEPENDENCIES world_state
 )
+
+# Build vm2 module with sources mutually exclusive from vm2_sim
+if(NOT DISABLE_AZTEC_VM)
+  # Collect all source files
+  file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp)
+  file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
+  file(GLOB_RECURSE BENCH_SOURCE_FILES *.bench.cpp)
+  file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
+
+  # Start with all sources, then exclude test/bench/fuzzer files
+  set(VM2_SOURCE_FILES ${ALL_SOURCE_FILES})
+  list(FILTER VM2_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$")
+
+  # Make vm2 and vm2_sim sources mutually exclusive
+  foreach(SIM_FILE ${VM2_SIM_SOURCE_FILES})
+    list(REMOVE_ITEM VM2_SOURCE_FILES ${SIM_FILE})
+  endforeach()
+
+  barretenberg_module_with_sources(
+    vm2
+    SOURCE_FILES ${VM2_SOURCE_FILES}
+    TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
+    BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
+    FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
+    DEPENDENCIES sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state
+  )
+endif()
