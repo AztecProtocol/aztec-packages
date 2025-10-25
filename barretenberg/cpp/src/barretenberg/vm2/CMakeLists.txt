@@ -19,6 +19,5 @@ barretenberg_module_with_sources(
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
     simulation_helper.cpp
     avm_sim_api.cpp
-  HEADER_FILES
   DEPENDENCIES world_state
 )
