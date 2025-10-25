@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract ContractClassRegistry {
     use dep::aztec::{
         hash::compute_public_bytecode_commitment,
-        macros::functions::private,
+        macros::functions::external,
         protocol_types::{
             constants::{
                 ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
@@ -31,7 +31,7 @@ pub contract ContractClassRegistry {
 
     use dep::aztec::oracle::capsules;
 
-    #[private]
+    #[external("private")]
     fn publish(
         artifact_hash: Field,
         private_functions_root: Field,
@@ -84,7 +84,7 @@ pub contract ContractClassRegistry {
         context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -136,7 +136,7 @@ pub contract ContractClassRegistry {
         context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn broadcast_utility_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -180,7 +180,7 @@ pub contract ContractClassRegistry {
         context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn assert_class_id_is_published(contract_class_id: ContractClassId) {
         context.push_nullifier_read_request(contract_class_id.to_field());
     }

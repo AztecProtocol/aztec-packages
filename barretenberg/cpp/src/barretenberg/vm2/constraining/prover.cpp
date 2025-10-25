@@ -97,7 +97,7 @@ void AvmProver::execute_log_derivative_inverse_round()
 {
     BB_BENCH_NAME("AvmProver::execute_log_derivative_inverse_round");
 
-    auto [beta, gamma] = transcript->template get_challenges<FF>("beta", "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
     std::vector<std::function<void()>> tasks;

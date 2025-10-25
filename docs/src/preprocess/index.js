@@ -5,7 +5,7 @@ const childProcess = require("child_process");
 const { preprocessIncludeCode } = require("./include_code");
 const { preprocessIncludeVersion } = require("./include_version");
 
-const { generateInstructionSet } = require("./InstructionSet/genMarkdown");
+// const { generateInstructionSet } = require("./InstructionSet/genMarkdown"); // Removed with protocol-specs
 
 async function processMarkdownFilesInDir(rootDir, docsDir, regex) {
   const files = fs.readdirSync(docsDir);
@@ -119,7 +119,7 @@ async function writeProcessedFiles(docsDir, destDir, cachedDestDir, content) {
 }
 
 async function run() {
-  await generateInstructionSet();
+  // await generateInstructionSet(); // Removed with protocol-specs
 
   const rootDir = path.join(__dirname, "../../../");
   const docsDir = path.join(rootDir, "docs", "docs");

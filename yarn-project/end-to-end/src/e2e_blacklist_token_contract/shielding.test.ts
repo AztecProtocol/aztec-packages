@@ -1,4 +1,5 @@
-import { Fr, computeSecretHash } from '@aztec/aztec.js';
+import { computeSecretHash } from '@aztec/aztec.js/crypto';
+import { Fr } from '@aztec/aztec.js/fields';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';

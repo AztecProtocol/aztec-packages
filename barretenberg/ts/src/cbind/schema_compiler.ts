@@ -34,7 +34,7 @@ export interface FunctionMetadata {
 
 // Compiler configuration
 export interface CompilerConfig {
-  mode: 'types' | 'sync' | 'async' | 'native';
+  mode: 'types' | 'sync' | 'async';
   imports?: string[];
   wasmImport?: string;
 }
@@ -291,10 +291,15 @@ export class SchemaCompiler {
     switch (type) {
       case 'array': {
         const [subtype, size] = args[0];
+        // Special case: byte arrays should be Uint8Array
+        if (subtype === 'unsigned char') {
+          return { typeName: 'Uint8Array' };
+        }
+        // For other types, use T[] - idiomatic TypeScript for fixed-length homogeneous arrays
         const subtypeInfo = this.processSchema(subtype);
         return {
-          typeName: `Tuple<${subtypeInfo.typeName}, ${size}>`,
-          msgpackTypeName: `Tuple<${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}, ${size}>`,
+          typeName: `${subtypeInfo.typeName}[]`,
+          msgpackTypeName: `${subtypeInfo.msgpackTypeName || subtypeInfo.typeName}[]`,
         };
       }
 
@@ -387,6 +392,7 @@ export class SchemaCompiler {
       case 'unsigned int':
       case 'unsigned short':
       case 'unsigned long':
+      case 'unsigned char':
       case 'double':
         return { typeName: 'number' };
       case 'string':
@@ -597,29 +603,43 @@ ${methods}
     const className = this.getApiClassName();
     const methods = this.functionMetadata.map(m => this.generateApiMethod(m)).join('\n\n');
 
-    if (this.config.mode === 'native') {
-      return this.generateNativeApiClass(methods);
-    }
-
     // For sync API, don't implement BbApiBase since methods are synchronous
     const implementsClause = this.config.mode === 'sync' ? '' : ' implements BbApiBase';
 
+    // For tracing all calls to bb.
+    // const msgpackCallHelper =
+    //   `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {\n` +
+    //   `  const commandName = input[0]?.[0] || 'unknown';\n` +
+    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName}\\n\`);\n` +
+    //   `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);\n` +
+    //   `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);\n` +
+    //   `  const result = new Decoder({ useRecords: false }).unpack(encodedResult);\n` +
+    //   `  process.stderr.write(\`[BB MSGPACK ${this.config.mode === 'async' ? 'ASYNC' : 'SYNC'}] \${commandName} => completed\\n\`);\n` +
+    //   `  return result;\n` +
+    //   `}\n`;
     const msgpackCallHelper =
-      `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(wasm: ${this.getWasmType()}, cbind: string, input: any[]) {` +
+      `${this.config.mode === 'async' ? 'async ' : ''}function msgpackCall(backend: ${this.getBackendType()}, input: any[]) {` +
       `  const inputBuffer = new Encoder({ useRecords: false }).pack(input);` +
-      `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}wasm.cbindCall(cbind, inputBuffer);` +
+      `  const encodedResult = ${this.config.mode === 'async' ? 'await ' : ''}backend.call(inputBuffer);` +
       `  return new Decoder({ useRecords: false }).unpack(encodedResult);` +
       `}\n`;
+    const destroyMethod =
+      this.config.mode === 'sync'
+        ? `  destroy(): void {
+    if (this.backend.destroy) this.backend.destroy();
+  }`
+        : `  destroy(): Promise<void> {
+    return this.backend.destroy ? this.backend.destroy() : Promise.resolve();
+  }`;
+
     return (
       msgpackCallHelper +
       `export class ${className}${implementsClause} {
-  constructor(protected wasm: ${this.getWasmType()}) {}
+  constructor(protected backend: ${this.getBackendType()}) {}
 
 ${methods}
 
-  destroy(): Promise<void> {
-    return this.wasm.destroy();
-  }
+${destroyMethod}
 }`
     );
   }
@@ -630,19 +650,17 @@ ${methods}
         return 'SyncApi';
       case 'async':
         return 'AsyncApi';
-      case 'native':
-        return 'NativeApi';
       default:
         throw new Error(`Invalid mode: ${this.config.mode}`);
     }
   }
 
-  private getWasmType(): string {
+  private getBackendType(): string {
     switch (this.config.mode) {
       case 'sync':
-        return 'BarretenbergWasmMain';
+        return 'IMsgpackBackendSync';
       case 'async':
-        return 'BarretenbergWasmMainWorker';
+        return 'IMsgpackBackendAsync';
       default:
         return '';
     }
@@ -651,23 +669,11 @@ ${methods}
   private generateApiMethod(metadata: FunctionMetadata): string {
     const { name, commandType, responseType } = metadata;
 
-    if (this.config.mode === 'native') {
-      return `  ${name}(command: ${commandType}): Promise<${responseType}> {
-    const msgpackCommand = from${commandType}(command);
-    return this.sendCommand(['${metadata.commandType}', msgpackCommand]).then(([variantName, result]: [string, any]) => {
-      if (variantName !== '${responseType}') {
-        throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
-      }
-      return to${responseType}(result);
-    });
-  }`;
-    }
-
     // For async mode, queue immediately and return promise
     if (this.config.mode === 'async') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
+    return msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName !== '${responseType}') {
         throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
@@ -679,130 +685,12 @@ ${methods}
     // For sync mode, keep the synchronous behavior
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]);
+    const [variantName, result] = msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]);
     if (variantName !== '${responseType}') {
       throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
     return to${responseType}(result);
   }`;
-  }
-
-  private generateNativeApiClass(methods: string): string {
-    return `interface NativeApiRequest {
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
-}
-
-class StreamBuffer {
-  private buffer = Buffer.alloc(0);
-  private expectedLength: number | null = null;
-
-  addData(data: Buffer): Buffer[] {
-    // Create buffer to grow as needed
-    const newBuffer = Buffer.allocUnsafe(this.buffer.length + data.length);
-    this.buffer.copy(newBuffer, 0);
-    data.copy(newBuffer, this.buffer.length);
-    this.buffer = newBuffer;
-
-    const messages: Buffer[] = [];
-
-    while (true) {
-      if (this.expectedLength === null) {
-        if (this.buffer.length < 4) break;
-        this.expectedLength = this.buffer.readUInt32LE(0);
-        this.buffer = this.buffer.subarray(4);
-      }
-
-      if (this.buffer.length < this.expectedLength) break;
-
-      // Extract complete message
-      const messageBuffer = this.buffer.subarray(0, this.expectedLength);
-      messages.push(messageBuffer);
-      this.buffer = this.buffer.subarray(this.expectedLength);
-      this.expectedLength = null;
-    }
-
-    return messages;
-  }
-}
-
-export class NativeApi implements BbApiBase {
-  private decoder = new Decoder({ useRecords: false });
-  private encoder = new Encoder({ useRecords: false });
-  private pendingRequests: NativeApiRequest[] = [];
-
-  private constructor(private proc: ChildProcess) {}
-
-  static async new(bbPath = 'bb', logger = console.log): Promise<NativeApi> {
-    const proc = spawn(bbPath, ['msgpack', 'run'], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    if (!proc.stdout || !proc.stdin) {
-      throw new Error('Failed to initialize bb process');
-    }
-
-    const api = new NativeApi(proc);
-    const streamBuffer = new StreamBuffer();
-
-    proc.stdout.on('data', (data: Buffer) => {
-      const messages = streamBuffer.addData(data);
-
-      for (const messageBuffer of messages) {
-        const pendingRequest = api.pendingRequests.shift();
-        if (!pendingRequest) {
-          throw new Error('Received response without a pending request');
-        }
-
-        try {
-          const decoded = api.decoder.decode(messageBuffer);
-          if (!Array.isArray(decoded) || decoded.length !== 2) {
-            throw new Error(\`Invalid response format: \${JSON.stringify(decoded)}\`);
-          }
-          const [variantName, result] = decoded;
-          pendingRequest.resolve([variantName, result]);
-        } catch (error) {
-          pendingRequest.reject(error);
-          break;
-        }
-      }
-    });
-
-    proc.stderr.on('data', (data: Buffer) => {
-      logger(data.toString().trim());
-    });
-
-    proc.on('error', err => {
-      throw new Error(err.message);
-    });
-    return api;
-  }
-
-  private sendCommand(command: any): Promise<any> {
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.push({ resolve, reject });
-      const encoded = this.encoder.encode(command);
-
-      // Write length prefix (4 bytes, little-endian)
-      const lengthBuffer = Buffer.allocUnsafe(4);
-      lengthBuffer.writeUInt32LE(encoded.length, 0);
-
-      // Write length prefix followed by the encoded data
-      this.proc.stdin!.write(lengthBuffer);
-      this.proc.stdin!.write(encoded);
-    });
-  }
-
-  async close(): Promise<void> {
-    this.proc.kill();
-  }
-
-  destroy(): Promise<void> {
-    return this.close();
-  }
-
-${methods}
-}`;
   }
 }
 
@@ -818,7 +706,7 @@ export function createSyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'sync',
     imports: [
-      `import { BarretenbergWasmMain } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`,
+      `import { IMsgpackBackendSync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
     ],
   });
@@ -828,15 +716,8 @@ export function createAsyncApiCompiler(): SchemaCompiler {
   return new SchemaCompiler({
     mode: 'async',
     imports: [
-      `import { BarretenbergWasmMainWorker } from "../../barretenberg_wasm/barretenberg_wasm_main/index.js";`,
+      `import { IMsgpackBackendAsync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
     ],
-  });
-}
-
-export function createNativeApiCompiler(): SchemaCompiler {
-  return new SchemaCompiler({
-    mode: 'native',
-    imports: [`import { spawn, ChildProcess } from 'child_process';`, `import { Decoder, Encoder } from 'msgpackr';`],
   });
 }

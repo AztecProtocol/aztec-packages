@@ -1,4 +1,6 @@
-import { type AztecAddress, CallAuthorizationRequest, type ContractArtifact } from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import type { LogFn } from '@aztec/foundation/log';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import type { OffchainEffect } from '@aztec/stdlib/tx';

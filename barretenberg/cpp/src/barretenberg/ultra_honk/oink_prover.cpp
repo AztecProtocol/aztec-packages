@@ -34,7 +34,7 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // Generate relation separators alphas for sumcheck/combiner computation
+    // Generate relation separators alphas for sumcheck computation
     prover_instance->alphas = generate_alphas_round();
 
     // #ifndef __wasm__
@@ -142,8 +142,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
     prover_instance->relation_parameters.eta = eta;
     prover_instance->relation_parameters.eta_two = eta_two;
     prover_instance->relation_parameters.eta_three = eta_three;
@@ -178,7 +178,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
-    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(
+        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
 
@@ -228,11 +229,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
 
     {
         BB_BENCH_NAME("COMMIT::z_perm");
-        auto commit_type = (prover_instance->get_is_structured())
-                               ? CommitmentKey::CommitType::StructuredNonZeroComplement
-                               : CommitmentKey::CommitType::Default;
         prover_instance->commitments.z_perm =
-            commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm, commit_type);
+            commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm);
     }
 }
 
@@ -240,7 +238,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
 {
     BB_BENCH_NAME("OinkProver::generate_alphas_round");
 
-    // Get the relation separation challenges for sumcheck/combiner computation
+    // Get the relation separation challenges for sumcheck computation
     std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
 
     for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
@@ -261,8 +259,7 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
  */
 template <IsUltraOrMegaHonk Flavor>
 Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                                                    const std::string& label,
-                                                                    const CommitmentKey::CommitType type)
+                                                                    const std::string& label)
 {
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
@@ -272,8 +269,7 @@ Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<F
 
     typename Flavor::Commitment commitment;
 
-    commitment = prover_instance->commitment_key.commit_with_type(
-        polynomial, type, prover_instance->active_region_data.get_ranges());
+    commitment = prover_instance->commitment_key.commit(polynomial);
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
 

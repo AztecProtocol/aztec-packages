@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
 import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
+import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,

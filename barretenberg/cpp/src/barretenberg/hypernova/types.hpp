@@ -8,10 +8,11 @@
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
+#include "barretenberg/ultra_honk/verifier_instance.hpp"
 
 namespace bb {
 

@@ -94,10 +94,10 @@ TEST(TwinRomTable, ReadWriteConsistency)
         field_ct index(witness_ct(&builder, (uint64_t)i));
 
         if (i % 2 == 0) {
-            const auto before_n = builder.num_gates;
+            const auto before_n = builder.num_gates();
             // Get the entry from the table
             const auto to_add = table[index];
-            const auto after_n = builder.num_gates;
+            const auto after_n = builder.num_gates();
             // should cost 1 gates (the ROM read adds 1 extra gate when the proving key is constructed)
             // (but not for 1st entry, the 1st ROM read also builts the ROM table, which will cost table_size * 2 gates)
             if (i != 0) {
@@ -107,9 +107,9 @@ TEST(TwinRomTable, ReadWriteConsistency)
             result[0] += to_add[0]; // variable lookup
             result[1] += to_add[1]; // variable lookup
         } else {
-            const auto before_n = builder.num_gates;
+            const auto before_n = builder.num_gates();
             const auto to_add = table[i]; // constant lookup
-            const auto after_n = builder.num_gates;
+            const auto after_n = builder.num_gates();
             // should cost 0 gates. Constant lookups are free
             EXPECT_EQ(after_n - before_n, 0ULL);
             result[0] += to_add[0];

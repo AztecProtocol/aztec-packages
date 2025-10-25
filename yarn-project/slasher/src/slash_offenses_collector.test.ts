@@ -1,6 +1,6 @@
-import { sleep } from '@aztec/aztec.js';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import { type Offense, OffenseType } from '@aztec/stdlib/slashing';

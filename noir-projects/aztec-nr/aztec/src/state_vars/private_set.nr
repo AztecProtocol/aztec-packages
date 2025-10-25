@@ -18,7 +18,7 @@ mod test;
 /// # PrivateSet
 ///
 /// PrivateSet is a private state variable type, which enables you to read, mutate,
-/// and write private state within the #[private] functions of your smart contract.
+/// and write private state within the #[external("private")] functions of your smart contract.
 ///
 /// You can declare a state variable of type PrivateSet within your contract's
 /// #[storage] struct:

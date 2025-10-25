@@ -1,8 +1,9 @@
 // CREATE_CHAOS_MESH should be set to true to run this test
-import { type AztecNode, sleep } from '@aztec/aztec.js';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { TestWallet } from '@aztec/test-wallet/server';
 
@@ -85,6 +86,7 @@ describe('reorg test', () => {
     const { epochDuration, slotDuration } = await rollupCheatCodes.getConfig();
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,
@@ -123,6 +125,7 @@ describe('reorg test', () => {
     // TODO(#9327): end delete
 
     await performTransfers({
+      wallet,
       testAccounts,
       rounds: Number(epochDuration) * SETUP_EPOCHS,
       transferAmount: TRANSFER_AMOUNT,

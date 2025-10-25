@@ -22,7 +22,7 @@ pub struct BlockRootFirstRollupPrivateInputs {
     pub(crate) parity_root: UltraHonkProofData<ParityPublicInputs>,
     pub(crate) previous_rollups: [RollupHonkProofData<TxRollupPublicInputs>; 2],
     // Hinted value to insert the new l1-to-l2 message subtree to.
-    // This will be set to the `start_start` in the public inputs and validated in the checkpoint root circuit to
+    // This will be set to the `start_state` in the public inputs and validated in the checkpoint root circuit to
     // ensure it matches the l1-to-l2 tree snapshot in the header of the last block from the previous checkpoint.
     pub(crate) previous_l1_to_l2: AppendOnlyTreeSnapshot,
     // Hint for inserting the new l1-to-l2 message subtree.

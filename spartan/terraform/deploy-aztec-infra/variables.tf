@@ -217,6 +217,12 @@ variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
   default     = 8000
 }
 
+variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
+  description = "Whether to disable proof publishing from the prover node"
+  type        = bool
+  default     = false
+}
+
 variable "OTEL_COLLECTOR_ENDPOINT" {
   description = "Optional OpenTelemetry collector endpoint URL (e.g., http://otel-collector:4318)"
   type        = string
@@ -473,6 +479,18 @@ variable "PROVER_FAILED_PROOF_STORE" {
 
 variable "RPC_REPLICAS" {
   description = "The number of RPC replicas"
+  type        = string
+  default     = 1
+}
+
+variable "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" {
+  description = "Whether to delete transactions from the P2P transaction pool after a reorg"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENTS_PER_PROVER" {
+  description = "Number of prover agents per prover"
   type        = string
   default     = 1
 }

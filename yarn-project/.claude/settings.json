@@ -22,7 +22,8 @@
       "Bash(git push:*)",
       "Bash(cd:*)",
       "Bash(grep:*)",
-      "Bash(curl -XGET:*)"
+      "Bash(curl -XGET:*)",
+      "WebFetch(domain:ci.aztec-labs.com)"
     ],
     "deny": [
       "Bash(git push:*-f*)",

@@ -5,7 +5,7 @@ import {
   bigIntToBufferBE,
   bigIntToUint8ArrayBE,
 } from '../bigint-array/index.js';
-import { BufferReader, uint8ArrayToHexString } from '../serialize/index.js';
+import { BufferReader } from '../serialize/index.js';
 
 // TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
 /**
@@ -61,7 +61,7 @@ export class Fr {
   }
 
   toString() {
-    return '0x' + uint8ArrayToHexString(this.toBuffer());
+    return '0x' + this.toBuffer().reduce((accumulator, byte) => accumulator + byte.toString(16).padStart(2, '0'), '');
   }
 
   equals(rhs: Fr) {

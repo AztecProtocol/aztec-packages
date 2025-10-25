@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 contract OffchainEffect {
     use aztec::{
         event::event_emission::emit_event_in_private,
-        macros::{events::event, functions::{private, utility}, storage::storage},
+        macros::{events::event, functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
@@ -32,7 +32,7 @@ contract OffchainEffect {
         balances: Map<AztecAddress, PrivateSet<UintNote, Context>, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn emit_offchain_effects(effects: BoundedVec<EffectPayload, 6>) {
         if effects.len() > 0 {
             let mut effects = effects;
@@ -49,7 +49,7 @@ contract OffchainEffect {
         }
     }
 
-    #[private]
+    #[external("private")]
     fn emit_event_as_offchain_message_for_msg_sender(a: u64, b: u64, c: u64) {
         emit_event_in_private(
             TestEvent { a, b, c },
@@ -59,7 +59,7 @@ contract OffchainEffect {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote::new(value, owner);
 
@@ -70,12 +70,12 @@ contract OffchainEffect {
         );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn emitting_offchain_effect_from_utility_reverts() {
         emit_offchain_effect([0; 5]);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_note_value(owner: AztecAddress) -> u128 {
         let notes = storage.balances.at(owner).view_notes(NoteViewerOptions::new());
         assert(notes.len() == 1, "No note found");

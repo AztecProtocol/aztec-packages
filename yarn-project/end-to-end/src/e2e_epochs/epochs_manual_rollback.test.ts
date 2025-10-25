@@ -1,5 +1,7 @@
-import { type AztecNode, type Logger, retryUntil } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { RollupContract } from '@aztec/ethereum';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 

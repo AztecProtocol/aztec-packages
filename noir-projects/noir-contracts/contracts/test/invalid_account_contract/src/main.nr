@@ -4,9 +4,9 @@ use aztec::macros::aztec;
 /// doesn't have an account entrypoint function defined (and the `verify_private_authwit` function is also invalid).
 #[aztec]
 pub contract InvalidAccount {
-    use aztec::macros::functions::{private, view};
+    use aztec::macros::functions::{external, view};
 
-    #[private]
+    #[external("private")]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
         // Any return value that is not IS_VALID_SELECTOR (0x47dacd73) means 'invalid authwit'

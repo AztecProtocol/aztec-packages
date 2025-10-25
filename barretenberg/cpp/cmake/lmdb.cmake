@@ -11,7 +11,7 @@ ExternalProject_Add(
     PREFIX ${LMDB_PREFIX}
     # We need to go through some hoops to do a shallow clone of a fixed commit (as opposed to a tag).
     DOWNLOAD_COMMAND
-        sh -c "mkdir -p ${LMDB_PREFIX}/src/lmdb_repo && cd ${LMDB_PREFIX}/src/lmdb_repo && git init . && (git remote add origin https://github.com/LMDB/lmdb.git || true) && git fetch --depth 1 origin ddd0a773e2f44d38e4e31ec9ed81af81f4e4ccbb && git checkout FETCH_HEAD"
+        sh -c "mkdir -p ${LMDB_PREFIX}/src/lmdb_repo && cd ${LMDB_PREFIX}/src/lmdb_repo && git init . 2>/dev/null && (git remote add origin https://github.com/LMDB/lmdb.git 2>/dev/null || true) && git fetch --depth 1 origin ddd0a773e2f44d38e4e31ec9ed81af81f4e4ccbb 2>/dev/null && git checkout FETCH_HEAD 2>/dev/null"
     SOURCE_DIR ${LMDB_PREFIX}/src/lmdb_repo
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND "" # No configure step

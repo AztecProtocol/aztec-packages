@@ -252,6 +252,8 @@ contract RollupTest is RollupBase {
   }
 
   function testExtraBlobs() public setUpFor("mixed_block_1") {
+    bytes32[] memory originalBlobHashes = this.getBlobHashes(load("mixed_block_1").block.blobCommitments);
+
     bytes32[] memory extraBlobHashes = new bytes32[](6);
     for (uint256 i = 0; i < extraBlobHashes.length; i++) {
       extraBlobHashes[i] = bytes32(
@@ -263,10 +265,12 @@ contract RollupTest is RollupBase {
 
     assertTrue(Rollup(address(rollup)).checkBlob());
     bytes32[] memory blobs = vm.getBlobhashes();
-    assertEq(blobs.length, 1 + extraBlobHashes.length);
-    assertEq(blobs[0], this.getBlobHashes(load("mixed_block_1").block.blobCommitments)[0]);
+    assertEq(blobs.length, originalBlobHashes.length + extraBlobHashes.length);
+    for (uint256 i = 0; i < originalBlobHashes.length; i++) {
+      assertEq(blobs[i], originalBlobHashes[i]);
+    }
     for (uint256 i = 0; i < extraBlobHashes.length; i++) {
-      assertEq(blobs[i + 1], extraBlobHashes[i]);
+      assertEq(blobs[i + originalBlobHashes.length], extraBlobHashes[i]);
     }
   }
 

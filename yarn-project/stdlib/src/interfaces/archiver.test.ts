@@ -91,6 +91,16 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeInstanceOf(BlockHeader);
   });
 
+  it('getBlockHeaderByArchive', async () => {
+    const result = await context.client.getBlockHeaderByArchive(Fr.random());
+    expect(result).toBeInstanceOf(BlockHeader);
+  });
+
+  it('getBlockHeaderByHash', async () => {
+    const result = await context.client.getBlockHeaderByHash(Fr.random());
+    expect(result).toBeInstanceOf(BlockHeader);
+  });
+
   it('getBlocks', async () => {
     const result = await context.client.getBlocks(1, 1);
     expect(result).toEqual([expect.any(L2Block)]);
@@ -102,6 +112,22 @@ describe('ArchiverApiSchema', () => {
     expect(response[0].block.constructor.name).toEqual('L2Block');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
+  });
+
+  it('getPublishedBlockByArchive', async () => {
+    const result = await context.client.getPublishedBlockByArchive(Fr.random());
+    expect(result).toBeDefined();
+    expect(result!.block.constructor.name).toEqual('L2Block');
+    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result!.l1).toBeDefined();
+  });
+
+  it('getPublishedBlockByHash', async () => {
+    const result = await context.client.getPublishedBlockByHash(Fr.random());
+    expect(result).toBeDefined();
+    expect(result!.block.constructor.name).toEqual('L2Block');
+    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result!.l1).toBeDefined();
   });
 
   it('getTxEffect', async () => {
@@ -256,11 +282,19 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.isPendingChainInvalid();
     expect(result).toBe(false);
   });
+
+  it('getGenesisValues', async () => {
+    const result = await context.client.getGenesisValues();
+    expect(result).toEqual({ genesisArchiveRoot: expect.any(Fr) });
+  });
 });
 
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: Fr.random() });
+  }
   isPendingChainInvalid(): Promise<boolean> {
     return Promise.resolve(false);
   }
@@ -299,6 +333,26 @@ class MockArchiver implements ArchiverApi {
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
       }),
     ];
+  }
+  async getPublishedBlockByHash(_blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return PublishedL2Block.fromFields({
+      block: await L2Block.random(1),
+      attestations: [CommitteeAttestation.random()],
+      l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+    });
+  }
+  async getPublishedBlockByArchive(_archive: Fr): Promise<PublishedL2Block | undefined> {
+    return PublishedL2Block.fromFields({
+      block: await L2Block.random(1),
+      attestations: [CommitteeAttestation.random()],
+      l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+    });
+  }
+  getBlockHeaderByHash(_blockHash: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
+  }
+  getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);

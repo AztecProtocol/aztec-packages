@@ -47,6 +47,7 @@ export function addressFromPrivateKey(privateKey: Buffer): EthAddress {
  * @param hash - The hash to recover the address from.
  * @param signature - The signature to recover the address from.
  * @returns The address.
+ * @throws Error if signature recovery fails.
  */
 export function recoverAddress(hash: Buffer32, signature: Signature): EthAddress {
   try {
@@ -56,6 +57,21 @@ export function recoverAddress(hash: Buffer32, signature: Signature): EthAddress
     throw new Error(
       `Error recovering Ethereum address from hash ${hash.toString()} and signature ${signature.toString()}: ${err}`,
     );
+  }
+}
+
+/**
+ * Safely attempts to recover an address from a hash and a signature.
+ * @param hash - The hash to recover the address from.
+ * @param signature - The signature to recover the address from.
+ * @returns The address if recovery succeeds, undefined otherwise.
+ */
+export function tryRecoverAddress(hash: Buffer32, signature: Signature): EthAddress | undefined {
+  try {
+    const publicKey = recoverPublicKey(hash, signature);
+    return publicKeyToAddress(publicKey);
+  } catch {
+    return undefined;
   }
 }
 

@@ -20,7 +20,7 @@ pub contract TokenBlacklist {
     use aztec::{
         hash::compute_secret_hash,
         macros::{
-            functions::{authorize_once, initializer, internal, private, public, utility, view},
+            functions::{authorize_once, external, initializer, internal, view},
             storage::storage,
         },
         messages::{
@@ -58,32 +58,32 @@ pub contract TokenBlacklist {
     }
 
     // docs:start:constructor
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
         let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
         storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn total_supply() -> pub Field {
         storage.total_supply.read().to_field()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
         storage.public_balances.at(owner).read().to_field()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_roles(user: AztecAddress) -> UserFlags {
         storage.roles.at(user).get_current_value()
     }
 
-    #[public]
+    #[external("public")]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
         let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
@@ -91,7 +91,7 @@ pub contract TokenBlacklist {
         storage.roles.at(user).schedule_value_change(roles);
     }
 
-    #[public]
+    #[external("public")]
     fn mint_public(to: AztecAddress, amount: u128) {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -106,7 +106,7 @@ pub contract TokenBlacklist {
         storage.total_supply.write(supply);
     }
 
-    #[public]
+    #[external("public")]
     fn mint_private(amount: u128, secret_hash: Field) {
         let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
@@ -125,7 +125,7 @@ pub contract TokenBlacklist {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[public]
+    #[external("public")]
     fn shield(from: AztecAddress, amount: u128, secret_hash: Field, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -145,7 +145,7 @@ pub contract TokenBlacklist {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[public]
+    #[external("public")]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -160,7 +160,7 @@ pub contract TokenBlacklist {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[public]
+    #[external("public")]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -172,7 +172,7 @@ pub contract TokenBlacklist {
         storage.total_supply.write(new_supply);
     }
 
-    #[private]
+    #[external("private")]
     fn redeem_shield(to: AztecAddress, amount: u128, secret: Field) {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
@@ -195,7 +195,7 @@ pub contract TokenBlacklist {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -215,7 +215,7 @@ pub contract TokenBlacklist {
 
     // docs:start:transfer_private
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -235,7 +235,7 @@ pub contract TokenBlacklist {
     }
 
     #[authorize_once("from", "authwit_nonce")]
-    #[private]
+    #[external("private")]
     fn burn(from: AztecAddress, amount: u128, authwit_nonce: Field) {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
@@ -250,14 +250,14 @@ pub contract TokenBlacklist {
     }
 
     /// Internal ///
-    #[public]
+    #[external("public")]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         let new_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(new_balance);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
@@ -265,7 +265,7 @@ pub contract TokenBlacklist {
         storage.total_supply.write(new_supply);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn balance_of_private(owner: AztecAddress) -> Field {
         storage.balances.balance_of(owner).to_field()
     }
@@ -274,7 +274,7 @@ pub contract TokenBlacklist {
     // originates in public and hence we cannot emit it as an offchain message. We could construct the offchain message
     // "manually" and then pass it to the `process_message` function, but this doesn't seem to be worth the effort
     // given that the TransparentNote flow is deprecated and kept around only for testing purposes.
-    #[utility]
+    #[external("utility")]
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,
         amount: u128,

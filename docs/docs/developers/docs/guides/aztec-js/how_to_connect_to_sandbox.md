@@ -46,7 +46,7 @@ fullConfig.proverEnabled = false; // you'll want to set this to "true" once you'
 
 const store = await createStore("pxe", {
   dataDirectory: "store",
-  dataStoreMapSizeKB: 1e6,
+  dataStoreMapSizeKb: 1e6,
 });
 const pxe = await createPXE(node, fullConfig, { store });
 await waitForPXE(pxe);

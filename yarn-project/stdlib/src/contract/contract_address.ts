@@ -11,7 +11,7 @@ import type { ContractInstance } from './interfaces/contract_instance.js';
 // TODO(@spalladino): Review all generator indices in this file
 
 /**
- * Returns the deployment address for a given contract instance as defined on the [Protocol Specs](../../../../docs/docs/protocol-specs/addresses-and-keys/specification.md).
+ * Returns the deployment address for a given contract instance.
  * ```
  * salted_initialization_hash = pedersen([salt, initialization_hash, deployer], GENERATOR__SALTED_INITIALIZATION_HASH)
  * partial_address = pedersen([contract_class_id, salted_initialization_hash], GENERATOR__CONTRACT_PARTIAL_ADDRESS_V1)

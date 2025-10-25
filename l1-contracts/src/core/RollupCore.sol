@@ -17,7 +17,6 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
-import {RewardDeploymentExtLib} from "@aztec/core/libraries/rollup/RewardDeploymentExtLib.sol";
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
 import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
@@ -33,7 +32,7 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardExtLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardExtLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
@@ -199,11 +198,6 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   bool public checkBlob = true;
 
   /**
-   * @notice Flag controlling whether rewards can be claimed
-   */
-  bool public isRewardsClaimable = false;
-
-  /**
    * @notice Initializes the Aztec rollup with all required configurations
    * @dev Sets up time parameters, deploys auxiliary contracts (slasher, reward booster),
    *      initializes staking, validator selection, and creates inbox/outbox contracts
@@ -213,7 +207,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _epochProofVerifier The honk verifier contract for root epoch proofs
    * @param _governance The address with owner privileges
    * @param _genesisState Initial state containing VK tree root, protocol contracts hash, and genesis archive
-   * @param _config Comprehensive configuration including timing, staking, slashing, and reward parameters
+   * @param _config Comprehensive configuration including timing, staking, slashing, reward parameters, and unlock
+   * timestamp
    */
   constructor(
     IERC20 _feeAsset,
@@ -279,10 +274,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = RewardDeploymentExtLib.deployRewardBooster(_config.rewardBoostConfig);
+      _config.rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
     }
 
-    RewardLib.setConfig(_config.rewardConfig);
+    RewardExtLib.initialize(_config.earliestRewardsClaimableTimestamp);
+    RewardExtLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -312,7 +308,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _config The new reward configuration including rates and booster settings
    */
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
-    RewardLib.setConfig(_config);
+    RewardExtLib.setConfig(_config);
     emit RewardConfigUpdated(_config);
   }
 
@@ -340,10 +336,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Enables or disables reward claiming
    * @dev Only callable by owner. This is a safety mechanism to control when rewards can be withdrawn.
+   *      Cannot set rewards as claimable before the earliest reward claimable timestamp.
    * @param _isRewardsClaimable True to enable reward claims, false to disable
    */
   function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
-    isRewardsClaimable = _isRewardsClaimable;
+    RewardExtLib.setIsRewardsClaimable(_isRewardsClaimable);
     emit RewardsClaimableUpdated(_isRewardsClaimable);
   }
 
@@ -391,8 +388,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return The amount of rewards claimed
    */
   function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
-    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_coinbase);
+    return RewardExtLib.claimSequencerRewards(_coinbase);
   }
 
   /**
@@ -408,8 +404,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     override(IRollupCore)
     returns (uint256)
   {
-    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_coinbase, _epochs);
+    return RewardExtLib.claimProverRewards(_coinbase, _epochs);
   }
 
   /**
