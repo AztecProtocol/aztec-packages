@@ -4,14 +4,12 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export native_preset=${NATIVE_PRESET:-clang20}
-export pic_preset=${PIC_PRESET:-clang20-pic}
-export hash=$(cache_content_hash .rebuild_patterns)
-
-if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-  # Make sure the different envs don't read from each other's caches.
-  export hash="$hash-no-avm"
+if [ "${AVM:-1}" -eq "1" ]; then
+  export native_preset=${NATIVE_PRESET:-clang20}
+else
+  export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
+export hash=$(cache_content_hash .rebuild_patterns)
 
 # Mix whether we're building multi-arch or single-arch into the hash
 if semver check "$REF_NAME"; then
@@ -63,22 +61,28 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  # DISABLE_AZTEC_VM is set to 1 in CI for arm64, or in dev usage if you export DISABLE_AZTEC_VM=1
-  local cmake_args=()
-  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-    cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
-  fi
-  cmake --fresh --preset "$preset" "${cmake_args[@]}"
+  cmake --fresh --preset "$preset"
   cmake --build --preset "$preset" "$@"
 }
 
-# Build all native binaries, including tests.
+# Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
 function build_native {
   set -eu
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
     ./format.sh check
     build_preset $native_preset
-    cache_upload barretenberg-$native_preset-$hash.zst build/bin
+    cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+  fi
+}
+
+# Cross compile binaries (bb and napi lib).
+# Arg is target arch-os e.g. amd64-linux.
+function build_cross {
+  set -eu
+  target=$1
+  if ! cache_download barretenberg-$target-$hash.zst; then
+    build_preset zig-$target --target bb --target nodejs_module
+    cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
 }
 
@@ -91,44 +95,6 @@ function build_asan_fast {
     build_preset asan-fast --target $bins
     # We upload only the binaries specified in --target in build-asan-fast/bin
     cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
-  fi
-}
-
-function build_nodejs_module {
-  set -eu
-  ensure_zig
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    if semver check "$REF_NAME"; then
-      # Build all architectures for releases
-      parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
-        zig-node-amd64-linux \
-        zig-node-arm64-linux \
-        zig-node-amd64-macos \
-        zig-node-arm64-macos
-    else
-      # Build only current arch when not releasing (faster for dev and CI)
-      build_preset zig-node-$(arch)-linux
-    fi
-    cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
-  fi
-}
-
-function build_darwin_arm64 {
-  set -eu
-  ensure_zig
-  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
-    build_preset zig-arm64-macos --target bb
-    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
-  fi
-}
-
-function build_darwin_amd64 {
-  set -eu
-  ensure_zig
-  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
-    build_preset zig-amd64-macos --target bb
-    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
 
@@ -158,7 +124,7 @@ function build_gcc_syntax_check_only {
   if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
-  cmake --preset gcc -DSYNTAX_ONLY=1 -DDISABLE_AZTEC_VM=ON
+  cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
@@ -203,7 +169,7 @@ function build_smt_verification {
   cache_upload barretenberg-smt-$hash.zst build-smt
 }
 
-function build_release {
+function build_release_dir {
   local arch=$(arch)
   rm -rf build-release
   mkdir build-release
@@ -212,60 +178,73 @@ function build_release {
   inject_version build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
-  # Only release wasms and macOS builds on amd64.
-  if [ "$arch" == "amd64" ]; then
-    tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
-    tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
-    tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
-    tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
+  cp build/bin/bb-avm build-release/bb-avm
+  inject_version build-release/bb-avm
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
 
-    # Download ldid for code signing
-    if [ ! -f build/ldid ]; then
-      echo "Downloading ldid for macOS code signing..."
-      curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
-      chmod +x build/ldid
-    fi
+  tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
+  tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
+  tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
+  tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-    if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-      # Package arm64-macos
-      cp build-zig-arm64-macos/bin/bb build-release/bb
-      inject_version build-release/bb
-      build/ldid -S build-release/bb
-      tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
-
-      # Package amd64-macos
-      cp build-zig-amd64-macos/bin/bb build-release/bb
-      inject_version build-release/bb
-      build/ldid -S build-release/bb
-      tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
-    fi
+  # Download ldid for code signing
+  if [ ! -f build/ldid ]; then
+    echo "Downloading ldid for macOS code signing..."
+    curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
+    chmod +x build/ldid
   fi
+
+  # Package arm64-linux
+  cp build-zig-arm64-linux/bin/bb build-release/bb
+  inject_version build-release/bb
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
+
+  # Package arm64-macos
+  cp build-zig-arm64-macos/bin/bb build-release/bb
+  inject_version build-release/bb
+  build/ldid -S build-release/bb
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
+
+  # Package amd64-macos
+  cp build-zig-amd64-macos/bin/bb build-release/bb
+  inject_version build-release/bb
+  build/ldid -S build-release/bb
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
-  ensure_zig
-  builds=(
-    build_native
-    build_nodejs_module
-    build_wasm
-    build_wasm_threads
-  )
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
-  fi
-  if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-    builds+=(build_darwin_arm64 build_smt_verification)
-  fi
+
+  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
+
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # macOS builds require the avm-transpiler linked.
-    # We build them using zig cross-compilation.
-    builds+=(build_darwin_amd64)
+    # Perform release builds of bb and napi module, for all architectures.
+    ensure_zig
+    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
+      "build_native" \
+      "build_wasm" \
+      "build_wasm_threads" \
+      "build_cross arm64-linux" \
+      "build_cross amd64-macos" \
+      "build_cross arm64-macos"
+    build_release_dir
+  else
+    builds=(
+      build_native
+      build_wasm
+      build_wasm_threads
+    )
+    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
+      builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
+    fi
+    if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
+      ensure_zig
+      builds+=("build_cross arm64-macos" build_smt_verification)
+    fi
+    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
-  parallel --line-buffered --tag --halt now,fail=1 denoise {} ::: ${builds[@]}
-  build_release
 }
 
 # Print every individual test command. Can be fed into gnu parallel.
@@ -364,7 +343,6 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"fast")
-    # Build bb and wasms. Can be incremental.
     build
     ;;
   "full")
@@ -399,12 +377,12 @@ case "$cmd" in
     # TODO currently does nothing! to reinstate in cache_download
     export FORCE_CACHE_DOWNLOAD=${FORCE_CACHE_DOWNLOAD:-1}
     # make sure that disabling the aztec VM does not interfere with cache results from CI.
-    DISABLE_AZTEC_VM="" BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
+    BOOTSTRAP_AFTER=barretenberg BOOSTRAP_TO=yarn-project ../../bootstrap.sh
 
     rm -rf bench-out
 
     # Recreation of logic from bench.
-    DISABLE_AZTEC_VM="" ../../yarn-project/end-to-end/bootstrap.sh build_bench
+    ../../yarn-project/end-to-end/bootstrap.sh build_bench
 
     # Extract and filter benchmark commands by flow name and wasm/no-wasm
     function ivc_bench_cmds {
@@ -424,7 +402,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

@@ -32,8 +32,11 @@ logger.info(`Got inputs for a job of type ${ProvingRequestType[type]}`);
 const tmp = await mkdtemp('rerun_proof-');
 logger.info(`Using tmp folder: ${tmp}`);
 
+// Use bb-avm for AVM proofs, bb for all other proof types
+const bbBinary = type === ProvingRequestType.PUBLIC_VM ? 'bb-avm' : 'bb';
 const prover = await BBNativeRollupProver.new({
-  bbBinaryPath: process.env.BB_BINARY_PATH ?? join(import.meta.pathname, '../../barretenberg/cpp/build/bin/bb'),
+  bbBinaryPath:
+    process.env.BB_BINARY_PATH ?? join(import.meta.pathname, `../../barretenberg/cpp/build/bin/${bbBinary}`),
   bbWorkingDirectory: join(tmp, 'bb'),
   acvmBinaryPath:
     process.env.ACVM_BINARY_PATH ?? join(import.meta.pathname, '../../noir/noir-repo/target/release/acvm'),

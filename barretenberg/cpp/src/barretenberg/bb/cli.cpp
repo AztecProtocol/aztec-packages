@@ -104,11 +104,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
-#ifdef DISABLE_AZTEC_VM
-    name += "\nAztec Virtual Machine (AVM): disabled";
-#else
-    name += "\nAztec Virtual Machine (AVM): enabled";
-#endif
+    // Check AVM support at runtime via global boolean
+    if (avm_enabled) {
+        name += "\nAztec Virtual Machine (AVM): enabled";
+    } else {
+        name += "\nAztec Virtual Machine (AVM): disabled";
+    }
 #ifdef ENABLE_AVM_TRANSPILER
     name += "\nAVM Transpiler: enabled";
 #else
@@ -629,8 +630,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return process_aztec_artifact(input, output, force_regenerate) ? 0 : 1;
 #endif
         }
-        // AVM
-#ifndef DISABLE_AZTEC_VM
+        // AVM - functions will throw at runtime if not supported (via stub module)
         else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
             avm_prove(avm_inputs_path, avm_prove_output_path);
@@ -640,14 +640,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
-        }
-#else
-        else if (avm_prove_command->parsed() || avm_check_circuit_command->parsed() || avm_verify_command->parsed() ||
-                 avm_simulate_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        }
-#endif
-        else if (flags.scheme == "client_ivc") {
+        } else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {

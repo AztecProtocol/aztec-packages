@@ -341,7 +341,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
         }
 
-#ifndef DISABLE_AZTEC_VM
         if (has_avm_recursion_constraints) {
             HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -351,7 +350,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // it with the avm's one.
             honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
         }
-#endif
 
         if (metadata.honk_recursion == 2) {
             // Proving with UltraRollupFlavor
@@ -638,7 +636,6 @@ process_civc_recursion_constraints(Builder& builder,
     return output;
 }
 
-#ifndef DISABLE_AZTEC_VM
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
 process_avm_recursion_constraints(Builder& builder,
                                   AcirFormat& constraint_system,
@@ -660,7 +657,6 @@ process_avm_recursion_constraints(Builder& builder,
     }
     return output;
 }
-#endif // DISABLE_AZTEC_VM
 
 /**
  * @brief Specialization for creating an Ultra circuit from an acir program

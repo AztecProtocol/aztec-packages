@@ -22,7 +22,7 @@ barretenberg_module_with_sources(
 )
 
 # Build vm2 module with sources mutually exclusive from vm2_sim
-if(NOT DISABLE_AZTEC_VM)
+if(AVM)
   # Collect all source files
   file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp)
   file(GLOB_RECURSE TEST_SOURCE_FILES *.test.cpp)
@@ -46,4 +46,11 @@ if(NOT DISABLE_AZTEC_VM)
     FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
     DEPENDENCIES sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state vm2_sim
   )
+
+  # vm2_tests needs dsl for integration testing, but this creates circular dependency:
+  # vm2 provides functions that dsl calls, but tests need dsl functions.
+  # Solution: Link dsl, then vm2 again to resolve the circular reference.
+  if(NOT WASM AND NOT FUZZING)
+      target_link_libraries(vm2_tests PRIVATE dsl vm2)
+  endif()
 endif()
