@@ -46,7 +46,12 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
+    # Note: --stack-first and --max-memory are incompatible with address sanitizer in emscripten
+    if(ENABLE_ASAN)
+        add_link_options(-Wl,--export-memory,--import-memory,-z,stack-size=1048576)
+    else()
+        add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
+    endif()
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
@@ -219,30 +224,59 @@ if(WASM)
         $<TARGET_OBJECTS:wasi_objects>
     )
 
-    target_link_options(
-        barretenberg-debug.wasm
-        PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
-    )
+    # Note: -nostartfiles is incompatible with emscripten multithreading (needs TLS initialization)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" AND MULTITHREADING)
+        target_link_options(
+            barretenberg-debug.wasm
+            PRIVATE
+            -Wl,--no-entry,--export-dynamic,--import-undefined
+            -sERROR_ON_UNDEFINED_SYMBOLS=0
+        )
+    else()
+        target_link_options(
+            barretenberg-debug.wasm
+            PRIVATE
+            -nostartfiles -Wl,--no-entry,--export-dynamic
+        )
+    endif()
+
+    # Emscripten adds a .wasm extension to executables, so barretenberg-debug.wasm becomes barretenberg-debug.wasm.wasm
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+        set(WASM_DEBUG_FILE "${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.wasm")
+        set(WASM_RELEASE_FILE "${CMAKE_BINARY_DIR}/bin/barretenberg.wasm")
+    else()
+        set(WASM_DEBUG_FILE "${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm")
+        set(WASM_RELEASE_FILE "${CMAKE_BINARY_DIR}/bin/barretenberg.wasm")
+    endif()
 
     # Strip debug info to create the release version.
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-        COMMAND ${CMAKE_STRIP} ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm -o ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
-        COMMENT "Stripping debug info to create release version."
-    )
+    # For emscripten, just copy the file as strip doesn't support its format
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+        add_custom_command(
+            OUTPUT ${WASM_RELEASE_FILE}
+            COMMAND ${CMAKE_COMMAND} -E copy ${WASM_DEBUG_FILE} ${WASM_RELEASE_FILE}
+            DEPENDS barretenberg-debug.wasm
+            COMMENT "Copying WASM file (stripping not supported with emscripten)."
+        )
+    else()
+        add_custom_command(
+            OUTPUT ${WASM_RELEASE_FILE}
+            COMMAND ${CMAKE_STRIP} ${WASM_DEBUG_FILE} -o ${WASM_RELEASE_FILE}
+            DEPENDS barretenberg-debug.wasm
+            COMMENT "Stripping debug info to create release version."
+        )
+    endif()
 
     add_custom_target(
         barretenberg.wasm ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        DEPENDS ${WASM_RELEASE_FILE}
     )
 
     # Create a gzipped version of barretenberg-debug.wasm
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
+        COMMAND gzip -c ${WASM_DEBUG_FILE} > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        DEPENDS barretenberg-debug.wasm
         COMMENT "Creating gzipped version of barretenberg-debug.wasm"
     )
 
@@ -254,8 +288,8 @@ if(WASM)
     # Create a gzipped version of barretenberg.wasm
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
-        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMAND gzip -c ${WASM_RELEASE_FILE} > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
+        DEPENDS ${WASM_RELEASE_FILE}
         COMMENT "Creating gzipped version of barretenberg.wasm"
     )
 
