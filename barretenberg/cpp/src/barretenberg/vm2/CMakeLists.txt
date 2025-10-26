@@ -44,6 +44,6 @@ if(NOT DISABLE_AZTEC_VM)
     TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
     BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
     FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
-    DEPENDENCIES sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state
+    DEPENDENCIES sumcheck stdlib_honk_verifier stdlib_goblin_verifier world_state vm2_sim
   )
 endif()
