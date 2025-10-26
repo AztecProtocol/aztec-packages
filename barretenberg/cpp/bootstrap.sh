@@ -68,6 +68,10 @@ function build_preset() {
   if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
     cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
   fi
+  # ENABLE_WASM_BENCH enables BB_BENCH in WASM builds for development/benchmarking
+  if [ "${ENABLE_WASM_BENCH:-0}" -eq 1 ]; then
+    cmake_args+=(-DENABLE_WASM_BENCH=ON)
+  fi
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
@@ -330,9 +334,9 @@ function build_bench {
     # Run builds in parallel with different targets per preset
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads-bench"
+      "ENABLE_WASM_BENCH=1 build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads-bench}/bin/{ultra_honk_bench,client_ivc_bench,bb}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
 }
 
@@ -340,8 +344,8 @@ function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/5$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads-bench/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads-bench/bin/client_ivc_bench ClientIVCBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
 }
@@ -390,7 +394,7 @@ case "$cmd" in
       "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_preset wasm-threads-bench --target bb")
+      builds+=("ENABLE_WASM_BENCH=1 build_preset wasm-threads --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 

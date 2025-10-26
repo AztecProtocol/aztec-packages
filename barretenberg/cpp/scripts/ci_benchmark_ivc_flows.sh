@@ -52,7 +52,7 @@ function run_bb_cli_bench {
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
     # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads-bench/bin/bb "$@" || {
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" || {
       echo "bb wasm failed with args: $@"
       exit 1
     }

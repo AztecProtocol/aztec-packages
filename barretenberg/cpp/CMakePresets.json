@@ -462,16 +462,6 @@
       }
     },
     {
-      "name": "wasm-threads-bench",
-      "displayName": "Build for pthread enabled WASM with benchmarking",
-      "description": "Build for pthread enabled WASM with BB_BENCH support enabled",
-      "inherits": "wasm-threads",
-      "binaryDir": "build-wasm-threads-bench",
-      "cacheVariables": {
-        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS -DENABLE_WASM_BENCH"
-      }
-    },
-    {
       "name": "wasm-threads-dbg",
       "displayName": "Build for debug WASM",
       "binaryDir": "build-wasm-threads-dbg",
@@ -769,13 +759,6 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
-    },
-    {
-      "name": "wasm-threads-bench",
-      "configurePreset": "wasm-threads-bench",
-      "inheritConfigureEnvironment": true,
-      "jobs": 0,
-      "targets": ["ultra_honk_bench", "client_ivc_bench", "bb"]
     },
     {
       "name": "xray",
