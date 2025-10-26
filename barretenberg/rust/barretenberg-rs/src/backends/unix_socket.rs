@@ -3,7 +3,9 @@
 //! This backend communicates with the BB binary via Unix domain sockets,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendSync, MsgpackBackendAsync};
+use crate::backend::{MsgpackBackend, MsgpackBackendSync};
+#[cfg(feature = "async")]
+use crate::backend::MsgpackBackendAsync;
 use crate::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
@@ -42,13 +44,15 @@ impl UnixSocketBackend {
         let mut cmd = Command::new(bb_binary_path.as_ref());
         cmd.arg("msgpack")
             .arg("run")
+            .arg("--input")
             .arg(&socket_path)
             .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
 
+        // Note: BB uses HARDWARE_CONCURRENCY env var for thread control
         if let Some(t) = threads {
-            cmd.arg("--threads").arg(t.to_string());
+            cmd.env("HARDWARE_CONCURRENCY", t.to_string());
         }
 
         // Spawn the process

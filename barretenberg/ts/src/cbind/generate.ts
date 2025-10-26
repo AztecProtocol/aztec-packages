@@ -13,7 +13,7 @@ import {
   createAsyncApiCompiler,
   type SchemaCompiler,
 } from './schema_compiler.js';
-import { createRustCompiler, type RustSchemaCompiler } from './rust_schema_compiler.js';
+import { createRustCompilerV2 } from './rust_schema_compiler_v2.js';
 
 const execAsync = promisify(exec);
 
@@ -26,7 +26,7 @@ interface GeneratorConfig {
 interface RustGeneratorConfig {
   name: string;
   outputFile: string;
-  createCompiler: () => RustSchemaCompiler;
+  createCompiler: () => any; // v2 compiler has same interface
 }
 
 const GENERATORS: GeneratorConfig[] = [
@@ -50,8 +50,8 @@ const GENERATORS: GeneratorConfig[] = [
 const RUST_GENERATORS: RustGeneratorConfig[] = [
   {
     name: 'Rust types',
-    outputFile: '../../rust_tests/barretenberg-rs/src/generated_types.rs',
-    createCompiler: createRustCompiler,
+    outputFile: '../../../rust/barretenberg-rs/src/generated_types.rs',
+    createCompiler: createRustCompilerV2,
   },
 ];
 

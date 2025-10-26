@@ -3,7 +3,9 @@
 //! This backend communicates with the BB binary via stdin/stdout pipes,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendSync, MsgpackBackendAsync};
+use crate::backend::{MsgpackBackend, MsgpackBackendSync};
+#[cfg(feature = "async")]
+use crate::backend::MsgpackBackendAsync;
 use crate::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -29,10 +31,11 @@ impl PipeBackend {
             .arg("run")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+            .stderr(Stdio::inherit());
 
+        // Note: BB uses HARDWARE_CONCURRENCY env var for thread control
         if let Some(t) = threads {
-            cmd.arg("--threads").arg(t.to_string());
+            cmd.env("HARDWARE_CONCURRENCY", t.to_string());
         }
 
         // Spawn the process

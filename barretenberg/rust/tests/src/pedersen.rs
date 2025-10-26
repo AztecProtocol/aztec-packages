@@ -17,8 +17,8 @@ fn test_pedersen_hash() {
     let mut api = BarretenbergApiSync::new(backend);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
+        Fr::from_u64(4).to_buffer().try_into().unwrap(),
+        Fr::from_u64(8).to_buffer().try_into().unwrap(),
     ];
 
     let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
@@ -64,9 +64,9 @@ fn test_pedersen_commit() {
     let mut api = BarretenbergApiSync::new(backend);
 
     let inputs = vec![
-        Fr::from_u64(4).to_buffer(),
-        Fr::from_u64(8).to_buffer(),
-        Fr::from_u64(12).to_buffer(),
+        Fr::from_u64(4).to_buffer().try_into().unwrap(),
+        Fr::from_u64(8).to_buffer().try_into().unwrap(),
+        Fr::from_u64(12).to_buffer().try_into().unwrap(),
     ];
 
     let response = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
@@ -100,8 +100,8 @@ fn test_pedersen_hash_perf() {
     let timer = Timer::new();
     for i in 0..loops {
         let inputs = vec![
-            fields[i * 2].to_buffer(),
-            fields[i * 2 + 1].to_buffer(),
+            fields[i * 2].to_buffer().try_into().unwrap(),
+            fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
         let _ = api.pedersen_hash(inputs, 0).expect("PedersenHash failed");
     }
@@ -131,8 +131,8 @@ fn test_pedersen_commit_perf() {
     let timer = Timer::new();
     for i in 0..loops {
         let inputs = vec![
-            fields[i * 2].to_buffer(),
-            fields[i * 2 + 1].to_buffer(),
+            fields[i * 2].to_buffer().try_into().unwrap(),
+            fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
         let _ = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
     }

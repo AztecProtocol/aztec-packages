@@ -4,6 +4,7 @@ use barretenberg_rs::{
     backend::{MsgpackBackend, MsgpackBackendSync},
     error::Result,
     types::*,
+    generated_types::*,
 };
 
 #[cfg(test)]
@@ -26,7 +27,8 @@ impl MsgpackBackend for MockBackend {
         self.call_count += 1;
 
         // Return a mock Blake2s response
-        let response = Response::Blake2s(Blake2sResponse {
+        let response = Response::Blake2sResponse(Blake2sResponse {
+            type_name: "Blake2sResponse".to_string(),
             hash: vec![0u8; 32],
         });
 
@@ -69,9 +71,7 @@ fn test_fr_type() {
 
 #[test]
 fn test_command_serialization() {
-    let cmd = Command::Blake2s(Blake2sCommand {
-        data: vec![1, 2, 3, 4],
-    });
+    let cmd = Command::Blake2s(Blake2s::new(vec![1, 2, 3, 4]));
 
     let serialized = rmp_serde::to_vec(&vec![cmd]).unwrap();
     assert!(!serialized.is_empty());

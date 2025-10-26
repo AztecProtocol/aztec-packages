@@ -10,12 +10,16 @@ pub mod error;
 
 // Generated types from msgpack schema
 // Run: cd ../ts && npm run generate
-#[allow(dead_code)]
-mod generated_types;
+pub mod generated_types;
 
-pub use backend::{MsgpackBackend, MsgpackBackendSync, MsgpackBackendAsync};
-pub use types::*;
-pub use api::{BarretenbergApi, BarretenbergApiSync};
+pub use backend::{MsgpackBackend, MsgpackBackendSync};
+#[cfg(feature = "async")]
+pub use backend::MsgpackBackendAsync;
+pub use types::{Fr, Point}; // Keep utility types
+pub use generated_types::{Command, Response}; // Use generated enums
+pub use api::BarretenbergApiSync;
+#[cfg(feature = "async")]
+pub use api::BarretenbergApi;
 pub use error::{BarretenbergError, Result};
 
 #[cfg(feature = "native")]

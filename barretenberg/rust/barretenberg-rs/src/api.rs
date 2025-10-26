@@ -2,10 +2,18 @@
 
 use crate::backend::MsgpackBackendSync;
 use crate::error::{BarretenbergError, Result};
-use crate::types::*;
+use crate::generated_types::*;
 
 #[cfg(feature = "async")]
 use crate::backend::MsgpackBackendAsync;
+
+// Response type aliases for convenience
+pub type Blake2sResponse = crate::generated_types::Blake2sResponse;
+pub type Blake2sToFieldResponse = crate::generated_types::Blake2sToFieldResponse;
+pub type PedersenHashResponse = crate::generated_types::PedersenHashResponse;
+pub type PedersenHashBufferResponse = crate::generated_types::PedersenHashBufferResponse;
+pub type PedersenCommitResponse = crate::generated_types::PedersenCommitResponse;
+pub type Poseidon2HashResponse = crate::generated_types::Poseidon2HashResponse;
 
 /// Synchronous Barretenberg API
 pub struct BarretenbergApiSync<B: MsgpackBackendSync> {
@@ -39,80 +47,67 @@ impl<B: MsgpackBackendSync> BarretenbergApiSync<B> {
 
     /// Compute Blake2s hash
     pub fn blake2s(&mut self, data: &[u8]) -> Result<Blake2sResponse> {
-        let cmd = Command::Blake2s(Blake2sCommand {
-            data: data.to_vec(),
-        });
+        let cmd = Command::Blake2s(Blake2s::new(data.to_vec()));
 
         match self.execute(cmd)? {
-            Response::Blake2s(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2s response".to_string())),
+            Response::Blake2sResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sResponse response".to_string())),
         }
     }
 
     /// Compute Blake2s hash and convert to field element
     pub fn blake2s_to_field(&mut self, data: &[u8]) -> Result<Blake2sToFieldResponse> {
-        let cmd = Command::Blake2sToField(Blake2sToFieldCommand {
-            data: data.to_vec(),
-        });
+        let cmd = Command::Blake2sToField(Blake2sToField::new(data.to_vec()));
 
         match self.execute(cmd)? {
-            Response::Blake2sToField(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sToField response".to_string())),
+            Response::Blake2sToFieldResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sToFieldResponse response".to_string())),
         }
     }
 
     /// Compute Pedersen hash
     pub fn pedersen_hash(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenHashResponse> {
-        let cmd = Command::PedersenHash(PedersenHashCommand {
-            inputs,
-            hash_index,
-        });
+        let cmd = Command::PedersenHash(PedersenHash::new(inputs, hash_index));
 
         match self.execute(cmd)? {
-            Response::PedersenHash(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHash response".to_string())),
+            Response::PedersenHashResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHashResponse response".to_string())),
         }
     }
 
     /// Compute Pedersen hash from buffer
-    pub fn pedersen_hash_buffer(&mut self, input: &[u8], hash_index: u32) -> Result<PedersenHashResponse> {
-        let cmd = Command::PedersenHashBuffer(PedersenHashBufferCommand {
-            input: input.to_vec(),
-            hash_index,
-        });
+    pub fn pedersen_hash_buffer(&mut self, input: &[u8], hash_index: u32) -> Result<PedersenHashBufferResponse> {
+        let cmd = Command::PedersenHashBuffer(PedersenHashBuffer::new(input.to_vec(), hash_index));
 
         match self.execute(cmd)? {
-            Response::PedersenHashBuffer(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHashBuffer response".to_string())),
+            Response::PedersenHashBufferResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHashBufferResponse response".to_string())),
         }
     }
 
     /// Compute Pedersen commitment
     pub fn pedersen_commit(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenCommitResponse> {
-        let cmd = Command::PedersenCommit(PedersenCommitCommand {
-            inputs,
-            hash_index,
-        });
+        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs, hash_index));
 
         match self.execute(cmd)? {
-            Response::PedersenCommit(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenCommit response".to_string())),
+            Response::PedersenCommitResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenCommitResponse response".to_string())),
         }
     }
 
     /// Compute Poseidon2 hash
     pub fn poseidon2_hash(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashResponse> {
-        let cmd = Command::Poseidon2Hash(Poseidon2HashCommand { inputs });
+        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs));
 
         match self.execute(cmd)? {
-            Response::Poseidon2Hash(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Poseidon2Hash response".to_string())),
+            Response::Poseidon2HashResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Poseidon2HashResponse response".to_string())),
         }
     }
 
     /// Shutdown the backend
     pub fn shutdown(&mut self) -> Result<()> {
-        let cmd = Command::Shutdown(ShutdownCommand {});
+        let cmd = Command::Shutdown(Shutdown::new());
         let _ = self.execute(cmd)?;
         self.backend.destroy()
     }
@@ -157,54 +152,67 @@ impl<B: MsgpackBackendAsync> BarretenbergApi<B> {
 
     /// Compute Blake2s hash
     pub async fn blake2s(&mut self, data: &[u8]) -> Result<Blake2sResponse> {
-        let cmd = Command::Blake2s(Blake2sCommand {
-            data: data.to_vec(),
-        });
+        let cmd = Command::Blake2s(Blake2s::new(data.to_vec()));
 
         match self.execute(cmd).await? {
-            Response::Blake2s(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2s response".to_string())),
+            Response::Blake2sResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sResponse response".to_string())),
         }
     }
 
     /// Compute Blake2s hash and convert to field element
     pub async fn blake2s_to_field(&mut self, data: &[u8]) -> Result<Blake2sToFieldResponse> {
-        let cmd = Command::Blake2sToField(Blake2sToFieldCommand {
-            data: data.to_vec(),
-        });
+        let cmd = Command::Blake2sToField(Blake2sToField::new(data.to_vec()));
 
         match self.execute(cmd).await? {
-            Response::Blake2sToField(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sToField response".to_string())),
+            Response::Blake2sToFieldResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Blake2sToFieldResponse response".to_string())),
         }
     }
 
     /// Compute Pedersen hash
     pub async fn pedersen_hash(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenHashResponse> {
-        let cmd = Command::PedersenHash(PedersenHashCommand {
-            inputs,
-            hash_index,
-        });
+        let cmd = Command::PedersenHash(PedersenHash::new(inputs, hash_index));
 
         match self.execute(cmd).await? {
-            Response::PedersenHash(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHash response".to_string())),
+            Response::PedersenHashResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHashResponse response".to_string())),
+        }
+    }
+
+    /// Compute Pedersen hash from buffer
+    pub async fn pedersen_hash_buffer(&mut self, input: &[u8], hash_index: u32) -> Result<PedersenHashBufferResponse> {
+        let cmd = Command::PedersenHashBuffer(PedersenHashBuffer::new(input.to_vec(), hash_index));
+
+        match self.execute(cmd).await? {
+            Response::PedersenHashBufferResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenHashBufferResponse response".to_string())),
+        }
+    }
+
+    /// Compute Pedersen commitment
+    pub async fn pedersen_commit(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenCommitResponse> {
+        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs, hash_index));
+
+        match self.execute(cmd).await? {
+            Response::PedersenCommitResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected PedersenCommitResponse response".to_string())),
         }
     }
 
     /// Compute Poseidon2 hash
     pub async fn poseidon2_hash(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashResponse> {
-        let cmd = Command::Poseidon2Hash(Poseidon2HashCommand { inputs });
+        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs));
 
         match self.execute(cmd).await? {
-            Response::Poseidon2Hash(resp) => Ok(resp),
-            _ => Err(BarretenbergError::InvalidResponse("Expected Poseidon2Hash response".to_string())),
+            Response::Poseidon2HashResponse(resp) => Ok(resp),
+            _ => Err(BarretenbergError::InvalidResponse("Expected Poseidon2HashResponse response".to_string())),
         }
     }
 
     /// Shutdown the backend
     pub async fn shutdown(&mut self) -> Result<()> {
-        let cmd = Command::Shutdown(ShutdownCommand {});
+        let cmd = Command::Shutdown(Shutdown::new());
         let _ = self.execute(cmd).await?;
         self.backend.destroy_async().await
     }
