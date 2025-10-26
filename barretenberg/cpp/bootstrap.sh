@@ -16,8 +16,10 @@ fi
 # Mix whether we're building multi-arch or single-arch into the hash
 if semver check "$REF_NAME"; then
   export hash="$hash-multiarch"
+  export wasm_cmake_args=()
 else
   export hash="$hash-singlearch"
+  export wasm_cmake_args=(-DENABLE_WASM_BENCH=ON)
 fi
 
 function ensure_zig {
@@ -146,11 +148,7 @@ function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
     # Auto-enable ENABLE_WASM_BENCH for non-semver builds
-    local cmake_args=()
-    if ! semver check "$REF_NAME"; then
-      cmake_args+=(-DENABLE_WASM_BENCH=ON)
-    fi
-    cmake --fresh --preset wasm-threads "${cmake_args[@]}"
+    cmake --fresh --preset wasm-threads "${wasm_cmake_args[@]}"
     cmake --build --preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
@@ -248,7 +246,7 @@ function build_release {
   fi
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_wasm_bench build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -330,24 +328,14 @@ function test {
   test_cmds | filter_test_cmds | parallelize
 }
 
-function build_wasm_bench() {
-  # Auto-enable ENABLE_WASM_BENCH for non-semver builds
-  local cmake_args=()
-  if ! semver check "$REF_NAME"; then
-    cmake_args+=(-DENABLE_WASM_BENCH=ON)
-  fi
-  cmake --fresh --preset wasm-threads "${cmake_args[@]}"
-  cmake --build --preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb
-}
-
 function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
-    # WASM benchmarks are auto-enabled for non-semver builds
+    # WASM benchmarks auto-enable ENABLE_WASM_BENCH for non-semver builds
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "build_wasm_bench"
+      "cmake --fresh --preset wasm-threads ${wasm_cmake_args[@]} && cmake --build --preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
@@ -403,21 +391,12 @@ case "$cmd" in
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
     # Build both native and wasm benchmark binaries
-    # WASM benchmarks are auto-enabled for non-semver builds
-    function build_wasm_bb() {
-      local cmake_args=()
-      if ! semver check "$REF_NAME"; then
-        cmake_args+=(-DENABLE_WASM_BENCH=ON)
-      fi
-      cmake --fresh --preset wasm-threads "${cmake_args[@]}"
-      cmake --build --preset wasm-threads --target bb
-    }
-    export -f build_wasm_bb
+    # WASM benchmarks auto-enable ENABLE_WASM_BENCH for non-semver builds
     builds=(
       "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_wasm_bb")
+      builds+=("cmake --fresh --preset wasm-threads ${wasm_cmake_args[@]} && cmake --build --preset wasm-threads --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
