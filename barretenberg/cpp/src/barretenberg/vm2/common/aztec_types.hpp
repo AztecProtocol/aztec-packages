@@ -80,6 +80,19 @@ struct PublicKeys {
     }
 
     bool operator==(const PublicKeys& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    void msgpack(auto pack_fn)
+    {
+        pack_fn("masterNullifierPublicKey",
+                nullifier_key,
+                "masterIncomingViewingPublicKey",
+                incoming_viewing_key,
+                "masterOutgoingViewingPublicKey",
+                outgoing_viewing_key,
+                "masterTaggingPublicKey",
+                tagging_key);
+    }
 };
 
 struct ContractInstance {
@@ -91,6 +104,22 @@ struct ContractInstance {
     PublicKeys public_keys;
 
     bool operator==(const ContractInstance& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(salt),
+                "deployer",
+                deployer,
+                "currentContractClassId",
+                current_contract_class_id,
+                "originalContractClassId",
+                original_contract_class_id,
+                "initializationHash",
+                initialization_hash,
+                "publicKeys",
+                public_keys);
+    }
 };
 
 // Similar to ContractClassPublicWithCommitment in TS but without:
@@ -105,6 +134,20 @@ struct ContractClassWithCommitment {
     FF public_bytecode_commitment;
 
     bool operator==(const ContractClassWithCommitment& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(id),
+                "artifactHash",
+                artifact_hash,
+                "privateFunctionsRoot",
+                private_functions_root,
+                "packedBytecode",
+                packed_bytecode,
+                "publicBytecodeCommitment",
+                public_bytecode_commitment);
+    }
 };
 
 // Similar to ContractClassPublic in TS but without:
@@ -118,6 +161,18 @@ struct ContractClass {
     std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClass& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(id),
+                "artifactHash",
+                artifact_hash,
+                "privateFunctionsRoot",
+                private_functions_root,
+                "packedBytecode",
+                packed_bytecode);
+    }
 
     ContractClassWithCommitment with_commitment(const FF& public_bytecode_commitment) const
     {
