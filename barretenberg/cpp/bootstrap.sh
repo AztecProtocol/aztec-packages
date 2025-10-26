@@ -68,11 +68,6 @@ function build_preset() {
   if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
     cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
   fi
-  # ENABLE_WASM_BENCH enables BB_BENCH in WASM builds for development/benchmarking
-  # Auto-enable for WASM builds unless it's a semver release
-  if [ "${ENABLE_WASM_BENCH:-0}" -eq 1 ] || [[ "$preset" == wasm* && ! $(semver check "$REF_NAME") ]]; then
-    cmake_args+=(-DENABLE_WASM_BENCH=ON)
-  fi
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
@@ -150,7 +145,13 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    # Auto-enable ENABLE_WASM_BENCH for non-semver builds
+    local cmake_args=()
+    if ! semver check "$REF_NAME"; then
+      cmake_args+=(-DENABLE_WASM_BENCH=ON)
+    fi
+    cmake --fresh --preset wasm-threads "${cmake_args[@]}"
+    cmake --build --preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -247,7 +248,7 @@ function build_release {
   fi
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_wasm_bench build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -329,6 +330,16 @@ function test {
   test_cmds | filter_test_cmds | parallelize
 }
 
+function build_wasm_bench() {
+  # Auto-enable ENABLE_WASM_BENCH for non-semver builds
+  local cmake_args=()
+  if ! semver check "$REF_NAME"; then
+    cmake_args+=(-DENABLE_WASM_BENCH=ON)
+  fi
+  cmake --fresh --preset wasm-threads "${cmake_args[@]}"
+  cmake --build --preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb
+}
+
 function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
@@ -336,7 +347,7 @@ function build_bench {
     # WASM benchmarks are auto-enabled for non-semver builds
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
+      "build_wasm_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
@@ -393,11 +404,20 @@ case "$cmd" in
 
     # Build both native and wasm benchmark binaries
     # WASM benchmarks are auto-enabled for non-semver builds
+    function build_wasm_bb() {
+      local cmake_args=()
+      if ! semver check "$REF_NAME"; then
+        cmake_args+=(-DENABLE_WASM_BENCH=ON)
+      fi
+      cmake --fresh --preset wasm-threads "${cmake_args[@]}"
+      cmake --build --preset wasm-threads --target bb
+    }
+    export -f build_wasm_bb
     builds=(
       "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("build_preset wasm-threads --target bb")
+      builds+=("build_wasm_bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
