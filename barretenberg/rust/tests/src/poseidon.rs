@@ -21,7 +21,7 @@ fn test_poseidon2_hash() {
         Fr::from_u64(8).to_buffer(),
     ];
 
-    let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
+    let response = api.poseidon2_hash(&inputs).expect("Poseidon2Hash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
@@ -52,7 +52,7 @@ fn test_poseidon2_hash_perf() {
             fields[i * 2].clone(),
             fields[i * 2 + 1].clone(),
         ];
-        let _ = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
+        let _ = api.poseidon2_hash(&inputs).expect("Poseidon2Hash failed");
     }
     let us = timer.us() / loops as u128;
 

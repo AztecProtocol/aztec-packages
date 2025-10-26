@@ -48,8 +48,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute CircuitProve command
-    pub fn circuit_prove(&mut self, circuit: CircuitInput, witness: Vec<u8>, settings: ProofSystemSettings) -> Result<CircuitProveResponse> {
-        let cmd = Command::CircuitProve(CircuitProve::new(circuit, witness, settings));
+    pub fn circuit_prove(&mut self, circuit: CircuitInput, witness: &[u8], settings: ProofSystemSettings) -> Result<CircuitProveResponse> {
+        let cmd = Command::CircuitProve(CircuitProve::new(circuit, witness.to_vec(), settings));
 
         match self.execute(cmd)? {
             Response::CircuitProveResponse(resp) => Ok(resp),
@@ -78,8 +78,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute CircuitVerify command
-    pub fn circuit_verify(&mut self, verification_key: Vec<u8>, public_inputs: Vec<Vec<u8>>, proof: Vec<Vec<u8>>, settings: ProofSystemSettings) -> Result<CircuitVerifyResponse> {
-        let cmd = Command::CircuitVerify(CircuitVerify::new(verification_key, public_inputs, proof, settings));
+    pub fn circuit_verify(&mut self, verification_key: &[u8], public_inputs: &[Vec<u8>], proof: &[Vec<u8>], settings: ProofSystemSettings) -> Result<CircuitVerifyResponse> {
+        let cmd = Command::CircuitVerify(CircuitVerify::new(verification_key.to_vec(), public_inputs.to_vec(), proof.to_vec(), settings));
 
         match self.execute(cmd)? {
             Response::CircuitVerifyResponse(resp) => Ok(resp),
@@ -128,8 +128,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute ClientIvcAccumulate command
-    pub fn client_ivc_accumulate(&mut self, witness: Vec<u8>) -> Result<ClientIvcAccumulateResponse> {
-        let cmd = Command::ClientIvcAccumulate(ClientIvcAccumulate::new(witness));
+    pub fn client_ivc_accumulate(&mut self, witness: &[u8]) -> Result<ClientIvcAccumulateResponse> {
+        let cmd = Command::ClientIvcAccumulate(ClientIvcAccumulate::new(witness.to_vec()));
 
         match self.execute(cmd)? {
             Response::ClientIvcAccumulateResponse(resp) => Ok(resp),
@@ -148,8 +148,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute ClientIvcVerify command
-    pub fn client_ivc_verify(&mut self, proof: ClientIVCProof, vk: Vec<u8>) -> Result<ClientIvcVerifyResponse> {
-        let cmd = Command::ClientIvcVerify(ClientIvcVerify::new(proof, vk));
+    pub fn client_ivc_verify(&mut self, proof: ClientIVCProof, vk: &[u8]) -> Result<ClientIvcVerifyResponse> {
+        let cmd = Command::ClientIvcVerify(ClientIvcVerify::new(proof, vk.to_vec()));
 
         match self.execute(cmd)? {
             Response::ClientIvcVerifyResponse(resp) => Ok(resp),
@@ -158,8 +158,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute VkAsFields command
-    pub fn vk_as_fields(&mut self, verification_key: Vec<u8>) -> Result<VkAsFieldsResponse> {
-        let cmd = Command::VkAsFields(VkAsFields::new(verification_key));
+    pub fn vk_as_fields(&mut self, verification_key: &[u8]) -> Result<VkAsFieldsResponse> {
+        let cmd = Command::VkAsFields(VkAsFields::new(verification_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::VkAsFieldsResponse(resp) => Ok(resp),
@@ -168,8 +168,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute MegaVkAsFields command
-    pub fn mega_vk_as_fields(&mut self, verification_key: Vec<u8>) -> Result<MegaVkAsFieldsResponse> {
-        let cmd = Command::MegaVkAsFields(MegaVkAsFields::new(verification_key));
+    pub fn mega_vk_as_fields(&mut self, verification_key: &[u8]) -> Result<MegaVkAsFieldsResponse> {
+        let cmd = Command::MegaVkAsFields(MegaVkAsFields::new(verification_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::MegaVkAsFieldsResponse(resp) => Ok(resp),
@@ -178,8 +178,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute CircuitWriteSolidityVerifier command
-    pub fn circuit_write_solidity_verifier(&mut self, verification_key: Vec<u8>, settings: ProofSystemSettings) -> Result<CircuitWriteSolidityVerifierResponse> {
-        let cmd = Command::CircuitWriteSolidityVerifier(CircuitWriteSolidityVerifier::new(verification_key, settings));
+    pub fn circuit_write_solidity_verifier(&mut self, verification_key: &[u8], settings: ProofSystemSettings) -> Result<CircuitWriteSolidityVerifierResponse> {
+        let cmd = Command::CircuitWriteSolidityVerifier(CircuitWriteSolidityVerifier::new(verification_key.to_vec(), settings));
 
         match self.execute(cmd)? {
             Response::CircuitWriteSolidityVerifierResponse(resp) => Ok(resp),
@@ -208,8 +208,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Poseidon2Hash command
-    pub fn poseidon2_hash(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashResponse> {
-        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs));
+    pub fn poseidon2_hash(&mut self, inputs: &[Vec<u8>]) -> Result<Poseidon2HashResponse> {
+        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs.to_vec()));
 
         match self.execute(cmd)? {
             Response::Poseidon2HashResponse(resp) => Ok(resp),
@@ -228,8 +228,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Poseidon2HashAccumulate command
-    pub fn poseidon2_hash_accumulate(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashAccumulateResponse> {
-        let cmd = Command::Poseidon2HashAccumulate(Poseidon2HashAccumulate::new(inputs));
+    pub fn poseidon2_hash_accumulate(&mut self, inputs: &[Vec<u8>]) -> Result<Poseidon2HashAccumulateResponse> {
+        let cmd = Command::Poseidon2HashAccumulate(Poseidon2HashAccumulate::new(inputs.to_vec()));
 
         match self.execute(cmd)? {
             Response::Poseidon2HashAccumulateResponse(resp) => Ok(resp),
@@ -238,8 +238,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute PedersenCommit command
-    pub fn pedersen_commit(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenCommitResponse> {
-        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs, hash_index));
+    pub fn pedersen_commit(&mut self, inputs: &[Vec<u8>], hash_index: u32) -> Result<PedersenCommitResponse> {
+        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs.to_vec(), hash_index));
 
         match self.execute(cmd)? {
             Response::PedersenCommitResponse(resp) => Ok(resp),
@@ -248,8 +248,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute PedersenHash command
-    pub fn pedersen_hash(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenHashResponse> {
-        let cmd = Command::PedersenHash(PedersenHash::new(inputs, hash_index));
+    pub fn pedersen_hash(&mut self, inputs: &[Vec<u8>], hash_index: u32) -> Result<PedersenHashResponse> {
+        let cmd = Command::PedersenHash(PedersenHash::new(inputs.to_vec(), hash_index));
 
         match self.execute(cmd)? {
             Response::PedersenHashResponse(resp) => Ok(resp),
@@ -258,8 +258,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute PedersenHashBuffer command
-    pub fn pedersen_hash_buffer(&mut self, input: Vec<u8>, hash_index: u32) -> Result<PedersenHashBufferResponse> {
-        let cmd = Command::PedersenHashBuffer(PedersenHashBuffer::new(input, hash_index));
+    pub fn pedersen_hash_buffer(&mut self, input: &[u8], hash_index: u32) -> Result<PedersenHashBufferResponse> {
+        let cmd = Command::PedersenHashBuffer(PedersenHashBuffer::new(input.to_vec(), hash_index));
 
         match self.execute(cmd)? {
             Response::PedersenHashBufferResponse(resp) => Ok(resp),
@@ -268,8 +268,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Blake2s command
-    pub fn blake2s(&mut self, data: Vec<u8>) -> Result<Blake2sResponse> {
-        let cmd = Command::Blake2s(Blake2s::new(data));
+    pub fn blake2s(&mut self, data: &[u8]) -> Result<Blake2sResponse> {
+        let cmd = Command::Blake2s(Blake2s::new(data.to_vec()));
 
         match self.execute(cmd)? {
             Response::Blake2sResponse(resp) => Ok(resp),
@@ -278,8 +278,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Blake2sToField command
-    pub fn blake2s_to_field(&mut self, data: Vec<u8>) -> Result<Blake2sToFieldResponse> {
-        let cmd = Command::Blake2sToField(Blake2sToField::new(data));
+    pub fn blake2s_to_field(&mut self, data: &[u8]) -> Result<Blake2sToFieldResponse> {
+        let cmd = Command::Blake2sToField(Blake2sToField::new(data.to_vec()));
 
         match self.execute(cmd)? {
             Response::Blake2sToFieldResponse(resp) => Ok(resp),
@@ -288,8 +288,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute AesEncrypt command
-    pub fn aes_encrypt(&mut self, plaintext: Vec<u8>, iv: Vec<u8>, key: Vec<u8>, length: u32) -> Result<AesEncryptResponse> {
-        let cmd = Command::AesEncrypt(AesEncrypt::new(plaintext, iv, key, length));
+    pub fn aes_encrypt(&mut self, plaintext: &[u8], iv: &[u8], key: &[u8], length: u32) -> Result<AesEncryptResponse> {
+        let cmd = Command::AesEncrypt(AesEncrypt::new(plaintext.to_vec(), iv.to_vec(), key.to_vec(), length));
 
         match self.execute(cmd)? {
             Response::AesEncryptResponse(resp) => Ok(resp),
@@ -298,8 +298,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute AesDecrypt command
-    pub fn aes_decrypt(&mut self, ciphertext: Vec<u8>, iv: Vec<u8>, key: Vec<u8>, length: u32) -> Result<AesDecryptResponse> {
-        let cmd = Command::AesDecrypt(AesDecrypt::new(ciphertext, iv, key, length));
+    pub fn aes_decrypt(&mut self, ciphertext: &[u8], iv: &[u8], key: &[u8], length: u32) -> Result<AesDecryptResponse> {
+        let cmd = Command::AesDecrypt(AesDecrypt::new(ciphertext.to_vec(), iv.to_vec(), key.to_vec(), length));
 
         match self.execute(cmd)? {
             Response::AesDecryptResponse(resp) => Ok(resp),
@@ -308,8 +308,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute GrumpkinMul command
-    pub fn grumpkin_mul(&mut self, point: AffineElement, scalar: Vec<u8>) -> Result<GrumpkinMulResponse> {
-        let cmd = Command::GrumpkinMul(GrumpkinMul::new(point, scalar));
+    pub fn grumpkin_mul(&mut self, point: AffineElement, scalar: &[u8]) -> Result<GrumpkinMulResponse> {
+        let cmd = Command::GrumpkinMul(GrumpkinMul::new(point, scalar.to_vec()));
 
         match self.execute(cmd)? {
             Response::GrumpkinMulResponse(resp) => Ok(resp),
@@ -328,8 +328,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute GrumpkinBatchMul command
-    pub fn grumpkin_batch_mul(&mut self, points: Vec<AffineElement>, scalar: Vec<u8>) -> Result<GrumpkinBatchMulResponse> {
-        let cmd = Command::GrumpkinBatchMul(GrumpkinBatchMul::new(points, scalar));
+    pub fn grumpkin_batch_mul(&mut self, points: Vec<AffineElement>, scalar: &[u8]) -> Result<GrumpkinBatchMulResponse> {
+        let cmd = Command::GrumpkinBatchMul(GrumpkinBatchMul::new(points, scalar.to_vec()));
 
         match self.execute(cmd)? {
             Response::GrumpkinBatchMulResponse(resp) => Ok(resp),
@@ -348,8 +348,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute GrumpkinReduce512 command
-    pub fn grumpkin_reduce512(&mut self, input: Vec<u8>) -> Result<GrumpkinReduce512Response> {
-        let cmd = Command::GrumpkinReduce512(GrumpkinReduce512::new(input));
+    pub fn grumpkin_reduce512(&mut self, input: &[u8]) -> Result<GrumpkinReduce512Response> {
+        let cmd = Command::GrumpkinReduce512(GrumpkinReduce512::new(input.to_vec()));
 
         match self.execute(cmd)? {
             Response::GrumpkinReduce512Response(resp) => Ok(resp),
@@ -358,8 +358,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Secp256k1Mul command
-    pub fn secp256k1_mul(&mut self, point: AffineElement, scalar: Vec<u8>) -> Result<Secp256k1MulResponse> {
-        let cmd = Command::Secp256k1Mul(Secp256k1Mul::new(point, scalar));
+    pub fn secp256k1_mul(&mut self, point: AffineElement, scalar: &[u8]) -> Result<Secp256k1MulResponse> {
+        let cmd = Command::Secp256k1Mul(Secp256k1Mul::new(point, scalar.to_vec()));
 
         match self.execute(cmd)? {
             Response::Secp256k1MulResponse(resp) => Ok(resp),
@@ -378,8 +378,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Secp256k1Reduce512 command
-    pub fn secp256k1_reduce512(&mut self, input: Vec<u8>) -> Result<Secp256k1Reduce512Response> {
-        let cmd = Command::Secp256k1Reduce512(Secp256k1Reduce512::new(input));
+    pub fn secp256k1_reduce512(&mut self, input: &[u8]) -> Result<Secp256k1Reduce512Response> {
+        let cmd = Command::Secp256k1Reduce512(Secp256k1Reduce512::new(input.to_vec()));
 
         match self.execute(cmd)? {
             Response::Secp256k1Reduce512Response(resp) => Ok(resp),
@@ -388,8 +388,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Bn254FrSqrt command
-    pub fn bn254_fr_sqrt(&mut self, input: Vec<u8>) -> Result<Bn254FrSqrtResponse> {
-        let cmd = Command::Bn254FrSqrt(Bn254FrSqrt::new(input));
+    pub fn bn254_fr_sqrt(&mut self, input: &[u8]) -> Result<Bn254FrSqrtResponse> {
+        let cmd = Command::Bn254FrSqrt(Bn254FrSqrt::new(input.to_vec()));
 
         match self.execute(cmd)? {
             Response::Bn254FrSqrtResponse(resp) => Ok(resp),
@@ -398,8 +398,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute SchnorrComputePublicKey command
-    pub fn schnorr_compute_public_key(&mut self, private_key: Vec<u8>) -> Result<SchnorrComputePublicKeyResponse> {
-        let cmd = Command::SchnorrComputePublicKey(SchnorrComputePublicKey::new(private_key));
+    pub fn schnorr_compute_public_key(&mut self, private_key: &[u8]) -> Result<SchnorrComputePublicKeyResponse> {
+        let cmd = Command::SchnorrComputePublicKey(SchnorrComputePublicKey::new(private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::SchnorrComputePublicKeyResponse(resp) => Ok(resp),
@@ -408,8 +408,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute SchnorrConstructSignature command
-    pub fn schnorr_construct_signature(&mut self, message: Vec<u8>, private_key: Vec<u8>) -> Result<SchnorrConstructSignatureResponse> {
-        let cmd = Command::SchnorrConstructSignature(SchnorrConstructSignature::new(message, private_key));
+    pub fn schnorr_construct_signature(&mut self, message: &[u8], private_key: &[u8]) -> Result<SchnorrConstructSignatureResponse> {
+        let cmd = Command::SchnorrConstructSignature(SchnorrConstructSignature::new(message.to_vec(), private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::SchnorrConstructSignatureResponse(resp) => Ok(resp),
@@ -418,8 +418,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute SchnorrVerifySignature command
-    pub fn schnorr_verify_signature(&mut self, message: Vec<u8>, public_key: AffineElement, s: Vec<u8>, e: Vec<u8>) -> Result<SchnorrVerifySignatureResponse> {
-        let cmd = Command::SchnorrVerifySignature(SchnorrVerifySignature::new(message, public_key, s, e));
+    pub fn schnorr_verify_signature(&mut self, message: &[u8], public_key: AffineElement, s: &[u8], e: &[u8]) -> Result<SchnorrVerifySignatureResponse> {
+        let cmd = Command::SchnorrVerifySignature(SchnorrVerifySignature::new(message.to_vec(), public_key, s.to_vec(), e.to_vec()));
 
         match self.execute(cmd)? {
             Response::SchnorrVerifySignatureResponse(resp) => Ok(resp),
@@ -428,8 +428,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256k1ComputePublicKey command
-    pub fn ecdsa_secp256k1_compute_public_key(&mut self, private_key: Vec<u8>) -> Result<EcdsaSecp256k1ComputePublicKeyResponse> {
-        let cmd = Command::EcdsaSecp256k1ComputePublicKey(EcdsaSecp256k1ComputePublicKey::new(private_key));
+    pub fn ecdsa_secp256k1_compute_public_key(&mut self, private_key: &[u8]) -> Result<EcdsaSecp256k1ComputePublicKeyResponse> {
+        let cmd = Command::EcdsaSecp256k1ComputePublicKey(EcdsaSecp256k1ComputePublicKey::new(private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256k1ComputePublicKeyResponse(resp) => Ok(resp),
@@ -438,8 +438,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256r1ComputePublicKey command
-    pub fn ecdsa_secp256r1_compute_public_key(&mut self, private_key: Vec<u8>) -> Result<EcdsaSecp256r1ComputePublicKeyResponse> {
-        let cmd = Command::EcdsaSecp256r1ComputePublicKey(EcdsaSecp256r1ComputePublicKey::new(private_key));
+    pub fn ecdsa_secp256r1_compute_public_key(&mut self, private_key: &[u8]) -> Result<EcdsaSecp256r1ComputePublicKeyResponse> {
+        let cmd = Command::EcdsaSecp256r1ComputePublicKey(EcdsaSecp256r1ComputePublicKey::new(private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256r1ComputePublicKeyResponse(resp) => Ok(resp),
@@ -448,8 +448,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256k1ConstructSignature command
-    pub fn ecdsa_secp256k1_construct_signature(&mut self, message: Vec<u8>, private_key: Vec<u8>) -> Result<EcdsaSecp256k1ConstructSignatureResponse> {
-        let cmd = Command::EcdsaSecp256k1ConstructSignature(EcdsaSecp256k1ConstructSignature::new(message, private_key));
+    pub fn ecdsa_secp256k1_construct_signature(&mut self, message: &[u8], private_key: &[u8]) -> Result<EcdsaSecp256k1ConstructSignatureResponse> {
+        let cmd = Command::EcdsaSecp256k1ConstructSignature(EcdsaSecp256k1ConstructSignature::new(message.to_vec(), private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256k1ConstructSignatureResponse(resp) => Ok(resp),
@@ -458,8 +458,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256r1ConstructSignature command
-    pub fn ecdsa_secp256r1_construct_signature(&mut self, message: Vec<u8>, private_key: Vec<u8>) -> Result<EcdsaSecp256r1ConstructSignatureResponse> {
-        let cmd = Command::EcdsaSecp256r1ConstructSignature(EcdsaSecp256r1ConstructSignature::new(message, private_key));
+    pub fn ecdsa_secp256r1_construct_signature(&mut self, message: &[u8], private_key: &[u8]) -> Result<EcdsaSecp256r1ConstructSignatureResponse> {
+        let cmd = Command::EcdsaSecp256r1ConstructSignature(EcdsaSecp256r1ConstructSignature::new(message.to_vec(), private_key.to_vec()));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256r1ConstructSignatureResponse(resp) => Ok(resp),
@@ -468,8 +468,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256k1RecoverPublicKey command
-    pub fn ecdsa_secp256k1_recover_public_key(&mut self, message: Vec<u8>, r: Vec<u8>, s: Vec<u8>, v: u8) -> Result<EcdsaSecp256k1RecoverPublicKeyResponse> {
-        let cmd = Command::EcdsaSecp256k1RecoverPublicKey(EcdsaSecp256k1RecoverPublicKey::new(message, r, s, v));
+    pub fn ecdsa_secp256k1_recover_public_key(&mut self, message: &[u8], r: &[u8], s: &[u8], v: u8) -> Result<EcdsaSecp256k1RecoverPublicKeyResponse> {
+        let cmd = Command::EcdsaSecp256k1RecoverPublicKey(EcdsaSecp256k1RecoverPublicKey::new(message.to_vec(), r.to_vec(), s.to_vec(), v));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256k1RecoverPublicKeyResponse(resp) => Ok(resp),
@@ -478,8 +478,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256r1RecoverPublicKey command
-    pub fn ecdsa_secp256r1_recover_public_key(&mut self, message: Vec<u8>, r: Vec<u8>, s: Vec<u8>, v: u8) -> Result<EcdsaSecp256r1RecoverPublicKeyResponse> {
-        let cmd = Command::EcdsaSecp256r1RecoverPublicKey(EcdsaSecp256r1RecoverPublicKey::new(message, r, s, v));
+    pub fn ecdsa_secp256r1_recover_public_key(&mut self, message: &[u8], r: &[u8], s: &[u8], v: u8) -> Result<EcdsaSecp256r1RecoverPublicKeyResponse> {
+        let cmd = Command::EcdsaSecp256r1RecoverPublicKey(EcdsaSecp256r1RecoverPublicKey::new(message.to_vec(), r.to_vec(), s.to_vec(), v));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256r1RecoverPublicKeyResponse(resp) => Ok(resp),
@@ -488,8 +488,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256k1VerifySignature command
-    pub fn ecdsa_secp256k1_verify_signature(&mut self, message: Vec<u8>, public_key: AffineElement, r: Vec<u8>, s: Vec<u8>, v: u8) -> Result<EcdsaSecp256k1VerifySignatureResponse> {
-        let cmd = Command::EcdsaSecp256k1VerifySignature(EcdsaSecp256k1VerifySignature::new(message, public_key, r, s, v));
+    pub fn ecdsa_secp256k1_verify_signature(&mut self, message: &[u8], public_key: AffineElement, r: &[u8], s: &[u8], v: u8) -> Result<EcdsaSecp256k1VerifySignatureResponse> {
+        let cmd = Command::EcdsaSecp256k1VerifySignature(EcdsaSecp256k1VerifySignature::new(message.to_vec(), public_key, r.to_vec(), s.to_vec(), v));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256k1VerifySignatureResponse(resp) => Ok(resp),
@@ -498,8 +498,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute EcdsaSecp256r1VerifySignature command
-    pub fn ecdsa_secp256r1_verify_signature(&mut self, message: Vec<u8>, public_key: AffineElement, r: Vec<u8>, s: Vec<u8>, v: u8) -> Result<EcdsaSecp256r1VerifySignatureResponse> {
-        let cmd = Command::EcdsaSecp256r1VerifySignature(EcdsaSecp256r1VerifySignature::new(message, public_key, r, s, v));
+    pub fn ecdsa_secp256r1_verify_signature(&mut self, message: &[u8], public_key: AffineElement, r: &[u8], s: &[u8], v: u8) -> Result<EcdsaSecp256r1VerifySignatureResponse> {
+        let cmd = Command::EcdsaSecp256r1VerifySignature(EcdsaSecp256r1VerifySignature::new(message.to_vec(), public_key, r.to_vec(), s.to_vec(), v));
 
         match self.execute(cmd)? {
             Response::EcdsaSecp256r1VerifySignatureResponse(resp) => Ok(resp),
@@ -508,8 +508,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute SrsInitSrs command
-    pub fn srs_init_srs(&mut self, points_buf: Vec<u8>, num_points: u32, g2_point: Vec<u8>) -> Result<SrsInitSrsResponse> {
-        let cmd = Command::SrsInitSrs(SrsInitSrs::new(points_buf, num_points, g2_point));
+    pub fn srs_init_srs(&mut self, points_buf: &[u8], num_points: u32, g2_point: &[u8]) -> Result<SrsInitSrsResponse> {
+        let cmd = Command::SrsInitSrs(SrsInitSrs::new(points_buf.to_vec(), num_points, g2_point.to_vec()));
 
         match self.execute(cmd)? {
             Response::SrsInitSrsResponse(resp) => Ok(resp),
@@ -518,8 +518,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute SrsInitGrumpkinSrs command
-    pub fn srs_init_grumpkin_srs(&mut self, points_buf: Vec<u8>, num_points: u32) -> Result<SrsInitGrumpkinSrsResponse> {
-        let cmd = Command::SrsInitGrumpkinSrs(SrsInitGrumpkinSrs::new(points_buf, num_points));
+    pub fn srs_init_grumpkin_srs(&mut self, points_buf: &[u8], num_points: u32) -> Result<SrsInitGrumpkinSrsResponse> {
+        let cmd = Command::SrsInitGrumpkinSrs(SrsInitGrumpkinSrs::new(points_buf.to_vec(), num_points));
 
         match self.execute(cmd)? {
             Response::SrsInitGrumpkinSrsResponse(resp) => Ok(resp),

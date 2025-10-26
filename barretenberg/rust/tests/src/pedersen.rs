@@ -21,7 +21,7 @@ fn test_pedersen_hash() {
         Fr::from_u64(8).to_buffer().try_into().unwrap(),
     ];
 
-    let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
+    let response = api.pedersen_hash(&inputs, 7).expect("PedersenHash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
@@ -44,7 +44,7 @@ fn test_pedersen_hash_buffer() {
     input[119..123].copy_from_slice(&456u32.to_be_bytes());
 
     let response = api
-        .pedersen_hash_buffer(&input, 0)
+        .pedersen_hash_buffer(input.as_slice(), 0)
         .expect("PedersenHashBuffer failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
@@ -69,7 +69,7 @@ fn test_pedersen_commit() {
         Fr::from_u64(12).to_buffer().try_into().unwrap(),
     ];
 
-    let response = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
+    let response = api.pedersen_commit(&inputs, 0).expect("PedersenCommit failed");
 
     let x = Fr::from_buffer_reduce(&response.point.x);
     let y = Fr::from_buffer_reduce(&response.point.y);
@@ -103,7 +103,7 @@ fn test_pedersen_hash_perf() {
             fields[i * 2].to_buffer().try_into().unwrap(),
             fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
-        let _ = api.pedersen_hash(inputs, 0).expect("PedersenHash failed");
+        let _ = api.pedersen_hash(&inputs, 0).expect("PedersenHash failed");
     }
     let us = timer.us() / loops as u128;
 
@@ -134,7 +134,7 @@ fn test_pedersen_commit_perf() {
             fields[i * 2].to_buffer().try_into().unwrap(),
             fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
-        let _ = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
+        let _ = api.pedersen_commit(&inputs, 0).expect("PedersenCommit failed");
     }
     let us = timer.us() / loops as u128;
 

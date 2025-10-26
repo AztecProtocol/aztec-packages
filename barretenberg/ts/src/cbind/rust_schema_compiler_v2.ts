@@ -566,24 +566,83 @@ ${deserializeCases.join('\n')}
     // Generate snake_case method name (e.g., Blake2s -> blake2s)
     const methodName = this.toSnakeCase(command.typeName);
 
-    // Generate parameters from command fields
-    const params = commandType.fields.map(f => `${f.name}: ${f.rustType}`).join(', ');
+    // Generate ergonomic parameters (use &[u8] for Vec<u8>)
+    const params = commandType.fields.map(f => {
+      const ergonomicType = this.makeErgonomicType(f.rustType);
+      return `${f.name}: ${ergonomicType}`;
+    }).join(', ');
 
-    // Generate parameter passing to constructor
-    const paramNames = commandType.fields.map(f => f.name).join(', ');
+    // Generate parameter conversions for constructor call
+    const paramConversions = commandType.fields.map(f => {
+      const conversion = this.generateParamConversion(f.name, f.rustType);
+      return conversion;
+    }).join(', ');
 
     // Generate doc comment
-    const doc = `    /// Execute ${command.typeName} command`;
+    const doc = `    /// ${this.generateMethodDoc(command.typeName, commandType)}`;
 
     return `${doc}
     pub fn ${methodName}(&mut self, ${params}) -> Result<${response.typeName}> {
-        let cmd = Command::${command.typeName}(${command.typeName}::new(${paramNames}));
+        let cmd = Command::${command.typeName}(${command.typeName}::new(${paramConversions}));
 
         match self.execute(cmd)? {
             Response::${response.typeName}(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse("Expected ${response.typeName}".to_string())),
         }
     }`;
+  }
+
+  /**
+   * Make types more ergonomic for API methods (e.g., &[u8] instead of Vec<u8>)
+   */
+  private makeErgonomicType(rustType: string): string {
+    // Vec<u8> becomes &[u8] (borrow instead of owned)
+    if (rustType === 'Vec<u8>') {
+      return '&[u8]';
+    }
+
+    // Vec<Vec<u8>> becomes &[Vec<u8>] (borrow the outer Vec)
+    if (rustType === 'Vec<Vec<u8>>') {
+      return '&[Vec<u8>]';
+    }
+
+    // For other Vec types, keep as-is (user must construct)
+    return rustType;
+  }
+
+  /**
+   * Generate parameter conversion from ergonomic type to constructor type
+   */
+  private generateParamConversion(paramName: string, rustType: string): string {
+    // Vec<u8> needs .to_vec() conversion from &[u8]
+    if (rustType === 'Vec<u8>') {
+      return `${paramName}.to_vec()`;
+    }
+
+    // Vec<Vec<u8>> needs .to_vec() conversion from &[Vec<u8>]
+    if (rustType === 'Vec<Vec<u8>>') {
+      return `${paramName}.to_vec()`;
+    }
+
+    // Everything else passes through as-is
+    return paramName;
+  }
+
+  /**
+   * Generate concise documentation for API method
+   */
+  private generateMethodDoc(commandName: string, commandType: TypeDef): string {
+    if (commandType.fields.length === 0) {
+      return `Execute ${commandName} command`;
+    }
+
+    // Generate parameter documentation
+    const paramDocs = commandType.fields.map(f => {
+      // Make field name more readable (snake_case is already readable)
+      return f.name;
+    }).join(', ');
+
+    return `Execute ${commandName} command`;
   }
 }
 
