@@ -432,7 +432,7 @@ To accumulate results from all columns, we iterate over the NAF columns in group
 2. Suppose the accumulated group elements for the 4 columns are $\textcolor{violet}{Q_0}, \textcolor{violet}{Q_1}, \textcolor{violet}{Q_2}, \textcolor{violet}{Q_3}$. We then add these group elements to the overall accumulator with appropriate doublings. Specifically, we perform the following operation on the accumulator $R$:
 
 $$
-R = 2 \cdot \Big( \big(2\cdot (2 \cdot R + \textcolor{violet}{Q_0}) + \textcolor{violet}{Q_1}\big) + \textcolor{violet}{Q_2}\Big) + \textcolor{violet}{Q_3}
+R = 2 \cdot \Big( 2 \cdot \big(2\cdot (2 \cdot R + \textcolor{violet}{Q_0}) + \textcolor{violet}{Q_1}\big) + \textcolor{violet}{Q_2}\Big) + \textcolor{violet}{Q_3}
 $$
 
 3. Lastly, after processing all NAF columns, we need to account for the skew factors $\mathfrak{s}_j$ for each scalar $a_j$:
@@ -479,7 +479,7 @@ $$
 \end{aligned}
 $$
 
-In this case, since $\textcolor{violet}{Q_{i, 2}} = -\textcolor{violet}{Q_{i, 1}}$, while initialising the accumulator $R$:
+In this case, since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$, while initialising the accumulator $R$:
 
 $$
 \begin{aligned}
