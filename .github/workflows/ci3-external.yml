@@ -108,42 +108,33 @@ jobs:
       - name: Run
         if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
-          # We need to pass these creds to start the AWS ec2 instance.
-          # They are not injected into that instance. Instead, it has minimal
-          # creds for being able to upload to cache.
+          # CI script parameters (CI_INTERNAL defaults to 0 for external)
+          # External-specific parameters
+          REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
+          ARCH: amd64
+          # AWS credentials (minimal for external runs)
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
-          # We only test on amd64.
-          ARCH: amd64
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-        run: |
-          if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-            exec ./ci.sh merge-queue
-          elif [ "${CI_FULL:-0}" -eq 1 ]; then
-            exec ./ci.sh full
-          else
-            exec ./ci.sh fast
-          fi
+        run: ./.github/ci3.sh
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'
         run: echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ci-success.txt
 
-      # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
-      # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
-      - name: CI Squash and Merge
-        if: contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge')
+      #############
+      # Post-Actions
+      #############
+      - name: Post-Actions
+        if: always()
         env:
+          # CI_INTERNAL defaults to 0 for external
+          SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
+          SHOULD_UPLOAD_BENCHMARKS: "0"
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          # Reauth the git repo with our GITHUB_TOKEN
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
-          # Get the base commit (merge-base) for the PR
-          ./scripts/merge-train/squash-pr.sh \
-            "${{ github.event.pull_request.number }}" \
-            "${{ github.event.pull_request.head.ref }}" \
-            "${{ github.event.pull_request.base.ref }}" \
-            "${{ github.event.pull_request.base.sha }}"
-          gh pr edit "${{ github.event.pull_request.number }}" --remove-label "ci-squash-and-merge"
-          gh pr merge "${{ github.event.pull_request.number }}" --auto -m || true
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: ./.github/ci3-post.sh
