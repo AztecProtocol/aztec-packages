@@ -89,13 +89,13 @@ TEST_F(TxExecutionTest, simulateTx)
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
 
     // Configure mock execution to return successful results
-    ExecutionResult successful_result = {
-        .rd_offset = 0,
-        .rd_size = 0,
+    EnqueuedCallResult successful_result = {
+        .success = true, // This is the key - mark execution as successful
         .gas_used = Gas{ 100, 100 },
+        .output = std::nullopt, // The gadgets do not need to return data.
         .side_effect_states = SideEffectStates{},
-        .success = true // This is the key - mark execution as successful
     };
+
     ON_CALL(execution, execute(_)).WillByDefault(Return(successful_result));
 
     EXPECT_CALL(context_provider, make_enqueued_context)

@@ -21,6 +21,18 @@ class AvmSimulationHelper {
     // Fast simulation without event collection.
     void simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
+    // Simulate a bytecode with some calldata and additional context.
+    // Note: this assumes that no nested calls are ever made to other bytecodes.
+    // This should only be used for fuzzing right now - it only simulates an enqueued call rather than an entire tx.
+    simulation::EnqueuedCallResult simulate_bytecode(const AztecAddress& address,
+                                                     const AztecAddress& sender,
+                                                     const FF& transaction_fee,
+                                                     const GlobalVariables& globals,
+                                                     bool is_static_call,
+                                                     const std::vector<FF>& calldata,
+                                                     const Gas& gas_limit,
+                                                     const std::vector<uint8_t>& bytecode);
+
   private:
     // Helper called by simulate_fast* functions.
     void simulate_fast(simulation::ContractDBInterface& raw_contract_db,
@@ -28,18 +40,6 @@ class AvmSimulationHelper {
                        const Tx& tx,
                        const GlobalVariables& global_variables,
                        const ProtocolContracts& protocol_contracts);
-
-    // Simulate a bytecode with some calldata and additional context.
-    // Note: this assumes that no nested calls are ever made to other bytecodes.
-    // This should only be used for fuzzing right now - it only simulates an enqueued call rather than an entire tx.
-    simulation::EnqueuedCallResult simulate_bytecode(AztecAddress address,
-                                                     AztecAddress sender,
-                                                     FF transaction_fee,
-                                                     GlobalVariables globals,
-                                                     bool is_static_call,
-                                                     const std::vector<FF>& calldata,
-                                                     Gas gas_limit,
-                                                     const std::vector<uint8_t>& bytecode);
 };
 
 } // namespace bb::avm2
