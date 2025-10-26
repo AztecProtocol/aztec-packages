@@ -69,7 +69,8 @@ function build_preset() {
     cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
   fi
   # ENABLE_WASM_BENCH enables BB_BENCH in WASM builds for development/benchmarking
-  if [ "${ENABLE_WASM_BENCH:-0}" -eq 1 ]; then
+  # Auto-enable for WASM builds unless it's a semver release
+  if [ "${ENABLE_WASM_BENCH:-0}" -eq 1 ] || [[ "$preset" == wasm* && ! $(semver check "$REF_NAME") ]]; then
     cmake_args+=(-DENABLE_WASM_BENCH=ON)
   fi
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
@@ -332,9 +333,10 @@ function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
+    # WASM benchmarks are auto-enabled for non-semver builds
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "ENABLE_WASM_BENCH=1 build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
@@ -390,11 +392,12 @@ case "$cmd" in
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
     # Build both native and wasm benchmark binaries
+    # WASM benchmarks are auto-enabled for non-semver builds
     builds=(
       "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("ENABLE_WASM_BENCH=1 build_preset wasm-threads --target bb")
+      builds+=("build_preset wasm-threads --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
