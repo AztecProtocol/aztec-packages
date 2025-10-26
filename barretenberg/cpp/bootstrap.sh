@@ -16,10 +16,8 @@ fi
 # Mix whether we're building multi-arch or single-arch into the hash
 if semver check "$REF_NAME"; then
   export hash="$hash-multiarch"
-  export wasm_cmake_args=()
 else
   export hash="$hash-singlearch"
-  export wasm_cmake_args=(-DENABLE_WASM_BENCH=ON)
 fi
 
 function ensure_zig {
@@ -69,6 +67,10 @@ function build_preset() {
   local cmake_args=()
   if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
     cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
+  fi
+  # Auto-enable ENABLE_WASM_BENCH for wasm-threads preset on non-semver builds
+  if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
+    cmake_args+=(-DENABLE_WASM_BENCH=ON)
   fi
   cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
@@ -147,9 +149,7 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    # Auto-enable ENABLE_WASM_BENCH for non-semver builds
-    cmake --fresh --preset wasm-threads "${wasm_cmake_args[@]}"
-    cmake --build --preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
@@ -335,7 +335,7 @@ function build_bench {
     # WASM benchmarks auto-enable ENABLE_WASM_BENCH for non-semver builds
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "cmake --fresh --preset wasm-threads ${wasm_cmake_args[@]} && cmake --build --preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
   fi
@@ -396,7 +396,7 @@ case "$cmd" in
       "build_preset $native_preset --target bb"
     )
     if [[ "${NO_WASM:-}" != "1" ]]; then
-      builds+=("cmake --fresh --preset wasm-threads ${wasm_cmake_args[@]} && cmake --build --preset wasm-threads --target bb")
+      builds+=("build_preset wasm-threads --target bb")
     fi
     parallel --line-buffered --tag -v denoise ::: "${builds[@]}"
 
