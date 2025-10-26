@@ -67,7 +67,6 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
                                           bytecode_hasher,
                                           range_check,
                                           contract_instance_manager,
-                                          class_id_derivation,
                                           retrieved_bytecodes_tree_check,
                                           retrieval_events,
                                           decomposition_events,
@@ -91,10 +90,8 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
 
     EXPECT_CALL(contract_db, get_contract_class(instance1.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass)));
-    EXPECT_CALL(contract_db, get_bytecode_commitment(instance1.current_class_id))
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance1.current_contract_class_id))
         .WillRepeatedly(Return(std::make_optional(bytecode_commitment)));
-
-    EXPECT_CALL(class_id_derivation, assert_derivation(_)).Times(3); // Called for each retrieval
 
     // Let the real bytecode hasher run - it will emit hashing events
     EXPECT_CALL(poseidon2, hash(_)).WillOnce(Return(bytecode_commitment));
@@ -168,7 +165,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
 
     EXPECT_CALL(contract_db, get_contract_class(instance2.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass))); // Same class/bytecode
-    EXPECT_CALL(contract_db, get_bytecode_commitment(instance2.current_class_id))
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance2.current_contract_class_id))
         .WillOnce(Return(std::make_optional(bytecode_commitment)));
     // No hashing should occur since we've already processed this bytecode
     EXPECT_CALL(merkle_db, get_tree_state()).WillOnce(Return(tree_states));
@@ -195,7 +192,6 @@ TEST_F(BytecodeManagerTest, TooManyBytecodes)
                                           bytecode_hasher,
                                           range_check,
                                           contract_instance_manager,
-                                          class_id_derivation,
                                           retrieved_bytecodes_tree_check,
                                           retrieval_events,
                                           decomposition_events,
@@ -243,7 +239,6 @@ TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
                                           bytecode_hasher,
                                           range_check,
                                           real_contract_instance_manager,
-                                          class_id_derivation,
                                           retrieved_bytecodes_tree_check,
                                           retrieval_events,
                                           decomposition_events,

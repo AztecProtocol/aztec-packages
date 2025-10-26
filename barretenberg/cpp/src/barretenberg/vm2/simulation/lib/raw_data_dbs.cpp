@@ -137,6 +137,7 @@ std::optional<ContractClass> HintedRawContractDB::get_contract_class(const Contr
     const auto& contract_class_hint = it->second;
 
     return std::make_optional<ContractClass>({
+        .id = class_id,
         .artifact_hash = contract_class_hint.artifactHash,
         .private_functions_root = contract_class_hint.privateFunctionsRoot,
         .packed_bytecode = contract_class_hint.packedBytecode,

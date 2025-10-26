@@ -13,7 +13,6 @@
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
-#include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 #include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
@@ -32,7 +31,6 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       ContractInstanceManagerInterface& contract_instance_manager,
-                      ClassIdDerivationInterface& class_id_derivation,
                       RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
@@ -42,7 +40,6 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , contract_instance_manager(contract_instance_manager)
-        , class_id_derivation(class_id_derivation)
         , retrieved_bytecodes_tree_check(retrieved_bytecodes_tree_check)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
@@ -62,7 +59,6 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     ContractInstanceManagerInterface& contract_instance_manager;
-    ClassIdDerivationInterface& class_id_derivation;
     RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree_check;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;

@@ -28,9 +28,21 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
 
 std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    // Simply return the contract class from the raw DB.
-    // Note: class ID derivation is handled by the bytecode manager.
-    return raw_contract_db.get_contract_class(class_id);
+    // Get the contract class from the raw DB.
+    std::optional<ContractClass> maybe_klass = raw_contract_db.get_contract_class(class_id);
+    if (!maybe_klass.has_value()) {
+        return std::nullopt;
+    }
+
+    // Get the bytecode commitment for this class.
+    std::optional<FF> maybe_bytecode_commitment = raw_contract_db.get_bytecode_commitment(class_id);
+    // If the class exists, the bytecode commitment must also exist.
+    assert(maybe_bytecode_commitment.has_value());
+
+    // Perform class ID derivation to verify the class ID is correctly derived from the class data.
+    class_id_derivation.assert_derivation(maybe_klass->with_commitment(maybe_bytecode_commitment.value()));
+
+    return maybe_klass;
 }
 
 std::optional<FF> ContractDB::get_bytecode_commitment(const ContractClassId& class_id) const

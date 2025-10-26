@@ -61,7 +61,7 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     retrieved_class_ids.insert(current_class_id);
 
-    // Contract class retrieval
+    // Contract class retrieval and class ID validation
     std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarantees
     // that if a contract instance exists, the class has been registered.
@@ -69,13 +69,10 @@ BytecodeId PureTxBytecodeManager::get_bytecode(const AztecAddress& address)
     auto& klass = maybe_klass.value();
     debug("Bytecode for ", address, " successfully retrieved!");
 
-    // Bytecode hashing and decomposition, deduplicated by bytecode_id (commitment)
     // TODO(dbanks12): in TS, the PublicContractsDB will hash the bytecode if it has never been hashed there before.
     // After that, it caches it. It should only happen once per contract class, but when we are making a callback
     // to the TS cache to hash the bytecode there, it might be unnecessarily slow, in which case we could do the same
-    // hashing and caching here in C++ and avoid callbacks to TS. Note that separating out the get_bytecode_commitment
-    // DB call was NOT a regression in this regard as the same TS hashing would have happened when our
-    // get_contract_class function made a TS callback to get_bytecode_commitment.
+    // hashing and caching here in C++ and avoid callbacks to TS.
     std::optional<FF> maybe_bytecode_commitment = contract_db.get_bytecode_commitment(current_class_id);
     // If we reach this point, class ID and instance both exist which means bytecode commitment must exist.
     assert(maybe_bytecode_commitment.has_value());

@@ -174,7 +174,8 @@ ContractInstance random_contract_instance()
 
 ContractClass random_contract_class(size_t bytecode_size)
 {
-    return ContractClass{ .artifact_hash = FF::random_element(),
+    return ContractClass{ .id = FF::random_element(),
+                          .artifact_hash = FF::random_element(),
                           .private_functions_root = FF::random_element(),
                           .packed_bytecode = random_bytes(bytecode_size) };
 }
