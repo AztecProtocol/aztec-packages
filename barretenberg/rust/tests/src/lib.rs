@@ -8,5 +8,6 @@ pub mod poseidon;
 pub mod pipe_test;
 pub mod utils;
 pub mod mock_backend_test;
+pub mod debug_msgpack;
 
 pub use utils::Timer;

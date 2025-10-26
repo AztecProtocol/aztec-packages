@@ -44,7 +44,8 @@ pub fn get_bb_binary_path() -> String {
     std::env::var("BB_BINARY_PATH")
         .unwrap_or_else(|_| {
             // Default path relative to the repository root
-            "../cpp/build/bin/bb".to_string()
+            // From rust/tests, need to go up two levels to barretenberg/
+            "../../cpp/build/bin/bb".to_string()
         })
 }
 

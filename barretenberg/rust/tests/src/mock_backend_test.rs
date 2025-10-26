@@ -3,7 +3,6 @@
 use barretenberg_rs::{
     backend::Backend,
     error::Result,
-    types::*,
     generated_types::*,
 };
 
@@ -28,7 +27,6 @@ impl Backend for MockBackend {
 
         // Return a mock Blake2s response
         let response = Response::Blake2sResponse(Blake2sResponse {
-            type_name: "Blake2sResponse".to_string(),
             hash: vec![0u8; 32],
         });
 
