@@ -3,9 +3,7 @@
 //! This backend communicates with the BB binary via Unix domain sockets,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendSync};
-#[cfg(feature = "async")]
-use crate::backend::MsgpackBackendAsync;
+use crate::backend::Backend;
 use crate::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
@@ -126,9 +124,9 @@ impl UnixSocketBackend {
     }
 }
 
-impl MsgpackBackend for UnixSocketBackend {
-    fn call(&mut self, input_buffer: &[u8]) -> Result<Vec<u8>> {
-        self.send_with_prefix(input_buffer)?;
+impl Backend for UnixSocketBackend {
+    fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
+        self.send_with_prefix(input)?;
         self.receive_with_prefix()
     }
 
@@ -146,23 +144,8 @@ impl MsgpackBackend for UnixSocketBackend {
     }
 }
 
-impl MsgpackBackendSync for UnixSocketBackend {}
-
 impl Drop for UnixSocketBackend {
     fn drop(&mut self) {
         let _ = self.destroy();
-    }
-}
-
-#[cfg(feature = "async")]
-impl MsgpackBackendAsync for UnixSocketBackend {
-    async fn call_async(&mut self, input_buffer: &[u8]) -> Result<Vec<u8>> {
-        // For now, we use blocking calls in async context
-        // A proper implementation would use tokio::net::UnixStream
-        self.call(input_buffer)
-    }
-
-    async fn destroy_async(&mut self) -> Result<()> {
-        self.destroy()
     }
 }

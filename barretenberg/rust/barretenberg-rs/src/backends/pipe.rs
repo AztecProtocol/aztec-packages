@@ -3,9 +3,7 @@
 //! This backend communicates with the BB binary via stdin/stdout pipes,
 //! using a 4-byte little-endian length prefix protocol.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendSync};
-#[cfg(feature = "async")]
-use crate::backend::MsgpackBackendAsync;
+use crate::backend::Backend;
 use crate::error::{BarretenbergError, Result};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -93,9 +91,9 @@ impl PipeBackend {
     }
 }
 
-impl MsgpackBackend for PipeBackend {
-    fn call(&mut self, input_buffer: &[u8]) -> Result<Vec<u8>> {
-        self.send_with_prefix(input_buffer)?;
+impl Backend for PipeBackend {
+    fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
+        self.send_with_prefix(input)?;
         self.receive_with_prefix()
     }
 
@@ -110,24 +108,9 @@ impl MsgpackBackend for PipeBackend {
     }
 }
 
-impl MsgpackBackendSync for PipeBackend {}
-
 impl Drop for PipeBackend {
     fn drop(&mut self) {
         let _ = self.destroy();
-    }
-}
-
-#[cfg(feature = "async")]
-impl MsgpackBackendAsync for PipeBackend {
-    async fn call_async(&mut self, input_buffer: &[u8]) -> Result<Vec<u8>> {
-        // For now, we use blocking calls in async context
-        // A proper implementation would use tokio::process::Child with AsyncRead/AsyncWrite
-        self.call(input_buffer)
-    }
-
-    async fn destroy_async(&mut self) -> Result<()> {
-        self.destroy()
     }
 }
 

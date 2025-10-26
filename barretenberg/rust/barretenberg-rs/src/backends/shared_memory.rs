@@ -3,7 +3,7 @@
 //! This backend communicates with the BB binary via shared memory IPC,
 //! using a C++ shared memory server. The Rust side acts as a client.
 
-use crate::backend::{MsgpackBackend, MsgpackBackendSync};
+use crate::backend::Backend;
 use crate::error::{BarretenbergError, Result};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
@@ -90,9 +90,9 @@ impl SharedMemoryBackend {
     }
 }
 
-impl MsgpackBackend for SharedMemoryBackend {
-    fn call(&mut self, input_buffer: &[u8]) -> Result<Vec<u8>> {
-        self.call_impl(input_buffer)
+impl Backend for SharedMemoryBackend {
+    fn call(&mut self, input: &[u8]) -> Result<Vec<u8>> {
+        self.call_impl(input)
     }
 
     fn destroy(&mut self) -> Result<()> {
@@ -105,8 +105,6 @@ impl MsgpackBackend for SharedMemoryBackend {
         Ok(())
     }
 }
-
-impl MsgpackBackendSync for SharedMemoryBackend {}
 
 impl Drop for SharedMemoryBackend {
     fn drop(&mut self) {

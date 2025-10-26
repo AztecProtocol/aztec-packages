@@ -3,7 +3,7 @@
 //! Parallels barretenberg/ts/src/barretenberg/poseidon.test.ts
 
 #[cfg(test)]
-use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApiSync, Fr};
+use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, get_test_socket_path, Timer};
 
@@ -14,7 +14,7 @@ fn test_poseidon2_hash() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let inputs = vec![
         Fr::from_u64(4).to_buffer(),
@@ -38,7 +38,7 @@ fn test_poseidon2_hash_perf() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);

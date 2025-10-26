@@ -1,14 +1,14 @@
 //! Mock backend tests to verify infrastructure without BB binary
 
 use barretenberg_rs::{
-    backend::{MsgpackBackend, MsgpackBackendSync},
+    backend::Backend,
     error::Result,
     types::*,
     generated_types::*,
 };
 
 #[cfg(test)]
-use barretenberg_rs::BarretenbergApiSync;
+use barretenberg_rs::BarretenbergApi;
 
 /// Mock backend for testing without BB binary
 struct MockBackend {
@@ -22,8 +22,8 @@ impl MockBackend {
     }
 }
 
-impl MsgpackBackend for MockBackend {
-    fn call(&mut self, _input_buffer: &[u8]) -> Result<Vec<u8>> {
+impl Backend for MockBackend {
+    fn call(&mut self, _input: &[u8]) -> Result<Vec<u8>> {
         self.call_count += 1;
 
         // Return a mock Blake2s response
@@ -41,12 +41,10 @@ impl MsgpackBackend for MockBackend {
     }
 }
 
-impl MsgpackBackendSync for MockBackend {}
-
 #[test]
 fn test_mock_backend_infrastructure() {
     let backend = MockBackend::new();
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     // This should work with the mock backend
     let result = api.blake2s(b"test data");

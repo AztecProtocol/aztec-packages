@@ -3,7 +3,7 @@
 //! Parallels barretenberg/ts/src/barretenberg/pedersen.test.ts
 
 #[cfg(test)]
-use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApiSync, Fr};
+use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApi, Fr};
 #[cfg(test)]
 use crate::utils::{get_bb_binary_path, get_test_socket_path, Timer};
 
@@ -14,7 +14,7 @@ fn test_pedersen_hash() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let inputs = vec![
         Fr::from_u64(4).to_buffer().try_into().unwrap(),
@@ -37,7 +37,7 @@ fn test_pedersen_hash_buffer() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let mut input = vec![0u8; 123];
     input[0..4].copy_from_slice(&321u32.to_be_bytes());
@@ -61,7 +61,7 @@ fn test_pedersen_commit() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let inputs = vec![
         Fr::from_u64(4).to_buffer().try_into().unwrap(),
@@ -89,7 +89,7 @@ fn test_pedersen_hash_perf() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);
@@ -120,7 +120,7 @@ fn test_pedersen_commit_perf() {
 
     let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
         .expect("Failed to create backend");
-    let mut api = BarretenbergApiSync::new(backend);
+    let mut api = BarretenbergApi::new(backend);
 
     let loops = 1000;
     let mut fields = Vec::with_capacity(loops * 2);

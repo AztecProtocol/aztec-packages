@@ -53,6 +53,11 @@ const RUST_GENERATORS: RustGeneratorConfig[] = [
     outputFile: '../../../rust/barretenberg-rs/src/generated_types.rs',
     createCompiler: createRustCompilerV2,
   },
+  {
+    name: 'Rust API',
+    outputFile: '../../../rust/barretenberg-rs/src/api.rs',
+    createCompiler: createRustCompilerV2,
+  },
 ];
 
 // @ts-ignore
@@ -96,7 +101,9 @@ async function generate() {
     compiler.processApiSchema(schema.commands, schema.responses);
 
     const outputPath = join(__dirname, config.outputFile);
-    const content = compiler.compile();
+
+    // Use compileApi() for api.rs, compile() for other files
+    const content = outputPath.endsWith('api.rs') ? compiler.compileApi() : compiler.compile();
 
     // Ensure Rust output directory exists
     mkdirSync(dirname(outputPath), { recursive: true });
