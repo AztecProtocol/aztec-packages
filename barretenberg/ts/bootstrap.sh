@@ -5,6 +5,11 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 
+# Include BB_EMSCRIPTEN in hash to differentiate cache
+if [ "${BB_EMSCRIPTEN:-0}" -eq 1 ]; then
+  hash="$hash-emscripten"
+fi
+
 function build {
   echo_header "bb.js build"
   npm_install_deps

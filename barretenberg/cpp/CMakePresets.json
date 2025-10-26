@@ -473,6 +473,66 @@
       }
     },
     {
+      "name": "emscripten",
+      "displayName": "Build for WASM with Emscripten",
+      "description": "Build with emscripten to create wasm (single-threaded)",
+      "binaryDir": "build-emscripten",
+      "generator": "Ninja",
+      "toolchainFile": "cmake/toolchains/wasm32-emscripten.cmake",
+      "environment": {
+        "EMSCRIPTEN_ROOT": "/opt/emsdk/upstream/emscripten",
+        "CC": "$env{EMSCRIPTEN_ROOT}/emcc",
+        "CXX": "$env{EMSCRIPTEN_ROOT}/em++",
+        "AR": "$env{EMSCRIPTEN_ROOT}/emar",
+        "RANLIB": "$env{EMSCRIPTEN_ROOT}/emranlib",
+        "CXXFLAGS": "-DBB_VERBOSE"
+      },
+      "cacheVariables": {
+        "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
+        "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
+        "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
+        "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
+        "CMAKE_C_COMPILER_WORKS": "ON",
+        "CMAKE_CXX_COMPILER_WORKS": "ON",
+        "MULTITHREADING": "OFF",
+        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+      }
+    },
+    {
+      "name": "emscripten-threads",
+      "displayName": "Build for pthread enabled WASM with Emscripten",
+      "description": "Build for pthread enabled WASM with Emscripten",
+      "inherits": "emscripten",
+      "binaryDir": "build-emscripten-threads",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "MULTITHREADING": "ON"
+      }
+    },
+    {
+      "name": "emscripten-asan",
+      "displayName": "Build for WASM with Emscripten and Address Sanitizer",
+      "description": "Build with emscripten and address sanitizer enabled (single-threaded)",
+      "inherits": "emscripten",
+      "binaryDir": "build-emscripten-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "EMSCRIPTEN_ROOT": "/opt/emsdk/upstream/emscripten",
+        "CC": "$env{EMSCRIPTEN_ROOT}/emcc",
+        "CXX": "$env{EMSCRIPTEN_ROOT}/em++",
+        "AR": "$env{EMSCRIPTEN_ROOT}/emar",
+        "RANLIB": "$env{EMSCRIPTEN_ROOT}/emranlib",
+        "CFLAGS": "-fsanitize=address -DBB_VERBOSE",
+        "CXXFLAGS": "-fsanitize=address -DBB_VERBOSE -DBB_NO_EXCEPTIONS",
+        "LDFLAGS": "-fsanitize=address"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -759,6 +819,33 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+    },
+    {
+      "name": "emscripten",
+      "configurePreset": "emscripten",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": [
+        "barretenberg.wasm",
+        "barretenberg.wasm.gz",
+        "barretenberg",
+        "wasi",
+        "env"
+      ]
+    },
+    {
+      "name": "emscripten-threads",
+      "configurePreset": "emscripten-threads",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+    },
+    {
+      "name": "emscripten-asan",
+      "configurePreset": "emscripten-asan",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": ["barretenberg.wasm"]
     },
     {
       "name": "xray",

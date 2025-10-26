@@ -44,8 +44,18 @@ Development commands:
 ### ts/ => typescript code for bb.js
 Bootstrap modes:
 - `./bootstrap.sh` => generate TypeScript bindings and build. See package.json for more fine-grained commands.
+- `BB_EMSCRIPTEN=1 ./bootstrap.sh` => build with emscripten backend (includes JS wrapper for address sanitizer support)
 Other commands:
 - `yarn build:esm` => the quickest way to rebuild, if only changes inside ts/ folder, and only testing yarn-project.
+
+#### Emscripten vs WASI-SDK
+By default, bb.js is built with WASI-SDK. However, you can use the emscripten backend by setting `BB_EMSCRIPTEN=1`:
+- **WASI-SDK (default)**: Lighter weight, standard WASM output
+- **Emscripten (BB_EMSCRIPTEN=1)**: Generates JS wrapper along with WASM, enables address sanitizer support
+  - Use `./cpp/bootstrap.sh build_emscripten` for single-threaded build
+  - Use `./cpp/bootstrap.sh build_emscripten_threads` for multi-threaded build
+  - Use `./cpp/bootstrap.sh build_emscripten_asan` for address sanitizer debugging
+  - Browser applications should use emscripten for better debugging capabilities
 
 ## noir/
 ### noir-repo/ => clone of noir programming language git repo
