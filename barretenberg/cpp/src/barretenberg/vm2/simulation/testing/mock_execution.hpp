@@ -18,7 +18,7 @@ class MockExecution : public ExecutionInterface {
     MockExecution();
     ~MockExecution() override;
 
-    MOCK_METHOD(ExecutionResult, execute, (std::unique_ptr<ContextInterface> context), (override));
+    MOCK_METHOD(EnqueuedCallResult, execute, (std::unique_ptr<ContextInterface> context), (override));
 };
 
 } // namespace bb::avm2::simulation

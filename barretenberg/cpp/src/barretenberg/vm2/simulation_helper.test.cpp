@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/testing/instruction_builder.hpp"
 
@@ -93,8 +94,8 @@ TEST_F(SimulateBytecodeTest, AddSimple)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_FALSE(result.reverted);
-    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
+    EXPECT_TRUE(result.success);
+    EXPECT_THAT(result.output, ::testing::Optional(ElementsAre(a_value + b_value)));
 }
 
 TEST_F(SimulateBytecodeTest, AddWithIndirectOffset)
@@ -149,8 +150,8 @@ TEST_F(SimulateBytecodeTest, AddWithIndirectOffset)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_FALSE(result.reverted);
-    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
+    EXPECT_TRUE(result.success);
+    EXPECT_THAT(result.output, ::testing::Optional(ElementsAre(a_value + b_value)));
 }
 
 TEST_F(SimulateBytecodeTest, AddFromCalldata)
@@ -227,8 +228,8 @@ TEST_F(SimulateBytecodeTest, AddFromCalldata)
     auto result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
-    EXPECT_FALSE(result.reverted);
-    EXPECT_THAT(result.output, ElementsAre(a_value + b_value));
+    EXPECT_TRUE(result.success);
+    EXPECT_THAT(result.output, ::testing::Optional(ElementsAre(a_value + b_value)));
 }
 
 TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
@@ -265,12 +266,12 @@ TEST_F(SimulateBytecodeTest, AddShouldRevertWithMismatchedTags)
     const auto bytecode = create_bytecode(instructions);
     const std::vector<FF> calldata = {}; // No calldata
 
-    auto result = helper.simulate_bytecode(
+    simulation::EnqueuedCallResult result = helper.simulate_bytecode(
         contract_address, sender_address, transaction_fee, globals, is_static_call, calldata, gas_limit, bytecode);
 
     // Execution should fail due to tag mismatch
-    EXPECT_TRUE(result.reverted);
-    EXPECT_THAT(result.output, ElementsAre());
+    EXPECT_FALSE(result.success);
+    EXPECT_THAT(result.output, ::testing::Optional(::testing::IsEmpty()));
 }
 
 } // namespace
