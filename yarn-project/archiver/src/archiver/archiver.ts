@@ -997,28 +997,24 @@ export class Archiver extends (EventEmitter as new () => ArchiverEmitter) implem
     return Promise.resolve(this.l1Addresses.registryAddress);
   }
 
-  public getL1BlockNumber(): bigint {
-    const l1BlockNumber = this.l1BlockNumber;
-    if (!l1BlockNumber) {
-      throw new Error('L1 block number not yet available. Complete an initial sync first.');
-    }
-    return l1BlockNumber;
+  public getL1BlockNumber(): bigint | undefined {
+    return this.l1BlockNumber;
   }
 
-  public getL1Timestamp(): Promise<bigint> {
-    const l1Timestamp = this.l1Timestamp;
-    if (!l1Timestamp) {
-      throw new Error('L1 timestamp not yet available. Complete an initial sync first.');
-    }
-    return Promise.resolve(l1Timestamp);
+  public getL1Timestamp(): Promise<bigint | undefined> {
+    return Promise.resolve(this.l1Timestamp);
   }
 
-  public async getL2SlotNumber(): Promise<bigint> {
-    return getSlotAtTimestamp(await this.getL1Timestamp(), this.l1constants);
+  public getL2SlotNumber(): Promise<bigint | undefined> {
+    return Promise.resolve(
+      this.l1Timestamp === undefined ? undefined : getSlotAtTimestamp(this.l1Timestamp, this.l1constants),
+    );
   }
 
-  public async getL2EpochNumber(): Promise<bigint> {
-    return getEpochNumberAtTimestamp(await this.getL1Timestamp(), this.l1constants);
+  public getL2EpochNumber(): Promise<bigint | undefined> {
+    return Promise.resolve(
+      this.l1Timestamp === undefined ? undefined : getEpochNumberAtTimestamp(this.l1Timestamp, this.l1constants),
+    );
   }
 
   public async getBlocksForEpoch(epochNumber: bigint): Promise<L2Block[]> {

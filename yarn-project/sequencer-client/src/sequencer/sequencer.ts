@@ -802,6 +802,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       }
     | undefined
   > {
+    // Check that the archiver and dependencies have synced to the previous L1 slot at least
+    // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
+    // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
+    const l1Timestamp = await this.l2BlockSource.getL1Timestamp();
+    const { slot, ts } = args;
+    if (l1Timestamp === undefined || l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
+      this.log.debug(`Cannot propose block at next L2 slot ${slot} due to pending sync from L1`, {
+        slot,
+        ts,
+        l1Timestamp,
+      });
+      return undefined;
+    }
+
     const syncedBlocks = await Promise.all([
       this.worldState.status().then(({ syncSummary }) => ({
         number: syncSummary.latestBlockNumber,
@@ -810,12 +824,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
-      this.l2BlockSource.getL1Timestamp(),
       this.l2BlockSource.getPendingChainValidationStatus(),
     ] as const);
 
-    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, l1Timestamp, pendingChainValidationStatus] =
-      syncedBlocks;
+    const [worldState, l2BlockSource, p2p, l1ToL2MessageSource, pendingChainValidationStatus] = syncedBlocks;
 
     // The archiver reports 'undefined' hash for the genesis block
     // because it doesn't have access to world state to compute it (facepalm)
@@ -828,19 +840,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, { worldState, l2BlockSource, p2p, l1ToL2MessageSource });
-      return undefined;
-    }
-
-    // Check that the archiver and dependencies have synced to the previous L1 slot at least
-    // TODO(#14766): Archiver reports L1 timestamp based on L1 blocks seen, which means that a missed L1 block will
-    // cause the archiver L1 timestamp to fall behind, and cause this sequencer to start processing one L1 slot later.
-    const { slot, ts } = args;
-    if (l1Timestamp + BigInt(this.l1Constants.ethereumSlotDuration) < ts) {
-      this.log.debug(`Cannot propose block at next L2 slot ${slot} due to pending sync from L1`, {
-        slot,
-        ts,
-        l1Timestamp,
-      });
       return undefined;
     }
 
