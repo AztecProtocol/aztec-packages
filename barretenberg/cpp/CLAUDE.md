@@ -53,9 +53,10 @@ By default, bb.js is built with WASI-SDK. However, you can use the emscripten ba
 - **WASI-SDK (default)**: Lighter weight, standard WASM output
 - **Emscripten (BB_EMSCRIPTEN=1)**: Generates JS wrapper along with WASM, enables address sanitizer support
   - Use `./cpp/bootstrap.sh build_emscripten` for single-threaded build
-  - Use `./cpp/bootstrap.sh build_emscripten_threads` for multi-threaded build
-  - Use `./cpp/bootstrap.sh build_emscripten_asan` for address sanitizer debugging
-  - Browser applications should use emscripten for better debugging capabilities
+  - Use `./cpp/bootstrap.sh build_emscripten_threads` for multi-threaded build (no asan)
+  - Use `./cpp/bootstrap.sh build_emscripten_asan` for single-threaded with address sanitizer
+  - Use `./cpp/bootstrap.sh build_emscripten_threads_asan` for multi-threaded with address sanitizer (recommended)
+  - **Browser applications use emscripten with threads + asan by default** for better debugging capabilities
 
 ## noir/
 ### noir-repo/ => clone of noir programming language git repo

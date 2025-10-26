@@ -533,6 +533,29 @@
       }
     },
     {
+      "name": "emscripten-threads-asan",
+      "displayName": "Build for pthread enabled WASM with Emscripten and Address Sanitizer",
+      "description": "Build with emscripten, pthreads, and address sanitizer enabled - the recommended browser preset",
+      "inherits": "emscripten",
+      "binaryDir": "build-emscripten-threads-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "MULTITHREADING": "ON",
+        "ENABLE_ASAN": "ON",
+        "DISABLE_ASM": "ON"
+      },
+      "environment": {
+        "EMSCRIPTEN_ROOT": "/opt/emsdk/upstream/emscripten",
+        "CC": "$env{EMSCRIPTEN_ROOT}/emcc",
+        "CXX": "$env{EMSCRIPTEN_ROOT}/em++",
+        "AR": "$env{EMSCRIPTEN_ROOT}/emar",
+        "RANLIB": "$env{EMSCRIPTEN_ROOT}/emranlib",
+        "CFLAGS": "-fsanitize=address -DBB_VERBOSE",
+        "CXXFLAGS": "-fsanitize=address -DBB_VERBOSE -DBB_NO_EXCEPTIONS",
+        "LDFLAGS": "-fsanitize=address"
+      }
+    },
+    {
       "name": "xray",
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
@@ -846,6 +869,13 @@
       "inheritConfigureEnvironment": true,
       "jobs": 0,
       "targets": ["barretenberg.wasm"]
+    },
+    {
+      "name": "emscripten-threads-asan",
+      "configurePreset": "emscripten-threads-asan",
+      "inheritConfigureEnvironment": true,
+      "jobs": 0,
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
     },
     {
       "name": "xray",
