@@ -91,7 +91,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
 
     EXPECT_CALL(contract_db, get_contract_class(instance1.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass)));
-    EXPECT_CALL(contract_db, get_bytecode_commitment(instance1.current_class_id))
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance1.current_contract_class_id))
         .WillRepeatedly(Return(std::make_optional(bytecode_commitment)));
 
     EXPECT_CALL(class_id_derivation, assert_derivation(_)).Times(3); // Called for each retrieval
@@ -168,7 +168,7 @@ TEST_F(BytecodeManagerTest, RetrievalAndDeduplication)
 
     EXPECT_CALL(contract_db, get_contract_class(instance2.current_contract_class_id))
         .WillOnce(Return(std::make_optional(klass))); // Same class/bytecode
-    EXPECT_CALL(contract_db, get_bytecode_commitment(instance2.current_class_id))
+    EXPECT_CALL(contract_db, get_bytecode_commitment(instance2.current_contract_class_id))
         .WillOnce(Return(std::make_optional(bytecode_commitment)));
     // No hashing should occur since we've already processed this bytecode
     EXPECT_CALL(merkle_db, get_tree_state()).WillOnce(Return(tree_states));

@@ -26,8 +26,8 @@ TEST(AvmInputsTest, Deserialization)
     // force them to update the C++ structs as well (and therefore any usage of these structs).
     AvmProvingInputs::from(data);
 }
-
 TEST(AvmInputsTest, FormatTransformations)
+
 {
     using ::testing::AllOf;
     using ::testing::ElementsAre;
