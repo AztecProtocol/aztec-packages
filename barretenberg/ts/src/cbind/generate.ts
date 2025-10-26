@@ -80,7 +80,7 @@ const IR_GENERATORS: IrGeneratorConfig[] = [
   },
   {
     name: 'Zig (proof of concept)',
-    enabled: false, // Enable to generate Zig bindings
+    enabled: true, // Enable Zig bindings for multi-language proof of concept
     generate: (processor) => {
       const ir = processor.process(schema.commands, schema.responses);
       const zigGen = new ZigGenerator();
