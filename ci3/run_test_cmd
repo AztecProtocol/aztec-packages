@@ -228,7 +228,11 @@ EOF
 
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
-  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local group_suffix=""
+  if [ -n "${flake_group_id:-}" ]; then
+    group_suffix=" group:$flake_group_id"
+  fi
+  local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${group_suffix}"
   echo -e "$line"
 
   line+=" (${purple}$COMMIT_AUTHOR${reset}: $COMMIT_MSG)"
@@ -269,7 +273,14 @@ EOF
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-owners=$(get_test_owner "$test_cmd" "$tmp_file")
+# Get matching test entries
+test_entries=$(get_test_entry "$test_cmd" "$tmp_file")
+
+# Extract owners from entries
+owners=$(echo "$test_entries" | jq -r '.owners[]' | sort -u)
+
+# Extract flake_group_id from first matching entry
+flake_group_id=$(echo "$test_entries" | jq -r '.flake_group_id // empty' | head -1)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then
