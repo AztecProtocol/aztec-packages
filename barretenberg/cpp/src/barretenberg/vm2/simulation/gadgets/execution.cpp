@@ -1196,7 +1196,7 @@ void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
         // Side Effects
-        .numUnencryptedLogFields = static_cast<uint32_t>(side_effects.public_logs.size()),
+        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
     });
 
