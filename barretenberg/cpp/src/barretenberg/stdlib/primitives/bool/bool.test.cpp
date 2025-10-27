@@ -162,8 +162,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
             std::vector<uint32_t> indices;
             for (size_t idx = 0; idx < num_inputs; idx++) {
-                indices.push_back(
-                    bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_normalized_witness_index());
+                indices.push_back(bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_witness_index());
             }
 
             const size_t sorted_list_size = num_inputs + 2;
@@ -285,6 +284,72 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         }
     }
 
+    // Helper to compute expected gate count for conditional_assign
+    static size_t compute_conditional_assign_gates(
+        const bool_ct& condition, const bool_ct& a, const bool_ct& b, const BoolInput& lhs, const BoolInput& rhs)
+    {
+        if (condition.is_constant()) {
+            // Branch 1: Constant predicate - select lhs or rhs, then normalize
+            // Adds 1 gate only if selected value is inverted
+            bool_ct selected = condition.get_value() ? a : b;
+            return (selected.is_inverted()) ? 1 : 0;
+        }
+
+        // Check for Branch 2: same witness (both constants with same value)
+        if (a.is_constant() && b.is_constant() && a.get_value() == b.get_value()) {
+            // Branch 2: Same witness - return lhs.normalize()
+            // Adds 1 gate only if lhs is inverted
+            return (a.is_inverted()) ? 1 : 0;
+        }
+
+        // Branch 3: (predicate && lhs) || (!predicate && rhs), then normalize
+        // Key insight: OR of two witnesses creates a NEW normalized witness (no normalization gate needed)
+        // But OR of witness and constant may return the witness directly (may need normalization)
+
+        if (!a.is_constant() && !b.is_constant()) {
+            // All witnesses: AND + AND + OR = 3 gates
+            // OR creates new normalized witness, so normalize() is no-op
+            return 3;
+        } else if (!a.is_constant()) {
+            // lhs witness, rhs constant
+            // predicate && lhs: 1 gate (creates new witness)
+            // !predicate && rhs:
+            //   - if rhs true: returns !predicate (inverted witness if pred was inverted)
+            //   - if rhs false: returns false (constant)
+            // OR:
+            //   - if rhs false: OR(new_witness, const_false) returns new_witness (no gate, already norm)
+            //   - if rhs true: OR(new_witness, inverted_witness) adds 1 gate, creates new normalized witness
+            return b.get_value() ? 2 : 1;
+        } else if (!b.is_constant()) {
+            // lhs constant, rhs witness
+            // !predicate && rhs: 1 gate (creates new witness)
+            // predicate && lhs:
+            //   - if lhs true: returns predicate (inverted witness if pred was inverted)
+            //   - if lhs false: returns false (constant)
+            // OR:
+            //   - if lhs false: OR(const_false, new_witness) returns new_witness (no gate, already norm)
+            //   - if lhs true: OR(inverted_witness, new_witness) adds 1 gate, creates new normalized witness
+            return a.get_value() ? 2 : 1;
+        } else {
+            // Both constants: fully optimized
+            // Result is predicate, !predicate, or constant - may need normalization
+            if (lhs.value == rhs.value) {
+                // conditional_assign(pred, T, T) = T or conditional_assign(pred, F, F) = F (constant)
+                return 0;
+            } else if (lhs.value) {
+                // conditional_assign(pred, T, F) = pred
+                // Result is predicate (inverted if pred is inverted)
+                // Normalize adds 1 gate if predicate is inverted
+                return condition.is_inverted() ? 1 : 0;
+            } else {
+                // conditional_assign(pred, F, T) = !pred
+                // Result is !predicate (inverted if pred is NOT inverted)
+                // Normalize adds 1 gate if predicate is NOT inverted
+                return condition.is_inverted() ? 0 : 1;
+            }
+        }
+    }
+
     void test_conditional_assign()
     {
         for (auto lhs : all_inputs) {
@@ -305,15 +370,31 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
                     bool_ct result = bool_ct::conditional_assign(condition, a, b);
                     size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+
+                    // Verify origin tags are propagated correctly
                     if (!a.is_constant() && !b.is_constant()) {
                         EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
                     }
+
+                    // Verify correctness
                     bool expected = (condition.get_value()) ? a.get_value() : b.get_value();
                     EXPECT_EQ(result.get_value(), expected);
 
-                    if (condition.is_constant()) {
-                        EXPECT_EQ(diff, 0);
+                    // Verify result is always normalized
+                    EXPECT_FALSE(result.is_inverted());
+
+                    // Pin down gate count for simple cases we can predict
+                    if (condition.is_constant() ||
+                        (a.is_constant() && b.is_constant() && a.get_value() == b.get_value())) {
+                        // Branches 1 & 2: Predictable gate counts
+                        size_t expected_gates = compute_conditional_assign_gates(condition, a, b, lhs, rhs);
+                        EXPECT_EQ(diff, expected_gates);
+                    } else if (!a.is_constant() && !b.is_constant()) {
+                        // Branch 3, all witnesses: Always 3 gates (AND + AND + OR)
+                        EXPECT_EQ(diff, 3UL);
                     }
+                    // For mixed witness/constant cases in branch 3, gate count depends on complex
+                    // boolean operator optimizations - we verify normalization instead
 
                     EXPECT_TRUE(CircuitChecker::check(builder));
                 }

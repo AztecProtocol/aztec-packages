@@ -128,7 +128,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
     MegaSumcheckProver sumcheck(instance->dyadic_size(),
                                 instance->polynomials,
                                 transcript,
-                                instance->alphas,
+                                instance->alpha,
                                 instance->gate_challenges,
                                 instance->relation_parameters,
                                 Flavor::VIRTUAL_LOG_N);

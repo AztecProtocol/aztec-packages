@@ -25,7 +25,7 @@ export type MissingTxInfo = { blockNumber: number; deadline: Date; readyForReqRe
 
 export type FastCollectionRequestInput =
   | { type: 'block'; block: L2Block }
-  | { type: 'proposal'; blockProposal: BlockProposal };
+  | { type: 'proposal'; blockProposal: BlockProposal; blockNumber: number };
 
 export type FastCollectionRequest = FastCollectionRequestInput & {
   missingTxHashes: Set<string>;
@@ -152,10 +152,11 @@ export class TxCollection {
   /** Collects the set of txs for the given block proposal as fast as possible */
   public collectFastForProposal(
     blockProposal: BlockProposal,
+    blockNumber: number,
     txHashes: TxHash[] | string[],
     opts: { deadline: Date; pinnedPeer?: PeerId },
   ) {
-    return this.collectFastFor({ type: 'proposal', blockProposal }, txHashes, opts);
+    return this.collectFastFor({ type: 'proposal', blockProposal, blockNumber }, txHashes, opts);
   }
 
   /** Collects the set of txs for the given mined block as fast as possible */

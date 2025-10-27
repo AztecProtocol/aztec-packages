@@ -102,8 +102,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
         const field_pt xor_result_sparse = right[0]
                                                .add_two(right[1], right[2])
                                                .add_two(right[3], w_right.rotated_limbs[2])
-                                               .add_two(w_right.rotated_limbs[3], left_xor_sparse)
-                                               .normalize();
+                                               .add_two(w_right.rotated_limbs[3], left_xor_sparse);
 
         field_pt xor_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_WITNESS_OUTPUT, xor_result_sparse);
 
@@ -111,7 +110,7 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
 
         field_pt w_out_raw = xor_result.add_two(w_sparse[i - 16].normal, w_sparse[i - 7].normal);
         field_pt w_out;
-        if (w_out_raw.witness_index == IS_CONSTANT) {
+        if (w_out_raw.is_constant()) {
             w_out = field_pt(ctx, fr(w_out_raw.get_value().from_montgomery_form().data[0] & (uint64_t)0xffffffffULL));
 
         } else {
@@ -123,8 +122,8 @@ std::array<field_t<Builder>, 64> SHA256<Builder>::extend_witness(const std::arra
             // gates
             field_pt w_out_raw_inv_pow_two = w_out_raw * inv_pow_two;
             field_pt w_out_inv_pow_two = w_out * inv_pow_two;
-            field_pt divisor = (w_out_raw_inv_pow_two - w_out_inv_pow_two).normalize();
-            ctx->create_new_range_constraint(divisor.witness_index, 3);
+            field_pt divisor = w_out_raw_inv_pow_two - w_out_inv_pow_two;
+            divisor.create_range_constraint(3);
         }
 
         w_sparse[i] = sparse_witness_limbs(w_out);
@@ -177,7 +176,7 @@ field_t<Builder> SHA256<Builder>::choose(sparse_value& e, const sparse_value& f,
                               .add_two(e.sparse * (rotation_coefficients[0] * fr(7) + fr(1)),
                                        sparse_limb_3 * (rotation_coefficients[2] * fr(7)));
 
-    field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse).normalize();
+    field_pt choose_result_sparse = xor_result.add_two(f.sparse + f.sparse, g.sparse + g.sparse + g.sparse);
 
     field_pt choose_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_CH_OUTPUT, choose_result_sparse);
 
@@ -202,7 +201,7 @@ field_t<Builder> SHA256<Builder>::majority(sparse_value& a, const sparse_value& 
                               .add_two(a.sparse * (rotation_coefficients[0] * fr(4) + fr(1)),
                                        sparse_accumulator_2 * (rotation_coefficients[1] * fr(4)));
 
-    field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse).normalize();
+    field_pt majority_result_sparse = xor_result.add_two(b.sparse, c.sparse);
 
     field_pt majority_result = plookup_read<Builder>::read_from_1_to_2_table(SHA256_MAJ_OUTPUT, majority_result_sparse);
 
@@ -221,7 +220,7 @@ field_t<Builder> SHA256<Builder>::add_normalize(const field_t<Builder>& a, const
 
     uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant()) {
         return field_pt(ctx, normalized_sum);
     }
 

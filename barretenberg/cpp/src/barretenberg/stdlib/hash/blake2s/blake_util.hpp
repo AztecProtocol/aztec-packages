@@ -47,7 +47,7 @@ template <typename Builder> field_t<Builder> add_normalize(const field_t<Builder
 
     uint256_t normalized_sum = static_cast<uint32_t>(sum.data[0]);
 
-    if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT) {
+    if (a.is_constant() && b.is_constant()) {
         return field_pt(ctx, normalized_sum);
     }
 

@@ -214,21 +214,6 @@ class UltraTracePoseidon2InternalBlock : public UltraTraceBlock {
     SlabVectorSelector<fr> gate_selector;
 };
 
-class UltraTraceOverflowBlock : public UltraTraceBlock {
-  public:
-    SelectorType& q_lookup_type() override { return gate_selectors[0]; };
-    SelectorType& q_arith() override { return gate_selectors[1]; }
-    SelectorType& q_delta_range() override { return gate_selectors[2]; }
-    SelectorType& q_elliptic() override { return gate_selectors[3]; }
-    SelectorType& q_memory() override { return gate_selectors[4]; }
-    SelectorType& q_nnf() override { return gate_selectors[5]; }
-    SelectorType& q_poseidon2_external() override { return gate_selectors[6]; }
-    SelectorType& q_poseidon2_internal() override { return gate_selectors[7]; }
-
-  private:
-    std::array<SlabVectorSelector<fr>, 8> gate_selectors;
-};
-
 /**
  * @brief Defines the circuit block types for the Ultra arithmetization
  */
@@ -242,34 +227,33 @@ struct UltraTraceBlockData {
     UltraTraceNonNativeFieldBlock nnf;
     UltraTracePoseidon2ExternalBlock poseidon2_external;
     UltraTracePoseidon2InternalBlock poseidon2_internal;
-    UltraTraceOverflowBlock overflow;
+
+    static constexpr size_t NUM_BLOCKS = 9;
 
     auto get()
     {
-        return RefArray(std::array<UltraTraceBlock*, 10>{ &pub_inputs,
-                                                          &lookup,
-                                                          &arithmetic,
-                                                          &delta_range,
-                                                          &elliptic,
-                                                          &memory,
-                                                          &nnf,
-                                                          &poseidon2_external,
-                                                          &poseidon2_internal,
-                                                          &overflow });
+        return RefArray(std::array<UltraTraceBlock*, NUM_BLOCKS>{ &pub_inputs,
+                                                                  &lookup,
+                                                                  &arithmetic,
+                                                                  &delta_range,
+                                                                  &elliptic,
+                                                                  &memory,
+                                                                  &nnf,
+                                                                  &poseidon2_external,
+                                                                  &poseidon2_internal });
     }
 
     auto get() const
     {
-        return RefArray(std::array<const UltraTraceBlock*, 10>{ &pub_inputs,
-                                                                &lookup,
-                                                                &arithmetic,
-                                                                &delta_range,
-                                                                &elliptic,
-                                                                &memory,
-                                                                &nnf,
-                                                                &poseidon2_external,
-                                                                &poseidon2_internal,
-                                                                &overflow });
+        return RefArray(std::array<const UltraTraceBlock*, NUM_BLOCKS>{ &pub_inputs,
+                                                                        &lookup,
+                                                                        &arithmetic,
+                                                                        &delta_range,
+                                                                        &elliptic,
+                                                                        &memory,
+                                                                        &nnf,
+                                                                        &poseidon2_external,
+                                                                        &poseidon2_internal });
     }
 
     auto get_gate_blocks() const
@@ -295,19 +279,14 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
     static constexpr size_t NUM_WIRES = UltraTraceBlock::NUM_WIRES;
     using FF = fr;
 
-    bool has_overflow = false;
-
     UltraExecutionTraceBlocks() = default;
 
-    void compute_offsets(bool is_structured)
+    void compute_offsets()
     {
-        if (is_structured) {
-            throw_or_abort("Trace is structuring not implemented for UltraHonk");
-        }
         uint32_t offset = 1; // start at 1 because the 0th row is unused for selectors for Honk
         for (auto& block : this->get()) {
             block.trace_offset_ = offset;
-            offset += block.get_fixed_size(is_structured);
+            offset += static_cast<uint32_t>(block.size());
         }
     }
 
@@ -323,7 +302,6 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
         info("nnf        :\t", this->nnf.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
         info("poseidon int  :\t", this->poseidon2_internal.size());
-        info("overflow :\t", this->overflow.size());
     }
 
     // Get cumulative size of all blocks
@@ -334,20 +312,6 @@ class UltraExecutionTraceBlocks : public UltraTraceBlockData {
             total_size += block.size();
         }
         return total_size;
-    }
-
-    size_t get_structured_dyadic_size()
-    {
-        size_t total_size = 1; // start at 1 because the 0th row is unused for selectors for Honk
-        for (auto& block : this->get()) {
-            total_size += block.get_fixed_size();
-        }
-
-        auto log2_n = static_cast<size_t>(numeric::get_msb(total_size));
-        if ((1UL << log2_n) != (total_size)) {
-            ++log2_n;
-        }
-        return 1UL << log2_n;
     }
 
     bool operator==(const UltraExecutionTraceBlocks& other) const = default;

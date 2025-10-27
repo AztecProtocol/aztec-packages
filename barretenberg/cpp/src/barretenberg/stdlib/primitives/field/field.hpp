@@ -48,6 +48,11 @@ template <typename Builder_> class field_t {
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = FR_PUBLIC_INPUTS_SIZE;
 
+    // Friend declarations for classes that need direct witness_index access
+    template <typename B> friend class bool_t;
+    template <typename B, typename T> friend class bigfield;
+    template <typename B> friend void mark_witness_as_used(const field_t<B>& field);
+
     mutable Builder* context = nullptr;
 
     /**
@@ -88,6 +93,7 @@ template <typename Builder_> class field_t {
     mutable bb::fr additive_constant;
     mutable bb::fr multiplicative_constant;
 
+  private:
     /**
      * Every builder object contains a vector `variables` (a.k.a. 'witnesses'); circuit variables that can be
      * assigned to wires when creating constraints. `witness_index` describes a location in this container. I.e. it
@@ -128,9 +134,16 @@ template <typename Builder_> class field_t {
      * `q` values.
      *
      * TLDR: witness_index is a pseudo pointer to a circuit witness
+     *
+     * @warning Direct access to witness_index is for internal use only! External code should use get_witness_index()
+     * which returns a normalized witness index. Direct access may return a witness that doesn't contain the actual
+     * value due to non-trivial multiplicative_constant/additive_constant, which can lead to soundness bugs.
+     * Only access directly when you understand the implications (e.g., checking exact representation equality,
+     * or in performance-critical code like bigfield that carefully manages scaling factors).
      **/
     mutable uint32_t witness_index = IS_CONSTANT;
 
+  public:
     mutable OriginTag tag{};
 
     field_t(Builder* parent_context = nullptr);
@@ -350,7 +363,14 @@ template <typename Builder_> class field_t {
 
     void assert_is_in_set(const std::vector<field_t>& set, std::string const& msg = "field_t::assert_not_in_set") const;
 
-    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs);
+    static field_t conditional_assign_internal(const bool_t<Builder>& predicate,
+                                               const field_t& lhs,
+                                               const field_t& rhs);
+
+    static field_t conditional_assign(const bool_t<Builder>& predicate, const field_t& lhs, const field_t& rhs)
+    {
+        return conditional_assign_internal(predicate, lhs, rhs).normalize();
+    }
 
     static std::array<field_t, 4> preprocess_two_bit_table(const field_t& T0,
                                                            const field_t& T1,
@@ -412,7 +432,7 @@ template <typename Builder_> class field_t {
     uint32_t set_public() const
     {
         BB_ASSERT(!is_constant());
-        return context->set_public_input(get_normalized_witness_index());
+        return context->set_public_input(normalize().witness_index);
     }
 
     /**
@@ -450,6 +470,9 @@ template <typename Builder_> class field_t {
     {
         BB_ASSERT(!is_constant());
         BB_ASSERT(context);
+        // Normalize first to ensure witness_index points to a witness that contains the actual value
+        // (i.e., multiplicative_constant = 1, additive_constant = 0)
+        *this = normalize();
         // Let     a := *this;
         //       q_l :=  1
         //       q_c := -*this.get_value()
@@ -462,21 +485,32 @@ template <typename Builder_> class field_t {
     /**
      * @brief Get the witness index of the current field element.
      *
-     * @warning Are you sure you don't want to use get_normalized_witness_index?
+     * @details This method normalizes the field element in place and returns the witness index of the normalized
+     * representation, such that the witness actually contains the value it represents (multiplicative_constant = 1,
+     * additive_constant = 0).
      *
-     * @return uint32_t
+     * Note: the normalization may add gates to the circuit, but this is the safest option that prevents soundness
+     * vulnerabilities from using witness indices that don't contain the actual field value.
+     *
+     * Within the field_t class implementation, the raw witness_index member can be accessed directly
+     * when needed (e.g., for checking if two fields share the exact same representation).
+     *
+     * @return uint32_t The witness index of the normalized element
      */
-    uint32_t get_witness_index() const { return witness_index; }
+    uint32_t get_witness_index() const { return normalize().witness_index; }
 
     /**
-     * @brief  Get the index of a normalized version of this element
+     * @brief Check if two field elements have the same witness index (for identity checks).
      *
-     * @details Most of the time when using field elements in other parts of stdlib we want to use this API instead of
-     * get_witness index. The reason is it will prevent some soundness vulnerabilities
+     * @details Checks if two field elements share the exact same witness_index representation.
+     * Used for optimization checks like "if inputs are identical, skip computation".
+     * Does NOT check value equality - use operator== for that.
      *
-     * @return uint32_t
+     * @param a First field element
+     * @param b Second field element
+     * @return bool True if both elements reference the same witness
      */
-    uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
+    static bool witness_indices_match(const field_t& a, const field_t& b) { return a.witness_index == b.witness_index; }
 
     /**
      * @brief Return (a < b) as bool circuit type.

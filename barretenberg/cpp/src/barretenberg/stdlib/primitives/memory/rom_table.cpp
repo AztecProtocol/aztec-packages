@@ -56,7 +56,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
             entries.emplace_back(fixed_witness);
 
         } else {
-            entries.emplace_back(entry.normalize());
+            entries.emplace_back(entry);
         }
     }
     rom_id = context->create_ROM_array(length);
@@ -144,7 +144,7 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
         context->failure("rom_table: ROM array access out of bounds");
     }
 
-    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
+    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));

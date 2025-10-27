@@ -40,6 +40,7 @@ import {
 } from '@aztec/stdlib/trees';
 import { TreeSnapshots } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import { strict as assert } from 'assert';
 
@@ -447,6 +448,10 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
   public getInitialHeader() {
     return this.db.getInitialHeader();
+  }
+
+  public getRevision(): WorldStateRevision {
+    return this.db.getRevision();
   }
 
   public async updateArchive(header: any): Promise<void> {

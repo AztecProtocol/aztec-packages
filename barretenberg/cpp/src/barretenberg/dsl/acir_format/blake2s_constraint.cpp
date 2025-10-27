@@ -38,11 +38,8 @@ template <typename Builder> void create_blake2s_constraints(Builder& builder, co
 
     byte_array_ct output_bytes = stdlib::Blake2s<Builder>::hash(arr);
 
-    // Convert byte array to vector of field_t
-    auto bytes = output_bytes.bytes();
-
-    for (size_t i = 0; i < bytes.size(); ++i) {
-        builder.assert_equal(bytes[i].normalize().witness_index, constraint.result[i]);
+    for (size_t i = 0; i < output_bytes.size(); ++i) {
+        output_bytes[i].assert_equal(field_ct::from_witness_index(&builder, constraint.result[i]));
     }
 }
 

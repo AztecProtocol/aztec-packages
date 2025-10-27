@@ -22,9 +22,9 @@ export const ProverBrokerConfig = z.object({
   /** If starting a prover broker locally, the directory to store broker data */
   dataDirectory: z.string().optional(),
   /** The size of the data store map */
-  dataStoreMapSizeKB: z.number().int().nonnegative(),
-  /** The size of the prover broker's database. Will override the dataStoreMapSizeKB if set. */
-  proverBrokerStoreMapSizeKB: z.number().int().nonnegative().optional(),
+  dataStoreMapSizeKb: z.number().int().nonnegative(),
+  /** The size of the prover broker's database. Will override the dataStoreMapSizeKb if set. */
+  proverBrokerStoreMapSizeKb: z.number().int().nonnegative().optional(),
   /** The prover broker may batch jobs together before writing to the database */
   proverBrokerBatchSize: z.number().int().nonnegative(),
   /** How often the job batches get flushed */
@@ -34,7 +34,7 @@ export const ProverBrokerConfig = z.object({
 });
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
-  Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'> &
+  Pick<DataStoreConfig, 'dataStoreMapSizeKb' | 'dataDirectory'> &
   L1ReaderConfig &
   Pick<ChainConfig, 'rollupVersion'>;
 
@@ -69,10 +69,10 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'The maximum number of epochs to keep results for',
     ...numberConfigHelper(1),
   },
-  proverBrokerStoreMapSizeKB: {
+  proverBrokerStoreMapSizeKb: {
     env: 'PROVER_BROKER_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: "The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.",
+    description: "The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.",
   },
   ...dataConfigMappings,
   ...l1ReaderConfigMappings,

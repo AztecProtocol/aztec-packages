@@ -44,7 +44,7 @@ export type ArchiverSpecificConfig = {
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 
-  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
   archiverStoreMapSizeKb?: number;
 
   /** Whether to skip validating block attestations (use only for testing). */
@@ -83,6 +83,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2Block.schema)),
+  getPublishedBlockByHash: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
+  getPublishedBlockByArchive: z.function().args(schemas.Fr).returns(PublishedL2Block.schema.optional()),
+  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
@@ -110,6 +114,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  getGenesisValues: z
+    .function()
+    .args()
+    .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),

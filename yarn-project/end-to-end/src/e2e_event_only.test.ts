@@ -1,4 +1,6 @@
-import { AztecAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { EventOnlyContract, type TestEvent } from '@aztec/noir-test-contracts.js/EventOnly';
 
 import { jest } from '@jest/globals';

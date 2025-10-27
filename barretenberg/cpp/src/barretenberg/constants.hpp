@@ -29,8 +29,6 @@ static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
-static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
-
 // The number of last rows in ProverPolynomials that are randomized to mask
 // 1) witness commitments,
 // 2) multilinear evaluations of witness polynomials in Sumcheck

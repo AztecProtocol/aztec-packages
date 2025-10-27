@@ -13,6 +13,7 @@
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 
 namespace bb::stdlib {
 
@@ -115,7 +116,7 @@ template <typename Builder> class FieldSponge {
         // The final state consists of 4 elements, we only use the first element, which means that the remaining
         // 3 witnesses are only used in a single gate.
         for (const auto& elem : sponge.state) {
-            builder->update_used_witnesses(elem.witness_index);
+            mark_witness_as_used(elem);
         }
         return output;
     }

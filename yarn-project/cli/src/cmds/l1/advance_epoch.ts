@@ -1,4 +1,4 @@
-import { createAztecNodeClient } from '@aztec/aztec.js';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { RollupCheatCodes } from '@aztec/ethereum/test';
 import type { LogFn } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';

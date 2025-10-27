@@ -7,7 +7,7 @@
 # To run on a remote machine with ci.sh shell-new:
 #   ./ci.sh shell-new "./ci3/cache_download bb-client-ivc-captures-ba1369853ed8670e.tar.gz ; \
 #                      mv example-app-ivc-inputs-out yarn-project/end-to-end 2>/dev/null ; \
-#                      DENOISE=1 DISABLE_AZTEC_VM=1 ./barretenberg/cpp/bootstrap.sh build_native ; \
+#                      DENOISE=1 ./barretenberg/cpp/bootstrap.sh build_native ; \
 #                      DENOISE=1 ./barretenberg/cpp/scripts/bench_hardware_concurrency.sh"
 #
 # To save the output to a file:
@@ -195,7 +195,7 @@ for test_case in test_cases:
     for cpu, metrics in all_data.items():
         for metric_name, time_ms in metrics.items():
             # Categorize metrics based on name
-            if "ClientIvc" in metric_name or "ClientIVC" in metric_name:
+            if "ClientIvc" in metric_name or "SumcheckClientIVC" in metric_name:
                 components["Main"][metric_name][cpu] = time_ms
             elif "ProtogalaxyProver" in metric_name:
                 components["ProtogalaxyProver"][metric_name][cpu] = time_ms

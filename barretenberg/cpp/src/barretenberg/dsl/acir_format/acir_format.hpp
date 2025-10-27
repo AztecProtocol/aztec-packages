@@ -6,12 +6,8 @@
 
 #pragma once
 #include "aes128_constraint.hpp"
-
-#ifndef DISABLE_AZTEC_VM
 #include "avm2_recursion_constraint.hpp"
-#endif
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"

@@ -184,7 +184,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
 
                     // TODO(Zac): yikes, std::maps (tau) are expensive. Can we find a way to get rid of this?
                     mapping.sigmas[current_column].row_idx[current_row] =
-                        circuit_constructor.tau.at(real_variable_tags[cycle_idx]);
+                        circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
                 }
             }
         }

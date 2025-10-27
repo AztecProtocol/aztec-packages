@@ -7,7 +7,6 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/protogalaxy/folding_test_utils.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -99,7 +98,7 @@ TEST_F(SumcheckClientIVCTests, TestCircuitSizes)
  */
 TEST_F(SumcheckClientIVCTests, Basic)
 {
-    const size_t NUM_APP_CIRCUITS = 5;
+    const size_t NUM_APP_CIRCUITS = 2;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     EXPECT_TRUE(SumcheckClientIVC::verify(proof, vk));

@@ -32,7 +32,6 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = UltraCircuitBuilder();
@@ -157,10 +156,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto log_circuit_size = numeric::get_msb(circuit_size);
     const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
 
-    SubrelationSeparators prover_alphas;
-    for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
-        prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
+    FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     std::vector<FF> prover_gate_challenges(virtual_log_n);
     for (size_t idx = 0; idx < virtual_log_n; idx++) {
@@ -172,7 +168,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     SumcheckProver<Flavor> sumcheck_prover(circuit_size,
                                            prover_inst->polynomials,
                                            prover_transcript,
-                                           prover_alphas,
+                                           prover_alpha,
                                            prover_gate_challenges,
                                            prover_inst->relation_parameters,
                                            virtual_log_n);
@@ -181,11 +177,8 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    SubrelationSeparators verifier_alphas;
-    for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
-        verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
-    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas, virtual_log_n);
+    FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, virtual_log_n);
 
     std::vector<FF> verifier_gate_challenges(virtual_log_n);
     for (size_t idx = 0; idx < virtual_log_n; idx++) {

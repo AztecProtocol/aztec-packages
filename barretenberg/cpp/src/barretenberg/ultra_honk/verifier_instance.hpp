@@ -31,7 +31,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
     using Transcript = typename Flavor::Transcript;
 
     std::shared_ptr<VerificationKey> vk;
@@ -39,7 +39,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
     bool is_complete = false;      // whether this instance has been completely populated
     std::vector<FF> public_inputs; // to be extracted from the corresponding proof
 
-    SubrelationSeparators alphas; // a challenge for each subrelation
+    SubrelationSeparator alpha; // a challenge whose powers are used to batch subrelation contributions during Sumcheck
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     // The target sum, which is typically nonzero for a ProtogalaxyProver's accumulator
@@ -76,7 +76,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         for (const Commitment& comm : witness_commitments.get_all()) {
             transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_wit_comm", comm);
         }
-        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alphas", this->alphas);
+        transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_alpha", this->alpha);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta",
                                                   this->relation_parameters.eta);
         transcript.add_to_independent_hash_buffer(domain_separator + "verifier_inst_eta_two",
@@ -96,7 +96,7 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         return transcript.hash_independent_buffer();
     }
 
-    MSGPACK_FIELDS(vk, relation_parameters, alphas, is_complete, gate_challenges, target_sum, witness_commitments);
+    MSGPACK_FIELDS(vk, relation_parameters, alpha, is_complete, gate_challenges, target_sum, witness_commitments);
 };
 
 } // namespace bb

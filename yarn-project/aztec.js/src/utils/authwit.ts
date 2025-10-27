@@ -249,16 +249,6 @@ export class SetPublicAuthwitContractInteraction extends ContractFunctionInterac
   }
 
   /**
-   * Overrides the proveInternal method, adding the sender of the authwit (authorizer) as from
-   * and preventing misuse
-   * @param options - An optional object containing additional configuration for the transaction.
-   * @returns The result of the transaction as returned by the contract function.
-   */
-  public override proveInternal(options: Omit<SendInteractionOptions, 'from'>) {
-    return super.proveInternal({ ...options, from: this.from });
-  }
-
-  /**
    * Overrides the simulate method, adding the sender of the authwit (authorizer) as from
    * and preventing misuse
    * @param options - An optional object containing additional configuration for the transaction.

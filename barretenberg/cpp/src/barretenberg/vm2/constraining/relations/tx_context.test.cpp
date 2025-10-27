@@ -39,6 +39,7 @@ TEST(TxContextConstrainingTest, Continuity)
             // Row 0: end of setup
             { C::tx_sel, 1 },
             { C::tx_reverted, 0 },
+            { C::tx_tx_reverted, 0 },
             { C::tx_next_note_hash_tree_root, 1 },
             { C::tx_next_note_hash_tree_size, 2 },
             { C::tx_next_num_note_hashes_emitted, 3 },
@@ -59,6 +60,7 @@ TEST(TxContextConstrainingTest, Continuity)
             // Row 1: app logic, reverts
             { C::tx_sel, 1 },
             { C::tx_reverted, 1 },
+            { C::tx_tx_reverted, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -93,6 +95,7 @@ TEST(TxContextConstrainingTest, Continuity)
             // Row 2: restored end of setup state
             { C::tx_sel, 1 },
             { C::tx_reverted, 0 },
+            { C::tx_tx_reverted, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -126,7 +129,8 @@ TEST(TxContextConstrainingTest, Continuity)
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY,
                                tx_context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
-                               tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+                               tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY,
+                               tx_context::SR_TX_REVERTED_CONTINUITY);
 
     // Negative test: if not reverted, it shouldn't be able to rollback state from row 1 to row 2
 
@@ -158,6 +162,8 @@ TEST(TxContextConstrainingTest, Continuity)
                               "NUM_UNENCRYPTED_LOGS_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
                               "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
+                              "TX_REVERTED_CONTINUITY");
 
     // Negative test: l1 to l2 root should not change
 
@@ -484,6 +490,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_should_read_l1_l2_tree, 1 },
             { C::tx_gas_used_pi_offset, FF(AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX) },
             { C::tx_should_read_gas_used, 1 },
+            { C::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
             { C::tx_array_length_note_hashes_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX) },
             { C::tx_array_length_nullifiers_pi_offset,
@@ -524,6 +531,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                       lookup_tx_context_public_inputs_l1_l2_tree_settings,
                       lookup_tx_context_public_inputs_gas_used_settings,
                       lookup_tx_context_public_inputs_read_gas_limit_settings,
+                      lookup_tx_context_public_inputs_read_reverted_settings,
                       lookup_tx_context_public_inputs_write_note_hash_count_settings,
                       lookup_tx_context_public_inputs_write_nullifier_count_settings,
                       lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
@@ -568,6 +576,47 @@ TEST(TxContextConstrainingTest, NegativeContextIdChecks)
     trace.set(C::tx_next_context_id, 2, 42);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY),
                               "NEXT_CONTEXT_ID_CONTINUITY");
+}
+
+TEST(TxContextConstrainingTest, NegativeTxRevertedChecks)
+{
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: no revert
+            { C::tx_sel, 1 },
+            { C::tx_start_tx, 1 },
+        },
+        {
+            // Row 2: revert
+            { C::tx_sel, 1 },
+            { C::tx_reverted, 1 },
+            { C::tx_tx_reverted, 1 },
+        },
+        {
+            // Row 3: no revert
+            { C::tx_sel, 1 },
+            { C::tx_tx_reverted, 1 },
+        },
+    });
+    check_relation<tx_context>(
+        trace, tx_context::SR_INIT_TX_REVERTED, tx_context::SR_SET_TX_REVERTED, tx_context::SR_TX_REVERTED_CONTINUITY);
+
+    // Negative test: initial tx_reverted should match reverted
+    trace.set(C::tx_tx_reverted, 1, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_INIT_TX_REVERTED), "INIT_TX_REVERTED");
+
+    // Negative test: continuity check
+    trace.set(C::tx_tx_reverted, 3, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
+                              "TX_REVERTED_CONTINUITY");
+
+    // Negative test: tx_reverted should match reverted if reverted == 1
+    trace.set(C::tx_tx_reverted, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_SET_TX_REVERTED), "SET_TX_REVERTED");
 }
 
 } // namespace

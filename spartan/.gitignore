@@ -10,6 +10,7 @@ environments/*
 !environments/staging-public.env
 !environments/staging-ignition.env
 !environments/testnet.env
+!environments/devnet.env
 !environments/next-net.env
 !environments/next-scenario.env
 !environments/ignition-fisherman.env

@@ -35,7 +35,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // This shouldn't create a constraint - we just need to scale the addition/multiplication gates that `a` is
         // involved in, `c` should have the same witness index as `a`, i.e. point to the same wire value
         field_ct c = a + b;
-        EXPECT_TRUE(c.witness_index == a.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(c, a));
         EXPECT_TRUE(builder.get_estimated_num_finalized_gates() == num_gates);
         field_ct d(&builder, fr::coset_generator<0>()); // like b, d is just a constant and not a wire value
 
@@ -99,18 +99,18 @@ template <typename Builder> class stdlib_field : public testing::Test {
         field_ct c(fr::random_element());
         field_ct sum_with_constant = sum + c;
         EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
-        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(sum, sum_with_constant));
 
         // Case 3: first summand is a constant
         sum_with_constant = c + sum;
         EXPECT_TRUE(sum_with_constant.get_value() == sum.get_value() + c.get_value());
-        EXPECT_TRUE(sum.witness_index == sum_with_constant.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(sum, sum_with_constant));
 
         // Case 4: both summands are witnesses with matching indices
         field_ct sum_with_same_witness_index = sum_with_constant + sum;
         EXPECT_TRUE(sum_with_same_witness_index.get_value() == sum.get_value() + sum_with_constant.get_value());
-        EXPECT_TRUE((sum_with_same_witness_index.witness_index == sum_with_constant.witness_index) &&
-                    (sum_with_same_witness_index.witness_index == sum.witness_index));
+        EXPECT_TRUE(field_ct::witness_indices_match(sum_with_same_witness_index, sum_with_constant) &&
+                    field_ct::witness_indices_match(sum_with_same_witness_index, sum));
 
         // Case 5: both summands are constant
         field_ct d(fr::random_element());
@@ -164,7 +164,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
 
             if (!expected_to_be_constant) {
                 EXPECT_TRUE(CircuitChecker::check(builder));
-                EXPECT_TRUE(converted.get_normalized_witness_index() == field_elt.witness_index);
+                EXPECT_TRUE(field_ct::witness_indices_match(converted, field_elt));
             }
         }
         // Check that the conversion aborts in the case of random field elements.
@@ -210,7 +210,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto check_conditional_assign =
             [](auto& builder, bool_ct& predicate, field_ct& lhs, field_ct& rhs, bool same_elt) {
                 size_t num_gates_before = builder.get_estimated_num_finalized_gates();
-                field_ct result = field_ct::conditional_assign(predicate, lhs, rhs);
+                field_ct result = field_ct::conditional_assign_internal(predicate, lhs, rhs);
                 EXPECT_TRUE(result.get_value() == (predicate.get_value() ? lhs.get_value() : rhs.get_value()));
 
                 size_t expected_num_gates = 0;
@@ -251,7 +251,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             field_ct z(1);
             field_ct alpha = x.madd(y, -z);
             field_ct beta(3);
-            field_ct zeta = field_ct::conditional_assign(predicate, alpha, beta);
+            field_ct zeta = field_ct::conditional_assign_internal(predicate, alpha, beta);
 
             EXPECT_TRUE(zeta.is_constant());
         };
@@ -312,8 +312,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 if (true_when_y_val_zero) {
                     // constraint: 0*x + 1*y + 0*0 + 0 == 0
 
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
+                    builder.create_add_gate({ .a = x.get_witness_index(),
+                                              .b = y.get_witness_index(),
                                               .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
@@ -323,8 +323,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 } else {
                     // constraint: 0*x + 1*y + 0*0 - 1 == 0
 
-                    builder.create_add_gate({ .a = x.witness_index,
-                                              .b = y.witness_index,
+                    builder.create_add_gate({ .a = x.get_witness_index(),
+                                              .b = y.get_witness_index(),
                                               .c = builder.zero_idx(),
                                               .a_scaling = 0,
                                               .b_scaling = 1,
@@ -460,7 +460,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         // Case 2: Numerator != const, denominator = const,
         out = a / b.get_value();
         EXPECT_EQ(out.get_value(), a.get_value() / b.get_value());
-        EXPECT_EQ(out.witness_index, a.witness_index);
+        EXPECT_TRUE(field_ct::witness_indices_match(out, a));
 
         // Case 3: Numerator = const 0.
         out = field_ct(0) / b;
@@ -606,7 +606,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         c_sqr.set_public();
         field_ct sum_sqrs = a_sqr + b_sqr;
 
-        // builder.assert_equal(sum_sqrs.witness_index, c_sqr.witness_index, "triple is not pythagorean");
+        // builder.assert_equal(sum_sqrs.get_witness_index(), c_sqr.get_witness_index(), "triple is not pythagorean");
         c_sqr.assert_equal(sum_sqrs);
 
         bool verified = CircuitChecker::check(builder);
@@ -1398,7 +1398,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         auto l = a.conditional_negate(k);
         EXPECT_EQ(l.get_origin_tag(), first_and_third_merged_tag);
 
-        auto m = field_ct::conditional_assign(k, a, b);
+        auto m = field_ct::conditional_assign_internal(k, a, b);
         EXPECT_EQ(m.get_origin_tag(), first_second_third_merged_tag);
 
         // Accumulate merges tags
