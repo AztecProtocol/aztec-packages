@@ -52,7 +52,7 @@ pub contract StatefulTest {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -62,7 +62,7 @@ pub contract StatefulTest {
         if (value != 0) {
             let loc = storage.notes.at(owner);
             let note = ValueNote::new(value, owner);
-            loc.insert(note).emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+            loc.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         }
     }
 
@@ -75,7 +75,6 @@ pub contract StatefulTest {
         let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
 
         storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
-            &mut context,
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -90,7 +89,6 @@ pub contract StatefulTest {
         let _ = sender_notes.pop_notes(NoteGetterOptions::new().set_limit(2));
 
         storage.notes.at(recipient).insert(ValueNote::new(92, recipient)).emit(
-            &mut context,
             recipient,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

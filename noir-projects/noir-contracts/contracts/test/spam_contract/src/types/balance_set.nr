@@ -67,13 +67,15 @@ impl<Note> BalanceSet<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
-        if addend == 0 as u128 {
-            OuterNoteEmission::new(Option::none())
+        let content_option = if addend == 0 as u128 {
+            Option::none()
         } else {
             let mut addend_note = Note::new(addend, owner);
 
-            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
-        }
+            Option::some(self.set.insert(addend_note).content)
+        };
+
+        OuterNoteEmission::new(content_option, self.set.context)
     }
 
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<Note>

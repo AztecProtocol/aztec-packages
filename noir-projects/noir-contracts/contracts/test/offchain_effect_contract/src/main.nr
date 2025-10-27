@@ -64,7 +64,6 @@ contract OffchainEffect {
         let note = UintNote::new(value, owner);
 
         storage.balances.at(owner).insert(note).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
