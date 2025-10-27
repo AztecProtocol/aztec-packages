@@ -46,27 +46,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     ~element() = default;
 
     /**
-     * @brief Construct a dummy element (the group generator) and return its limbs as fr constants
-     *
-     * @return std::array<fr, PUBLIC_INPUTS_SIZE>
-     */
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        const typename NativeGroup::affine_element& native_val = NativeGroup::affine_element::one();
-        element val(native_val);
-        size_t idx = 0;
-        std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
-        for (auto& limb : val._x.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        for (auto& limb : val._y.binary_basis_limbs) {
-            limb_vals[idx++] = limb.element.get_value();
-        }
-        BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
-        return limb_vals;
-    }
-
-    /**
      * @brief Set the witness indices for the x and y coordinates to public
      *
      * @return uint32_t Index at which the representation is stored in the public inputs
