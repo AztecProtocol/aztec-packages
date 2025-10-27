@@ -65,6 +65,9 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
     Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
     Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
 
+    // Check that no pairing points exist
+    EXPECT_TRUE(builder.has_single_pairing_point_tag());
+
     PairingPoints pp_one = { P0, P1 };
     PairingPoints pp_two = { P0, P1 };
 
