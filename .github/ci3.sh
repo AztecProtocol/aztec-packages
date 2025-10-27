@@ -4,16 +4,11 @@ set -euo pipefail
 # CI3 Main Execution Script
 # This script encapsulates the common CI logic between ci3.yml and ci3-external.yml
 #
+# Usage: ci3.sh <ci-mode>
+#   where <ci-mode> is one of: fast, full, merge-queue, docs, barretenberg, nightly, release
+#
 # Expected environment variables:
 #   CI_INTERNAL: "1" for internal runs, "0" for external runs (default: 0)
-#
-# For CI mode computation:
-#   CI_MERGE_QUEUE: "1" if merge queue override
-#   CI_FULL: "1" if full CI override
-#   CI_DOCS: "1" if docs CI override (internal only)
-#   CI_BARRETENBERG: "1" if barretenberg CI override (internal only)
-#   GITHUB_EVENT_NAME: GitHub event name (internal only)
-#   GITHUB_REF: GitHub ref (internal only)
 #
 # For internal runs only (CI_INTERNAL=1):
 #   GCP_SA_KEY: GCP service account key
@@ -25,8 +20,18 @@ set -euo pipefail
 
 : "${CI_INTERNAL:=0}"
 
+if [ $# -ne 1 ]; then
+  echo "Error: CI mode argument required"
+  echo "Usage: $0 <ci-mode>"
+  echo "  where <ci-mode> is one of: fast, full, merge-queue, docs, barretenberg, nightly, release"
+  exit 1
+fi
+
+ci_mode="$1"
+
 echo "=== CI3 Main Script ==="
 echo "CI_INTERNAL: ${CI_INTERNAL}"
+echo "CI_MODE: ${ci_mode}"
 
 # Store GCP credentials for internal runs
 if [ "${CI_INTERNAL}" -eq 1 ] && [ -n "${GCP_SA_KEY:-}" ]; then
@@ -37,37 +42,6 @@ if [ "${CI_INTERNAL}" -eq 1 ] && [ -n "${GCP_SA_KEY:-}" ]; then
   jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
   set -x
 fi
-
-# Compute CI mode
-if [ "${CI_INTERNAL}" -eq 1 ]; then
-  # Internal runs: support all modes
-  if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-    ci_mode="merge-queue"
-  elif [ "${CI_FULL:-0}" -eq 1 ]; then
-    ci_mode="full"
-  elif [ "${CI_DOCS:-0}" -eq 1 ]; then
-    ci_mode="docs"
-  elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
-    ci_mode="barretenberg"
-  elif [[ "${GITHUB_REF:-}" == *"-nightly."* ]] || [[ "${GITHUB_REF:-}" == *"-rc."* ]]; then
-    ci_mode="nightly"
-  elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
-    ci_mode="release"
-  else
-    ci_mode="fast"
-  fi
-else
-  # External runs: only fast, full, or merge-queue
-  if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-    ci_mode="merge-queue"
-  elif [ "${CI_FULL:-0}" -eq 1 ]; then
-    ci_mode="full"
-  else
-    ci_mode="fast"
-  fi
-fi
-
-echo "CI_MODE: ${ci_mode}"
 
 # Run CI based on mode
 case "${ci_mode}" in

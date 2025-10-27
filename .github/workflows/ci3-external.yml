@@ -117,7 +117,14 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
-        run: ./.github/ci3.sh
+        run: |
+          if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh merge-queue
+          elif [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh full
+          else
+            exec ./.github/ci3.sh fast
+          fi
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'

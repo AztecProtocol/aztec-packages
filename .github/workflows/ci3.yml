@@ -122,8 +122,6 @@ jobs:
         env:
           # CI script parameters
           CI_INTERNAL: "1"
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF: ${{ github.ref }}
           # AWS credentials
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -142,7 +140,22 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-        run: ./.github/ci3.sh
+        run: |
+          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh merge-queue
+          elif [ "${CI_FULL:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh full
+          elif [ "${CI_DOCS:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh docs
+          elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
+            exec ./.github/ci3.sh barretenberg
+          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ] || [ "${{ contains(github.ref, '-rc.') }}" == "true" ]; then
+            exec ./.github/ci3.sh nightly
+          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
+            exec ./.github/ci3.sh release
+          else
+            exec ./.github/ci3.sh fast
+          fi
 
       - name: Save CI Success
         if: steps.ci_cache.outputs.cache-hit != 'true'
