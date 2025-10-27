@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Early exit if nothing to do
 if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
   exit 0
 fi
@@ -10,7 +9,7 @@ fi
 github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
 echo "github_repository: ${github_repository}"
 
-# Save CI success marker for cache (uses GitHub default GITHUB_RUN_ID)
+# Save CI success marker for cache
 run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
 echo "${run_url}" > ci-success.txt
 echo "Saved CI success marker: ${run_url}"
@@ -20,7 +19,6 @@ echo "Saved CI success marker: ${run_url}"
 if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   echo "Processing squash and merge..."
 
-  # Check squash-merge required env vars
   : "${GITHUB_TOKEN:?required}"
   : "${PR_NUMBER:?required}"
   : "${PR_HEAD_REF:?required}"

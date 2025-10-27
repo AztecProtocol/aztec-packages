@@ -6,7 +6,6 @@ if [ $# -ne 1 ]; then
   exit 1
 fi
 
-# Check required env vars (minimal from external flow)
 : "${AWS_ACCESS_KEY_ID:?required}"
 : "${AWS_SECRET_ACCESS_KEY:?required}"
 : "${GITHUB_TOKEN:?required}"
