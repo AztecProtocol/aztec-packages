@@ -8,11 +8,11 @@ set -euo pipefail
 # Labels passed as comma-separated string
 labels="${1:-}"
 
-echo "=== CI3 Main Script ==="
+ci3/echo_header "CI3 Main Script"
 echo "Labels: ${labels}"
 
 echo ""
-echo "=== Setup ==="
+ci3/echo_header "Setup"
 
 # Store GCP key
 if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
@@ -50,7 +50,7 @@ if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
 fi
 
 echo ""
-echo "=== Label Processing ==="
+ci3/echo_header "Label Processing"
 
 # Parse labels into array
 IFS=',' read -ra label_array <<< "${labels}"
@@ -85,7 +85,7 @@ for label in "${label_array[@]}"; do
 done
 
 echo ""
-echo "=== CI Mode Determination ==="
+ci3/echo_header "CI Mode Determination"
 
 # Determine CI mode
 if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
@@ -110,7 +110,7 @@ echo "CI mode: ${ci_mode}"
 echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
 
 echo ""
-echo "=== Cache Check ==="
+ci3/echo_header "Cache Check"
 
 # Check cache (unless disabled)
 cache_file=".ci-cache/ci-success-${ci_mode}.txt"
@@ -122,7 +122,7 @@ fi
 echo "Cache miss, running CI in ${ci_mode} mode..."
 
 echo ""
-echo "=== Run CI ==="
+ci3/echo_header "Run CI"
 
 # Run CI
 exec ./ci.sh "${ci_mode}"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ci3/echo_header "CI3 Post-Actions"
+
 # Read CI mode from env vars set by ci3.sh
 ci_mode="${CI_MODE:-fast}"
 
@@ -51,4 +53,5 @@ if [ "${SHOULD_UPLOAD_BENCHMARKS}" -eq 1 ] && [ "${CI_INTERNAL}" -eq 1 ]; then
   echo "Benchmarks download complete - upload will be handled by GitHub Action"
 fi
 
-echo "=== Post-action complete ==="
+echo ""
+ci3/echo_header "Post-Actions Complete"
