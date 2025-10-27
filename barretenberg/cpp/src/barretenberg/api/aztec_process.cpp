@@ -345,5 +345,48 @@ bool process_all_artifacts(const std::string& search_path, bool force)
     return all_success;
 }
 
+bool get_cache_paths(const std::string& input_path)
+{
+    try {
+        // Verify input exists
+        if (!std::filesystem::exists(input_path)) {
+            throw_or_abort("Input file does not exist: " + input_path);
+        }
+
+        // Read and parse artifact JSON
+        auto artifact_content = read_file(input_path);
+        std::string artifact_str(artifact_content.begin(), artifact_content.end());
+        auto artifact_json = nlohmann::json::parse(artifact_str);
+
+        if (!artifact_json.contains("functions")) {
+            // No functions, but not an error
+            return true;
+        }
+
+        // Get cache directory
+        auto cache_dir = get_cache_dir();
+
+        // Find all private constrained functions and output their cache paths
+        for (const auto& function : artifact_json["functions"]) {
+            if (!is_private_constrained_function(function)) {
+                continue;
+            }
+
+            std::string fn_name = function["name"].get<std::string>();
+            auto bytecode = extract_bytecode(function);
+            std::string hash_str = compute_bytecode_hash(bytecode);
+            std::filesystem::path vk_cache_path = cache_dir / (hash_str + ".vk");
+
+            // Output format: hash:cache_path:function_name
+            std::cout << hash_str << ":" << vk_cache_path.string() << ":" << fn_name << std::endl;
+        }
+
+        return true;
+    } catch (const std::exception& e) {
+        info("Error getting cache paths: ", e.what());
+        return false;
+    }
+}
+
 } // namespace bb
 #endif

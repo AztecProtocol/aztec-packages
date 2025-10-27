@@ -234,7 +234,89 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+# Granular caching for VK cache: download individual VK files based on artifact cache keys
+# Usage: cache_download_vks <artifact_path>
+# Returns: 0 if all found or downloaded, 1 if some missing (caller should regenerate those)
+function cache_download_vks {
+  local artifact_path=$1
+
+  if [ ! -f "$artifact_path" ]; then
+    echo "Artifact not found: $artifact_path" >&2
+    return 1
+  fi
+
+  # Get cache paths from bb (format: hash:path:function_name)
+  local cache_paths=$(build/bin/bb aztec_process cache_paths "$artifact_path" 2>/dev/null)
+
+  if [ -z "$cache_paths" ]; then
+    # No functions to cache
+    return 0
+  fi
+
+  local missing_keys=()
+  local total_keys=0
+  local found_keys=0
+
+  while IFS=: read -r hash cache_path function_name; do
+    total_keys=$((total_keys + 1))
+
+    # Check if file already exists
+    if [ -f "$cache_path" ]; then
+      found_keys=$((found_keys + 1))
+      continue
+    fi
+
+    # Try to download from cache using the hash as cache key
+    local cache_key="bb-vk-$hash"
+    if cache_download "$cache_key.zst"; then
+      # Cache hit - the file should now exist
+      if [ -f "$cache_path" ]; then
+        found_keys=$((found_keys + 1))
+      else
+        missing_keys+=("$hash:$function_name")
+      fi
+    else
+      # Cache miss - track for later upload
+      missing_keys+=("$hash:$function_name")
+    fi
+  done <<< "$cache_paths"
+
+  if [ ${#missing_keys[@]} -gt 0 ]; then
+    echo "VK cache: $found_keys/$total_keys found, ${#missing_keys[@]} need generation" >&2
+    return 1
+  else
+    echo "VK cache: $found_keys/$total_keys found" >&2
+    return 0
+  fi
+}
+
+# Upload individual VK files to cache
+# Usage: cache_upload_vks <artifact_path>
+function cache_upload_vks {
+  local artifact_path=$1
+
+  if [ ! -f "$artifact_path" ]; then
+    echo "Artifact not found: $artifact_path" >&2
+    return 1
+  fi
+
+  # Get cache paths from bb
+  local cache_paths=$(build/bin/bb aztec_process cache_paths "$artifact_path" 2>/dev/null)
+
+  if [ -z "$cache_paths" ]; then
+    return 0
+  fi
+
+  while IFS=: read -r hash cache_path function_name; do
+    if [ -f "$cache_path" ]; then
+      local cache_key="bb-vk-$hash"
+      # Upload just this VK file
+      cache_upload "$cache_key.zst" "$cache_path"
+    fi
+  done <<< "$cache_paths"
+}
+
+export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification cache_download_vks cache_upload_vks
 
 function build {
   echo_header "bb cpp build"

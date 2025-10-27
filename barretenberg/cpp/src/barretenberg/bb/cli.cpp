@@ -521,6 +521,19 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_debug_flag(aztec_process);
 
     /***************************************************************************************************************
+     * Subcommand: aztec_process cache_paths
+     ***************************************************************************************************************/
+    CLI::App* cache_paths_command =
+        aztec_process->add_subcommand("cache_paths",
+                                       "Output cache paths for verification keys in an artifact.\n"
+                                       "Format: <hash>:<cache_path>:<function_name> (one per line).");
+
+    std::string cache_paths_input;
+    cache_paths_command->add_option("input", cache_paths_input, "Input artifact JSON path (required).")->required();
+    add_verbose_flag(cache_paths_command);
+    add_debug_flag(cache_paths_command);
+
+    /***************************************************************************************************************
      * Subcommand: msgpack
      ***************************************************************************************************************/
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
@@ -616,6 +629,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #ifdef __wasm__
             throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
 #else
+            // Handle cache_paths subcommand
+            if (cache_paths_command->parsed()) {
+                return get_cache_paths(cache_paths_input) ? 0 : 1;
+            }
+
             // Check for invalid combination of multiple inputs with output path
             if (!artifact_output_path.empty() && artifact_input_paths.size() > 1) {
                 throw_or_abort("Cannot specify --output when multiple --input flags are provided.");
