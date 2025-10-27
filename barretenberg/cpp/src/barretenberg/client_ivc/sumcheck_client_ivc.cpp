@@ -111,8 +111,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 
     std::optional<RecursiveVerifierAccumulator> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
-    // The decider proof exists if the tail kernel has been accumulated
-    bool is_hiding_kernel = !decider_proof.empty();
 
     // Update previous accumulator hash so that we can check it against the one extracted from the public inputs
     if (verifier_inputs.is_kernel && verifier_inputs.type != QUEUE_TYPE::OINK) {
