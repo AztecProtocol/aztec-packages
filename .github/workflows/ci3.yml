@@ -126,7 +126,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
           # Internal-only secrets
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
@@ -167,7 +166,6 @@ jobs:
           CI_INTERNAL: "1"
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           SHOULD_UPLOAD_BENCHMARKS: ${{ (github.event_name == 'merge_group' || env.CI_FULL == '1') && '1' || '0' }}
-          RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}

@@ -10,8 +10,8 @@ fi
 github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
 echo "github_repository: ${github_repository}"
 
-# Save CI success marker for cache
-run_url="https://github.com/${github_repository}/actions/runs/${RUN_ID}"
+# Save CI success marker for cache (uses GitHub default GITHUB_RUN_ID)
+run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
 echo "${run_url}" > ci-success.txt
 echo "Saved CI success marker: ${run_url}"
 
@@ -19,6 +19,13 @@ echo "Saved CI success marker: ${run_url}"
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
 if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   echo "Processing squash and merge..."
+
+  # Check squash-merge required env vars
+  : "${GITHUB_TOKEN:?required}"
+  : "${PR_NUMBER:?required}"
+  : "${PR_HEAD_REF:?required}"
+  : "${PR_BASE_REF:?required}"
+  : "${PR_BASE_SHA:?required}"
 
   # Reauth the git repo with our GITHUB_TOKEN
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
