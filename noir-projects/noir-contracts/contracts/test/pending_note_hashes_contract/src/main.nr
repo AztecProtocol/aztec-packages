@@ -9,7 +9,7 @@ pub contract PendingNoteHashes {
     // Libs
     use aztec::{
         context::PrivateContext,
-        macros::{functions::private, storage::storage},
+        macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{note_emission::NoteEmission, note_getter_options::NoteGetterOptions},
         protocol_types::{
@@ -33,7 +33,7 @@ pub contract PendingNoteHashes {
     // Confirm can access pending note hashes by creating / inserting a note and then
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
-    #[private]
+    #[external("private")]
     fn test_insert_then_get_then_nullify_flat(
         amount: Field,
         owner: AztecAddress,
@@ -58,7 +58,7 @@ pub contract PendingNoteHashes {
     }
 
     // Confirm cannot access note hashes inserted later in same function
-    #[private]
+    #[external("private")]
     fn test_bad_get_then_insert_flat(amount: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -76,11 +76,11 @@ pub contract PendingNoteHashes {
     }
 
     // Dummy nested/inner function (to pass a function which does nothing)
-    #[private]
+    #[external("private")]
     fn dummy(amount: Field, owner: AztecAddress, sender: AztecAddress) {}
 
     // Nested/inner function to create and insert a note
-    #[private]
+    #[external("private")]
     fn insert_note(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -93,7 +93,7 @@ pub contract PendingNoteHashes {
     // Nested/inner function to create and insert a note
     // TESTING: inserts a static randomness value to test notes with
     // the same note hash are dealt with correctly
-    #[private]
+    #[external("private")]
     fn insert_note_static_randomness(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -108,7 +108,7 @@ pub contract PendingNoteHashes {
 
     // Nested/inner function to create and insert a note
     // then emit another note log for the same note
-    #[private]
+    #[external("private")]
     fn insert_note_extra_emit(amount: Field, owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -124,7 +124,7 @@ pub contract PendingNoteHashes {
     }
 
     // Nested/inner function to get a note and confirm it matches the expected value
-    #[private]
+    #[external("private")]
     fn get_then_nullify_note(expected_value: Field, owner: AztecAddress) -> Field {
         let owner_balance = storage.balances.at(owner);
 
@@ -137,7 +137,7 @@ pub contract PendingNoteHashes {
     }
 
     // Nested/inner function to get a note and confirms that none is returned
-    #[private]
+    #[external("private")]
     fn get_note_zero_balance(owner: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 
@@ -150,7 +150,7 @@ pub contract PendingNoteHashes {
     // Test pending note hashes with note insertion done in a nested call
     // and "read" / get of that pending note hash in another nested call
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
-    #[private]
+    #[external("private")]
     fn test_insert_then_get_then_nullify_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -173,7 +173,7 @@ pub contract PendingNoteHashes {
     }
 
     // same test as above, but insert 2, get 2, nullify 2
-    #[private]
+    #[external("private")]
     fn test_insert2_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -213,7 +213,7 @@ pub contract PendingNoteHashes {
     }
 
     // same test as above, but insert 2, get 1, nullify 1
-    #[private]
+    #[external("private")]
     fn test_insert2_then_get2_then_nullify1_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -247,7 +247,7 @@ pub contract PendingNoteHashes {
     // insert 1 note, then get 2 notes (one pending, one persistent) and nullify both.
     // one nullifier will be squashed with the pending note, one will become persistent.
     // ONLY WORKS IF THERE IS A PERSISTENT NOTE TO GET
-    #[private]
+    #[external("private")]
     fn test_insert1_then_get2_then_nullify2_all_in_nested_calls(
         amount: Field,
         owner: AztecAddress,
@@ -284,7 +284,7 @@ pub contract PendingNoteHashes {
     // nested call (later kernel iteration) should not be able to read the note hash despite
     // it being present at that stage in the kernel.
     // If we can somehow force the simulator to allow execution to succeed can ensure that this test fails in the kernel
-    // #[private]
+    // #[external("private")]
     // fn test_bad_get_in_nested_call_then_insert(
     //    amount: Field,
     //    owner: AztecAddress,
@@ -292,7 +292,7 @@ pub contract PendingNoteHashes {
     //) {
     //}
 
-    #[private]
+    #[external("private")]
     fn test_recursively_create_notes(
         owner: AztecAddress,
         sender: AztecAddress,
@@ -305,7 +305,7 @@ pub contract PendingNoteHashes {
             .call(&mut context);
     }
 
-    #[private]
+    #[external("private")]
     fn recursively_destroy_and_create_notes(
         owner: AztecAddress,
         sender: AztecAddress,
@@ -328,7 +328,7 @@ pub contract PendingNoteHashes {
     // TESTING: Forces the private context to accept a note log for a non-existent note
     // by using an existing note's counter via its header. This is used to check that
     // the pxe rejects the note log later.
-    #[private]
+    #[external("private")]
     fn test_emit_bad_note_log(owner: AztecAddress, sender: AztecAddress) {
         let owner_balance = storage.balances.at(owner);
 

@@ -1,9 +1,10 @@
-import { type AztecNode, createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { omit } from '@aztec/foundation/collection';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { AmmBot } from './amm_bot.js';
 import type { BaseBot } from './base_bot.js';

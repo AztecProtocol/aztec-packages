@@ -34,8 +34,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::prove()
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // Generate relation separators alphas for sumcheck/combiner computation
-    prover_instance->alphas = generate_alphas_round();
+    // Generate relation separator alpha for sumcheck computation
+    prover_instance->alpha = generate_alpha_round();
 
     // #ifndef __wasm__
     // Free the commitment key
@@ -114,7 +114,24 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
             }
         }
     }
-    batch.commit_and_send_to_verifier(transcript);
+
+    auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
+    prover_instance->commitments.w_l = computed_commitments[0];
+    prover_instance->commitments.w_r = computed_commitments[1];
+    prover_instance->commitments.w_o = computed_commitments[2];
+
+    if constexpr (IsMegaFlavor<Flavor>) {
+        size_t commitment_idx = 3;
+        for (auto& commitment : prover_instance->commitments.get_ecc_op_wires()) {
+            commitment = computed_commitments[commitment_idx];
+            commitment_idx++;
+        }
+
+        for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
+            commitment = computed_commitments[commitment_idx];
+            commitment_idx++;
+        }
+    }
 }
 
 /**
@@ -125,8 +142,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 {
     BB_BENCH_NAME("OinkProver::execute_sorted_list_accumulator_round");
     // Get eta challenges
-    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(
-        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three");
+    auto [eta, eta_two, eta_three] = transcript->template get_challenges<FF>(std::array<std::string, 3>{
+        domain_separator + "eta", domain_separator + "eta_two", domain_separator + "eta_three" });
     prover_instance->relation_parameters.eta = eta;
     prover_instance->relation_parameters.eta_two = eta_two;
     prover_instance->relation_parameters.eta_three = eta_three;
@@ -140,13 +157,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 
     // Commit to lookup argument polynomials and the finalized (i.e. with memory records) fourth wire polynomial
     auto batch = prover_instance->commitment_key.start_batch();
-    batch.add_to_batch(
-        prover_instance->polynomials.lookup_read_counts, commitment_labels.lookup_read_counts, /*mask?*/ Flavor::HasZK);
+    batch.add_to_batch(prover_instance->polynomials.lookup_read_counts,
+                       commitment_labels.lookup_read_counts,
+                       /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(
         prover_instance->polynomials.lookup_read_tags, commitment_labels.lookup_read_tags, /*mask?*/ Flavor::HasZK);
     batch.add_to_batch(
         prover_instance->polynomials.w_4, domain_separator + commitment_labels.w_4, /*mask?*/ Flavor::HasZK);
-    batch.commit_and_send_to_verifier(transcript);
+    auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
+
+    prover_instance->commitments.lookup_read_counts = computed_commitments[0];
+    prover_instance->commitments.lookup_read_tags = computed_commitments[1];
+    prover_instance->commitments.w_4 = computed_commitments[2];
 }
 
 /**
@@ -156,7 +178,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_sorted_list
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivative_inverse_round()
 {
     BB_BENCH_NAME("OinkProver::execute_log_derivative_inverse_round");
-    auto [beta, gamma] = transcript->template get_challenges<FF>(domain_separator + "beta", domain_separator + "gamma");
+    auto [beta, gamma] = transcript->template get_challenges<FF>(
+        std::array<std::string, 2>{ domain_separator + "beta", domain_separator + "gamma" });
     prover_instance->relation_parameters.beta = beta;
     prover_instance->relation_parameters.gamma = gamma;
 
@@ -176,7 +199,16 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_log_derivat
             batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
         };
     }
-    batch.commit_and_send_to_verifier(transcript);
+    auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
+
+    prover_instance->commitments.lookup_inverses = computed_commitments[0];
+    if constexpr (IsMegaFlavor<Flavor>) {
+        size_t commitment_idx = 1;
+        for (auto& commitment : prover_instance->commitments.get_databus_inverses()) {
+            commitment = computed_commitments[commitment_idx];
+            commitment_idx++;
+        };
+    }
 }
 
 /**
@@ -197,27 +229,18 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_grand_produ
 
     {
         BB_BENCH_NAME("COMMIT::z_perm");
-        auto commit_type = (prover_instance->get_is_structured())
-                               ? CommitmentKey::CommitType::StructuredNonZeroComplement
-                               : CommitmentKey::CommitType::Default;
-        commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm, commit_type);
+        prover_instance->commitments.z_perm =
+            commit_to_witness_polynomial(prover_instance->polynomials.z_perm, commitment_labels.z_perm);
     }
 }
 
-template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkProver<Flavor>::generate_alphas_round()
+template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparator OinkProver<Flavor>::generate_alpha_round()
 {
-    BB_BENCH_NAME("OinkProver::generate_alphas_round");
+    BB_BENCH_NAME("OinkProver::generate_alpha_round");
 
-    // Get the relation separation challenges for sumcheck/combiner computation
-    std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> challenge_labels;
-
-    for (size_t idx = 0; idx < Flavor::NUM_SUBRELATIONS - 1; ++idx) {
-        challenge_labels[idx] = domain_separator + "alpha_" + std::to_string(idx);
-    }
-    // It is more efficient to generate an array of challenges than to generate them individually.
-    SubrelationSeparators alphas = transcript->template get_challenges<FF>(challenge_labels);
-
-    return alphas;
+    // Get the single alpha challenge for sumcheck computation
+    // Powers of this challenge will be used to batch subrelations
+    return transcript->template get_challenge<FF>(domain_separator + "alpha");
 }
 
 /**
@@ -228,9 +251,8 @@ template <IsUltraOrMegaHonk Flavor> typename Flavor::SubrelationSeparators OinkP
  * @param type
  */
 template <IsUltraOrMegaHonk Flavor>
-void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                                      const std::string& label,
-                                                      const CommitmentKey::CommitType type)
+Flavor::Commitment OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial,
+                                                                    const std::string& label)
 {
     BB_BENCH_NAME("OinkProver::commit_to_witness_polynomial");
     // Mask the polynomial when proving in zero-knowledge
@@ -240,10 +262,11 @@ void OinkProver<Flavor>::commit_to_witness_polynomial(Polynomial<FF>& polynomial
 
     typename Flavor::Commitment commitment;
 
-    commitment = prover_instance->commitment_key.commit_with_type(
-        polynomial, type, prover_instance->active_region_data.get_ranges());
+    commitment = prover_instance->commitment_key.commit(polynomial);
     // Send the commitment to the verifier
     transcript->send_to_verifier(domain_separator + label, commitment);
+
+    return commitment;
 }
 
 template class OinkProver<UltraFlavor>;

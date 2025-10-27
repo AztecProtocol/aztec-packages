@@ -44,7 +44,7 @@ class AvmFlavor {
 
     // To help BB check if a flavor is AVM, even without including this flavor.
     static constexpr bool IS_AVM = true;
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
@@ -97,8 +97,8 @@ class AvmFlavor {
 
     static constexpr bool has_zero_row = true;
 
-    static constexpr size_t NUM_FRS_COM = field_conversion::calc_num_bn254_frs<Commitment>();
-    static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
+    static constexpr size_t NUM_FRS_COM = FrCodec::calc_num_fields<Commitment>();
+    static constexpr size_t NUM_FRS_FR = FrCodec::calc_num_fields<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
     // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.

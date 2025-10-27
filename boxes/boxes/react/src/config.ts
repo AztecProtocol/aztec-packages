@@ -1,7 +1,9 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AztecAddress, createAztecNodeClient, Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { getPXEConfig } from '@aztec/pxe/client/lazy';
-import { TestWallet } from '@aztec/test-wallet/lazy';
+import { TestWallet } from '@aztec/test-wallet/client/lazy';
 
 export class PrivateEnv {
   private wallet!: Wallet;

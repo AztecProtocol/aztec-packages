@@ -18,6 +18,7 @@ variable "AZTEC_DOCKER_IMAGE" {
 variable "L1_RPC_URLS" {
   description = "Comma-separated list of L1 RPC URLs"
   type        = string
+  sensitive   = true
 }
 
 variable "PRIVATE_KEY" {
@@ -86,6 +87,12 @@ variable "AZTEC_PROOF_SUBMISSION_EPOCHS" {
 
 variable "AZTEC_ACTIVATION_THRESHOLD" {
   description = "Aztec activation threshold"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_LAG_IN_EPOCHS" {
+  description = "Aztec lag in epochs"
   type        = string
   nullable    = true
 }
@@ -216,8 +223,3 @@ variable "NETWORK" {
   nullable    = true
 }
 
-variable "FLUSH_ENTRY_QUEUE" {
-  description = "Flush the entry queue after adding initial validators"
-  type        = bool
-  default     = true
-}

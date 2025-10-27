@@ -20,6 +20,7 @@ class PublicInputsBuilder {
     {}
 
     PublicInputsBuilder& with_global_variables(const GlobalVariables& globals);
+    PublicInputsBuilder& set_protocol_contracts(const ProtocolContracts& protocol_contracts);
     PublicInputsBuilder& with_start_tree_snapshots(const TreeSnapshots& start_tree_snapshots);
     PublicInputsBuilder& with_start_gas_used(const Gas& gas);
     PublicInputsBuilder& with_gas_settings(const GasSettings& gas_settings);

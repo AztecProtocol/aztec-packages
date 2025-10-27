@@ -1,5 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import type { AccountManager, EthAddress, Fr } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import type { ViemClient } from '@aztec/ethereum';
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
@@ -7,7 +9,7 @@ import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
 import { UpdateChecker } from '@aztec/stdlib/update-checker';
 import { getTelemetryClient } from '@aztec/telemetry-client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';

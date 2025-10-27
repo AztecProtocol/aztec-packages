@@ -1,6 +1,17 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import { AztecAddress, type AztecNode, type WaitOpts } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import {
+  ContractFunctionInteraction,
+  DeployMethod,
+  type DeployOptions,
+  type SendInteractionOptions,
+  SentTx,
+  type WaitOpts,
+  toSendOptions,
+} from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { type OffchainEffect, type ProvingStats, Tx } from '@aztec/stdlib/tx';
 
 import type { BaseTestWallet } from './wallet/test_wallet.js';
 
@@ -43,4 +54,48 @@ export async function registerInitialSandboxAccountsInWallet(wallet: BaseTestWal
       return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
     }),
   );
+}
+/**
+ * A proven transaction that can be sent to the network. Returned by the `prove` method of the test wallet
+ */
+export class ProvenTx extends Tx {
+  constructor(
+    private node: AztecNode,
+    tx: Tx,
+    /** The offchain effects emitted during the execution of the transaction. */
+    public offchainEffects: OffchainEffect[],
+    // eslint-disable-next-line jsdoc/require-jsdoc
+    public stats?: ProvingStats,
+  ) {
+    super(tx.getTxHash(), tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+  }
+
+  send() {
+    const sendTx = async () => {
+      await this.node.sendTx(this);
+      return this.getTxHash();
+    };
+    return new SentTx(this.node, sendTx);
+  }
+}
+
+/**
+ * Helper function to prove an interaction via a TestWallet
+ * @param wallet - The TestWallet to use
+ * @param interaction - The interaction to prove
+ * @param options - Either SendInteractionOptions (for ContractFunctionInteraction) or DeployOptions (for DeployMethod)
+ * @returns - A proven transaction ready do be sent to the network
+ */
+export async function proveInteraction(
+  wallet: BaseTestWallet,
+  interaction: ContractFunctionInteraction | DeployMethod,
+  options: SendInteractionOptions | DeployOptions,
+) {
+  let execPayload;
+  if (interaction instanceof DeployMethod) {
+    execPayload = await interaction.request(interaction.convertDeployOptionsToRequestOptions(options));
+  } else {
+    execPayload = await interaction.request(options);
+  }
+  return wallet.proveTx(execPayload, await toSendOptions(options));
 }

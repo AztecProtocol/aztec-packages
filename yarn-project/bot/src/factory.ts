@@ -1,18 +1,18 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
   BatchCall,
   ContractBase,
   ContractFunctionInteraction,
   type DeployMethod,
   type DeployOptions,
-  FeeJuicePaymentMethodWithClaim,
-  L1FeeJuicePortalManager,
-  type L2AmountClaim,
-  createLogger,
-  waitForL1ToL2MessageReady,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
+import type { L2AmountClaim } from '@aztec/aztec.js/ethereum';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
+import { createLogger } from '@aztec/aztec.js/log';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';
 import { Timer } from '@aztec/foundation/timer';
@@ -22,7 +22,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
 import type { BotStore } from './store/index.js';

@@ -65,7 +65,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         honk_proof = proof;
     }
     transcript->load_proof(honk_proof);
-    OinkVerifier oink_verifier{ builder, verifier_instance, transcript };
+    OinkVerifier oink_verifier{ verifier_instance, transcript };
     oink_verifier.verify();
     const std::vector<FF>& public_inputs = verifier_instance->public_inputs;
 
@@ -87,7 +87,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
             compute_padding_indicator_array<Curve, VIRTUAL_LOG_N>(verifier_instance->vk_and_hash->vk->log_circuit_size);
     }
 
-    Sumcheck sumcheck(transcript, verifier_instance->alphas, VIRTUAL_LOG_N);
+    Sumcheck sumcheck(transcript, verifier_instance->alpha, VIRTUAL_LOG_N);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
@@ -196,7 +196,7 @@ template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>
     verify_proof<DefaultIO<MegaCircuitBuilder>>(
         const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
 
-// ClientIVC specialization
+// LegacyClientIVC specialization
 template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
     bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::
     verify_proof<HidingKernelIO<UltraCircuitBuilder>>(

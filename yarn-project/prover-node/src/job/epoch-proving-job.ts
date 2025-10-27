@@ -6,7 +6,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
@@ -166,7 +166,7 @@ export class EpochProvingJob implements Traceable {
           chainId: globalVariables.chainId,
           version: globalVariables.version,
           vkTreeRoot: getVKTreeRoot(),
-          protocolContractTreeRoot: protocolContractTreeRoot,
+          protocolContractsHash: protocolContractsHash,
           proverId: this.prover.getProverId().toField(),
           slotNumber: globalVariables.slotNumber,
           coinbase: globalVariables.coinbase,
@@ -274,7 +274,7 @@ export class EpochProvingJob implements Traceable {
    */
   private async createFork(blockNumber: number, l1ToL2Messages: Fr[]) {
     const db = await this.dbProvider.fork(blockNumber);
-    const l1ToL2MessagesPadded = padArrayEnd(
+    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
       l1ToL2Messages,
       Fr.ZERO,
       NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,

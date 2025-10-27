@@ -44,10 +44,10 @@ pub contract AppSubscription {
 
     use aztec::{
         authwit::auth::assert_current_call_valid_authwit,
-        macros::{functions::{initializer, private, public, utility}, storage::storage},
+        macros::{functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
-        protocol_types::{address::AztecAddress, constants::MAX_FIELD_VALUE, traits::ToField},
+        protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
@@ -63,7 +63,7 @@ pub contract AppSubscription {
     global SUBSCRIPTION_DURATION_IN_BLOCKS: u32 = 5;
     global SUBSCRIPTION_TXS: u32 = 5;
 
-    #[private]
+    #[external("private")]
     fn entrypoint(payload: DAppPayload, user_address: AztecAddress) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
         // Since this value is only used for unconstrained tagging and not for any constrained logic,
@@ -73,8 +73,6 @@ pub contract AppSubscription {
         // will manage to find the notes even if this contract is not registered as a sender
         unsafe { set_sender_for_tags(user_address) };
 
-        // Default msg_sender for entrypoints is now Fr.max_value rather than 0 addr (see #7190 & #7404)
-        assert(context.msg_sender().to_field() == MAX_FIELD_VALUE);
         // This function takes a generic argument that corresponds to the number of params
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
         assert_current_call_valid_authwit::<2>(&mut context, user_address);
@@ -106,7 +104,7 @@ pub contract AppSubscription {
         payload.execute_calls(&mut context, config.target_address);
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(
         target_address: AztecAddress,
@@ -126,7 +124,7 @@ pub contract AppSubscription {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn subscribe(
         subscriber: AztecAddress,
         authwit_nonce: Field,
@@ -139,7 +137,7 @@ pub contract AppSubscription {
 
         Token::at(config.subscription_token_address)
             .transfer_in_private(
-                context.msg_sender(),
+                context.msg_sender().unwrap(),
                 config.subscription_recipient_address,
                 config.subscription_price,
                 authwit_nonce,
@@ -163,7 +161,7 @@ pub contract AppSubscription {
             .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         storage.subscriptions.at(subscriber).is_initialized()
     }

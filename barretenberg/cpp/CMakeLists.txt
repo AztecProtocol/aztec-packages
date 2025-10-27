@@ -18,9 +18,11 @@ WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 COMMENT "Generate documentation with Doxygen")
 endif(DOXYGEN_FOUND)
 
+# Saves about 5 seconds of configuration time.
+include(cmake/disable-compiler-checks.cmake)
+
 option(DISABLE_ASM "Disable custom assembly" OFF)
 option(DISABLE_ADX "Disable ADX assembly variant" OFF)
-option(DISABLE_AZTEC_VM "Don't build Aztec VM (acceptable if iterating on core proving)" OFF)
 option(MULTITHREADING "Enable multi-threading" ON)
 option(OMP_MULTITHREADING "Enable OMP multi-threading" OFF)
 option(FUZZING "Build ONLY fuzzing harnesses" OFF)
@@ -29,11 +31,11 @@ option(COVERAGE "Enable collecting coverage from tests" OFF)
 option(ENABLE_ASAN "Address sanitizer for debugging tricky memory corruption" OFF)
 option(ENABLE_HEAVY_TESTS "Enable heavy tests when collecting coverage" OFF)
 # Note: Must do 'sudo apt-get install libdw-dev' or equivalent
-option(CHECK_CIRCUIT_STACKTRACES "Enable (slow) stack traces for check circuit" OFF)
 option(ENABLE_STACKTRACES "Enable stack traces on assertion" OFF)
 option(ENABLE_TRACY "Enable low-medium overhead profiling for memory and performance with tracy" OFF)
 option(ENABLE_PIC "Builds with position independent code" OFF)
 option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
+option(AVM "enable building of vm2 module and bb-avm" ON)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -44,10 +46,8 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "a
     set(RUN_HAVE_POSIX_REGEX 0)
 endif()
 
-if(CHECK_CIRCUIT_STACKTRACES)
+if(ENABLE_STACKTRACES)
     add_compile_options(-DCHECK_CIRCUIT_STACKTRACES -DSTACKTRACES)
-elseif(ENABLE_STACKTRACES)
-    add_compile_options(-DSTACKTRACES)
 endif()
 
 if(ENABLE_TRACY OR ENABLE_TRACY_TIME_INSTRUMENTED)
@@ -142,26 +142,20 @@ include(cmake/gtest.cmake)
 include(cmake/benchmark.cmake)
 include(cmake/module.cmake)
 include(cmake/msgpack.cmake)
-include(cmake/lmdb.cmake)
+include(cmake/nlohmann_json.cmake)
+include(cmake/httplib.cmake)
 include(cmake/libdeflate.cmake)
 
-# We do not need to bloat barretenberg.wasm with gzip functionality in a browser context as the browser can do this
 if (NOT WASM)
-    include(cmake/libdeflate.cmake)
-else()
-    set(DISABLE_AZTEC_VM ON)
+    include(cmake/lmdb.cmake)
 endif()
-if(DISABLE_AZTEC_VM)
-    add_definitions(-DDISABLE_AZTEC_VM=1)
+
+if(AVM_TRANSPILER_LIB)
+    include(cmake/avm-transpiler.cmake)
 endif()
+
 include(cmake/backward-cpp.cmake)
 
-if (WASM)
-    set(DISABLE_AZTEC_VM ON)
-endif()
-if(DISABLE_AZTEC_VM)
-    add_definitions(-DDISABLE_AZTEC_VM=1)
-endif()
 add_subdirectory(src)
 if (ENABLE_ASAN AND NOT(FUZZING))
     find_program(LLVM_SYMBOLIZER_PATH NAMES llvm-symbolizer-20)

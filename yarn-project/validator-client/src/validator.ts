@@ -9,13 +9,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
 import type { P2P, PeerId, TxProvider } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
-import {
-  OffenseType,
-  type SlasherConfig,
-  WANT_TO_SLASH_EVENT,
-  type Watcher,
-  type WatcherEmitter,
-} from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT, type Watcher, type WatcherEmitter } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSource } from '@aztec/stdlib/block';
 import type { IFullNodeBlockBuilder, Validator, ValidatorClientFullConfig } from '@aztec/stdlib/interfaces/server';
@@ -30,7 +24,6 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import { BlockProposalHandler, type BlockProposalValidationFailureReason } from './block_proposal_handler.js';
-import type { ValidatorClientConfig } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
@@ -78,7 +71,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    this.validationService = new ValidationService(keyStore);
+    this.validationService = new ValidationService(keyStore, log.createChild('validation-service'));
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), log, 1000);
@@ -140,7 +133,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   static new(
-    config: ValidatorClientConfig & Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>,
+    config: ValidatorClientFullConfig,
     blockBuilder: IFullNodeBlockBuilder,
     epochCache: EpochCache,
     p2pClient: P2P,
@@ -152,7 +145,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache);
+    const blockProposalValidator = new BlockProposalValidator(epochCache, {
+      txsPermitted: !config.disableTransactions,
+    });
     const blockProposalHandler = new BlockProposalHandler(
       blockBuilder,
       blockSource,
@@ -189,8 +184,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   // Proxy method for backwards compatibility with tests
-  public reExecuteTransactions(proposal: BlockProposal, txs: any[], l1ToL2Messages: Fr[]): Promise<any> {
-    return this.blockProposalHandler.reexecuteTransactions(proposal, txs, l1ToL2Messages);
+  public reExecuteTransactions(
+    proposal: BlockProposal,
+    blockNumber: number,
+    txs: any[],
+    l1ToL2Messages: Fr[],
+  ): Promise<any> {
+    return this.blockProposalHandler.reexecuteTransactions(proposal, blockNumber, txs, l1ToL2Messages);
   }
 
   public signWithAddress(addr: EthAddress, msg: TypedDataDefinition) {
@@ -262,13 +262,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const slotNumber = proposal.slotNumber.toBigInt();
     const proposer = proposal.getSender();
 
+    // Reject proposals with invalid signatures
+    if (!proposer) {
+      this.log.warn(`Received proposal with invalid signature for slot ${slotNumber}`);
+      return undefined;
+    }
+
     // Check that I have any address in current committee before attesting
     const inCommittee = await this.epochCache.filterInCommittee(slotNumber, this.getValidatorAddresses());
     const partOfCommittee = inCommittee.length > 0;
-    const incFailedAttestation = (reason: string) => this.metrics.incFailedAttestations(1, reason, partOfCommittee);
 
     const proposalInfo = { ...proposal.toBlockInfo(), proposer: proposer.toString() };
-    this.log.info(`Received proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, {
+    this.log.info(`Received proposal for slot ${slotNumber}`, {
       ...proposalInfo,
       txHashes: proposal.txHashes.map(t => t.toString()),
     });
@@ -289,9 +294,28 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     if (!validationResult.isValid) {
       this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
-      incFailedAttestation(validationResult.reason || 'unknown');
 
-      // Slash invalid block proposals
+      // Only track attestation failure metrics if we're actually in the committee
+      if (partOfCommittee) {
+        const reason = validationResult.reason || 'unknown';
+        // Classify failure reason: bad proposal vs node issue
+        const badProposalReasons: BlockProposalValidationFailureReason[] = [
+          'invalid_proposal',
+          'state_mismatch',
+          'failed_txs',
+          'in_hash_mismatch',
+          'parent_block_wrong_slot',
+        ];
+
+        if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
+          this.metrics.incFailedAttestationsBadProposal(1, reason);
+        } else {
+          // Node issues: parent_block_not_found, block_number_already_exists, txs_not_available, timeout, unknown_error
+          this.metrics.incFailedAttestationsNodeIssue(1, reason);
+        }
+      }
+
+      // Slash invalid block proposals (can happen even when not in committee)
       if (
         validationResult.reason &&
         SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(validationResult.reason) &&
@@ -310,8 +334,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     // Provided all of the above checks pass, we can attest to the proposal
-    this.log.info(`Attesting to proposal for block ${proposal.blockNumber} at slot ${slotNumber}`, proposalInfo);
-    this.metrics.incAttestations(inCommittee.length);
+    this.log.info(`Attesting to proposal for slot ${slotNumber}`, proposalInfo);
+    this.metrics.incSuccessfulAttestations(inCommittee.length);
 
     // If the above function does not throw an error, then we can attest to the proposal
     return this.createBlockAttestationsFromProposal(proposal, inCommittee);
@@ -319,6 +343,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private slashInvalidBlock(proposal: BlockProposal) {
     const proposer = proposal.getSender();
+
+    // Skip if signature is invalid (shouldn't happen since we validate earlier)
+    if (!proposer) {
+      this.log.warn(`Cannot slash proposal with invalid signature`);
+      return;
+    }
 
     // Trim the set if it's too big.
     if (this.proposersOfInvalidBlocks.size > MAX_PROPOSERS_OF_INVALID_BLOCKS) {
@@ -353,13 +383,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const newProposal = await this.validationService.createBlockProposal(
-      blockNumber,
       header,
       archive,
       stateReference,
       txs,
       proposerAddress,
-      options,
+      { ...options, broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal },
     );
     this.previousProposal = newProposal;
     return newProposal;
@@ -402,13 +431,33 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     let attestations: BlockAttestation[] = [];
     while (true) {
-      const collectedAttestations = await this.p2pClient.getAttestationsForSlot(slot, proposalId);
+      // Filter out attestations with a mismatching payload. This should NOT happen since we have verified
+      // the proposer signature (ie our own) before accepting the attestation into the pool via the p2p client.
+      const collectedAttestations = (await this.p2pClient.getAttestationsForSlot(slot, proposalId)).filter(
+        attestation => {
+          if (!attestation.payload.equals(proposal.payload)) {
+            this.log.warn(
+              `Received attestation for slot ${slot} with mismatched payload from ${attestation.getSender()?.toString()}`,
+              { attestationPayload: attestation.payload, proposalPayload: proposal.payload },
+            );
+            return false;
+          }
+          return true;
+        },
+      );
+
+      // Log new attestations we collected
       const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
         const collectedSender = collected.getSender();
+        // Skip attestations with invalid signatures
+        if (!collectedSender) {
+          this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);
+          continue;
+        }
         if (
           !myAddresses.some(address => address.equals(collectedSender)) &&
-          !oldSenders.some(sender => sender.equals(collectedSender))
+          !oldSenders.some(sender => sender?.equals(collectedSender))
         ) {
           this.log.debug(`Received attestation for slot ${slot} from ${collectedSender.toString()}`);
         }
@@ -425,7 +474,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         throw new AttestationTimeoutError(attestations.length, required, slot);
       }
 
-      this.log.debug(`Collected ${attestations.length} attestations so far`);
+      this.log.debug(`Collected ${attestations.length} of ${required} attestations so far`);
       await sleep(this.config.attestationPollingIntervalMs);
     }
   }

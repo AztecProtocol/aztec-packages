@@ -1,6 +1,8 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, EthAddress, Fr, generateClaimSecret, retryUntil, sleep } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { createBlobSinkServer } from '@aztec/blob-sink/server';
 import {
@@ -14,6 +16,8 @@ import {
   deployL1Contract,
   deployRollupForUpgrade,
 } from '@aztec/ethereum';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -24,7 +28,7 @@ import {
 } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
@@ -149,7 +153,7 @@ describe('e2e_p2p_add_rollup', () => {
       {
         salt: Math.floor(Math.random() * 1000000),
         vkTreeRoot: getVKTreeRoot(),
-        protocolContractTreeRoot,
+        protocolContractsHash,
         genesisArchiveRoot,
         ethereumSlotDuration: t.ctx.aztecNodeConfig.ethereumSlotDuration,
         aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
@@ -510,7 +514,7 @@ describe('e2e_p2p_add_rollup', () => {
       l1Contracts: newConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: newConfig.dataDirectory,
-      dataStoreMapSizeKB: newConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: newConfig.dataStoreMapSizeKb,
     });
     await blobSink.start();
     await sleep(4000);

@@ -161,7 +161,7 @@ function compile {
   local contract_name contract_hash
 
   local contract_path=$(get_contract_path "$1" "$2")
-  local contract=${contract_path#*/}
+  local contract=${contract_path##*/}
   # Calculate filename because nargo...
   contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
@@ -223,6 +223,10 @@ function test_cmds {
   else
     folder_name="contracts"
   fi
+
+  # Test bb aztec_process command
+  echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
+
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))

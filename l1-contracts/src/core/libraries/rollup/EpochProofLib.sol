@@ -4,12 +4,12 @@ pragma solidity >=0.8.27;
 
 import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
@@ -176,7 +176,7 @@ library EpochProofLib {
     //   chain_id: Field,
     //   version: Field,
     //   vk_tree_root: Field,
-    //   protocol_contract_tree_root: Field,
+    //   protocol_contracts_hash: Field,
     //   prover_id: Field,
     //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
     // }
@@ -213,8 +213,8 @@ library EpochProofLib {
     publicInputs[offset] = rollupStore.config.vkTreeRoot;
     offset += 1;
 
-    // protocol_contract_tree_root
-    publicInputs[offset] = rollupStore.config.protocolContractTreeRoot;
+    // protocol_contracts_hash
+    publicInputs[offset] = rollupStore.config.protocolContractsHash;
     offset += 1;
 
     // prover_id: id of current epoch's prover

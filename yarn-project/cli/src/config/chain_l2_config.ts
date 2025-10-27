@@ -1,16 +1,15 @@
 import { DefaultL1ContractsConfig, type L1ContractsConfig } from '@aztec/ethereum';
-import type { EnvVar, NetworkNames } from '@aztec/foundation/config';
+import type { NetworkNames } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { SharedNodeConfig } from '@aztec/node-lib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 
-import path, { join } from 'path';
+import path from 'path';
 
 import publicIncludeMetrics from '../../public_include_metric_prefixes.json' with { type: 'json' };
-import { cachedFetch } from './cached_fetch.js';
 import { enrichEthAddressVar, enrichVar } from './enrich_env.js';
 
-const SNAPSHOT_URL = 'https://pub-f4a8c34d4bb7441ebf8f48d904512180.r2.dev/snapshots';
+const SNAPSHOTS_URL = 'https://aztec-labs-snapshots.com';
 
 const defaultDBMapSizeKb = 128 * 1_024 * 1_024; // 128 GB
 const tbMapSizeKb = 1_024 * 1_024 * 1_024; // 1 TB
@@ -43,6 +42,7 @@ export type L2ChainConfig = L1ContractsConfig &
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
+    disableTransactions: boolean;
   };
 
 const DefaultSlashConfig = {
@@ -94,12 +94,13 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: false,
+  disableTransactions: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOT_URL}/staging-ignition/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/staging-ignition/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-ignition.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -174,12 +175,13 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
+  disableTransactions: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 20,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOT_URL}/staging-public/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/staging-public/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/staging-public.json',
   publicIncludeMetrics,
@@ -222,16 +224,70 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   ...DefaultNetworkDBMapSizeConfig,
 };
 
+export const nextNetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  disableTransactions: false,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 8,
+  realProofs: true,
+  snapshotsUrls: [],
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: '',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: '',
+  publicMetricsCollectFrom: [''],
+  maxTxPoolSize: 100_000_000, // 100MB
+
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 32,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 48,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: DefaultL1ContractsConfig.lagInEpochs,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
+
+  ...DefaultSlashConfig,
+
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
 export const testnetL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
+  seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: [`${SNAPSHOT_URL}/testnet/`],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
   autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/testnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
@@ -263,7 +319,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** Governance proposing round size */
   governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
-  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  manaTarget: 0n,
   /** The proving cost per mana */
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
@@ -276,18 +332,19 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   ...DefaultNetworkDBMapSizeConfig,
 };
 
-export const ignitionL2ChainConfig: L2ChainConfig = {
+export const mainnetL2ChainConfig: L2ChainConfig = {
   l1ChainId: 1,
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
-  snapshotsUrls: ['https://storage.googleapis.com/aztec-testnet/snapshots/ignition/'],
+  snapshotsUrls: [`${SNAPSHOTS_URL}/mainnet/`],
   autoUpdate: 'notify',
-  autoUpdateUrl: 'https://storage.googleapis.com/aztec-testnet/auto-update/ignition.json',
+  autoUpdateUrl: 'https://storage.googleapis.com/aztec-mainnet/auto-update/mainnet.json',
   maxTxPoolSize: 100_000_000, // 100MB
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
@@ -358,22 +415,60 @@ export const ignitionL2ChainConfig: L2ChainConfig = {
   ...DefaultNetworkDBMapSizeConfig,
 };
 
-const BOOTNODE_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour;
+export const devnetL2ChainConfig: L2ChainConfig = {
+  l1ChainId: 11155111,
+  testAccounts: true,
+  sponsoredFPC: true,
+  p2pEnabled: true,
+  disableTransactions: false,
+  p2pBootstrapNodes: [],
+  seqMinTxsPerBlock: 0,
+  seqMaxTxsPerBlock: 8,
+  realProofs: false,
+  snapshotsUrls: [],
+  autoUpdate: 'config-and-version',
+  autoUpdateUrl: '',
+  publicIncludeMetrics,
+  publicMetricsCollectorUrl: '',
+  publicMetricsCollectFrom: [''],
+  maxTxPoolSize: 100_000_000, // 100MB
 
-export async function getBootnodes(networkName: NetworkNames, cacheDir?: string) {
-  const url = `http://static.aztec.network/${networkName}/bootnodes.json`;
-  const data = await cachedFetch(url, {
-    cacheDurationMs: BOOTNODE_CACHE_DURATION_MS,
-    cacheFile: cacheDir ? join(cacheDir, networkName, 'bootnodes.json') : undefined,
-  });
+  // Deployment stuff
+  /** How many seconds an L1 slot lasts. */
+  ethereumSlotDuration: 12,
+  /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
+  aztecSlotDuration: 36,
+  /** How many L2 slots an epoch lasts. */
+  aztecEpochDuration: 8,
+  /** The target validator committee size. */
+  aztecTargetCommitteeSize: 1,
+  /** The number of epochs to lag behind the current epoch for validator selection. */
+  lagInEpochs: 0,
+  /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
+  localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
+  /** The deposit amount for a validator */
+  activationThreshold: DefaultL1ContractsConfig.activationThreshold,
+  /** The minimum stake for a validator. */
+  ejectionThreshold: DefaultL1ContractsConfig.ejectionThreshold,
+  /** The slashing round size */
+  slashingRoundSizeInEpochs: DefaultL1ContractsConfig.slashingRoundSizeInEpochs,
+  /** Governance proposing round size */
+  governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
+  /** The mana target for the rollup */
+  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  /** The proving cost per mana */
+  provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
+  /** Exit delay for stakers */
+  exitDelaySeconds: DefaultL1ContractsConfig.exitDelaySeconds,
 
-  return data?.bootnodes;
-}
+  ...DefaultSlashConfig,
 
-export async function getL2ChainConfig(
-  networkName: NetworkNames,
-  cacheDir?: string,
-): Promise<L2ChainConfig | undefined> {
+  ...DefaultNetworkDBMapSizeConfig,
+};
+
+export function getL2ChainConfig(networkName: NetworkNames): L2ChainConfig | undefined {
   let config: L2ChainConfig | undefined;
   if (networkName === 'staging-public') {
     config = { ...stagingPublicL2ChainConfig };
@@ -381,16 +476,12 @@ export async function getL2ChainConfig(
     config = { ...testnetL2ChainConfig };
   } else if (networkName === 'staging-ignition') {
     config = { ...stagingIgnitionL2ChainConfig };
-  } else if (networkName === 'ignition') {
-    config = { ...ignitionL2ChainConfig };
-  }
-  if (!config) {
-    return undefined;
-  }
-  // If the bootnodes are not set, get them from the network
-  const bootnodeKey: EnvVar = 'BOOTSTRAP_NODES';
-  if (!process.env[bootnodeKey]) {
-    config.p2pBootstrapNodes = await getBootnodes(networkName, cacheDir);
+  } else if (networkName === 'mainnet') {
+    config = { ...mainnetL2ChainConfig };
+  } else if (networkName === 'next-net') {
+    config = { ...nextNetL2ChainConfig };
+  } else if (networkName === 'devnet') {
+    config = { ...devnetL2ChainConfig };
   }
   return config;
 }
@@ -399,14 +490,13 @@ function getDefaultDataDir(networkName: NetworkNames): string {
   return path.join(process.env.HOME || '~', '.aztec', networkName, 'data');
 }
 
-export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
+export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   if (networkName === 'local') {
     return;
   }
 
   enrichVar('DATA_DIRECTORY', getDefaultDataDir(networkName));
-  const cacheDir = process.env.DATA_DIRECTORY ? join(process.env.DATA_DIRECTORY, 'cache') : undefined;
-  const config = await getL2ChainConfig(networkName, cacheDir);
+  const config = getL2ChainConfig(networkName);
 
   if (!config) {
     throw new Error(`Unknown network name: ${networkName}`);
@@ -491,4 +581,5 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
+  enrichVar('TRANSACTIONS_DISABLED', config.disableTransactions.toString());
 }

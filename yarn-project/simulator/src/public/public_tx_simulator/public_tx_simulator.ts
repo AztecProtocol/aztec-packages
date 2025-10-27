@@ -1,23 +1,16 @@
 import { AVM_MAX_PROCESSABLE_L2_GAS, DEFAULT_MAX_DEBUG_LOG_MEMORY_READS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import {
-  ProtocolContractAddress,
-  ProtocolContractLeaves,
-  protocolContractNames,
-  protocolContractTreeRoot,
-} from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, ProtocolContractsList } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmExecutionHints,
-  AvmProtocolContractAddressHint,
   type AvmProvingRequest,
   AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { Gas, GasUsed } from '@aztec/stdlib/gas';
 import type { DebugLog } from '@aztec/stdlib/logs';
@@ -46,6 +39,7 @@ import {
 } from '../side_effect_errors.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
+import type { PublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
@@ -109,14 +103,14 @@ class TxSimTeardownRevert extends Error {
   }
 }
 
-export class PublicTxSimulator {
+export class PublicTxSimulator implements PublicTxSimulatorInterface {
   protected log: Logger;
   private config: PublicTxSimulatorConfig;
 
   constructor(
-    private merkleTree: MerkleTreeWriteOperations,
-    private contractsDB: PublicContractsDB,
-    private globalVariables: GlobalVariables,
+    protected merkleTree: MerkleTreeWriteOperations,
+    protected contractsDB: PublicContractsDB,
+    protected globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ) {
     this.config = {
@@ -139,21 +133,11 @@ export class PublicTxSimulator {
       const txHash = this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
-      // These values are technically derivable from the contractsDB. However, since the trees are not persisted
-      // computing them for every tx would be time consuming for this TS simulator. So instead we just import them
-      const protocolContractHints = protocolContractNames.map(
-        name =>
-          new AvmProtocolContractAddressHint(
-            /*Canonical Address=*/ ProtocolContractAddress[name],
-            /*Derived Address=*/ AztecAddress.fromField(ProtocolContractLeaves[name]),
-          ),
-      );
-
       // Create hinting DBs.
       const hints = new AvmExecutionHints(
         this.globalVariables,
         AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
-        protocolContractHints,
+        ProtocolContractsList, // imported from file
       );
       const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
       const hintingTreesDB = new PublicTreesDB(hintingMerkleTree);
@@ -164,7 +148,7 @@ export class PublicTxSimulator {
         hintingContractsDB,
         tx,
         this.globalVariables,
-        protocolContractTreeRoot, // imported from file
+        ProtocolContractsList, // imported from file
         this.config.doMerkleOperations,
         this.config.proverId,
       );

@@ -8,6 +8,8 @@ set -e
 NAMESPACE=${1:-"testnet"}
 MONITORING_NAMESPACE=${2:-"$NAMESPACE-block-height-monitor"}
 NETWORK=${3:-"$NAMESPACE"}
+INFURA_URL_SECRET=${4:-"infura-sepolia-url"}
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -94,7 +96,7 @@ fi
 
 # Fetch GCP secrets
 echo "Fetching GCP secrets..."
-INFURA_URL=$(gcloud secrets versions access latest --secret=infura-sepolia-url)
+INFURA_URL=$(gcloud secrets versions access latest --secret=$INFURA_URL_SECRET)
 GRAFANA_PASSWORD=$(gcloud secrets versions access latest --secret=grafana-cloud-password)
 
 # Ensure monitoring namespace exists
@@ -120,7 +122,7 @@ kubectl -n "$MONITORING_NAMESPACE" apply -f "$BASE_DIR/kubernetes/monitoring-ser
 TAG=${IMAGE_TAG:-latest}
 SCRIPT_BUILD="$SCRIPT_DIR/build-and-publish.sh"
 if [ -x "$SCRIPT_BUILD" ]; then
-  echo "Ensuring image aztecprotocol/aztec-block-height-monitor:${TAG} exists..."
+  echo "Ensuring image spypsy/block-height-monitor:${TAG} exists..."
   "$SCRIPT_BUILD" "$TAG"
 fi
 

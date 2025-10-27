@@ -24,13 +24,46 @@
 #include <chrono>
 
 namespace bb {
+
 /**
- * @brief  A ProverInstance is normally constructed from a finalized circuit and it contains all the information
- * required by an Mega Honk prover to create a proof. A ProverInstance is also the result of running the
+ * @brief A ProverInstance is normally constructed from a finalized circuit and it contains all the information
+ * required by a Mega Honk prover to create a proof. A ProverInstance is also the result of running the
  * Protogalaxy prover, in which case it becomes a relaxed counterpart with the folding parameters (target sum and gate
  * challenges set to non-zero values).
  *
- * @details This is the equivalent of ω in the paper.
+ * @details A ProverInstance is the equivalent of \f$\omega\f$ in the Protogalaxy paper.
+ *
+ * Our arithmetization works as follows. The Flavor defines \f$fM\f$ (Flavor::NUM_ALL_ENTITIES) and a series of
+ * relations
+ * \f$R_1, \dots, R_n\f$ (Flavor::Relations_). Each relation is made up by a series of subrelations: \f$R_i =
+ * (R_{i,1}, \dots, R_{i,r_i})\f$.
+ *
+ * Write \f$p_1, \dots, p_M\f$ for the prover polynomials and \f$p_{i,k}\f$ for the \f$k\f$-th coefficient of \f$p_i\f$.
+ * Write \f$\theta_1, \dots, \theta_6\f$ for the relation parameters. Let \f$n\f$ be the max degree of the prover
+ * polynomials. A pure ProverInstance is valid if for all \f$i, j, k\f$ we have \f$R_{i,j}(p_{1,k}, \dots,
+ * p_{M,k}, \theta_1, \dots, \theta_6) = 0\f$.
+ *
+ * Instead of checking each equality separately, we batch them using challenges that we call `alphas`. Thus, a
+ * ProverInstance is valid if for each \f$k = 0, \dots, n\f$.
+ * \f[
+ *  f_k(\omega) := \sum_{i, j} \alpha_{i,j} R_{i,j}(p_{1,k}, \dots, p_{M,k}, \theta_1, \dots, \theta_6) = 0
+ * \f]
+ *
+ * Instead of checking each equality separately, we once again batch them using challenges. These challenges are the
+ * \f$pow_i(\beta)\f$ in the Protogalaxy paper, and are derived using the vector `gate_challenges` as the vector
+ * \f$\beta\f$. Write \f$gc\f$ for the vector `gate_challenges`. Then, a ProverInstance is valid if
+ * \f[
+ *  \sum_{k} pow_k(gc) f_k(\omega) = 0
+ * \f]
+ * The equation is modified for a relaxed ProverInstance to
+ * \f[
+ *  \sum_{k} pow_k(gc) f_k(\omega) = ts
+ * \f]
+ * where we write \f$ts\f$ for the vector `target_sum`.
+ *
+ * Hence, the correspondence between the class below and the Protogalaxy paper is \f$\omega = (p_1, \dots, p_M, ,
+ * \theta_1, \dots, \theta_6, \alpha_{1,1}, \dots, \alpha_{n,r_n})\f$, \f$\beta\f$ are the `gate_challenges`, and
+ * \f$e\f$ is `target_sum`.
  */
 
 template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
@@ -42,29 +75,28 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using Circuit = typename Flavor::CircuitBuilder;
     using CommitmentKey = typename Flavor::CommitmentKey;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
+    using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Polynomial = typename Flavor::Polynomial;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
-    // Flag indicating whether the polynomials will be constructed with fixed block sizes for each gate type
-    bool is_structured;
-
-    MetaData metadata;                 // circuit size and public inputs metadata
-    size_t overflow_size{ 0 };         // size of the structured execution trace overflow
-    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+    MetaData metadata; // circuit size and public inputs metadata
+    // index of the last constrained wire in the execution trace; initialize to size_t::max to indicate uninitialized
+    size_t final_active_wire_idx{ std::numeric_limits<size_t>::max() };
 
   public:
     using Trace = TraceToPolynomials<Flavor>;
 
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
-    SubrelationSeparators alphas;  // a challenge for each subrelation
+    WitnessCommitments commitments;
+    SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
     FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
-    bool from_first_instance = false; // whether this instance is the first one
+    bool is_relaxed_instance = false; // whether this instance is relaxed or not
     bool is_complete = false;         // whether this instance has been completely populated
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
@@ -74,7 +106,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ActiveRegionData active_region_data; // specifies active regions of execution trace
 
     void set_dyadic_size(size_t size) { metadata.dyadic_size = size; }
-    void set_overflow_size(size_t size) { overflow_size = size; }
     void set_final_active_wire_idx(size_t idx) { final_active_wire_idx = idx; }
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }
@@ -85,19 +116,20 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         return metadata.num_public_inputs;
     }
     MetaData get_metadata() const { return metadata; }
-    size_t get_overflow_size() const { return overflow_size; }
-    size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
+    size_t get_final_active_wire_idx() const
+    {
+        BB_ASSERT(final_active_wire_idx != std::numeric_limits<size_t>::max(),
+                  "final_active_wire_idx has not been initialized");
+        return final_active_wire_idx;
+    }
 
     Flavor::PrecomputedData get_precomputed()
     {
         return typename Flavor::PrecomputedData{ polynomials.get_precomputed(), metadata };
     }
 
-    ProverInstance_(Circuit& circuit,
-                    TraceSettings trace_settings = {},
-                    const CommitmentKey& commitment_key = CommitmentKey())
-        : is_structured(trace_settings.structure.has_value())
-        , commitment_key(commitment_key)
+    ProverInstance_(Circuit& circuit, const CommitmentKey& commitment_key = CommitmentKey())
+        : commitment_key(commitment_key)
     {
         BB_BENCH_NAME("ProverInstance(Circuit&)");
         vinfo("Constructing ProverInstance");
@@ -107,27 +139,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         if (!circuit.circuit_finalized) {
             circuit.finalize_circuit(/* ensure_nonzero = */ true);
         }
-
-        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
-        if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
-            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
-        } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
-            if (is_structured) {
-                circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
-                if (verbose_logging) {
-                    circuit.blocks.summarize();
-                }
-                move_structured_trace_overflow_to_overflow_block(circuit);
-                overflow_size = circuit.blocks.overflow.size();
-                metadata.dyadic_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly
-            } else {
-                metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
-            }
-        }
-
-        circuit.blocks.compute_offsets(is_structured); // compute offset of each block within the trace
+        metadata.dyadic_size = compute_dyadic_size(circuit);
 
         // Find index of last non-trivial wire value in the trace
+        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
         for (auto& block : circuit.blocks.get()) {
             if (block.size() > 0) {
                 final_active_wire_idx = block.trace_offset() + block.size() - 1;
@@ -140,10 +155,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If not using structured trace OR if using structured trace but overflow has occurred (overflow block in
-            // use), allocate full size polys
-            // is_structured = false;
-            if ((IsMegaFlavor<Flavor> && !is_structured) || (is_structured && circuit.blocks.has_overflow)) {
+            // If ZK, allocate full size polys
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
+            // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
+            if (Flavor::HasZK) {
                 // Allocate full size polynomials
                 polynomials = ProverPolynomials(dyadic_size());
             } else { // Allocate only a correct amount of memory for each polynomial
@@ -224,8 +239,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     ProverInstance_& operator=(ProverInstance_&&) = delete;
     ~ProverInstance_() = default;
 
-    bool get_is_structured() { return is_structured; }
-
   private:
     static constexpr size_t num_zero_rows = Flavor::has_zero_row ? 1 : 0;
     static constexpr size_t NUM_WIRES = Circuit::NUM_WIRES;
@@ -248,17 +261,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     void allocate_databus_polynomials(const Circuit&)
         requires HasDataBus<Flavor>;
 
-    /**
-     * @brief Compute dyadic size based on a structured trace with fixed block size
-     *
-     */
-    size_t compute_structured_dyadic_size(Circuit& circuit) { return circuit.blocks.get_structured_dyadic_size(); }
-
     void construct_databus_polynomials(Circuit&)
         requires HasDataBus<Flavor>;
-
-    static void move_structured_trace_overflow_to_overflow_block(Circuit& circuit)
-        requires IsMegaFlavor<Flavor>;
 
     void populate_memory_records(const Circuit& circuit);
 };

@@ -46,7 +46,7 @@ library TestConstants {
   // Genesis state
   bytes32 internal constant GENESIS_ARCHIVE_ROOT = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
   bytes32 internal constant GENESIS_VK_TREE_ROOT = bytes32(0);
-  bytes32 internal constant GENESIS_PROTOCOL_CONTRACT_TREE_ROOT = bytes32(0);
+  bytes32 internal constant GENESIS_PROTOCOL_CONTRACTS_HASH = bytes32(0);
 
   function getGovernanceConfiguration() internal pure returns (Configuration memory) {
     return Configuration({
@@ -64,7 +64,7 @@ library TestConstants {
   function getGenesisState() internal pure returns (GenesisState memory) {
     return GenesisState({
       vkTreeRoot: GENESIS_VK_TREE_ROOT,
-      protocolContractTreeRoot: GENESIS_PROTOCOL_CONTRACT_TREE_ROOT,
+      protocolContractsHash: GENESIS_PROTOCOL_CONTRACTS_HASH,
       genesisArchiveRoot: GENESIS_ARCHIVE_ROOT
     });
   }
@@ -115,7 +115,8 @@ library TestConstants {
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
       slasherFlavor: SlasherFlavor.EMPIRE,
-      localEjectionThreshold: 0 // The same as it being off, and only using the global.
+      localEjectionThreshold: 0, // The same as it being off, and only using the global.
+      earliestRewardsClaimableTimestamp: Timestamp.wrap(0) // Default to 0 (no restriction)
     });
 
     // For the version we derive it based on the config (with a 0 version)

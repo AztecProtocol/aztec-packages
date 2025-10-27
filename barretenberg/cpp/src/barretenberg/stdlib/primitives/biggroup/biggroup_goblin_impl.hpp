@@ -43,7 +43,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
     auto builder = points[0].get_context();
 
     // Check that the internal accumulator is zero?
-    ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+    BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
 
     // Loop over all points and scalars
     size_t num_points = points.size();
@@ -58,7 +58,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         tag_union = OriginTag(tag_union, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
         // Populate the goblin-style ecc op gates for the given mul inputs
         ecc_op_tuple op_tuple;
-        bool scalar_is_constant_equal_one = scalar.get_witness_index() == IS_CONSTANT && scalar.get_value() == 1;
+        bool scalar_is_constant_equal_one = scalar.is_constant() && scalar.get_value() == 1;
         if (scalar_is_constant_equal_one) { // if scalar is 1, there is no need to perform a mul
             op_tuple = builder->queue_ecc_add_accum(point.get_value());
         } else { // otherwise, perform a mul-then-accumulate

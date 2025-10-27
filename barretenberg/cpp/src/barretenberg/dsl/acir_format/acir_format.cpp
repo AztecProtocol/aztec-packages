@@ -6,6 +6,7 @@
 
 #include "acir_format.hpp"
 
+#include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
@@ -340,7 +341,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
         }
 
-#ifndef DISABLE_AZTEC_VM
         if (has_avm_recursion_constraints) {
             HonkRecursionConstraintsOutput<Builder> avm_output = process_avm_recursion_constraints(
                 builder, constraint_system, has_valid_witness_assignments, gate_counter);
@@ -350,7 +350,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // it with the avm's one.
             honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
         }
-#endif
 
         if (metadata.honk_recursion == 2) {
             // Proving with UltraRollupFlavor
@@ -411,7 +410,7 @@ void perform_full_IPA_verification(Builder& builder,
                                    const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
                                    const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs)
 {
-    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+    using StdlibTranscript = UltraStdlibTranscript;
 
     BB_ASSERT_EQ(
         nested_ipa_claims.size(), nested_ipa_proofs.size(), "Mismatched number of nested IPA claims and proofs.");
@@ -452,7 +451,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
     if (nested_ipa_claims.size() == 2) {
         // If we have two claims, accumulate.
         CommitmentKey<curve::Grumpkin> commitment_key(1 << CONST_ECCVM_LOG_N);
-        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+        using StdlibTranscript = UltraStdlibTranscript;
 
         auto ipa_transcript_1 = std::make_shared<StdlibTranscript>();
         ipa_transcript_1->load_proof(nested_ipa_proofs[0]);
@@ -528,78 +527,90 @@ process_honk_recursion_constraints(Builder& builder,
         gate_counter.track_diff(constraint_system.gates_per_opcode,
                                 constraint_system.original_opcode_indices.honk_recursion_constraints.at(idx++));
     }
-    ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-           "Root rollup must accumulate two IPA proofs.");
+    BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
+              "Root rollup must accumulate two IPA proofs.");
     return output;
 }
 
 void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                                       AcirFormat& constraints,
-                                      std::shared_ptr<ClientIVC> ivc,
+                                      std::shared_ptr<IVCBase> ivc_base,
                                       bool has_valid_witness_assignments,
                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
-    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
-    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
-    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
+    using StdlibVerificationKey = SumcheckClientIVC::RecursiveVerificationKey;
+    using StdlibVKAndHash = SumcheckClientIVC::RecursiveVKAndHash;
+    using StdlibFF = SumcheckClientIVC::RecursiveFlavor::FF;
+
+    // Lambda template to handle both SumcheckClientIVC and SumcheckClientIVC with the same code
+    auto process_with_ivc = [&]<typename IVCType>(const std::shared_ptr<IVCType>& ivc) {
+        // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+        BB_ASSERT_EQ(constraints.pg_recursion_constraints.size(),
+                     ivc->verification_queue.size(),
+                     "WARNING: Mismatch in number of recursive verifications during kernel creation!");
+
+        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values
+        // so that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+        if (!has_valid_witness_assignments) {
+            // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+            for (auto [constraint, queue_entry] :
+                 zip_view(constraints.pg_recursion_constraints, ivc->verification_queue)) {
+                populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
+                builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
+            }
+        }
+
+        // Construct a stdlib verification key for each constraint based on the verification key witness indices
+        // therein
+        std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
+        stdlib_vk_and_hashs.reserve(constraints.pg_recursion_constraints.size());
+        for (const auto& constraint : constraints.pg_recursion_constraints) {
+            stdlib_vk_and_hashs.push_back(std::make_shared<StdlibVKAndHash>(
+                std::make_shared<StdlibVerificationKey>(
+                    StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
+                StdlibFF::from_witness_index(&builder, constraint.key_hash)));
+        }
+        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+        ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
+
+        // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
+        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
+        // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
+        // verifications).
+        for (auto [constraint, queue_entry] :
+             zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {
+
+            // Get the witness indices for the public inputs contained within the proof in the verification queue
+            std::vector<uint32_t> public_input_indices =
+                ProofSurgeon<uint256_t>::get_public_inputs_witness_indices_from_proof(queue_entry.proof,
+                                                                                      constraint.public_inputs.size());
+
+            // Assert equality between the internal public input witness indices and those in the acir constraint
+            for (auto [witness_idx, constraint_witness_idx] :
+                 zip_view(public_input_indices, constraint.public_inputs)) {
+                builder.assert_equal(witness_idx, constraint_witness_idx);
+            }
+        }
+
+        // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
+        ivc->complete_kernel_circuit_logic(builder);
+
+        // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
+        // are handled simultaneously in the above function call; instead we track the total contribution
+        gate_counter.track_diff(constraints.gates_per_opcode,
+                                constraints.original_opcode_indices.pg_recursion_constraints.at(0));
+    };
 
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
-    if (ivc == nullptr) {
-        ivc = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+    if (ivc_base == nullptr) {
+
+        auto mock_ivc = create_mock_sumcheck_ivc_from_constraints(constraints.pg_recursion_constraints);
+        process_with_ivc(mock_ivc);
+    } else {
+        auto sumcheck_ivc = std::static_pointer_cast<SumcheckClientIVC>(ivc_base);
+        process_with_ivc(sumcheck_ivc);
     }
-
-    // We expect the length of the internal verification queue to match the number of ivc recursion constraints
-    BB_ASSERT_EQ(constraints.pg_recursion_constraints.size(),
-                 ivc->verification_queue.size(),
-                 "WARNING: Mismatch in number of recursive verifications during kernel creation!");
-
-    // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
-    // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
-    if (!has_valid_witness_assignments) {
-        // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        for (auto [constraint, queue_entry] : zip_view(constraints.pg_recursion_constraints, ivc->verification_queue)) {
-            populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
-            builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
-        }
-    }
-
-    // Construct a stdlib verification key for each constraint based on the verification key witness indices therein
-    std::vector<std::shared_ptr<StdlibVKAndHash>> stdlib_vk_and_hashs;
-    stdlib_vk_and_hashs.reserve(constraints.pg_recursion_constraints.size());
-    for (const auto& constraint : constraints.pg_recursion_constraints) {
-        stdlib_vk_and_hashs.push_back(
-            std::make_shared<StdlibVKAndHash>(std::make_shared<StdlibVerificationKey>(
-                                                  StdlibVerificationKey::from_witness_indices(builder, constraint.key)),
-                                              StdlibFF::from_witness_index(&builder, constraint.key_hash)));
-    }
-    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
-
-    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
-    // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
-    // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
-    for (auto [constraint, queue_entry] :
-         zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {
-
-        // Get the witness indices for the public inputs contained within the proof in the verification queue
-        std::vector<uint32_t> public_input_indices =
-            ProofSurgeon<uint256_t>::get_public_inputs_witness_indices_from_proof(queue_entry.proof,
-                                                                                  constraint.public_inputs.size());
-
-        // Assert equality between the internal public input witness indices and those in the acir constraint
-        for (auto [witness_idx, constraint_witness_idx] : zip_view(public_input_indices, constraint.public_inputs)) {
-            builder.assert_equal(witness_idx, constraint_witness_idx);
-        }
-    }
-
-    // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-    ivc->complete_kernel_circuit_logic(builder);
-
-    // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
-    // are handled simultaneously in the above function call; instead we track the total contribution
-    gate_counter.track_diff(constraints.gates_per_opcode,
-                            constraints.original_opcode_indices.pg_recursion_constraints.at(0));
 }
 
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
@@ -625,7 +636,6 @@ process_civc_recursion_constraints(Builder& builder,
     return output;
 }
 
-#ifndef DISABLE_AZTEC_VM
 [[nodiscard("IPA claim and Pairing points should be accumulated")]] HonkRecursionConstraintsOutput<Builder>
 process_avm_recursion_constraints(Builder& builder,
                                   AcirFormat& constraint_system,
@@ -647,7 +657,6 @@ process_avm_recursion_constraints(Builder& builder,
     }
     return output;
 }
-#endif // DISABLE_AZTEC_VM
 
 /**
  * @brief Specialization for creating an Ultra circuit from an acir program
@@ -661,7 +670,7 @@ template <> UltraCircuitBuilder create_circuit(AcirProgram& program, const Progr
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum, metadata.recursive };
+    Builder builder{ metadata.size_hint, witness, constraints.public_inputs, constraints.varnum };
 
     build_constraints(builder, program, metadata);
 
@@ -682,7 +691,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
+    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->get_goblin().op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };

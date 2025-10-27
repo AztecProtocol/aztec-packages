@@ -7,6 +7,7 @@
 #include "pedersen.hpp"
 #include "barretenberg/crypto/pedersen_hash/pedersen.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/stdlib/primitives/field/field_utils.hpp"
 namespace bb::stdlib {
 
 using namespace bb;
@@ -44,7 +45,10 @@ field_t<Builder> pedersen_hash<Builder>::hash(const std::vector<field_ct>& input
     }
 
     auto result = cycle_group::batch_mul(points, scalars);
-    return result.x;
+    // pedersen hash doesn't use y coordinate of result anymore in the circuit except for hashing
+    // so we can put result.y in used_witnesses
+    mark_witness_as_used(result.y());
+    return result.x();
 }
 
 template class pedersen_hash<bb::UltraCircuitBuilder>;

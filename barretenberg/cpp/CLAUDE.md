@@ -4,7 +4,7 @@ THE PROJECT ROOT IS AT TWO LEVELS ABOVE THIS FOLDER. Typically, the repository i
 
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
-You can use DISABLE_AVM=1 to bootstrap things generally.
+You can use DISABLE_AZTEC_VM=1 to bootstrap things generally.
 
 # Working on modules:
 
@@ -15,7 +15,7 @@ The core proving system library. Focus development is in barretenberg/cpp.
 Bootstrap modes:
 - `./bootstrap.sh` => full build, needed for other components
 - `./bootstrap.sh build` => standard build
-- `DISABLE_AVM=1 ./bootstrap.sh build_native` => quick build without AVM. Good for verifying compilation works. Needed to build ts/
+- `DISABLE_AZTEC_VM=1 ./bootstrap.sh build_native` => quick build without AVM. Good for verifying compilation works. Needed to build ts/
 Development commands:
 - cmake --preset build-no-avm
   cd build-no-avm

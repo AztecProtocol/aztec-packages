@@ -128,6 +128,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
     assert(bytecode.length > 0, "AVM simulator can't execute empty bytecode");
 
     this.bytecode = bytecode;
+    let instructionName = 'NONE'; // This is used for logging purposes
 
     const { machineState } = this.context;
     const callStartGas = machineState.gasLeft; // Save gas before executing instruction (for profiling)
@@ -156,6 +157,7 @@ export class AvmSimulator implements AvmSimulatorInterface {
         }
         machineState.nextPc = machineState.pc + bytesRead;
 
+        instructionName = instruction.constructor.name;
         // Execute the instruction.
         // Normal returns and reverts will return normally here.
         // "Exceptional halts" will throw.
@@ -204,7 +206,10 @@ export class AvmSimulator implements AvmSimulatorInterface {
       // Return results for processing by calling context
       return results;
     } catch (err: any) {
-      this.log.verbose('Exceptional halt (revert by something other than REVERT opcode)');
+      this.log.info(
+        `Exceptional halt (revert by something other than REVERT opcode) for instruction
+         ${instructionName} at pc ${machineState.pc} and instruction counter ${machineState.instrCounter}`,
+      );
       if (!(err instanceof CheckedPublicExecutionError)) {
         this.log.error(`Unchecked/unknown error thrown by AVM. This is a bug. Error: ${err}`);
         throw err;

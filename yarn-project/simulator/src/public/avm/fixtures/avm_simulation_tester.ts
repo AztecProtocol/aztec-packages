@@ -37,9 +37,11 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     super(contractDataSource, merkleTrees);
   }
 
-  static async create(): Promise<AvmSimulationTester> {
+  static async create(
+    worldStateService: NativeWorldStateService, // make sure to close this later
+  ): Promise<AvmSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    const merkleTrees = await worldStateService.fork();
     const treesDB = new PublicTreesDB(merkleTrees);
     const contractsDB = new PublicContractsDB(contractDataSource);
     const trace = new SideEffectTrace();

@@ -112,8 +112,8 @@ TEST(UltraCircuitBuilder, BadLookupFailure)
 
     // Erroneously set a non-zero wire value to zero in one of the lookup gates
     for (auto& wire_3_witness_idx : builder.blocks.lookup.w_o()) {
-        if (wire_3_witness_idx != builder.zero_idx) {
-            wire_3_witness_idx = builder.zero_idx;
+        if (wire_3_witness_idx != builder.zero_idx()) {
+            wire_3_witness_idx = builder.zero_idx();
             break;
         }
     }
@@ -179,6 +179,37 @@ TEST(UltraCircuitBuilder, TestEllipticGate)
     EXPECT_EQ(CircuitChecker::check(builder), false);
 }
 
+TEST(UltraCircuitBuilder, TestEllipticGateFailure)
+{
+    typedef grumpkin::g1::affine_element affine_element;
+    typedef grumpkin::g1::element element;
+    UltraCircuitBuilder builder = UltraCircuitBuilder();
+
+    // Create two valid points on the curve
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 1);
+
+    // Compute the correct sum
+    affine_element p3_correct(element(p1) + element(p2));
+
+    // Create a point not on the curve by modifying p2's x-coordinate
+    bb::fr invalid_x = p2.x + bb::fr(1);
+
+    uint32_t x1 = builder.add_variable(p1.x);
+    uint32_t y1 = builder.add_variable(p1.y);
+    uint32_t x2_invalid = builder.add_variable(invalid_x); // Invalid x coordinate
+    uint32_t y2 = builder.add_variable(p2.y);
+    uint32_t x3 = builder.add_variable(p3_correct.x);
+    uint32_t y3 = builder.add_variable(p3_correct.y);
+
+    // Construct addition gate with a point not on the curve
+    builder.create_ecc_add_gate({ x1, y1, x2_invalid, y2, x3, y3, 1 });
+
+    // CircuitChecker should fail in the elliptic relation
+    bool result = CircuitChecker::check(builder);
+    EXPECT_EQ(result, false);
+}
+
 TEST(UltraCircuitBuilder, TestEllipticDoubleGate)
 {
     typedef grumpkin::g1::affine_element affine_element;
@@ -210,8 +241,8 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutation)
     auto c_idx = builder.add_variable(b);
     auto d_idx = builder.add_variable(a);
 
-    builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
-    builder.create_add_gate({ c_idx, d_idx, builder.zero_idx, fr::one(), fr::one(), fr::zero(), fr::zero() });
+    builder.create_add_gate({ a_idx, b_idx, builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
+    builder.create_add_gate({ c_idx, d_idx, builder.zero_idx(), fr::one(), fr::one(), fr::zero(), fr::zero() });
 
     builder.create_tag(1, 2);
     builder.create_tag(2, 1);
@@ -256,9 +287,9 @@ TEST(UltraCircuitBuilder, NonTrivialTagPermutationAndCycles)
     builder.assign_tag(e_idx, 2);
     builder.assign_tag(g_idx, 2);
 
-    builder.create_add_gate({ b_idx, a_idx, builder.zero_idx, fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
-    builder.create_add_gate({ c_idx, g_idx, builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
-    builder.create_add_gate({ e_idx, f_idx, builder.zero_idx, fr::one(), -fr::one(), fr::zero(), fr::zero() });
+    builder.create_add_gate({ b_idx, a_idx, builder.zero_idx(), fr::one(), fr::neg_one(), fr::zero(), fr::zero() });
+    builder.create_add_gate({ c_idx, g_idx, builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
+    builder.create_add_gate({ e_idx, f_idx, builder.zero_idx(), fr::one(), -fr::one(), fr::zero(), fr::zero() });
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -278,8 +309,8 @@ TEST(UltraCircuitBuilder, BadTagPermutation)
     auto c_idx = builder.add_variable(b);
     auto d_idx = builder.add_variable(a + 1);
 
-    builder.create_add_gate({ a_idx, b_idx, builder.zero_idx, 1, 1, 0, 0 });
-    builder.create_add_gate({ c_idx, d_idx, builder.zero_idx, 1, 1, 0, -1 });
+    builder.create_add_gate({ a_idx, b_idx, builder.zero_idx(), 1, 1, 0, 0 });
+    builder.create_add_gate({ c_idx, d_idx, builder.zero_idx(), 1, 1, 0, -1 });
 
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
@@ -431,7 +462,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
             builder.create_new_range_constraint(indices[i], 3);
         }
         // auto ind = {a_idx,b_idx,c_idx,d_idx,e_idx,f_idx,g_idx,h_idx};
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -452,7 +483,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 128);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -463,7 +494,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
@@ -474,7 +505,7 @@ TEST(UltraCircuitBuilder, RangeConstraint)
         for (size_t i = 0; i < indices.size(); i++) {
             builder.create_new_range_constraint(indices[i], 79);
         }
-        builder.create_dummy_constraints(indices);
+        builder.create_unconstrained_gates(indices);
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, false);
     }
@@ -488,10 +519,10 @@ TEST(UltraCircuitBuilder, RangeWithGates)
         builder.create_new_range_constraint(idx[i], 8);
     }
 
-    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -3 });
-    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -7 });
-    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
-    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
+    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
+    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
@@ -504,10 +535,10 @@ TEST(UltraCircuitBuilder, RangeWithGatesWhereRangeIsNotAPowerOfTwo)
         builder.create_new_range_constraint(idx[i], 12);
     }
 
-    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -3 });
-    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -7 });
-    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -11 });
-    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx, fr::one(), fr::one(), fr::zero(), -15 });
+    builder.create_add_gate({ idx[0], idx[1], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -3 });
+    builder.create_add_gate({ idx[2], idx[3], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -7 });
+    builder.create_add_gate({ idx[4], idx[5], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -11 });
+    builder.create_add_gate({ idx[6], idx[7], builder.zero_idx(), fr::one(), fr::one(), fr::zero(), -15 });
     bool result = CircuitChecker::check(builder);
     EXPECT_EQ(result, true);
 }
@@ -565,7 +596,7 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     auto d = uint256_t(c).slice(0, 133);
     auto e = fr(d);
     auto a_idx = builder.add_variable(fr(e));
-    builder.create_add_gate({ a_idx, builder.zero_idx, builder.zero_idx, 1, 0, 0, -fr(e) });
+    builder.create_add_gate({ a_idx, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -fr(e) });
     builder.decompose_into_default_range(a_idx, 134);
 
     // odd num bits - divisible by 3
@@ -573,7 +604,7 @@ TEST(UltraCircuitBuilder, ComposedRangeConstraint)
     auto d_1 = uint256_t(c_1).slice(0, 126);
     auto e_1 = fr(d_1);
     auto a_idx_1 = builder.add_variable(fr(e_1));
-    builder.create_add_gate({ a_idx_1, builder.zero_idx, builder.zero_idx, 1, 0, 0, -fr(e_1) });
+    builder.create_add_gate({ a_idx_1, builder.zero_idx(), builder.zero_idx(), 1, 0, 0, -fr(e_1) });
     builder.decompose_into_default_range(a_idx_1, 127);
 
     bool result = CircuitChecker::check(builder);
@@ -697,7 +728,7 @@ TEST(UltraCircuitBuilder, NonNativeFieldMultiplicationRegression)
 
     // Range check the carry (output) lo and hi limbs
     const bool is_high_70_bits = uint256_t(builder.get_variable(hi_1_idx)).get_msb() < 70;
-    ASSERT(is_high_70_bits == false); // Regression should hit this case
+    BB_ASSERT(is_high_70_bits == false); // Regression should hit this case
 
     // Decompose into default range: these should work even if the limbs are > 2^70
     builder.decompose_into_default_range(lo_1_idx, 72);
@@ -825,9 +856,9 @@ TEST(UltraCircuitBuilder, RamSimple)
     // Use the result in a simple arithmetic gate
     builder.create_big_add_gate({
         a_idx,
-        builder.zero_idx,
-        builder.zero_idx,
-        builder.zero_idx,
+        builder.zero_idx(),
+        builder.zero_idx(),
+        builder.zero_idx(),
         -1,
         0,
         0,
@@ -886,9 +917,9 @@ TEST(UltraCircuitBuilder, Ram)
         true);
     builder.create_big_add_gate(
         {
-            builder.zero_idx,
-            builder.zero_idx,
-            builder.zero_idx,
+            builder.zero_idx(),
+            builder.zero_idx(),
+            builder.zero_idx(),
             e_idx,
             0,
             0,
@@ -952,9 +983,9 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
     uint32_t b = builder.add_variable(0xbeef);
     // Let's create 2 gates that will bind these 2 variables to be one these two values
     builder.create_poly_gate(
-        { a, a, builder.zero_idx, fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
+        { a, a, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
     builder.create_poly_gate(
-        { b, b, builder.zero_idx, fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
+        { b, b, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
 
     // We can check if this works
     EXPECT_EQ(CircuitChecker::check(builder), true);

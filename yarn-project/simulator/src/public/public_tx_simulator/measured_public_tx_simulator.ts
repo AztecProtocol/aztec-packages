@@ -16,11 +16,12 @@ import {
   PublicTxSimulator,
   type PublicTxSimulatorConfig,
 } from './public_tx_simulator.js';
+import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 /**
  * A public tx simulator that tracks miscellaneous simulation metrics without telemetry.
  */
-export class MeasuredPublicTxSimulator extends PublicTxSimulator {
+export class MeasuredPublicTxSimulator extends PublicTxSimulator implements MeasuredPublicTxSimulatorInterface {
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,

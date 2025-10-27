@@ -1,7 +1,6 @@
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/protogalaxy/protogalaxy_prover_internal.hpp" // just for an alias; should perhaps move to prover
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include <benchmark/benchmark.h>
 
@@ -31,7 +30,7 @@ void execute_relation(::benchmark::State& state)
     }
 }
 
-// Single execution of relation on values (FF), e.g. Sumcheck verifier / PG perturbator work
+// Single execution of relation on values (FF), e.g. Sumcheck verifier work
 template <typename Flavor, typename Relation> void execute_relation_for_values(::benchmark::State& state)
 {
     using Input = typename Flavor::AllValues;
@@ -48,31 +47,6 @@ template <typename Flavor, typename Relation> void execute_relation_for_univaria
 
     execute_relation<Flavor, Relation, Input, Accumulator>(state);
 }
-
-// Single execution of relation on PG univariates, i.e. PG combiner work
-template <typename Flavor, typename Relation> void execute_relation_for_pg_univariates(::benchmark::State& state)
-{
-    using ProverInstance = ProverInstance_<Flavor>;
-    using Input = ProtogalaxyProverInternal<ProverInstance>::ExtendedUnivariates;
-    using Accumulator = typename Relation::template ProtogalaxyTupleOfUnivariatesOverSubrelations<NUM_INSTANCES>;
-
-    execute_relation<Flavor, Relation, Input, Accumulator>(state);
-}
-
-// Ultra relations (PG prover combiner work)
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, DeltaRangeConstraintRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, EllipticRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, MemoryRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, NonNativeFieldRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, LogDerivLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<UltraFlavor, UltraPermutationRelation<Fr>>);
-
-// Goblin-Ultra only relations (PG prover combiner work)
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, EccOpQueueRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, DatabusLookupRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2ExternalRelation<Fr>>);
-BENCHMARK(execute_relation_for_pg_univariates<MegaFlavor, Poseidon2InternalRelation<Fr>>);
 
 // Ultra relations (Sumcheck prover work)
 BENCHMARK(execute_relation_for_univariates<UltraFlavor, UltraArithmeticRelation<Fr>>);

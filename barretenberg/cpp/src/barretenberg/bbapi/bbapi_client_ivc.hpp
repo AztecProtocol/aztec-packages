@@ -1,13 +1,13 @@
 #pragma once
 /**
  * @file bbapi_client_ivc.hpp
- * @brief ClientIVC-specific command definitions for the Barretenberg RPC API.
+ * @brief SumcheckClientIVC-specific command definitions for the Barretenberg RPC API.
  *
- * This file contains command structures for ClientIVC (Client-side Incrementally Verifiable Computation)
+ * This file contains command structures for SumcheckClientIVC (Client-side Incrementally Verifiable Computation)
  * operations including circuit loading, accumulation, proving, and verification key computation.
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
@@ -17,7 +17,7 @@ namespace bb::bbapi {
 
 /**
  * @struct ClientIvcStart
- * @brief Initialize a new ClientIVC instance for incremental proof accumulation
+ * @brief Initialize a new SumcheckClientIVC instance for incremental proof accumulation
  *
  * @note Only one IVC request can be made at a time for each batch_request.
  */
@@ -43,7 +43,7 @@ struct ClientIvcStart {
 
 /**
  * @struct ClientIvcLoad
- * @brief Load a circuit into the ClientIVC instance for accumulation
+ * @brief Load a circuit into the SumcheckClientIVC instance for accumulation
  */
 struct ClientIvcLoad {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcLoad";
@@ -106,7 +106,7 @@ struct ClientIvcProve {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcProveResponse";
 
         /** @brief Complete IVC proof for all accumulated circuits */
-        ClientIVC::Proof proof;
+        SumcheckClientIVC::Proof proof;
         MSGPACK_FIELDS(proof);
         bool operator==(const Response&) const = default;
     };
@@ -117,7 +117,7 @@ struct ClientIvcProve {
 
 /**
  * @struct ClientIvcVerify
- * @brief Verify a ClientIVC proof with its verification key
+ * @brief Verify a SumcheckClientIVC proof with its verification key
  */
 struct ClientIvcVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcVerify";
@@ -135,8 +135,8 @@ struct ClientIvcVerify {
         bool operator==(const Response&) const = default;
     };
 
-    /** @brief The ClientIVC proof to verify */
-    ClientIVC::Proof proof;
+    /** @brief The SumcheckClientIVC proof to verify */
+    SumcheckClientIVC::Proof proof;
     /** @brief The verification key */
     std::vector<uint8_t> vk;
     Response execute(const BBApiRequest& request = {}) &&;
@@ -167,7 +167,7 @@ struct ClientIvcComputeStandaloneVk {
     };
 
     CircuitInputNoVK circuit;
-    Response execute(const BBApiRequest& request = {}) &&;
+    Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
     MSGPACK_FIELDS(circuit);
     bool operator==(const ClientIvcComputeStandaloneVk&) const = default;
 };

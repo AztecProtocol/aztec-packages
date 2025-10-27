@@ -11,23 +11,27 @@ use crate::{
     },
 };
 
+// Used by `create_mark_as_initialized` (you won't find it through searching)
 pub fn mark_as_initialized_public(context: &mut PublicContext) {
     let init_nullifier =
         compute_unsiloed_contract_initialization_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
+// Used by `create_mark_as_initialized` (you won't find it through searching)
 pub fn mark_as_initialized_private(context: &mut PrivateContext) {
     let init_nullifier =
         compute_unsiloed_contract_initialization_nullifier((*context).this_address());
     context.push_nullifier(init_nullifier);
 }
 
+// Used by `create_init_check` (you won't find it through searching)
 pub fn assert_is_initialized_public(context: &mut PublicContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
     assert(context.nullifier_exists(init_nullifier, context.this_address()), "Not initialized");
 }
 
+// Used by `create_init_check` (you won't find it through searching)
 pub fn assert_is_initialized_private(context: &mut PrivateContext) {
     let init_nullifier = compute_unsiloed_contract_initialization_nullifier(context.this_address());
     context.push_nullifier_read_request(init_nullifier);
@@ -37,6 +41,7 @@ fn compute_unsiloed_contract_initialization_nullifier(address: AztecAddress) -> 
     address.to_field()
 }
 
+// Used by `create_assert_correct_initializer_args` (you won't find it through searching)
 pub fn assert_initialization_matches_address_preimage_public(context: PublicContext) {
     let address = context.this_address();
     let deployer = get_contract_instance_deployer_avm(address).unwrap();
@@ -44,18 +49,19 @@ pub fn assert_initialization_matches_address_preimage_public(context: PublicCont
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (deployer.is_zero()) | (deployer == context.msg_sender()),
+        (deployer.is_zero()) | (deployer == context.msg_sender().unwrap()),
         "Initializer address is not the contract deployer",
     );
 }
 
+// Used by `create_assert_correct_initializer_args` (you won't find it through searching)
 pub fn assert_initialization_matches_address_preimage_private(context: PrivateContext) {
     let address = context.this_address();
     let instance = get_contract_instance(address);
     let expected_init = compute_initialization_hash(context.selector(), context.get_args_hash());
     assert(instance.initialization_hash == expected_init, "Initialization hash does not match");
     assert(
-        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender()),
+        (instance.deployer.is_zero()) | (instance.deployer == context.msg_sender().unwrap()),
         "Initializer address is not the contract deployer",
     );
 }

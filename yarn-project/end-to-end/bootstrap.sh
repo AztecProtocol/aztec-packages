@@ -6,6 +6,13 @@ cmd=${1:-}
 hash=$(../bootstrap.sh hash)
 bench_fixtures_dir=example-app-ivc-inputs-out
 
+# Helper function to extract test names from a test file
+function extract_test_names {
+  local test_file="$1"
+  grep -oP "(it|test)\s*\(\s*['\"].*?['\"]" "$test_file" | \
+    sed -E "s/(it|test)\s*\(\s*['\"](.+)['\"]/\2/"
+}
+
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1"
@@ -35,7 +42,19 @@ function test_cmds {
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
-    echo "$prefix:NAME=$name $run_test_script simple $test"
+
+    # Check if this is a .parallel.test.ts file
+    if [[ "$test" == *.parallel.test.ts ]]; then
+      # Extract individual test names and create a command for each
+      while IFS= read -r test_name; do
+        # Create a safe name for the individual test (replace spaces with underscores)
+        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        echo "$prefix:NAME=${name}_${safe_test_name} $run_test_script simple $test \"$test_name\""
+      done < <(extract_test_names "$test")
+    else
+      # Regular test file - run the whole file
+      echo "$prefix:NAME=$name $run_test_script simple $test"
+    fi
   done
 
   # compose-based tests (use running sandbox)

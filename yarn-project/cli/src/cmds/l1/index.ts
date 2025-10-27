@@ -94,6 +94,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -112,6 +113,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.json,
         initialValidators,
         options.realVerifier,
+        options.createVerificationJson,
         log,
         debugLogger,
       );
@@ -523,38 +525,6 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .action(async options => {
       const { advanceEpoch } = await import('./advance_epoch.js');
       await advanceEpoch(options.l1RpcUrls, options.nodeUrl, log);
-    });
-
-  program
-    .command('prover-stats', { hidden: true })
-    .addOption(l1RpcUrlsOption)
-    .addOption(l1ChainIdOption)
-    .option('--start-block <number>', 'The L1 block number to start from', parseBigint, 1n)
-    .option('--end-block <number>', 'The last L1 block number to query', parseBigint)
-    .option('--batch-size <number>', 'The number of blocks to query in each batch', parseBigint, 100n)
-    .option('--proving-timeout <number>', 'Cutoff for proving time to consider a block', parseBigint)
-    .option('--l1-rollup-address <string>', 'Address of the rollup contract (required if node URL is not set)')
-    .option(
-      '--node-url <string>',
-      'JSON RPC URL of an Aztec node to retrieve the rollup contract address (required if L1 rollup address is not set)',
-    )
-    .option('--raw-logs', 'Output raw logs instead of aggregated stats')
-    .action(async options => {
-      const { proverStats } = await import('./prover_stats.js');
-      const { l1RpcUrls, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout, rawLogs } =
-        options;
-      await proverStats({
-        l1RpcUrls,
-        chainId,
-        l1RollupAddress,
-        startBlock,
-        endBlock,
-        batchSize,
-        nodeUrl,
-        provingTimeout,
-        rawLogs,
-        log,
-      });
     });
 
   return program;

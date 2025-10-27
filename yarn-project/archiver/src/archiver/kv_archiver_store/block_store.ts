@@ -66,6 +66,12 @@ export class BlockStore {
   /** Index mapping a contract's address (as a string) to its location in a block */
   #contractIndex: AztecAsyncMap<string, BlockIndexValue>;
 
+  /** Index mapping block hash to block number */
+  #blockHashIndex: AztecAsyncMap<string, number>;
+
+  /** Index mapping block archive to block number */
+  #blockArchiveIndex: AztecAsyncMap<string, number>;
+
   #log = createLogger('archiver:block_store');
 
   constructor(private db: AztecAsyncKVStore) {
@@ -73,6 +79,8 @@ export class BlockStore {
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
     this.#contractIndex = db.openMap('archiver_contract_index');
+    this.#blockHashIndex = db.openMap('archiver_block_hash_index');
+    this.#blockArchiveIndex = db.openMap('archiver_block_archive_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
@@ -132,6 +140,10 @@ export class BlockStore {
           blockHash.toString(),
           Buffer.concat(block.block.body.txEffects.map(tx => tx.txHash.toBuffer())),
         );
+
+        // Update indices for block hash and archive
+        await this.#blockHashIndex.set(blockHash.toString(), block.block.number);
+        await this.#blockArchiveIndex.set(block.block.archive.root.toString(), block.block.number);
       }
 
       await this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -170,6 +182,11 @@ export class BlockStore {
         await Promise.all(block.block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
         const blockHash = (await block.block.hash()).toString();
         await this.#blockTxs.delete(blockHash);
+
+        // Clean up indices
+        await this.#blockHashIndex.delete(blockHash);
+        await this.#blockArchiveIndex.delete(block.block.archive.root.toString());
+
         this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
       }
 
@@ -203,6 +220,66 @@ export class BlockStore {
       return Promise.resolve(undefined);
     }
     return this.getBlockFromBlockStorage(blockNumber, blockStorage);
+  }
+
+  /**
+   * Gets an L2 block by its hash.
+   * @param blockHash - The hash of the block to return.
+   * @returns The requested L2 block.
+   */
+  async getBlockByHash(blockHash: L2BlockHash): Promise<PublishedL2Block | undefined> {
+    const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlock(blockNumber);
+  }
+
+  /**
+   * Gets an L2 block by its archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested L2 block.
+   */
+  async getBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlock(blockNumber);
+  }
+
+  /**
+   * Gets a block header by its hash.
+   * @param blockHash - The hash of the block to return.
+   * @returns The requested block header.
+   */
+  async getBlockHeaderByHash(blockHash: L2BlockHash): Promise<BlockHeader | undefined> {
+    const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
+  }
+
+  /**
+   * Gets a block header by its archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested block header.
+   */
+  async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
   }
 
   /**

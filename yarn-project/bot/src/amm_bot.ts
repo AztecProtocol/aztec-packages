@@ -1,9 +1,12 @@
-import { AztecAddress, Fr, SentTx, TxReceipt } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
@@ -84,12 +87,9 @@ export class AmmBot extends BaseBot {
 
     const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
 
-    this.log.verbose(`Proving transaction`, logCtx);
-    const tx = await swapExactTokensInteraction.prove(opts);
-
+    this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-
-    return tx.send();
+    return swapExactTokensInteraction.send(opts);
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {

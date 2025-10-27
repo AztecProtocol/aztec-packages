@@ -286,7 +286,7 @@ The following code will no longer work since `notes` is no longer available on t
 const valueNoteTypeId = StatefulTestContractArtifact.notes['ValueNote'].id;
 ```
 
-## [core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
+## [Core protocol, Aztec.nr, Aztec.js] Max block number property changed to be seconds based
 
 ### `max_block_number` -> `include_by_timestamp`
 
@@ -345,7 +345,9 @@ The protocol circuits compute the `include_by_timestamp` for contract updates du
 
 No client-side changes are required. However, please note that transactions now have a maximum lifespan of 24 hours and will be removed from the transaction pool once expired.
 
-## 0.88.0
+---
+
+# 0.88.0
 
 ## [Aztec.nr] Deprecation of the `authwit` library
 
@@ -362,7 +364,9 @@ and stale dependencies removed from `Nargo.toml`
 -authwit = { path = "../../../../aztec-nr/authwit" }
 ```
 
-## 0.87.0
+---
+
+# 0.87.0
 
 ## [Aztec.js/TS libraries]
 

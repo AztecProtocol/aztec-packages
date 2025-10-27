@@ -1,93 +1,90 @@
-import type { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { IndexedTaggingSecret } from '@aztec/stdlib/logs';
+import type { DirectionalAppTaggingSecret, PreTag } from '@aztec/stdlib/logs';
 
 export class TaggingDataProvider {
   #store: AztecAsyncKVStore;
   #addressBook: AztecAsyncMap<string, true>;
 
-  // Stores the last index used for each tagging secret, taking direction into account
-  // This is necessary to avoid reusing the same index for the same secret, which happens if
-  // sender and recipient are the same
-  #taggingSecretIndexesForSenders: AztecAsyncMap<string, number>;
-  #taggingSecretIndexesForRecipients: AztecAsyncMap<string, number>;
+  // Stores the last used index for each directional app tagging secret. Taking into account whether we are
+  // requesting the index as a sender or as a recipient because the sender and recipient can be in the same PXE.
+  #lastUsedIndexesAsSenders: AztecAsyncMap<string, number>;
+  #lastUsedIndexesAsRecipients: AztecAsyncMap<string, number>;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
     this.#addressBook = this.#store.openMap('address_book');
 
-    this.#taggingSecretIndexesForSenders = this.#store.openMap('tagging_secret_indexes_for_senders');
-    this.#taggingSecretIndexesForRecipients = this.#store.openMap('tagging_secret_indexes_for_recipients');
-  }
-
-  setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[], sender: AztecAddress) {
-    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders, sender);
-  }
-
-  setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[], recipient: AztecAddress) {
-    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients, recipient);
+    this.#lastUsedIndexesAsSenders = this.#store.openMap('last_used_indexes_as_senders');
+    this.#lastUsedIndexesAsRecipients = this.#store.openMap('last_used_indexes_as_recipients');
   }
 
   /**
-   * Sets the indexes of the tagging secrets for the given app tagging secrets in the direction of the given address.
-   * @dev We need to specify the direction because app tagging secrets are direction-less due to the way they are generated
-   * but we need to guarantee that the index is stored under a uni-directional key because the tags are themselves
-   * uni-directional.
-   * @param indexedSecrets - The app tagging secrets and indexes to set.
-   * @param storageMap - The storage map to set the indexes in.
-   * @param inDirectionOf - The address that the secrets are in the direction of.
+   * Sets the last used indexes when sending a log.
+   * @param preTags - The pre tags containing the directional app tagging secrets and the indexes that are to be
+   * updated in the db.
+   * @throws If any two pre tags contain the same directional app tagging secret
    */
-  #setTaggingSecretsIndexes(
-    indexedSecrets: IndexedTaggingSecret[],
-    storageMap: AztecAsyncMap<string, number>,
-    inDirectionOf: AztecAddress,
-  ) {
+  setLastUsedIndexesAsSender(preTags: PreTag[]) {
+    this.#assertUniqueSecrets(preTags, 'sender');
+
     return Promise.all(
-      indexedSecrets.map(indexedSecret =>
-        storageMap.set(`${indexedSecret.appTaggingSecret.toString()}_${inDirectionOf.toString()}`, indexedSecret.index),
-      ),
+      preTags.map(({ secret, index }) => this.#lastUsedIndexesAsSenders.set(secret.toString(), index)),
     );
-  }
-
-  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[], recipient: AztecAddress) {
-    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients, recipient);
-  }
-
-  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[], sender: AztecAddress) {
-    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders, sender);
   }
 
   /**
-   * Returns the indexes of the tagging secrets for the given app tagging secrets in the direction of the given address.
-   * @dev We need to specify the direction because app tagging secrets are direction-less due to the way they are generated
-   * but we need to guarantee that the index is stored under a uni-directional key because the tags are themselves
-   * uni-directional.
-   * @param appTaggingSecrets - The app tagging secrets to get the indexes for.
-   * @param storageMap - The storage map to get the indexes from.
-   * @param inDirectionOf - The address that the secrets are in the direction of.
-   * @returns The indexes of the tagging secrets.
+   * Sets the last used indexes when looking for logs.
+   * @param preTags - The pre tags containing the directional app tagging secrets and the indexes that are to be
+   * updated in the db.
+   * @throws If any two pre tags contain the same directional app tagging secret
    */
-  #getTaggingSecretsIndexes(
-    appTaggingSecrets: Fr[],
-    storageMap: AztecAsyncMap<string, number>,
-    inDirectionOf: AztecAddress,
-  ): Promise<number[]> {
+  setLastUsedIndexesAsRecipient(preTags: PreTag[]) {
+    this.#assertUniqueSecrets(preTags, 'recipient');
+
     return Promise.all(
-      appTaggingSecrets.map(
-        async secret => (await storageMap.getAsync(`${secret.toString()}_${inDirectionOf.toString()}`)) ?? 0,
-      ),
+      preTags.map(({ secret, index }) => this.#lastUsedIndexesAsRecipients.set(secret.toString(), index)),
     );
+  }
+
+  // It should never happen that we would receive any two pre tags on the input containing the same directional app
+  // tagging secret as everywhere we always just apply the largest index. Hence this check is a good way to catch
+  // bugs.
+  #assertUniqueSecrets(preTags: PreTag[], role: 'sender' | 'recipient'): void {
+    const secretStrings = preTags.map(({ secret }) => secret.toString());
+    const uniqueSecrets = new Set(secretStrings);
+    if (uniqueSecrets.size !== secretStrings.length) {
+      throw new Error(`Duplicate secrets found when setting last used indexes as ${role}`);
+    }
+  }
+
+  /**
+   * Returns the last used index when sending a log with a given secret.
+   * @param secret - The directional app tagging secret.
+   * @returns The last used index for the given directional app tagging secret, or undefined if not found.
+   */
+  async getLastUsedIndexesAsSender(secret: DirectionalAppTaggingSecret): Promise<number | undefined> {
+    return await this.#lastUsedIndexesAsSenders.getAsync(secret.toString());
+  }
+
+  /**
+   * Returns the last used indexes when looking for logs as a recipient.
+   * @param secrets - The directional app tagging secrets to obtain the indexes for.
+   * @returns The last used indexes for the given directional app tagging secrets, or undefined if have never yet found
+   * a log for a given secret.
+   */
+  getLastUsedIndexesAsRecipient(secrets: DirectionalAppTaggingSecret[]): Promise<(number | undefined)[]> {
+    return Promise.all(secrets.map(secret => this.#lastUsedIndexesAsRecipients.getAsync(secret.toString())));
   }
 
   resetNoteSyncData(): Promise<void> {
     return this.#store.transactionAsync(async () => {
-      const recipients = await toArray(this.#taggingSecretIndexesForRecipients.keysAsync());
-      await Promise.all(recipients.map(recipient => this.#taggingSecretIndexesForRecipients.delete(recipient)));
-      const senders = await toArray(this.#taggingSecretIndexesForSenders.keysAsync());
-      await Promise.all(senders.map(sender => this.#taggingSecretIndexesForSenders.delete(sender)));
+      const keysForSenders = await toArray(this.#lastUsedIndexesAsSenders.keysAsync());
+      await Promise.all(keysForSenders.map(secret => this.#lastUsedIndexesAsSenders.delete(secret)));
+      const keysForRecipients = await toArray(this.#lastUsedIndexesAsRecipients.keysAsync());
+      await Promise.all(keysForRecipients.map(secret => this.#lastUsedIndexesAsRecipients.delete(secret)));
     });
   }
 

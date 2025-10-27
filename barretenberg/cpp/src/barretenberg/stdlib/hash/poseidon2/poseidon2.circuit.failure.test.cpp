@@ -15,7 +15,7 @@ class Poseidon2FailureTests : public ::testing::Test {
     using FF = Flavor::FF;
     using Builder = Flavor::CircuitBuilder;
     using Transcript = Flavor::Transcript;
-    using SubrelationSeparators = Flavor::SubrelationSeparators;
+    using SubrelationSeparator = Flavor::SubrelationSeparator;
     using RelationParameters = RelationParameters<FF>;
 
     void modify_selector(auto& selector)
@@ -83,10 +83,7 @@ class Poseidon2FailureTests : public ::testing::Test {
 
         // Random subrelation separators are needed here to make sure that the sumcheck is failing because of the wrong
         // Poseidon2 selector/witness values.
-        SubrelationSeparators subrelation_separators{};
-        for (auto& alpha : subrelation_separators) {
-            alpha = FF::random_element();
-        }
+        SubrelationSeparator subrelation_separator = FF::random_element();
 
         std::vector<FF> gate_challenges(virtual_log_n);
 
@@ -105,7 +102,7 @@ class Poseidon2FailureTests : public ::testing::Test {
         SumcheckProver sumcheck_prover(prover_instance->dyadic_size(),
                                        prover_instance->polynomials,
                                        prover_transcript,
-                                       subrelation_separators,
+                                       subrelation_separator,
                                        gate_challenges,
                                        relation_parameters,
                                        virtual_log_n);
@@ -114,7 +111,7 @@ class Poseidon2FailureTests : public ::testing::Test {
         auto verifier_transcript = std::make_shared<Transcript>();
         verifier_transcript->load_proof(prover_transcript->export_proof());
 
-        SumcheckVerifier verifier(verifier_transcript, subrelation_separators, virtual_log_n);
+        SumcheckVerifier verifier(verifier_transcript, subrelation_separator, virtual_log_n);
         auto result = verifier.verify(relation_parameters, gate_challenges, std::vector<FF>(virtual_log_n, 1));
         EXPECT_EQ(result.verified, expected_result);
     };

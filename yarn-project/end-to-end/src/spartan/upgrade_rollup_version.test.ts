@@ -1,5 +1,9 @@
 // import { getInitialTestAccounts } from '@aztec/accounts/testing';
-// import { EthAddress, type NodeInfo, type PXE, createCompatibleClient, retryUntil } from '@aztec/aztec.js';
+// import { type PXE, createCompatibleClient } from '@aztec/aztec.js/wallet';
+// import { EthAddress } from '@aztec/aztec.js/addresses';
+// import type { NodeInfo } from '@aztec/aztec.js/node';
+// import { retryUntil } from '@aztec/foundation/retry';
+
 // import {
 //   DefaultL1ContractsConfig,
 //   type L1ContractAddresses,
@@ -12,7 +16,7 @@
 // } from '@aztec/ethereum';
 // import { createLogger } from '@aztec/foundation/log';
 // import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-// import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+// import { protocolContractsHash } from '@aztec/protocol-contracts';
 // import { getGenesisValues } from '@aztec/world-state/testing';
 
 // import type { ChildProcess } from 'child_process';
@@ -87,7 +91,7 @@
 //         {
 //           salt: Math.floor(Math.random() * 1000000),
 //           vkTreeRoot: getVKTreeRoot(),
-//           protocolContractTreeRoot,
+//           protocolContractsHash,
 //           genesisArchiveRoot,
 //           ethereumSlotDuration: 12,
 //           aztecSlotDuration: 24,

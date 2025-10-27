@@ -208,16 +208,14 @@ std::vector<std::pair<Column, FF>> handle_pi_read(TransactionPhase phase, uint32
     auto [read_offset, write_offset, length_offset] = TxPhaseOffsetsTable::get_offsets(phase);
 
     auto remaining_length = phase_length - read_counter;
-    auto remaining_length_inv = remaining_length == 0 ? 0 : FF(remaining_length).invert();
-    auto remaining_length_minus_one_inv = remaining_length - 1 == 0 ? 0 : FF(remaining_length - 1).invert();
 
     return {
         { Column::tx_read_pi_offset, read_offset + read_counter },
         { Column::tx_read_pi_length_offset, length_offset - read_counter },
 
         { Column::tx_remaining_phase_counter, remaining_length },
-        { Column::tx_remaining_phase_inv, remaining_length_inv },
-        { Column::tx_remaining_phase_minus_one_inv, remaining_length_minus_one_inv },
+        { Column::tx_remaining_phase_inv, remaining_length },               // Will be inverted in batch later
+        { Column::tx_remaining_phase_minus_one_inv, remaining_length - 1 }, // Will be inverted in batch later
     };
 }
 
@@ -277,7 +275,7 @@ std::vector<std::pair<Column, FF>> handle_note_hash_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_note_hashes == 0 ? 0 : FF(remaining_note_hashes).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_note_hashes }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_note_hash, phase == TransactionPhase::NR_NOTE_INSERTION },
         { Column::tx_sel_revertible_append_note_hash, phase == TransactionPhase::R_NOTE_INSERTION },
         { Column::tx_should_try_note_hash_append, 1 },
@@ -296,7 +294,7 @@ std::vector<std::pair<Column, FF>> handle_nullifier_append(const simulation::Pri
     return {
         { Column::tx_is_tree_insert_phase, 1 },
         { Column::tx_leaf_value, event.leaf_value },
-        { Column::tx_remaining_side_effects_inv, remaining_nullifiers == 0 ? 0 : FF(remaining_nullifiers).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
         { Column::tx_sel_non_revertible_append_nullifier, phase == TransactionPhase::NR_NULLIFIER_INSERTION },
         { Column::tx_sel_revertible_append_nullifier, phase == TransactionPhase::R_NULLIFIER_INSERTION },
         { Column::tx_should_try_nullifier_append, 1 },
@@ -329,8 +327,7 @@ std::vector<std::pair<Column, FF>> handle_l2_l1_msg_event(const simulation::Priv
         { Column::tx_sel_revertible_append_l2_l1_msg, phase == TransactionPhase::R_L2_TO_L1_MESSAGE },
         { Column::tx_sel_non_revertible_append_l2_l1_msg, phase == TransactionPhase::NR_L2_TO_L1_MESSAGE },
         { Column::tx_should_try_l2_l1_msg_append, 1 },
-        { Column::tx_remaining_side_effects_inv,
-          remaining_l2_to_l1_msgs == 0 ? 0 : FF(remaining_l2_to_l1_msgs).invert() },
+        { Column::tx_remaining_side_effects_inv, remaining_l2_to_l1_msgs }, // Will be inverted in batch later
         { Column::tx_should_l2_l1_msg_append, remaining_l2_to_l1_msgs > 0 },
         { Column::tx_l2_l1_msg_contract_address, event.scoped_msg.contractAddress },
         { Column::tx_l2_l1_msg_recipient, event.scoped_msg.message.recipient },
@@ -402,6 +399,7 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
         { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
         { Column::tx_should_read_gas_used, 1 },
+        { Column::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
         { Column::tx_array_length_note_hashes_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
         { Column::tx_array_length_nullifiers_pi_offset,
@@ -572,6 +570,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     Gas current_gas_limit = startup_event_data.gas_limit;
     Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
     Gas gas_used = startup_event_data.state.gas_used;
+    // Track whether this tx reverted
+    bool tx_reverted = false;
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
@@ -608,6 +608,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
         // We have events to process in this phase
         for (const auto& tx_phase_event : phase_events) {
+            // If this phase is the first revert, set tx_reverted:
+            tx_reverted = tx_reverted || tx_phase_event->reverted;
+
             // We always set the tree state
             trace.set(row, insert_state(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row,
@@ -618,6 +621,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                 { {
                     { C::tx_sel, 1 },
                     { C::tx_discard, discard ? 1 : 0 },
+                    { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                     { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
@@ -687,6 +691,10 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
         // In case we encounter another skip row
         propagated_state = phase_events.back()->state_after;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::tx_remaining_phase_inv, C::tx_remaining_phase_minus_one_inv, C::tx_remaining_side_effects_inv } });
 }
 
 const InteractionDefinition TxTraceBuilder::interactions =
@@ -708,7 +716,6 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_note_hash_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_nullifier_append_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_balance_read_settings, InteractionType::LookupGeneric>()
-        .add<lookup_tx_balance_update_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_write_fee_public_inputs_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_balance_slot_poseidon2_settings, InteractionType::LookupGeneric>()
         .add<lookup_tx_context_public_inputs_note_hash_tree_settings, InteractionType::LookupIntoIndexedByClk>()
@@ -717,6 +724,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,

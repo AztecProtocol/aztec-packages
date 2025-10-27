@@ -56,7 +56,6 @@ For development:
 
 - **Developer Guides** (`/developers/`) - Getting started, tutorials, references
 - **Aztec Concepts** (`/aztec/`) - Core protocol concepts and architecture
-- **Protocol Specs** (`/protocol-specs/`) - Detailed technical specifications
 - **Network Guides** (`/the_aztec_network/`) - Node operation and network participation
 
 ### Versioning System

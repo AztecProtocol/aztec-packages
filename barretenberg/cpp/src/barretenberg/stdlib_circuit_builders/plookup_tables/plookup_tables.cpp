@@ -19,138 +19,120 @@
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_output.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp"
-#include <mutex>
 namespace bb::plookup {
 
 using namespace bb;
 
 namespace {
-// TODO(@zac-williamson) convert these into static const members of a struct
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES;
-// NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-bool initialized = false;
-#ifndef NO_MULTITHREADING
-
-// The multitables initialisation procedure is not thread-safe, so we need to make sure only 1 thread gets to initialize
-// them.
-std::mutex multi_table_mutex;
-#endif
-void init_multi_tables()
+std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES>& get_multi_tables()
 {
-#ifndef NO_MULTITHREADING
-    std::unique_lock<std::mutex> lock(multi_table_mutex);
-#endif
-    if (initialized) {
-        return;
-    }
-    MULTI_TABLES[MultiTableId::SHA256_CH_INPUT] = sha256_tables::get_choose_input_table(MultiTableId::SHA256_CH_INPUT);
-    MULTI_TABLES[MultiTableId::SHA256_MAJ_INPUT] =
-        sha256_tables::get_majority_input_table(MultiTableId::SHA256_MAJ_INPUT);
-    MULTI_TABLES[MultiTableId::SHA256_WITNESS_INPUT] =
-        sha256_tables::get_witness_extension_input_table(MultiTableId::SHA256_WITNESS_INPUT);
-    MULTI_TABLES[MultiTableId::SHA256_CH_OUTPUT] =
-        sha256_tables::get_choose_output_table(MultiTableId::SHA256_CH_OUTPUT);
-    MULTI_TABLES[MultiTableId::SHA256_MAJ_OUTPUT] =
-        sha256_tables::get_majority_output_table(MultiTableId::SHA256_MAJ_OUTPUT);
-    MULTI_TABLES[MultiTableId::SHA256_WITNESS_OUTPUT] =
-        sha256_tables::get_witness_extension_output_table(MultiTableId::SHA256_WITNESS_OUTPUT);
-    MULTI_TABLES[MultiTableId::AES_NORMALIZE] = aes128_tables::get_aes_normalization_table(MultiTableId::AES_NORMALIZE);
-    MULTI_TABLES[MultiTableId::AES_INPUT] = aes128_tables::get_aes_input_table(MultiTableId::AES_INPUT);
-    MULTI_TABLES[MultiTableId::AES_SBOX] = aes128_tables::get_aes_sbox_table(MultiTableId::AES_SBOX);
-    MULTI_TABLES[MultiTableId::UINT8_XOR] = uint_tables::get_uint_xor_table<8>(MultiTableId::UINT8_XOR);
-    MULTI_TABLES[MultiTableId::UINT16_XOR] = uint_tables::get_uint_xor_table<16>(MultiTableId::UINT16_XOR);
-    MULTI_TABLES[MultiTableId::UINT32_XOR] = uint_tables::get_uint_xor_table<32>(MultiTableId::UINT32_XOR);
-    MULTI_TABLES[MultiTableId::UINT64_XOR] = uint_tables::get_uint_xor_table<64>(MultiTableId::UINT64_XOR);
-    MULTI_TABLES[MultiTableId::UINT8_AND] = uint_tables::get_uint_and_table<8>(MultiTableId::UINT8_AND);
-    MULTI_TABLES[MultiTableId::UINT16_AND] = uint_tables::get_uint_and_table<16>(MultiTableId::UINT16_AND);
-    MULTI_TABLES[MultiTableId::UINT32_AND] = uint_tables::get_uint_and_table<32>(MultiTableId::UINT32_AND);
-    MULTI_TABLES[MultiTableId::UINT64_AND] = uint_tables::get_uint_and_table<64>(MultiTableId::UINT64_AND);
-    MULTI_TABLES[MultiTableId::BN254_XLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_table(
-        MultiTableId::BN254_XLO, BasicTableId::BN254_XLO_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_XHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_table(
-        MultiTableId::BN254_XHI, BasicTableId::BN254_XHI_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_YLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_ylo_table(
-        MultiTableId::BN254_YLO, BasicTableId::BN254_YLO_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_YHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_yhi_table(
-        MultiTableId::BN254_YHI, BasicTableId::BN254_YHI_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_XYPRIME] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_table(
-        MultiTableId::BN254_XYPRIME, BasicTableId::BN254_XYPRIME_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_XLO_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_endo_table(
-        MultiTableId::BN254_XLO_ENDO, BasicTableId::BN254_XLO_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_XHI_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_endo_table(
-        MultiTableId::BN254_XHI_ENDO, BasicTableId::BN254_XHI_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::BN254_XYPRIME_ENDO] =
-        ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_endo_table(
-            MultiTableId::BN254_XYPRIME_ENDO, BasicTableId::BN254_XYPRIME_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XLO] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xlo_table(
-        MultiTableId::SECP256K1_XLO, BasicTableId::SECP256K1_XLO_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XHI] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xhi_table(
-        MultiTableId::SECP256K1_XHI, BasicTableId::SECP256K1_XHI_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_YLO] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_ylo_table(
-        MultiTableId::SECP256K1_YLO, BasicTableId::SECP256K1_YLO_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_YHI] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_yhi_table(
-        MultiTableId::SECP256K1_YHI, BasicTableId::SECP256K1_YHI_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XYPRIME] =
-        ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xyprime_table(
-            MultiTableId::SECP256K1_XYPRIME, BasicTableId::SECP256K1_XYPRIME_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XLO_ENDO] =
-        ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xlo_endo_table(
-            MultiTableId::SECP256K1_XLO_ENDO, BasicTableId::SECP256K1_XLO_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XHI_ENDO] =
-        ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xhi_endo_table(
-            MultiTableId::SECP256K1_XHI_ENDO, BasicTableId::SECP256K1_XHI_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::SECP256K1_XYPRIME_ENDO] =
-        ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xyprime_endo_table(
-            MultiTableId::SECP256K1_XYPRIME_ENDO, BasicTableId::SECP256K1_XYPRIME_ENDO_BASIC);
-    MULTI_TABLES[MultiTableId::BLAKE_XOR] = blake2s_tables::get_blake2s_xor_table(MultiTableId::BLAKE_XOR);
-    MULTI_TABLES[MultiTableId::BLAKE_XOR_ROTATE_16] =
-        blake2s_tables::get_blake2s_xor_rotate_16_table(MultiTableId::BLAKE_XOR_ROTATE_16);
-    MULTI_TABLES[MultiTableId::BLAKE_XOR_ROTATE_8] =
-        blake2s_tables::get_blake2s_xor_rotate_8_table(MultiTableId::BLAKE_XOR_ROTATE_8);
-    MULTI_TABLES[MultiTableId::BLAKE_XOR_ROTATE_7] =
-        blake2s_tables::get_blake2s_xor_rotate_7_table(MultiTableId::BLAKE_XOR_ROTATE_7);
-    MULTI_TABLES[MultiTableId::KECCAK_FORMAT_INPUT] =
-        keccak_tables::KeccakInput::get_keccak_input_table(MultiTableId::KECCAK_FORMAT_INPUT);
-    MULTI_TABLES[MultiTableId::KECCAK_THETA_OUTPUT] =
-        keccak_tables::Theta::get_theta_output_table(MultiTableId::KECCAK_THETA_OUTPUT);
-    MULTI_TABLES[MultiTableId::KECCAK_CHI_OUTPUT] =
-        keccak_tables::Chi::get_chi_output_table(MultiTableId::KECCAK_CHI_OUTPUT);
-    MULTI_TABLES[MultiTableId::KECCAK_FORMAT_OUTPUT] =
-        keccak_tables::KeccakOutput::get_keccak_output_table(MultiTableId::KECCAK_FORMAT_OUTPUT);
-    MULTI_TABLES[MultiTableId::FIXED_BASE_LEFT_LO] =
-        fixed_base::table::get_fixed_base_table<0, 128>(MultiTableId::FIXED_BASE_LEFT_LO);
-    MULTI_TABLES[MultiTableId::FIXED_BASE_LEFT_HI] =
-        fixed_base::table::get_fixed_base_table<1, 126>(MultiTableId::FIXED_BASE_LEFT_HI);
-    MULTI_TABLES[MultiTableId::FIXED_BASE_RIGHT_LO] =
-        fixed_base::table::get_fixed_base_table<2, 128>(MultiTableId::FIXED_BASE_RIGHT_LO);
-    MULTI_TABLES[MultiTableId::FIXED_BASE_RIGHT_HI] =
-        fixed_base::table::get_fixed_base_table<3, 126>(MultiTableId::FIXED_BASE_RIGHT_HI);
+    // C++11 guarantees thread-safe initialization of static local variables
+    static std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> MULTI_TABLES = []() {
+        std::array<MultiTable, MultiTableId::NUM_MULTI_TABLES> tables;
+        tables[MultiTableId::SHA256_CH_INPUT] = sha256_tables::get_choose_input_table(MultiTableId::SHA256_CH_INPUT);
+        tables[MultiTableId::SHA256_MAJ_INPUT] =
+            sha256_tables::get_majority_input_table(MultiTableId::SHA256_MAJ_INPUT);
+        tables[MultiTableId::SHA256_WITNESS_INPUT] =
+            sha256_tables::get_witness_extension_input_table(MultiTableId::SHA256_WITNESS_INPUT);
+        tables[MultiTableId::SHA256_CH_OUTPUT] = sha256_tables::get_choose_output_table(MultiTableId::SHA256_CH_OUTPUT);
+        tables[MultiTableId::SHA256_MAJ_OUTPUT] =
+            sha256_tables::get_majority_output_table(MultiTableId::SHA256_MAJ_OUTPUT);
+        tables[MultiTableId::SHA256_WITNESS_OUTPUT] =
+            sha256_tables::get_witness_extension_output_table(MultiTableId::SHA256_WITNESS_OUTPUT);
+        tables[MultiTableId::AES_NORMALIZE] = aes128_tables::get_aes_normalization_table(MultiTableId::AES_NORMALIZE);
+        tables[MultiTableId::AES_INPUT] = aes128_tables::get_aes_input_table(MultiTableId::AES_INPUT);
+        tables[MultiTableId::AES_SBOX] = aes128_tables::get_aes_sbox_table(MultiTableId::AES_SBOX);
+        tables[MultiTableId::UINT8_XOR] = uint_tables::get_uint_xor_table<8>(MultiTableId::UINT8_XOR);
+        tables[MultiTableId::UINT16_XOR] = uint_tables::get_uint_xor_table<16>(MultiTableId::UINT16_XOR);
+        tables[MultiTableId::UINT32_XOR] = uint_tables::get_uint_xor_table<32>(MultiTableId::UINT32_XOR);
+        tables[MultiTableId::UINT64_XOR] = uint_tables::get_uint_xor_table<64>(MultiTableId::UINT64_XOR);
+        tables[MultiTableId::UINT8_AND] = uint_tables::get_uint_and_table<8>(MultiTableId::UINT8_AND);
+        tables[MultiTableId::UINT16_AND] = uint_tables::get_uint_and_table<16>(MultiTableId::UINT16_AND);
+        tables[MultiTableId::UINT32_AND] = uint_tables::get_uint_and_table<32>(MultiTableId::UINT32_AND);
+        tables[MultiTableId::UINT64_AND] = uint_tables::get_uint_and_table<64>(MultiTableId::UINT64_AND);
+        tables[MultiTableId::BN254_XLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_table(
+            MultiTableId::BN254_XLO, BasicTableId::BN254_XLO_BASIC);
+        tables[MultiTableId::BN254_XHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_table(
+            MultiTableId::BN254_XHI, BasicTableId::BN254_XHI_BASIC);
+        tables[MultiTableId::BN254_YLO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_ylo_table(
+            MultiTableId::BN254_YLO, BasicTableId::BN254_YLO_BASIC);
+        tables[MultiTableId::BN254_YHI] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_yhi_table(
+            MultiTableId::BN254_YHI, BasicTableId::BN254_YHI_BASIC);
+        tables[MultiTableId::BN254_XYPRIME] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_table(
+            MultiTableId::BN254_XYPRIME, BasicTableId::BN254_XYPRIME_BASIC);
+        tables[MultiTableId::BN254_XLO_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xlo_endo_table(
+            MultiTableId::BN254_XLO_ENDO, BasicTableId::BN254_XLO_ENDO_BASIC);
+        tables[MultiTableId::BN254_XHI_ENDO] = ecc_generator_tables::ecc_generator_table<bb::g1>::get_xhi_endo_table(
+            MultiTableId::BN254_XHI_ENDO, BasicTableId::BN254_XHI_ENDO_BASIC);
+        tables[MultiTableId::BN254_XYPRIME_ENDO] =
+            ecc_generator_tables::ecc_generator_table<bb::g1>::get_xyprime_endo_table(
+                MultiTableId::BN254_XYPRIME_ENDO, BasicTableId::BN254_XYPRIME_ENDO_BASIC);
+        tables[MultiTableId::SECP256K1_XLO] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xlo_table(
+            MultiTableId::SECP256K1_XLO, BasicTableId::SECP256K1_XLO_BASIC);
+        tables[MultiTableId::SECP256K1_XHI] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xhi_table(
+            MultiTableId::SECP256K1_XHI, BasicTableId::SECP256K1_XHI_BASIC);
+        tables[MultiTableId::SECP256K1_YLO] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_ylo_table(
+            MultiTableId::SECP256K1_YLO, BasicTableId::SECP256K1_YLO_BASIC);
+        tables[MultiTableId::SECP256K1_YHI] = ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_yhi_table(
+            MultiTableId::SECP256K1_YHI, BasicTableId::SECP256K1_YHI_BASIC);
+        tables[MultiTableId::SECP256K1_XYPRIME] =
+            ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xyprime_table(
+                MultiTableId::SECP256K1_XYPRIME, BasicTableId::SECP256K1_XYPRIME_BASIC);
+        tables[MultiTableId::SECP256K1_XLO_ENDO] =
+            ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xlo_endo_table(
+                MultiTableId::SECP256K1_XLO_ENDO, BasicTableId::SECP256K1_XLO_ENDO_BASIC);
+        tables[MultiTableId::SECP256K1_XHI_ENDO] =
+            ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xhi_endo_table(
+                MultiTableId::SECP256K1_XHI_ENDO, BasicTableId::SECP256K1_XHI_ENDO_BASIC);
+        tables[MultiTableId::SECP256K1_XYPRIME_ENDO] =
+            ecc_generator_tables::ecc_generator_table<secp256k1::g1>::get_xyprime_endo_table(
+                MultiTableId::SECP256K1_XYPRIME_ENDO, BasicTableId::SECP256K1_XYPRIME_ENDO_BASIC);
+        tables[MultiTableId::BLAKE_XOR] = blake2s_tables::get_blake2s_xor_table(MultiTableId::BLAKE_XOR);
+        tables[MultiTableId::BLAKE_XOR_ROTATE_16] =
+            blake2s_tables::get_blake2s_xor_rotate_16_table(MultiTableId::BLAKE_XOR_ROTATE_16);
+        tables[MultiTableId::BLAKE_XOR_ROTATE_8] =
+            blake2s_tables::get_blake2s_xor_rotate_8_table(MultiTableId::BLAKE_XOR_ROTATE_8);
+        tables[MultiTableId::BLAKE_XOR_ROTATE_7] =
+            blake2s_tables::get_blake2s_xor_rotate_7_table(MultiTableId::BLAKE_XOR_ROTATE_7);
+        tables[MultiTableId::KECCAK_FORMAT_INPUT] =
+            keccak_tables::KeccakInput::get_keccak_input_table(MultiTableId::KECCAK_FORMAT_INPUT);
+        tables[MultiTableId::KECCAK_THETA_OUTPUT] =
+            keccak_tables::Theta::get_theta_output_table(MultiTableId::KECCAK_THETA_OUTPUT);
+        tables[MultiTableId::KECCAK_CHI_OUTPUT] =
+            keccak_tables::Chi::get_chi_output_table(MultiTableId::KECCAK_CHI_OUTPUT);
+        tables[MultiTableId::KECCAK_FORMAT_OUTPUT] =
+            keccak_tables::KeccakOutput::get_keccak_output_table(MultiTableId::KECCAK_FORMAT_OUTPUT);
+        tables[MultiTableId::FIXED_BASE_LEFT_LO] =
+            fixed_base::table::get_fixed_base_table<0, 128>(MultiTableId::FIXED_BASE_LEFT_LO);
+        tables[MultiTableId::FIXED_BASE_LEFT_HI] =
+            fixed_base::table::get_fixed_base_table<1, 126>(MultiTableId::FIXED_BASE_LEFT_HI);
+        tables[MultiTableId::FIXED_BASE_RIGHT_LO] =
+            fixed_base::table::get_fixed_base_table<2, 128>(MultiTableId::FIXED_BASE_RIGHT_LO);
+        tables[MultiTableId::FIXED_BASE_RIGHT_HI] =
+            fixed_base::table::get_fixed_base_table<3, 126>(MultiTableId::FIXED_BASE_RIGHT_HI);
 
-    bb::constexpr_for<0, 25, 1>([&]<size_t i>() {
-        MULTI_TABLES[static_cast<size_t>(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE) + i] =
-            keccak_tables::Rho<8, i>::get_rho_output_table(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE);
-    });
-    MULTI_TABLES[MultiTableId::HONK_DUMMY_MULTI] = dummy_tables::get_honk_dummy_multitable();
-    initialized = true;
+        bb::constexpr_for<0, 25, 1>([&]<size_t i>() {
+            tables[static_cast<size_t>(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE) + i] =
+                keccak_tables::Rho<8, i>::get_rho_output_table(MultiTableId::KECCAK_NORMALIZE_AND_ROTATE);
+        });
+        tables[MultiTableId::HONK_DUMMY_MULTI] = dummy_tables::get_honk_dummy_multitable();
+        return tables;
+    }();
+    return MULTI_TABLES;
 }
 } // namespace
 /**
  * @brief Return the multitable with the provided ID; construct all MultiTables if not constructed already
  * @details The multitables are relatively light objects (they do not themselves store raw table data) so the first time
  * we use one of them we simply construct all of them (regardless of which of them will actually be used) and store in
- * MULTI_TABLES array.
+ * the static array.
  *
  * @param id The index of a MultiTable in the MULTI_TABLES array
  * @return const MultiTable&
  */
 const MultiTable& get_multitable(const MultiTableId id)
 {
-    if (!initialized) {
-        init_multi_tables();
-        initialized = true;
-    }
-    return MULTI_TABLES[id];
+    return get_multi_tables()[id];
 }
 
 /**

@@ -18,6 +18,7 @@
 #include "barretenberg/api/api_client_ivc.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
+#include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
@@ -25,6 +26,7 @@
 #include "barretenberg/bbapi/c_bind.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/version.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/factories/native_crs_factory.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -32,9 +34,6 @@
 #include <iostream>
 
 namespace bb {
-// This is updated in-place by bootstrap.sh during the release process. This prevents
-// the version string from needing to be present at build-time, simplifying e.g. caching.
-const char* const BB_VERSION_PLACEHOLDER = "00000000.00000000.00000000";
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1257): Remove unused/seemingly unnecessary flags.
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1258): Improve defaults.
@@ -105,10 +104,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good computer "
                        "programming language.";
 
-#ifdef DISABLE_AZTEC_VM
-    name += "\nAztec Virtual Machine (AVM): disabled";
+    // Check AVM support at runtime via global boolean
+    if (avm_enabled) {
+        name += "\nAztec Virtual Machine (AVM): enabled";
+    } else {
+        name += "\nAztec Virtual Machine (AVM): disabled";
+    }
+#ifdef ENABLE_AVM_TRANSPILER
+    name += "\nAVM Transpiler: enabled";
 #else
-    name += "\nAztec Virtual Machine (AVM): enabled";
+    name += "\nAVM Transpiler: disabled";
 #endif
 #ifdef STARKNET_GARAGA_FLAVORS
     name += "\nStarknet Garaga Extensions: enabled";
@@ -243,7 +248,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
                          "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "ClientIVC class)")
+                         "SumcheckClientIVC class)")
             ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
@@ -277,6 +282,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--update_inputs", flags.update_inputs, "Update inputs if vk check fails.");
     };
 
+    const auto add_vk_policy_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--vk_policy",
+                         flags.vk_policy,
+                         "Policy for handling verification keys during IVC accumulation. 'default' uses the provided "
+                         "VK as-is, 'check' verifies the provided VK matches the computed VK (throws error on "
+                         "mismatch), 'recompute' always ignores the provided VK and treats it as nullptr.")
+            ->check(CLI::IsMember({ "default", "check", "recompute" }).name("is_member"));
+    };
+
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
@@ -291,6 +306,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string bench_out;
     const auto add_bench_out_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--bench_out", bench_out, "Path to write the op counts in a json.");
+    };
+    std::string bench_out_hierarchical;
+    const auto add_bench_out_hierarchical_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option("--bench_out_hierarchical",
+                                      bench_out_hierarchical,
+                                      "Path to write the hierarchical benchmark data (op counts and timings with "
+                                      "parent-child relationships) as json.");
     };
 
     /***************************************************************************************************************
@@ -345,6 +367,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_output_path_option(prove, output_path);
     add_ivc_inputs_path_options(prove);
     add_vk_path_option(prove);
+    add_vk_policy_option(prove);
     add_verbose_flag(prove);
     add_debug_flag(prove);
     add_crs_path_option(prove);
@@ -355,6 +378,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_slow_low_memory_flag(prove);
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
+    add_bench_out_hierarchical_option(prove);
     add_storage_budget_option(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
@@ -416,51 +440,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_crs_path_option(write_solidity_verifier);
     add_optimized_solidity_verifier_flag(write_solidity_verifier);
 
-    /***************************************************************************************************************
-     * Subcommand: OLD_API
-     ***************************************************************************************************************/
-    CLI::App* OLD_API = app.add_subcommand("OLD_API", "Access some old API commands");
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file =
-        OLD_API->add_subcommand("write_arbitrary_valid_client_ivc_proof_and_vk_to_file", "");
-    add_verbose_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    add_debug_flag(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    add_crs_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file);
-    std::string arbitrary_valid_proof_path{ "./proofs/proof" };
-    add_output_path_option(OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file, arbitrary_valid_proof_path);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API gates
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_gates = OLD_API->add_subcommand("gates", "");
-    add_verbose_flag(OLD_API_gates);
-    add_debug_flag(OLD_API_gates);
-    add_crs_path_option(OLD_API_gates);
-    add_bytecode_path_option(OLD_API_gates);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API verify
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_verify = OLD_API->add_subcommand("verify", "");
-    add_verbose_flag(OLD_API_verify);
-    add_debug_flag(OLD_API_verify);
-    add_crs_path_option(OLD_API_verify);
-    add_bytecode_path_option(OLD_API_verify);
-    add_proof_path_option(OLD_API_verify);
-    add_vk_path_option(OLD_API_verify);
-
-    /***************************************************************************************************************
-     * Subcommand: OLD_API prove_and_verify
-     ***************************************************************************************************************/
-    CLI::App* OLD_API_prove_and_verify = OLD_API->add_subcommand("prove_and_verify", "");
-    add_verbose_flag(OLD_API_prove_and_verify);
-    add_debug_flag(OLD_API_prove_and_verify);
-    add_crs_path_option(OLD_API_prove_and_verify);
-    add_bytecode_path_option(OLD_API_prove_and_verify);
-
     std::filesystem::path avm_inputs_path{ "./target/avm_inputs.bin" };
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
@@ -514,6 +493,29 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_vk_path_option(avm_verify_command);
 
     /***************************************************************************************************************
+     * Subcommand: aztec_process_artifact
+     ***************************************************************************************************************/
+    CLI::App* aztec_process = app.add_subcommand(
+        "aztec_process",
+        "Process Aztec contract artifacts: transpile and generate verification keys for all private functions.\n"
+        "If input is a directory (and no output specified), recursively processes all artifacts found in the "
+        "directory.");
+
+    std::string artifact_input_path;
+    std::string artifact_output_path;
+    bool force_regenerate = false;
+
+    aztec_process->add_option(
+        "-i,--input",
+        artifact_input_path,
+        "Input artifact JSON path or directory to search (optional, defaults to current directory)");
+    aztec_process->add_option(
+        "-o,--output", artifact_output_path, "Output artifact JSON path (optional, same as input if not specified)");
+    aztec_process->add_flag("-f,--force", force_regenerate, "Force regeneration of verification keys");
+    add_verbose_flag(aztec_process);
+    add_debug_flag(aztec_process);
+
+    /***************************************************************************************************************
      * Subcommand: msgpack
      ***************************************************************************************************************/
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
@@ -530,6 +532,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
     std::string msgpack_input_file;
     msgpack_run_command->add_option(
         "-i,--input", msgpack_input_file, "Input file containing msgpack buffers (defaults to stdin)");
+    int max_clients = 1;
+    msgpack_run_command
+        ->add_option(
+            "--max-clients", max_clients, "Maximum concurrent clients for shared memory IPC server (default: 1)")
+        ->check(CLI::PositiveNumber);
 
     /***************************************************************************************************************
      * Build the CLI11 App
@@ -550,7 +557,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (print_bench || !bench_out.empty()) {
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
     }
 #endif
@@ -598,10 +605,32 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 0;
         }
         if (msgpack_run_command->parsed()) {
-            return execute_msgpack_run(msgpack_input_file);
+            return execute_msgpack_run(msgpack_input_file, max_clients);
         }
-        // AVM
-#ifndef DISABLE_AZTEC_VM
+        if (aztec_process->parsed()) {
+#ifdef __wasm__
+            throw_or_abort("Aztec artifact processing is not supported in WASM builds.");
+#else
+            // Default input to current directory if not specified
+            std::string input = artifact_input_path.empty() ? "." : artifact_input_path;
+
+            // Check if input is a directory
+            if (std::filesystem::is_directory(input)) {
+                // If output specified for directory input, that's an error
+                if (!artifact_output_path.empty()) {
+                    throw_or_abort(
+                        "Cannot specify --output when input is a directory. Artifacts are updated in-place.");
+                }
+                // Recursively process all artifacts in directory
+                return process_all_artifacts(input, force_regenerate) ? 0 : 1;
+            }
+
+            // Input is a file, process single artifact
+            std::string output = artifact_output_path.empty() ? input : artifact_output_path;
+            return process_aztec_artifact(input, output, force_regenerate) ? 0 : 1;
+#endif
+        }
+        // AVM - functions will throw at runtime if not supported (via stub module)
         else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
             avm_prove(avm_inputs_path, avm_prove_output_path);
@@ -611,26 +640,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
-        }
-#else
-        else if (avm_prove_command->parsed() || avm_check_circuit_command->parsed() || avm_verify_command->parsed() ||
-                 avm_simulate_command->parsed()) {
-            throw_or_abort("The Aztec Virtual Machine (AVM) is disabled in this environment!");
-        }
-#endif
-        else if (OLD_API_write_arbitrary_valid_client_ivc_proof_and_vk_to_file->parsed()) {
-            write_arbitrary_valid_client_ivc_proof_and_vk_to_file(arbitrary_valid_proof_path);
-            return 0;
-        }
-        // NEW STANDARD API
-        // NOTE(AD): We likely won't really have a standard API if our main flavours are UH or CIVC, with CIVC so
-        // different
-        else if (flags.scheme == "client_ivc") {
+        } else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort("The prove command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort(
+                        "The prove command for SumcheckClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
@@ -641,13 +657,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
                 }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
+                }
 #endif
                 return 0;
             }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort("The check command for ClientIVC expect a valid file passed with --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort(
+                        "The check command for SumcheckClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }
@@ -663,6 +684,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!bench_out.empty()) {
                     std::ofstream file(bench_out);
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts(file, 2);
+                }
+                if (!bench_out_hierarchical.empty()) {
+                    std::ofstream file(bench_out_hierarchical);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
 #endif
                 return 0;

@@ -13,6 +13,15 @@ export class ProverPublisherFactory {
       telemetry?: TelemetryClient;
     },
   ) {}
+
+  public async start() {
+    await this.deps.publisherManager.loadState();
+  }
+
+  public stop() {
+    this.deps.publisherManager.interrupt();
+  }
+
   /**
    * Creates a new Prover Publisher instance.
    * @returns A new ProverNodePublisher instance.

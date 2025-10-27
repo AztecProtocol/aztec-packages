@@ -67,13 +67,22 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     goblin_element& operator=(goblin_element&& other) noexcept = default;
     ~goblin_element() = default;
 
-    void assert_equal(const goblin_element& other) const
+    /**
+     * @brief Asserts that two goblin elements are equal (i.e., x, y coordinates and infinity flag are all equal).
+     *
+     * @param other
+     * @param msg
+     *
+     * @details Note that checking the coordinates as well as the infinity flag opens up the possibility of honest
+     * prover unable to satisfy constraints if both points are at infinity but have different x, y. This is not a
+     * problem in practice as we should never have multiple representations of the point at infinity in a circuit.
+     */
+    void incomplete_assert_equal(const goblin_element& other,
+                                 const std::string msg = "goblin_element::incomplete_assert_equal") const
     {
-        if (this->get_value() != other.get_value()) {
-            info("WARNING: goblin_element::assert_equal value check failed!");
-        }
-        x.assert_equal(other.x);
-        y.assert_equal(other.y);
+        is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
+        x.assert_equal(other.x, msg + " (x coordinate)");
+        y.assert_equal(other.y, msg + " (y coordinate)");
     }
 
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
@@ -135,7 +144,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
 
     static goblin_element point_at_infinity(Builder* ctx)
     {
-        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx());
         zero.unset_free_witness_tag();
         Fq x_fq(zero, zero);
         Fq y_fq(zero, zero);
@@ -162,7 +171,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_el
     {
         auto builder = get_context(other);
         // Check that the internal accumulator is zero
-        ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+        BB_ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
 
         // Compute the result natively, and validate that result + other == *this
         typename NativeGroup::affine_element result_value = typename NativeGroup::affine_element(

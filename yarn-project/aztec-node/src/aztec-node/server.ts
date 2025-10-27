@@ -11,14 +11,12 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
-  type EthSigner,
   type L1ContractAddresses,
   RegistryContract,
   RollupContract,
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
-import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,6 +28,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -421,9 +420,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
-        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
-      });
+      const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(
+        publicClient,
+        keyStoreManager!.createAllValidatorPublisherSigners(),
+        { ...config, scope: 'sequencer' },
+        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+      );
 
       sequencer = await SequencerClient.new(config, {
         // if deps were provided, they should override the defaults,
@@ -549,6 +551,26 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getBlock(number: L2BlockNumber): Promise<L2Block | undefined> {
     const blockNumber = number === 'latest' ? await this.getBlockNumber() : number;
     return await this.blockSource.getBlock(blockNumber);
+  }
+
+  /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
+    return publishedBlock?.block;
+  }
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByArchive(archive);
+    return publishedBlock?.block;
   }
 
   /**
@@ -1057,6 +1079,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return blockNumber === 0 || (blockNumber === 'latest' && (await this.blockSource.getBlockNumber()) === 0)
       ? this.worldStateSynchronizer.getCommitted().getInitialHeader()
       : this.blockSource.getBlockHeader(blockNumber);
+  }
+
+  /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByHash(blockHash);
+  }
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByArchive(archive);
   }
 
   /**

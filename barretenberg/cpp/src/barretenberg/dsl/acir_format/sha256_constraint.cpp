@@ -36,23 +36,10 @@ void create_sha256_compression_constraints(Builder& builder, const Sha256Compres
     // Compute sha256 compression
     auto output_bytes = bb::stdlib::SHA256<Builder>::sha256_block(hash_inputs, inputs);
 
+    // Constrain outputs to match expected witness indices
     for (size_t i = 0; i < 8; ++i) {
-        auto normalised_output = output_bytes[i].normalize();
-        if (normalised_output.is_constant()) {
-            builder.fix_witness(constraint.result[i], normalised_output.get_value());
-        } else {
-            bb::poly_triple assert_equal{
-                .a = normalised_output.witness_index,
-                .b = constraint.result[i],
-                .c = 0,
-                .q_m = 0,
-                .q_l = 1,
-                .q_r = -1,
-                .q_o = 0,
-                .q_c = 0,
-            };
-            builder.create_poly_gate(assert_equal);
-        }
+        field_ct result_witness = field_ct::from_witness_index(&builder, constraint.result[i]);
+        output_bytes[i].assert_equal(result_witness);
     }
 }
 

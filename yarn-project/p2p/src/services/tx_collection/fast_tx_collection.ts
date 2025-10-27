@@ -55,7 +55,9 @@ export class FastTxCollection {
     }
 
     const blockInfo: L2BlockInfo =
-      input.type === 'proposal' ? input.blockProposal.toBlockInfo() : input.block.toBlockInfo();
+      input.type === 'proposal'
+        ? { ...input.blockProposal.toBlockInfo(), blockNumber: input.blockNumber }
+        : { ...input.block.toBlockInfo() };
 
     // This promise is used to await for the collection to finish during the main collectFast method.
     // It gets resolved in `foundTxs` when all txs have been collected, or rejected if the request is aborted or hits the deadline.

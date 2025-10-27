@@ -31,6 +31,7 @@ import {
   mapFieldToNoir,
   mapPrivateToPublicKernelCircuitPublicInputsToNoir,
   mapPrivateToRollupKernelCircuitPublicInputsToNoir,
+  mapProtocolContractsToNoir,
   mapU64ToNoir,
   mapVkDataToNoir,
 } from '../conversion/common.js';
@@ -63,7 +64,7 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
   const mapped: PrivateKernelInitInputType = {
     tx_request: mapTxRequestToNoir(privateKernelInitCircuitPrivateInputs.txRequest),
     vk_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.protocolContractTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(privateKernelInitCircuitPrivateInputs.protocolContracts),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
     first_nullifier_hint: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.firstNullifierHint),

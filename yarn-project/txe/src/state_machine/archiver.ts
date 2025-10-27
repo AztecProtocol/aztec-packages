@@ -1,5 +1,7 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';
@@ -113,6 +115,10 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
 
   public getL1Constants(): Promise<L1RollupConstants> {
     throw new Error('TXE Archiver does not implement "getL2Constants"');
+  }
+
+  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
   }
 
   public syncImmediate(): Promise<void> {

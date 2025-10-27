@@ -13,6 +13,7 @@ import {
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
+  ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
@@ -59,7 +60,7 @@ type SessionState =
       name: 'TOP_LEVEL';
     }
   /**
-   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[private]`
+   * The private state is entered via the `private_context` function. In this state the PXE oracles that `#[external("private")]`
    * functions use are available, such as those related to note retrieval, notification of side-effects, capsule access,
    * etc. */
   | {
@@ -67,15 +68,16 @@ type SessionState =
       nextBlockGlobalVariables: GlobalVariables;
       txRequestHash: Fr;
       noteCache: ExecutionNoteCache;
+      taggingIndexCache: ExecutionTaggingIndexCache;
     }
   /**
-   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[public]`
+   * The public state is entered via the `public_context` function. In this state the AVM opcodes that `#[external("public")]`
    * functions execute are resolved as oracles by TXE, since Noir tests are not transpiled. */
   | {
       name: 'PUBLIC';
     }
   /**
-   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[utility]`
+   * The utility state is entered via the `utility_context` function. In this state the PXE oracles that `#[external("utility")]`
    * functions use are available, such as those related to (unconstrained) note retrieval, capsule access, public
    * storage reads, etc.
    */
@@ -294,6 +296,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const txRequestHash = getSingleTxBlockRequestHash(nextBlockGlobalVariables.blockNumber);
     const noteCache = new ExecutionNoteCache(txRequestHash);
+    const taggingIndexCache = new ExecutionTaggingIndexCache();
 
     this.oracleHandler = new PrivateExecutionOracle(
       Fr.ZERO,
@@ -304,14 +307,16 @@ export class TXESession implements TXESessionStateHandler {
       [],
       new HashedValuesCache(),
       noteCache,
+      taggingIndexCache,
       this.pxeOracleInterface,
     );
 
-    // We store the note cache fed into the PrivateExecutionOracle (along with some other auxiliary data) in order to
-    // refer to it later, mimicking the way this object is used by the ContractFunctionSimulator. The difference resides
-    // in that the simulator has all information needed in order to run the simulation, while ours will be ongoing as
-    // the different oracles will be invoked from the Noir test, until eventually the private execution finishes.
-    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, txRequestHash, noteCache };
+    // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
+    // data) in order to refer to it later, mimicking the way this object is used by the ContractFunctionSimulator. The
+    // difference resides in that the simulator has all information needed in order to run the simulation, while ours
+    // will be ongoing as the different oracles will be invoked from the Noir test, until eventually the private
+    // execution finishes.
+    this.state = { name: 'PRIVATE', nextBlockGlobalVariables, txRequestHash, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();

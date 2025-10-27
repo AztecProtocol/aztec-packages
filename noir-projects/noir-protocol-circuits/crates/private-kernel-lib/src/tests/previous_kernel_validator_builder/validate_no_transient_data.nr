@@ -6,8 +6,7 @@ impl PreviousKernelValidatorBuilder {
         let inner_note_hash = 123123;
         for i in 0..siloed_note_hashes.len() {
             self.previous_kernel.add_siloed_note_hash(inner_note_hash);
-            siloed_note_hashes[i] =
-                self.previous_kernel.note_hashes.get_unchecked(i).note_hash.value;
+            siloed_note_hashes[i] = self.previous_kernel.note_hashes.get_unchecked(i).innermost();
         }
         siloed_note_hashes
     }
@@ -51,7 +50,7 @@ fn validate_no_transient_data_nullifiers_for_note_hashes_emitted_after_fails() {
     let siloed_note_hashes = builder.append_same_inner_note_hashes();
     // Link a note hash to the nullifier at index 2.
     let mut nullifier = builder.previous_kernel.nullifiers.get(2);
-    nullifier.nullifier.note_hash = siloed_note_hashes[0];
+    nullifier.inner.inner.note_hash = siloed_note_hashes[0];
     builder.previous_kernel.nullifiers.set(2, nullifier);
 
     builder.validate_for_private_tail();

@@ -10,7 +10,7 @@ import {
   initTelemetryClient,
   makeTracedFetch,
 } from '@aztec/telemetry-client';
-import { TestWallet } from '@aztec/test-wallet';
+import { TestWallet } from '@aztec/test-wallet/server';
 
 import { extractRelevantOptions } from '../util.js';
 import { getVersions } from '../versioning.js';
@@ -57,7 +57,7 @@ export async function addBot(
 
   const db = await (config.dataDirectory
     ? createStore('bot', BotStore.SCHEMA_VERSION, config)
-    : openTmpStore('bot', true, config.dataStoreMapSizeKB));
+    : openTmpStore('bot', true, config.dataStoreMapSizeKb));
 
   const store = new BotStore(db);
   await store.cleanupOldClaims();

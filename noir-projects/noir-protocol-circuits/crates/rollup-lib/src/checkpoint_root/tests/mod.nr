@@ -299,7 +299,7 @@ impl TestBuilder {
             chain_id: left.constants.chain_id,
             version: left.constants.version,
             vk_tree_root: left.constants.vk_tree_root,
-            protocol_contract_tree_root: left.constants.protocol_contract_tree_root,
+            protocol_contracts_hash: left.constants.protocol_contracts_hash,
             prover_id: left.constants.prover_id,
         };
         assert_eq(left.constants, right.constants);

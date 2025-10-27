@@ -11,7 +11,7 @@ fi
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
+export BB=${BB:-../../barretenberg/cpp/build/bin/bb-avm}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
@@ -159,7 +159,6 @@ function build {
     ./crates/blob \
     ./crates/parity-lib \
     ./crates/private-kernel-lib \
-    ./crates/reset-kernel-lib \
     ./crates/rollup-lib \
     ./crates/types \
 

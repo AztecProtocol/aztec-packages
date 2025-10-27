@@ -1,12 +1,16 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { AztecAddress, type AztecNode, Fr, type Logger, retryUntil } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { Blob } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum';
 import type { ChainMonitor, ChainMonitorEventMap, Delayer } from '@aztec/ethereum/test';
 import { timesAsync } from '@aztec/foundation/collection';
 import { AbortError } from '@aztec/foundation/error';
+import { retryUntil } from '@aztec/foundation/retry';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { ProverNode } from '@aztec/prover-node';
@@ -259,7 +263,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await blobSinkClient.sendBlobsToBlobSink(blobs);
 
       // And wait for the node to see the new block
-      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 5, 0.1);
+      await retryUntil(() => node.getBlockNumber().then(b => b === L2_BLOCK_NUMBER), 'node sync', 20, 0.1);
     });
   });
 

@@ -15,7 +15,6 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
   public:
     using FF = typename Flavor::FF;
     using ProverPolynomials = typename Flavor::ProverPolynomials;
-    using SubrelationSeparators = Flavor::SubrelationSeparators;
     using ZKData = ZKSumcheckData<Flavor>;
 
     const size_t NUM_POLYNOMIALS = Flavor::NUM_ALL_ENTITIES;
@@ -55,10 +54,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto transcript = Flavor::Transcript::prover_init_empty();
 
-        SubrelationSeparators alpha;
-        for (size_t idx = 0; idx < alpha.size(); idx++) {
-            alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
@@ -131,10 +127,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto transcript = Flavor::Transcript::prover_init_empty();
 
-        SubrelationSeparators alpha;
-        for (size_t idx = 0; idx < alpha.size(); idx++) {
-            alpha[idx] = transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -247,10 +240,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        SubrelationSeparators prover_alpha{ 1 };
-        for (size_t idx = 1; idx < prover_alpha.size(); idx++) {
-            prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
         std::vector<FF> prover_gate_challenges(virtual_log_n);
         for (size_t idx = 0; idx < virtual_log_n; idx++) {
@@ -276,11 +266,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        SubrelationSeparators verifier_alpha{ 1 };
-        for (size_t idx = 1; idx < verifier_alpha.size(); idx++) {
-            verifier_alpha[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+
         auto sumcheck_verifier = SumcheckVerifier<Flavor>(verifier_transcript, verifier_alpha, virtual_log_n);
 
         std::vector<FF> verifier_gate_challenges(virtual_log_n);
@@ -353,10 +340,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
             .public_input_delta = FF::one(),
         };
         auto prover_transcript = Flavor::Transcript::prover_init_empty();
-        SubrelationSeparators prover_alpha;
-        for (size_t idx = 0; idx < prover_alpha.size(); idx++) {
-            prover_alpha[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
+
         std::vector<FF> prover_gate_challenges(multivariate_d);
         for (size_t idx = 0; idx < multivariate_d; idx++) {
             prover_gate_challenges[idx] =
@@ -382,11 +367,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         auto verifier_transcript = Flavor::Transcript::verifier_init_empty(prover_transcript);
 
-        SubrelationSeparators verifier_alpha;
-        for (size_t idx = 0; idx < verifier_alpha.size(); idx++) {
-            verifier_alpha[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-        }
+        FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+
         SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, multivariate_d);
 
         std::vector<FF> verifier_gate_challenges(multivariate_d);

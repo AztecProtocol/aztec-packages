@@ -166,7 +166,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   STORAGE: [
     configToFlag('--data-directory', dataConfigMappings.dataDirectory),
-    configToFlag('--data-store-map-size-kb', dataConfigMappings.dataStoreMapSizeKB),
+    configToFlag('--data-store-map-size-kb', dataConfigMappings.dataStoreMapSizeKb),
   ],
   'WORLD STATE': [
     configToFlag('--world-state-data-directory', worldStateConfigMappings.worldStateDataDirectory),

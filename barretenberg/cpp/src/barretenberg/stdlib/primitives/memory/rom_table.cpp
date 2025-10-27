@@ -46,7 +46,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     if (initialized) {
         return;
     }
-    ASSERT(context != nullptr);
+    BB_ASSERT(context != nullptr);
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         if (entry.is_constant()) {
@@ -56,7 +56,7 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
             entries.emplace_back(fixed_witness);
 
         } else {
-            entries.emplace_back(entry.normalize());
+            entries.emplace_back(entry);
         }
     }
     rom_id = context->create_ROM_array(length);
@@ -122,7 +122,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {
     if (index >= length) {
-        ASSERT(context != nullptr);
+        BB_ASSERT(context != nullptr);
         context->failure("rom_rable: ROM array access out of bounds");
     }
 
@@ -144,7 +144,7 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
         context->failure("rom_table: ROM array access out of bounds");
     }
 
-    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
+    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));

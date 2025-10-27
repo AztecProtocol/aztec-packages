@@ -90,7 +90,7 @@ impl AccountActions<&mut PrivateContext> {
         // consume the message.
         // This ensures that contracts cannot consume messages that are not intended for them.
         let message_hash = compute_authwit_message_hash(
-            self.context.msg_sender(),
+            self.context.msg_sender().unwrap(),
             self.context.chain_id(),
             self.context.version(),
             inner_hash,

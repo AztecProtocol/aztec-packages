@@ -1,12 +1,20 @@
 mod test;
 use dep::aztec::macros::aztec;
 
+/**
+ * WARNING: this is no-longer considered a good example of an Aztec contract,
+ * because it touches low-level functions and concepts that oughtn't be 
+ * seen by a typical user.
+ * The syntax and user-experience of Aztec contracts has since improved, so you
+ * should seek alternative examples, please.
+ */
+
 #[aztec]
 pub contract PrivateVoting {
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,
-        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
+        macros::{functions::{external, initializer, internal}, storage::storage},
     };
     use dep::aztec::protocol_types::{
         address::AztecAddress,
@@ -27,7 +35,7 @@ pub contract PrivateVoting {
     // docs:end:storage_struct
 
     // docs:start:constructor
-    #[public]
+    #[external("public")]
     #[initializer]
     // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
@@ -37,21 +45,21 @@ pub contract PrivateVoting {
     }
     // docs:end:constructor
 
-    #[private]
+    #[external("private")]
     // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
         let msg_sender_nullifier_public_key_message_hash =
-            get_public_keys(context.msg_sender()).npk_m.hash();
+            get_public_keys(context.msg_sender().unwrap()).npk_m.hash();
 
         let secret = context.request_nsk_app(msg_sender_nullifier_public_key_message_hash); // get secret key of caller of function
-        let nullifier = poseidon2_hash([context.msg_sender().to_field(), secret]); // derive nullifier from sender and secret
+        let nullifier = poseidon2_hash([context.msg_sender().unwrap().to_field(), secret]); // derive nullifier from sender and secret
         context.push_nullifier(nullifier);
         PrivateVoting::at(context.this_address()).add_to_tally_public(candidate).enqueue(
             &mut context,
         );
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn add_to_tally_public(candidate: Field) {
         assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
@@ -59,12 +67,12 @@ pub contract PrivateVoting {
         storage.tally.at(candidate).write(new_tally);
     }
 
-    #[public]
+    #[external("public")]
     fn end_vote() {
-        assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
+        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "Only admin can end votes"); // assert that caller is admin
         storage.vote_ended.write(true);
     }
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_vote(candidate: Field) -> Field {
         storage.tally.at(candidate).read()
     }

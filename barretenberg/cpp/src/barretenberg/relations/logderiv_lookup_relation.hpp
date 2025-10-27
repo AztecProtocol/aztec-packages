@@ -75,15 +75,7 @@ template <typename FF_> class LogDerivLookupRelationImpl {
     static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
         INVERSE_SUBRELATION_LENGTH,      // inverse construction sub-relation
         LOOKUP_SUBRELATION_LENGTH,       // log derivative lookup argument sub-relation
-        BOOLEAN_CHECK_SUBRELATION_LENGTH // read_tag boolean check sub-relation
-    };
-
-    // Note: the required correction for the second sub-relation is technically +1 but the two corrections must agree
-    // due to the way the relation algebra is written so both are set to +2.
-    static constexpr std::array<size_t, 3> TOTAL_LENGTH_ADJUSTMENTS{
-        2, // inverse construction sub-relation
-        2, // log derivative lookup argument sub-relation
-        2, // read_tag boolean sub-relation check
+        BOOLEAN_CHECK_SUBRELATION_LENGTH // boolean check sub-relation
     };
 
     static constexpr std::array<bool, 3>

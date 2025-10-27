@@ -1,5 +1,10 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { AztecAddress, type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { waitForProven } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
@@ -49,17 +54,17 @@ describe('e2e_simple', () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
       const sender = ownerAddress;
-      const provenTx = await deployer.deploy(ownerAddress, sender, 1).prove({
+      const tx = deployer.deploy(ownerAddress, sender, 1).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
         skipClassPublication: true,
         skipInstancePublication: true,
       });
-      const tx = await provenTx.send().wait();
-      await waitForProven(aztecNode, tx, {
+      const receipt = await tx.wait();
+      await waitForProven(aztecNode, receipt, {
         provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
       });
-      expect(tx.blockNumber).toBeDefined();
+      expect(receipt.blockNumber).toBeDefined();
     });
   });
 });

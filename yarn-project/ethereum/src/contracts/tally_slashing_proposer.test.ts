@@ -68,7 +68,7 @@ describe('TallySlashingProposer', () => {
       ...DefaultL1ContractsConfig,
       salt: undefined,
       vkTreeRoot: Fr.random(),
-      protocolContractTreeRoot: Fr.random(),
+      protocolContractsHash: Fr.random(),
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
       slasherFlavor: 'tally' as const,
@@ -161,7 +161,6 @@ describe('TallySlashingProposer', () => {
       const roundInfo = await tallySlashingProposer.getRound(0n);
 
       expect(typeof roundInfo.isExecuted).toBe('boolean');
-      expect(typeof roundInfo.readyToExecute).toBe('boolean');
       expect(typeof roundInfo.voteCount).toBe('bigint');
       expect(roundInfo.voteCount).toBeGreaterThanOrEqual(0n);
     });

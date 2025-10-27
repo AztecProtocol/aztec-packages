@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { EthAddress, type Logger, createLogger, retryUntil } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import {
   EmpireSlashingProposerArtifact,
   EmpireSlashingProposerContract,
@@ -15,6 +16,7 @@ import {
 } from '@aztec/ethereum';
 import { tryJsonStringify } from '@aztec/foundation/json-rpc';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -112,7 +114,10 @@ describe('veto slash', () => {
       t.ctx.aztecNodeConfig.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
-    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, t.logger, t.ctx.dateProvider);
+    vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
+      logger: t.logger,
+      dateProvider: t.ctx.dateProvider,
+    });
 
     ({ rollup } = await t.getContracts());
 
@@ -193,7 +198,10 @@ describe('veto slash', () => {
     }
 
     debugLogger.info(`\n\ninitializing slasher with proposer: ${proposer}\n\n`);
-    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, t.logger, t.ctx.dateProvider);
+    const txUtils = createL1TxUtilsFromViemWallet(deployerClient, {
+      logger: t.logger,
+      dateProvider: t.ctx.dateProvider,
+    });
     await txUtils.sendAndMonitorTransaction({
       to: slasher.toString(),
       data: encodeFunctionData({

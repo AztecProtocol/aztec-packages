@@ -230,8 +230,8 @@ function build {
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(
     noir
-    barretenberg
     avm-transpiler
+    barretenberg
     noir-projects
     l1-contracts
     yarn-project
@@ -314,7 +314,7 @@ function bench {
   rm -rf bench-out
   mkdir -p bench-out
   bench_merge
-  cache_upload bench-$COMMIT_HASH.tar.gz bench-out/bench.json
+  cache_upload bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
 }
 
 function release_github {
@@ -470,7 +470,7 @@ case "$cmd" in
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
-    export DISABLE_AZTEC_VM=1
+    export AVM=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)

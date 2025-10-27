@@ -10,7 +10,7 @@ include "../gt.pil";
 // We guarantee that the resolved operands are either immediates or valid addresses.
 
 // Inputs (from execution.pil):
-//  - SEL_SHOULD_RESOLVE_ADDRESS
+//  - SEL_SHOULD_RESOLVE_ADDRESS (alias for sel_instruction_fetching_success)
 //  - sel_op_is_address[7] (via exec spec)
 //  - indirect (via instruction fetching)
 //  - op[7] (via instruction fetching)
@@ -30,7 +30,6 @@ include "../gt.pil";
 // This is a virtual gadget, which is part of the execution trace.
 namespace execution;
 
-// We skip if sel_bytecode_retrieval_success == 0 or sel_instruction_fetching_success == 0.
 #[skippable_if]
 SEL_SHOULD_RESOLVE_ADDRESS = 0;
 

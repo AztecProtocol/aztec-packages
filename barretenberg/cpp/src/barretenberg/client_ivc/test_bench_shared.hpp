@@ -4,8 +4,8 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/client_ivc/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -18,13 +18,12 @@ namespace bb {
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
+std::pair<SumcheckClientIVC::Proof, SumcheckClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
     size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS };
 
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
@@ -46,19 +45,13 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    SumcheckClientIVC ivc{ NUM_CIRCUITS };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
 
         auto circuit = circuit_producer.create_next_circuit(ivc);
-
-        // Hiding kernel does not use structured trace
-        if (j == NUM_CIRCUITS - 1) {
-            trace_settings = TraceSettings{};
-        }
-        auto vk = CircuitProducer::get_verification_key(circuit, trace_settings);
+        auto vk = CircuitProducer::get_verification_key(circuit);
         vkeys.push_back(vk);
         ivc.accumulate(circuit, vk);
     }

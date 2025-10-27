@@ -1,7 +1,7 @@
 import { MAX_NULLIFIER_READ_REQUESTS_PER_TX, NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import type { BufferReader } from '@aztec/foundation/serialize';
-import type { MembershipWitness, TreeLeafPreimage } from '@aztec/foundation/trees';
+import type { MembershipWitness } from '@aztec/foundation/trees';
 
 import { NullifierLeafPreimage } from '../../trees/index.js';
 import { PendingReadHint, ReadRequestAction, ReadRequestResetHints, SettledReadHint } from './read_request_hints.js';
@@ -11,7 +11,7 @@ export type NullifierReadRequestHints<PENDING extends number, SETTLED extends nu
   PENDING,
   SETTLED,
   typeof NULLIFIER_TREE_HEIGHT,
-  TreeLeafPreimage
+  NullifierLeafPreimage
 >;
 
 export function nullifierReadRequestHintsFromBuffer<PENDING extends number, SETTLED extends number>(
@@ -64,7 +64,7 @@ export class NullifierReadRequestHintsBuilder<PENDING extends number, SETTLED ex
   addSettledReadRequest(
     readRequestIndex: number,
     membershipWitness: MembershipWitness<typeof NULLIFIER_TREE_HEIGHT>,
-    leafPreimage: TreeLeafPreimage,
+    leafPreimage: NullifierLeafPreimage,
   ) {
     if (this.numSettledReadHints === this.maxSettled) {
       throw new Error('Cannot add more settled read request.');

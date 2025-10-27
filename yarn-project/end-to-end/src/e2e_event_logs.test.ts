@@ -1,4 +1,9 @@
-import { AztecAddress, type AztecNode, Fr, type Logger, type Wallet, getDecodedPublicEvents } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -159,6 +164,64 @@ describe('Logs', () => {
           }))
           .sort(exampleEvent1Sort),
       );
+    });
+
+    // This test verifies that tags remain unique:
+    // 1. Across nested calls within the same contract, confirming proper propagation of the ExecutionTaggingIndexCache
+    //    between calls,
+    // 2. across separate transactions that interact with the same contract function, confirming proper persistence
+    //    of the cache contents in the database (TaggingDataProvider) after transaction proving completes.
+    it('produces unique tags for encrypted logs across nested calls and different transactions', async () => {
+      let tx1Tags: string[];
+      // With 4 nestings we have 5 total calls, each emitting 2 logs => 10 logs
+      const tx1NumLogs = 10;
+      {
+        // Call the private function that emits two encrypted logs per call and recursively nests 4 times
+        const tx = await testLogContract.methods
+          .emit_encrypted_events_nested(account2Address, 4)
+          .send({ from: account1Address })
+          .wait();
+
+        const blockNumber = tx.blockNumber!;
+
+        // Fetch raw private logs for that block and check tag uniqueness
+        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
+        const logs = privateLogs.filter(l => !l.isEmpty());
+
+        expect(logs.length).toBe(tx1NumLogs);
+
+        const tags = logs.map(l => l.fields[0].toString());
+        expect(new Set(tags).size).toBe(tx1NumLogs);
+        tx1Tags = tags;
+      }
+
+      let tx2Tags: string[];
+      // With 2 nestings we have 3 total calls, each emitting 2 logs => 6 logs
+      const tx2NumLogs = 6;
+      {
+        // Call the private function that emits two encrypted logs per call and recursively nests 2 times
+        const tx = await testLogContract.methods
+          .emit_encrypted_events_nested(account2Address, 2)
+          .send({ from: account1Address })
+          .wait();
+
+        const blockNumber = tx.blockNumber!;
+
+        // Fetch raw private logs for that block and check tag uniqueness
+        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
+        const logs = privateLogs.filter(l => !l.isEmpty());
+
+        expect(logs.length).toBe(tx2NumLogs);
+
+        const tags = logs.map(l => l.fields[0].toString());
+        expect(new Set(tags).size).toBe(tx2NumLogs);
+        tx2Tags = tags;
+      }
+
+      // Now we create a set from both tx1Tags and tx2Tags and expect it to be the same size as the sum of the number
+      // of logs in both transactions
+      const allTags = new Set([...tx1Tags, ...tx2Tags]);
+      expect(allTags.size).toBe(tx1NumLogs + tx2NumLogs);
     });
   });
 });

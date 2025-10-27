@@ -72,6 +72,9 @@ tests:
     error_regex: "Aborted.*core dumped"
     owners:
       - *adam
+  - regex: "barretenberg/acir_tests/scripts/browser_prove.sh .* webkit"
+    owners:
+      - *luke
 
   # /home/aztec-dev/aztec-packages/barretenberg/cpp/src/barretenberg/stdlib/primitives/bigfield/bigfield_edge_cases.test.cpp:142: Failure
   # Expected equality of these values:
@@ -83,6 +86,11 @@ tests:
     error_regex: "combined_a.get_value() > fq_ct::modulus"
     owners:
       - *suyash
+  # http://ci.aztec-labs.com/1593f7c89e22b51b
+  - regex: stdlib_primitives_tests stdlibBiggroupSecp256k1/1.WnafSecp256k1StaggerOutOfRangeFails
+    error_regex: "biggroup_nafs: stagger fragment is not in range"
+    owners:
+      - *luke
 
   # noir
   # Something to do with how I run the tests now. Think these are fine in nextest.
@@ -249,6 +257,31 @@ tests:
     error_regex: "Timeout waiting for proposal execution"
     owners:
       - *palla
+  # http://ci.aztec-labs.com/772074b07ab8e80e
+  # 11:11:32  FAIL  src/e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts
+  # 11:11:32   e2e_p2p_broadcasted_invalid_block_proposal_slash
+  # 11:11:32     ✕ slashes validator who broadcasts invalid block proposal (190879 ms)
+  # 11:11:32
+  # 11:11:32   ● e2e_p2p_broadcasted_invalid_block_proposal_slash › slashes validator who broadcasts invalid block proposal
+  # 11:11:32
+  # 11:11:32     TimeoutError: Timeout awaiting non-empty offenses
+  # 11:11:32
+  # 11:11:32       88 |         await sleep(interval * 1000);
+  # 11:11:32       89 |         if (timeout && timer.s() > timeout) {
+  # 11:11:32     > 90 |             throw new TimeoutError(name ? `Timeout awaiting ${name}` : 'Timeout');
+  # 11:11:32          |                   ^
+  # 11:11:32       91 |         }
+  # 11:11:32       92 |     }
+  # 11:11:32       93 | }
+  # 11:11:32
+  # 11:11:32       at retryUntil (../../foundation/dest/retry/index.js:90:19)
+  # 11:11:32       at awaitOffenseDetected (e2e_p2p/shared.ts:166:20)
+  # 11:11:32       at Object.<anonymous> (e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts:147:22)
+  # 11:11:32
+  - regex: "src/e2e_p2p/broadcasted_invalid_block_proposal_slash.test.ts"
+    error_regex: "Timeout awaiting non-empty offenses"
+    owners:
+      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
@@ -271,7 +304,7 @@ tests:
     error_regex: "will propagate messages to peers at the same version"
     owners:
       - *palla
-  - regex: "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+  - regex: "src/client/test/p2p_client.integration_status_handshake.test.ts"
     error_regex: "Expected number of calls"
     owners:
       - *palla
@@ -295,6 +328,10 @@ tests:
     error_regex: "✕ attempts to cancel timed out blob transactions with correct parameters"
     owners:
       - *palla
+  - regex: "ethereum/src/l1_tx_utils/l1_tx_utils.test.ts"
+    error_regex: "nonce too low"
+    owners:
+      - *palla
   - regex: "ivc-integration/src/rollup_ivc_integration.test.ts"
     error_regex: "Exceeded timeout of"
     owners:
@@ -305,6 +342,10 @@ tests:
       - *mitch
   - regex: "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
     error_regex: "only slashes validator inactive for N consecutive epochs"
+    owners:
+      - *palla
+  - regex: "archiver/src/archiver/archiver.test.ts"
+    error_regex: "Received number of calls: 1"
     owners:
       - *palla
 
@@ -326,6 +367,10 @@ tests:
     error_regex: "Sumcheck failed"
     owners:
       - *luke
+  - regex: "aztec-up/scripts/run_test.sh bridge_and_claim"
+    error_regex: "Cannot satisfy constraint"
+    owners:
+      - *adam
 
   # boxes
   - regex: "vanilla-all-browsers box boxes"
@@ -353,16 +398,36 @@ tests:
     owners:
       - *saleel
 
-  - regex: "BOX=vanilla BROWSER=* run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
+  - regex: "run_compose_test vanilla-all-browsers box boxes" # http://ci.aztec-labs.com/49f9945bc00aeef9
     error_regex: "create account and cast vote"
     owners:
       - *saleel
+
+  - regex: "run_compose_test vanilla-all-browsers box boxes"
+    error_regex: "Tag mismatch at offset 0|app_logic_reverted|public bytecode has not been transpiled"
+    owners:
+      - *david
 
   - regex: "src/e2e_p2p/inactivity_slash.test.ts"
     error_regex: "Cannot propose.*since the committee does not exist on L1"
     owners:
       - *palla
 
+  - regex: "src/composed/web3signer/e2e_multi_validator_node_key_store.test.ts"
+    owners:
+      - *grego
+
+  - regex: "src/e2e_epochs/epochs_invalidate_block.parallel.test.ts"
+    owners:
+      - *grego
+
+  - regex: "amm_flow.sh"
+    owners:
+      - *grego
+
+  - regex: "src/e2e_p2p/gossip_network.test.ts"
+    owners:
+      - *grego
   # Slack testing.
   - regex: "nonsense to match"
     error_regex: "something else"

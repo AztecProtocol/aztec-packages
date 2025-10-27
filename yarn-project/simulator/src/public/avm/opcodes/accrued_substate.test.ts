@@ -17,12 +17,7 @@ import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
-import {
-  mockCheckNullifierExists,
-  mockL1ToL2MessageExists,
-  mockNoteHashCount,
-  mockNoteHashExists,
-} from '../test_utils.js';
+import { mockCheckNullifierExists, mockGetL1ToL2LeafValue, mockGetNoteHash, mockNoteHashCount } from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,
@@ -94,7 +89,10 @@ describe('Accrued Substate', () => {
       const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
+          mockGetNoteHash(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetNoteHash(treesDB, leafIndex);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -260,7 +258,10 @@ describe('Accrued Substate', () => {
 
       it(`Should return ${expectFound} (and be traced) when l1 to l2 message ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockGetL1ToL2LeafValue(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetL1ToL2LeafValue(treesDB, leafIndex);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // msg hash
