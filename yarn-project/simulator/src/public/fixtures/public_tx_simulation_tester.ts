@@ -16,7 +16,7 @@ import {
   getFunctionSelector,
 } from '../avm/fixtures/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
-import { MeasuredCppPublicTxSimulatorHintedDbs } from '../public_tx_simulator/cpp_public_tx_simulator.js';
+import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
@@ -61,7 +61,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       clientInitiatedSimulation: true,
     };
     this.simulator = useCppSimulator
-      ? new MeasuredCppPublicTxSimulatorHintedDbs(merkleTree, contractsDB, globals, this.metrics, config)
+      ? new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config)
       : new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
   }
 

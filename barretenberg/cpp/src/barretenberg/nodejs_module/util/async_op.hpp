@@ -45,6 +45,10 @@ class AsyncOperation : public Napi::AsyncWorker {
             _fn(_result);
         } catch (const std::exception& e) {
             SetError(e.what());
+        } catch (...) {
+            // Catch any other exception type that's not derived from std::exception
+            // This ensures the promise is always rejected rather than leaving it hanging
+            SetError("Unknown exception occurred during async operation");
         }
     }
 
