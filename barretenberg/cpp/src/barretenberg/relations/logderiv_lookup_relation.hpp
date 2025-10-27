@@ -48,10 +48,10 @@ namespace bb {
  * to 0, even when is_read_gate is 1, because inverse_exists is a linear function of read_tag then. Thus we have a third
  * subrelation, that ensures that read_tag is a boolean value.
  * (3) read_tag * read_tag - read_tag = 0
- * Further constraining of read_tags and read_counts is not required. Since by tampering read_tags a malicious prover
+ * Further constraining of read_tags and read_counts is not required, since by tampering read_tags a malicious prover
  can only skip a write_term. This is disadvantagous for the cheating prover as it reduces the size of the lookup table.
  Hence, a malicious prover can not abuse this to prove an incorrect lookup.
- * Note: that subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
+ * Note: Subrelation (2) is "linearly dependent" in the sense that it establishes that a sum
  * across all rows of the exectution trace is zero, rather than that some expression holds independently at each row.
  * Accordingly, this subrelation is not multiplied by a scaling factor at each accumulation step.
  * @note The "real" table entries must be 'derived' from wire values since instead of storing actual values in wires we
