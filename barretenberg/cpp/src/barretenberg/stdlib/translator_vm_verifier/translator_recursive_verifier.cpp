@@ -183,9 +183,9 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
-    return { pairing_points[0], pairing_points[1] };
+    return pairing_points;
 }
 
 void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
