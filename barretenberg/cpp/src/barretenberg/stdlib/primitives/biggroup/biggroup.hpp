@@ -34,17 +34,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
-    struct secp256k1_wnaf {
-        std::vector<field_ct> wnaf;
-        bool_ct positive_skew;
-        bool_ct negative_skew;
-        field_ct least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
-    };
-    struct secp256k1_wnaf_pair {
-        secp256k1_wnaf klo;
-        secp256k1_wnaf khi;
-    };
 
     element();
     element(const typename NativeGroup::affine_element& input);
@@ -392,6 +381,21 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @details Only used internally in biggroup_nafs.hpp
      */
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
+
+    // Internal struct to represent wNAF for a secp256k1 scalar
+    struct secp256k1_wnaf {
+        std::vector<field_t<Builder>> wnaf;
+        bool_ct positive_skew;
+        bool_ct negative_skew;
+        field_t<Builder> least_significant_wnaf_fragment;
+        bool has_wnaf_fragment = false;
+    };
+
+    // Internal struct to represent a pair of secp256k1 wNAFs
+    struct secp256k1_wnaf_pair {
+        secp256k1_wnaf klo;
+        secp256k1_wnaf khi;
+    };
 
     /**
      * @brief Compute endomorphism for a secp256k1 scalar, and then compute the wNAF representation of both halves
