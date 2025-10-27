@@ -17,21 +17,21 @@ class PermutationHelperTests : public ::testing::Test {
     virtual void SetUp()
     {
         bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-        circuit_constructor.add_public_variable(1024);
-        circuit_constructor.add_public_variable(1025);
+        circuit_constructor.add_public_variable(fr(1024));
+        circuit_constructor.add_public_variable(fr(1025));
 
-        uint32_t v_1 = circuit_constructor.add_variable(16 + 1);
-        uint32_t v_2 = circuit_constructor.add_variable(16 + 2);
-        uint32_t v_3 = circuit_constructor.add_variable(16 + 3);
-        uint32_t v_4 = circuit_constructor.add_variable(16 + 4);
-        uint32_t v_5 = circuit_constructor.add_variable(16 + 5);
-        uint32_t v_6 = circuit_constructor.add_variable(16 + 6);
-        uint32_t v_7 = circuit_constructor.add_variable(16 + 7);
-        uint32_t v_8 = circuit_constructor.add_variable(16 + 8);
-        uint32_t v_9 = circuit_constructor.add_variable(16 + 9);
-        uint32_t v_10 = circuit_constructor.add_variable(16 + 10);
-        uint32_t v_11 = circuit_constructor.add_variable(16 + 11);
-        uint32_t v_12 = circuit_constructor.add_variable(16 + 12);
+        uint32_t v_1 = circuit_constructor.add_variable(fr(16 + 1));
+        uint32_t v_2 = circuit_constructor.add_variable(fr(16 + 2));
+        uint32_t v_3 = circuit_constructor.add_variable(fr(16 + 3));
+        uint32_t v_4 = circuit_constructor.add_variable(fr(16 + 4));
+        uint32_t v_5 = circuit_constructor.add_variable(fr(16 + 5));
+        uint32_t v_6 = circuit_constructor.add_variable(fr(16 + 6));
+        uint32_t v_7 = circuit_constructor.add_variable(fr(16 + 7));
+        uint32_t v_8 = circuit_constructor.add_variable(fr(16 + 8));
+        uint32_t v_9 = circuit_constructor.add_variable(fr(16 + 9));
+        uint32_t v_10 = circuit_constructor.add_variable(fr(16 + 10));
+        uint32_t v_11 = circuit_constructor.add_variable(fr(16 + 11));
+        uint32_t v_12 = circuit_constructor.add_variable(fr(16 + 12));
 
         circuit_constructor.create_add_gate({ v_1, v_5, v_9, 0, 0, 0, 0 });
         circuit_constructor.create_add_gate({ v_2, v_6, v_10, 0, 0, 0, 0 });

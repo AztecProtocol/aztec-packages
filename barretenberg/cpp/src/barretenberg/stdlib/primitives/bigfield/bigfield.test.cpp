@@ -1601,7 +1601,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         // Set the high bit
         exponent_val |= static_cast<uint32_t>(1) << 31;
         fq_ct base_constant(&builder, static_cast<uint256_t>(base_val));
-        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, typename fq_ct::native(base_val));
         // This also tests for the case where the exponent is zero
         for (size_t i = 0; i <= 32; i += 4) {
             uint32_t current_exponent_val = exponent_val >> i;
@@ -1630,7 +1630,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
 
         uint32_t current_exponent_val = 1;
         fq_ct base_constant_ct(&builder, static_cast<uint256_t>(base_val));
-        fq_ct base_witness_ct = fq_ct::from_witness(&builder, static_cast<uint256_t>(base_val));
+        fq_ct base_witness_ct = fq_ct::from_witness(&builder, typename fq_ct::native(base_val));
         fq_native expected = base_val.pow(current_exponent_val);
 
         // Check for constant bigfield element with constant exponent
@@ -1975,7 +1975,7 @@ template <typename BigField> class stdlib_bigfield : public testing::Test {
         typedef stdlib::bool_t<Builder> bool_t;
         auto builder = Builder();
 
-        fq_ct w0 = fq_ct::from_witness(&builder, 1);
+        fq_ct w0 = fq_ct::from_witness(&builder, typename fq_ct::native(1));
         w0 = w0.conditional_negate(bool_t(&builder, true));
         w0 = w0.conditional_negate(bool_t(&builder, false));
         w0 = w0.conditional_negate(bool_t(&builder, true));

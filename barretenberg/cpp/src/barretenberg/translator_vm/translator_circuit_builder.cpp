@@ -404,10 +404,10 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
     if (ultra_op.op_code.is_random_op) {
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_1));
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_2));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_1)));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_2)));
     } else {
-        op_wire.push_back(add_variable(ultra_op.op_code.value()));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.value())));
         // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
         // genuine op
         op_wire.push_back(zero_idx());

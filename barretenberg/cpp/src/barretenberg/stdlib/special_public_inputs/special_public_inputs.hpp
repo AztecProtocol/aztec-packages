@@ -134,7 +134,7 @@ class KernelIO {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
-        inputs.output_pg_accum_hash = FF::from_witness(&builder, 0);
+        inputs.output_pg_accum_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.set_public();
     }
 };
