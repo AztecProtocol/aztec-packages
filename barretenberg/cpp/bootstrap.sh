@@ -213,24 +213,16 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Ensure ldid is available for code signing
-  ensure_ldid
-
-  # Package arm64-linux
+  # Package arm64-linux (version already injected in build_cross)
   cp build-zig-arm64-linux/bin/bb build-release/bb
-  inject_version build-release/bb
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
 
-  # Package arm64-macos
+  # Package arm64-macos (version injected and signed in build())
   cp build-zig-arm64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
   tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
 
-  # Package amd64-macos
+  # Package amd64-macos (version injected and signed in build())
   cp build-zig-amd64-macos/bin/bb build-release/bb
-  inject_version build-release/bb
-  ldid -S build-release/bb
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
