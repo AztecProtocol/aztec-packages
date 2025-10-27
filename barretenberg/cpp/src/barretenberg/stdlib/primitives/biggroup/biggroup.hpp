@@ -249,7 +249,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         *this = *this - other;
         return *this;
     }
-    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
 
     element operator*(const Fr& scalar) const;
 
@@ -359,6 +358,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     /**
      * We can chain repeated point additions together, where we only require 2 non-native field multiplications per
      * point addition, instead of 3
+     * NOTE: These must remain public as they are used by nested structs like batch_lookup_table_plookup
      **/
     static chain_add_accumulator chain_add_start(const element& p1, const element& p2);
     static chain_add_accumulator chain_add(const element& p1, const chain_add_accumulator& accumulator);
@@ -378,13 +378,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         return result;
     }
 
-    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars,
-                                                                        const Fr& masking_scalar = Fr(1));
-
-    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
-        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
-
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
@@ -394,8 +387,16 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
 
+    /**
+     * @brief Compute Non-Adjacent Form (NAF) representation of a scalar
+     * @details Only used internally in biggroup_nafs.hpp
+     */
     static std::vector<bool_ct> compute_naf(const Fr& scalar, const size_t max_num_bits = 0);
 
+    /**
+     * @brief Compute endomorphism for a secp256k1 scalar, and then compute the wNAF representation of both halves
+     * @details Only used internally in biggroup_nafs.hpp and biggroup_secp256k1.hpp
+     */
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
@@ -462,6 +463,36 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     Fq _x;
     Fq _y;
     bool_ct _is_infinity;
+
+    /**
+     * @brief Compute both add and subtract (a + b, a - b) results simultaneously
+     * @details Only used internally for lookup table generation
+     */
+    std::array<element, 2> checked_unconditional_add_sub(const element& other) const;
+
+    /**
+     * @brief Mask points for batch multiplication to handle edge cases
+     * @param _points The points to be masked
+     * @param _scalars The corresponding scalars
+     * @param masking_scalar The masking scalar used to randomise the points
+     * @return A pair of vectors containing the masked points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars,
+                                                                        const Fr& masking_scalar);
+
+    /**
+     * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
+     * @param _points The input points
+     * @param _scalars The corresponding scalars
+     * @return A pair of vectors containing the processed points and scalars
+     *
+     * @details Only used internally in biggroup_edgecase_handling.hpp
+     */
+    static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
+        const std::vector<element>& _points, const std::vector<Fr>& _scalars);
 
     /**
      * @brief Compute the wNAF representation (in circuit) of a scalar for secp256k1
