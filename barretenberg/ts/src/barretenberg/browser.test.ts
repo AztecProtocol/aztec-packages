@@ -240,6 +240,53 @@ describe('Barretenberg Browser Integration', () => {
     },
     BROWSER_TEST_TIMEOUT,
   );
+
+  it(
+    'should load UltraHonk backend classes in browser',
+    async () => {
+      const result = await page.evaluate(async () => {
+        try {
+          console.log('Testing UltraHonk backend class availability...');
+
+          // @ts-ignore
+          const backendModule = await import('./barretenberg/backend.js');
+
+          // Verify the classes are available
+          const hasUltraHonkBackend = typeof backendModule.UltraHonkBackend === 'function';
+          const hasVerifierBackend = typeof backendModule.UltraHonkVerifierBackend === 'function';
+          const hasClientBackend = typeof backendModule.AztecClientBackend === 'function';
+
+          console.log(`UltraHonkBackend available: ${hasUltraHonkBackend}`);
+          console.log(`UltraHonkVerifierBackend available: ${hasVerifierBackend}`);
+          console.log(`AztecClientBackend available: ${hasClientBackend}`);
+
+          return {
+            success: true,
+            hasUltraHonkBackend,
+            hasVerifierBackend,
+            hasClientBackend,
+            message: 'All backend classes loaded successfully',
+          };
+        } catch (err) {
+          console.error('Backend loading error:', err);
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      });
+
+      console.log('Backend loading result:', result);
+      if (!result.success) {
+        console.error('Backend loading error:', result.error);
+      }
+      expect(result.success).toBe(true);
+      expect(result.hasUltraHonkBackend).toBe(true);
+      expect(result.hasVerifierBackend).toBe(true);
+      expect(result.hasClientBackend).toBe(true);
+    },
+    BROWSER_TEST_TIMEOUT,
+  );
 });
 
 /**
