@@ -19,7 +19,7 @@ export async function proveClientIVC(
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-    { threads: threads || Math.min(os.cpus().length, 16), logger: logger.info },
+    { threads: threads || Math.min(os.cpus().length, 16), logger: logger.info, wasmPath: process.env.BB_WASM_PATH },
   );
   try {
     const [proof] = await backend.prove(
@@ -41,7 +41,7 @@ export async function proveThenVerifyAztecClient(
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-    { threads: threads || Math.min(os.cpus().length, 16), logger: logger.info },
+    { threads: threads || Math.min(os.cpus().length, 16), logger: logger.info, wasmPath: process.env.BB_WASM_PATH },
   );
   try {
     // These are optional - easier not to pass them.
