@@ -136,7 +136,7 @@ template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomRecord& record)
 {
     // Record wire value can't yet be computed
-    record.record_witness = builder->add_variable(0);
+    record.record_witness = builder->add_variable(FF(0));
     builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_READ);
     builder->blocks.memory.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
@@ -149,7 +149,7 @@ void RomRamLogic_<ExecutionTrace>::create_ROM_gate(CircuitBuilder* builder, RomR
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_sorted_ROM_gate(CircuitBuilder* builder, RomRecord& record)
 {
-    record.record_witness = builder->add_variable(0);
+    record.record_witness = builder->add_variable(FF(0));
     // record_witness is intentionally used only in a single gate
     builder->update_used_witnesses(record.record_witness);
     builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK);
@@ -360,7 +360,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
     // However it needs a distinct witness index,
     // we will be applying copy constraints + set membership constraints.
     // Later on during proof construction we will compute the record wire value + assign it
-    record.record_witness = builder->add_variable(0);
+    record.record_witness = builder->add_variable(FF(0));
     builder->apply_memory_selectors(record.access_type == RamRecord::AccessType::READ
                                         ? CircuitBuilder::MEMORY_SELECTORS::RAM_READ
                                         : CircuitBuilder::MEMORY_SELECTORS::RAM_WRITE);
@@ -375,7 +375,7 @@ void RomRamLogic_<ExecutionTrace>::create_RAM_gate(CircuitBuilder* builder, RamR
 template <typename ExecutionTrace>
 void RomRamLogic_<ExecutionTrace>::create_sorted_RAM_gate(CircuitBuilder* builder, RamRecord& record)
 {
-    record.record_witness = builder->add_variable(0);
+    record.record_witness = builder->add_variable(FF(0));
     builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK);
     builder->blocks.memory.populate_wires(
         record.index_witness, record.timestamp_witness, record.value_witness, record.record_witness);
@@ -390,7 +390,7 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
                                                                 RamRecord& record,
                                                                 const size_t ram_array_size)
 {
-    record.record_witness = builder->add_variable(0);
+    record.record_witness = builder->add_variable(FF(0));
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size(); // no -1 since we havent added the gate yet
 
@@ -456,7 +456,7 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
         const auto index = record.index;
         const auto value = builder->get_variable(record.value_witness);
         const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        const auto timestamp_witess = builder->add_variable(record.timestamp);
+        const auto timestamp_witess = builder->add_variable(FF(record.timestamp));
         const auto value_witness = builder->add_variable(value);
         RamRecord sorted_record{
             .index_witness = index_witness,

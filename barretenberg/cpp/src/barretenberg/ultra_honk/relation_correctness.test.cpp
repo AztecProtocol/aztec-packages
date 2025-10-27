@@ -66,8 +66,8 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
             .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
                    plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
     const auto input_lo = uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-    const auto input_hi_index = circuit_builder.add_variable(input_hi);
-    const auto input_lo_index = circuit_builder.add_variable(input_lo);
+    const auto input_hi_index = circuit_builder.add_variable(FF(input_hi));
+    const auto input_lo_index = circuit_builder.add_variable(FF(input_lo));
 
     const auto sequence_data_hi =
         plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
@@ -108,14 +108,14 @@ template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
         circuit_builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    auto a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(5));
+    auto a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    auto b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
-    auto c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(1));
+    auto b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(4)));
+    auto c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(1)));
 
-    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(4), circuit_builder.add_variable(500));
-    auto d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
+    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(FF(4)), circuit_builder.add_variable(FF(500)));
+    auto d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(4)));
 
     EXPECT_EQ(circuit_builder.get_variable(d_idx), 500);
 

@@ -175,7 +175,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
             // Add some public inputs
             for (size_t i = 0; i < num_public_inputs; ++i) {
-                circuit.add_public_variable(13634816 + i); // arbitrary number
+                circuit.add_public_variable(typename Flavor::FF(13634816 + i)); // arbitrary number
             }
         } else {
             // If the number of gates is not specified we create a structured mock circuit

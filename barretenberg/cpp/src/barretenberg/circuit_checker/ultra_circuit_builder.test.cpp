@@ -811,10 +811,10 @@ TEST(UltraCircuitBuilder, Rom)
         builder.set_ROM_element(rom_id, i, rom_values[i]);
     }
 
-    uint32_t a_idx = builder.read_ROM_array(rom_id, builder.add_variable(5));
+    uint32_t a_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(5)));
     EXPECT_EQ(a_idx != rom_values[5], true);
-    uint32_t b_idx = builder.read_ROM_array(rom_id, builder.add_variable(4));
-    uint32_t c_idx = builder.read_ROM_array(rom_id, builder.add_variable(1));
+    uint32_t b_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(4)));
+    uint32_t c_idx = builder.read_ROM_array(rom_id, builder.add_variable(fr(1)));
 
     const auto d_value = builder.get_variable(a_idx) + builder.get_variable(b_idx) + builder.get_variable(c_idx);
     uint32_t d_idx = builder.add_variable(d_value);
@@ -850,7 +850,7 @@ TEST(UltraCircuitBuilder, RamSimple)
     builder.init_RAM_element(ram_id, /*index_value=*/0, ram_value_idx);
 
     // Read from the RAM array we just created (at the 0th index)
-    uint32_t read_idx = builder.add_variable(0);
+    uint32_t read_idx = builder.add_variable(fr(0));
     uint32_t a_idx = builder.read_RAM_array(ram_id, read_idx);
 
     // Use the result in a simple arithmetic gate
@@ -886,14 +886,14 @@ TEST(UltraCircuitBuilder, Ram)
         builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    uint32_t a_idx = builder.read_RAM_array(ram_id, builder.add_variable(5));
+    uint32_t a_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    uint32_t b_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
-    uint32_t c_idx = builder.read_RAM_array(ram_id, builder.add_variable(1));
+    uint32_t b_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(4)));
+    uint32_t c_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(1)));
 
-    builder.write_RAM_array(ram_id, builder.add_variable(4), builder.add_variable(500));
-    uint32_t d_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
+    builder.write_RAM_array(ram_id, builder.add_variable(fr(4)), builder.add_variable(fr(500)));
+    uint32_t d_idx = builder.read_RAM_array(ram_id, builder.add_variable(fr(4)));
 
     EXPECT_EQ(builder.get_variable(d_idx), 500);
 
@@ -943,10 +943,10 @@ TEST(UltraCircuitBuilder, RangeChecksOnDuplicates)
 {
     UltraCircuitBuilder builder = UltraCircuitBuilder();
 
-    uint32_t a = builder.add_variable(100);
-    uint32_t b = builder.add_variable(100);
-    uint32_t c = builder.add_variable(100);
-    uint32_t d = builder.add_variable(100);
+    uint32_t a = builder.add_variable(fr(100));
+    uint32_t b = builder.add_variable(fr(100));
+    uint32_t c = builder.add_variable(fr(100));
+    uint32_t d = builder.add_variable(fr(100));
 
     builder.assert_equal(a, b);
     builder.assert_equal(a, c);
@@ -979,8 +979,8 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
     UltraCircuitBuilder builder = UltraCircuitBuilder();
     // check_circuit allows us to check correctness on the go
 
-    uint32_t a = builder.add_variable(0xdead);
-    uint32_t b = builder.add_variable(0xbeef);
+    uint32_t a = builder.add_variable(fr(0xdead));
+    uint32_t b = builder.add_variable(fr(0xbeef));
     // Let's create 2 gates that will bind these 2 variables to be one these two values
     builder.create_poly_gate(
         { a, a, builder.zero_idx(), fr(1), -fr(0xdead) - fr(0xbeef), 0, 0, fr(0xdead) * fr(0xbeef) });
@@ -1003,7 +1003,7 @@ TEST(UltraCircuitBuilder, CheckCircuitShowcase)
     EXPECT_EQ(CircuitChecker::check(builder), false);
 
     // But if we force them both back to be 0xbeef...
-    uint32_t c = builder.add_variable(0xbeef);
+    uint32_t c = builder.add_variable(fr(0xbeef));
     builder.assert_equal(c, b);
 
     // The circuit will magically pass again
