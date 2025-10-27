@@ -21,48 +21,11 @@
 
 namespace {
 
-class TaskflowPool {
-  public:
-    TaskflowPool(size_t num_threads)
-        : executor_(num_threads)
-    {
-    }
-
-    TaskflowPool(const TaskflowPool& other) = delete;
-    TaskflowPool(TaskflowPool&& other) = delete;
-    ~TaskflowPool() = default;
-
-    TaskflowPool& operator=(const TaskflowPool& other) = delete;
-    TaskflowPool& operator=(TaskflowPool&& other) = delete;
-
-    void start_tasks(size_t num_iterations, const std::function<void(size_t)>& func)
-    {
-        // Save the parent pointer for benchmark stats
-        auto* parent_ptr = bb::detail::GlobalBenchStatsContainer::parent;
-
-        // We need to use a simpler approach without for_each_index to avoid linkage issues
-        // Create num_iterations tasks that will be scheduled by taskflow
-        tf::Taskflow taskflow;
-
-        for (size_t i = 0; i < num_iterations; ++i) {
-            taskflow.emplace([&func, parent_ptr, i]() {
-                // Preserve benchmark stats parent for nested parallel operations
-                bb::detail::GlobalBenchStatsContainer::parent = parent_ptr;
-                func(i);
-            });
-        }
-
-        // Run the taskflow - this will block until all tasks complete
-        // The executor handles work-stealing, so threads from the pool can
-        // participate in nested parallel_for calls
-        executor_.run(taskflow).wait();
-    }
-
-    tf::Executor& get_executor() { return executor_; }
-
-  private:
-    tf::Executor executor_;
-};
+// Get the global shared executor - all parallel_for calls use the same thread pool
+tf::Executor& get_global_executor() {
+    static tf::Executor executor(bb::get_num_cpus());
+    return executor;
+}
 
 } // namespace
 
@@ -70,21 +33,46 @@ namespace bb {
 /**
  * A taskflow-based parallel_for implementation that provides proper reentrancy.
  *
- * Taskflow's executor uses a work-stealing scheduler, which means:
- * - Worker threads can participate in nested parallel_for calls
- * - If a thread is waiting for subtasks, it will steal and execute other work
- * - This avoids deadlocks and provides efficient load balancing
+ * Key design:
+ * - Uses a SINGLE shared executor with N threads (where N = num_cpus)
+ * - All parallel_for calls (including nested ones) submit tasks to the same executor
+ * - The same N worker threads handle all work, parent and nested tasks alike
+ * - Taskflow's work-stealing scheduler ensures threads don't sit idle
+ * - No thread explosion: always exactly N threads regardless of nesting depth
  *
- * This implementation is thread-safe for nested parallel_for calls.
+ * Thread reentrancy mechanism:
+ * - When a worker thread T submits a nested parallel_for, it creates a taskflow
+ *   and submits it to the same executor it belongs to
+ * - T then waits (blocks) for the nested work to complete
+ * - While T is blocked, OTHER worker threads from the same pool steal and execute
+ *   the nested tasks (and T's siblings tasks)
+ * - Once all nested tasks finish, T unblocks and continues
+ * - This works because we have N threads and typically N-1 are available to handle
+ *   work while 1 is blocked waiting
  */
 void parallel_for_taskflow(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    // Thread-local executor allows each thread to have its own taskflow pool
-    // This is key for reentrancy: when a worker thread calls parallel_for,
-    // it uses its own thread-local pool rather than blocking the parent pool
-    thread_local TaskflowPool pool(bb::get_num_cpus() - 1);
+    // Get the shared global executor
+    tf::Executor& executor = get_global_executor();
 
-    pool.start_tasks(num_iterations, func);
+    // Save the parent pointer for benchmark stats
+    auto* parent_ptr = bb::detail::GlobalBenchStatsContainer::parent;
+
+    // Create a taskflow with num_iterations independent tasks
+    tf::Taskflow taskflow;
+
+    for (size_t i = 0; i < num_iterations; ++i) {
+        taskflow.emplace([&func, parent_ptr, i]() {
+            // Preserve benchmark stats parent for nested parallel operations
+            bb::detail::GlobalBenchStatsContainer::parent = parent_ptr;
+            func(i);
+        });
+    }
+
+    // Submit to the shared executor and wait for completion
+    // If we're already inside a worker thread, this will block this thread
+    // while other workers handle the tasks via work-stealing
+    executor.run(taskflow).wait();
 }
 } // namespace bb
 #endif
