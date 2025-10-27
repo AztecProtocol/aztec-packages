@@ -250,9 +250,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are
-    // the same even in the case of a valid circuit
+    // validate we can use incomplete addition formulae
     other._x.assert_is_not_equal(_x);
 
     const Fq denominator = other._x - _x;
