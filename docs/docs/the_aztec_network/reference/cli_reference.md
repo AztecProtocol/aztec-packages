@@ -244,7 +244,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.
 
     --p2p.p2pStoreMapSizeKb <value>                                                                                               ($P2P_STORE_MAP_SIZE_KB)
-          The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --p2p.txPublicSetupAllowList <value>                                                                                          ($TX_PUBLIC_SETUP_ALLOWLIST)
           The list of functions calls allowed to run in setup
@@ -310,7 +310,7 @@ If two subsystems can contain the same configuration option, only one needs to b
     --pxe
           Starts Aztec PXE with options
 
-    --pxe.dataStoreMapSizeKB <value>                               (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
+    --pxe.dataStoreMapSizeKb <value>                               (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
     --pxe.rollupVersion <value>                                                                                                   ($ROLLUP_VERSION)
@@ -343,7 +343,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           The URL of the blob sink
 
     --archiver.blobSinkMapSizeKb <value>                                                                                          ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --archiver.archiveApiUrl <value>                                                                                              ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -358,7 +358,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           The max number of logs that can be obtained in 1 "getPublicLogs" call.
 
     --archiver.archiverStoreMapSizeKb <value>                                                                                     ($ARCHIVER_STORE_MAP_SIZE_KB)
-          The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --archiver.rollupVersion <value>                                                                                              ($ROLLUP_VERSION)
           The version of the rollup.
@@ -561,7 +561,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           The URL of the blob sink
 
     --sequencer.blobSinkMapSizeKb <value>                                                                                         ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --sequencer.archiveApiUrl <value>                                                                                             ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
@@ -590,12 +590,12 @@ If two subsystems can contain the same configuration option, only one needs to b
           The URL of the blob sink
 
     --blobSink.blobSinkMapSizeKb <value>                                                                                          ($BLOB_SINK_MAP_SIZE_KB)
-          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --blobSink.archiveApiUrl <value>                                                                                              ($BLOB_SINK_ARCHIVE_API_URL)
           The URL of the archive API
 
-    --blobSink.dataStoreMapSizeKB <value>                          (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
+    --blobSink.dataStoreMapSizeKb <value>                          (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
     --blobSink.rollupVersion <value>                                                                                              ($ROLLUP_VERSION)
@@ -652,7 +652,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           Size of the batch for each get-blocks request from the synchronizer to the archiver.
 
     --proverNode.worldStateDbMapSizeKb <value>                                                                                    ($WS_DB_MAP_SIZE_KB)
-          The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
+          The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 
     --proverNode.archiveTreeMapSizeKb <value>                                                                                     ($ARCHIVE_TREE_MAP_SIZE_KB)
           The maximum possible size of the world state archive tree in KB. Overwrites the general worldStateDbMapSizeKb.
@@ -749,10 +749,10 @@ If two subsystems can contain the same configuration option, only one needs to b
     --proverBroker.proverBrokerMaxEpochsToKeepResultsFor <value>   (default: 1)                                                  ($PROVER_BROKER_MAX_EPOCHS_TO_KEEP_RESULTS_FOR)
           The maximum number of epochs to keep results for
 
-    --proverBroker.proverBrokerStoreMapSizeKB <value>                                                                             ($PROVER_BROKER_STORE_MAP_SIZE_KB)
-          The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
+    --proverBroker.proverBrokerStoreMapSizeKb <value>                                                                             ($PROVER_BROKER_STORE_MAP_SIZE_KB)
+          The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
 
-    --proverBroker.dataStoreMapSizeKB <value>                      (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
+    --proverBroker.dataStoreMapSizeKb <value>                      (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
     --proverBroker.viemPollingIntervalMS <value>                   (default: 1000)                                               ($L1_READER_VIEM_POLLING_INTERVAL_MS)
@@ -801,7 +801,7 @@ If two subsystems can contain the same configuration option, only one needs to b
     --p2pBootstrap.peerIdPrivateKeyPath <value>                                                                                   ($PEER_ID_PRIVATE_KEY_PATH)
           An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.
 
-    --p2pBootstrap.dataStoreMapSizeKB <value>                      (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
+    --p2pBootstrap.dataStoreMapSizeKb <value>                      (default: 134217728)                                          ($DATA_STORE_MAP_SIZE_KB)
           DB mapping size to be applied to all key/value stores
 
   BOT

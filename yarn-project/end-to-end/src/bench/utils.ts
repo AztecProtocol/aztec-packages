@@ -164,7 +164,7 @@ export async function createNewPXE(node: AztecNode, contract: BenchmarkingContra
     l2BlockBatchSize: 50,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 1024 * 1024,
+    dataStoreMapSizeKb: 1024 * 1024,
     l1Contracts,
     l1ChainId,
     rollupVersion,

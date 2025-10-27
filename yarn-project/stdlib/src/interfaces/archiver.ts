@@ -44,7 +44,7 @@ export type ArchiverSpecificConfig = {
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 
-  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb. */
   archiverStoreMapSizeKb?: number;
 
   /** Whether to skip validating block attestations (use only for testing). */

@@ -413,7 +413,7 @@ async function setupFromFresh(
       l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: aztecNodeConfig.dataDirectory,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
     },
     telemetry,
   );
@@ -541,7 +541,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: statePath,
-      dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      dataStoreMapSizeKb: aztecNodeConfig.dataStoreMapSizeKb,
     },
     telemetry,
   );

@@ -288,7 +288,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     p2pPort: port,
     peerIdPrivateKey: new SecretValue(privateKey),
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 0,
+    dataStoreMapSizeKb: 0,
     bootstrapNodes: [],
     listenAddress: '127.0.0.1',
     queryForIp: false,

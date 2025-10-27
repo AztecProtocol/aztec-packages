@@ -21,7 +21,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
   beforeEach(async () => {
     directory = await mkdtemp(join(tmpdir(), 'proving-broker-database-test'));
     config = {
-      dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+      dataStoreMapSizeKb: 1024 * 1024 * 1024, // 1GB
       dataDirectory: directory,
       proverBrokerJobMaxRetries: 1,
       proverBrokerJobTimeoutMs: 1000,
@@ -329,7 +329,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       batchSize = 5;
 
       config = {
-        dataStoreMapSizeKB: 1024 * 1024, // 1GB
+        dataStoreMapSizeKb: 1024 * 1024, // 1GB
         dataDirectory: directory,
         proverBrokerJobMaxRetries: 1,
         proverBrokerJobTimeoutMs: 1000,

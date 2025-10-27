@@ -33,7 +33,7 @@ async function setupPXE() {
 
   const store = await createStore('pxe', {
     dataDirectory: PXE_STORE_DIR,
-    dataStoreMapSizeKB: 1e6,
+    dataStoreMapSizeKb: 1e6,
   });
 
   const config = getPXEServiceConfig();
