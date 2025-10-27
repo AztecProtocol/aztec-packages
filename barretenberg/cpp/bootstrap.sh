@@ -94,6 +94,8 @@ function build_native {
     ./format.sh check
     build_preset $native_preset
     inject_version build/bin/bb
+    # Inject version into bb-avm if it exists (only when AVM is enabled)
+    [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
   fi
 }
@@ -235,12 +237,12 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Version already injected in build(), just copy and tar
+  # Version already injected in build_native, just copy and tar
   cp build/bin/bb build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
+  # Version already injected in build_native
   cp build/bin/bb-avm build-release/bb-avm
-  inject_version build-release/bb-avm
   tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
