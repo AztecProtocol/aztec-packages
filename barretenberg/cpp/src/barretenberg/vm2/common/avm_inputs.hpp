@@ -406,6 +406,18 @@ struct AvmProvingInputs {
     MSGPACK_FIELDS(publicInputs, hints);
 };
 
+struct AvmFastSimulationInputs {
+    world_state::WorldStateRevision wsRevision;
+    Tx tx;
+    GlobalVariables globalVariables;
+    ProtocolContracts protocolContracts;
+
+    static AvmFastSimulationInputs from(const std::vector<uint8_t>& data);
+    bool operator==(const AvmFastSimulationInputs& other) const = default;
+
+    MSGPACK_FIELDS(wsRevision, tx, globalVariables, protocolContracts);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Tx Simulation Result
 ////////////////////////////////////////////////////////////////////////////

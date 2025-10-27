@@ -311,6 +311,19 @@ Napi::Value WorldStateWrapper::call(const Napi::CallbackInfo& info)
     return deferred->Promise();
 }
 
+Napi::Value WorldStateWrapper::getHandle(const Napi::CallbackInfo& info)
+{
+    Napi::Env env = info.Env();
+
+    if (!_ws) {
+        throw Napi::Error::New(env, "World state has been closed");
+    }
+
+    // Return a NAPI External that wraps the raw WorldState pointer
+    // This allows other NAPI functions to access the WorldState instance
+    return Napi::External<WorldState>::New(env, _ws.get());
+}
+
 bool WorldStateWrapper::get_tree_info(msgpack::object& obj, msgpack::sbuffer& buffer) const
 {
     TypedMessage<GetTreeInfoRequest> request;
@@ -930,5 +943,6 @@ Napi::Function WorldStateWrapper::get_class(Napi::Env env)
                        "WorldState",
                        {
                            WorldStateWrapper::InstanceMethod("call", &WorldStateWrapper::call),
+                           WorldStateWrapper::InstanceMethod("getHandle", &WorldStateWrapper::getHandle),
                        });
 }

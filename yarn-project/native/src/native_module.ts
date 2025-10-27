@@ -37,6 +37,71 @@ export const NativeWorldState: NativeClassCtor = nativeModule.WorldState as Nati
 export const NativeLMDBStore: NativeClassCtor = nativeModule.LMDBStore as NativeClassCtor;
 
 /**
+ * Contract provider interface for callbacks to fetch contract data.
+ * These callbacks are invoked by C++ during simulation when contract data is needed.
+ */
+export interface ContractProvider {
+  /**
+   * Fetch a contract instance by address.
+   * @param address - The contract address as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized ContractInstanceHint buffer, or undefined if not found
+   */
+  getContractInstance(address: string): Promise<Buffer | undefined>;
+  /**
+   * Fetch a contract class by class ID.
+   * @param classId - The contract class ID as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized ContractClassHint buffer, or undefined if not found
+   */
+  getContractClass(classId: string): Promise<Buffer | undefined>;
+
+  /**
+   * Add non-revertible contracts from a transaction.
+   * @param nonRevertibleContractDeploymentData - Msgpack-serialized ContractDeploymentData buffer
+   * @returns Promise that resolves when contracts are added
+   */
+  addNewNonRevertibleContracts(nonRevertibleContractDeploymentData: Buffer): Promise<void>;
+
+  /**
+   * Add revertible contracts from a transaction.
+   * @param revertibleContractDeploymentData - Msgpack-serialized ContractDeploymentData buffer
+   * @returns Promise that resolves when contracts are added
+   */
+  addNewRevertibleContracts(revertibleContractDeploymentData: Buffer): Promise<void>;
+
+  /**
+   * Fetch the bytecode commitment for a contract class.
+   * @param classId - The contract class ID as a string (hex format)
+   * @returns Promise resolving to msgpack-serialized Fr buffer, or undefined if not found
+   */
+  getBytecodeCommitment(classId: string): Promise<Buffer | undefined>;
+
+  /**
+   * Fetch the debug function name for a contract function.
+   * @param address - The contract address as a string (hex format)
+   * @param selector - The function selector as a string (hex format)
+   * @returns Promise resolving to function name string, or undefined if not found
+   */
+  getDebugFunctionName(address: string, selector: string): Promise<string | undefined>;
+}
+
+/**
+ * AVM simulation function that takes serialized inputs and a contract provider.
+ * The contract provider enables C++ to callback to TypeScript for contract data during simulation.
+ * @param inputs - Msgpack-serialized AvmFastSimulationInputs buffer
+ * @param contractProvider - Object with callbacks for fetching contract instances and classes
+ * @param worldStateHandle - Native handle to WorldState instance
+ * @returns Promise resolving to msgpack-serialized AvmCircuitPublicInputs buffer
+ */
+export const avmSimulate: (
+  inputs: Buffer,
+  contractProvider: ContractProvider,
+  worldStateHandle: any,
+) => Promise<Buffer> = nativeModule.avmSimulate as (
+  inputs: Buffer,
+  contractProvider: ContractProvider,
+  worldStateHandle: any,
+) => Promise<Buffer>;
+/**
  * AVM simulation function that uses pre-collected hints from TypeScript simulation.
  * All contract data and merkle tree hints are included in the AvmCircuitInputs, so no runtime
  * callbacks to TS or WS pointer are needed.

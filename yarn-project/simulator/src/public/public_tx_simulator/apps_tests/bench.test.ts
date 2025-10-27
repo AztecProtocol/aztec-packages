@@ -18,7 +18,10 @@ import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_
 import { tokenTest } from '../../fixtures/token_test.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 
-describe('Public TX simulator apps tests: benchmarks', () => {
+describe.each([
+  //{ useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: benchmarks ($simulatorName)', ({ useCppSimulator }) => {
   const logger = createLogger('public-tx-apps-tests-bench');
 
   const metrics = new TestExecutorMetrics();
@@ -41,7 +44,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     beforeEach(async () => {
       worldStateService = await NativeWorldStateService.tmp();
-      tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics);
+      tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics, useCppSimulator);
     });
 
     afterEach(async () => {
@@ -105,7 +108,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
     beforeEach(async () => {
       worldStateService = await NativeWorldStateService.tmp();
-      tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics);
+      tester = await PublicTxSimulationTester.create(worldStateService, defaultGlobals(), metrics, useCppSimulator);
       avmGadgetsTestContract = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         deployer,
