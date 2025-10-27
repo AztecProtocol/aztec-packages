@@ -35,7 +35,8 @@ fi
 GITHUB_REPOSITORY=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
 echo "GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"
 
-# Handle squash and merge
+# If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
+# This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
 if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   echo "Processing squash and merge..."
 
