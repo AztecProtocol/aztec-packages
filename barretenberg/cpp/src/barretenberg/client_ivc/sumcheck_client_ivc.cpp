@@ -111,8 +111,6 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
 
     std::optional<RecursiveVerifierAccumulator> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
-    // The decider proof exists if the tail kernel has been accumulated
-    bool is_hiding_kernel = !decider_proof.empty();
 
     // Update previous accumulator hash so that we can check it against the one extracted from the public inputs
     if (verifier_inputs.is_kernel && verifier_inputs.type != QUEUE_TYPE::OINK) {
@@ -189,10 +187,8 @@ SumcheckClientIVC::perform_recursive_verification_and_databus_consistency_checks
         BB_ASSERT(prev_accum_hash.has_value());
         kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
 
-        if (!is_hiding_kernel) {
-            // The hiding kernel has no return data; it uses the traditional public-inputs mechanism
-            bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
-        }
+        // Set the kernel return data commitment to be propagated via the public inputs
+        bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
     } else {
         // Reconstruct the input from the previous app from its public inputs
         AppIO app_input; // pairing points
@@ -295,7 +291,9 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // ensure the CIVC proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
 
-        HidingKernelIO hiding_output{ pairing_points_aggregator, T_prev_commitments };
+        HidingKernelIO hiding_output{ pairing_points_aggregator,
+                                      bus_depot.get_kernel_return_data_commitment(circuit),
+                                      T_prev_commitments };
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
@@ -570,8 +568,12 @@ bool SumcheckClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
     MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
-    auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
+    auto [mega_verified, kernel_return_data, T_prev_commitments] =
+        verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
+    // Perform databus consistency checks
+    bool databus_consistency_verified = kernel_return_data == verifier.verifier_instance->witness_commitments.calldata;
+    vinfo("Databus consistency verified: ", databus_consistency_verified);
     // Extract the commitments to the subtable corresponding to the incoming circuit
     TableCommitments t_commitments = verifier.verifier_instance->witness_commitments.get_ecc_op_wires().get_copy();
 
@@ -581,7 +583,7 @@ bool SumcheckClientIVC::verify(const Proof& proof, const VerificationKey& vk)
     vinfo("Goblin verified: ", goblin_verified);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
-    return goblin_verified && mega_verified;
+    return goblin_verified && mega_verified && databus_consistency_verified;
 }
 
 // Proof methods

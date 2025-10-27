@@ -54,6 +54,7 @@ class HidingKernelIO {
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;
 
     PairingPoints pairing_inputs;
+    G1 kernel_return_data;
     TableCommitments ecc_op_tables;
 
     /**
@@ -68,6 +69,8 @@ class HidingKernelIO {
 
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingPoints::PUBLIC_INPUTS_SIZE;
+        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
         for (auto& commitment : ecc_op_tables) {
             commitment = PublicPoint::reconstruct(public_inputs, { index });
             index += G1::PUBLIC_INPUTS_SIZE;

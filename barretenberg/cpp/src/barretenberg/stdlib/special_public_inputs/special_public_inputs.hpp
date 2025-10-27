@@ -106,7 +106,6 @@ class KernelIO {
             // Add the default pairing points to the public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
-            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
             pairing_inputs.set_public();
         }
         kernel_return_data.set_public();
@@ -265,6 +264,7 @@ template <class Builder_> class HidingKernelIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;          // Commitment to the return data of the tail kernel circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
 
     // Total size of the IO public inputs
@@ -281,6 +281,8 @@ template <class Builder_> class HidingKernelIO {
         uint32_t index = static_cast<uint32_t>(public_inputs.size() - PUBLIC_INPUTS_SIZE);
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
+        kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += G1::PUBLIC_INPUTS_SIZE;
         for (auto& commitment : ecc_op_tables) {
             commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
@@ -299,9 +301,9 @@ template <class Builder_> class HidingKernelIO {
             // Add the default pairing points to the public inputs
             PairingInputs::set_default_to_public(builder);
         } else {
-            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
             pairing_inputs.set_public();
         }
+        kernel_return_data.set_public();
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
@@ -318,6 +320,8 @@ template <class Builder_> class HidingKernelIO {
     {
         HidingKernelIO inputs;
         inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.kernel_return_data = G1(DEFAULT_ECC_COMMITMENT);
+        inputs.kernel_return_data.convert_constant_to_fixed_witness(&builder);
         for (auto& table_commitment : inputs.ecc_op_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);

@@ -23,6 +23,9 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
     MegaVerifier verifier{ builder, stdlib_mega_vk_and_hash, civc_rec_verifier_transcript };
     MegaVerifier::Output mega_output = verifier.template verify_proof<HidingKernelIO<Builder>>(proof.mega_proof);
 
+    // Perform databus consistency checks
+    mega_output.kernel_return_data.incomplete_assert_equal(verifier.verifier_instance->witness_commitments.calldata);
+
     // Perform Goblin recursive verification
     GoblinVerificationKey goblin_verification_key{};
     MergeCommitments merge_commitments{
