@@ -27,6 +27,7 @@ jobs:
     outputs:
       semver: ${{ steps.semver.outputs.value }}
       major_version: ${{ steps.semver.outputs.major_version }}
+      minor_version: ${{ steps.semver.outputs.minor_version }}
       should_deploy: ${{ steps.semver.outputs.should_deploy }}
       branch: ${{ steps.branch.outputs.value }}
     steps:
@@ -65,13 +66,16 @@ jobs:
           fi
 
           major_version="${semver%%.*}"
+          minor_version="${semver#*.}"
+          minor_version="${minor_version%%.*}"
           echo "value=$semver" >> $GITHUB_OUTPUT
           echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "minor_version=$minor_version" >> $GITHUB_OUTPUT
           echo "should_deploy=true" >> $GITHUB_OUTPUT
 
   deploy-staging-public:
     needs: determine-semver
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-staging-network.yml
     with:
       network: staging-public
@@ -82,7 +86,7 @@ jobs:
   deploy-staging-ignition:
     # Depends on staging-public until we are confident in concurrent deployments
     needs: [determine-semver, deploy-staging-public]
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-staging-network.yml
     with:
       network: staging-ignition
@@ -94,7 +98,7 @@ jobs:
     # Depends on staging-ignition until we are confident in concurrent deployments
     needs: [determine-semver, deploy-staging-ignition]
     # Only deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && !contains(needs.determine-semver.outputs.semver, '-')
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '0' && !contains(needs.determine-semver.outputs.semver, '-')
     uses: ./.github/workflows/deploy-staging-network.yml
     with:
       network: testnet
@@ -105,7 +109,7 @@ jobs:
   deploy-fisherman:
     # Depends on testnet until we are confident in concurrent deployments
     needs: [determine-semver, deploy-testnet]
-    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2'
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-fisherman-network.yaml
     with:
       l1_network: sepolia
