@@ -168,6 +168,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+        const bool is_hiding_kernel = (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -179,13 +180,15 @@ class PrivateFunctionExecutionMockCircuitProducer {
             }
         } else {
             // If the number of gates is not specified we create a structured mock circuit
-            if (is_kernel) {
+            // For hiding kernel, skip mock circuit construction - only use IVC's complete_kernel_circuit_logic
+            if (is_kernel && !is_hiding_kernel) {
                 GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
                 mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
-            } else {
+            } else if (!is_kernel) {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
                 mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
             }
+            // Hiding kernel: starts with empty circuit, only adds logic from complete_kernel_circuit_logic
         }
 
         if (is_kernel) {
@@ -214,10 +217,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
                                   "Log number of arithemtic gates produced is different from the one requested.");
                 }
             } else {
-                if (is_kernel) {
+                if (is_kernel && !is_hiding_kernel) {
                     BB_ASSERT_EQ(log2_dyadic_size,
                                  18UL,
                                  "There has been a change in the number of gates of a mock kernel circuit.");
+                } else if (is_hiding_kernel) {
+                    BB_ASSERT_LT(log2_dyadic_size, 16UL, "Hiding kernel circuit must be < 2^16 gates (65536).");
+                    vinfo("Hiding kernel log2 dyadic size: ", log2_dyadic_size);
                 } else {
                     BB_ASSERT_EQ(log2_dyadic_size,
                                  use_large_circuit ? 19UL : 17UL,

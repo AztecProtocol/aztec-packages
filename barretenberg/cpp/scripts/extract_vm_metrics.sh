@@ -79,7 +79,7 @@ for flow_dir in "$IVC_DIR"/*; do
         # Matches: "ECCVM: num rows = 17891"
         eccvm_rows=$(grep "ECCVM: num rows = " "$log_file" | awk '{print $5}' || echo "N/A")
         # Matches: "Translator: num rows =  = 8191"
-        ultra_ops=$(grep "Translator: num rows =  = " "$log_file" | awk '{print $6}' || echo "N/A")
+        ultra_ops=$(grep "Translator: num ops = " "$log_file" | awk '{print $6}' || echo "N/A")
 
         echo "$flow_name,$hiding_size,$eccvm_rows,$ultra_ops" >> "$OUTPUT"
         echo "  -> hiding: $hiding_size, eccvm: $eccvm_rows, translator: $ultra_ops"

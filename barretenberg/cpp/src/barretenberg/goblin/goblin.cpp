@@ -54,7 +54,7 @@ GoblinProof Goblin::prove(const MergeSettings merge_settings)
     BB_BENCH_NAME("Goblin::prove");
 
     prove_merge(transcript, merge_settings); // Use shared transcript for merge proving
-    info("Translator: num rows =  = ", op_queue->get_ultra_ops_count());
+    info("Translator: num ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
                  1U,
