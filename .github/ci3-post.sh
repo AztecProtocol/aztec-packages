@@ -1,39 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CI3 Post-Action Script
-# This script handles post-CI tasks like squash-and-merge and benchmarks
-#
-# Expected environment variables:
-#   CI_INTERNAL: "1" for internal runs, "0" for external runs (default: 0)
-#   SHOULD_SQUASH_MERGE: "1" if should squash and merge, "0" otherwise (default: 0)
-#   SHOULD_UPLOAD_BENCHMARKS: "1" if should upload benchmarks, "0" otherwise (default: 0)
-#   GITHUB_TOKEN: GitHub token for API operations
-#
-# For squash-and-merge:
-#   PR_NUMBER: PR number
-#   PR_HEAD_REF: PR head ref
-#   PR_BASE_REF: PR base ref
-#   PR_BASE_SHA: PR base SHA
-
-: "${CI_INTERNAL:=0}"
-: "${SHOULD_SQUASH_MERGE:=0}"
-: "${SHOULD_UPLOAD_BENCHMARKS:=0}"
-
-echo "=== CI3 Post-Action Script ==="
-echo "CI_INTERNAL: ${CI_INTERNAL}"
-echo "SHOULD_SQUASH_MERGE: ${SHOULD_SQUASH_MERGE}"
-echo "SHOULD_UPLOAD_BENCHMARKS: ${SHOULD_UPLOAD_BENCHMARKS}"
-
 # Early exit if nothing to do
-if [ "${SHOULD_SQUASH_MERGE}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS}" -eq 0 ]; then
-  echo "Nothing to do, exiting"
+if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
   exit 0
 fi
 
 # Get repository from git remote
-GITHUB_REPOSITORY=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
-echo "GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"
+github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+echo "github_repository: ${github_repository}"
+
+# Save CI success marker for cache
+run_url="https://github.com/${github_repository}/actions/runs/${RUN_ID}"
+echo "${run_url}" > ci-success.txt
+echo "Saved CI success marker: ${run_url}"
 
 # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
@@ -41,7 +21,7 @@ if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   echo "Processing squash and merge..."
 
   # Reauth the git repo with our GITHUB_TOKEN
-  git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+  git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
 
   # Get the base commit (merge-base) for the PR
   ./scripts/merge-train/squash-pr.sh \

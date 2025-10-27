@@ -129,10 +129,6 @@ jobs:
             exec ./.github/ci3.sh fast
           fi
 
-      - name: Save CI Success
-        if: steps.ci_cache.outputs.cache-hit != 'true'
-        run: echo "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" > ci-success.txt
-
       #############
       # Post-Actions
       #############
@@ -142,6 +138,7 @@ jobs:
           # CI_INTERNAL defaults to 0 for external
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           SHOULD_UPLOAD_BENCHMARKS: "0"
+          RUN_ID: ${{ github.run_id }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
