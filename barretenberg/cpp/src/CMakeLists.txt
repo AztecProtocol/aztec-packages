@@ -69,12 +69,12 @@ if (ENABLE_PIC AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message("Building with Position Independent Code")
   set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC")
   set(CMAKE_C_FLAGS  "${CMAKE_C_FLAGS} -fPIC")
-  add_subdirectory(barretenberg/nodejs_module)
 endif()
 
 add_subdirectory(barretenberg/api)
 add_subdirectory(barretenberg/bb)
 add_subdirectory(barretenberg/bbapi)
+add_subdirectory(barretenberg/benchmark)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
 add_subdirectory(barretenberg/client_ivc)
@@ -94,10 +94,6 @@ add_subdirectory(barretenberg/ext/starknet/transcript)
 add_subdirectory(barretenberg/flavor)
 add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
-if(NOT WASM)
-    add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/lmdblib)
-endif()
 add_subdirectory(barretenberg/multilinear_batching)
 add_subdirectory(barretenberg/numeric)
 add_subdirectory(barretenberg/op_queue)
@@ -112,23 +108,23 @@ add_subdirectory(barretenberg/sumcheck)
 add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
+add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-if(NOT FUZZING)
-    if(NOT WASM)
-        add_subdirectory(barretenberg/world_state)
-    endif()
+
+if(NOT FUZZING AND NOT WASM)
+    add_subdirectory(barretenberg/ipc)
+    add_subdirectory(barretenberg/lmdblib)
+    add_subdirectory(barretenberg/nodejs_module)
+    add_subdirectory(barretenberg/world_state)
     add_subdirectory(barretenberg/vm2)
 endif()
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
+    if(ACIR_FORMAL_PROOFS)
+        add_subdirectory(barretenberg/acir_formal_proofs)
+    endif()
 endif()
-
-if(SMT AND ACIR_FORMAL_PROOFS)
-    add_subdirectory(barretenberg/acir_formal_proofs)
-endif()
-
-add_subdirectory(barretenberg/benchmark)
 
 include(GNUInstallDirs)
 
@@ -190,17 +186,12 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT DISABLE_AZTEC_VM AND NOT FUZZING)
-    # enable AVM
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
-    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
-endif()
-
 if(NOT WASM AND NOT FUZZING)
     # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:api_objects>)
+    list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 
 add_library(
@@ -217,6 +208,7 @@ if(WASM)
         barretenberg-debug.wasm
         ${BARRETENBERG_TARGET_OBJECTS}
         $<TARGET_OBJECTS:wasi_objects>
+        $<TARGET_OBJECTS:vm2_stub_objects>
     )
 
     target_link_options(

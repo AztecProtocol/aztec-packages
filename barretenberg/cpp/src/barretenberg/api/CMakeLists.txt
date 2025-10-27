@@ -8,3 +8,8 @@ endif()
 if(NOT WASM)
     target_link_libraries(api_objects PRIVATE ipc)
 endif()
+
+# api_tests needs vm2_stub to resolve dsl's AVM recursion constraint references
+if(NOT WASM AND NOT FUZZING)
+    target_link_libraries(api_tests PRIVATE vm2_stub)
+endif()
