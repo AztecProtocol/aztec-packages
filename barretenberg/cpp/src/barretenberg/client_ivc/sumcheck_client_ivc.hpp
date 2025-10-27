@@ -286,7 +286,7 @@ class SumcheckClientIVC : public IVCBase {
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, PairingPoints, TableCommitments>
+        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
         perform_recursive_verification_and_databus_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,

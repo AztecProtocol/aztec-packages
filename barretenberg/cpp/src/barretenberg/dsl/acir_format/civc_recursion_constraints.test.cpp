@@ -86,7 +86,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
     static std::shared_ptr<ProverInstance> get_civc_recursive_verifier_pk(AcirProgram& program)
     {
         // Build constraints
-        Builder builder = create_circuit(program, { .honk_recursion = 2 });
+        Builder builder = create_circuit(program, { .has_ipa_claim = true });
 
         info("Estimate finalized number of gates: ", builder.get_estimated_num_finalized_gates());
 
