@@ -198,138 +198,261 @@ impl NoteHash for TransparentNote {
 
 This pattern is useful for "shielding" tokens - creating notes in public that can be redeemed in private by anyone who knows the secret.
 
-## Using custom notes in storage
+## Basic usage in storage
 
-Declare your custom note type in contract storage:
+Before diving into Maps, let's understand basic custom note usage.
+
+### Declare storage
 
 ```rust
+use dep::aztec::state_vars::{PrivateSet, PrivateImmutable};
+
 #[storage]
 struct Storage<Context> {
-    // Map from owner address to their notes
-    private_notes: Map<AztecAddress, PrivateSet<CustomNote, Context>, Context>,
+    // Collection of notes for a single owner
+    balances: PrivateSet<CustomNote, Context>,
 
-    // Single immutable note
-    config_note: PrivateImmutable<ConfigNote, Context>,
+    // Single immutable configuration
+    config: PrivateImmutable<ConfigNote, Context>,
 }
 ```
 
-## Working with custom notes
-
-### Creating and storing notes
+### Insert notes
 
 ```rust
+use dep::aztec::messages::message_delivery::MessageDelivery;
+
 #[external("private")]
-fn create_note(owner: AztecAddress, value: Field, data: u32) {
-    // Create the note
+fn create_note(value: Field, data: u32) {
+    let owner = context.msg_sender();
     let note = CustomNote::new(value, data, owner);
 
-    // Store it in the owner's note set
-    storage.private_notes.at(owner).insert(note);
+    storage.balances
+        .insert(note)
+        .emit(&mut context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
-### Reading notes
+### Read notes
 
 ```rust
-use aztec::note::note_getter_options::NoteGetterOptions;
+use dep::aztec::note::note_getter_options::NoteGetterOptions;
 
 #[external("private")]
-fn get_notes(owner: AztecAddress) -> BoundedVec<CustomNote, MAX_NOTES_PER_PAGE> {
-    // Get all notes for the owner
-    let notes = storage.private_notes.at(owner).get_notes(
-        NoteGetterOptions::new()
-    );
-
-    notes
+fn get_notes() -> BoundedVec<CustomNote, MAX_NOTES_PER_PAGE> {
+    storage.balances.get_notes(NoteGetterOptions::new())
 }
 
 #[external("private")]
-fn find_note_by_value(owner: AztecAddress, target_value: Field) -> CustomNote {
+fn find_note_by_value(target_value: Field) -> CustomNote {
     let options = NoteGetterOptions::new()
         .select(CustomNote::properties().value, target_value, Option::none())
         .set_limit(1);
 
-    let notes = storage.private_notes.at(owner).get_notes(options);
+    let notes = storage.balances.get_notes(options);
     assert(notes.len() == 1, "Note not found");
-
     notes.get(0)
 }
 ```
 
-### Transferring notes
-
-To transfer a custom note between users:
+### Transfer notes
 
 ```rust
 #[external("private")]
-fn transfer_note(from: AztecAddress, to: AztecAddress, value: Field) {
-    // Find and remove from sender (nullifies the old note)
-    let note = find_note_by_value(from, value);
-    storage.private_notes.at(from).remove(note);
+fn transfer_note(to: AztecAddress, value: Field) {
+    // Find and remove from sender
+    let note = find_note_by_value(value);
+    storage.balances.remove(note);
 
-    // Create new note for recipient with same value but new owner
+    // Create new note for recipient
     let new_note = CustomNote::new(note.value, note.data, to);
-    storage.private_notes.at(to).insert(new_note);
+    storage.balances.insert(new_note)
+        .emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
 }
 ```
 
-## Common patterns
+## Using custom notes with Maps
 
-### Singleton notes
+Maps are essential for organizing custom notes by key in private storage. They allow you to efficiently store and retrieve notes based on addresses, IDs, or other identifiers.
 
-For data that should have only one instance per user:
-
-```rust
-#[note]
-pub struct ProfileNote {
-    owner: AztecAddress,
-    data: Field,
-    randomness: Field,
-}
-
-#[external("private")]
-fn update_profile(new_data: Field) {
-    let owner = context.msg_sender();
-
-    // Remove old profile if exists
-    let old_notes = storage.profiles.at(owner).get_notes(
-        NoteGetterOptions::new().set_limit(1)
-    );
-    if old_notes.len() > 0 {
-        storage.profiles.at(owner).remove(old_notes[0]);
-    }
-
-    // Create new profile
-    let new_profile = ProfileNote::new(owner, new_data);
-    storage.profiles.at(owner).insert(new_profile);
-}
-```
-
-### Filtering notes
-
-For efficient lookups by specific fields:
+### Common Map patterns
 
 ```rust
-use aztec::note::note_getter_options::{NoteGetterOptions, PropertySelector};
+use dep::aztec::{
+    macros::notes::note,
+    oracle::random::random,
+    protocol_types::{address::AztecAddress, traits::Packable},
+    state_vars::{Map, PrivateMutable, PrivateSet},
+};
 
 #[derive(Eq, Packable)]
 #[note]
-pub struct OrderNote {
-    order_id: Field,      // Field we want to filter by
-    amount: u128,
+pub struct CardNote {
+    points: u32,
+    strength: u32,
     owner: AztecAddress,
     randomness: Field,
 }
 
-// Usage - filter by order_id
-fn get_order(owner: AztecAddress, target_id: Field) -> OrderNote {
-    let options = NoteGetterOptions::new()
-        .select(OrderNote::properties().order_id, target_id, Option::none())
-        .set_limit(1);
+impl CardNote {
+    pub fn new(points: u32, strength: u32, owner: AztecAddress) -> Self {
+        let randomness = unsafe { random() };
+        CardNote { points, strength, owner, randomness }
+    }
+}
 
-    let notes = storage.orders.at(owner).get_notes(options);
-    assert(notes.len() == 1, "Order not found");
-    notes.get(0)
+#[storage]
+struct Storage<Context> {
+    // Map from player address to their collection of cards
+    card_collections: Map<AztecAddress, PrivateSet<CardNote, Context>, Context>,
+
+    // Map from player address to their active card
+    active_cards: Map<AztecAddress, PrivateMutable<CardNote, Context>, Context>,
+
+    // Nested maps: game_id -> player -> cards
+    game_cards: Map<Field, Map<AztecAddress, PrivateSet<CardNote, Context>, Context>, Context>,
+}
+```
+
+Common patterns:
+- `Map<AztecAddress, PrivateSet<CustomNote>>` - Multiple notes per user (like token balances, card collections)
+- `Map<AztecAddress, PrivateMutable<CustomNote>>` - Single note per user (like user profile, active state)
+- `Map<Field, Map<AztecAddress, PrivateSet<CustomNote>>>` - Nested organization (game sessions, channels)
+
+### Inserting into mapped PrivateSets
+
+To add notes to a mapped PrivateSet:
+
+```rust
+use dep::aztec::messages::message_delivery::MessageDelivery;
+
+#[external("private")]
+fn add_card_to_collection(player: AztecAddress, points: u32, strength: u32) {
+    let card = CardNote::new(points, strength, player);
+
+    // Insert into the player's collection
+    storage.card_collections
+        .at(player)
+        .insert(card)
+        .emit(&mut context, player, MessageDelivery.CONSTRAINED_ONCHAIN);
+}
+```
+
+### Using mapped PrivateMutable
+
+For PrivateMutable in a Map, handle both initialization and updates:
+
+```rust
+use dep::aztec::messages::message_delivery::MessageDelivery;
+
+#[external("private")]
+fn set_active_card(player: AztecAddress, points: u32, strength: u32) {
+    // Check if already initialized
+    let is_initialized = storage.active_cards.at(player).is_initialized();
+
+    if is_initialized {
+        // Replace existing card
+        storage.active_cards
+            .at(player)
+            .replace(|_old_card| CardNote::new(points, strength, player))
+            .emit(&mut context, player, MessageDelivery.CONSTRAINED_ONCHAIN);
+    } else {
+        // Initialize for first time
+        let card = CardNote::new(points, strength, player);
+        storage.active_cards
+            .at(player)
+            .initialize(card)
+            .emit(&mut context, player, MessageDelivery.CONSTRAINED_ONCHAIN);
+    }
+}
+```
+
+### Reading from mapped PrivateSets
+
+```rust
+use dep::aztec::note::note_getter_options::NoteGetterOptions;
+
+#[external("private")]
+fn get_player_cards(player: AztecAddress) -> BoundedVec<CardNote, MAX_NOTES_PER_PAGE> {
+    // Get all cards for this player
+    storage.card_collections
+        .at(player)
+        .get_notes(NoteGetterOptions::new())
+}
+
+#[external("private")]
+fn get_total_points(player: AztecAddress) -> u32 {
+    let options = NoteGetterOptions::new();
+    let notes = storage.card_collections.at(player).get_notes(options);
+
+    let mut total = 0;
+    for i in 0..notes.len() {
+        let card = notes.get(i);
+        total += card.points;
+    }
+    total
+}
+```
+
+### Reading from mapped PrivateMutable
+
+```rust
+#[external("private")]
+fn get_active_card(player: AztecAddress) -> CardNote {
+    storage.active_cards.at(player).get_note()
+}
+```
+
+### Filtering notes in Maps
+
+Filter notes by their fields when reading from maps:
+
+```rust
+use dep::aztec::{note::note_getter_options::NoteGetterOptions, utils::comparison::Comparator};
+
+#[external("private")]
+fn find_strong_cards(player: AztecAddress, min_strength: u32) -> BoundedVec<CardNote, MAX_NOTES_PER_PAGE> {
+    let options = NoteGetterOptions::new()
+        .select(CardNote::properties().strength, Comparator.GTE, min_strength)
+        .set_limit(10);
+
+    storage.card_collections.at(player).get_notes(options)
+}
+```
+
+### Working with nested Maps
+
+Navigate nested map structures to organize data hierarchically:
+
+```rust
+use dep::aztec::messages::message_delivery::MessageDelivery;
+
+#[external("private")]
+fn add_card_to_game(
+    game_id: Field,
+    player: AztecAddress,
+    points: u32,
+    strength: u32
+) {
+    let card = CardNote::new(points, strength, player);
+
+    // Navigate nested maps: game_cards[game_id][player]
+    storage.game_cards
+        .at(game_id)
+        .at(player)
+        .insert(card)
+        .emit(&mut context, player, MessageDelivery.CONSTRAINED_ONCHAIN);
+}
+
+#[external("private")]
+fn get_game_cards(
+    game_id: Field,
+    player: AztecAddress
+) -> BoundedVec<CardNote, MAX_NOTES_PER_PAGE> {
+    storage.game_cards
+        .at(game_id)
+        .at(player)
+        .get_notes(NoteGetterOptions::new())
 }
 ```
 

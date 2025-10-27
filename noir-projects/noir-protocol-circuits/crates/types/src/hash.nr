@@ -231,13 +231,12 @@ where
     poseidon2_hash(inputs_with_separator)
 }
 
-// Performs a fixed length hash with a subarray of the given input.
-// Useful for SpongeBlob in which we absorb M things and want to check it vs a hash of M elts of an N-len array.
-// Using stdlib poseidon, this will always absorb an extra 1 as a 'variable' hash, and not match spongeblob.squeeze()
-// or any ts implementation. Also checks that any remaining elts not hashed are empty.
+/// Computes a Poseidon2 hash over a dynamic-length subarray of the given input.
+/// Only the first `in_len` fields of `input` are absorbed; any remaining fields are ignored.
+/// The caller is responsible for ensuring that the input is padded with zeros if required.
 #[no_predicates]
 pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_in_chunks(input, in_len, false);
+    let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
     sponge.squeeze()
 }
 
@@ -245,7 +244,7 @@ pub fn poseidon2_hash_subarray<let N: u32>(input: [Field; N], in_len: u32) -> Fi
 // and absorbing in chunks of 3 below.
 #[no_predicates]
 pub fn poseidon2_cheaper_variable_hash<let N: u32>(input: [Field; N], in_len: u32) -> Field {
-    let mut sponge = poseidon2_absorb_in_chunks(input, in_len, true);
+    let mut sponge = poseidon2_absorb_in_chunks(input, in_len);
     // In the case where the hash preimage is variable-length, we append `1` to the end of the input, to distinguish
     // from fixed-length hashes. (the combination of this additional field element + the hash IV ensures
     // fixed-length and variable-length hashes do not collide)

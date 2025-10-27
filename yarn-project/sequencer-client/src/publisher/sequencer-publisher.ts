@@ -1,5 +1,5 @@
 import { L2Block } from '@aztec/aztec.js/block';
-import { Blob } from '@aztec/blob-lib';
+import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
@@ -499,8 +499,9 @@ export class SequencerPublisher {
       );
     }
 
-    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
-    const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
+    const blobFields = block.getCheckpointBlobFields();
+    const blobs = getBlobsPerL1Block(blobFields);
+    const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
       {
@@ -768,7 +769,9 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const checkpointHeader = block.getCheckpointHeader();
 
-    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+    const blobFields = block.getCheckpointBlobFields();
+    const blobs = getBlobsPerL1Block(blobFields);
+
     const proposeTxArgs = {
       header: checkpointHeader,
       archive: block.archive.root.toBuffer(),
@@ -909,7 +912,7 @@ export class SequencerPublisher {
     options: { forcePendingBlockNumber?: number },
   ) {
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
+    const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(

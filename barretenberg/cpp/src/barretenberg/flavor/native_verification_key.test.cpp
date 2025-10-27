@@ -4,6 +4,7 @@
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -30,24 +31,16 @@ template <typename Flavor> class NativeVerificationKeyTests : public ::testing::
     using Builder = typename Flavor::CircuitBuilder;
     using VerificationKey = typename Flavor::VerificationKey;
 
-    void set_default_pairing_points_and_ipa_claim_and_proof(typename Flavor::CircuitBuilder& builder)
-    {
-        stdlib::recursion::PairingPoints<typename Flavor::CircuitBuilder>::add_default_to_public_inputs(builder);
-        if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(
-                    builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
-        }
-    }
-
     VerificationKey create_vk()
     {
         if constexpr (IsUltraOrMegaHonk<Flavor>) {
             using ProverInstance = ProverInstance_<Flavor>;
             Builder builder;
-            set_default_pairing_points_and_ipa_claim_and_proof(builder);
+            if constexpr (HasIPAAccumulator<Flavor>) {
+                stdlib::recursion::honk::RollupIO::add_default(builder);
+            } else {
+                stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::add_default(builder);
+            }
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             return VerificationKey{ prover_instance->get_precomputed() };
         } else {

@@ -39,15 +39,8 @@ export class BarretenbergWasmSyncBackend implements IMsgpackBackendSync {
 /**
  * Asynchronous WASM backend that supports both direct WASM and worker-based modes.
  *
- * Worker mode (default): Runs WASM on a worker thread to avoid blocking the main thread.
- *   - Browser-safe: Won't block UI during long operations
- *   - Overhead: ~3-4x slower due to serialize/deserialize for each call
- *   - Use for: Browser environments, long-running operations
- *
- * Direct mode (useWorker: false): Runs WASM directly on the calling thread.
- *   - Performance: ~3-4x faster (no serialize/deserialize overhead)
- *   - Warning: Will block the thread during operations
- *   - Use for: Node.js, benchmarks, tight loops where performance is critical
+ * Worker mode (default): Runs WASM on a worker thread to avoid blocking the main thread. Used in browsers.
+ * Direct mode: Runs WASM directly on the calling thread. Used by node.js for better performance.
  */
 export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
   private constructor(

@@ -18,6 +18,7 @@ import {
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
@@ -387,6 +388,48 @@ export class P2PNetworkTest {
     await Promise.all(nodes.map(node => node.stop()));
 
     this.logger.info('Nodes stopped');
+  }
+
+  /**
+   * Wait for P2P mesh to be fully formed across all nodes.
+   * This ensures that all nodes are connected to each other before proceeding,
+   * preventing race conditions where validators propose blocks before the network is ready.
+   *
+   * @param nodes - Array of nodes to check for P2P connectivity
+   * @param expectedNodeCount - Expected number of nodes in the network (defaults to nodes.length)
+   * @param timeoutSeconds - Maximum time to wait for connections (default: 30 seconds)
+   * @param checkIntervalSeconds - How often to check connectivity (default: 0.1 seconds)
+   */
+  async waitForP2PMeshConnectivity(
+    nodes: AztecNodeService[],
+    expectedNodeCount?: number,
+    timeoutSeconds = 30,
+    checkIntervalSeconds = 0.1,
+  ) {
+    const nodeCount = expectedNodeCount ?? nodes.length;
+    const minPeerCount = nodeCount - 1;
+
+    this.logger.warn(
+      `Waiting for all ${nodeCount} nodes to connect to P2P mesh (at least ${minPeerCount} peers each)...`,
+    );
+
+    await Promise.all(
+      nodes.map(async (node, index) => {
+        const p2p = node.getP2P();
+        await retryUntil(
+          async () => {
+            const peers = await p2p.getPeers();
+            // Each node should be connected to at least N-1 other nodes
+            return peers.length >= minPeerCount ? true : undefined;
+          },
+          `Node ${index} to connect to at least ${minPeerCount} peers`,
+          timeoutSeconds,
+          checkIntervalSeconds,
+        );
+      }),
+    );
+
+    this.logger.warn('All nodes connected to P2P mesh');
   }
 
   async teardown() {

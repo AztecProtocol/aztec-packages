@@ -92,7 +92,7 @@ Aztec.nr provides three private state variable types:
 - `PrivateImmutable<NoteType>`: Single immutable private value
 - `PrivateSet<NoteType>`: Collection of private notes
 
-All private storage operates on note types rather than arbitrary data types. Learn how to implement custom notes [here](./how_to_implement_custom_notes.md)
+All private storage operates on note types rather than arbitrary data types. Learn how to implement custom notes and use them with Maps [here](./how_to_implement_custom_notes.md)
 
 ### PrivateMutable
 
@@ -385,6 +385,129 @@ Returns the stored immutable value. This function is available in public, privat
 #[external("utility")]
 unconstrained fn get_public_immutable() -> MyStruct {
     storage.my_public_immutable.read()
+}
+```
+
+## Use custom structs in public storage
+
+Both `PublicMutable` and `PublicImmutable` are generic over any serializable type, which means you can store custom structs in public storage. This is useful for storing configuration data, game state, or any other structured data that needs to be publicly visible.
+
+### Define a custom struct for storage
+
+To use a custom struct in public storage, it must implement the `Packable` trait. You can automatically derive this along with other useful traits:
+
+```rust
+use dep::aztec::protocol_types::{
+    address::AztecAddress,
+    traits::{Deserialize, Packable, Serialize}
+};
+
+// Required derives for public storage:
+// - Packable: Required for all public storage
+// - Serialize: Required for returning from functions
+// - Deserialize: Required for receiving as parameters
+#[derive(Deserialize, Packable, Serialize)]
+pub struct Asset {
+    pub interest_accumulator: u128,
+    pub last_updated_ts: u64,
+    pub loan_to_value: u128,
+    pub oracle: AztecAddress,
+}
+```
+
+Common optional derives include:
+- `Eq`: For equality comparisons between structs
+
+### Store custom structs
+
+Once defined, use your custom struct in storage declarations:
+
+```rust
+#[storage]
+struct Storage<Context> {
+    // Single custom struct
+    config: PublicMutable<Asset, Context>,
+
+    // Map of custom structs
+    assets: Map<Field, PublicMutable<Asset, Context>, Context>,
+
+    // Immutable custom struct (like contract config)
+    initial_config: PublicImmutable<Asset, Context>,
+}
+```
+
+### Read and write custom structs
+
+Work with custom structs using the same `read()` and `write()` methods as built-in types:
+
+```rust
+#[public]
+fn update_asset(asset_id: Field, new_accumulator: u128) {
+    // Read the current struct
+    let mut asset = storage.assets.at(asset_id).read();
+
+    // Modify fields
+    asset.interest_accumulator = new_accumulator;
+    asset.last_updated_ts = context.timestamp();
+
+    // Write back the updated struct
+    storage.assets.at(asset_id).write(asset);
+}
+
+#[public]
+fn get_asset(asset_id: Field) -> Asset {
+    storage.assets.at(asset_id).read()
+}
+```
+
+You can also create and store new struct instances:
+
+```rust
+#[public]
+fn initialize_asset(
+    interest_accumulator: u128,
+    loan_to_value: u128,
+    oracle: AztecAddress
+) {
+    let last_updated_ts = context.timestamp() as u64;
+
+    storage.assets.at(0).write(
+        Asset {
+            interest_accumulator,
+            last_updated_ts,
+            loan_to_value,
+            oracle,
+        }
+    );
+}
+```
+
+### Use custom structs in nested maps
+
+Custom structs work seamlessly with nested map structures:
+
+```rust
+#[derive(Deserialize, Eq, Packable, Serialize)]
+pub struct Game {
+    pub started: bool,
+    pub finished: bool,
+    pub current_round: u32,
+}
+
+#[storage]
+struct Storage<Context> {
+    // Map game_id -> player_address -> Game struct
+    games: Map<Field, Map<AztecAddress, PublicMutable<Game, Context>, Context>, Context>,
+}
+
+#[public]
+fn start_game(game_id: Field, player: AztecAddress) {
+    let game = Game {
+        started: true,
+        finished: false,
+        current_round: 0,
+    };
+    storage.games.at(game_id).at(player).write(game);
 }
 ```
 

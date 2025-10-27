@@ -20,6 +20,7 @@ import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-ju
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeWriteOperations, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import {
@@ -41,7 +42,7 @@ import {
 } from '@aztec/stdlib/rollup';
 import { makeBloatedProcessedTx } from '@aztec/stdlib/testing';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import { GlobalVariables, type ProcessedTx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { GlobalVariables, type ProcessedTx } from '@aztec/stdlib/tx';
 import { type MerkleTreeAdminDatabase, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
@@ -243,7 +244,9 @@ describe('LightBlockBuilder', () => {
       L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
     );
     const lastL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);
-    const startSpongeBlob = SpongeBlob.init(toNumBlobFields(txs) + 1 /* block end marker */);
+
+    const numBlobFields = getCheckpointBlobFields([txs.map(tx => tx.txEffect)]).length;
+    const startSpongeBlob = await SpongeBlob.init(numBlobFields);
 
     const parityOutput = await getParityOutput(l1ToL2Messages);
     const newL1ToL2Snapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, expectsFork);

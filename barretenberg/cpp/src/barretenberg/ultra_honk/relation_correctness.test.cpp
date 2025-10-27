@@ -12,6 +12,7 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -65,8 +66,8 @@ template <typename Flavor> void create_some_lookup_gates(auto& circuit_builder)
             .slice(plookup::fixed_base::table::BITS_PER_LO_SCALAR,
                    plookup::fixed_base::table::BITS_PER_LO_SCALAR + plookup::fixed_base::table::BITS_PER_HI_SCALAR);
     const auto input_lo = uint256_t(pedersen_input_value).slice(0, bb::plookup::fixed_base::table::BITS_PER_LO_SCALAR);
-    const auto input_hi_index = circuit_builder.add_variable(input_hi);
-    const auto input_lo_index = circuit_builder.add_variable(input_lo);
+    const auto input_hi_index = circuit_builder.add_variable(FF(input_hi));
+    const auto input_lo_index = circuit_builder.add_variable(FF(input_lo));
 
     const auto sequence_data_hi =
         plookup::get_lookup_accumulators(bb::plookup::MultiTableId::FIXED_BASE_LEFT_HI, input_hi);
@@ -107,14 +108,14 @@ template <typename Flavor> void create_some_RAM_gates(auto& circuit_builder)
         circuit_builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    auto a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(5));
+    auto a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    auto b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
-    auto c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(1));
+    auto b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(4)));
+    auto c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(1)));
 
-    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(4), circuit_builder.add_variable(500));
-    auto d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
+    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(FF(4)), circuit_builder.add_variable(FF(500)));
+    auto d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(FF(4)));
 
     EXPECT_EQ(circuit_builder.get_variable(d_idx), 500);
 
@@ -200,7 +201,7 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
@@ -233,7 +234,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
-    stdlib::recursion::PairingPoints<MegaCircuitBuilder>::add_default_to_public_inputs(builder);
+    stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);

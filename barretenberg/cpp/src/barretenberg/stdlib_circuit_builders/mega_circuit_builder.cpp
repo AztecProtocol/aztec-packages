@@ -46,19 +46,19 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     // Create an arbitrary calldata read gate
     add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
-    auto read_idx = this->add_variable(raw_read_idx);
+    auto read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
 
     // Create an arbitrary secondary_calldata read gate
     add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
     raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(raw_read_idx);
+    read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
 
     // Create an arbitrary return data read gate
     add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(raw_read_idx);
+    read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
 
     if (op_queue->get_current_subtable_size() == 0) {

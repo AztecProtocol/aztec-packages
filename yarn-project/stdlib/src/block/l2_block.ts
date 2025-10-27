@@ -4,6 +4,7 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
+import { getCheckpointBlobFields } from '../checkpoint/checkpoint_body.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import { Body } from './body.js';
@@ -131,6 +132,11 @@ export class L2Block {
     return this.blockHash;
   }
 
+  /**
+   * @deprecated
+   * This only works when there's one block per checkpoint.
+   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
+   */
   public getCheckpointHeader() {
     return this.header.toCheckpointHeader();
   }
@@ -138,6 +144,15 @@ export class L2Block {
   // Temporary helper to get the actual block header.
   public getBlockHeader(): BlockHeader {
     return this.header.toBlockHeader();
+  }
+
+  /**
+   * @deprecated
+   * This only works when there's one block per checkpoint.
+   * TODO(#17027): Remove this method from L2Block and create a dedicated Checkpoint class.
+   */
+  public getCheckpointBlobFields() {
+    return getCheckpointBlobFields([this.body.txEffects]);
   }
 
   /**

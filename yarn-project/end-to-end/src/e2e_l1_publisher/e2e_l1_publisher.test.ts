@@ -5,7 +5,7 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -367,7 +367,7 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
-      const allBlobs: Blob[] = [];
+      const allBlockBlobs: Blob[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
       let currentBatch: BatchedBlob | undefined;
@@ -416,7 +416,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+        const blockBlobs = getBlobsPerL1Block(block.getCheckpointBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
@@ -424,10 +424,10 @@ describe('L1Publisher integration', () => {
         let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
 
         blocks.push(block);
-        allBlobs.push(...blockBlobs);
+        allBlockBlobs.push(blockBlobs);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(allBlobs);
+        currentBatch = await BatchedBlob.batch(allBlockBlobs);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
@@ -486,7 +486,7 @@ describe('L1Publisher integration', () => {
             CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
             [],
             Signature.empty().toViemSignature(),
-            Blob.getPrefixedEthBlobCommitments(blockBlobs),
+            getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
         const expectedData = encodeFunctionData({

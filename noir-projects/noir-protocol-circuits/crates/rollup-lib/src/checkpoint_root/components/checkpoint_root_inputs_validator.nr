@@ -63,14 +63,16 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
     fn validate_start_states(self) {
         let first_rollup = self.previous_rollups[0].public_inputs;
 
-        // Asserts that the first sponge blob was empty to begin with.
-        // This prevents injecting unexpected tx effects via the first tx_base of a checkpoint.
-        let expected_start_sponge_blob =
-            SpongeBlob::new(first_rollup.start_sponge_blob.expected_fields);
+        // The following check prevents injecting unexpected tx effects via the first tx_base of a checkpoint.
+        // It asserts that the initial sponge blob has absorbed only 1 field, which specifies the number of expected
+        // fields in the entire checkpoint. This prefix field is used outside the circuits to help with deserializing
+        // the blob fields.
+        let num_expected_fields = first_rollup.start_sponge_blob.num_expected_fields;
+        let expected_start_sponge_blob = SpongeBlob::init_for_checkpoint(num_expected_fields);
         assert_eq(
             first_rollup.start_sponge_blob,
             expected_start_sponge_blob,
-            "The start blob sponge was not empty",
+            "The start blob sponge was not initialized with the expected number of fields",
         );
 
         assert_eq(
@@ -122,14 +124,14 @@ impl<let NumPreviousRollups: u32, let NumVkIndices: u32> CheckpointRootInputsVal
 
         // Check that the number of absorbed blob fields is not larger than the maximum number of fields allowed.
         assert(
-            end_sponge_blob.expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
+            end_sponge_blob.num_expected_fields <= FIELDS_PER_BLOB * BLOBS_PER_BLOCK,
             "Attempted to overfill blobs",
         );
 
         // Check that the sponge blob has absorbed all the fields it expected to.
         assert_eq(
-            end_sponge_blob.expected_fields,
-            end_sponge_blob.fields,
+            end_sponge_blob.num_expected_fields,
+            end_sponge_blob.num_absorbed_fields,
             "Mismatched expected and actual number of blob fields",
         );
 

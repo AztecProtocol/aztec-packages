@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob, FinalBlobAccumulator } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -116,9 +116,9 @@ describe('prover/orchestrator/rollup-structure', () => {
         padArrayEnd(expectedFees, FeeRecipient.empty(), AZTEC_MAX_EPOCH_DURATION),
       );
 
-      const blobs = await Promise.all(checkpoints.map(c => Blob.getBlobsPerBlock(c.blobFields)));
-      const batchedBlob = await BatchedBlob.batch(blobs.flat());
-      const expectedFinalBlobAccumulator = FinalBlobAccumulator.fromBatchedBlob(batchedBlob);
+      const blobs = checkpoints.map(c => getBlobsPerL1Block(c.blobFields));
+      const batchedBlob = await BatchedBlob.batch(blobs);
+      const expectedFinalBlobAccumulator = batchedBlob.toFinalBlobAccumulator();
       expect(result.publicInputs.blobPublicInputs).toEqual(expectedFinalBlobAccumulator);
     });
   });

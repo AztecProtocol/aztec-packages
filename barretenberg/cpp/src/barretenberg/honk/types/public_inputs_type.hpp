@@ -62,6 +62,7 @@ static constexpr std::size_t APP_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
 // Number of bb::fr elements used to represent the public inputs of the HIDING kernel
 static constexpr std::size_t HIDING_KERNEL_PUBLIC_INPUTS_SIZE =
     /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE);
 
 // Number of bb::fr elements used to represent the public inputs of a ROLLUP circuit

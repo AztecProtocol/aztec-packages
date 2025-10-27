@@ -19,22 +19,6 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "TARGET_ARCH": "skylake"
-      }
-    },
-    {
-      "name": "default-pic",
-      "displayName": "Build with Clang with Position Independent Code",
-      "description": "Build with globally installed Clang with Position Independent Code",
-      "binaryDir": "build-pic",
-      "generator": "Ninja",
-      "environment": {
-        "CC": "clang",
-        "CXX": "clang++",
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
-      },
-      "cacheVariables": {
         "TARGET_ARCH": "skylake",
         "ENABLE_PIC": "ON"
       }
@@ -64,6 +48,21 @@
       }
     },
     {
+      "name": "clang20-no-avm",
+      "displayName": "Build with Clang-20 plus AVM",
+      "description": "Build with globally installed Clang-20 plus AVM",
+      "inherits": "clang20",
+      "binaryDir": "build",
+      "environment": {
+        "CC": "clang-20",
+        "CXX": "clang++-20"
+      },
+      "cacheVariables": {
+        "AVM": "OFF",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/release/libavm_transpiler.a"
+      }
+    },
+    {
       "name": "clang20-assert",
       "displayName": "Build with Clang-20",
       "description": "Build with globally installed Clang-20",
@@ -86,16 +85,6 @@
         "CC": "clang-20",
         "CXX": "clang++-20",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
-      }
-    },
-    {
-      "name": "clang20-pic",
-      "displayName": "Release build with Position Independent Code",
-      "description": "Build with globally installed Clang-20 using Position Independent Code",
-      "inherits": "clang20",
-      "binaryDir": "build-pic",
-      "cacheVariables": {
-        "ENABLE_PIC": "ON"
       }
     },
     {
@@ -202,41 +191,6 @@
       }
     },
     {
-      "name": "clang20-no-avm",
-      "displayName": "Optimized build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 excluding the Aztec VM",
-      "inherits": "clang20",
-      "binaryDir": "build-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
-      "name": "debug-fast-no-avm",
-      "displayName": "Optimized debug build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
-      "inherits": "debug-fast",
-      "binaryDir": "build-debug-fast-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
-      "name": "debug-no-avm",
-      "displayName": "Debug build with Clang-20 (no AVM)",
-      "description": "Build with globally installed Clang-20 in debug mode excluding the Aztec VM",
-      "inherits": "debug",
-      "binaryDir": "build-debug-no-avm",
-      "cacheVariables": {
-        "DISABLE_AZTEC_VM": "ON",
-        "ENABLE_STACKTRACES": "ON",
-        "AVM_TRANSPILER_LIB": ""
-      }
-    },
-    {
       "name": "asan-fast",
       "displayName": "Debugging build with address sanitizer on Clang-20 in optimized debug mode",
       "description": "Build with address sanitizer on clang20 in optimized debug mode",
@@ -244,7 +198,6 @@
       "binaryDir": "build-asan-fast",
       "cacheVariables": {
         "ENABLE_ASAN": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "DISABLE_ASM": "ON",
         "ENABLE_STACKTRACES": "OFF"
       }
@@ -288,7 +241,6 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
@@ -301,7 +253,6 @@
       "binaryDir": "build-fuzzing-noasm",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
@@ -316,7 +267,6 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "FUZZING_SHOW_INFORMATION": "ON",
-        "DISABLE_AZTEC_VM": "ON",
         "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
@@ -333,7 +283,6 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
       "environment": {
@@ -405,8 +354,7 @@
       "cacheVariables": {
         "COVERAGE": "ON",
         "DISABLE_ASM": "ON",
-        "AVM_TRANSPILER_LIB": "",
-        "DISABLE_AZTEC_VM": "ON"
+        "AVM_TRANSPILER_LIB": ""
       }
     },
     {
@@ -446,7 +394,6 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
@@ -497,49 +444,13 @@
       "cacheVariables": {
         "ENABLE_PIC": "ON",
         "CMAKE_BUILD_TYPE": "Release",
-        "DISABLE_AZTEC_VM": "ON",
         "CMAKE_AR": "${sourceDir}/scripts/zig-ar.sh",
         "CMAKE_RANLIB": "${sourceDir}/scripts/zig-ranlib.sh"
       }
     },
     {
-      "name": "zig-amd64-macos",
-      "displayName": "Build for macOS amd64 with Zig",
-      "description": "Cross-compile for intel macOS using Zig",
-      "binaryDir": "build-zig-amd64-macos",
-      "generator": "Ninja",
-      "inherits": "zig-base",
-      "environment": {
-      "CC": "zig cc -target x86_64-macos -mcpu=baseline",
-      "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
-      },
-      "cacheVariables": {
-        "CMAKE_SYSTEM_NAME": "Darwin",
-        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a",
-        "HAVE_STD_REGEX": "ON"
-      }
-    },
-    {
-      "name": "zig-arm64-macos",
-      "displayName": "Build for macOS arm64 with Zig",
-      "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
-      "binaryDir": "build-zig-arm64-macos",
-      "generator": "Ninja",
-      "inherits": "zig-base",
-      "environment": {
-        "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
-        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14"
-      },
-      "cacheVariables": {
-        "CMAKE_SYSTEM_NAME": "Darwin",
-        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
-        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
-        "HAVE_STD_REGEX": "ON"
-      }
-    },
-    {
-      "name": "zig-node-amd64-linux",
+      "name": "zig-amd64-linux",
+      "displayName": "Build for linux amd64 with Zig",
       "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target x86_64-linux-gnu",
@@ -548,11 +459,12 @@
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Linux",
-        "TARGET_ARCH": "skylake"
+        "TARGET_ARCH": "skylake",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a"
       }
     },
     {
-      "name": "zig-node-arm64-linux",
+      "name": "zig-arm64-linux",
       "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target aarch64-linux-gnu",
@@ -565,29 +477,35 @@
       }
     },
     {
-      "name": "zig-node-amd64-macos",
+      "name": "zig-amd64-macos",
+      "displayName": "Build for macOS amd64 with Zig",
+      "description": "Cross-compile for intel macOS using Zig",
       "inherits": "zig-base",
       "environment": {
-        "CC": "zig cc -target x86_64-macos",
-        "CXX": "zig c++ -target x86_64-macos",
-        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+        "CC": "zig cc -target x86_64-macos -mcpu=baseline",
+        "CXX": "zig c++ -target x86_64-macos -mcpu=baseline"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
-        "TARGET_ARCH": "sandybridge"
+        "CMAKE_SYSTEM_PROCESSOR": "x86_64",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/x86_64-apple-darwin/release/libavm_transpiler.a",
+        "HAVE_STD_REGEX": "ON"
       }
     },
     {
-      "name": "zig-node-arm64-macos",
+      "name": "zig-arm64-macos",
+      "displayName": "Build for macOS arm64 with Zig",
+      "description": "Cross-compile for macOS arm64 (Apple Silicon) using Zig",
       "inherits": "zig-base",
       "environment": {
         "CC": "zig cc -target aarch64-macos -mcpu=apple_a14",
-        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14",
-        "LDFLAGS": "-Wl,-undefined,dynamic_lookup"
+        "CXX": "zig c++ -target aarch64-macos -mcpu=apple_a14"
       },
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Darwin",
-        "CMAKE_SYSTEM_PROCESSOR": "aarch64"
+        "CMAKE_SYSTEM_PROCESSOR": "aarch64",
+        "AVM_TRANSPILER_LIB": "${sourceDir}/../../avm-transpiler/target/aarch64-apple-darwin/release/libavm_transpiler.a",
+        "HAVE_STD_REGEX": "ON"
       }
     }
   ],
@@ -609,24 +527,14 @@
       "configurePreset": "clang20"
     },
     {
-      "name": "debug",
-      "inherits": "default",
-      "configurePreset": "debug"
-    },
-    {
       "name": "clang20-no-avm",
       "inherits": "default",
       "configurePreset": "clang20-no-avm"
     },
     {
-      "name": "debug-fast-no-avm",
+      "name": "debug",
       "inherits": "default",
-      "configurePreset": "debug-fast-no-avm"
-    },
-    {
-      "name": "debug-no-avm",
-      "inherits": "default",
-      "configurePreset": "debug-no-avm"
+      "configurePreset": "debug"
     },
     {
       "name": "tracy-memory",
@@ -644,16 +552,6 @@
       "configurePreset": "tracy-time-sampled"
     },
     {
-      "name": "clang20-pic",
-      "inherits": "default",
-      "configurePreset": "clang20-pic"
-    },
-    {
-      "name": "default-pic",
-      "inherits": "default",
-      "configurePreset": "default-pic"
-    },
-    {
       "name": "tracy-gates",
       "inherits": "default",
       "configurePreset": "tracy-gates"
@@ -669,14 +567,14 @@
       "configurePreset": "debug-fast-notraces"
     },
     {
-      "name": "asan-fast",
-      "inherits": "default",
-      "configurePreset": "asan-fast"
-    },
-    {
       "name": "asan",
       "inherits": "default",
       "configurePreset": "asan"
+    },
+    {
+      "name": "asan-fast",
+      "inherits": "default",
+      "configurePreset": "asan-fast"
     },
     {
       "name": "gcc",
@@ -766,37 +664,23 @@
       "inherits": "default"
     },
     {
-      "name": "zig-node-amd64-linux",
-      "configurePreset": "zig-node-amd64-linux",
-      "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
+      "name": "zig-amd64-linux",
+      "configurePreset": "zig-amd64-linux",
+      "inheritConfigureEnvironment": true
     },
     {
-      "name": "zig-node-arm64-linux",
-      "configurePreset": "zig-node-arm64-linux",
-      "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
-    },
-    {
-      "name": "zig-node-amd64-macos",
-      "configurePreset": "zig-node-amd64-macos",
-      "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
-    },
-    {
-      "name": "zig-node-arm64-macos",
-      "configurePreset": "zig-node-arm64-macos",
-      "inheritConfigureEnvironment": true,
-      "targets": ["nodejs_module"]
-    },
-    {
-      "name": "zig-arm64-macos",
-      "configurePreset": "zig-arm64-macos",
+      "name": "zig-arm64-linux",
+      "configurePreset": "zig-arm64-linux",
       "inheritConfigureEnvironment": true
     },
     {
       "name": "zig-amd64-macos",
       "configurePreset": "zig-amd64-macos",
+      "inheritConfigureEnvironment": true
+    },
+    {
+      "name": "zig-arm64-macos",
+      "configurePreset": "zig-arm64-macos",
       "inheritConfigureEnvironment": true
     }
   ],

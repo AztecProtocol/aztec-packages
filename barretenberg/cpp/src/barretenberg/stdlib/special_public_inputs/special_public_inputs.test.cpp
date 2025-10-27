@@ -265,6 +265,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
 
     G1Native P0_val = G1Native::random_element();
     G1Native P1_val = G1Native::random_element();
+    G1Native return_data_val = G1Native::random_element();
     std::array<G1Native, NUM_WIRES> ecc_op_tables_val;
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
@@ -281,6 +282,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         // Set the output values
         PairingInputs pairing_inputs{ G1::from_witness(&builder, P0_val), G1::from_witness(&builder, P1_val) };
         hiding_output.pairing_inputs = pairing_inputs;
+        hiding_output.kernel_return_data = G1::from_witness(&builder, return_data_val);
 
         for (auto [table_commitment, table_val] : zip_view(hiding_output.ecc_op_tables, ecc_op_tables_val)) {
             table_commitment = G1::from_witness(&builder, table_val);
@@ -313,6 +315,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         // Ensure the reconstructed data matches the original values
         EXPECT_EQ(hiding_input.pairing_inputs.P0.get_value(), P0_val);
         EXPECT_EQ(hiding_input.pairing_inputs.P1.get_value(), P1_val);
+        EXPECT_EQ(hiding_input.kernel_return_data.get_value(), return_data_val);
         for (auto [reconstructed_commitment, commitment] : zip_view(hiding_input.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
         }
@@ -326,6 +329,7 @@ TEST_F(SpecialPublicInputsTests, HidingKernel)
         // Ensure the reconstructed data matches the original values
         EXPECT_EQ(hiding_input_native.pairing_inputs.P0, P0_val);
         EXPECT_EQ(hiding_input_native.pairing_inputs.P1, P1_val);
+        EXPECT_EQ(hiding_input_native.kernel_return_data, return_data_val);
         for (auto [reconstructed_commitment, commitment] :
              zip_view(hiding_input_native.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment, commitment);

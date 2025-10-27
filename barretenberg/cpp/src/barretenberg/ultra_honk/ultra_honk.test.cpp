@@ -21,8 +21,6 @@
 
 using namespace bb;
 
-using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
-
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
     using ProverInstance = ProverInstance_<Flavor>;
@@ -41,12 +39,10 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 
     void set_default_pairing_points_and_ipa_claim_and_proof(UltraCircuitBuilder& builder)
     {
-        AggregationState::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<UltraCircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+            stdlib::recursion::honk::RollupIO::add_default(builder);
+        } else {
+            stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
         }
     }
 
@@ -915,10 +911,10 @@ TYPED_TEST(UltraHonkTests, Rom)
         circuit_builder.set_ROM_element(rom_id, i, rom_values[i]);
     }
 
-    uint32_t a_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(5));
+    uint32_t a_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(fr(5)));
     EXPECT_EQ(a_idx != rom_values[5], true);
-    uint32_t b_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(4));
-    uint32_t c_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(1));
+    uint32_t b_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(fr(4)));
+    uint32_t c_idx = circuit_builder.read_ROM_array(rom_id, circuit_builder.add_variable(fr(1)));
 
     const auto d_value =
         circuit_builder.get_variable(a_idx) + circuit_builder.get_variable(b_idx) + circuit_builder.get_variable(c_idx);
@@ -957,14 +953,14 @@ TYPED_TEST(UltraHonkTests, Ram)
         circuit_builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    uint32_t a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(5));
+    uint32_t a_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(fr(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    uint32_t b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
-    uint32_t c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(1));
+    uint32_t b_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(fr(4)));
+    uint32_t c_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(fr(1)));
 
-    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(4), circuit_builder.add_variable(500));
-    uint32_t d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(4));
+    circuit_builder.write_RAM_array(ram_id, circuit_builder.add_variable(fr(4)), circuit_builder.add_variable(fr(500)));
+    uint32_t d_idx = circuit_builder.read_RAM_array(ram_id, circuit_builder.add_variable(fr(4)));
 
     EXPECT_EQ(circuit_builder.get_variable(d_idx), 500);
 
@@ -1009,10 +1005,10 @@ TYPED_TEST(UltraHonkTests, RangeChecksOnDuplicates)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    uint32_t a = circuit_builder.add_variable(100);
-    uint32_t b = circuit_builder.add_variable(100);
-    uint32_t c = circuit_builder.add_variable(100);
-    uint32_t d = circuit_builder.add_variable(100);
+    uint32_t a = circuit_builder.add_variable(fr(100));
+    uint32_t b = circuit_builder.add_variable(fr(100));
+    uint32_t c = circuit_builder.add_variable(fr(100));
+    uint32_t d = circuit_builder.add_variable(fr(100));
 
     circuit_builder.assert_equal(a, b);
     circuit_builder.assert_equal(a, c);

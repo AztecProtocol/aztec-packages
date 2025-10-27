@@ -85,7 +85,7 @@ TEST(DynamicArray, DynamicArrayReadWriteConsistency)
     DynamicArray_ct array(&builder, max_size);
 
     for (size_t i = 0; i < max_size; ++i) {
-        array.push(field_ct::from_witness(&builder, i));
+        array.push(field_ct::from_witness(&builder, typename field_ct::native(i)));
         EXPECT_EQ(array.read(i).get_value(), i);
     }
 
