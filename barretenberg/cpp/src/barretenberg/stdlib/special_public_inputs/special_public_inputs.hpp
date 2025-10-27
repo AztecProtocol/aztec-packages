@@ -100,7 +100,15 @@ class KernelIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = output_pg_accum_hash.get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
+            pairing_inputs.set_public();
+        }
         kernel_return_data.set_public();
         app_return_data.set_public();
         for (auto& table_commitment : ecc_op_tables) {
@@ -109,7 +117,6 @@ class KernelIO {
         output_pg_accum_hash.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -119,19 +126,17 @@ class KernelIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
-        G1 kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        kernel_return_data.set_public();
-        G1 app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        app_return_data.set_public();
-        TableCommitments ecc_op_tables;
-        for (auto& table_commitment : ecc_op_tables) {
+        KernelIO inputs;
+
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        for (auto& table_commitment : inputs.ecc_op_tables) {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
-            table_commitment.set_public();
         }
-        FF output_pg_accum_hash = FF::from_witness(&builder, 0);
-        output_pg_accum_hash.set_public();
+        inputs.output_pg_accum_hash = FF::from_witness(&builder, 0);
+        inputs.set_public();
     }
 };
 
@@ -171,10 +176,12 @@ template <typename Builder_> class DefaultIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+        BB_ASSERT_NEQ(builder, nullptr, "Trying to set constant PairingPoints to public.");
+
         pairing_inputs.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -182,7 +189,11 @@ template <typename Builder_> class DefaultIO {
      * @brief Add default public inputs when they are not present
      *
      */
-    static void add_default(Builder& builder) { PairingInputs::add_default_to_public_inputs(builder); };
+    static void add_default(Builder& builder)
+    {
+        PairingInputs::set_default_to_public(&builder);
+        builder.finalize_public_inputs();
+    };
 };
 
 /**
@@ -282,25 +293,21 @@ template <class Builder_> class HidingKernelIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = ecc_op_tables[0].get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
+            pairing_inputs.set_public();
+        }
         for (auto& commitment : ecc_op_tables) {
             commitment.set_public();
         }
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
-    }
-
-    static TableCommitments default_ecc_op_tables(Builder& builder)
-    {
-        TableCommitments default_tables;
-        for (auto& table_commitment : default_tables) {
-            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
-            table_commitment.convert_constant_to_fixed_witness(&builder);
-        }
-
-        return default_tables;
     }
 
     /**
@@ -309,10 +316,13 @@ template <class Builder_> class HidingKernelIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
-        for (auto& table_commitment : default_ecc_op_tables(builder)) {
-            table_commitment.set_public();
+        HidingKernelIO inputs;
+        inputs.pairing_inputs = PairingInputs::construct_default();
+        for (auto& table_commitment : inputs.ecc_op_tables) {
+            table_commitment = G1(DEFAULT_ECC_COMMITMENT);
+            table_commitment.convert_constant_to_fixed_witness(&builder);
         }
+        inputs.set_public();
     };
 };
 
@@ -355,11 +365,18 @@ class RollupIO {
      */
     void set_public()
     {
-        pairing_inputs.set_public();
+        Builder* builder = ipa_claim.commitment.get_context();
+
+        if (pairing_inputs.P0.get_context() == nullptr) {
+            // Add the default pairing points to the public inputs
+            PairingInputs::set_default_to_public(builder);
+        } else {
+            BB_ASSERT_EQ(builder, pairing_inputs.P0.get_context());
+            pairing_inputs.set_public();
+        }
         ipa_claim.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 
@@ -369,10 +386,13 @@ class RollupIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::add_default_to_public_inputs(builder);
+        RollupIO inputs;
+        inputs.pairing_inputs = PairingInputs::construct_default();
         auto [stdlib_opening_claim, ipa_proof] =
             IPA<grumpkin<Builder>>::create_random_valid_ipa_claim_and_proof(builder);
-        stdlib_opening_claim.set_public();
+        inputs.ipa_claim = stdlib_opening_claim;
+        inputs.set_public();
+
         builder.ipa_proof = ipa_proof;
     };
 };
