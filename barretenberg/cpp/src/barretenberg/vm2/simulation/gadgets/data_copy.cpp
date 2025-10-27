@@ -12,8 +12,6 @@ namespace bb::avm2::simulation {
 
 namespace {
 
-constexpr uint64_t MEM_SIZE = static_cast<uint64_t>(AVM_HIGHEST_MEM_ADDRESS) + 1;
-
 /**
  * @brief Helper function to populate a CD copy event.
  *
@@ -115,8 +113,8 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + copy_size;
 
     // Need all of this to happen regardless
-    bool read_out_of_range = gt.gt(read_addr_upper_bound, MEM_SIZE);
-    bool write_out_of_range = gt.gt(write_addr_upper_bound, MEM_SIZE);
+    bool read_out_of_range = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
+    bool write_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
     if (read_out_of_range || write_out_of_range) {
         const std::string error_msg = format("Attempting to access out of bounds memory: read_addr_upper_bound = ",
@@ -166,8 +164,8 @@ void DataCopy::rd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + copy_size;
 
     // Need both of this to happen regardless
-    bool read_out_of_range = gt.gt(read_addr_upper_bound, MEM_SIZE);
-    bool write_out_of_range = gt.gt(write_addr_upper_bound, MEM_SIZE);
+    bool read_out_of_range = gt.gt(read_addr_upper_bound, AVM_MEMORY_SIZE);
+    bool write_out_of_range = gt.gt(write_addr_upper_bound, AVM_MEMORY_SIZE);
 
     if (read_out_of_range || write_out_of_range) {
         const std::string error_msg = format("Attempting to access out of bounds memory: read_addr_upper_bound = ",

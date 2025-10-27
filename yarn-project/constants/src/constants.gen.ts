@@ -238,6 +238,7 @@ export const MEM_TAG_U64 = 5;
 export const MEM_TAG_U128 = 6;
 export const AVM_HIGHEST_MEM_ADDRESS = 4294967295;
 export const AVM_MEMORY_NUM_BITS = 32;
+export const AVM_MEMORY_SIZE = 4294967296;
 export const AVM_BITWISE_AND_OP_ID = 0;
 export const AVM_BITWISE_OR_OP_ID = 1;
 export const AVM_BITWISE_XOR_OP_ID = 2;

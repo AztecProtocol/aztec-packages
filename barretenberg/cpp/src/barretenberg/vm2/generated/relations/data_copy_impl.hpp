@@ -15,7 +15,7 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto constants_AVM_HIGHEST_MEM_ADDRESS = FF(4294967295UL);
+    const auto constants_AVM_MEMORY_SIZE = FF(4294967296UL);
     const auto data_copy_LATCH_CONDITION = in.get(C::data_copy_sel_end) + in.get(C::precomputed_first_row);
     const auto data_copy_SEL_PERFORM_COPY =
         in.get(C::data_copy_sel_start_no_err) * (FF(1) - in.get(C::data_copy_sel_write_count_is_zero)) +
@@ -106,9 +106,8 @@ void data_copyImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::data_copy_sel_start)) *
-            ((static_cast<View>(in.get(C::data_copy_mem_size)) - CView(constants_AVM_HIGHEST_MEM_ADDRESS)) - FF(1));
+        auto tmp = static_cast<View>(in.get(C::data_copy_sel_start)) *
+                   (static_cast<View>(in.get(C::data_copy_mem_size)) - CView(constants_AVM_MEMORY_SIZE));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {

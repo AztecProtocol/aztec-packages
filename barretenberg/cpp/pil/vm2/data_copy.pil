@@ -86,7 +86,7 @@ include "gt.pil";
  * };
  *
  * Inputs:
- * @column clk The clock which is proppagated down to the memory subtrace.
+ * @column clk The clock which is propagated down to the memory subtrace.
  * @column src_context_id The context that is read from.
  * @column dst_context_id The context that is written to.
  * @column copy_size The number of writes.
@@ -235,8 +235,17 @@ namespace data_copy;
     pol commit src_out_of_range_err; // @boolean follows from the lookup into gt.
     pol commit dst_out_of_range_err; // @boolean follows from the lookup into gt.
 
+    // AVM_MEMORY_SIZE == AVM_HIGHEST_MEM_ADDRESS + 1.
     pol commit mem_size; // todo: While we do not support constants
-    sel_start * (mem_size - constants.AVM_HIGHEST_MEM_ADDRESS - 1) = 0;
+    sel_start * (mem_size - constants.AVM_MEMORY_SIZE) = 0;
+
+    // To check that the read and write addresses are within range, we compare the upper bound
+    // of the read/write addresses to the memory size. Working with upper bounds is easier than
+    // working with the highest read/write address as we avoid an underflow when src_addr/dst_addr
+    // and copy_size/data_index_upper_bound are both zero.
+    // Example: src_addr = AVM_HIGHEST_MEM_ADDRESS, data_index_upper_bound = 1 is perfectly valid
+    // and read_addr_upper_bound = AVM_HIGHEST_MEM_ADDRESS + 1 <= AVM_MEMORY_SIZE.
+    // An out-of-range error is raised when read_addr_upper_bound/write_addr_upper_bound > AVM_MEMORY_SIZE.
 
     // Note that for a top-level call, src_addr == 0 (enforced outside of this subtrace) and src_out_of_range_err == 0.
     pol commit read_addr_upper_bound;
@@ -361,7 +370,8 @@ namespace data_copy;
     sel_cd_copy * (src_context_id * (is_top_level * (1 - parent_id_inv) + parent_id_inv) - 1 + is_top_level) = 0;
 
     // Read from memory if we are not the top level call and not a padding row
-    // If the current row is a memory op read
+    // If the current row is a memory op read, i.e., no error occured, copy_size != 0,
+    // it is not a padding row and not a CD_COPY in a top-level call.
     pol commit sel_mem_read; // @boolean follows from the definition
     sel_mem_read = SEL_PERFORM_COPY * (1 - is_top_level * sel_cd_copy) * (1 - padding);
 
@@ -370,7 +380,7 @@ namespace data_copy;
     #[PAD_VALUE]
     padding * value = 0;
 
-    pol commit tag; // We keep the memory tag unconstrained as each value is implicitly upcasted to FF.
+    pol commit tag; // We keep the memory tag unconstrained as each value is implicitly upcasted to FF when written.
     // We need to pass the tag as the memory multipermutation mandates that the tuple has 6 columns.
     #[MEM_READ]
     sel_mem_read { clk, src_context_id, read_addr, value, tag, /*rw=*/precomputed.zero/*(read)*/ }

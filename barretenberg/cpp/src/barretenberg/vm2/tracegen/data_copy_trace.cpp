@@ -4,13 +4,12 @@
 #include <cassert>
 #include <cstdint>
 
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
 
 namespace bb::avm2::tracegen {
-
-constexpr uint64_t MAX_MEM_ADDR = AVM_HIGHEST_MEM_ADDRESS;
 
 /**
  * @brief Builds the data copy trace.
@@ -93,7 +92,7 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_data_index_upper_bound, data_index_upper_bound },
 
                       // Addresses Upper Bounds
-                      { C::data_copy_mem_size, MAX_MEM_ADDR + 1 },
+                      { C::data_copy_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
                       { C::data_copy_read_addr_upper_bound, read_addr_upper_bound },
                       { C::data_copy_write_addr_upper_bound, write_addr_upper_bound },
 
@@ -105,8 +104,8 @@ void DataCopyTraceBuilder::process(
         // We need to check that the read and write addresses are within the valid memory range.
         // Note: for enqueued calls, there is no out of bound read since we read from a column.
 
-        bool read_address_overflow = read_addr_upper_bound > MAX_MEM_ADDR + 1;
-        bool write_address_overflow = write_addr_upper_bound > MAX_MEM_ADDR + 1;
+        bool read_address_overflow = read_addr_upper_bound > AVM_MEMORY_SIZE;
+        bool write_address_overflow = write_addr_upper_bound > AVM_MEMORY_SIZE;
         if (read_address_overflow || write_address_overflow) {
             trace.set(row,
                       { {

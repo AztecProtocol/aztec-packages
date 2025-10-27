@@ -41,7 +41,7 @@ include "calldata_hashing.pil";
 //
 // Usage:
 // sel {
-//     index /*offset plus one*/, context_id, value
+//     index /*starts at 1 (see NOTE below)*/, context_id, value
 // } in calldata.sel {
 //     calldata.index, calldata.context_id, calldata.value
 // };
