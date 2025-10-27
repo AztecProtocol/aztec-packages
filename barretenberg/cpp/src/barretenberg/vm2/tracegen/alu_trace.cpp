@@ -52,6 +52,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
 
     // We rely on the following assert in computing C::alu_tag_ff_diff_inv value
     // below. Namely: (tag - MemoryTag::FF).invert() == tag.invert().
+    // We also rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
     static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
 
     switch (event.operation) {
@@ -144,7 +145,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::FDIV).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) },         // Relies on MemoryTag::FF is 0
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) },       // Relies on MemoryTag::FF is 0
             { Column::alu_b_inv, is_b_zero ? 0 : event.b.as_ff() }, // Will be inverted in batch later
         };
     }
@@ -209,7 +210,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
         return {
             { Column::alu_sel_op_shl, 1 },
-            { Column::alu_sel_shift_ops, 1 },
             { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
             { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
             { Column::alu_a_lo, a_lo },
@@ -239,7 +239,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
         return {
             { Column::alu_sel_op_shr, 1 },
-            { Column::alu_sel_shift_ops, 1 },
             { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
             { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
             { Column::alu_a_lo, a_lo },

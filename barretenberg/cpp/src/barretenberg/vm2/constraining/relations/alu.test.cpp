@@ -137,7 +137,7 @@ TEST_F(AluConstrainingTest, NegativeAluWrongOpId)
         },
     });
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_OP_ID_CHECK), "OP_ID_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace, alu::SR_DISPATCH_OPERATION), "DISPATCH_OPERATION");
 }
 
 // ADD TESTS
@@ -1184,6 +1184,9 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
             { C::alu_sel, 1 },
             { C::alu_sel_op_fdiv, 1 },
+            { C::alu_sel_tag_err, 1 },
+            { C::alu_sel_err, 1 },
+            { C::alu_tag_ff_diff_inv, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
             { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
             { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
             { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) }, // = ic_tag
@@ -1192,22 +1195,33 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::execution_register_2_, c },                                      // = ic
             { C::execution_sel_exec_dispatch_alu, 1 },                            // = sel
             { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_ALU_FDIV },      // = alu_op_id
+            { C::execution_sel_opcode_error, 1 },                                 // = sel_err
         },
     });
 
+    // Every column is set up correctly. All checks should pass:
     precomputed_builder.process_misc(trace, NUM_OF_TAGS);
     precomputed_builder.process_tag_parameters(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
-    // We check sel_is_ff for FDIV so must correctly set the tag diff inverse:
-    trace.set(Column::alu_tag_ff_diff_inv, 0, FF(FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-    // This case should be recoverable, so we set the tag err selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
-    trace.set(Column::execution_sel_opcode_error, 0, 1);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+
+    // We un-toggle sel_tag_err and sel_err and expect the following failure:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
+
+    // We try to cheat by setting the tag diff inverse to 0 and claiming a is FF, but expect the following failure:
+    trace.set(Column::alu_tag_ff_diff_inv, 0, 0);
+    trace.set(Column::alu_sel_is_ff, 0, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_IS_FF");
+
+    // Reset to the correct values:
+    trace.set(Column::alu_tag_ff_diff_inv, 0, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert());
+    trace.set(Column::alu_sel_is_ff, 0, 0);
+    trace.set(Column::alu_sel_tag_err, 0, 1);
+    trace.set(Column::alu_sel_err, 0, 1);
+    check_relation<alu>(trace);
 
     // For FDIV, we can have both FF and dividing by zero errors:
     trace.set(Column::alu_ib, 0, 0);
@@ -1671,11 +1685,23 @@ TEST_P(AluNotConstrainingTest, NegativeAluNotTraceGen)
     }
 }
 
+// Unconditional check for AB_TAGS_CHECK error for NOT opcode. This cannot satsify the constraints.
 TEST_P(AluNotConstrainingTest, AluNotTraceGenTagError)
 {
     auto [a, b] = GetParam();
     auto trace = process_not_with_tracegen(
         TwoOperandTestParams{ a, MemoryValue::from_tag(TAG_ERROR_TEST_VALUES.at(b.get_tag()), b.as_ff()) }, true);
+    check_all_interactions<AluTraceBuilder>(trace);
+    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ONLY_RELEVANT_CHECK_AB_TAGS_ERROR");
+}
+
+// Supported TAG error when a is of FF type.
+TEST_F(AluNotConstrainingTest, AluNotTraceGenTagErrorFF)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::FF, 253);
+    auto trace = process_not_with_tracegen(TwoOperandTestParams{ a, b }, true);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
@@ -1733,7 +1759,6 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, 1 },
                 { C::alu_sel_op_shl, 1 },
-                { C::alu_sel_shift_ops, 1 },
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
@@ -1898,7 +1923,6 @@ class AluShrConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, 1 },
                 { C::alu_sel_op_shr, 1 },
-                { C::alu_sel_shift_ops, 1 },
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },

@@ -5,67 +5,52 @@ include "precomputed.pil";
 
 namespace alu;
 
-pol commit sel;
-
-pol commit sel_err;
-
-pol commit sel_op_add;
-pol commit sel_op_sub;
-pol commit sel_op_mul;
-pol commit sel_op_div;
-pol commit sel_op_fdiv;
-pol commit sel_op_eq;
-pol commit sel_op_lt;
-pol commit sel_op_lte;
-pol commit sel_op_not;
-pol commit sel_op_shl;
-pol commit sel_op_shr;
-pol commit sel_op_truncate;
-pol commit op_id;
-
-pol commit ia;
-pol commit ib;
-pol commit ic;
-
-pol commit ia_tag;
-pol commit ib_tag;
-pol commit ic_tag;
+pol commit sel; // @boolean
+sel * (1 - sel) = 0;
 
 #[skippable_if]
 sel = 0;
 
-// carry flag
-pol commit cf;
+/******************************************************************************
+* Operation selectors and dispatching the operation.
+******************************************************************************/
 
-// Generic helper column
-// Current use: EQ (inverse of a-b), DIV (remainder), and SHL (2**ib)
-pol commit helper1;
+// Operation id
+pol commit op_id;
 
-// maximum bits the number can hold (i.e. 8 for a u8):
-pol commit max_bits;
-// maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
-pol commit max_value;
-// we need a selector to conditionally lookup ff_gt when inputs a, b are fields:
-pol commit sel_is_ff;
-// we need a selector to conditionally perform u128 multiplication:
-pol commit sel_is_u128;
+// Selectors for each operation.
+pol commit sel_op_add; // @boolean
+pol commit sel_op_sub; // @boolean
+pol commit sel_op_mul; // @boolean
+pol commit sel_op_div; // @boolean
+pol commit sel_op_fdiv; // @boolean
+pol commit sel_op_eq; // @boolean
+pol commit sel_op_lt; // @boolean
+pol commit sel_op_lte; // @boolean
+pol commit sel_op_not; // @boolean
+pol commit sel_op_shl; // @boolean
+pol commit sel_op_shr; // @boolean
+pol commit sel_op_truncate; // @boolean
 
-pol IS_NOT_FF = 1 - sel_is_ff;
-pol IS_NOT_U128 = 1 - sel_is_u128;
+// Selectors are booleans
+sel_op_add * (1 - sel_op_add) = 0;
+sel_op_sub * (1 - sel_op_sub) = 0;
+sel_op_mul * (1 - sel_op_mul) = 0;
+sel_op_div * (1 - sel_op_div) = 0;
+sel_op_fdiv * (1 - sel_op_fdiv) = 0;
+sel_op_eq * (1 - sel_op_eq) = 0;
+sel_op_lt * (1 - sel_op_lt) = 0;
+sel_op_lte * (1 - sel_op_lte) = 0;
+sel_op_not * (1 - sel_op_not) = 0;
+sel_op_shl * (1 - sel_op_shl) = 0;
+sel_op_shr * (1 - sel_op_shr) = 0;
+sel_op_truncate * (1 - sel_op_truncate) = 0;
 
-sel * (1 - sel) = 0;
-cf * (1 - cf) = 0;
-sel_is_ff * (1 - sel_is_ff) = 0;
-sel_is_u128 * (1 - sel_is_u128) = 0;
 
-// TODO: Should these errors be mutually exclusive? Both can occur for DIV, FDIV
-#[ERR_CHECK]
-sel_err = sel_tag_err + sel_div_0_err - sel_tag_err * sel_div_0_err;
-
-// TODO: Consider to gate with (1 - sel_tag_err) for op_id. This might help us remove the (1 - sel_tag_err)
-// in various operation relations below.
-// Note that the op_ids below represent a binary decomposition (see constants_gen.pil):
-#[OP_ID_CHECK]
+// Based on the op_id, we dispatch to the corresponding operation selector.
+// Note that the op_ids below represent a binary decomposition (see constants_gen.pil). This guarantees
+// that only one of the sel_op_* selectors is 1 at a time. (each constants.AVM_XX is a power of 2)
+#[DISPATCH_OPERATION]
 op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_sub * constants.AVM_EXEC_OP_ID_ALU_SUB
       + sel_op_mul * constants.AVM_EXEC_OP_ID_ALU_MUL
@@ -79,15 +64,39 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_shr * constants.AVM_EXEC_OP_ID_ALU_SHR
       + sel_op_truncate * constants.AVM_EXEC_OP_ID_ALU_TRUNCATE;
 
-// Note: sel captures sel_op_truncate which is dispatched differently (see #[EXEC_DISPATCHING_CAST]). This is not an issue because
-// sel_alu never selects an op_id = AVM_EXEC_OP_ID_ALU_TRUNCATE as prescribed by SUBTRACE_INFO_MAP.
+/******************************************************************************
+* Inputs and outputs and helper selectors.
+******************************************************************************/
+// Inputs and outputs. Output is in ic except for NOT, where it is in ib.
+pol commit ia;
+pol commit ib;
+pol commit ic;
 
-// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
-// Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
+// Input and output tags.
+pol commit ia_tag;
+pol commit ib_tag;
+pol commit ic_tag;
+
+// Helper selectors
+// Needed to conditionally lookup ff_gt when inputs a, b are fields:
+pol commit sel_is_ff; // @boolean
+// Needed to conditionally perform u128 multiplication:
+pol commit sel_is_u128; // @boolean
+pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
+pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
+pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition.
+pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows
+
+// Note that #[OP_ID_CHECK] ensures selectors are mutually exclusive.
+// Therefore, SHIFT_OPS and DIV_OPS are boolean.
+
+// Boolean conditions
+sel_is_ff * (1 - sel_is_ff) = 0;
+sel_is_u128 * (1 - sel_is_u128) = 0;
 
 // IS_FF CHECKING
 
-pol CHECK_TAG_FF = sel_op_div + sel_op_fdiv + sel_op_lt + sel_op_lte + sel_op_not + sel_shift_ops;
+pol CHECK_TAG_FF = sel_op_div + sel_op_fdiv + sel_op_lt + sel_op_lte + sel_op_not + SHIFT_OPS;
 // We prove that sel_is_ff == 1 <==> ia_tag == MEM_TAG_FF
 pol TAG_FF_DIFF = ia_tag - constants.MEM_TAG_FF;
 pol commit tag_ff_diff_inv;
@@ -103,9 +112,102 @@ pol commit tag_u128_diff_inv;
 #[TAG_IS_U128]
 CHECK_TAG_U128 * (TAG_U128_DIFF * (sel_is_u128 * (1 - tag_u128_diff_inv) + tag_u128_diff_inv) + sel_is_u128 - 1) = 0;
 
-// TAG CHECKING
+/******************************************************************************
+* Error Handling
+******************************************************************************/
+pol commit sel_err; // @boolean Follows from definition (see #[ERR_CHECK]).
+pol commit sel_tag_err; // @boolean Follows from definition (see #[TAG_ERR_CHECK]).
+pol commit sel_ab_tag_mismatch; // @boolean
+pol commit sel_div_0_err; // @boolean
 
-pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_truncate + sel_shift_ops) * ia_tag + (sel_op_eq + sel_op_lt + sel_op_lte) * constants.MEM_TAG_U1 + sel_op_fdiv * constants.MEM_TAG_FF;
+/**
+* sel_err is the main consolidated error selector.
+* sel_err = sel_tag_err || sel_div_0_err
+* sel_tag_err is the consolidated tag error selector.
+* sel_tag_err = sel_ab_tag_mismatch || FF_TAG_ERR
+* Three base error cases:
+* 1) FF_TAG_ERR: Input tagged as a field for NOT, DIV, SHL, SHR or non-field for FDIV operation
+* 2) sel_ab_tag_mismatch: Mismatched tags for inputs a and b for all opcodes apart from TRUNCATE.
+* 3) sel_div_0_err: occurs when DIV or FDIV is performed and b == 0.
+*/
+
+// Boolean conditions
+sel_ab_tag_mismatch * (1 - sel_ab_tag_mismatch) = 0;
+sel_div_0_err * (1 - sel_div_0_err) = 0;
+
+// sel_tag_err and sel_div_0_err can happen simultaneously for DIV and FDIV, so we need to OR them together.
+#[ERR_CHECK]
+sel_err = sel_tag_err + sel_div_0_err - sel_tag_err * sel_div_0_err;
+
+// sel_ab_tag_mismatch and FF_TAG_ERR can happen simultaneously for DIV, SHL, SHR, so we need to OR them together.
+#[TAG_ERR_CHECK]
+sel_tag_err = sel_ab_tag_mismatch + FF_TAG_ERR - sel_ab_tag_mismatch * FF_TAG_ERR;
+
+// ------------------------------------------------------------
+// Error case 1: FF_TAG_ERR
+// ------------------------------------------------------------
+pol FF_TAG_ERR = (sel_op_div + sel_op_not + SHIFT_OPS) * sel_is_ff + sel_op_fdiv * IS_NOT_FF;
+
+// ------------------------------------------------------------
+// Error case 2: sel_ab_tag_mismatch
+// ------------------------------------------------------------
+// For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set
+// b's tag as 0 (FF) which, in turn, will cause sel_ab_tag_mismatch to be 0.
+// The output of NOT opcode is in ib, and we need to unconditionally exclude a mismatched tag error for this case.
+// For this reason, we do not remove "NOT" from the CHECK_AB_TAGS selector.
+pol CHECK_AB_TAGS = 1 - sel_op_truncate;
+pol AB_TAGS_EQ = 1 - sel_ab_tag_mismatch;
+pol commit ab_tags_diff_inv;
+// sel_ab_tag_mismatch = 1 <==> ia_tag - ib_tag != 0
+#[AB_TAGS_CHECK]
+CHECK_AB_TAGS * ( (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ ) = 0;
+
+// For NOT and TRUNCATE, we need to unconditionally exclude a mismatched tag error.
+// We do not need to gate `sel_op_not` term below with `1 - sel_is_ff` because tracegen set tag of b to 0 (FF).
+// Note that the execution dispatching lookups for TRUNCATE (SET/CAST) ignores sel_err anyway, but
+// we include it here for completeness (overhead is negligible).
+#[ONLY_RELEVANT_CHECK_AB_TAGS_ERROR]
+(sel_op_not + sel_op_truncate) * sel_ab_tag_mismatch = 0;
+
+// ------------------------------------------------------------
+// Error case 3: sel_div_0_err
+// ------------------------------------------------------------
+// DIV_OPS == 1 ==> [sel_div_0_err == 1 <==> ib == 0]
+pol commit b_inv; // zero-check inverse helper column.
+#[DIV_0_ERR]
+DIV_OPS * (ib * (sel_div_0_err * (1 - b_inv) + b_inv) + sel_div_0_err - 1) = 0;
+
+// DIV_OPS == 0 ==> sel_div_0_err == 0
+#[ONLY_RELEVANT_CHECK_DIV_0_ERR_ERROR]
+(1 - DIV_OPS) * sel_div_0_err = 0;
+
+/******************************************************************************
+* Other helper columns and output tag checking.
+******************************************************************************/
+// carry flag
+pol commit cf; // @boolean
+cf * (1 - cf) = 0;
+
+// Generic helper column
+// Current use: EQ (inverse of a-b), DIV (remainder), and SHL (2**ib)
+pol commit helper1;
+
+// maximum bits the number can hold (i.e. 8 for a u8):
+pol commit max_bits;
+// maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
+pol commit max_value;
+
+#[TAG_MAX_BITS_VALUE]
+sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
+
+// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
+// Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
+
+// OUTPUT TAG CHECKING
+
+// NOT opccode does not mandate a specific tag for ic because the output is in ib.
+pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op_truncate + SHIFT_OPS) * ia_tag
+                   + (sel_op_eq + sel_op_lt + sel_op_lte) * constants.MEM_TAG_U1 + sel_op_fdiv * constants.MEM_TAG_FF;
 
 // The tag of c is generated by the opcode and is never wrong.
 // Gating with (1 - sel_tag_err) is necessary because when an error occurs, we have to set the tag to 0,
@@ -113,50 +215,22 @@ pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op
 #[C_TAG_CHECK]
 (1 - sel_err) * (EXPECTED_C_TAG - ic_tag) = 0;
 
-pol commit sel_tag_err;
-sel_tag_err * (1 - sel_tag_err) = 0;
-
-// Tag errors currently have cases:
-// 1. Input tagged as a field for NOT, DIV, or shift operations or non-field for FDIV operation
-// 2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
-// 1 is handled by checking FF_TAG_ERR in TAG_ERR_CHECK and 2 is handled in AB_TAGS_CHECK.
-pol FF_TAG_ERR = (sel_op_div + sel_op_not + sel_shift_ops) * sel_is_ff + sel_op_fdiv * IS_NOT_FF;
-pol commit sel_ab_tag_mismatch;
-sel_ab_tag_mismatch * (1 - sel_ab_tag_mismatch) = 0;
-
-// TODO(MW): It's technically possible to have BOTH cases be true if we perform a DIV or shift with FF ib and integer ia,
-// so for now I take sel_ab_tag_mismatch * FF_TAG_ERR.
-#[TAG_ERR_CHECK]
-sel_tag_err = sel_ab_tag_mismatch + FF_TAG_ERR - sel_ab_tag_mismatch * FF_TAG_ERR;
-
-// For NOT opcode, an error occurs if the tag of a is FF. In this case, tracegen will set
-// b's tag as 0 which, while it would currently pass the checks below, is not a tag inequality we
-// want to throw with sel_ab_tag_mismatch:
-pol CHECK_AB_TAGS = 1 - sel_op_not * sel_is_ff - sel_op_truncate;
-pol AB_TAGS_EQ = 1 - sel_ab_tag_mismatch;
-pol commit ab_tags_diff_inv;
-// Prove that sel_ab_tag_mismatch = 1 <==> we have a disallowed inequality between the tags:
-#[AB_TAGS_CHECK]
-CHECK_AB_TAGS * ( (ia_tag - ib_tag) * ( AB_TAGS_EQ * (1 - ab_tags_diff_inv) + ab_tags_diff_inv) - 1 + AB_TAGS_EQ ) = 0;
-
-#[TAG_MAX_BITS_VALUE]
-sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
-
-// BIT DECOMPOSITION
-
+/******************************************************************************
+* BIT DECOMPOSITION
+******************************************************************************/
 // We use the below to prove correct decomposition of limbs. Currently used by MUL, DIV, SHL, and SHR.
 pol commit sel_decompose_a;
 // #[OP_ID_CHECK] ensures selectors are mutually exclusive:
-sel_decompose_a = sel_mul_div_u128 + sel_shift_ops * IS_NOT_FF;
+sel_decompose_a = sel_mul_div_u128 + SHIFT_OPS * IS_NOT_FF;
 // Currently, sel_decompose_b would just equal sel_mul_div_u128, so no need for another column.
 pol commit a_lo, a_hi, b_lo, b_hi;
 pol TWO_POW_64 = 2 ** 64;
 
 // Reusing columns for decomposition (#[OP_ID_CHECK] ensures selectors are mutually exclusive):
-pol DECOMPOSED_A = ((sel_mul_u128 + sel_shift_ops_no_overflow) * ia) + (sel_shift_ops - sel_shift_ops_no_overflow) * (ib - max_bits) + (sel_is_u128 * sel_op_div * (1 - sel_tag_err) * ic);
+pol DECOMPOSED_A = ((sel_mul_u128 + sel_shift_ops_no_overflow) * ia) + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + (sel_is_u128 * sel_op_div * (1 - sel_tag_err) * ic);
 pol DECOMPOSED_B = ib;
 // For MUL and DIV, we decompose into 64 bit limbs. For shifts, we have one limb of b bits and one limb of max_bits - b bits.
-pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + sel_shift_ops * two_pow_shift_lo_bits;
+pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + SHIFT_OPS * two_pow_shift_lo_bits;
 
 #[A_DECOMPOSITION]
 sel_decompose_a * (DECOMPOSED_A - (a_lo + LIMB_SIZE * a_hi)) = 0;
@@ -171,10 +245,10 @@ pol commit constant_64;
 sel_mul_div_u128 * (64 - constant_64) = 0;
 
 #[A_LO_BITS]
-a_lo_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * shift_lo_bits = 0;
+a_lo_bits - sel_mul_div_u128 * constant_64 - SHIFT_OPS * shift_lo_bits = 0;
 
 #[A_HI_BITS]
-a_hi_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * SHIFT_HI_BITS = 0;
+a_hi_bits - sel_mul_div_u128 * constant_64 - SHIFT_OPS * SHIFT_HI_BITS = 0;
 
 #[RANGE_CHECK_DECOMPOSITION_A_LO]
 sel_decompose_a { a_lo, a_lo_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
@@ -189,14 +263,9 @@ sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel_alu { range_check.valu
 sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 
-// ADD
-
-sel_op_add * (1 - sel_op_add) = 0;
-
-// SUB
-
-sel_op_sub * (1 - sel_op_sub) = 0;
-
+/******************************************************************************
+* Opcode Computations
+******************************************************************************/
 // ADD & SUB - Shared relation:
 
 // For add, sel_op_add - sel_op_sub = 1 => check a + b - cf * carry = c
@@ -205,8 +274,6 @@ sel_op_sub * (1 - sel_op_sub) = 0;
 (sel_op_add + sel_op_sub) * (1 - sel_tag_err) * (ia - ic + (sel_op_add - sel_op_sub) * (ib - cf * (max_value + 1))) = 0;
 
 // MUL
-
-sel_op_mul * (1 - sel_op_mul) = 0;
 
 pol commit c_hi;
 
@@ -247,8 +314,6 @@ sel_mul_u128 * (1 - sel_tag_err)
 sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 // DIV
-
-sel_op_div * (1 - sel_op_div) = 0;
 
 // We need to show that remainder < b (remainder stored in helper1)
 // TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1 (gated by div_0_err).
@@ -293,33 +358,10 @@ sel_is_u128 * sel_op_div * (1 - sel_err) * (ic * b_lo + a_lo * b_hi * TWO_POW_64
 
 // FDIV
 
-sel_op_fdiv * (1 - sel_op_fdiv) = 0;
-
 // For FDIV, we reuse the same main relation for non-u128 DIV (ALU_FDIV_DIV_NON_U128) but constrain that there is no remainder, stored in helper1.
 // => The relation shows that b * c = a for FF
 
 // DIV & FDIV - shared ops
-// #[OP_ID_CHECK] ensures selectors are mutually exclusive:
-pol DIV_OPS = sel_op_div + sel_op_fdiv;
-
-pol commit sel_div_0_err;
-sel_div_0_err * (1 - sel_div_0_err) = 0;
-
-// We prove that sel_div_0_err == 1 <==> DIV_OPS == 1 && b == 0:
-//      sel_div_0_err == 1 <==> b == 0:         ib * (sel_div_0_err * (1 - b_inv) + b_inv) + sel_div_0_err - 1 = 0
-//      sel_div_0_err == 1 => DIV_OPS == 1:  sel_div_0_err * ( sel_div_0_err - DIV_OPS ) = 0
-
-// Proof:
-// ==>:
-// Assume sel_div_0_err == 1. Then #[DIV_0_ERR] becomes: DIV_OPS * ib + 1 - DIV_OPS = 0
-// We note that DIV_OPS cannot be zero, otherwise we get 1 == 0.
-// Since DIV_OPS is boolean, DIV_OPS == 1 and ib == 0
-// <== :
-// Assume DIV_OPS == 1 && ib == 0, we get for #[DIV_0_ERR]: sel_div_0_err - 1 + sel_div_0_err * (sel_div_0_err - 1) = 0
-// sel_div_0_err being boolean the second additive term is zero and therefore sel_div_0_err - 1 == 0.
-pol commit b_inv;
-#[DIV_0_ERR]
-DIV_OPS * (ib * (sel_div_0_err * (1 - b_inv) + b_inv) + sel_div_0_err - 1) + sel_div_0_err * (sel_div_0_err - DIV_OPS) = 0;
 
 // DIV & FDIV - non u128
 
@@ -333,7 +375,6 @@ DIV_OPS_NON_U128 * (ib * ic - (ia - sel_op_div * helper1)) = 0;
 
 // EQ
 
-sel_op_eq * (1 - sel_op_eq) = 0;
 pol DIFF = ia - ib;
 pol commit ab_diff_inv; // Helper column for inverting DIFF.
 // ic is a boolean output and ic == 1 <==> a == b.
@@ -342,14 +383,6 @@ pol commit ab_diff_inv; // Helper column for inverting DIFF.
 // sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
 #[EQ_OP_MAIN]
 sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
-
-// LT
-
-sel_op_lt * (1 - sel_op_lt) = 0;
-
-// LTE
-
-sel_op_lte * (1 - sel_op_lte) = 0;
 
 // LT & LTE - Shared relations:
 
@@ -390,8 +423,6 @@ in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // NOT
 // Input is sent to ia, ia_tag and output is sent to ib, ib_tag.
-
-sel_op_not * (1 - sel_op_not) = 0;
 
 // Relation is: a + ~a = 2^k - 1, where k is the number of bits in a.
 #[NOT_OP_MAIN]
@@ -444,15 +475,11 @@ sel_op_shr * (1 - sel_tag_err) * (ic - sel_shift_ops_no_overflow * a_hi) = 0;
 
 // SHL & SHR - Shared relations:
 
-pol commit sel_shift_ops;
-// sel_op_shl || sel_op_shr:
-sel_shift_ops = sel_op_shl + sel_op_shr;
-
 pol commit sel_shift_ops_no_overflow;
-// sel_shift_ops_no_overflow = 1 ==> sel_shift_ops = 1:
-sel_shift_ops_no_overflow * (1 - sel_shift_ops) = 0;
+// sel_shift_ops_no_overflow = 1 ==> SHIFT_OPS = 1:
+sel_shift_ops_no_overflow * (1 - SHIFT_OPS) = 0;
 // (sel_op_shl || sel_op_shr) & b < max_bits: see below* for constraining.
-pol SHIFT_OVERFLOW = sel_shift_ops * (1 - sel_shift_ops_no_overflow);
+pol SHIFT_OVERFLOW = SHIFT_OPS * (1 - sel_shift_ops_no_overflow);
 
 // The bit size of the lo limb used by the shift:
 pol commit shift_lo_bits;
@@ -484,8 +511,6 @@ sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precompute
 // the layout for registers and operands strongly differ from other ALU opcodes.
 // The truncation operates on the FF value of the input and we completely ignore its tag, therefore
 // the tag of the input is in general not equal to ia_tag.
-
-sel_op_truncate * (1 - sel_op_truncate) = 0;
 
 // 3 cases for truncation:
 // - No truncation required (ia <= max_value)
