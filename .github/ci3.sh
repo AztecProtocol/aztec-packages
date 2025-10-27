@@ -17,39 +17,31 @@ IFS=',' read -ra label_array <<< "${labels}"
 for label in "${label_array[@]}"; do
   case "${label}" in
     ci-merge-queue)
-      echo "Label 'ci-merge-queue' found: enabling merge queue mode"
+      echo "Label 'ci-merge-queue' found"
       ci_merge_queue=1
       ;;
     ci-full)
-      echo "Label 'ci-full' found: enabling full CI"
+      echo "Label 'ci-full' found"
       ci_full=1
       ;;
     ci-no-cache)
-      echo "Label 'ci-no-cache' found: disabling cache"
+      echo "Label 'ci-no-cache' found"
       ci_no_cache=1
       ;;
     ci-no-fail-fast)
-      echo "Label 'ci-no-fail-fast' found: disabling fail-fast"
+      echo "Label 'ci-no-fail-fast' found"
       ci_no_fail_fast=1
       ;;
     ci-docs)
-      echo "Label 'ci-docs' found: enabling docs CI"
+      echo "Label 'ci-docs' found"
       ci_docs=1
       ;;
-    barretenberg-ci)
-      echo "Label 'barretenberg-ci' found: enabling barretenberg CI"
+    ci-barretenberg)
+      echo "Label 'ci-barretenberg' found"
       ci_barretenberg=1
       ;;
   esac
 done
-
-# Export for child processes
-export CI_MERGE_QUEUE=${ci_merge_queue:-0}
-export CI_FULL=${ci_full:-0}
-export NO_CACHE=${ci_no_cache:-0}
-export NO_FAIL_FAST=${ci_no_fail_fast:-0}
-export CI_DOCS=${ci_docs:-0}
-export CI_BARRETENBERG=${ci_barretenberg:-0}
 
 # Determine CI mode
 if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
