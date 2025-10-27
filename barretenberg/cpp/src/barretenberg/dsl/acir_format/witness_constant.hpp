@@ -36,8 +36,8 @@ template <typename FF> struct WitnessOrConstant {
     }
 };
 
-template <typename Builder, typename FF>
-bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<FF>& input, Builder& builder)
+template <typename Builder>
+bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<typename Builder::FF>& input, Builder& builder)
 {
     using field_ct = bb::stdlib::field_t<Builder>;
     if (input.is_constant) {
@@ -45,6 +45,13 @@ bb::stdlib::field_t<Builder> to_field_ct(const WitnessOrConstant<FF>& input, Bui
     }
     return field_ct::from_witness_index(&builder, input.index);
 }
+
+template <typename Builder>
+bb::stdlib::cycle_group<Builder> to_grumpkin_point_unsafe(
+    Builder& builder,
+    const WitnessOrConstant<typename Builder::FF>& input_x,
+    const WitnessOrConstant<typename Builder::FF>& input_y,
+    const WitnessOrConstant<typename Builder::FF>& input_infinite);
 
 template <typename Builder, typename FF>
 bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& input_x,

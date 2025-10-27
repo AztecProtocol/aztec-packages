@@ -75,6 +75,7 @@ TEST_F(EcOperations, TestECOperations)
 
 TEST_F(EcOperations, TestECPredicate)
 {
+    BB_DISABLE_ASSERTS();
     EcAdd ec_add_constraint;
 
     WitnessVector witness_values;

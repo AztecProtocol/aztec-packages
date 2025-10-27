@@ -13,6 +13,26 @@ using namespace bb;
 using namespace bb::stdlib;
 
 /**
+ * @brief Construct a Grumpkin point from WitnessOrConstants representing x and y coordinates, and the infinity flag. It
+ * does NOT enforce that the resulting point is on the curve.
+ */
+template <typename Builder>
+bb::stdlib::cycle_group<Builder> to_grumpkin_point_unsafe(Builder& builder,
+                                                          const WitnessOrConstant<typename Builder::FF>& input_x,
+                                                          const WitnessOrConstant<typename Builder::FF>& input_y,
+                                                          const WitnessOrConstant<typename Builder::FF>& input_infinite)
+{
+    using bool_ct = bb::stdlib::bool_t<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
+
+    field_ct point_x = to_field_ct(input_x, builder);
+    field_ct point_y = to_field_ct(input_y, builder);
+    bool_ct infinite = static_cast<bool_ct>(to_field_ct(input_infinite, builder));
+
+    return cycle_group<Builder>(point_x, point_y, infinite, /*assert_on_curve=*/false);
+}
+
+/**
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
  * @details Inputs x, y, and is_infinite are used to construct the point. If no valid witness is provided or if the
  * predicate is constant false, the point is set to the generator point. If the predicate is a non-constant witness, the
@@ -56,11 +76,10 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
 
     bool constant_coordinates = input_x.is_constant && input_y.is_constant;
 
-    // In a witness is not provided, or the relevant predicate is constant false, we ensure the coordinates correspond
-    // to a valid point to avoid erroneous failures during circuit construction. We only do this if the coordinates are
-    // non-constant since otherwise no variable indices exist.
-    bool constant_false_predicate = predicate.is_constant && predicate.value == FF(0);
-    if ((!has_valid_witness_assignments || constant_false_predicate) && !constant_coordinates) {
+    // In a witness is not provided we ensure the coordinates correspond to a valid point to avoid erroneous failures
+    // during circuit construction. We only do this if the coordinates are non-constant since otherwise no variable
+    // indices exist.
+    if (!has_valid_witness_assignments && !constant_coordinates) {
         auto one = bb::grumpkin::g1::affine_one;
         builder.set_variable(input_x.index, one.x);
         builder.set_variable(input_y.index, one.y);
@@ -93,5 +112,17 @@ template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(const Wit
                                                                        bool has_valid_witness_assignments,
                                                                        const WitnessOrConstant<fr>& predicate,
                                                                        MegaCircuitBuilder& builder);
+
+template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point_unsafe(
+    UltraCircuitBuilder& builder,
+    const WitnessOrConstant<fr>& input_x,
+    const WitnessOrConstant<fr>& input_y,
+    const WitnessOrConstant<fr>& input_infinite);
+
+template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point_unsafe(
+    MegaCircuitBuilder& builder,
+    const WitnessOrConstant<fr>& input_x,
+    const WitnessOrConstant<fr>& input_y,
+    const WitnessOrConstant<fr>& input_infinite);
 
 } // namespace acir_format

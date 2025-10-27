@@ -13,6 +13,25 @@
 
 namespace acir_format {
 
+/**
+ * @brief Create constraints for addition of two points on the Grumpkin curve.
+ *
+ * @details We proceed in 5 steps:
+ * 1. We reconstruct the Grumpkin points input1, input2 and input_result for which we must check input1 + input2 =
+ *    input_result. NOTE: This step does not enforce that input1 and input2 are valid points on Grumpkin.
+ * 2. If we are in write_vk mode (the builder was constructed without a valid assignment of a witness vector), we
+ *    populate the fields of input1, input2 and input_result with dummy data.
+ * 3. If the predicate is not constant, we conditionally assign the values of input1 and input2 to avoid failures when
+ *    the constraint appears in an inactive branch (predicate is witness false). When the predicate is witness false, we
+ *    set input1 = input2 equal to the generator of the Grumpkin curve.
+ * 4. We check that input1 and input2 are valid points on the Grumpkin curve.
+ * 5. We compute input1 + input2 and check that it agrees with input_result.
+ *
+ * @tparam Builder
+ * @param builder
+ * @param input
+ * @param has_valid_witness_assignments
+ */
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
@@ -21,24 +40,69 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     using field_ct = bb::stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
 
-    auto input1_point = to_grumpkin_point(
-        input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, input.predicate, builder);
-    auto input2_point = to_grumpkin_point(
-        input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, input.predicate, builder);
-
-    // Compute the result of the addition
-    cycle_group_ct result = input1_point + input2_point;
-    // AUDITTODO: Is this necessary? If so, ensure cycle_group addition always returns standard form. If not, clarify.
-    result.standardize();
-
-    // Create copy-constraints between the computed result and the expected result stored in the input witness indices
+    // Step 1.
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
-    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.result_infinite));
+    field_ct input_result_infinite = field_ct::from_witness_index(&builder, input.result_infinite);
+    bool_ct predicate;
 
-    result.x().assert_equal(input_result_x);
-    result.y().assert_equal(input_result_y);
-    result.is_point_at_infinity().assert_equal(input_result_infinite);
+    cycle_group_ct input1 = to_grumpkin_point_unsafe(builder, input.input1_x, input.input1_y, input.input1_infinite);
+    cycle_group_ct input2 = to_grumpkin_point_unsafe(builder, input.input2_x, input.input2_y, input.input2_infinite);
+    cycle_group_ct input_result(
+        input_result_x, input_result_y, static_cast<bool_ct>(input_result_infinite), /*assert_on_curve=*/true);
+
+    // Step 2.
+    if (!has_valid_witness_assignments) {
+        create_dummy_ec_add_constraint(builder, input1, input2, input_result);
+    }
+
+    // Step 3.
+    if (!input.predicate.is_constant) {
+        predicate = static_cast<bool_ct>(to_field_ct(input.predicate, builder));
+
+        // SHOULD WE CONDITIONALLY ASSIGN INPUT_RESULT AS WELL? - NO BECAUSE INPUT RESULT IS PASSED BY NOIR, SO IT IS
+        // ALWAYS A POINT ON THE CURVE FOR HONEST USERS
+        auto affine_one = bb::grumpkin::g1::affine_one;
+        input1 = cycle_group_ct::conditional_assign(predicate, input1, cycle_group_ct(affine_one));
+        input2 = cycle_group_ct::conditional_assign(predicate, input2, cycle_group_ct(affine_one));
+    }
+
+    // Step 4.
+    // Q: DO WE WANT TO ALSO CHECK THAT THE COORDINATES ARE UNIQUE?
+    input1.validate_on_curve();
+    input2.validate_on_curve();
+
+    // Step 5.
+    cycle_group_ct result = input1 + input2;
+
+    if (!input.predicate.is_constant) {
+        cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(predicate, input_result, result);
+        result.assert_equal(to_be_asserted_equal);
+    } else {
+        // WHAT THIS METHOD DOES IS TO MAKE BOTH SIDES STANDARD (I.E. (0,0) IF INFINITY) AND THEN COMPARE X, Y, AND
+        // INFINITY FLAG. THIS IS OK AS LONG AS THE CALLER OF THIS METHOD DOES NOT DO ANYTHING WITH THE X AND Y
+        // COORDINATES OF THE POINT. THIS IS BECAUSE IF (X, Y, TRUE) IS PASSED AS RESULT AND THEN THE DEV USES (X, Y)
+        // EXPECTING THEM TO BE (0,0) WHEN THE POINT IS AT INFINITY, THIS MIGHT NOT BE THE CASE (EVEN THOUGH NOIR
+        // CURRENTLY SETS X = Y = 0 WHEN THE RESULT OF AN OPERATION IS THE POINT AT INFINITY)
+        result.assert_equal(input_result);
+    }
+}
+
+template <typename Builder>
+void create_dummy_ec_add_constraint(Builder& builder,
+                                    const bb::stdlib::cycle_group<Builder>& input1,
+                                    const bb::stdlib::cycle_group<Builder>& input2,
+                                    const bb::stdlib::cycle_group<Builder>& input_result)
+{
+    auto affine_one = bb::grumpkin::g1::affine_one;
+
+    for (auto const& input : { input1, input2, input_result }) {
+        if (!input.is_constant()) {
+            builder.set_variable(input1.x().get_witness_index(), affine_one.x);
+            builder.set_variable(input1.y().get_witness_index(), affine_one.y);
+            builder.set_variable(input1.is_point_at_infinity().get_witness_index(), false);
+        }
+    }
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
@@ -47,5 +111,17 @@ template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuit
 template void create_ec_add_constraint<bb::MegaCircuitBuilder>(bb::MegaCircuitBuilder& builder,
                                                                const EcAdd& input,
                                                                bool has_valid_witness_assignments);
+
+template void create_dummy_ec_add_constraint<bb::UltraCircuitBuilder>(
+    bb::UltraCircuitBuilder& builder,
+    const bb::stdlib::cycle_group<bb::UltraCircuitBuilder>& input1,
+    const bb::stdlib::cycle_group<bb::UltraCircuitBuilder>& input2,
+    const bb::stdlib::cycle_group<bb::UltraCircuitBuilder>& input_result);
+
+template void create_dummy_ec_add_constraint<bb::MegaCircuitBuilder>(
+    bb::MegaCircuitBuilder& builder,
+    const bb::stdlib::cycle_group<bb::MegaCircuitBuilder>& input1,
+    const bb::stdlib::cycle_group<bb::MegaCircuitBuilder>& input2,
+    const bb::stdlib::cycle_group<bb::MegaCircuitBuilder>& input_result);
 
 } // namespace acir_format
