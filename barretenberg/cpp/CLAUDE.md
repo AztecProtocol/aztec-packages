@@ -43,20 +43,17 @@ Development commands:
 
 ### ts/ => typescript code for bb.js
 Bootstrap modes:
-- `./bootstrap.sh` => generate TypeScript bindings and build. See package.json for more fine-grained commands.
-- `BB_EMSCRIPTEN=1 ./bootstrap.sh` => build with emscripten backend (includes JS wrapper for address sanitizer support)
+- `./bootstrap.sh` => generate TypeScript bindings and build with WASI-SDK. See package.json for more fine-grained commands.
 Other commands:
 - `yarn build:esm` => the quickest way to rebuild, if only changes inside ts/ folder, and only testing yarn-project.
 
-#### Emscripten vs WASI-SDK
-By default, bb.js is built with WASI-SDK. However, you can use the emscripten backend by setting `BB_EMSCRIPTEN=1`:
-- **WASI-SDK (default)**: Lighter weight, standard WASM output
-- **Emscripten (BB_EMSCRIPTEN=1)**: Generates JS wrapper along with WASM, enables address sanitizer support
-  - Use `./cpp/bootstrap.sh build_emscripten` for single-threaded build
-  - Use `./cpp/bootstrap.sh build_emscripten_threads` for multi-threaded build (no asan)
-  - Use `./cpp/bootstrap.sh build_emscripten_asan` for single-threaded with address sanitizer
-  - Use `./cpp/bootstrap.sh build_emscripten_threads_asan` for multi-threaded with address sanitizer (recommended)
-  - **Browser applications use emscripten with threads + asan by default** for better debugging capabilities
+#### Debugging with Emscripten + Address Sanitizer
+By default, bb.js is built with WASI-SDK. For debugging memory issues, you can use emscripten with address sanitizer:
+- **WASI-SDK (default)**: Production builds - lighter weight, standard WASM output
+- **Emscripten + ASAN (debugging only)**: Detects memory errors (buffer overflows, use-after-free, etc.)
+  - Build: `./cpp/bootstrap.sh build_emscripten_threads_asan`
+  - Requires creating a custom bb_backend to load the emscripten WASM + JS glue code
+  - **NOT for production** - ASAN builds are ~30x larger and significantly slower
 
 ## noir/
 ### noir-repo/ => clone of noir programming language git repo

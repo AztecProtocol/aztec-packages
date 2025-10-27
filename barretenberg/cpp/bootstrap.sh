@@ -150,34 +150,9 @@ function build_wasm_threads {
   fi
 }
 
-# Build single threaded emscripten wasm. Needed when no shared mem available.
-function build_emscripten {
-  set -eu
-  if ! cache_download barretenberg-emscripten-$hash.zst; then
-    build_preset emscripten
-    cache_upload barretenberg-emscripten-$hash.zst build-emscripten/bin
-  fi
-}
-
-# Build multi-threaded emscripten wasm. Requires shared memory.
-function build_emscripten_threads {
-  set -eu
-  if ! cache_download barretenberg-emscripten-threads-$hash.zst; then
-    build_preset emscripten-threads --target barretenberg.wasm barretenberg.wasm.gz
-    cache_upload barretenberg-emscripten-threads-$hash.zst build-emscripten-threads/bin
-  fi
-}
-
-# Build emscripten wasm with address sanitizer. The unique power of emscripten.
-function build_emscripten_asan {
-  set -eu
-  if ! cache_download barretenberg-emscripten-asan-$hash.zst; then
-    build_preset emscripten-asan --target barretenberg.wasm
-    cache_upload barretenberg-emscripten-asan-$hash.zst build-emscripten-asan/bin
-  fi
-}
-
-# Build multi-threaded emscripten wasm with address sanitizer. Recommended for browser.
+# Build multi-threaded emscripten wasm with address sanitizer. For debugging memory issues only.
+# NOT for production - ASAN builds are ~30x larger and significantly slower.
+# Requires creating a custom bb_backend to load the emscripten WASM + JS glue code.
 function build_emscripten_threads_asan {
   set -eu
   if ! cache_download barretenberg-emscripten-threads-asan-$hash.zst; then
@@ -278,7 +253,7 @@ function build_release {
   fi
 }
 
-export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_emscripten build_emscripten_threads build_emscripten_asan build_emscripten_threads_asan build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f ensure_zig build_preset build_native build_asan_fast build_darwin_amd64 build_darwin_arm64 build_nodejs_module build_wasm build_wasm_threads build_emscripten_threads_asan build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -460,7 +435,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_emscripten|build_emscripten_threads|build_emscripten_asan|build_emscripten_threads_asan|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_nodejs_module|build_asan_fast|build_darwin_arm64|build_darwin_amd64|build_wasm|build_wasm_threads|build_emscripten_threads_asan|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)
