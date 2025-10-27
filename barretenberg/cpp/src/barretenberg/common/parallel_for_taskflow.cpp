@@ -1,8 +1,5 @@
 #ifndef NO_MULTITHREADING
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/bb_bench.hpp"
-#include "barretenberg/common/throw_or_abort.hpp"
-#include "log.hpp"
+#include "parallel_for_taskflow.hpp"
 #include "thread.hpp"
 
 // Disable warnings for external taskflow library
@@ -14,22 +11,17 @@
 #include "taskflow/taskflow.hpp"
 #pragma clang diagnostic pop
 
-#include <atomic>
-#include <functional>
-#include <thread>
-#include <vector>
-
-namespace {
+namespace bb {
+namespace detail {
 
 // Get the global shared executor - all parallel_for calls use the same thread pool
-tf::Executor& get_global_executor() {
+tf::Executor& get_global_taskflow_executor() {
     static tf::Executor executor(bb::get_num_cpus());
     return executor;
 }
 
-} // namespace
+} // namespace detail
 
-namespace bb {
 /**
  * A taskflow-based parallel_for implementation that provides proper reentrancy.
  *
@@ -52,27 +44,7 @@ namespace bb {
  */
 void parallel_for_taskflow(size_t num_iterations, const std::function<void(size_t)>& func)
 {
-    // Get the shared global executor
-    tf::Executor& executor = get_global_executor();
-
-    // Save the parent pointer for benchmark stats
-    auto* parent_ptr = bb::detail::GlobalBenchStatsContainer::parent;
-
-    // Create a taskflow with num_iterations independent tasks
-    tf::Taskflow taskflow;
-
-    for (size_t i = 0; i < num_iterations; ++i) {
-        taskflow.emplace([&func, parent_ptr, i]() {
-            // Preserve benchmark stats parent for nested parallel operations
-            bb::detail::GlobalBenchStatsContainer::parent = parent_ptr;
-            func(i);
-        });
-    }
-
-    // Submit to the shared executor and wait for completion
-    // If we're already inside a worker thread, this will block this thread
-    // while other workers handle the tasks via work-stealing
-    executor.run(taskflow).wait();
+    parallel_for_impl(num_iterations, func);
 }
 } // namespace bb
 #endif
