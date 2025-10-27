@@ -25,6 +25,12 @@ echo "CI_INTERNAL: ${CI_INTERNAL}"
 echo "SHOULD_SQUASH_MERGE: ${SHOULD_SQUASH_MERGE}"
 echo "SHOULD_UPLOAD_BENCHMARKS: ${SHOULD_UPLOAD_BENCHMARKS}"
 
+# Early exit if nothing to do
+if [ "${SHOULD_SQUASH_MERGE}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS}" -eq 0 ]; then
+  echo "Nothing to do, exiting"
+  exit 0
+fi
+
 # Get repository from git remote
 GITHUB_REPOSITORY=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
 echo "GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"

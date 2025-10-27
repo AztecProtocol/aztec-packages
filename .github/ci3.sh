@@ -33,41 +33,5 @@ echo "=== CI3 Main Script ==="
 echo "CI_INTERNAL: ${CI_INTERNAL}"
 echo "CI_MODE: ${ci_mode}"
 
-# Store GCP credentials for internal runs
-if [ "${CI_INTERNAL}" -eq 1 ] && [ -n "${GCP_SA_KEY:-}" ]; then
-  echo "Setting up GCP credentials (internal run)"
-  set +x
-  umask 077
-  printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-  jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-  set -x
-fi
-
-# Run CI based on mode
-case "${ci_mode}" in
-  merge-queue)
-    exec ./ci.sh merge-queue
-    ;;
-  full)
-    exec ./ci.sh full
-    ;;
-  docs)
-    exec ./ci.sh docs
-    ;;
-  barretenberg)
-    exec ./ci.sh barretenberg
-    ;;
-  nightly)
-    exec ./ci.sh nightly
-    ;;
-  release)
-    exec ./ci.sh release
-    ;;
-  fast)
-    exec ./ci.sh fast
-    ;;
-  *)
-    echo "Error: Unknown CI mode: ${ci_mode}"
-    exit 1
-    ;;
-esac
+# Run CI
+exec ./ci.sh "${ci_mode}"
