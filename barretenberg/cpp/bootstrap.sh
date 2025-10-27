@@ -332,7 +332,6 @@ function build_bench {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
-    # WASM benchmarks auto-enable ENABLE_WASM_BENCH for non-semver builds
     parallel --line-buffered denoise ::: \
       "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
       "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
@@ -391,7 +390,6 @@ case "$cmd" in
     commit_hash="${2:-origin/next~3}"  # commit from which to download flow inputs
 
     # Build both native and wasm benchmark binaries
-    # WASM benchmarks auto-enable ENABLE_WASM_BENCH for non-semver builds
     builds=(
       "build_preset $native_preset --target bb"
     )
