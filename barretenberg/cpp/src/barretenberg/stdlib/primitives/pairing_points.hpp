@@ -118,35 +118,18 @@ template <typename Builder_> struct PairingPoints {
      *
      * @return uint32_t The index into the public inputs array at which the representation is stored
      */
-    uint32_t set_default_to_public(Builder* builder)
+    static uint32_t set_default_to_public(Builder* builder)
     {
-        BB_ASSERT(this->has_data, "Calling set_public on empty pairing points.");
-        BB_ASSERT_EQ(P0.get_context(), P1.get_context());
-        BB_ASSERT_EQ(P0.get_context(), nullptr);
-
         uint32_t start_idx = 0;
-        if constexpr (IsMegaBuilder<Builder>) {
-            std::vector<Fq> coordinates = { P0.x, P0.y, P1.x, P1.y };
-            std::vector<bb::fq> default_coordinates = {
-                DEFAULT_PAIRING_POINTS_P0_X,
-                DEFAULT_PAIRING_POINTS_P0_Y,
-                DEFAULT_PAIRING_POINTS_P1_X,
-                DEFAULT_PAIRING_POINTS_P1_Y,
-            };
-
-            for (size_t idx = 0; auto [coordinate, default_coordinates] : zip_view(coordinates, default_coordinates)) {
-                BB_ASSERT_EQ(coordinate.get_value(), static_cast<uint512_t>(default_coordinates));
-                bigfield<Builder, bb::Bn254FqParams> bigfield_coordinate(coordinate.limbs[0], coordinate.limbs[1]);
-                bigfield_coordinate.convert_constant_to_fixed_witness(builder);
-                uint32_t index = bigfield_coordinate.set_public();
-                start_idx = idx == 0 ? index : start_idx;
-                idx++;
-            }
-        } else {
-            P0.convert_constant_to_fixed_witness(builder);
-            P1.convert_constant_to_fixed_witness(builder);
-            start_idx = P0.set_public();
-            P1.set_public();
+        for (size_t idx = 0; auto const& coordinate : { DEFAULT_PAIRING_POINTS_P0_X,
+                                                        DEFAULT_PAIRING_POINTS_P0_Y,
+                                                        DEFAULT_PAIRING_POINTS_P1_X,
+                                                        DEFAULT_PAIRING_POINTS_P1_Y }) {
+            bigfield<Builder, bb::Bn254FqParams> bigfield_coordinate(coordinate);
+            bigfield_coordinate.convert_constant_to_fixed_witness(builder);
+            uint32_t index = bigfield_coordinate.set_public();
+            start_idx = idx == 0 ? index : start_idx;
+            idx++;
         }
 
         return start_idx;

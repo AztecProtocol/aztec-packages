@@ -291,7 +291,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             // Propagate pairing points
             stdlib::recursion::honk::DefaultIO<Builder> inputs;
             inputs.pairing_inputs = output.points_accumulator;
-            inputs.set_public(&builder);
+            inputs.set_public();
         } else if (has_pg_recursion_constraints) {
             process_pg_recursion_constraints(
                 builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
@@ -345,7 +345,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
         }
 
-        if (metadata.is_rollup_flavor) {
+        if (metadata.has_ipa_claim) {
+            using IO = stdlib::recursion::honk::RollupIO;
             // Proving with UltraRollupFlavor, we need to handle IPA
             auto [ipa_claim, ipa_proof] =
                 handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
@@ -354,12 +355,14 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             builder.ipa_proof = ipa_proof;
 
             // Propagate public inputs
-            stdlib::recursion::honk::RollupIO inputs;
+            IO inputs;
             inputs.pairing_inputs =
                 has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
             inputs.ipa_claim = ipa_claim;
-            inputs.set_public(&builder);
+            inputs.set_public();
         } else {
+            using IO = stdlib::recursion::honk::DefaultIO<Builder>;
+
             if (honk_output.is_root_rollup) {
                 // The root rollup performs full IPA verification
                 perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
@@ -371,10 +374,13 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             }
 
             // Propagate public inputs
-            stdlib::recursion::honk::DefaultIO<Builder> inputs;
-            inputs.pairing_inputs =
-                has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
-            inputs.set_public(&builder);
+            if (has_pairing_points) {
+                IO inputs;
+                inputs.pairing_inputs = honk_output.points_accumulator;
+                inputs.set_public();
+            } else {
+                IO::add_default(builder);
+            }
         }
     }
 }

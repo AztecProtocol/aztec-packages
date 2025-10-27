@@ -193,7 +193,10 @@ struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 
-    bool is_rollup_flavor; // Is this circuit proven using a rollup flavor?
+    bool has_ipa_claim =
+        false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit
+               // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
+               // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
     size_t size_hint = 0;
 };

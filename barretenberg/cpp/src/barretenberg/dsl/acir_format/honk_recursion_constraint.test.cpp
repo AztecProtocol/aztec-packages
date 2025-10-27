@@ -117,9 +117,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        bool is_rollup_flavor = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
+        bool has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
 
-        ProgramMetadata metadata{ .is_rollup_flavor = is_rollup_flavor };
+        ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
         AcirProgram program{ constraint_system, witness };
         auto builder = create_circuit(program, metadata);
         return builder;
@@ -196,9 +196,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        bool is_rollup_flavor = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
+        bool constexpr has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
 
-        ProgramMetadata metadata{ .is_rollup_flavor = is_rollup_flavor };
+        ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
         if (dummy_witnesses) {
             witness = {}; // set it all to 0
         }

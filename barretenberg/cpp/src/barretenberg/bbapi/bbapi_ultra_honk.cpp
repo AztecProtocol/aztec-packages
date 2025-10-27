@@ -34,9 +34,9 @@ namespace bb::bbapi {
 
 template <typename Flavor> acir_format::ProgramMetadata _create_program_metadata()
 {
-    bool constexpr is_rollup_flavor = IsAnyOf<Flavor, UltraRollupFlavor>;
+    bool constexpr has_ipa_claim = IsAnyOf<Flavor, UltraRollupFlavor>;
 
-    return acir_format::ProgramMetadata{ .is_rollup_flavor = is_rollup_flavor };
+    return acir_format::ProgramMetadata{ .has_ipa_claim = has_ipa_claim };
 }
 
 template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>

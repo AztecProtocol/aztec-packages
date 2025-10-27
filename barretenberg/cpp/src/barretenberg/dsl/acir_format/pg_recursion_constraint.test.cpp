@@ -147,7 +147,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             // IO
             StdlibIO inputs;
             inputs.pairing_inputs = output.points_accumulator;
-            inputs.set_public(&circuit); // propagate resulting pairing points on the public inputs
+            inputs.set_public(); // propagate resulting pairing points on the public inputs
         }
 
         return circuit;
