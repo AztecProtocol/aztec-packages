@@ -91,8 +91,10 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
 /**
  * @brief Divide two memory values and emit an event of type AluEvent.
  *
- * @throws AluException if the tags of a and b do not match or if dividing by zero.
- * @throws AluException if attempting to perform integer division on field elements.
+ * @throws AluException if (in order):
+ *        - the tags of a and b do not match
+ *        - the divisor (b) zero
+ *        - both a and b are field elements
  * @param a The dividend memory value.
  * @param b The divisor memory value.
  * @return The quotient of the division. (same tag as a and b)
@@ -137,8 +139,10 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
 /**
  * @brief Perform field division on two memory values and emit an event of type AluEvent.
  *
- * @throws AluException if the tags of a and b do not match or if dividing by zero.
- * @throws AluException if attempting to perform field division on non-field elements.
+ * @throws AluException if (in order):
+ *        - the tags of a and b do not match
+ *        - the divisor (b) zero
+ *        - both a and b are non-field elements
  * @param a The dividend memory value.
  * @param b The divisor memory value.
  * @return The quotient of the field division (field element).
@@ -258,7 +262,9 @@ MemoryValue Alu::op_not(const MemoryValue& a)
 /**
  * @brief Perform left shift operation on a memory value and emit an event of type AluEvent.
  *
- * @throws AluException if the tags do not match or are field elements.
+ * @throws AluException if the tags (in order):
+ *        - do not match
+ *        - both a and b are field elements
  * @param a The memory value to shift.
  * @param b The number of positions to shift left.
  * @return The result of the left shift operation (same tag as a and b).
@@ -291,7 +297,9 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
 /**
  * @brief Perform right shift operation on a memory value and emit an event of type AluEvent.
  *
- * @throws AluException if the tags do not match or are field elements.
+ * @throws AluException if the tags (in order):
+ *        - do not match
+ *        - both a and b are field elements
  * @param a The memory value to shift.
  * @param b The number of positions to shift right.
  * @return The result of the right shift operation (same tag as a and b).
