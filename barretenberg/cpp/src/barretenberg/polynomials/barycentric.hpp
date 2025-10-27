@@ -27,25 +27,25 @@ namespace bb {
 
 /**
  * @todo: TODO(https://github.com/AztecProtocol/barretenberg/issues/713) Optimize with lookup tables?
- * @tparam domain_end, domain_start specify the given evaluation domain {domain_start,..., domain_end - 1}
+ * @tparam domain_end specifies the given evaluation domain {0,..., domain_end - 1}
  * @tparam num_evals the number of evaluations that are computable with specific barycentric extension formula
  */
 
-template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0> class BarycentricDataCompileTime {
+template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataCompileTime {
   public:
-    static constexpr size_t domain_size = domain_end - domain_start;
+    static constexpr size_t domain_size = domain_end;
     static constexpr size_t big_domain_size = std::max(domain_size, num_evals);
 
     /**
      * Static constexpr methods for computing arrays of precomputable data used for barycentric extension and evaluation
      */
 
-    // build big_domain, currently the set of x_i in {domain_start, ..., big_domain_end - 1 }
+    // build big_domain, currently the set of x_i in {0, ..., big_domain_size - 1 }
     static constexpr std::array<Fr, big_domain_size> construct_big_domain()
     {
         std::array<Fr, big_domain_size> result;
         for (size_t i = 0; i < big_domain_size; ++i) {
-            result[i] = static_cast<Fr>(i + domain_start);
+            result[i] = static_cast<Fr>(i);
         }
         return result;
     }
@@ -119,7 +119,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
         std::array<Fr, num_evals> result;
         for (size_t i = 0; i != num_evals; ++i) {
             result[i] = 1;
-            Fr v_i = i + domain_start;
+            Fr v_i = i;
             for (size_t j = 0; j != domain_size; ++j) {
                 result[i] *= v_i - big_domain[j];
             }
@@ -134,21 +134,21 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
     static constexpr auto full_numerator_values = construct_full_numerator_values(big_domain);
 };
 
-template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0> class BarycentricDataRunTime {
+template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataRunTime {
   public:
-    static constexpr size_t domain_size = domain_end - domain_start;
+    static constexpr size_t domain_size = domain_end;
     static constexpr size_t big_domain_size = std::max(domain_size, num_evals);
 
     /**
      * Static constexpr methods for computing arrays of precomputable data used for barycentric extension and evaluation
      */
 
-    // build big_domain, currently the set of x_i in {domain_start, ..., big_domain_end - 1 }
+    // build big_domain, currently the set of x_i in {0, ..., big_domain_size - 1 }
     static std::array<Fr, big_domain_size> construct_big_domain()
     {
         std::array<Fr, big_domain_size> result;
         for (size_t i = 0; i < big_domain_size; ++i) {
-            result[i] = static_cast<Fr>(i + domain_start);
+            result[i] = static_cast<Fr>(i);
         }
         return result;
     }
@@ -227,7 +227,7 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
         std::array<Fr, num_evals> result;
         for (size_t i = 0; i != num_evals; ++i) {
             result[i] = 1;
-            Fr v_i = i + domain_start;
+            Fr v_i = i;
             for (size_t j = 0; j != domain_size; ++j) {
                 result[i] *= v_i - big_domain[j];
             }
@@ -261,12 +261,12 @@ template <typename T> inline constexpr bool is_field_type_v = is_field_type<T>::
  * @brief Exposes BarycentricData with compile time arrays if the type is bberg::field and runtime arrays otherwise
  * @details This method is also needed for stdlib field, for which the arrays are not compile time computable
  * @tparam Fr
- * @tparam domain_size
+ * @tparam domain_end
  * @tparam num_evals
  */
-template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0>
+template <class Fr, size_t domain_end, size_t num_evals>
 using BarycentricData = std::conditional_t<is_field_type_v<Fr>,
-                                           BarycentricDataCompileTime<Fr, domain_end, num_evals, domain_start>,
-                                           BarycentricDataRunTime<Fr, domain_end, num_evals, domain_start>>;
+                                           BarycentricDataCompileTime<Fr, domain_end, num_evals>,
+                                           BarycentricDataRunTime<Fr, domain_end, num_evals>>;
 
 } // namespace bb
