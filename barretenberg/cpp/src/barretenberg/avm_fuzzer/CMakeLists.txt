@@ -1,4 +1,4 @@
-if(NOT DISABLE_AZTEC_VM)
-    barretenberg_module(avm_fuzzer vm2 nlohmann_json::nlohmann_json)
+if(AVM AND FUZZING)
+    barretenberg_module(avm_fuzzer vm2_sim nlohmann_json::nlohmann_json)
 endif()
 

@@ -270,8 +270,7 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert"
-        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
         "MULTITHREADING": "OFF"
       },
       "environment": {
@@ -288,7 +287,6 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "DISABLE_AZTEC_VM": "OFF",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
         "MULTITHREADING": "ON"
       }
