@@ -35,29 +35,6 @@ jobs:
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
           persist-credentials: false
 
-      - name: Compute Target Branch
-        id: target_branch
-        run: |
-          if [ "${{ github.event_name }}" == "merge_group" ]; then
-            target_branch=${{ github.event.merge_group.base_ref }}
-          elif [ "${{ github.event_name }}" == "pull_request" ]; then
-            target_branch=${{ github.event.pull_request.base.ref }}
-          else
-            target_branch=${{ github.ref_name }}
-          fi
-          target_branch=${target_branch#refs/heads/}
-          echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
-
-      - name: Set Instance Postfix for merge-train
-        if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
-        run: echo "INSTANCE_POSTFIX=${{ github.event.pull_request.commits }}" >> $GITHUB_ENV
-
-      - name: Setup
-        run: |
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-
       - name: Store GCP key
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
@@ -82,6 +59,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -94,6 +72,11 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          MERGE_GROUP_BASE_REF: ${{ github.event.merge_group.base_ref }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
       - name: Save cache
@@ -120,7 +103,7 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks
-          benchmark-data-dir-path: "bench/${{ steps.target_branch.outputs.target_branch }}"
+          benchmark-data-dir-path: "bench/${{ env.TARGET_BRANCH }}"
           tool: "customSmallerIsBetter"
           output-file-path: ./bench-out/bench.json
           github-token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

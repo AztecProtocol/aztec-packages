@@ -11,6 +11,32 @@ labels="${1:-}"
 echo "=== CI3 Main Script ==="
 echo "Labels: ${labels}"
 
+# Compute target branch
+if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
+  target_branch="${MERGE_GROUP_BASE_REF:-}"
+elif [ "${GITHUB_EVENT_NAME:-}" == "pull_request" ]; then
+  target_branch="${PR_BASE_REF:-}"
+else
+  target_branch="${GITHUB_REF_NAME:-}"
+fi
+target_branch="${target_branch#refs/heads/}"
+echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
+echo "Target branch: ${target_branch}"
+
+# Set instance postfix for merge-train PRs
+if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
+  echo "INSTANCE_POSTFIX=${PR_COMMITS:-}" >> $GITHUB_ENV
+  echo "Instance postfix set to: ${PR_COMMITS:-}"
+fi
+
+# Setup SSH key
+if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+  mkdir -p ~/.ssh
+  echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+  chmod 600 ~/.ssh/build_instance_key
+  echo "SSH key configured"
+fi
+
 # Parse labels into array
 IFS=',' read -ra label_array <<< "${labels}"
 
