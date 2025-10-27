@@ -63,7 +63,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       if (parsedTx.sidecars === false) {
         throw new Error('No sidecars found in tx');
       }
-      return Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromEncodedBlobBuffer(hexToBuffer(sidecar.blob))));
+      return parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob)));
     };
 
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
@@ -258,7 +258,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // We also need to send the blob to the sink, so the node can get it
       logger.warn(`Sending blobs to blob sink`);
-      const blobs = await getBlobs(l2BlockTx);
+      const blobs = getBlobs(l2BlockTx);
       const blobSinkClient = createBlobSinkClient(context.config);
       await blobSinkClient.sendBlobsToBlobSink(blobs);
 

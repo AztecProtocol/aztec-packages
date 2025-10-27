@@ -1,4 +1,4 @@
-import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT, BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';

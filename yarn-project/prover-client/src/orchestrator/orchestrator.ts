@@ -1,4 +1,4 @@
-import { BatchedBlob, BlobAccumulator, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
@@ -230,7 +230,7 @@ export class ProvingOrchestrator implements EpochProver {
     const lastArchiveTreeSnapshot = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
     const lastArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
-    const blockProvingState = checkpointProvingState.startNewBlock(
+    const blockProvingState = await checkpointProvingState.startNewBlock(
       blockNumber,
       timestamp,
       totalNumTxs,
@@ -988,6 +988,8 @@ export class ProvingOrchestrator implements EpochProver {
 
     logger.debug(`Enqueuing ${rollupType} for checkpoint ${provingState.index}.`);
 
+    const inputs = provingState.getCheckpointRootRollupInputs();
+
     this.deferredProving(
       provingState,
       wrapCallbackInSpan(
@@ -996,8 +998,7 @@ export class ProvingOrchestrator implements EpochProver {
         {
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
-        async signal => {
-          const inputs = await provingState.getCheckpointRootRollupInputs();
+        signal => {
           if (inputs instanceof CheckpointRootSingleBlockRollupPrivateInputs) {
             return this.prover.getCheckpointRootSingleBlockRollupProof(inputs, signal, provingState.epochNumber);
           } else {
@@ -1006,9 +1007,7 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       result => {
-        const computedEndBlobAccumulatorState = BlobAccumulator.fromBatchedBlobAccumulator(
-          provingState.getEndBlobAccumulator()!,
-        );
+        const computedEndBlobAccumulatorState = provingState.getEndBlobAccumulator()!.toBlobAccumulator();
         const circuitEndBlobAccumulatorState = result.inputs.endBlobAccumulator;
         if (!circuitEndBlobAccumulatorState.equals(computedEndBlobAccumulatorState)) {
           logger.error(

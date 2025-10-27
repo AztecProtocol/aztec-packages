@@ -11,6 +11,7 @@ impl TestBuilder {
     pub fn new_with_one_blob_and_validate_fixtures(validate_fixtures: bool) -> Self {
         // The below values are generated from block_building_helpers.test.ts.
         let blob_fields_from_ts = [
+            0x000000000000000000000000000000000000000000000000000000000000000b,
             0x00000074785f7374617274000000010000000000000000000000000000000004,
             0x000000000000000000000000000000000000000000000000000000000000002a,
             0x000000000000000000000000000000000000000000000000000000000000002a,
@@ -23,27 +24,27 @@ impl TestBuilder {
             0x000000000000000000000000000000000000000000626c6f636b5f656e640002,
         ];
         let blob_commitment_limbs_x_from_ts = [
-            0xd7076f471e8dcf04760b9cbe20af06,
-            0x7f98239e7b801bb8f4702dc823b873,
-            0x699979538c822fec25abc302ed41d7,
-            0x03967e,
+            0xeea216aca5086cb82514e36d660943,
+            0x318e0c91287de690d12b98782065e0,
+            0x5a56d0e4959d5ff1310b8f4e9be4ce,
+            0x0df032,
         ];
         let blob_commitment_limbs_y_from_ts = [
-            0xb09910247cca033d8c4ae4747d0c4d,
-            0x75b78fca650facfb8e04517bcf9d5e,
-            0x5f5131c7c18168ff40d47c7704eb06,
-            0x0079d9,
+            0xbdeba780b415c20a3d8f999999bfa2,
+            0xe584b1462977e23d28ca73625b8ffd,
+            0x4ebbeb8dd82c036238216f5ecb8191,
+            0x0845a8,
         ];
         let blob_commitment = BatchingBlobCommitment::from_limbs(
             blob_commitment_limbs_x_from_ts,
             blob_commitment_limbs_y_from_ts,
         );
         let blob_commitment_fields_from_ts = [
-            0x0083967e699979538c822fec25abc302ed41d77f98239e7b801bb8f4702dc823,
-            0x000000000000000000000000000000b873d7076f471e8dcf04760b9cbe20af06,
+            0x008df0325a56d0e4959d5ff1310b8f4e9be4ce318e0c91287de690d12b987820,
+            0x00000000000000000000000000000065e0eea216aca5086cb82514e36d660943,
         ];
         let challenge_z_from_ts =
-            0x2f46cba1320559052e1b547aff62d8dec5703b2925f9126cfea89742607f51bd;
+            0x0cfa1559ddd669051b7f6a7158c27c5dea85956d05501aa998210831392e370a;
 
         let mut builder = Self::default_with_blob_fields(blob_fields_from_ts);
 
@@ -73,8 +74,10 @@ impl TestBuilder {
 fn overfilled_blob_fields() {
     let mut builder = TestBuilder::default();
 
-    builder.right_rollup.end_sponge_blob.expected_fields = FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
-    builder.right_rollup.end_sponge_blob.fields = FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
+    builder.right_rollup.end_sponge_blob.num_expected_fields =
+        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
+    builder.right_rollup.end_sponge_blob.num_absorbed_fields =
+        FIELDS_PER_BLOB * BLOBS_PER_BLOCK + 1;
 
     builder.execute_with_mock_and_fail();
 }
@@ -83,7 +86,7 @@ fn overfilled_blob_fields() {
 fn absorbed_too_many_fields() {
     let mut builder = TestBuilder::default_single_block();
 
-    builder.left_rollup.end_sponge_blob.expected_fields -= 1;
+    builder.left_rollup.end_sponge_blob.num_expected_fields -= 1;
 
     builder.execute_with_mock_and_fail();
 }
@@ -92,7 +95,7 @@ fn absorbed_too_many_fields() {
 fn absorbed_too_few_fields() {
     let mut builder = TestBuilder::default();
 
-    builder.right_rollup.end_sponge_blob.expected_fields += 1;
+    builder.right_rollup.end_sponge_blob.num_expected_fields += 1;
 
     builder.execute_with_mock_and_fail();
 }
@@ -242,7 +245,7 @@ fn correct_end_blob_accumulator_with_full_blobs() {
 fn incorrect_injected_blob_fields() {
     let mut builder = TestBuilder::new_with_one_blob();
 
-    let num_blob_fields = builder.left_rollup.start_sponge_blob.expected_fields;
+    let num_blob_fields = builder.left_rollup.start_sponge_blob.num_expected_fields;
     // Set the last field to 0 to make it different from the one that was absorbed.
     builder.hints.blobs_fields[num_blob_fields - 1] = 0;
 

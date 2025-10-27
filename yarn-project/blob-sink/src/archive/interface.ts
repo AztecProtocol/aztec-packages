@@ -1,4 +1,4 @@
-import type { BlobJson } from '@aztec/blob-lib';
+import type { BlobJson } from '@aztec/blob-lib/types';
 
 /** Interface to an blob archiving service. */
 export interface BlobArchiveClient {
