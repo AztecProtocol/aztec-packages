@@ -28,33 +28,12 @@ jobs:
     env:
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
     steps:
-      #############
-      # Prepare Env
-      #############
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          # The commit to checkout. We want our actual commit, and not the result of merging the PR to the target.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          # Fetch PR commits depth (we'll deepen by 1 in squash script if needed)
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
           persist-credentials: false
-
-      - name: CI Merge Queue Override (grind on PR)
-        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
-        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
-
-      - name: CI Full Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: echo "CI_FULL=1" >> $GITHUB_ENV
-
-      - name: Cache Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
-        run: echo "NO_CACHE=1" >> $GITHUB_ENV
-
-      - name: Fail Fast Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
-        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
       - name: Compute Target Branch
         id: target_branch
@@ -68,29 +47,18 @@ jobs:
           fi
           target_branch=${target_branch#refs/heads/}
           echo "target_branch=$target_branch" >> $GITHUB_OUTPUT
-          echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 
-      - name: Docs CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-docs') || (steps.target_branch.outputs.target_branch == 'merge-train/docs')
-        run: echo "CI_DOCS=1" >> $GITHUB_ENV
-
-      - name: Barretenberg CI Override
-        if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
-        run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
-
-      # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
       - name: Set Instance Postfix for merge-train
         if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
         run: echo "INSTANCE_POSTFIX=${{ github.event.pull_request.commits }}" >> $GITHUB_ENV
 
       - name: Setup
         run: |
-          # Ensure we can SSH into the spot instances we request.
           mkdir -p ~/.ssh
           echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
           chmod 600 ~/.ssh/build_instance_key
 
-      - name: Store the GCP key in a file
+      - name: Store GCP key
         env:
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
         run: |
@@ -102,31 +70,18 @@ jobs:
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
 
-      - name: Check CI Cache
-        id: ci_cache
-        uses: actions/cache@v3
+      - name: Restore cache
+        uses: actions/cache/restore@v3
         with:
-          path: ci-success.txt
-          key: ci-${{ github.event_name == 'merge_group' && 'merge-queue' || env.CI_FULL == '1' && 'full' || env.CI_DOCS == '1' && 'docs' || env.CI_BARRETENBERG == '1' && 'barretenberg' || 'fast' }}-${{ env.TREE_HASH }}
+          path: .ci-cache
+          key: ci-${{ env.TREE_HASH }}
 
-      - name: CI Cached
-        if: steps.ci_cache.outputs.cache-hit == 'true'
-        run: |
-          echo "Previous run: $(cat ci-success.txt)"
-
-      #############
-      # Run
-      #############
       - name: Run
-        if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
-          # CI script parameters
           CI_INTERNAL: "1"
-          # AWS credentials
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          # Internal-only secrets
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
@@ -134,38 +89,25 @@ jobs:
           DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Nightly test env vars.
           EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-        run: |
-          if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh merge-queue
-          elif [ "${CI_FULL:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh full
-          elif [ "${CI_DOCS:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh docs
-          elif [ "${CI_BARRETENBERG:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh barretenberg
-          elif [ "${{ contains(github.ref, '-nightly.') }}" == "true" ] || [ "${{ contains(github.ref, '-rc.') }}" == "true" ]; then
-            exec ./.github/ci3.sh nightly
-          elif [ "${{ startsWith(github.ref, 'refs/tags/v') }}" == "true" ]; then
-            exec ./.github/ci3.sh release
-          else
-            exec ./.github/ci3.sh fast
-          fi
+        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
-      #############
-      # Post-Actions
-      #############
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: .ci-cache
+          key: ci-${{ env.TREE_HASH }}
+
       - name: Post-Actions
         if: always()
         env:
-          CI_INTERNAL: "1"
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
-          SHOULD_UPLOAD_BENCHMARKS: ${{ (github.event_name == 'merge_group' || env.CI_FULL == '1') && '1' || '0' }}
+          SHOULD_UPLOAD_BENCHMARKS: ${{ (github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')) && '1' || '0' }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
@@ -174,7 +116,7 @@ jobs:
         run: ./.github/ci3-post.sh
 
       - name: Upload benchmarks
-        if: github.event_name == 'merge_group' || env.CI_FULL == '1'
+        if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with:
           name: Aztec Benchmarks

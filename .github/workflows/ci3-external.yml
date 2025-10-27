@@ -23,9 +23,6 @@ jobs:
     # exclusive with ci3.yml, only run on forks.
     if: github.event.pull_request.head.repo.fork
     steps:
-      #############
-      # Prepare Env
-      #############
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -40,7 +37,6 @@ jobs:
         run: echo "CI is not run on drafts." && exit 1
 
       - name: External Contributor Checks
-        # Run only if a pull request event type and we have a forked repository origin.
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
@@ -61,24 +57,7 @@ jobs:
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
           fi
-          # Remove any ci-external-once labels.
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
-
-      - name: CI Merge Queue Override (grind on PR)
-        if: contains(github.event.pull_request.labels.*.name, 'ci-merge-queue')
-        run: echo "CI_MERGE_QUEUE=1" >> $GITHUB_ENV
-
-      - name: CI Full Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: echo "CI_FULL=1" >> $GITHUB_ENV
-
-      - name: Cache Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-cache')
-        run: echo "NO_CACHE=1" >> $GITHUB_ENV
-
-      - name: Fail Fast Override
-        if: contains(github.event.pull_request.labels.*.name, 'ci-no-fail-fast')
-        run: echo "NO_FAIL_FAST=1" >> $GITHUB_ENV
 
       - name: Setup
         run: |
@@ -90,26 +69,14 @@ jobs:
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
 
-      - name: Check CI Cache
-        id: ci_cache
-        uses: actions/cache@v3
+      - name: Restore cache
+        uses: actions/cache/restore@v3
         with:
-          path: ci-success.txt
-          key: ci-external-${{ env.CI_MERGE_QUEUE == '1' && 'merge-queue' }}-${{ env.CI_FULL == '1' && 'full' }}-${{ env.NO_CACHE == '1' && 'no-cache' }}-${{ env.NO_FAIL_FAST == '1' && 'no-fail-fast' }}-${{ env.TREE_HASH }}
+          path: .ci-cache
+          key: ci-${{ env.TREE_HASH }}
 
-      - name: CI Cached
-        if: steps.ci_cache.outputs.cache-hit == 'true'
-        run: |
-          echo "Previous run: $(cat ci-success.txt)"
-
-      #############
-      # Run
-      #############
       - name: Run
-        if: steps.ci_cache.outputs.cache-hit != 'true'
         env:
-          # CI script parameters (CI_INTERNAL defaults to 0 for external)
-          # External-specific parameters
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
@@ -119,22 +86,18 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |
-          if [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh merge-queue
-          elif [ "${CI_FULL:-0}" -eq 1 ]; then
-            exec ./.github/ci3.sh full
-          else
-            exec ./.github/ci3.sh fast
-          fi
+        run: ./.github/ci3.sh "${{ join(github.event.pull_request.labels.*.name, ',') }}"
 
-      #############
-      # Post-Actions
-      #############
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: .ci-cache
+          key: ci-${{ env.TREE_HASH }}
+
       - name: Post-Actions
         if: always()
         env:
-          # CI_INTERNAL defaults to 0 for external
           SHOULD_SQUASH_MERGE: ${{ contains(github.event.pull_request.labels.*.name, 'ci-squash-and-merge') && '1' || '0' }}
           SHOULD_UPLOAD_BENCHMARKS: "0"
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

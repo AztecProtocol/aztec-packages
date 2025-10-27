@@ -1,18 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
-  exit 0
-fi
+# Read CI mode from env vars set by ci3.sh
+ci_mode="${CI_MODE:-fast}"
 
 # Get repository from git remote
 github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
-echo "github_repository: ${github_repository}"
 
 # Save CI success marker for cache
+mkdir -p .ci-cache
 run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
-echo "${run_url}" > ci-success.txt
+echo "${run_url}" > ".ci-cache/ci-success-${ci_mode}.txt"
 echo "Saved CI success marker: ${run_url}"
+
+if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
+  exit 0
+fi
 
 # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
