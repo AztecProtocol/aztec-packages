@@ -61,7 +61,7 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  local cmake_args=("$@")
+  local cmake_args=()
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
     cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
