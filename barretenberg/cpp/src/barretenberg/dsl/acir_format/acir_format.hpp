@@ -193,17 +193,10 @@ struct ProgramMetadata {
     // An IVC instance; needed to construct a circuit from IVC recursion constraints
     std::shared_ptr<bb::IVCBase> ivc = nullptr;
 
-    bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
-                            // The proof produced when this flag is true should be friendly for recursive verification
-                            // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
-                            // for hashing in its transcript, while we still want a prove that uses Keccak for its
-                            // transcript in order to be able to verify SNARKs on Ethereum.
-    uint32_t honk_recursion = 0; // honk_recursion means we will honk to recursively verify this
-                                 // circuit. This distinction is needed to not add the default
-                                 // aggregation object when we're not using the honk RV.
-                                 // 0 means we are not proving with honk
-                                 // 1 means we are using the UltraHonk flavor
-                                 // 2 means we are using the UltraRollupHonk flavor
+    bool has_ipa_claim =
+        false; // Boolean describing whether the circuit should propagate an IPA claim or not. If `True`, the circuit
+               // should propagate an IPA claim. In our codebase, circuits that propagate IPA claims are the ones whose
+               // proof is constructed/verified using Rollup flavors.
     bool collect_gates_per_opcode = false;
     size_t size_hint = 0;
 };

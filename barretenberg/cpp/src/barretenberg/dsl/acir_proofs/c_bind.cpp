@@ -22,12 +22,12 @@
 #include <cstdint>
 #include <memory>
 
-WASM_EXPORT void acir_get_circuit_sizes(
-    uint8_t const* acir_vec, bool const* recursive, bool const* honk_recursion, uint32_t* total, uint32_t* subgroup)
+WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* acir_vec,
+                                        bool const* has_ipa_claim,
+                                        uint32_t* total,
+                                        uint32_t* subgroup)
 {
-    const acir_format::ProgramMetadata metadata{ .recursive = *recursive,
-                                                 .honk_recursion = *honk_recursion,
-                                                 .size_hint = 1 << 19 };
+    const acir_format::ProgramMetadata metadata{ .has_ipa_claim = *has_ipa_claim, .size_hint = 1 << 19 };
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
         from_buffer<std::vector<uint8_t>>(acir_vec)) };
     auto builder = acir_format::create_circuit(program, metadata);
@@ -38,13 +38,12 @@ WASM_EXPORT void acir_get_circuit_sizes(
 
 WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
     acir_format::AcirProgram program{
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
         acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
-    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+    auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
     auto prover_instance = std::make_shared<ProverInstance_<UltraFlavor>>(builder);
     auto verification_key = std::make_shared<UltraFlavor::VerificationKey>(prover_instance->get_precomputed());
@@ -59,14 +58,12 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* acir_vec, uint8
 
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, bool* result)
 {
-    const acir_format::ProgramMetadata metadata{ .honk_recursion = 0 };
-
     acir_format::AcirProgram program{
         acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
         acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
     };
 
-    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+    auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program);
 
     auto prover_instance = std::make_shared<ProverInstance_<MegaFlavor>>(builder);
     auto verification_key = std::make_shared<MegaFlavor::VerificationKey>(prover_instance->get_precomputed());
@@ -125,12 +122,11 @@ WASM_EXPORT void acir_prove_ultra_zk_honk(uint8_t const* acir_vec,
 {
     // Lambda function to ensure things get freed before proving.
     UltraZKProver prover = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         auto prover_instance = std::make_shared<ProverInstance_<UltraZKFlavor>>(builder);
         auto verification_key =
             std::make_shared<UltraZKFlavor::VerificationKey>(from_buffer<UltraZKFlavor::VerificationKey>(vk_buf));
@@ -149,12 +145,11 @@ WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakProver prover = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
         auto prover_instance = std::make_shared<ProverInstance_<UltraKeccakFlavor>>(builder);
         auto verification_key = std::make_shared<UltraKeccakFlavor::VerificationKey>(
@@ -172,12 +167,11 @@ WASM_EXPORT void acir_prove_ultra_keccak_zk_honk(uint8_t const* acir_vec,
 {
     // Lambda function to ensure things get freed before proving.
     UltraKeccakZKProver prover = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
         auto prover_instance = std::make_shared<ProverInstance_<UltraKeccakZKFlavor>>(builder);
         auto verification_key = std::make_shared<UltraKeccakZKFlavor::VerificationKey>(
@@ -196,12 +190,11 @@ WASM_EXPORT void acir_prove_ultra_starknet_honk([[maybe_unused]] uint8_t const* 
 #ifdef STARKNET_GARAGA_FLAVORS
     // Lambda function to ensure things get freed before proving.
     UltraStarknetProver prover = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
         return UltraStarknetProver(builder);
     }();
@@ -220,12 +213,11 @@ WASM_EXPORT void acir_prove_ultra_starknet_zk_honk([[maybe_unused]] uint8_t cons
 #ifdef STARKNET_GARAGA_FLAVORS
     // Lambda function to ensure things get freed before proving.
     UltraStarknetZKProver prover = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{
             acir_format::circuit_buf_to_acir_format(from_buffer<std::vector<uint8_t>>(acir_vec)),
             acir_format::witness_buf_to_witness_data(from_buffer<std::vector<uint8_t>>(witness_vec))
         };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
 
         return UltraStarknetZKProver(builder);
     }();
@@ -320,10 +312,9 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     using VerificationKey = UltraFlavor::VerificationKey;
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
             from_buffer<std::vector<uint8_t>>(acir_vec)) };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
     VerificationKey vk(prover_instance.get_precomputed());
@@ -338,10 +329,9 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
             from_buffer<std::vector<uint8_t>>(acir_vec)) };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
     VerificationKey vk(prover_instance.get_precomputed());
@@ -356,10 +346,9 @@ WASM_EXPORT void acir_write_vk_ultra_keccak_zk_honk(uint8_t const* acir_vec, uin
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
             from_buffer<std::vector<uint8_t>>(acir_vec)) };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
     VerificationKey vk(prover_instance.get_precomputed());
@@ -376,10 +365,9 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_honk([[maybe_unused]] uint8_t cons
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
             from_buffer<std::vector<uint8_t>>(acir_vec)) };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
     VerificationKey vk(prover_instance.get_precomputed());
@@ -399,10 +387,9 @@ WASM_EXPORT void acir_write_vk_ultra_starknet_zk_honk([[maybe_unused]] uint8_t c
 
     // lambda to free the builder
     ProverInstance prover_instance = [&] {
-        const acir_format::ProgramMetadata metadata{ .honk_recursion = 1 };
         acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(
             from_buffer<std::vector<uint8_t>>(acir_vec)) };
-        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program, metadata);
+        auto builder = acir_format::create_circuit<UltraCircuitBuilder>(program);
         return ProverInstance(builder);
     }();
     VerificationKey vk(prover_instance.get_precomputed());

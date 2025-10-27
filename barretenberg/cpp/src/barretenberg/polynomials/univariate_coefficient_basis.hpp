@@ -21,7 +21,7 @@ namespace bb {
  */
 
 /**
- * @brief A univariate polynomial represented by its values on {domain_start, domain_start + 1,..., domain_end - 1}. For
+ * @brief A univariate polynomial represented by its values on {0, 1,..., domain_end - 1}. For
  * memory efficiency purposes, we store the coefficients in an array starting from 0 and make the mapping to the right
  * domain under the hood.
  *

@@ -21,8 +21,6 @@
 
 using namespace bb;
 
-using AggregationState = stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
-
 template <typename Flavor> class UltraHonkTests : public ::testing::Test {
   public:
     using ProverInstance = ProverInstance_<Flavor>;
@@ -41,12 +39,10 @@ template <typename Flavor> class UltraHonkTests : public ::testing::Test {
 
     void set_default_pairing_points_and_ipa_claim_and_proof(UltraCircuitBuilder& builder)
     {
-        AggregationState::add_default_to_public_inputs(builder);
         if constexpr (HasIPAAccumulator<Flavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<UltraCircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+            stdlib::recursion::honk::RollupIO::add_default(builder);
+        } else {
+            stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
         }
     }
 
