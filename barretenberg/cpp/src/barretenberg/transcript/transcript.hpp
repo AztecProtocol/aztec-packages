@@ -229,8 +229,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         return Codec::template deserialize_from_fields<T>(frs);
     }
 
-    template <typename T> static size_t calc_num_data_types() { return Codec::template calc_num_fields<T>(); }
-
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
      * create the number of requested challenges.
@@ -306,25 +304,19 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     }
 
     /**
-     * @brief Given δ, compute the vector [δ, δ^2,..., δ^2^num_powers].
+     * @brief Get a challenge and compute its powers [δ, δ^2,..., δ^2^num_challenges].
      * @details This is Step 2 of the protocol as written in the Protogalaxy paper.
      */
     template <typename ChallengeType>
-    std::vector<ChallengeType> compute_round_challenge_pows(const size_t num_powers,
-                                                            const ChallengeType& round_challenge)
+    std::vector<ChallengeType> get_powers_of_challenge(const std::string& label, size_t num_challenges)
     {
-        std::vector<ChallengeType> pows(num_powers);
-        pows[0] = round_challenge;
-        for (size_t i = 1; i < num_powers; i++) {
+        ChallengeType challenge = get_challenge<ChallengeType>(label);
+        std::vector<ChallengeType> pows(num_challenges);
+        pows[0] = challenge;
+        for (size_t i = 1; i < num_challenges; i++) {
             pows[i] = pows[i - 1].sqr();
         }
         return pows;
-    }
-
-    template <typename ChallengeType, typename String>
-    std::vector<ChallengeType> get_powers_of_challenge(const String& label, size_t num_challenges)
-    {
-        return compute_round_challenge_pows(num_challenges, get_challenge<ChallengeType>(label));
     }
 
     /**
