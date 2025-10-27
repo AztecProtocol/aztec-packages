@@ -3,12 +3,15 @@ var { hookRequire } = require('istanbul-lib-hook');
 var { gzipSync } = require('zlib');
 const INSTRUMENTER = createInstrumenter({ compact: true });
 
-hookRequire((filePath: string): boolean => {
+hookRequire(
+  (filePath: string): boolean => {
     return true;
-}, (code: string, { filename }: { filename: string }): string => {
+  },
+  (code: string, { filename }: { filename: string }): string => {
     const newCode = INSTRUMENTER.instrumentSync(code, filename);
     return newCode;
-});
+  },
+);
 
 var { DEFAULT_DA_GAS_LIMIT, DEFAULT_L2_GAS_LIMIT } = require('@aztec/constants');
 var { Fr } = require('@aztec/foundation/fields');
@@ -39,9 +42,9 @@ interface CoverageBranch {
 }
 
 interface FileCoverageData {
-  s: CoverageStatement;  // statements
-  f: CoverageFunction;   // functions
-  b: CoverageBranch;     // branches
+  s: CoverageStatement; // statements
+  f: CoverageFunction; // functions
+  b: CoverageBranch; // branches
 }
 
 interface GlobalCoverage {
@@ -53,7 +56,6 @@ declare global {
   var __coverage__: GlobalCoverage | undefined;
 }
 
-
 function stringToField(str: string): typeof Fr {
   let number = BigInt(str);
   if (number < 0) {
@@ -62,7 +64,7 @@ function stringToField(str: string): typeof Fr {
   return new Fr(number);
 }
 
-function stringArrayToFields(arr: string[]): typeof Fr[] {
+function stringArrayToFields(arr: string[]): (typeof Fr)[] {
   return arr.map(stringToField);
 }
 
@@ -90,7 +92,7 @@ async function initSimulator() {
   );
 }
 
-async function getSimulator(calldata: typeof Fr[]) {
+async function getSimulator(calldata: (typeof Fr)[]) {
   await initSimulator();
 
   const simulator = await AvmSimulator.create(
@@ -117,18 +119,18 @@ const FLATTENED_COVERAGE_MAP: Map<string, number> = new Map();
 // We only want to count `new` coverage, so we reset the global coverage after each execution
 function report_and_reset_coverage(): Map<string, number> {
   if (!global.__coverage__) {
-      return new Map();
+    return new Map();
   }
 
   const coverage = global.__coverage__;
   const flat: Map<string, number> = FLATTENED_COVERAGE_MAP;
   const filePaths = Object.keys(coverage);
   const filePathsLength = filePaths.length;
-  
+
   for (let i = 0; i < filePathsLength; i++) {
     const fileData = coverage[filePaths[i]];
 
-    // Flatten and reset statements 
+    // Flatten and reset statements
     const statements = fileData.s;
     const stmtIds = Object.keys(statements);
     const stmtIdsLength = stmtIds.length;
@@ -157,7 +159,7 @@ function report_and_reset_coverage(): Map<string, number> {
       const branchHits = branches[branchId];
       const branchHitsLength = branchHits.length;
       for (let k = 0; k < branchHitsLength; k++) {
-        flat.set('b_' + branchId + '_' + k, branchHits[k] ? 1 : 0 );
+        flat.set('b_' + branchId + '_' + k, branchHits[k] ? 1 : 0);
         global.__coverage__[filePaths[i]].b[branchId][k] = 0;
       }
     }
@@ -170,11 +172,10 @@ function report_and_reset_coverage(): Map<string, number> {
 // So we reset the coverage
 const _ = report_and_reset_coverage();
 
-
 async function executeBytecodeBase64(
   avmBytecodeBase64: string,
-  calldata: typeof Fr[],
-): Promise<{ reverted: boolean; output: typeof Fr[] }> {
+  calldata: (typeof Fr)[],
+): Promise<{ reverted: boolean; output: (typeof Fr)[] }> {
   const bytecode = Buffer.from(avmBytecodeBase64, 'base64');
   const simulator = await getSimulator(calldata);
   const results = await simulator.executeBytecode(bytecode);
@@ -185,8 +186,8 @@ async function executeBytecodeBase64(
 // @param jsonLine: the JSON line containing the bytecode and the inputs
 // prints gzipped result and the coverage to stdout encoded in base64
 // @returns void
-// 
-// 
+//
+//
 // The reason why we gzip the result and the coverage is because the coverage is HUGE and low-entropy
 // So printing it to stdout is very slow and we want to avoid that (because we try to maximize the number of executions)
 // It turned out that it is faster to gzip and decode it in the fuzzer than to print it to stdout
@@ -211,20 +212,18 @@ async function executeFromJson(jsonLine: string): Promise<void> {
     const response = {
       reverted: result.reverted,
       output: outputStrings,
-      coverage: coverage
+      coverage: coverage,
     };
 
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
-    process.stdout.write(
-      output,
-    );
+    process.stdout.write(output);
   } catch (error) {
     const coverage = Object.fromEntries(report_and_reset_coverage());
     const response = {
       reverted: true,
       output: [],
-      coverage: coverage
-    }
+      coverage: coverage,
+    };
     const output = gzipSync(JSON.stringify(response, null, 0)).toString('base64') + '\n';
     process.stdout.write(output);
   }

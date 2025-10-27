@@ -69,7 +69,7 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
       bbBinaryPath = path.join(
         path.dirname(fileURLToPath(import.meta.url)),
         '../../../barretenberg/cpp/build/bin',
-        'bb',
+        'bb-avm',
       );
 
       // Create a client IVC proof

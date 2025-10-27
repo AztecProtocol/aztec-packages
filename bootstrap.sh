@@ -470,7 +470,7 @@ case "$cmd" in
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
-    export DISABLE_AZTEC_VM=1
+    export AVM=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)

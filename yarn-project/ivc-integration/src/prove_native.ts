@@ -195,7 +195,7 @@ export async function proveAvm(
   publicInputs: AvmCircuitPublicInputs;
 }> {
   // The paths for the barretenberg binary and the write path are hardcoded for now.
-  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
+  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
   // Then we prove.
   const proofRes = await generateAvmProof(bbPath, workingDirectory, avmCircuitInputs, logger);
