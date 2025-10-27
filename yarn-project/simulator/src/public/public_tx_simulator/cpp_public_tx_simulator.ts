@@ -6,6 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import type { WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type { PublicContractsDB } from '../public_db_sources.js';
@@ -87,7 +88,16 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     // Capture the world state revision AFTER TS simulation completes.
     // C++ will read from this state (which includes TS writes and all previous committed state).
-    const wsRevision = this.merkleTree.getRevision();
+    // Using the "as WorldStateRevisionWithHandle" is a bit of a "trust me bro", we could do extra validation if needed.
+    const wsRevisionWithHandle: WorldStateRevisionWithHandle =
+      this.merkleTree.getRevision() as WorldStateRevisionWithHandle;
+
+    const wsRevision: WorldStateRevision = {
+      blockNumber: wsRevisionWithHandle.blockNumber,
+      forkId: wsRevisionWithHandle.forkId,
+      includeUncommitted: wsRevisionWithHandle.includeUncommitted,
+    };
+
     this.log.debug(`Using post-TS world state revision ${JSON.stringify(wsRevision)} for C++ simulation`);
 
     // Create the fast simulation inputs with the hints and public inputs from TS
@@ -105,16 +115,13 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     // these callbacks will be invoked during simulation instead of using pre-loaded hints.
     const contractProvider = this.createContractProvider();
 
-    // Extract WorldState handle from MerkleTreeWriteOperations
-    const worldStateHandle = this.extractWorldStateHandle();
-
     // Serialize to msgpack and call the C++ simulator
     this.log.debug(`Calling C++ simulator for tx ${txHash}`);
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
     let resultBuffer: Buffer;
     try {
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, worldStateHandle);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsRevisionWithHandle.wsHandle);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }
@@ -131,38 +138,6 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
     // TODO(dbanks12): Should this PublicTxResult just be the struct returned by C++ simulation?
     return tsResult;
-  }
-
-  /**
-   * Extracts the native WorldState handle from MerkleTreeWriteOperations.
-   * The merkleTree is a MerkleTreesForkFacade which wraps a NativeWorldState instance.
-   * We call the getHandle() method on the native WorldState to get a NAPI External
-   * that wraps the underlying C++ WorldState pointer.
-   */
-  private extractWorldStateHandle(): any {
-    // The merkleTree is a MerkleTreesForkFacade which has an 'instance' property
-    // that is a NativeWorldState which wraps a MsgpackChannel
-    const facade = this.merkleTree as any;
-    if (!facade.instance) {
-      throw new Error('No native WorldState instance found in MerkleTreeWriteOperations');
-    }
-    // The instance is a NativeWorldState which has an 'instance' property (MsgpackChannel)
-    const nativeWorldState = facade.instance;
-    if (!nativeWorldState.instance) {
-      throw new Error('No MsgpackChannel instance found in NativeWorldState');
-    }
-    const msgpackChannel = nativeWorldState.instance;
-    // The msgpackChannel has a 'dest' property which is the WorldStateWrapper NAPI object
-    // Call getHandle() on it to get the NAPI External wrapping the WorldState pointer
-    const worldStateWrapper = (msgpackChannel as any).dest;
-    if (!worldStateWrapper) {
-      throw new Error('No WorldStateWrapper found in MsgpackChannel');
-    }
-    if (typeof worldStateWrapper.getHandle !== 'function') {
-      throw new Error('WorldStateWrapper does not have getHandle method');
-    }
-    // Call getHandle() to get the NAPI External
-    return worldStateWrapper.getHandle();
   }
 
   /**
