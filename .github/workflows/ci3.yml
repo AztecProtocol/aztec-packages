@@ -35,15 +35,6 @@ jobs:
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
           persist-credentials: false
 
-      - name: Store GCP key
-        env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-        run: |
-          set +x
-          umask 077
-          printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
-          jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
-
       - name: Get Tree Hash
         run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
 

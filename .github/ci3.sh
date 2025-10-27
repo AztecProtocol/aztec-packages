@@ -11,6 +11,18 @@ labels="${1:-}"
 echo "=== CI3 Main Script ==="
 echo "Labels: ${labels}"
 
+echo ""
+echo "=== Setup ==="
+
+# Store GCP key
+if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
+  set +x
+  umask 077
+  printf '%s' "$GCP_SA_KEY" > "$GOOGLE_APPLICATION_CREDENTIALS"
+  jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
+  echo "GCP key stored"
+fi
+
 # Compute target branch
 if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
   target_branch="${MERGE_GROUP_BASE_REF:-}"
@@ -36,6 +48,9 @@ if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
   chmod 600 ~/.ssh/build_instance_key
   echo "SSH key configured"
 fi
+
+echo ""
+echo "=== Label Processing ==="
 
 # Parse labels into array
 IFS=',' read -ra label_array <<< "${labels}"
@@ -69,6 +84,9 @@ for label in "${label_array[@]}"; do
   esac
 done
 
+echo ""
+echo "=== CI Mode Determination ==="
+
 # Determine CI mode
 if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
   ci_mode="merge-queue"
@@ -91,6 +109,9 @@ echo "CI mode: ${ci_mode}"
 # Export CI_MODE for post-action script
 echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
 
+echo ""
+echo "=== Cache Check ==="
+
 # Check cache (unless disabled)
 cache_file=".ci-cache/ci-success-${ci_mode}.txt"
 if [ "${ci_no_cache:-0}" -eq 0 ] && [ -f "$cache_file" ]; then
@@ -99,6 +120,9 @@ if [ "${ci_no_cache:-0}" -eq 0 ] && [ -f "$cache_file" ]; then
 fi
 
 echo "Cache miss, running CI in ${ci_mode} mode..."
+
+echo ""
+echo "=== Run CI ==="
 
 # Run CI
 exec ./ci.sh "${ci_mode}"
