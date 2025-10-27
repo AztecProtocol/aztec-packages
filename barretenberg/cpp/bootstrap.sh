@@ -79,13 +79,11 @@ export -f inject_version
 function build_preset() {
   local preset=$1
   shift
-  local cmake_args=()
-  if [ "${DISABLE_AZTEC_VM:-0}" -eq 1 ]; then
-    # Disables AVM for merge-train/barretenberg PRs via DISABLE_AZTEC_VM. This env var can be used in development, as well
-    # (and typically is for the barretenberg core team).
-    cmake_args+=(-DDISABLE_AZTEC_VM=1 -DAVM_TRANSPILER_LIB="")
+  local avm_transpiler_flag=""
+  if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
+    avm_transpiler_flag="-DAVM_TRANSPILER_LIB="
   fi
-  cmake --fresh --preset "$preset" "${cmake_args[@]}"
+  cmake --fresh --preset "$preset" $avm_transpiler_flag
   cmake --build --preset "$preset" "$@"
 }
 

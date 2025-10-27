@@ -182,6 +182,25 @@ TEST_F(SumcheckClientIVCTests, BadProofFailure)
         EXPECT_FALSE(SumcheckClientIVC::verify(proof, ivc.get_vk()));
     }
 
+    // The IVC fails if the calldata of the Hiding Kernel is different from the return data of the Tail Kernels
+    {
+        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
+        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
+        SumcheckClientIVC ivc{ NUM_CIRCUITS };
+
+        // Construct and accumulate a set of mocked private function execution circuits
+        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
+            auto [circuit, vk] =
+                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
+            ivc.accumulate(circuit, vk);
+        }
+        auto proof = ivc.prove();
+
+        // The public input after the PairingPoints is the commitment to the return data of the Tail kernel.
+        tamper_with_proof(proof.mega_proof, PAIRING_POINTS_SIZE);
+        EXPECT_FALSE(SumcheckClientIVC::verify(proof, ivc.get_vk()));
+    }
+
     EXPECT_TRUE(true);
 };
 
@@ -296,7 +315,7 @@ HEAVY_TEST(SumcheckClientIVCKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 24;
+    const size_t NUM_APP_CIRCUITS = 27;
     auto [proof, vk] = SumcheckClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = SumcheckClientIVC::verify(proof, vk);

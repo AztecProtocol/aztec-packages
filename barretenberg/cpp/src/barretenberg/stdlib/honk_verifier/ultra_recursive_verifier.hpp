@@ -28,6 +28,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     PairingPoints<Builder> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
+    G1 kernel_return_data;
     std::array<G1, Builder::NUM_WIRES> ecc_op_tables; // Ecc op tables' commitments as extracted from the public inputs
                                                       // of the HidingKernel, only for LegacyClientIVC
     FF mega_hash; // The hash of public inputs and VK of the inner circuit in the GoblinAvmRecursiveVerifier
@@ -41,6 +42,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
         if constexpr (std::is_same_v<IO, RollupIO>) {
             ipa_claim = inputs.ipa_claim;
         } else if constexpr (std::is_same_v<IO, HidingKernelIO<Builder>>) {
+            kernel_return_data = inputs.kernel_return_data;
             ecc_op_tables = inputs.ecc_op_tables;
         } else if constexpr (std::is_same_v<IO, GoblinAvmIO<Builder>>) {
             mega_hash = inputs.mega_hash;

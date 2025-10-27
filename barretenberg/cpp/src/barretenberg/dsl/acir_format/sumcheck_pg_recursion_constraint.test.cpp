@@ -41,7 +41,7 @@ class SumcheckIvcRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-        PairingPoints::add_default_to_public_inputs(circuit);
+        stdlib::recursion::honk::AppIO::add_default(circuit);
         return circuit;
     }
 
@@ -82,8 +82,6 @@ class SumcheckIvcRecursionConstraintTest : public ::testing::Test {
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using InnerPairingPoints = bb::stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
-
         UltraCircuitBuilder builder;
 
         // Create 2^log_n many add gates based on input log num gates
@@ -102,7 +100,7 @@ class SumcheckIvcRecursionConstraintTest : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        InnerPairingPoints::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
         return builder;
     }
 

@@ -1,4 +1,11 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
+import {
+  Blob,
+  BlobDeserializationError,
+  type BlobJson,
+  FIELDS_PER_BLOB,
+  computeEthVersionedBlobHash,
+  getBlobFieldsInCheckpoint,
+} from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -210,7 +217,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return [];
       }
       this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
-      blobs = await getRelevantBlobs(allBlobs, blobHashes, this.log, this.opts.onBlobDeserializationError);
+      blobs = getRelevantBlobs(allBlobs, blobHashes, this.log, this.opts.onBlobDeserializationError);
       this.log.debug(`Got ${blobs.length} blobs from archive client`, archiveCtx);
       if (blobs.length > 0) {
         return blobs;
@@ -406,41 +413,52 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   }
 }
 
-async function getRelevantBlobs(
+function getRelevantBlobs(
   data: BlobJson[],
   blobHashes: Buffer[],
   logger: Logger,
   onBlobDeserializationError: 'warn' | 'trace' = 'warn',
-): Promise<BlobWithIndex[]> {
-  const blobsPromise = data
-    // Filter out blobs not requested
+): BlobWithIndex[] {
+  const requestedBlobs = data
     .filter((b: BlobJson) => {
       if (blobHashes.length === 0) {
         return true;
       }
+      // Filter out blobs not requested by hash.
       const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
-      const blobHash = Blob.getEthVersionedBlobHash(commitment);
+      const blobHash = computeEthVersionedBlobHash(commitment);
       logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);
       return blobHashes.some(hash => hash.equals(blobHash));
     })
-    // Attempt to deserialise the blob
-    // If we cannot decode it, then it is malicious and we should not use it
-    .map(async (b: BlobJson): Promise<BlobWithIndex | undefined> => {
-      try {
-        const blob = await Blob.fromJson(b);
-        return new BlobWithIndex(blob, parseInt(b.index));
-      } catch (err) {
-        if (err instanceof BlobDeserializationError) {
-          logger[onBlobDeserializationError](`Failed to deserialise blob`, { commitment: b.kzg_commitment });
-          return undefined;
-        }
-        throw err;
-      }
-    });
+    .map((b: BlobJson) => BlobWithIndex.fromJson(b));
 
-  // Second map is async, so we need to await it, and filter out blobs that did not deserialise
-  const maybeBlobs = await Promise.all(blobsPromise);
-  return maybeBlobs.filter((b: BlobWithIndex | undefined): b is BlobWithIndex => b !== undefined);
+  if (requestedBlobs.length === 0) {
+    return [];
+  }
+
+  let numFields = 0;
+  try {
+    // Attempt to deserialize the blob data. If we cannot decode it, then it is malicious and we should not use it.
+    const blobFields = getBlobFieldsInCheckpoint(
+      requestedBlobs.map(b => b.blob),
+      true,
+    );
+    numFields = blobFields.length;
+  } catch (err) {
+    if (err instanceof BlobDeserializationError) {
+      logger[onBlobDeserializationError](`Failed to deserialize blob`, {
+        commitments: requestedBlobs.map(b => b.blob.commitment),
+      });
+      // Return an empty array to imply that no blobs are valid.
+      return [];
+    } else {
+      throw err;
+    }
+  }
+
+  const numBlobs = Math.ceil(numFields / FIELDS_PER_BLOB);
+
+  return requestedBlobs.slice(0, numBlobs);
 }
 
 function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1ConsensusHostIndex?: number) {

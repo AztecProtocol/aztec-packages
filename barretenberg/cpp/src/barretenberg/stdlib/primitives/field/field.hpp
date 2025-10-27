@@ -456,6 +456,10 @@ template <typename Builder_> class field_t {
         return result;
     }
 
+    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename T> static field_t from_witness(Builder* ctx, const T& input) = delete;
+
     static field_t reconstruct_from_public(const std::span<const field_t, PUBLIC_INPUTS_SIZE>& limbs)
     {
         return limbs[0];

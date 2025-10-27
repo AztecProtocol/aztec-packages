@@ -1,4 +1,4 @@
-import { Blob } from '@aztec/blob-lib';
+import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { HttpBlobSinkClient } from '@aztec/blob-sink/client';
 import { inboundTransform } from '@aztec/blob-sink/encoding';
 import type { EpochCache } from '@aztec/epoch-cache';
@@ -240,7 +240,7 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const expectedBlobs = await Blob.getBlobsPerBlock(l2Block.body.toBlobFields());
+    const expectedBlobs = getBlobsPerL1Block(l2Block.getCheckpointBlobFields());
 
     // Expect the blob sink server to receive the blobs
     await runBlobSinkServer(expectedBlobs);
@@ -270,7 +270,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.sendRequests();
     expect(forwardSpy).toHaveBeenCalledTimes(1);
-    const blobInput = Blob.getPrefixedEthBlobCommitments(expectedBlobs);
+    const blobInput = getPrefixedEthBlobCommitments(expectedBlobs);
 
     const args = [
       {

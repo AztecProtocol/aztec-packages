@@ -5,7 +5,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
@@ -77,7 +77,7 @@ describe('prover/orchestrator', () => {
           }
         });
 
-        const blobFields = [createBlockEndMarker(0)];
+        const blobFields = getCheckpointBlobFields([[]]);
         const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
 
         orchestrator.startNewEpoch(1, 1, finalBlobChallenges);

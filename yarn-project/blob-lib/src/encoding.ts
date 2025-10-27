@@ -1,5 +1,6 @@
 import { BLOCK_END_PREFIX, TX_START_PREFIX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { FieldReader } from '@aztec/foundation/serialize';
 
 const NUM_BLOB_FIELDS_BIT_SIZE = 32n;
 const REVERT_CODE_BIT_SIZE = 8n;
@@ -106,4 +107,48 @@ export function isBlockEndMarker(field: Fr) {
   const value = field.toBigInt();
   const numTxs = value & 0xffffn;
   return value - numTxs === BLOCK_END_PREFIX * 256n * 256n;
+}
+
+/**
+ * Check that the fields are emitted from the circuits and conform to the encoding.
+ * @param blobFields - The concatenated fields from all blobs of an L1 block.
+ */
+export function checkBlobFieldsEncoding(blobFields: Fr[]) {
+  const reader = FieldReader.asReader(blobFields);
+
+  const checkpointPrefix = reader.readField();
+  if (checkpointPrefix.toBigInt() !== BigInt(blobFields.length)) {
+    return false;
+  }
+
+  const numFieldsInCheckpoint = checkpointPrefix.toNumber();
+  let seenNumTxs = 0;
+  while (reader.cursor < numFieldsInCheckpoint) {
+    const currentField = reader.readField();
+
+    if (isBlockEndMarker(currentField)) {
+      // Found a block end marker. Confirm that the number of txs in this block is correct.
+      const numTxs = getNumTxsFromBlockEndMarker(currentField);
+      if (numTxs !== seenNumTxs) {
+        return false;
+      }
+      seenNumTxs = 0;
+      // Continue the loop to process the next field.
+      continue;
+    }
+
+    // If the field is not a block end marker, it must be a tx start marker.
+    const txStartMarker = decodeTxStartMarker(currentField);
+    if (!isValidTxStartMarker(txStartMarker)) {
+      return false;
+    }
+
+    seenNumTxs += 1;
+
+    // Skip the remaining fields in this tx. -1 because we already read the tx start marker.
+    reader.skip(txStartMarker.numBlobFields - 1);
+    // TODO: Check the encoding of the tx if we want to be more strict.
+  }
+
+  return true;
 }

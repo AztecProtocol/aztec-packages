@@ -5,8 +5,8 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/verifier_commitment_key.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
-#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
@@ -100,7 +100,7 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto [stdlib_transcript, stdlib_claim] = create_ipa_claim<log_poly_length>(builder, poly, x);
 
         RecursiveIPA::reduce_verify(stdlib_claim, stdlib_transcript);
-        stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
         builder.finalize_circuit(/*ensure_nonzero=*/true);
         return builder;
     }

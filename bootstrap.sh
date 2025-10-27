@@ -354,11 +354,9 @@ function release {
   echo_header "release all"
   set -x
 
-  # Ensure we have a github release for our REF_NAME, if not on latest.
-  # On latest we rely on release-please to create this for us.
-  if [ $(dist_tag) != latest ]; then
-    release_github
-  fi
+  # Ensure we have a github release for our REF_NAME.
+  # This is in case were are not going through release-please.
+  release_github
 
   projects=(
     barretenberg/cpp
@@ -471,6 +469,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export AVM=0
+    export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
   test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)

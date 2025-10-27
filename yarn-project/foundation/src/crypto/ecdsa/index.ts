@@ -16,7 +16,7 @@ export class Ecdsa {
    * @returns A secp256k1 public key.
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
     const api = BarretenbergSync.getSingleton();
     const response =
       this.curve === 'secp256r1'
@@ -32,7 +32,7 @@ export class Ecdsa {
    * @returns An ECDSA signature of the form (r, s, v).
    */
   public async constructSignature(msg: Uint8Array, privateKey: Buffer) {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
     const api = BarretenbergSync.getSingleton();
     const response =
       this.curve === 'secp256r1'
@@ -48,7 +48,7 @@ export class Ecdsa {
    * @returns The secp256k1 public key of the signer.
    */
   public async recoverPublicKey(msg: Uint8Array, sig: EcdsaSignature): Promise<Buffer> {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
     const api = BarretenbergSync.getSingleton();
     const response =
       this.curve === 'secp256r1'
@@ -65,7 +65,7 @@ export class Ecdsa {
    * @returns True or false.
    */
   public async verifySignature(msg: Uint8Array, pubKey: Buffer, sig: EcdsaSignature) {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
     const api = BarretenbergSync.getSingleton();
     const response =
       this.curve === 'secp256r1'

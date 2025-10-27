@@ -1,5 +1,4 @@
 import { createBlockEndMarker, getNumTxsFromBlockEndMarker, isBlockEndMarker } from '@aztec/blob-lib/encoding';
-import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -57,17 +56,7 @@ export class Body {
    * Returns a flat packed array of fields of all tx effects - used for blobs.
    */
   toBlobFields() {
-    const flattened = getBlockBlobFields(this.txEffects);
-
-    if (flattened.length > BLOBS_PER_BLOCK * FIELDS_PER_BLOB) {
-      throw new Error(
-        `Attempted to overfill block's blobs with ${flattened.length} elements. The maximum is ${
-          BLOBS_PER_BLOCK * FIELDS_PER_BLOB
-        }`,
-      );
-    }
-
-    return flattened;
+    return getBlockBlobFields(this.txEffects);
   }
 
   /**
@@ -79,6 +68,8 @@ export class Body {
     while (!reader.isFinished()) {
       txEffects.push(TxEffect.fromBlobFields(reader));
     }
+
+    // If the fields are from a proven block, or are constructed by calling `toBlobFields`, the following errors should never throw.
 
     if (!isBlockEndMarker(fields[fields.length - 1])) {
       throw new Error('Block end marker not found');

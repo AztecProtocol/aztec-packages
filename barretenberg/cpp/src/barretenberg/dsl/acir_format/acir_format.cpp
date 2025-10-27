@@ -300,7 +300,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             stdlib::recursion::honk::AppIO::add_default(builder);
         }
     } else {
-        bool is_recursive_circuit = metadata.honk_recursion != 0;
         bool has_pairing_points =
             has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
 
@@ -317,11 +316,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         BB_ASSERT_EQ(!(has_civc_recursion_constraints && has_honk_recursion_constraints),
                      true,
                      "Invalid circuit: both honk and civc recursion constraints are present.");
-        BB_ASSERT_EQ(
-            !(has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints) ||
-                is_recursive_circuit,
-            true,
-            "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
         if (has_civc_recursion_constraints && has_avm_recursion_constraints) {
             vinfo("WARNING: both civc and avm recursion constraints are present. While we support this combination, we "
                   "expect to see it only in a mock "
@@ -351,51 +345,45 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             honk_output.update(avm_output, /*update_ipa_data=*/!avm_output.nested_ipa_claims.empty());
         }
 
-        if (metadata.honk_recursion == 2) {
-            // Proving with UltraRollupFlavor
-
-            // Propagate pairing points
-            if (has_pairing_points) {
-                honk_output.points_accumulator.set_public();
-            } else {
-                PairingPoints::add_default_to_public_inputs(builder);
-            }
-
-            // Handle IPA
+        if (metadata.has_ipa_claim) {
+            using IO = stdlib::recursion::honk::RollupIO;
+            // Proving with UltraRollupFlavor, we need to handle IPA
             auto [ipa_claim, ipa_proof] =
                 handle_IPA_accumulation(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
 
             // Set proof
             builder.ipa_proof = ipa_proof;
 
-            // Propagate IPA claim
-            ipa_claim.set_public();
+            // Propagate public inputs
+            IO inputs;
+            inputs.pairing_inputs =
+                has_pairing_points ? honk_output.points_accumulator : PairingPoints::construct_default();
+            inputs.ipa_claim = ipa_claim;
+            inputs.set_public();
         } else {
-            // If it is a recursive circuit, propagate pairing points
-            if (metadata.honk_recursion == 1) {
-                using IO = bb::stdlib::recursion::honk::DefaultIO<Builder>;
+            using IO = stdlib::recursion::honk::DefaultIO<Builder>;
 
-                if (has_pairing_points) {
-                    IO inputs;
-                    inputs.pairing_inputs = honk_output.points_accumulator;
-                    inputs.set_public();
-                } else {
-                    IO::add_default(builder);
-                }
-            }
-
-            // Handle IPA
             if (honk_output.is_root_rollup) {
+                // The root rollup performs full IPA verification
                 perform_full_IPA_verification(builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs);
             } else {
-                // We shouldn't accidentally have IPA proofs otherwise.
+                // We shouldn't accidentally have IPA proofs.
                 BB_ASSERT_EQ(honk_output.nested_ipa_proofs.size(),
                              static_cast<size_t>(0),
                              "IPA proofs present when not expected.");
             }
+
+            // Propagate public inputs
+            if (has_pairing_points) {
+                IO inputs;
+                inputs.pairing_inputs = honk_output.points_accumulator;
+                inputs.set_public();
+            } else {
+                IO::add_default(builder);
+            }
         }
     }
-} // namespace acir_format
+}
 
 /**
  * @brief Perform full recursive IPA verification
@@ -549,8 +537,8 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                      ivc->verification_queue.size(),
                      "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
-        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values
-        // so that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
+        // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
+        // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
         if (!has_valid_witness_assignments) {
             // Create stdlib representations of each {proof, vkey} pair to be recursively verified
             for (auto [constraint, queue_entry] :
@@ -574,8 +562,8 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
         ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
         // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
-        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
-        // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
+        // internal verification queue. This ensures that the witnesses utilized in constraints generated based on
+        // acir are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive
         // verifications).
         for (auto [constraint, queue_entry] :
              zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {

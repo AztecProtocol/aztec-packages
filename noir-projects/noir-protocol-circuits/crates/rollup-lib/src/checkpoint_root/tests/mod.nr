@@ -81,7 +81,7 @@ impl TestBuilder {
         right_rollup_vk_index: u32,
         num_right_blocks: u32,
     ) -> Self {
-        let blobs_fields: [Field; 14] = make_fixture(25339);
+        let blobs_fields: [Field; 14] = [14].concat(make_fixture(25339));
         Self::new_with_blob_fields(
             left_rollup_vk_index,
             num_left_blocks,
@@ -94,7 +94,7 @@ impl TestBuilder {
     }
 
     pub fn new_single_block(vk_index: u32) -> Self {
-        let blobs_fields: [Field; 8] = make_fixture(89243);
+        let blobs_fields: [Field; 8] = [8].concat(make_fixture(89243));
         Self::new_with_blob_fields(vk_index, 1, 0, 0, blobs_fields, 1, true)
     }
 
@@ -145,15 +145,16 @@ impl TestBuilder {
 
         left_rollup.previous_archive = previous_archive;
 
-        left_rollup.start_sponge_blob = SpongeBlob::new(N);
+        let start_sponge_blob = SpongeBlob::init_for_checkpoint(N);
+        left_rollup.start_sponge_blob = start_sponge_blob;
 
-        // Update the end_sponge_blob of the right rollup to be the actual sponge that absorbs all the blob fields.
-        let mut sponge_blob = SpongeBlob::new(N);
-        sponge_blob.absorb(blobs_fields, N);
+        // Update the `end_sponge_blob` to be the actual sponge that absorbs all the blob fields.
+        let mut end_sponge_blob = SpongeBlob::new(N); // Not using `init_for_checkpoint` as `blobs_fields` already contains the prefix field.
+        end_sponge_blob.absorb(blobs_fields, N);
         if is_single_block {
-            left_rollup.end_sponge_blob = sponge_blob;
+            left_rollup.end_sponge_blob = end_sponge_blob;
         } else {
-            right_rollup.end_sponge_blob = sponge_blob;
+            right_rollup.end_sponge_blob = end_sponge_blob;
         }
 
         let hints = CheckpointRootRollupHints {

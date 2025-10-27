@@ -1,5 +1,5 @@
-import { Blob, type BlobJson } from '@aztec/blob-lib';
-import { makeEncodedBlob, makeRandomBlob } from '@aztec/blob-lib/testing';
+import { Blob, type BlobJson, FIELDS_PER_BLOB } from '@aztec/blob-lib';
+import { makeEncodedBlob, makeEncodedBlobs, makeRandomBlob } from '@aztec/blob-lib/testing';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/fields';
@@ -32,7 +32,7 @@ describe('HttpBlobSinkClient', () => {
 
   it('should handle server connection errors gracefully', async () => {
     const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
-    const blob = await Blob.fromFields([Fr.random()]);
+    const blob = Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
     const success = await client.sendBlobsToBlobSink([blob]);
@@ -52,9 +52,12 @@ describe('HttpBlobSinkClient', () => {
     let testNonEncodedBlob: Blob;
     let testNonEncodedBlobHash: Buffer;
 
-    // A blob to be ignored when requesting blobs
-    // - we do not include it's blobHash in our queries
-    let testBlobIgnore: Blob;
+    let testEncodedBlob2: Blob;
+    let testEncodedBlob2Hash: Buffer;
+
+    let testEncodedConsecutiveBlobs: Blob[];
+    let testEncodedConsecutiveBlobHashes: Buffer[];
+    let testEncodedConsecutiveBlobsWithIndex: BlobWithIndex[];
 
     let executionHostServer: http.Server | undefined = undefined;
     let executionHostPort: number | undefined = undefined;
@@ -67,42 +70,35 @@ describe('HttpBlobSinkClient', () => {
     let latestSlotNumber: number;
     let missedSlots: number[];
 
-    beforeEach(async () => {
+    beforeEach(() => {
       latestSlotNumber = 1;
       missedSlots = [];
 
-      testEncodedBlob = await makeEncodedBlob(3);
+      testEncodedBlob = makeEncodedBlob(7);
       testEncodedBlobHash = testEncodedBlob.getEthVersionedBlobHash();
       testEncodedBlobWithIndex = new BlobWithIndex(testEncodedBlob, 0);
 
-      testBlobIgnore = await makeEncodedBlob(3);
-
-      testNonEncodedBlob = await makeRandomBlob(3);
+      testNonEncodedBlob = makeRandomBlob(7);
       testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
 
-      blobData = [
-        // Correctly encoded blob
-        {
-          index: '0',
-          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+      testEncodedBlob2 = makeEncodedBlob(7);
+      testEncodedBlob2Hash = testEncodedBlob2.getEthVersionedBlobHash();
+
+      // 2 blobs are created to encode a total of `FIELDS_PER_BLOB + 1` fields.
+      testEncodedConsecutiveBlobs = makeEncodedBlobs(FIELDS_PER_BLOB + 1);
+      testEncodedConsecutiveBlobHashes = testEncodedConsecutiveBlobs.map(b => b.getEthVersionedBlobHash());
+      testEncodedConsecutiveBlobsWithIndex = testEncodedConsecutiveBlobs.map(
+        (b, offset) => new BlobWithIndex(b, 3 + offset),
+      );
+
+      blobData = [testEncodedBlob, testNonEncodedBlob, testEncodedBlob2, ...testEncodedConsecutiveBlobs].map(
+        (b, index) => ({
+          index: `${index}`,
+          blob: `0x${Buffer.from(b.data).toString('hex')}`,
           // eslint-disable-next-line camelcase
-          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
-        },
-        // Correctly encoded blob, but we do not ask for it in the client
-        {
-          index: '1',
-          blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
-        },
-        // Incorrectly encoded blob
-        {
-          index: '2',
-          blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
-          // eslint-disable-next-line camelcase
-          kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
-        },
-      ];
+          kzg_commitment: `0x${b.commitment.toString('hex')}`,
+        }),
+      );
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -363,9 +359,52 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
+      // Request the encoded blob first, then the non-encoded blob.
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
       // We should only get the correctly encoded blob
       expect(retrievedBlobs).toEqual([testEncodedBlobWithIndex]);
+    });
+
+    it('returns empty array if the combined blob data is not encoded', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Request the non-encoded blob first, then the encoded blob.
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testNonEncodedBlobHash, testEncodedBlob2Hash]);
+      expect(retrievedBlobs).toEqual([]);
+    });
+
+    it('returns empty array if only one out of many blobs for a larger encoded data is requested', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Request the first of the consecutive encoded blobs.
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedConsecutiveBlobHashes[0]]);
+      expect(retrievedBlobs).toEqual([]);
+    });
+
+    it('returns all blobs for a larger encoded data', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      // Request all the consecutive encoded blobs.
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', testEncodedConsecutiveBlobHashes);
+      expect(retrievedBlobs).toEqual(testEncodedConsecutiveBlobsWithIndex);
     });
 
     it('should handle L1 missed slots', async () => {
