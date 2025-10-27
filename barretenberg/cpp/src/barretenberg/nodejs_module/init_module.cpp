@@ -10,6 +10,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     exports.Set(Napi::String::New(env, "LMDBStore"), bb::nodejs::lmdb_store::LMDBStoreWrapper::get_class(env));
     exports.Set(Napi::String::New(env, "MsgpackClient"),
                 bb::nodejs::msgpack_client::MsgpackClientWrapper::get_class(env));
+    exports.Set(Napi::String::New(env, "avmSimulate"), Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulate));
     exports.Set(Napi::String::New(env, "avmSimulateWithHintedDbs"),
                 Napi::Function::New(env, bb::nodejs::AvmSimulateNapi::simulateWithHintedDbs));
     return exports;

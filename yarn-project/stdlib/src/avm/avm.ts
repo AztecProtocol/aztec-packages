@@ -23,6 +23,7 @@ import {
   TreeSnapshots,
   type Tx,
 } from '../tx/index.js';
+import { WorldStateRevision } from '../world-state/world_state_revision.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -697,5 +698,41 @@ export class AvmCircuitInputs {
   }
   static fromBuffer(buf: Buffer) {
     return jsonParseWithSchema(buf.toString(), this.schema);
+  }
+}
+
+export class AvmFastSimulationInputs {
+  constructor(
+    public readonly wsRevision: WorldStateRevision,
+    public tx: AvmTxHint,
+    public globalVariables: GlobalVariables,
+    public protocolContracts: ProtocolContracts,
+  ) {}
+
+  static empty() {
+    return new AvmFastSimulationInputs(
+      WorldStateRevision.empty(),
+      AvmTxHint.empty(),
+      GlobalVariables.empty(),
+      ProtocolContracts.empty(),
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        wsRevision: WorldStateRevision.schema,
+        tx: AvmTxHint.schema,
+        globalVariables: GlobalVariables.schema,
+        protocolContracts: ProtocolContracts.schema,
+      })
+      .transform(
+        ({ wsRevision, tx, globalVariables, protocolContracts }) =>
+          new AvmFastSimulationInputs(wsRevision, tx, globalVariables, protocolContracts),
+      );
+  }
+
+  public serializeWithMessagePack(): Buffer {
+    return serializeWithMessagePack(this);
   }
 }

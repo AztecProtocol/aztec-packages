@@ -6,13 +6,21 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { executeAvmMinimalPublicTx, readAvmMinimalPublicTxInputsFromFile } from '../../fixtures/minimal_public_tx.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(worldStateService);
+    tester = await PublicTxSimulationTester.create(
+      worldStateService,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
+    );
   });
 
   afterEach(async () => {

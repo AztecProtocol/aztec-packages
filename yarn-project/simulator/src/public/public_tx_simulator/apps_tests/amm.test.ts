@@ -6,28 +6,11 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { ammTest } from '../../fixtures/amm_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('Public TX simulator apps tests: AMM Contract', () => {
+describe.each([
+  { useCppSimulator: false, simulatorName: 'TS Simulator' },
+  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
+])('Public TX simulator apps tests: AMM Contract ($simulatorName)', ({ useCppSimulator }) => {
   const logger = createLogger('public-tx-apps-tests-amm');
-
-  let worldStateService: NativeWorldStateService;
-  let tester: PublicTxSimulationTester;
-
-  beforeEach(async () => {
-    worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(worldStateService);
-  });
-
-  afterEach(async () => {
-    await worldStateService.close();
-  });
-
-  it('amm operations', async () => {
-    await ammTest(tester, logger, TokenContractArtifact, AMMContractArtifact, (b: boolean) => expect(b).toBe(true));
-  });
-});
-
-describe('Public TX simulator apps tests: AMM Contract (Cpp Simulator)', () => {
-  const logger = createLogger('public-tx-apps-tests-amm-cpp');
 
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
@@ -36,9 +19,9 @@ describe('Public TX simulator apps tests: AMM Contract (Cpp Simulator)', () => {
     worldStateService = await NativeWorldStateService.tmp();
     tester = await PublicTxSimulationTester.create(
       worldStateService,
-      /*globals=*/ undefined, // use default
-      /*metrics=*/ undefined, // use default
-      /*useCppSimulator=*/ true,
+      /*globals=*/ undefined,
+      /*metrics=*/ undefined,
+      useCppSimulator,
     );
   });
 

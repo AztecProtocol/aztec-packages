@@ -454,6 +454,19 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     };
 }
 
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts)
+{
+    // Create PureRawMerkleDB with the provided WorldState instance
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+    return simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
+}
+
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
 {
     HintedRawContractDB raw_contract_db(hints);
