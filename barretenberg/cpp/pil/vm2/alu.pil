@@ -266,15 +266,17 @@ sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.valu
 /******************************************************************************
 * Opcode Computations
 ******************************************************************************/
-// ADD & SUB - Shared relation:
-
+// ------------------------------------------------------------
+// ADD & SUB
+// ------------------------------------------------------------
 // For add, sel_op_add - sel_op_sub = 1 => check a + b - cf * carry = c
 // For sub, sel_op_add - sel_op_sub = -1 => check a - b + cf * carry = c
 #[ALU_ADD_SUB]
 (sel_op_add + sel_op_sub) * (1 - sel_tag_err) * (ia - ic + (sel_op_add - sel_op_sub) * (ib - cf * (max_value + 1))) = 0;
 
+// ------------------------------------------------------------
 // MUL
-
+// ------------------------------------------------------------
 pol commit c_hi;
 
 // MUL - non u128
@@ -313,8 +315,9 @@ sel_mul_u128 * (1 - sel_tag_err)
 #[RANGE_CHECK_MUL_U128_C_HI]
 sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
-// DIV
-
+// ------------------------------------------------------------
+// DIV & FDIV
+// ------------------------------------------------------------
 // We need to show that remainder < b (remainder stored in helper1)
 // TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1 (gated by div_0_err).
 // The below only exists to gate this lookup for now:
@@ -373,7 +376,9 @@ pol DIV_OPS_NON_U128 = (1 - sel_err) * (sel_op_fdiv + sel_op_div * IS_NOT_U128);
 #[ALU_FDIV_DIV_NON_U128]
 DIV_OPS_NON_U128 * (ib * ic - (ia - sel_op_div * helper1)) = 0;
 
+// ------------------------------------------------------------
 // EQ
+// ------------------------------------------------------------
 
 pol DIFF = ia - ib;
 pol commit ab_diff_inv; // Helper column for inverting DIFF.
@@ -384,8 +389,9 @@ pol commit ab_diff_inv; // Helper column for inverting DIFF.
 #[EQ_OP_MAIN]
 sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
 
-// LT & LTE - Shared relations:
-
+// ------------------------------------------------------------
+// LT & LTE
+// ------------------------------------------------------------
 pol commit sel_lt_ops;
 sel_lt_ops = (1 - sel_tag_err) * (sel_op_lt + sel_op_lte);
 
@@ -421,14 +427,18 @@ in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 sel_int_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
 in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
+// ------------------------------------------------------------
 // NOT
+// ------------------------------------------------------------
 // Input is sent to ia, ia_tag and output is sent to ib, ib_tag.
 
 // Relation is: a + ~a = 2^k - 1, where k is the number of bits in a.
 #[NOT_OP_MAIN]
 sel_op_not * (1 - sel_tag_err) * (ia + ib - max_value) = 0;
 
-// SHIFTS - Taken from vm1:
+// ------------------------------------------------------------
+// SHL & SHR
+// ------------------------------------------------------------
 // Given (1) an input a, within the range [0, 2**128-1],
 //       (2) a value s, the amount of bits to shift a by (stored in ib),
 //       (3) and a memory tag, mem_tag that supports a maximum of t bits (stored in max_bits).
@@ -505,7 +515,10 @@ pol SHIFT_HI_BITS = max_bits - sel_shift_ops_no_overflow * shift_lo_bits;
 #[SHIFTS_TWO_POW]
 sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
 
-// TRUNCATE (ALU part for opcodes CAST and SET)
+// ------------------------------------------------------------
+// TRUNCATE
+// ------------------------------------------------------------
+// TRUNCATE: ALU part for opcodes CAST and SET
 // Input of truncation value is sent to ia, destination tag in ia_tag and output is computed as ic.
 // We have one dispatching lookup from execution specific to CAST and another one for SET, as
 // the layout for registers and operands strongly differ from other ALU opcodes.
