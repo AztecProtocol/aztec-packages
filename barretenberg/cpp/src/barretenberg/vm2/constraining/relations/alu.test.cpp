@@ -814,7 +814,11 @@ class AluDivConstrainingTest : public AluConstrainingTest,
         auto [a, b, c] = params;
         bool div_0_error = b.as_ff() == FF(0);
         auto mem_tag = a.get_tag();
-        auto remainder = a - b * c;
+
+        MemoryValue remainder = MemoryValue::from_tag(MemoryTag::FF, 0);
+        if (!div_0_error && mem_tag == b.get_tag() && mem_tag != MemoryTag::FF) {
+            remainder = a - b * c;
+        }
 
         builder.process(
             {
@@ -823,8 +827,8 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             trace);
 
         if (mem_tag == MemoryTag::U128) {
-            auto c_decomp = simulation::decompose(c.as<uint128_t>());
-            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            auto c_decomp = simulation::decompose(static_cast<uint128_t>(c.as_ff()));
+            auto b_decomp = simulation::decompose(static_cast<uint128_t>(b.as_ff()));
 
             range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
                                           { .value = c_decomp.hi, .num_bits = 64 },
@@ -858,6 +862,28 @@ TEST_P(AluDivConstrainingTest, AluDivTraceGen)
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
+}
+
+TEST_F(AluDivConstrainingTest, AluDivByZeroMismatchTagsTraceGen)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U128, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::U64, 0);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
+
+    auto trace = process_div_with_tracegen({ a, b, c });
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluDivConstrainingTest, AluDivByZeroTagFFAndMismatchTagsTraceGen)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::U32, 0);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
+
+    auto trace = process_div_with_tracegen({ a, b, c });
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
@@ -1097,9 +1123,6 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
-        a = MemoryValue::from_tag(MemoryTag::FF, a);
-        b = MemoryValue::from_tag(MemoryTag::FF, b);
-        c = MemoryValue::from_tag(MemoryTag::FF, c);
         bool div_0_error = b.as_ff() == FF(0);
 
         builder.process(
@@ -1131,6 +1154,27 @@ TEST_P(AluFDivConstrainingTest, AluFDivTraceGen)
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);
+}
+
+TEST_F(AluFDivConstrainingTest, AluFDivByZeroNonFFTagTraceGen)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::U8, 0);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
+
+    auto trace = process_fdiv_with_tracegen({ a, b, c });
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluFDivConstrainingTest, AluFDivByZeroNonFFTagMismatchTraceGen)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
+    auto b = MemoryValue::from_tag(MemoryTag::U16, 0);
+    auto c = MemoryValue::from_tag(MemoryTag::FF, 0);
+    auto trace = process_fdiv_with_tracegen({ a, b, c });
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
 }
 
 TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZero)
