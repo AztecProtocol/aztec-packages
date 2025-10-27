@@ -47,9 +47,10 @@ export class Blob {
     try {
       const fields: Fr[] = deserializeEncodedBlobToFields(blob);
       return Blob.fromFields(fields, multiBlobFieldsHash);
-    } catch {
+    } catch (err) {
       throw new BlobDeserializationError(
         `Failed to create Blob from encoded blob buffer, this blob was likely not created by us`,
+        { cause: err },
       );
     }
   }

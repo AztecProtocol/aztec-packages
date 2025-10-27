@@ -1,8 +1,10 @@
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
 
 import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
+import { readFileSync } from 'fs';
 
 import { Blob } from './index.js';
 import { makeEncodedBlob } from './testing.js';
@@ -140,5 +142,23 @@ describe('blob', () => {
     const blobJson = blob.toJson(1);
     const deserialisedBlob = await Blob.fromJson(blobJson);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+  });
+
+  it('deserializes blobs for tx 0x8923369', async () => {
+    const json = JSON.parse(readFileSync('./src/fixtures/blobs-sepolia-8776779.json', 'utf-8'));
+    const log = createLogger('blob_test');
+    // See https://sepolia.etherscan.io/tx/0x8923369f09321dcbe936a3f69926f3090bac839fd4777cc8329bc20a7e6bb426#
+    const commitments = [
+      '0xb12fc75bedc32496bca1ee033ceb2f589819c8b90dfdf4883dae5774a05954111640dad220a4b75f2ba7dabd485ac2fa',
+      '0x844b4df48912d84282c07fcd8dbcdc5f507e6a2ee27d722a91c991edc91a2b09dc46722a26148c22531f2b685bb4d53d',
+    ];
+    for (const blobJson of json.data) {
+      if (commitments.includes(blobJson.kzg_commitment)) {
+        log.warn(`Deserializing blob with commitment ${blobJson.kzg_commitment}`);
+        await Blob.fromJson(blobJson);
+      } else {
+        log.info(`Skipping blob with commitment ${blobJson.kzg_commitment}`);
+      }
+    }
   });
 });
