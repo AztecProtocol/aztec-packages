@@ -191,7 +191,7 @@ template <typename Builder_> class DefaultIO {
      */
     static void add_default(Builder& builder)
     {
-        PairingInputs::set_default_to_public(builder);
+        PairingInputs::set_default_to_public(&builder);
         builder.finalize_public_inputs();
     };
 };
