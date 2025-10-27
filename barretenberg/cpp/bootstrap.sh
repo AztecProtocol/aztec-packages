@@ -100,6 +100,43 @@ function build_native {
   fi
 }
 
+# Build nodejs module for all platforms
+function build_nodejs_module {
+  set -eu
+  ensure_zig
+  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
+  if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
+    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
+      zig-node-amd64-linux \
+      zig-node-arm64-linux \
+      zig-node-amd64-macos \
+      zig-node-arm64-macos
+    cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
+  fi
+}
+
+# Build Darwin arm64 binary
+function build_darwin_arm64 {
+  set -eu
+  ensure_zig
+  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
+    build_preset zig-arm64-macos --target bb
+    inject_version build-zig-arm64-macos/bin/bb
+    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
+  fi
+}
+
+# Build Darwin amd64 binary
+function build_darwin_amd64 {
+  set -eu
+  ensure_zig
+  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
+    build_preset zig-amd64-macos --target bb
+    inject_version build-zig-amd64-macos/bin/bb
+    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
+  fi
+}
+
 # Cross compile binaries (bb and napi lib).
 # Arg is target arch-os e.g. amd64-linux.
 function build_cross {
@@ -308,23 +345,22 @@ function cache_upload_vks {
   done <<< "$cache_paths"
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification cache_download_vks cache_upload_vks
+export -f build_preset build_native build_nodejs_module build_darwin_arm64 build_darwin_amd64 build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification cache_download_vks cache_upload_vks
 
 function build {
   echo_header "bb cpp build"
-
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
+  ensure_zig
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # Perform release builds of bb and napi module, for all architectures.
-    ensure_zig
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
+      "build_nodejs_module" \
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
+      "build_darwin_amd64" \
+      "build_darwin_arm64"
 
     # Re-sign macOS builds. Necessary due to injecting the version through binary rewriting.
     ensure_ldid
@@ -335,6 +371,7 @@ function build {
   else
     builds=(
       build_native
+      build_nodejs_module
       build_wasm
       build_wasm_threads
     )
@@ -342,8 +379,7 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      ensure_zig
-      builds+=("build_cross arm64-macos" build_smt_verification)
+      builds+=(build_darwin_arm64 build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
