@@ -217,7 +217,6 @@ if(WASM)
         -nostartfiles -Wl,--no-entry,--export-dynamic
     )
 
-
     # Strip debug info to create the release version.
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
