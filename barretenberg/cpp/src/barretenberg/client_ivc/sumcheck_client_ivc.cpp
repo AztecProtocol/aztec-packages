@@ -287,6 +287,10 @@ void SumcheckClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Set the kernel output data to be propagated via the public inputs
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
+        // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
+        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        hide_op_queue_content_in_hiding(circuit);
+
         HidingKernelIO hiding_output{ pairing_points_aggregator,
                                       bus_depot.get_kernel_return_data_commitment(circuit),
                                       T_prev_commitments };
