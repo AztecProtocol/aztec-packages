@@ -27,6 +27,10 @@ if [ "${BB_EMSCRIPTEN:-0}" -eq 1 ]; then
   # Copy emscripten single-threaded for browser fallback
   cp ../cpp/build-emscripten/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz
 
+  # Note: Symlinks in src/ remain pointing to WASI builds for local testing.
+  # Emscripten WASM is not compatible with bb.js's direct WASM loading mechanism
+  # and is only used for browser deployments via the bundled outputs in dest/.
+
   # Copy JS wrappers if they exist (emscripten generates these)
   if [ -f ../cpp/build-emscripten-threads-asan/bin/barretenberg.js ]; then
     cp ../cpp/build-emscripten-threads-asan/bin/barretenberg.js ./dest/node/barretenberg_wasm/barretenberg-threads.js

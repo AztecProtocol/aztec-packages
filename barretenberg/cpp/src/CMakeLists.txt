@@ -46,10 +46,18 @@ if(WASM)
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
     set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    # Note: --stack-first and --max-memory are incompatible with address sanitizer in emscripten
-    if(ENABLE_ASAN)
-        add_link_options(-Wl,--export-memory,--import-memory,-z,stack-size=1048576)
+    # Note: emscripten has special requirements for link options
+    # - --max-memory is incompatible with emscripten's --no-growable-memory
+    # - --stack-first is incompatible with address sanitizer
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+        # Emscripten: no --max-memory, and skip --stack-first if ASAN is enabled
+        if(ENABLE_ASAN)
+            add_link_options(-Wl,--export-memory,--import-memory,-z,stack-size=1048576)
+        else()
+            add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576)
+        endif()
     else()
+        # WASI: use all flags including --max-memory and --stack-first
         add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
     endif()
 endif()
@@ -225,14 +233,27 @@ if(WASM)
     )
 
     # Note: -nostartfiles is incompatible with emscripten multithreading (needs TLS initialization)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten" AND MULTITHREADING)
-        target_link_options(
-            barretenberg-debug.wasm
-            PRIVATE
-            -Wl,--no-entry,--export-dynamic,--import-undefined
-            -sERROR_ON_UNDEFINED_SYMBOLS=0
-        )
+    # Note: emscripten needs -sERROR_ON_UNDEFINED_SYMBOLS=0 for runtime-provided symbols (logstr, throw_or_abort_impl)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+        if(MULTITHREADING)
+            # Multithreading: no -nostartfiles (needed for TLS init)
+            target_link_options(
+                barretenberg-debug.wasm
+                PRIVATE
+                -Wl,--no-entry,--export-dynamic,--import-undefined
+                -sERROR_ON_UNDEFINED_SYMBOLS=0
+            )
+        else()
+            # Single-threaded: can use -nostartfiles
+            target_link_options(
+                barretenberg-debug.wasm
+                PRIVATE
+                -nostartfiles -Wl,--no-entry,--export-dynamic,--import-undefined
+                -sERROR_ON_UNDEFINED_SYMBOLS=0
+            )
+        endif()
     else()
+        # WASI builds: use -nostartfiles
         target_link_options(
             barretenberg-debug.wasm
             PRIVATE
