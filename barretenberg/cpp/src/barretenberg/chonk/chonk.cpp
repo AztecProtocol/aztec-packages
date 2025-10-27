@@ -74,7 +74,7 @@ void Chonk::instantiate_stdlib_verification_queue(
 /**
  * @brief Populate the provided circuit with constraints for (1) recursive verification of the provided accumulation
  * proof and (2) the associated databus commitment consistency checks.
- * @details The recursive verifier will be either Oink or Protogalaxy depending on the specified proof type. In either
+ * @details The recursive verifier will be either Oink or Hypernova depending on the specified proof type. In either
  * case, the verifier accumulator is updated in place via the verification algorithm. Databus commitment consistency
  * checks are performed on the witness commitments and public inputs extracted from the proof by the verifier. Merge
  * verification is performed with commitments to the subtable t_j extracted from the PG verifier. The computed

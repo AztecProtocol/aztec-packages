@@ -44,7 +44,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     SubrelationSeparator alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
