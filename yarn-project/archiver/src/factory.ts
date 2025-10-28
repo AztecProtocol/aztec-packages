@@ -4,9 +4,7 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
-import type { L2BlockSourceEventEmitter } from '@aztec/stdlib/block';
 import { type ContractClassPublic, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
-import type { ArchiverApi, Service } from '@aztec/stdlib/interfaces/server';
 
 import { Archiver, type ArchiverDeps } from './archiver/archiver.js';
 import type { ArchiverConfig } from './archiver/config.js';
@@ -38,7 +36,7 @@ export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
-): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
+): Promise<Archiver> {
   const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, deps, opts.blockUntilSync);

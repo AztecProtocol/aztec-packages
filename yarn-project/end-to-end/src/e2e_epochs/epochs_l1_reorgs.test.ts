@@ -230,12 +230,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait until a few more L1 blocks go by
       await retryUntil(() => monitor.l1BlockNumber > l1BlockNumber + 1, 'l1 block number', L1_BLOCK_TIME_IN_S * 4, 0.1);
-      await retryUntil(() => archiver.getL1BlockNumber() > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
+      await retryUntil(() => archiver.getL1BlockNumber()! > l1BlockNumber + 1, 'archiver sync', 10, 0.1);
       expect(await node.getBlockNumber()).toEqual(L2_BLOCK_NUMBER - 1);
 
       // Manually update the archiver's L1 syncpoint to ensure we look back when needed
       // Otherwise this test just passes because we do not update the L1 syncpoint in the archiver since there are no new blocks
-      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()));
+      await archiver.dataStore.setBlockSynchedL1BlockNumber(BigInt(archiver.getL1BlockNumber()!));
 
       // Now trigger the reorg. Note that we cannot use reorgWithReplacement here for the reorg, due to an anvil bug with
       // blob txs (now fixed, we can just update its version), so we reorg, then replay the tx, and then mine.
@@ -326,7 +326,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait until the archiver moves the syncpoint forward
       const l1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
-      await retryUntil(() => archiver.getL1BlockNumber() > l1BlockNumber, 'archiver sync', L1_BLOCK_TIME_IN_S * 2, 0.1);
+      await retryUntil(
+        () => archiver.getL1BlockNumber()! > l1BlockNumber,
+        'archiver sync',
+        L1_BLOCK_TIME_IN_S * 2,
+        0.1,
+      );
 
       // Now trigger the reorg, where we insert the second message
       logger.warn(`Triggering reorg to insert second message`);
