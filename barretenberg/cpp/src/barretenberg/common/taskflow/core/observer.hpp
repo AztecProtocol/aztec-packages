@@ -423,7 +423,7 @@ class TFProfObserver : public ObserverInterface {
         size_t min_span;
         size_t max_span;
 
-        float avg_span() const { return total_span * 1.0f / count; }
+        float avg_span() const { return static_cast<float>(total_span) / static_cast<float>(count); }
     };
 
     /** @private worker summary at a level */
@@ -438,7 +438,7 @@ class TFProfObserver : public ObserverInterface {
 
         std::array<TaskSummary, TASK_TYPES.size()> tsum;
 
-        float avg_span() const { return total_span * 1.0f / count; }
+        float avg_span() const { return static_cast<float>(total_span) / static_cast<float>(count); }
         // return count < 2 ? 0.0f : total_delay * 1.0f / (count-1);
     };
 

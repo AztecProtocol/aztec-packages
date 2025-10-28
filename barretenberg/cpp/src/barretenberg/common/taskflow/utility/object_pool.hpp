@@ -589,7 +589,11 @@ template <typename T, size_t S> template <typename... ArgsT> T* ObjectPool<T, S>
             s = new Block();
 
             if (s == nullptr) {
+#ifdef BB_NO_EXCEPTIONS
+                std::abort();
+#else
                 throw std::bad_alloc();
+#endif
             }
 
             s->heap = &h;
