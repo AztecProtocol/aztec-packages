@@ -1,8 +1,8 @@
 #pragma once
 
-#include "core/executor.hpp"
-#include "core/async.hpp"
 #include "algorithm/critical.hpp"
+#include "core/async.hpp"
+#include "core/executor.hpp"
 
 /**
 @dir taskflow
@@ -36,9 +36,9 @@
 // current version: 3.7.0
 #define TF_VERSION 300700
 
-#define TF_MAJOR_VERSION TF_VERSION/100000
-#define TF_MINOR_VERSION TF_VERSION/100%1000
-#define TF_PATCH_VERSION TF_VERSION%100
+#define TF_MAJOR_VERSION TF_VERSION / 100000
+#define TF_MINOR_VERSION TF_VERSION / 100 % 1000
+#define TF_PATCH_VERSION TF_VERSION % 100
 
 /**
 @brief taskflow namespace
@@ -48,22 +48,16 @@ namespace tf {
 /**
 @private
 */
-namespace detail { }
-
+namespace detail {}
 
 /**
 @brief queries the version information in a string format @c major.minor.patch
 
 Release notes are available here: https://taskflow.github.io/taskflow/Releases.html
 */
-constexpr const char* version() {
-  return "3.7.0";
+constexpr const char* version()
+{
+    return "3.7.0";
 }
 
-
-}  // end of namespace tf -----------------------------------------------------
-
-
-
-
-
+} // namespace tf

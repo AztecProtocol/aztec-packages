@@ -66,18 +66,17 @@ and how to submit a taskflow to an executor.
 */
 class Taskflow : public FlowBuilder {
 
-  friend class Topology;
-  friend class Executor;
-  friend class FlowBuilder;
+    friend class Topology;
+    friend class Executor;
+    friend class FlowBuilder;
 
-  struct Dumper {
-    size_t id;
-    std::stack<std::pair<const Node*, const Graph*>> stack;
-    std::unordered_map<const Graph*, size_t> visited;
-  };
+    struct Dumper {
+        size_t id;
+        std::stack<std::pair<const Node*, const Graph*>> stack;
+        std::unordered_map<const Graph*, size_t> visited;
+    };
 
   public:
-
     /**
     @brief constructs a taskflow with the given name
 
@@ -125,7 +124,7 @@ class Taskflow : public FlowBuilder {
     Notice that both @c taskflow1 and @c taskflow2 should not be running
     in an executor during the move operation, or the behavior is undefined.
     */
-    Taskflow& operator = (Taskflow&& rhs);
+    Taskflow& operator=(Taskflow&& rhs);
 
     /**
     @brief default destructor
@@ -243,15 +242,14 @@ class Taskflow : public FlowBuilder {
     });
     @endcode
     */
-    template <typename V>
-    void for_each_task(V&& visitor) const;
+    template <typename V> void for_each_task(V&& visitor) const;
 
     /**
     @brief removes dependencies that go from task @c from to task @c to
 
     @param from from task (dependent)
     @param to to task (successor)
-  
+
     @code{.cpp}
     tf::Taskflow taskflow;
     auto a = taskflow.placeholder().name("a");
@@ -264,7 +262,7 @@ class Taskflow : public FlowBuilder {
     assert(b.num_dependents() == 1);
     assert(c.num_dependents() == 1);
     assert(d.num_dependents() == 1);
-  
+
     taskflow.remove_dependency(a, b);
     assert(a.num_successors() == 2);
     assert(b.num_dependents() == 0);
@@ -282,7 +280,6 @@ class Taskflow : public FlowBuilder {
     Graph& graph();
 
   private:
-
     mutable std::mutex _mutex;
 
     std::string _name;
@@ -298,237 +295,251 @@ class Taskflow : public FlowBuilder {
 };
 
 // Constructor
-inline Taskflow::Taskflow(const std::string& name) :
-  FlowBuilder {_graph},
-  _name       {name} {
-}
+inline Taskflow::Taskflow(const std::string& name)
+    : FlowBuilder{ _graph }
+    , _name{ name }
+{}
 
 // Constructor
-inline Taskflow::Taskflow() : FlowBuilder{_graph} {
-}
+inline Taskflow::Taskflow()
+    : FlowBuilder{ _graph }
+{}
 
 // Move constructor
-inline Taskflow::Taskflow(Taskflow&& rhs) : FlowBuilder{_graph} {
+inline Taskflow::Taskflow(Taskflow&& rhs)
+    : FlowBuilder{ _graph }
+{
 
-  std::scoped_lock<std::mutex> lock(rhs._mutex);
+    std::scoped_lock<std::mutex> lock(rhs._mutex);
 
-  _name = std::move(rhs._name);
-  _graph = std::move(rhs._graph);
-  _topologies = std::move(rhs._topologies);
-  _satellite = rhs._satellite;
-
-  rhs._satellite.reset();
-}
-
-// Move assignment
-inline Taskflow& Taskflow::operator = (Taskflow&& rhs) {
-  if(this != &rhs) {
-    std::scoped_lock<std::mutex, std::mutex> lock(_mutex, rhs._mutex);
     _name = std::move(rhs._name);
     _graph = std::move(rhs._graph);
     _topologies = std::move(rhs._topologies);
     _satellite = rhs._satellite;
+
     rhs._satellite.reset();
-  }
-  return *this;
+}
+
+// Move assignment
+inline Taskflow& Taskflow::operator=(Taskflow&& rhs)
+{
+    if (this != &rhs) {
+        std::scoped_lock<std::mutex, std::mutex> lock(_mutex, rhs._mutex);
+        _name = std::move(rhs._name);
+        _graph = std::move(rhs._graph);
+        _topologies = std::move(rhs._topologies);
+        _satellite = rhs._satellite;
+        rhs._satellite.reset();
+    }
+    return *this;
 }
 
 // Procedure:
-inline void Taskflow::clear() {
-  _graph._clear();
+inline void Taskflow::clear()
+{
+    _graph._clear();
 }
 
 // Function: num_tasks
-inline size_t Taskflow::num_tasks() const {
-  return _graph.size();
+inline size_t Taskflow::num_tasks() const
+{
+    return _graph.size();
 }
 
 // Function: empty
-inline bool Taskflow::empty() const {
-  return _graph.empty();
+inline bool Taskflow::empty() const
+{
+    return _graph.empty();
 }
 
 // Function: name
-inline void Taskflow::name(const std::string &name) {
-  _name = name;
+inline void Taskflow::name(const std::string& name)
+{
+    _name = name;
 }
 
 // Function: name
-inline const std::string& Taskflow::name() const {
-  return _name;
+inline const std::string& Taskflow::name() const
+{
+    return _name;
 }
 
 // Function: graph
-inline Graph& Taskflow::graph() {
-  return _graph;
+inline Graph& Taskflow::graph()
+{
+    return _graph;
 }
 
 // Function: for_each_task
-template <typename V>
-void Taskflow::for_each_task(V&& visitor) const {
-  for(size_t i=0; i<_graph._nodes.size(); ++i) {
-    visitor(Task(_graph._nodes[i]));
-  }
+template <typename V> void Taskflow::for_each_task(V&& visitor) const
+{
+    for (size_t i = 0; i < _graph._nodes.size(); ++i) {
+        visitor(Task(_graph._nodes[i]));
+    }
 }
 
 // Procedure: remove_dependency
-inline void Taskflow::remove_dependency(Task from, Task to) {
-  from._node->_successors.erase(std::remove_if(
-    from._node->_successors.begin(), from._node->_successors.end(), [&](Node* i){
-      return i == to._node;
-    }
-  ), from._node->_successors.end());
-  
-  to._node->_dependents.erase(std::remove_if(
-    to._node->_dependents.begin(), to._node->_dependents.end(), [&](Node* i){
-      return i == from._node;
-    }
-  ), to._node->_dependents.end());
+inline void Taskflow::remove_dependency(Task from, Task to)
+{
+    from._node->_successors.erase(std::remove_if(from._node->_successors.begin(),
+                                                 from._node->_successors.end(),
+                                                 [&](Node* i) { return i == to._node; }),
+                                  from._node->_successors.end());
+
+    to._node->_dependents.erase(std::remove_if(to._node->_dependents.begin(),
+                                               to._node->_dependents.end(),
+                                               [&](Node* i) { return i == from._node; }),
+                                to._node->_dependents.end());
 }
 
 // Procedure: dump
-inline std::string Taskflow::dump() const {
-  std::ostringstream oss;
-  dump(oss);
-  return oss.str();
+inline std::string Taskflow::dump() const
+{
+    std::ostringstream oss;
+    dump(oss);
+    return oss.str();
 }
 
 // Function: dump
-inline void Taskflow::dump(std::ostream& os) const {
-  os << "digraph Taskflow {\n";
-  _dump(os, &_graph);
-  os << "}\n";
-}
-
-// Procedure: _dump
-inline void Taskflow::_dump(std::ostream& os, const Graph* top) const {
-
-  Dumper dumper;
-
-  dumper.id = 0;
-  dumper.stack.push({nullptr, top});
-  dumper.visited[top] = dumper.id++;
-
-  while(!dumper.stack.empty()) {
-
-    auto [p, f] = dumper.stack.top();
-    dumper.stack.pop();
-
-    os << "subgraph cluster_p" << f << " {\nlabel=\"";
-
-    // n-level module
-    if(p) {
-      os << 'm' << dumper.visited[f];
-    }
-    // top-level taskflow graph
-    else {
-      os << "Taskflow: ";
-      if(_name.empty()) os << 'p' << this;
-      else os << _name;
-    }
-
-    os << "\";\n";
-
-    _dump(os, f, dumper);
+inline void Taskflow::dump(std::ostream& os) const
+{
+    os << "digraph Taskflow {\n";
+    _dump(os, &_graph);
     os << "}\n";
-  }
 }
 
 // Procedure: _dump
-inline void Taskflow::_dump(
-  std::ostream& os, const Node* node, Dumper& dumper
-) const {
+inline void Taskflow::_dump(std::ostream& os, const Graph* top) const
+{
 
-  os << 'p' << node << "[label=\"";
-  if(node->_name.empty()) os << 'p' << node;
-  else os << node->_name;
-  os << "\" ";
+    Dumper dumper;
 
-  // shape for node
-  switch(node->_handle.index()) {
+    dumper.id = 0;
+    dumper.stack.push({ nullptr, top });
+    dumper.visited[top] = dumper.id++;
+
+    while (!dumper.stack.empty()) {
+
+        auto [p, f] = dumper.stack.top();
+        dumper.stack.pop();
+
+        os << "subgraph cluster_p" << f << " {\nlabel=\"";
+
+        // n-level module
+        if (p) {
+            os << 'm' << dumper.visited[f];
+        }
+        // top-level taskflow graph
+        else {
+            os << "Taskflow: ";
+            if (_name.empty())
+                os << 'p' << this;
+            else
+                os << _name;
+        }
+
+        os << "\";\n";
+
+        _dump(os, f, dumper);
+        os << "}\n";
+    }
+}
+
+// Procedure: _dump
+inline void Taskflow::_dump(std::ostream& os, const Node* node, Dumper& dumper) const
+{
+
+    os << 'p' << node << "[label=\"";
+    if (node->_name.empty())
+        os << 'p' << node;
+    else
+        os << node->_name;
+    os << "\" ";
+
+    // shape for node
+    switch (node->_handle.index()) {
 
     case Node::CONDITION:
     case Node::MULTI_CONDITION:
-      os << "shape=diamond color=black fillcolor=aquamarine style=filled";
-    break;
+        os << "shape=diamond color=black fillcolor=aquamarine style=filled";
+        break;
 
     default:
-    break;
-  }
-
-  os << "];\n";
-
-  for(size_t s=0; s<node->_successors.size(); ++s) {
-    if(node->_is_conditioner()) {
-      // case edge is dashed
-      os << 'p' << node << " -> p" << node->_successors[s]
-         << " [style=dashed label=\"" << s << "\"];\n";
-    } else {
-      os << 'p' << node << " -> p" << node->_successors[s] << ";\n";
+        break;
     }
-  }
 
-  // subflow join node
-  if(node->_parent && node->_parent->_handle.index() == Node::SUBFLOW &&
-     node->_successors.size() == 0
-    ) {
-    os << 'p' << node << " -> p" << node->_parent << ";\n";
-  }
+    os << "];\n";
 
-  // node info
-  switch(node->_handle.index()) {
+    for (size_t s = 0; s < node->_successors.size(); ++s) {
+        if (node->_is_conditioner()) {
+            // case edge is dashed
+            os << 'p' << node << " -> p" << node->_successors[s] << " [style=dashed label=\"" << s << "\"];\n";
+        } else {
+            os << 'p' << node << " -> p" << node->_successors[s] << ";\n";
+        }
+    }
+
+    // subflow join node
+    if (node->_parent && node->_parent->_handle.index() == Node::SUBFLOW && node->_successors.size() == 0) {
+        os << 'p' << node << " -> p" << node->_parent << ";\n";
+    }
+
+    // node info
+    switch (node->_handle.index()) {
 
     case Node::SUBFLOW: {
-      auto& sbg = std::get_if<Node::Subflow>(&node->_handle)->subgraph;
-      if(!sbg.empty()) {
-        os << "subgraph cluster_p" << node << " {\nlabel=\"Subflow: ";
-        if(node->_name.empty()) os << 'p' << node;
-        else os << node->_name;
+        auto& sbg = std::get_if<Node::Subflow>(&node->_handle)->subgraph;
+        if (!sbg.empty()) {
+            os << "subgraph cluster_p" << node << " {\nlabel=\"Subflow: ";
+            if (node->_name.empty())
+                os << 'p' << node;
+            else
+                os << node->_name;
 
-        os << "\";\n" << "color=blue\n";
-        _dump(os, &sbg, dumper);
-        os << "}\n";
-      }
-    }
-    break;
+            os << "\";\n" << "color=blue\n";
+            _dump(os, &sbg, dumper);
+            os << "}\n";
+        }
+    } break;
 
     default:
-    break;
-  }
+        break;
+    }
 }
 
 // Procedure: _dump
-inline void Taskflow::_dump(
-  std::ostream& os, const Graph* graph, Dumper& dumper
-) const {
+inline void Taskflow::_dump(std::ostream& os, const Graph* graph, Dumper& dumper) const
+{
 
-  for(const auto& n : graph->_nodes) {
+    for (const auto& n : graph->_nodes) {
 
-    // regular task
-    if(n->_handle.index() != Node::MODULE) {
-      _dump(os, n, dumper);
+        // regular task
+        if (n->_handle.index() != Node::MODULE) {
+            _dump(os, n, dumper);
+        }
+        // module task
+        else {
+            // auto module = &(std::get_if<Node::Module>(&n->_handle)->module);
+            auto module = &(std::get_if<Node::Module>(&n->_handle)->graph);
+
+            os << 'p' << n << "[shape=box3d, color=blue, label=\"";
+            if (n->_name.empty())
+                os << 'p' << n;
+            else
+                os << n->_name;
+
+            if (dumper.visited.find(module) == dumper.visited.end()) {
+                dumper.visited[module] = dumper.id++;
+                dumper.stack.push({ n, module });
+            }
+
+            os << " [m" << dumper.visited[module] << "]\"];\n";
+
+            for (const auto s : n->_successors) {
+                os << 'p' << n << "->" << 'p' << s << ";\n";
+            }
+        }
     }
-    // module task
-    else {
-      //auto module = &(std::get_if<Node::Module>(&n->_handle)->module);
-      auto module = &(std::get_if<Node::Module>(&n->_handle)->graph);
-
-      os << 'p' << n << "[shape=box3d, color=blue, label=\"";
-      if(n->_name.empty()) os << 'p' << n;
-      else os << n->_name;
-
-      if(dumper.visited.find(module) == dumper.visited.end()) {
-        dumper.visited[module] = dumper.id++;
-        dumper.stack.push({n, module});
-      }
-
-      os << " [m" << dumper.visited[module] << "]\"];\n";
-
-      for(const auto s : n->_successors) {
-        os << 'p' << n << "->" << 'p' << s << ";\n";
-      }
-    }
-  }
 }
 
 // ----------------------------------------------------------------------------
@@ -568,15 +579,13 @@ fu.cancel();
 fu.get();
 @endcode
 */
-template <typename T>
-class Future : public std::future<T>  {
+template <typename T> class Future : public std::future<T> {
 
-  friend class Executor;
-  friend class Subflow;
-  friend class Runtime;
+    friend class Executor;
+    friend class Subflow;
+    friend class Runtime;
 
   public:
-
     /**
     @brief default constructor
     */
@@ -595,12 +604,12 @@ class Future : public std::future<T>  {
     /**
     @brief disabled copy assignment
     */
-    Future& operator = (const Future&) = delete;
+    Future& operator=(const Future&) = delete;
 
     /**
     @brief default move assignment
     */
-    Future& operator = (Future&&) = default;
+    Future& operator=(Future&&) = default;
 
     /**
     @brief cancels the execution of the running taskflow associated with
@@ -617,27 +626,25 @@ class Future : public std::future<T>  {
     bool cancel();
 
   private:
-    
     std::weak_ptr<Topology> _topology;
 
     Future(std::future<T>&&, std::weak_ptr<Topology> = std::weak_ptr<Topology>());
 };
 
 template <typename T>
-Future<T>::Future(std::future<T>&& f, std::weak_ptr<Topology> p) :
-  std::future<T> {std::move(f)},
-  _topology      {std::move(p)} {
-}
+Future<T>::Future(std::future<T>&& f, std::weak_ptr<Topology> p)
+    : std::future<T>{ std::move(f) }
+    , _topology{ std::move(p) }
+{}
 
 // Function: cancel
-template <typename T>
-bool Future<T>::cancel() {
-  if(auto ptr = _topology.lock(); ptr) {
-    ptr->_state.fetch_or(Topology::CANCELLED, std::memory_order_relaxed);
-    return true;
-  }
-  return false;
+template <typename T> bool Future<T>::cancel()
+{
+    if (auto ptr = _topology.lock(); ptr) {
+        ptr->_state.fetch_or(Topology::CANCELLED, std::memory_order_relaxed);
+        return true;
+    }
+    return false;
 }
 
-
-}  // end of namespace tf. ---------------------------------------------------
+} // namespace tf

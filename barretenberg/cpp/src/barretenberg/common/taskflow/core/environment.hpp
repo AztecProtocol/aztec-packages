@@ -2,7 +2,4 @@
 
 #define TF_ENABLE_PROFILER "TF_ENABLE_PROFILER"
 
-namespace tf {
-
-}  // end of namespace tf -----------------------------------------------------
-
+namespace tf {} // namespace tf

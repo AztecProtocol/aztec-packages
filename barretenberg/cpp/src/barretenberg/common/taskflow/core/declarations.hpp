@@ -25,11 +25,9 @@ class ChromeTracingObserver;
 class TFProfObserver;
 class TFProfManager;
 
-template <typename T>
-class Future;
+template <typename T> class Future;
 
-template <typename...Fs>
-class Pipeline;
+template <typename... Fs> class Pipeline;
 
 // ----------------------------------------------------------------------------
 // cudaFlow
@@ -53,14 +51,9 @@ class syclTask;
 class syclFlow;
 
 // ----------------------------------------------------------------------------
-// struct 
+// struct
 // ----------------------------------------------------------------------------
 struct TaskParams;
 struct DefaultTaskParams;
 
-
-}  // end of namespace tf -----------------------------------------------------
-
-
-
-
+} // namespace tf

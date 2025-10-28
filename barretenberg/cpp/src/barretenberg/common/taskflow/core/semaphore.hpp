@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <mutex>
+#include <vector>
 
 #include "declarations.hpp"
 
@@ -67,10 +67,9 @@ This arrangement limits the number of concurrently running tasks to only one.
 */
 class Semaphore {
 
-  friend class Node;
+    friend class Node;
 
   public:
-
     /**
     @brief constructs a semaphore with the given counter
 
@@ -89,7 +88,6 @@ class Semaphore {
     size_t count() const;
 
   private:
-
     std::mutex _mtx;
 
     size_t _counter;
@@ -101,32 +99,33 @@ class Semaphore {
     std::vector<Node*> _release();
 };
 
-inline Semaphore::Semaphore(size_t max_workers) :
-  _counter(max_workers) {
+inline Semaphore::Semaphore(size_t max_workers)
+    : _counter(max_workers)
+{}
+
+inline bool Semaphore::_try_acquire_or_wait(Node* me)
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    if (_counter > 0) {
+        --_counter;
+        return true;
+    } else {
+        _waiters.push_back(me);
+        return false;
+    }
 }
 
-inline bool Semaphore::_try_acquire_or_wait(Node* me) {
-  std::lock_guard<std::mutex> lock(_mtx);
-  if(_counter > 0) {
-    --_counter;
-    return true;
-  }
-  else {
-    _waiters.push_back(me);
-    return false;
-  }
+inline std::vector<Node*> Semaphore::_release()
+{
+    std::lock_guard<std::mutex> lock(_mtx);
+    ++_counter;
+    std::vector<Node*> r{ std::move(_waiters) };
+    return r;
 }
 
-inline std::vector<Node*> Semaphore::_release() {
-  std::lock_guard<std::mutex> lock(_mtx);
-  ++_counter;
-  std::vector<Node*> r{std::move(_waiters)};
-  return r;
+inline size_t Semaphore::count() const
+{
+    return _counter;
 }
 
-inline size_t Semaphore::count() const {
-  return _counter;
-}
-
-}  // end of namespace tf. ---------------------------------------------------
-
+} // namespace tf

@@ -1,8 +1,8 @@
 #pragma once
 
 #include "declarations.hpp"
-#include "tsq.hpp"
 #include "notifier.hpp"
+#include "tsq.hpp"
 
 /**
 @file worker.hpp
@@ -27,11 +27,10 @@ using tf::WorkerInterface.
 */
 class Worker {
 
-  friend class Executor;
-  friend class WorkerView;
+    friend class Executor;
+    friend class WorkerView;
 
   public:
-
     /**
     @brief queries the worker id associated with its parent executor
 
@@ -51,20 +50,19 @@ class Worker {
            run) associated with the worker
     */
     inline size_t queue_size() const { return _wsq.size(); }
-    
+
     /**
     @brief queries the current capacity of the queue
     */
     inline size_t queue_capacity() const { return static_cast<size_t>(_wsq.capacity()); }
 
   private:
-
     size_t _id;
     size_t _vtm;
     Executor* _executor;
     std::thread* _thread;
     Notifier::Waiter* _waiter;
-    std::default_random_engine _rdgen { std::random_device{}() };
+    std::default_random_engine _rdgen{ std::random_device{}() };
     TaskQueue<Node*> _wsq;
     Node* _cache;
 };
@@ -76,27 +74,26 @@ class Worker {
 /**
 @private
 */
-//struct PerThreadWorker {
+// struct PerThreadWorker {
 //
-//  Worker* worker;
+//   Worker* worker;
 //
-//  PerThreadWorker() : worker {nullptr} {}
+//   PerThreadWorker() : worker {nullptr} {}
 //
-//  PerThreadWorker(const PerThreadWorker&) = delete;
-//  PerThreadWorker(PerThreadWorker&&) = delete;
+//   PerThreadWorker(const PerThreadWorker&) = delete;
+//   PerThreadWorker(PerThreadWorker&&) = delete;
 //
-//  PerThreadWorker& operator = (const PerThreadWorker&) = delete;
-//  PerThreadWorker& operator = (PerThreadWorker&&) = delete;
-//};
+//   PerThreadWorker& operator = (const PerThreadWorker&) = delete;
+//   PerThreadWorker& operator = (PerThreadWorker&&) = delete;
+// };
 
 /**
 @private
 */
-//inline PerThreadWorker& this_worker() {
-//  thread_local PerThreadWorker worker;
-//  return worker;
-//}
-
+// inline PerThreadWorker& this_worker() {
+//   thread_local PerThreadWorker worker;
+//   return worker;
+// }
 
 // ----------------------------------------------------------------------------
 // Class Definition: WorkerView
@@ -114,10 +111,9 @@ from an observer derived from tf::ObserverInterface.
 */
 class WorkerView {
 
-  friend class Executor;
+    friend class Executor;
 
   public:
-
     /**
     @brief queries the worker id associated with its parent executor
 
@@ -139,34 +135,33 @@ class WorkerView {
     size_t queue_capacity() const;
 
   private:
-
     WorkerView(const Worker&);
     WorkerView(const WorkerView&) = default;
 
     const Worker& _worker;
-
 };
 
 // Constructor
-inline WorkerView::WorkerView(const Worker& w) : _worker{w} {
-}
+inline WorkerView::WorkerView(const Worker& w)
+    : _worker{ w }
+{}
 
 // function: id
-inline size_t WorkerView::id() const {
-  return _worker._id;
+inline size_t WorkerView::id() const
+{
+    return _worker._id;
 }
 
 // Function: queue_size
-inline size_t WorkerView::queue_size() const {
-  return _worker._wsq.size();
+inline size_t WorkerView::queue_size() const
+{
+    return _worker._wsq.size();
 }
 
 // Function: queue_capacity
-inline size_t WorkerView::queue_capacity() const {
-  return static_cast<size_t>(_worker._wsq.capacity());
+inline size_t WorkerView::queue_capacity() const
+{
+    return static_cast<size_t>(_worker._wsq.capacity());
 }
 
-
-}  // end of namespact tf -----------------------------------------------------
-
-
+} // namespace tf

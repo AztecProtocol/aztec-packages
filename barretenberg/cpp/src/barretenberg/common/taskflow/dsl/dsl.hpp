@@ -7,7 +7,4 @@
 
 #include "dsl/task_dsl.hpp"
 
-namespace tf {
-
-
-}  // end of namespace tf -----------------------------------------------------
+namespace tf {} // namespace tf

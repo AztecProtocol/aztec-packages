@@ -35,45 +35,41 @@ The motivation of this decentralized control is to avoid device objects
 from being destroyed while the context had been destroyed due to driver shutdown.
 
 */
-template <typename H, typename C, typename D>
-class cudaPerThreadDeviceObjectPool {
+template <typename H, typename C, typename D> class cudaPerThreadDeviceObjectPool {
 
   public:
+    /**
+    @brief structure to store a context object
+     */
+    struct Object {
 
-  /**
-  @brief structure to store a context object
-   */
-  struct Object {
+        int device;
+        H value;
 
-    int device;
-    H value;
+        Object(int);
+        ~Object();
 
-    Object(int);
-    ~Object();
-
-    Object(const Object&) = delete;
-    Object(Object&&) = delete;
-  };
+        Object(const Object&) = delete;
+        Object(Object&&) = delete;
+    };
 
   private:
+    // Master thread hold the storage to the pool.
+    // Due to some ordering, cuda context may be destroyed when the master
+    // program thread destroys the cuda object.
+    // Therefore, we use a decentralized approach to let child thread
+    // destroy cuda objects while the master thread only keeps a weak reference
+    // to those objects for reuse.
+    struct cudaGlobalDeviceObjectPool {
 
-  // Master thread hold the storage to the pool.
-  // Due to some ordering, cuda context may be destroyed when the master
-  // program thread destroys the cuda object.
-  // Therefore, we use a decentralized approach to let child thread
-  // destroy cuda objects while the master thread only keeps a weak reference
-  // to those objects for reuse.
-  struct cudaGlobalDeviceObjectPool {
+        std::shared_ptr<Object> acquire(int);
+        void release(int, std::weak_ptr<Object>);
 
-    std::shared_ptr<Object> acquire(int);
-    void release(int, std::weak_ptr<Object>);
-
-    std::mutex mutex;
-    std::unordered_map<int, std::vector<std::weak_ptr<Object>>> pool;
-  };
+        std::mutex mutex;
+        std::unordered_map<int, std::vector<std::weak_ptr<Object>>> pool;
+    };
 
   public:
-
     /**
     @brief default constructor
      */
@@ -95,7 +91,6 @@ class cudaPerThreadDeviceObjectPool {
     size_t footprint_size() const;
 
   private:
-
     inline static cudaGlobalDeviceObjectPool _shared_pool;
 
     std::unordered_set<std::shared_ptr<Object>> _footprint;
@@ -106,16 +101,17 @@ class cudaPerThreadDeviceObjectPool {
 // ----------------------------------------------------------------------------
 
 template <typename H, typename C, typename D>
-cudaPerThreadDeviceObjectPool<H, C, D>::Object::Object(int d) :
-  device {d} {
-  cudaScopedDevice ctx(device);
-  value = C{}();
+cudaPerThreadDeviceObjectPool<H, C, D>::Object::Object(int d)
+    : device{ d }
+{
+    cudaScopedDevice ctx(device);
+    value = C{}();
 }
 
-template <typename H, typename C, typename D>
-cudaPerThreadDeviceObjectPool<H, C, D>::Object::~Object() {
-  cudaScopedDevice ctx(device);
-  D{}(value);
+template <typename H, typename C, typename D> cudaPerThreadDeviceObjectPool<H, C, D>::Object::~Object()
+{
+    cudaScopedDevice ctx(device);
+    D{}(value);
 }
 
 // ----------------------------------------------------------------------------
@@ -123,27 +119,27 @@ cudaPerThreadDeviceObjectPool<H, C, D>::Object::~Object() {
 // ----------------------------------------------------------------------------
 
 template <typename H, typename C, typename D>
-std::shared_ptr<typename cudaPerThreadDeviceObjectPool<H, C, D>::Object>
-cudaPerThreadDeviceObjectPool<H, C, D>::cudaGlobalDeviceObjectPool::acquire(int d) {
-  std::scoped_lock<std::mutex> lock(mutex);
-  if(auto itr = pool.find(d); itr != pool.end()) {
-    while(!itr->second.empty()) {
-      auto sptr = itr->second.back().lock();
-      itr->second.pop_back();
-      if(sptr) {
-        return sptr;
-      }
+std::shared_ptr<typename cudaPerThreadDeviceObjectPool<H, C, D>::Object> cudaPerThreadDeviceObjectPool<H, C, D>::
+    cudaGlobalDeviceObjectPool::acquire(int d)
+{
+    std::scoped_lock<std::mutex> lock(mutex);
+    if (auto itr = pool.find(d); itr != pool.end()) {
+        while (!itr->second.empty()) {
+            auto sptr = itr->second.back().lock();
+            itr->second.pop_back();
+            if (sptr) {
+                return sptr;
+            }
+        }
     }
-  }
-  return nullptr;
+    return nullptr;
 }
 
 template <typename H, typename C, typename D>
-void cudaPerThreadDeviceObjectPool<H, C, D>::cudaGlobalDeviceObjectPool::release(
-  int d, std::weak_ptr<Object> ptr
-) {
-  std::scoped_lock<std::mutex> lock(mutex);
-  pool[d].push_back(ptr);
+void cudaPerThreadDeviceObjectPool<H, C, D>::cudaGlobalDeviceObjectPool::release(int d, std::weak_ptr<Object> ptr)
+{
+    std::scoped_lock<std::mutex> lock(mutex);
+    pool[d].push_back(ptr);
 }
 
 // ----------------------------------------------------------------------------
@@ -151,29 +147,29 @@ void cudaPerThreadDeviceObjectPool<H, C, D>::cudaGlobalDeviceObjectPool::release
 // ----------------------------------------------------------------------------
 
 template <typename H, typename C, typename D>
-std::shared_ptr<typename cudaPerThreadDeviceObjectPool<H, C, D>::Object>
-cudaPerThreadDeviceObjectPool<H, C, D>::acquire(int d) {
+std::shared_ptr<typename cudaPerThreadDeviceObjectPool<H, C, D>::Object> cudaPerThreadDeviceObjectPool<H, C, D>::
+    acquire(int d)
+{
 
-  auto ptr = _shared_pool.acquire(d);
+    auto ptr = _shared_pool.acquire(d);
 
-  if(!ptr) {
-    ptr = std::make_shared<Object>(d);
-  }
+    if (!ptr) {
+        ptr = std::make_shared<Object>(d);
+    }
 
-  return ptr;
+    return ptr;
 }
 
 template <typename H, typename C, typename D>
-void cudaPerThreadDeviceObjectPool<H, C, D>::release(
-  std::shared_ptr<Object>&& ptr
-) {
-  _shared_pool.release(ptr->device, ptr);
-  _footprint.insert(std::move(ptr));
+void cudaPerThreadDeviceObjectPool<H, C, D>::release(std::shared_ptr<Object>&& ptr)
+{
+    _shared_pool.release(ptr->device, ptr);
+    _footprint.insert(std::move(ptr));
 }
 
-template <typename H, typename C, typename D>
-size_t cudaPerThreadDeviceObjectPool<H, C, D>::footprint_size() const {
-  return _footprint.size();
+template <typename H, typename C, typename D> size_t cudaPerThreadDeviceObjectPool<H, C, D>::footprint_size() const
+{
+    return _footprint.size();
 }
 
 // ----------------------------------------------------------------------------
@@ -185,103 +181,103 @@ size_t cudaPerThreadDeviceObjectPool<H, C, D>::footprint_size() const {
 
 @brief class to create an RAII-styled and move-only wrapper for CUDA objects
 */
-template <typename T, typename C, typename D>
-class cudaObject {
-  
+template <typename T, typename C, typename D> class cudaObject {
+
   public:
+    /**
+    @brief constructs a CUDA object from the given one
+    */
+    explicit cudaObject(T obj)
+        : object(obj)
+    {}
 
-  /**
-  @brief constructs a CUDA object from the given one
-  */
-  explicit cudaObject(T obj) : object(obj) {}
-  
-  /**
-  @brief constructs a new CUDA object
-  */
-  cudaObject() : object{ C{}() } {}
-    
-  /**
-  @brief disabled copy constructor
-  */
-  cudaObject(const cudaObject&) = delete;
-  
-  /**
-  @brief move constructor
-  */
-  cudaObject(cudaObject&& rhs) : object{rhs.object} {
-    rhs.object = nullptr;
-  }
+    /**
+    @brief constructs a new CUDA object
+    */
+    cudaObject()
+        : object{ C{}() }
+    {}
 
-  /**
-  @brief destructs the CUDA object
-  */
-  ~cudaObject() { D{}(object); }
-  
-  /**
-  @brief disabled copy assignment
-  */
-  cudaObject& operator = (const cudaObject&) = delete;
+    /**
+    @brief disabled copy constructor
+    */
+    cudaObject(const cudaObject&) = delete;
 
-  /**
-  @brief move assignment
-  */
-  cudaObject& operator = (cudaObject&& rhs) {
-    D {} (object);
-    object = rhs.object;
-    rhs.object = nullptr;
-    return *this;
-  }
-  
-  /**
-  @brief implicit conversion to the native CUDA stream (cudaObject_t)
+    /**
+    @brief move constructor
+    */
+    cudaObject(cudaObject&& rhs)
+        : object{ rhs.object }
+    {
+        rhs.object = nullptr;
+    }
 
-  Returns the underlying stream of type @c cudaObject_t.
-  */
-  operator T () const {
-    return object;
-  }
-    
-  /**
-  @brief deletes the current CUDA object (if any) and creates a new one
-  */
-  void create() {
-    D {} (object);
-    object = C{}();
-  }
-  
-  /**
-  @brief resets this CUDA object to the given one
-  */
-  void reset(T new_obj) {
-    D {} (object);
-    object = new_obj;
-  }
-  
-  /**
-  @brief deletes the current CUDA object
-  */
-  void clear() {
-    reset(nullptr);
-  }
+    /**
+    @brief destructs the CUDA object
+    */
+    ~cudaObject() { D{}(object); }
 
-  /**
-  @brief releases the ownership of the CUDA object
-  */
-  T release() {
-    auto tmp = object;
-    object = nullptr;
-    return tmp;
-  }
-  
+    /**
+    @brief disabled copy assignment
+    */
+    cudaObject& operator=(const cudaObject&) = delete;
+
+    /**
+    @brief move assignment
+    */
+    cudaObject& operator=(cudaObject&& rhs)
+    {
+        D{}(object);
+        object = rhs.object;
+        rhs.object = nullptr;
+        return *this;
+    }
+
+    /**
+    @brief implicit conversion to the native CUDA stream (cudaObject_t)
+
+    Returns the underlying stream of type @c cudaObject_t.
+    */
+    operator T() const { return object; }
+
+    /**
+    @brief deletes the current CUDA object (if any) and creates a new one
+    */
+    void create()
+    {
+        D{}(object);
+        object = C{}();
+    }
+
+    /**
+    @brief resets this CUDA object to the given one
+    */
+    void reset(T new_obj)
+    {
+        D{}(object);
+        object = new_obj;
+    }
+
+    /**
+    @brief deletes the current CUDA object
+    */
+    void clear() { reset(nullptr); }
+
+    /**
+    @brief releases the ownership of the CUDA object
+    */
+    T release()
+    {
+        auto tmp = object;
+        object = nullptr;
+        return tmp;
+    }
+
   protected:
-
-  /**
-  @brief the CUDA object
-  */
-  T object;
+    /**
+    @brief the CUDA object
+    */
+    T object;
 };
 
-}  // end of namespace tf -----------------------------------------------------
-
-
-
+} // namespace tf

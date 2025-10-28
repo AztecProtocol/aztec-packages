@@ -23,40 +23,39 @@ is recommended to be an odd number to avoid bank conflict.
 
 Details can be referred to @ref SYCLSTDExecutionPolicy.
 */
-template<unsigned NT, unsigned VT>
-class syclExecutionPolicy {
+template <unsigned NT, unsigned VT> class syclExecutionPolicy {
 
-  static_assert(is_pow2(NT), "max # threads per block must be a power of two");
+    static_assert(is_pow2(NT), "max # threads per block must be a power of two");
 
   public:
+    /** @brief static constant for getting the number of threads per block */
+    const static unsigned nt = NT;
 
-  /** @brief static constant for getting the number of threads per block */
-  const static unsigned nt = NT;
+    /** @brief static constant for getting the number of work units per thread */
+    const static unsigned vt = VT;
 
-  /** @brief static constant for getting the number of work units per thread */
-  const static unsigned vt = VT;
+    /** @brief static constant for getting the number of elements to process per block */
+    const static unsigned nv = NT * VT;
 
-  /** @brief static constant for getting the number of elements to process per block */
-  const static unsigned nv = NT*VT;
+    /**
+    @brief constructs an execution policy object with the given queue
+     */
+    syclExecutionPolicy(sycl::queue& queue)
+        : _queue{ queue }
+    {}
 
-  /**
-  @brief constructs an execution policy object with the given queue
-   */
-  syclExecutionPolicy(sycl::queue& queue) : _queue{queue} {}
+    /**
+    @brief returns an mutable reference to the associated queue
+     */
+    sycl::queue& queue() noexcept { return _queue; };
 
-  /**
-  @brief returns an mutable reference to the associated queue
-   */
-  sycl::queue& queue() noexcept { return _queue; };
-
-  /**
-  @brief returns an immutable reference to the associated queue
-   */
-  const sycl::queue& queue() const noexcept { return _queue; }
+    /**
+    @brief returns an immutable reference to the associated queue
+     */
+    const sycl::queue& queue() const noexcept { return _queue; }
 
   private:
-
-  sycl::queue& _queue;
+    sycl::queue& _queue;
 };
 
 /**
@@ -64,7 +63,4 @@ class syclExecutionPolicy {
  */
 using syclDefaultExecutionPolicy = syclExecutionPolicy<512, 9>;
 
-}  // end of namespace tf -----------------------------------------------------
-
-
-
+} // namespace tf
