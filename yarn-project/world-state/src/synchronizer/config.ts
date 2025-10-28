@@ -16,7 +16,7 @@ export interface WorldStateConfig {
   /** Size of the batch for each get-blocks request from the synchronizer to the archiver. */
   worldStateBlockRequestBatchSize?: number;
 
-  /** The map size to be provided to LMDB for each world state tree DB, optional, will inherit from the general dataStoreMapSizeKB if not specified*/
+  /** The map size to be provided to LMDB for each world state tree DB, optional, will inherit from the general dataStoreMapSizeKb if not specified*/
   worldStateDbMapSizeKb?: number;
 
   /** The map size to be provided to LMDB for each world state archive tree, optional, will inherit from the general worldStateDbMapSizeKb if not specified*/
@@ -61,7 +61,7 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
   worldStateDbMapSizeKb: {
     env: 'WS_DB_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: 'The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    description: 'The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   archiveTreeMapSizeKb: {
     env: 'ARCHIVE_TREE_MAP_SIZE_KB',

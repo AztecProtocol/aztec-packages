@@ -176,7 +176,7 @@ aztec start --node --network testnet
 - `--p2p.block-request-batch-size <value>`: The number of blocks to fetch in a single batch (default: 20).
 - `--p2p.archived-tx-limit <value>`: The number of transactions that will be archived. If the limit is set to 0 then archiving will be disabled.
 - `--p2p.trusted-peers <value>`: A list of trusted peers ENRs. Separated by commas.
-- `--p2p.p2p-store-map-size-kb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--p2p.p2p-store-map-size-kb <value>`: The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--p2p.tx-public-setup-allow-list <value>`: The list of functions calls allowed to run in setup.
 - `--p2p.max-tx-pool-size <value>`: The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs (default: 100000000).
 - `--p2p.overall-request-timeout-ms <value>`: The overall timeout for a request response operation (default: 4000).
@@ -220,7 +220,7 @@ aztec start --port 8081 --pxe --pxe.nodeUrl=$BOOTNODE --pxe.proverEnabled true -
 - `--archiver.archiver-polling-interval-ms <value>`: The polling interval in ms for retrieving new L2 blocks and encrypted logs (default: 500).
 - `--archiver.archiver-batch-size <value>`: The number of L2 blocks the archiver will attempt to download at a time (default: 100).
 - `--archiver.max-logs <value>`: The max number of logs that can be obtained in 1 "getPublicLogs" call (default: 1000).
-- `--archiver.archiver-store-map-size-kb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--archiver.archiver-store-map-size-kb <value>`: The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--archiver.rollup-version <value>`: The version of the rollup.
 - `--archiver.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
 - `--archiver.ethereum-slot-duration <value>`: How many seconds an L1 slot lasts (default: 12).
@@ -329,7 +329,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 - `--prover-node.world-state-block-check-interval-ms <value>`: The frequency in which to check (default: 100).
 - `--prover-node.world-state-proven-blocks-only <value>`: Whether to follow only the proven chain.
 - `--prover-node.world-state-block-request-batch-size <value>`: Size of the batch for each get-blocks request from the synchronizer to the archiver.
-- `--prover-node.world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.
+- `--prover-node.world-state-db-map-size-kb <value>`: The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKb.
 - `--prover-node.world-state-data-directory <value>`: Optional directory for the world state database.
 - `--prover-node.world-state-block-history <value>`: The number of historic blocks to maintain. Values less than 1 mean all history is maintained (default: 64).
 - `--prover-node.l1-publish-retry-interval-ms <value>`: The interval to wait between publish retries (default: 1000).
@@ -356,7 +356,7 @@ aztec start --network testnet --l1-rpc-urls https://example.com --l1-consensus-h
 - `--prover-broker.prover-broker-batch-size <value>`: The prover broker writes jobs to disk in batches (default: 100).
 - `--prover-broker.prover-broker-batch-interval-ms <value>`: How often to flush batches to disk (default: 50).
 - `--prover-broker.prover-broker-max-epochs-to-keep-results-for <value>`: The maximum number of epochs to keep results for (default: 1).
-- `--prover-broker.prover-broker-store-map-size-kb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.
+- `--prover-broker.prover-broker-store-map-size-kb <value>`: The size of the prover broker's database. Will override the dataStoreMapSizeKb if set.
 - `--prover-broker.data-store-map-size-kb <value>`: DB mapping size to be applied to all key/value stores (default: 134217728).
 - `--prover-broker.viem-polling-interval-ms <value>`: The polling interval viem uses in ms (default: 1000).
 - `--prover-broker.rollup-version <value>`: The version of the rollup.

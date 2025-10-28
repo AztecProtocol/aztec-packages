@@ -26,7 +26,7 @@ async function createPXEService(): Promise<PXE> {
   const config: PXEServiceConfig = {
     l2BlockBatchSize: 50,
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 1024 * 1024,
+    dataStoreMapSizeKb: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
     l1ChainId: 31337,
     rollupVersion: 1,
@@ -76,7 +76,7 @@ describe('PXEService', () => {
       l2BlockBatchSize: 50,
       proverEnabled: false,
       dataDirectory: undefined,
-      dataStoreMapSizeKB: 1024 * 1024,
+      dataStoreMapSizeKb: 1024 * 1024,
       l1Contracts: { rollupAddress: EthAddress.random() },
       rollupVersion: 1,
       l1ChainId: 31337,

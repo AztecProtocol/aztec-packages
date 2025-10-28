@@ -170,7 +170,7 @@ export class AztecEnv {
       AztecEnv.isNetworkStoreInitialized = true;
       const networkStore = await createStore('network_data', {
         dataDirectory: 'network',
-        dataStoreMapSizeKB: 1e6,
+        dataStoreMapSizeKb: 1e6,
       });
       const networkDB = NetworkDB.getInstance();
       networkDB.init(networkStore);

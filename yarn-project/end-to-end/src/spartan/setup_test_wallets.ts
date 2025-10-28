@@ -282,7 +282,7 @@ export async function startCompatiblePXE(
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
   const pxe = await createPXEService(node, {
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 1024 * 1024,
+    dataStoreMapSizeKb: 1024 * 1024,
     ...bbConfig,
     ...acvmConfig,
     proverEnabled,
