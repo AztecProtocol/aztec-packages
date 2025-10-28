@@ -15,6 +15,8 @@ namespace bb::stdlib {
 
 template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2>>& table_entries)
+    : raw_entries(table_entries)
+    , length(raw_entries.size())
 {
     static_assert(IsUltraOrMegaBuilder<Builder>);
     // get the builder context
@@ -28,8 +30,6 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
             break;
         }
     }
-    raw_entries = table_entries;
-    length = raw_entries.size();
 
     // We do not initialize the table yet. The input entries might all be constant,
     // if this is the case we might not have a valid pointer to a Builder
@@ -37,9 +37,9 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     // with a non-const field element.
 
     // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
-    tags.resize(length);
+    _tags.resize(length);
     for (size_t i = 0; i < length; ++i) {
-        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+        _tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
     }
 }
 
@@ -80,9 +80,9 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
     }
 
     // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
-    tags.resize(length);
+    _tags.resize(length);
     for (size_t i = 0; i < length; ++i) {
-        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+        _tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
     }
     initialized = true;
 }
@@ -91,7 +91,7 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
-    , tags(other.tags)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
@@ -102,30 +102,21 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
-    , tags(other.tags)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
     , context(other.context)
 {}
 
-template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other)
-{
-    raw_entries = other.raw_entries;
-    entries = other.entries;
-    tags = other.tags;
-    length = other.length;
-    rom_id = other.rom_id;
-    initialized = other.initialized;
-    context = other.context;
-    return *this;
-}
+template <typename Builder>
+twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other) = default;
 
 template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other)
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
-    tags = other.tags;
+    _tags = other._tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
@@ -169,8 +160,8 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // In case of a legitimate lookup, restore the tags of the original entries to the output
     if (native_index < length) {
-        pair[0].set_origin_tag(tags[cast_index][0]);
-        pair[1].set_origin_tag(tags[cast_index][1]);
+        pair[0].set_origin_tag(_tags[cast_index][0]);
+        pair[1].set_origin_tag(_tags[cast_index][1]);
     }
     return pair;
 }

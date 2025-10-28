@@ -41,13 +41,13 @@ template <typename Builder> class twin_rom_table {
     Builder* get_context() const { return context; }
 
   private:
-    std::vector<field_pair_pt> raw_entries;
-    mutable std::vector<field_pair_pt> entries;
-
+    std::vector<field_pair_pt> raw_entries;     // entries of the ROM table
+    mutable std::vector<field_pair_pt> entries; // processed entries of the ROM table, where circuit constants are
+                                                // explicitly turned into constant witnesses.
     // Origin Tags used for tracking dangerous interactions in stdlib primtives
-    mutable std::vector<std::array<OriginTag, 2>> tags;
+    mutable std::vector<std::array<OriginTag, 2>> _tags;
     size_t length = 0;
-    mutable size_t rom_id = 0; // Builder identifier for this ROM table
+    mutable size_t rom_id = 0; // Identifier of this ROM table for the builder
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
 };
