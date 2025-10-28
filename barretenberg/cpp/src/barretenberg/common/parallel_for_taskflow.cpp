@@ -3,13 +3,17 @@
 #include "thread.hpp"
 
 // Disable warnings for external taskflow library
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #pragma clang diagnostic ignored "-Wimplicit-int-float-conversion"
 #pragma clang diagnostic ignored "-Wshorten-64-to-32"
 #pragma clang diagnostic ignored "-Wconversion"
+#endif
 #include "taskflow/taskflow.hpp"
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
 
 namespace bb {
 namespace detail {
