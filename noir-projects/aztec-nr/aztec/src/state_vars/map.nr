@@ -67,7 +67,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 ///
 /// docs:start:map
 pub struct Map<K, V, Context> {
-    context: Context,
+    pub context: Context,
     storage_slot: Field,
     state_var_constructor: fn(Context, Field) -> V,
 }

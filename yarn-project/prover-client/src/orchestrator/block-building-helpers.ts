@@ -218,11 +218,15 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
 );
 
 export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
-  const proofFields = tx.clientIvcProof.proof;
-  const numPublicInputs = proofFields.length - CIVC_PROOF_LENGTH;
-  const binaryProof = new Proof(Buffer.concat(proofFields.map(field => field.toBuffer())), numPublicInputs);
-  const proofFieldsWithoutPublicInputs = proofFields.slice(numPublicInputs);
-  return new RecursiveProof(proofFieldsWithoutPublicInputs, binaryProof, true, CIVC_PROOF_LENGTH);
+  const publicInputs = tx.data.publicInputs().toFields();
+
+  const binaryProof = new Proof(
+    Buffer.concat(
+      tx.clientIvcProof.attachPublicInputs(publicInputs).fieldsWithPublicInputs.map(field => field.toBuffer()),
+    ),
+    publicInputs.length,
+  );
+  return new RecursiveProof(tx.clientIvcProof.fields, binaryProof, true, CIVC_PROOF_LENGTH);
 }
 
 export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx, proverId: Fr) {

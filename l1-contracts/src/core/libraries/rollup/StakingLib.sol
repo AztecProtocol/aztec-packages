@@ -17,9 +17,7 @@ import {Proposal} from "@aztec/governance/interfaces/IGovernance.sol";
 import {ProposalLib} from "@aztec/governance/libraries/ProposalLib.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
-import {
-  CompressedTimeMath, CompressedTimestamp, CompressedEpoch
-} from "@aztec/shared/libraries/CompressedTimeMath.sol";
+import {CompressedTimeMath, CompressedTimestamp, CompressedEpoch} from "@aztec/shared/libraries/CompressedTimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -28,7 +26,7 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
 // Zombie -> Not participating as validator, but have funds in setup,
-// 			 hit if slashes and going below the minimum
+//     hit if slashes and going below the minimum
 // Exiting -> In the process of exiting the system
 enum Status {
   NONE,
@@ -304,9 +302,8 @@ library StakingLib {
     uint256 amount = store.gse.ACTIVATION_THRESHOLD();
 
     store.stakingAsset.safeTransferFrom(msg.sender, address(this), amount);
-    store.entryQueue.enqueue(
-      _attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup
-    );
+    store.entryQueue
+      .enqueue(_attester, _withdrawer, _publicKeyInG1, _publicKeyInG2, _proofOfPossession, _moveWithLatestRollup);
     emit IStakingCore.ValidatorQueued(_attester, _withdrawer);
   }
 
@@ -364,17 +361,18 @@ library StakingLib {
     uint256 depositCount = 0;
     for (uint256 i = 0; i < numToDequeue; i++) {
       DepositArgs memory args = store.entryQueue.dequeue();
-      (bool success, bytes memory data) = address(store.gse).call(
-        abi.encodeWithSelector(
-          IGSECore.deposit.selector,
-          args.attester,
-          args.withdrawer,
-          args.publicKeyInG1,
-          args.publicKeyInG2,
-          args.proofOfPossession,
-          args.moveWithLatestRollup
-        )
-      );
+      (bool success, bytes memory data) = address(store.gse)
+        .call(
+          abi.encodeWithSelector(
+            IGSECore.deposit.selector,
+            args.attester,
+            args.withdrawer,
+            args.publicKeyInG1,
+            args.publicKeyInG2,
+            args.proofOfPossession,
+            args.moveWithLatestRollup
+          )
+        );
       if (success) {
         depositCount++;
         emit IStakingCore.Deposit(

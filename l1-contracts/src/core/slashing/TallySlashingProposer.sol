@@ -472,7 +472,13 @@ contract TallySlashingProposer is EIP712 {
 
     // Mark round as executed to prevent re-execution
     // We set this flag before actually slashing to avoid re-entrancy issues
-    _setRoundData(_round, roundData.lastVoteSlot, roundData.voteCount, /*executed=*/ true);
+    _setRoundData(
+      _round,
+      roundData.lastVoteSlot,
+      roundData.voteCount,
+      /*executed=*/
+      true
+    );
 
     // Execute slashes if any were determined
     if (actions.length > 0) {

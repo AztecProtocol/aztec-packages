@@ -33,7 +33,7 @@ where
 
     context.push_note_hash(note_hash);
 
-    NoteEmission::new(note, storage_slot, note_hash_counter)
+    NoteEmission::new(note, storage_slot, note_hash_counter, context)
 }
 
 // Note: This function is currently totally unused.

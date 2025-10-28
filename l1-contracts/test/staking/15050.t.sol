@@ -52,14 +52,12 @@ contract Test15050 is StakingBase {
     EmpireSlashingProposer caller = EmpireSlashingProposer(Slasher(SLASHER).PROPOSER());
 
     stdstore.clear();
-    stdstore.enable_packed_slots().target(address(caller)).sig("getRoundData(address,uint256)").with_key(
-      address(staking)
-    ).with_key(uint256(0)).depth(1).checked_write(address(payload));
+    stdstore.enable_packed_slots().target(address(caller)).sig("getRoundData(address,uint256)")
+      .with_key(address(staking)).with_key(uint256(0)).depth(1).checked_write(address(payload));
 
     stdstore.clear();
-    stdstore.target(address(caller)).sig("signalCount(address,uint256,address)").with_key(address(staking)).with_key(
-      uint256(0)
-    ).with_key(address(payload)).checked_write(caller.ROUND_SIZE());
+    stdstore.target(address(caller)).sig("signalCount(address,uint256,address)").with_key(address(staking))
+      .with_key(uint256(0)).with_key(address(payload)).checked_write(caller.ROUND_SIZE());
 
     assertEq(caller.getCurrentRound(), 0);
 

@@ -72,7 +72,11 @@ contract SlashingTest is TestBase {
     return proposerKey;
   }
 
-  function _createSignature(uint256 privateKey, Slot slot, bytes memory votes) internal view returns (Signature memory) {
+  function _createSignature(uint256 privateKey, Slot slot, bytes memory votes)
+    internal
+    view
+    returns (Signature memory)
+  {
     // Get the EIP-712 signature digest from the contract
     bytes32 digest = slashingProposer.getVoteSignatureDigest(votes, slot);
 
@@ -163,12 +167,11 @@ contract SlashingTest is TestBase {
     }
 
     uint256 roundSize = ROUND_SIZE_IN_EPOCHS * EPOCH_DURATION;
-    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(
-      COMMITTEE_SIZE
-    ).setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
-      _slashingExecutionDelayInRounds
-    ).setSlasherFlavor(SlasherFlavor.TALLY).setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1)
-      .setSlashingOffsetInRounds(2).setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
+    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
+      .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds).setSlasherFlavor(SlasherFlavor.TALLY)
+      .setSlashingRoundSize(roundSize).setSlashingQuorum(roundSize / 2 + 1).setSlashingOffsetInRounds(2)
+      .setEpochDuration(EPOCH_DURATION).setEntryQueueFlushSizeMin(VALIDATOR_COUNT);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;

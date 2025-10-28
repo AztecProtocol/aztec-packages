@@ -26,11 +26,7 @@ contract Updatable {
     fn initialize(initial_value: Field) {
         let owner = context.msg_sender().unwrap();
         let new_value = ValueNote::new(initial_value, owner);
-        storage.private_value.initialize(new_value).emit(
-            &mut context,
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.private_value.initialize(new_value).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
     }
 

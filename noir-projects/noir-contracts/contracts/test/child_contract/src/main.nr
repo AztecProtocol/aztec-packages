@@ -59,7 +59,6 @@ pub contract Child {
         let note = ValueNote::new(new_value, owner);
 
         storage.a_map_with_private_values.at(owner).insert(note).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

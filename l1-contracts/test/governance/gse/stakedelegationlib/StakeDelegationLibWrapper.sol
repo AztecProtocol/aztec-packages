@@ -3,7 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {
-  DepositDelegationLib, DepositAndDelegationAccounting
+  DepositDelegationLib,
+  DepositAndDelegationAccounting
 } from "@aztec/governance/libraries/DepositDelegationLib.sol";
 import {Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 

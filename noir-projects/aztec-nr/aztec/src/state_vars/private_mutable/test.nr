@@ -67,8 +67,8 @@ unconstrained fn initialize() {
             state_var.compute_initialization_nullifier(),
         );
 
-        assert_eq(emission.note, note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(emission.content.note, note);
+        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
     });
 }
 
@@ -89,8 +89,8 @@ unconstrained fn initialize_and_get_pending() {
 
         let get_emission = state_var.get_note();
 
-        assert_eq(get_emission.note, note);
-        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
+        assert_eq(get_emission.content.note, note);
+        assert_eq(get_emission.content.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -121,8 +121,8 @@ unconstrained fn initialize_and_get_settled() {
 
         let get_emission = state_var.get_note();
 
-        assert_eq(get_emission.note, note);
-        assert_eq(get_emission.storage_slot, STORAGE_SLOT);
+        assert_eq(get_emission.content.note, note);
+        assert_eq(get_emission.content.storage_slot, STORAGE_SLOT);
 
         // Reading a PrivateMutable results in:
         // - a read request for the read value
@@ -178,8 +178,8 @@ unconstrained fn initialize_and_replace_pending() {
             replacement_note
         });
 
-        assert_eq(replace_emission.note, replacement_note);
-        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_emission.content.note, replacement_note);
+        assert_eq(replace_emission.content.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -215,8 +215,8 @@ unconstrained fn initialize_and_replace_settled() {
             replacement_note
         });
 
-        assert_eq(replace_emission.note, replacement_note);
-        assert_eq(replace_emission.storage_slot, STORAGE_SLOT);
+        assert_eq(replace_emission.content.note, replacement_note);
+        assert_eq(replace_emission.content.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value
@@ -242,8 +242,8 @@ unconstrained fn initialize_or_replace_uninitialized() {
             init_note
         });
 
-        assert_eq(emission.note, init_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(emission.content.note, init_note);
+        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
 
         // During initialization we both create the new note and emit the initialization nullifier. This will only
         // succeed if the initialization nullifier had not been already emitted.
@@ -276,8 +276,8 @@ unconstrained fn initialize_or_replace_initialized_pending() {
             replacement_note
         });
 
-        assert_eq(emission.note, replacement_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(emission.content.note, replacement_note);
+        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
 
         // Verify context updates: read request, nullifier, and new note
         assert_eq(context.note_hash_read_requests.len(), note_hash_read_requests_pre_replace + 1);
@@ -313,8 +313,8 @@ unconstrained fn initialize_or_replace_initialized_settled() {
             replacement_note
         });
 
-        assert_eq(emission.note, replacement_note);
-        assert_eq(emission.storage_slot, STORAGE_SLOT);
+        assert_eq(emission.content.note, replacement_note);
+        assert_eq(emission.content.storage_slot, STORAGE_SLOT);
 
         // Replacing a PrivateMutable results in:
         // - a read request for the read value

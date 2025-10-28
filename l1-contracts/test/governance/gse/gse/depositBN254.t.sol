@@ -248,11 +248,12 @@ contract DepositBN254Test is WithGSE {
     G1Point memory pk1 = BN254Lib.g1Mul(BN254Lib.g1Generator(), _sk);
     G1Point memory sigma =
       BN254Lib.g1Mul(BN254Lib.hashToPoint(BN254Lib.STAKING_DOMAIN_SEPARATOR, abi.encodePacked(pk1.x, pk1.y)), _sk);
-    proofOfPossessions[_sk] = ProofOfPossession({
-      pk1: pk1,
-      // pk2 must be prefilled
-      pk2: proofOfPossessions[_sk].pk2,
-      sigma: sigma
-    });
+    proofOfPossessions[_sk] =
+      ProofOfPossession({
+        pk1: pk1,
+        // pk2 must be prefilled
+        pk2: proofOfPossessions[_sk].pk2,
+        sigma: sigma
+      });
   }
 }

@@ -130,6 +130,11 @@ tests:
     skip: true
     owners:
       - *sean
+  # bricked in new version of anvil added to build image (foundry 1.4.1).
+  - regex: "src/composed/uniswap_trade_on_l1_from_l2.test.ts"
+    skip: true
+    owners:
+      - *alex
   - regex: "src/e2e_fees/private_payments"
     owners:
       - *phil

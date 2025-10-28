@@ -16,7 +16,9 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {
-  CommitteeAttestation, CommitteeAttestations, AttestationLib
+  CommitteeAttestation,
+  CommitteeAttestations,
+  AttestationLib
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 
@@ -40,9 +42,13 @@ contract RollupBase is DecoderBase {
     _proveBlocks(_name, _start, _end, _prover, "");
   }
 
-  function _proveBlocksFail(string memory _name, uint256 _start, uint256 _end, address _prover, bytes memory _revertMsg)
-    internal
-  {
+  function _proveBlocksFail(
+    string memory _name,
+    uint256 _start,
+    uint256 _end,
+    address _prover,
+    bytes memory _revertMsg
+  ) internal {
     _proveBlocks(_name, _start, _end, _prover, _revertMsg);
   }
 

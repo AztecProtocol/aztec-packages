@@ -118,9 +118,8 @@ contract Tmnt419Test is RollupBase {
       );
       timeCheater.cheat__progressSlot();
 
-      stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()").checked_write(
-        rollup.getPendingBlockNumber()
-      );
+      stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()")
+        .checked_write(rollup.getPendingBlockNumber());
     }
 
     assertEq(rollup.getProvenBlockNumber(), 100);

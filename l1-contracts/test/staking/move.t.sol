@@ -56,11 +56,9 @@ contract MoveTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = n;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset).setRegistry(
-      registry
-    ).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false).setStakingQueueConfig(
-      stakingQueueConfig
-    ).deploy();
+    RollupBuilder builder = new RollupBuilder(address(this)).setGSE(gse).setTestERC20(stakingAsset)
+      .setRegistry(registry).setMakeCanonical(false).setMakeGovernance(false).setUpdateOwnerships(false)
+      .setStakingQueueConfig(stakingQueueConfig).deploy();
 
     IInstance oldRollup = IInstance(address(staking));
     IInstance newRollup = IInstance(address(builder.getConfig().rollup));

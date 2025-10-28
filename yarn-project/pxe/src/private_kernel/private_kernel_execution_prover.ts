@@ -23,7 +23,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
 } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ClientIvcProof, ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
@@ -352,8 +352,10 @@ export class PrivateKernelExecutionProver {
     let provingTime;
     if (!skipProofGeneration) {
       const provingTimer = new Timer();
-      clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      const proofWithPublicInputs = await this.proofCreator.createClientIvcProof(executionSteps);
       provingTime = provingTimer.ms();
+      this.ensurePublicInputsMatch(proofWithPublicInputs, tailOutput.publicInputs);
+      clientIvcProof = proofWithPublicInputs.removePublicInputs();
     } else {
       clientIvcProof = ClientIvcProof.random();
     }
@@ -364,6 +366,32 @@ export class PrivateKernelExecutionProver {
       clientIvcProof,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
+  }
+
+  /**
+   * Checks that the public inputs of the civc proof match the public inputs of the tail circuit.
+   * This can only mismatch if there is a circuit / noir / bb bug.
+   * @param civcProof - The civc proof with public inputs.
+   * @param tailPublicInputs - The public inputs resulting from witness generation of the tail circuit.
+   */
+  private ensurePublicInputsMatch(
+    civcProof: ClientIvcProofWithPublicInputs,
+    tailPublicInputs: PrivateKernelTailCircuitPublicInputs,
+  ) {
+    const serializedCivcProofPublicInputs = civcProof.getPublicInputs();
+    const serializedTailPublicInputs = tailPublicInputs.publicInputs().toFields();
+    if (serializedCivcProofPublicInputs.length !== serializedTailPublicInputs.length) {
+      throw new Error(
+        `Public inputs length mismatch: ${serializedCivcProofPublicInputs.length} !== ${serializedTailPublicInputs.length}`,
+      );
+    }
+    if (
+      !serializedCivcProofPublicInputs.every((input: Fr, index: number) =>
+        input.equals(serializedTailPublicInputs[index]),
+      )
+    ) {
+      throw new Error(`Public inputs mismatch between kernel and civc proof`);
+    }
   }
 
   private async getVkData(verificationKey: VerificationKeyData) {

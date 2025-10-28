@@ -19,6 +19,7 @@ import {RollupBase, IInstance} from "../base/RollupBase.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 import {Bps, BpsLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
+
 // solhint-disable comprehensive-interface
 
 /**

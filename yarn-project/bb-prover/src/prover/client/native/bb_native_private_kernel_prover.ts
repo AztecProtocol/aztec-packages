@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import type { CircuitSimulator } from '@aztec/simulator/server';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
-import type { ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
 
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -41,7 +41,7 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
   private async _createClientIvcProof(
     directory: string,
     executionSteps: PrivateExecutionStep[],
-  ): Promise<ClientIvcProof> {
+  ): Promise<ClientIvcProofWithPublicInputs> {
     const inputsPath = path.join(directory, 'ivc-inputs.msgpack');
     await fs.writeFile(inputsPath, serializePrivateExecutionSteps(executionSteps));
     const provingResult = await executeBbClientIvcProof(this.bbBinaryPath, directory, inputsPath, this.log.info);
@@ -61,7 +61,9 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     return proof;
   }
 
-  public override async createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
+  public override async createClientIvcProof(
+    executionSteps: PrivateExecutionStep[],
+  ): Promise<ClientIvcProofWithPublicInputs> {
     this.log.info(`Generating Client IVC proof`);
     const operation = async (directory: string) => {
       return await this._createClientIvcProof(directory, executionSteps);
