@@ -29,6 +29,7 @@ export class ContractClassPublishedEvent {
   }
 
   static fromLog(log: ContractClassLog) {
+    // See how the log is serialized in `noir-projects/noir-contracts/contracts/protocol/contract_class_registry/src/events/class_published.nr`.
     const fieldsWithoutTag = log.fields.fields.slice(1);
     const reader = new FieldReader(fieldsWithoutTag);
     const contractClassId = reader.readField();

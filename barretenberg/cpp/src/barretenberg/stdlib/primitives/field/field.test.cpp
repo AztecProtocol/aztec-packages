@@ -373,7 +373,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             Builder builder;
             size_t num_gates_start = builder.get_estimated_num_finalized_gates();
             field_ct a(&builder, 9);
-            field_ct b = field_ct::from_witness(&builder, 9);
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(9));
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
             // 1 gate is needed to fix the constant
@@ -384,7 +384,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
         {
             Builder builder;
             size_t num_gates_start = builder.get_estimated_num_finalized_gates();
-            field_ct a = field_ct::from_witness(&builder, 42);
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(42));
             field_ct b(&builder, 42);
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
@@ -397,8 +397,8 @@ template <typename Builder> class stdlib_field : public testing::Test {
             Builder builder;
             size_t num_gates_start = builder.get_estimated_num_finalized_gates();
 
-            field_ct a = field_ct::from_witness(&builder, 11);
-            field_ct b = field_ct::from_witness(&builder, 11);
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(11));
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(11));
             a.assert_equal(b);
             EXPECT_TRUE(CircuitChecker::check(builder));
             // Both witnesses are normalized, no gates are created, only a copy constraint
@@ -409,9 +409,9 @@ template <typename Builder> class stdlib_field : public testing::Test {
         {
             Builder builder;
             size_t num_gates_start = builder.get_estimated_num_finalized_gates();
-            field_ct a = field_ct::from_witness(&builder, 10);
+            field_ct a = field_ct::from_witness(&builder, typename field_ct::native(10));
             a += 13;
-            field_ct b = field_ct::from_witness(&builder, 15);
+            field_ct b = field_ct::from_witness(&builder, typename field_ct::native(15));
             b += 1;
             a.assert_equal(b);
             EXPECT_FALSE(CircuitChecker::check(builder));

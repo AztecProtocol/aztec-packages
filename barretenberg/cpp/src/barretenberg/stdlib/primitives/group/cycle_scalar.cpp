@@ -79,8 +79,8 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context,
     const size_t num_bits = 256;
     const uint256_t lo_v = bitstring.slice(0, LO_BITS);
     const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
-    auto lo = field_t::from_witness(context, lo_v);
-    auto hi = field_t::from_witness(context, hi_v);
+    auto lo = field_t::from_witness(context, typename field_t::native(lo_v));
+    auto hi = field_t::from_witness(context, typename field_t::native(hi_v));
     cycle_scalar result{ lo, hi, /*skip_validation=*/true };
     result._num_bits = num_bits;
     return result;

@@ -1,16 +1,14 @@
+import { TestCircuitProver } from '@aztec/bb-prover';
 import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 
-// TODO(#12613) This means of sharing test code is not ideal.
-// eslint-disable-next-line import/no-relative-packages
-import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { TestContext } from '../mocks/test_context.js';
 import { buildFinalBlobChallenges } from './block-building-helpers.js';
 import { ProvingOrchestrator } from './orchestrator.js';
@@ -40,7 +38,7 @@ describe('prover/orchestrator/lifecycle', () => {
         deferredPromises.push(deferred);
         return deferred.promise;
       });
-      const blobFields = [createBlockEndMarker(0)];
+      const blobFields = getCheckpointBlobFields([[]]);
       const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
       orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await orchestrator.startNewCheckpoint(

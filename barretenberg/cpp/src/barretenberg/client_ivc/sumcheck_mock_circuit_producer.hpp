@@ -175,7 +175,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
             MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
             // Add some public inputs
             for (size_t i = 0; i < num_public_inputs; ++i) {
-                circuit.add_public_variable(13634816 + i); // arbitrary number
+                circuit.add_public_variable(typename Flavor::FF(13634816 + i)); // arbitrary number
             }
         } else {
             // If the number of gates is not specified we create a structured mock circuit
@@ -191,7 +191,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         if (is_kernel) {
             ivc.complete_kernel_circuit_logic(circuit);
         } else {
-            stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
+            stdlib::recursion::honk::AppIO::add_default(circuit);
         }
 
         if (check_circuit_sizes) {

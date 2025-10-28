@@ -102,7 +102,6 @@ pub contract StateVars {
         let new_note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_note).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -113,7 +112,6 @@ pub contract StateVars {
         let private_mutable = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_mutable.initialize(private_mutable).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -124,7 +122,7 @@ pub contract StateVars {
         storage
             .private_mutable
             .replace(|_old_note| ValueNote::new(value, context.msg_sender().unwrap()))
-            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -136,7 +134,7 @@ pub contract StateVars {
                 let new_value = old_note.value() + 1;
                 ValueNote::new(new_value, context.msg_sender().unwrap())
             })
-            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

@@ -303,6 +303,10 @@ template <typename Builder, typename T> class bigfield {
         return result;
     }
 
+    // Disallow from_witness for non-bb::fr types to prevent implicit conversions (specifically, using indices rather
+    // than values)
+    template <typename OT> static bigfield from_witness(Builder* ctx, const OT& input) = delete;
+
     bigfield& operator=(const bigfield& other);
     bigfield& operator=(bigfield&& other) noexcept;
 

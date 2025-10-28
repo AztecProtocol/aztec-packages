@@ -30,7 +30,6 @@ pub contract NoConstructor {
         let note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.private_mutable.initialize(note).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

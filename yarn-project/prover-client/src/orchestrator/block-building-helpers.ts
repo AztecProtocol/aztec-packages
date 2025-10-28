@@ -1,4 +1,11 @@
-import { BatchedBlob, BatchedBlobAccumulator, Blob, SpongeBlob } from '@aztec/blob-lib';
+import {
+  BatchedBlob,
+  BatchedBlobAccumulator,
+  SpongeBlob,
+  computeBlobsHashFromBlobs,
+  getBlobCommitmentsFromBlobs,
+  getBlobsPerL1Block,
+} from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   CIVC_PROOF_LENGTH,
@@ -15,8 +22,8 @@ import {
 } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256ToField, sha256Trunc } from '@aztec/foundation/crypto';
-import { BLS12Point, Fr } from '@aztec/foundation/fields';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
 import { type Bufferable, type Tuple, assertLength, toFriendlyJSON } from '@aztec/foundation/serialize';
 import {
   MembershipWitness,
@@ -27,6 +34,7 @@ import { getVkData } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { Body, L2BlockHeader, getBlockBlobFields } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations, PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { Proof, ProofData, RecursiveProof } from '@aztec/stdlib/proofs';
@@ -228,41 +236,32 @@ export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx, proverId:
 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.
 // The `blobCommitments` will be accumulated and checked in the root rollup against the `finalBlobChallenges`.
-// The `blobsHash` will be validated on L1 against the blob fields.
-export const buildBlobHints = runInSpan(
-  'BlockBuilderHelpers',
-  'buildBlobHints',
-  async (_span: Span, blobFields: Fr[]) => {
-    const blobs = await Blob.getBlobsPerBlock(blobFields);
-    // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
-    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
-    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
-    //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
-    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
-    const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
-    const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
-    return { blobCommitments, blobs, blobsHash };
-  },
-);
+// The `blobsHash` will be validated on L1 against the submitted blob data.
+export const buildBlobHints = (blobFields: Fr[]) => {
+  const blobs = getBlobsPerL1Block(blobFields);
+  const blobCommitments = getBlobCommitmentsFromBlobs(blobs);
+  const blobsHash = computeBlobsHashFromBlobs(blobs);
+  return { blobCommitments, blobs, blobsHash };
+};
 
-// Build the data required to prove the txs in an epoch. Currently only used in tests.
+// Build the data required to prove the txs in an epoch. Currently only used in tests. It assumes 1 block per checkpoint.
 export const buildBlobDataFromTxs = async (txsPerCheckpoint: ProcessedTx[][]) => {
-  const blobFields = txsPerCheckpoint.map(txs => getBlockBlobFields(txs.map(tx => tx.txEffect)));
+  const blobFields = txsPerCheckpoint.map(txs => getCheckpointBlobFields([txs.map(tx => tx.txEffect)]));
   const finalBlobChallenges = await buildFinalBlobChallenges(blobFields);
   return { blobFieldsLengths: blobFields.map(fields => fields.length), finalBlobChallenges };
 };
 
 export const buildFinalBlobChallenges = async (blobFieldsPerCheckpoint: Fr[][]) => {
-  const blobs = await Promise.all(blobFieldsPerCheckpoint.map(blobFields => Blob.getBlobsPerBlock(blobFields)));
-  return await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+  const blobs = blobFieldsPerCheckpoint.map(blobFields => getBlobsPerL1Block(blobFields));
+  return await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 };
 
 export const accumulateBlobs = runInSpan(
   'BlockBuilderHelpers',
   'accumulateBlobs',
   async (_span: Span, blobFields: Fr[], startBlobAccumulator: BatchedBlobAccumulator) => {
-    const blobs = await Blob.getBlobsPerBlock(blobFields);
-    const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
+    const blobs = getBlobsPerL1Block(blobFields);
+    const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
   },
 );
@@ -326,16 +325,18 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeCompressedUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobFields = body.toBlobFields();
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(blobFields));
+    const blockBlobFields = body.toBlobFields();
+    // TODO(#17027): This only works when there's one block per checkpoint.
+    const blobFields = [new Fr(blockBlobFields.length + 1)].concat(blockBlobFields);
+    const blobsHash = computeBlobsHashFromBlobs(getBlobsPerL1Block(blobFields));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
     const fees = txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
     const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
-    const endSpongeBlob = startSpongeBlob?.clone() ?? SpongeBlob.init(blobFields.length);
-    await endSpongeBlob.absorb(blobFields);
+    const endSpongeBlob = startSpongeBlob?.clone() ?? (await SpongeBlob.init(blobFields.length));
+    await endSpongeBlob.absorb(blockBlobFields);
     const spongeBlobHash = await endSpongeBlob.squeeze();
 
     const header = new L2BlockHeader(
@@ -395,18 +396,6 @@ export async function computeInHashFromL1ToL2Messages(unpaddedL1ToL2Messages: Fr
   const parityHeight = Math.ceil(Math.log2(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP));
   const parityCalculator = await MerkleTreeCalculator.create(parityHeight, Fr.ZERO.toBuffer(), hasher);
   return new Fr(await parityCalculator.computeTreeRoot(l1ToL2Messages.map(msg => msg.toBuffer())));
-}
-
-export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
-  return sha256ToField(inputs.map(b => b.getEthVersionedBlobHash()));
-}
-
-// Note: tested against the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts.
-// Having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
-// getBlobsPerBlock() works on empty input.
-export async function getEmptyBlockBlobsHash(): Promise<Fr> {
-  const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
-  return sha256ToField(blobHash);
 }
 
 export async function getLastSiblingPath<TID extends MerkleTreeId>(treeId: TID, db: MerkleTreeReadOperations) {

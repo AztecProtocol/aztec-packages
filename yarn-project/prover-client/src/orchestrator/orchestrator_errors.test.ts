@@ -2,7 +2,7 @@ import { FinalBlobBatchingChallenges } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 
 import { TestContext } from '../mocks/test_context.js';
 import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
@@ -19,7 +19,7 @@ describe('prover/orchestrator/errors', () => {
   beforeEach(async () => {
     context = await TestContext.new(logger);
     orchestrator = context.orchestrator;
-    emptyBlockBlobFields = [createBlockEndMarker(0)];
+    emptyBlockBlobFields = getCheckpointBlobFields([[]]);
     emptyChallenges = await buildFinalBlobChallenges([emptyBlockBlobFields]);
   });
 

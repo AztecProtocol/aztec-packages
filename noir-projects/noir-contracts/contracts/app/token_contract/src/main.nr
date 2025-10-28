@@ -195,11 +195,7 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
     }
 
@@ -225,11 +221,7 @@ pub contract Token {
         amount: u128,
         authwit_nonce: Field,
     ) -> PartialUintNote {
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         Token::at(context.this_address())._increase_public_balance(to, amount).enqueue(&mut context);
 
         // We prepare the private balance increase (the partial note for the change).
@@ -253,16 +245,8 @@ pub contract Token {
             amount,
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(from).add(from, change).emit(
-            &mut context,
-            from,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
-        storage.balances.at(to).add(to, amount).emit(
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).add(from, change).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        storage.balances.at(to).add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
@@ -345,27 +329,15 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // docs:start:increase_private_balance
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         // docs:end:increase_private_balance
-        storage.balances.at(to).add(to, amount).emit(
-            &mut context,
-            to,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(to).add(to, amount).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         Token::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 
@@ -455,11 +427,7 @@ pub contract Token {
         authwit_nonce: Field,
     ) {
         // First we subtract the `amount` from the private balance of `from`
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         partial_note.complete_from_private(&mut context, context.msg_sender().unwrap(), amount);
     }

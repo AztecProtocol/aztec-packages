@@ -61,7 +61,11 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  cmake --fresh --preset "$preset"
+  local avm_transpiler_flag=""
+  if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
+    avm_transpiler_flag="-DAVM_TRANSPILER_LIB="
+  fi
+  cmake --fresh --preset "$preset" $avm_transpiler_flag
   cmake --build --preset "$preset" "$@"
 }
 

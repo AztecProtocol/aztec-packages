@@ -1,10 +1,13 @@
 import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
+import { toInlineStrArray } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
-import { Blob } from './index.js';
+import { Blob } from './blob.js';
+import { commitmentToFields } from './hash.js';
 import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
-import { makeEncodedBlob } from './testing.js';
+import { makeRandomBlob } from './testing.js';
 
 describe('blob', () => {
   it('c-kzg lib should verify a batch of blobs', () => {
@@ -51,68 +54,74 @@ describe('blob', () => {
 
   it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
-    const blobItems = Array(400).fill(new Fr(3));
-    const ourBlob = await Blob.fromFields(blobItems);
-    const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
-    expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
+    const blobFields = Array(400).fill(new Fr(3));
+    const blobFieldsHash = await poseidon2Hash(blobFields);
+    const blob = Blob.fromFields(blobFields);
+    const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    // We add zeros before getting commitment as we do not store the blob along with
-    // all of the zeros
-    const dataWithZeros = Buffer.concat([ourBlob.data], BYTES_PER_BLOB);
-    expect(kzg.blobToKzgCommitment(dataWithZeros)).toEqual(ourBlob.commitment);
+    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
 
-    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
-    expect(z).toEqual(ourBlob.challengeZ);
+    expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
+      `"b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e77504dd1a971c7e8d8292be943d05bccebcfea"`,
+    );
+    const blobCommitmentFields = commitmentToFields(blob.commitment);
 
-    const res = kzg.computeKzgProof(dataWithZeros, ourBlob.challengeZ.toBuffer());
-    const { y, proof } = ourBlob.evaluate();
-    expect(res[0]).toEqual(proof);
-    expect(res[1]).toEqual(y);
+    // If the snapshot has changed, update the noir test data as well.
+    expect(y.toString()).toMatchInlineSnapshot(`"0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c"`);
 
-    const isValid = kzg.verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
-    expect(isValid).toBe(true);
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'kzg_commitment_blob_400_from_ts',
+      toInlineStrArray(blobCommitmentFields),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'y_limbs_blob_400_from_ts',
+      toInlineStrArray(y.toNoirBigNum().limbs),
+    );
   });
 
   it('should evaluate full blob', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blob
+    const blobFields = Array.from({ length: FIELDS_PER_BLOB }).map((_, i) => new Fr(i + 2));
+    const blobFieldsHash = await poseidon2Hash(blobFields);
+    const blob = Blob.fromFields(blobFields);
+    const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    const blobItems = [];
-    for (let i = 0; i < FIELDS_PER_BLOB; i++) {
-      blobItems[i] = new Fr(i + 2);
-    }
-    const blobItemsHash = await poseidon2Hash(blobItems);
-    const blobs = await Blob.getBlobsPerBlock(blobItems);
-    expect(blobs.length).toEqual(1);
-    const ourBlob = blobs[0];
-    expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
+    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
 
-    expect(kzg.blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
+    expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
+      `"ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3d195faad1967cdf005acf73088b0e8474a"`,
+    );
+    const blobCommitmentFields = commitmentToFields(blob.commitment);
 
-    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
-    expect(z).toEqual(ourBlob.challengeZ);
+    // If the snapshot has changed, update the noir test data as well.
+    expect(y.toString()).toMatchInlineSnapshot(`"0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c"`);
 
-    const res = kzg.computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
-    const { y, proof } = ourBlob.evaluate();
-    expect(res[0]).toEqual(proof);
-    expect(res[1]).toEqual(y);
-
-    const isValid = kzg.verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
-    expect(isValid).toBe(true);
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'kzg_commitment_blob_full_from_ts',
+      toInlineStrArray(blobCommitmentFields),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr',
+      'y_limbs_blob_full_from_ts',
+      toInlineStrArray(y.toNoirBigNum().limbs),
+    );
   });
 
-  it('should serialise and deserialise a blob', async () => {
-    const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+  it('should serialize and deserialize a blob', () => {
+    const blob = makeRandomBlob(5);
     const blobBuffer = blob.toBuffer();
-    const deserialisedBlob = Blob.fromBuffer(blobBuffer);
-    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+    expect(Blob.fromBuffer(blobBuffer)).toEqual(blob);
   });
 
-  it('should create a blob from a JSON object', async () => {
-    const blob = await makeEncodedBlob(3);
-    const blobJson = blob.toJson(1);
-    const deserialisedBlob = await Blob.fromJson(blobJson);
-    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+  it('should create a blob from a JSON object', () => {
+    const blob = makeRandomBlob(7);
+    const blobIndex = 1;
+    const blobJson = blob.toJson(blobIndex);
+    expect(Blob.fromJson(blobJson)).toEqual(blob);
   });
 });

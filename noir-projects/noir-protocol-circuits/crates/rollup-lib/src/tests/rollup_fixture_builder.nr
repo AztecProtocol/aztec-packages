@@ -353,7 +353,7 @@ impl RollupFixtureBuilder {
     }
 
     pub fn get_sponge_blob(self, block_number: u32) -> SpongeBlob {
-        let mut sponge: SpongeBlob = self.make_fixture(1, block_number, 661);
+        let mut sponge: SpongeBlob = self.make_fixture(self.start_slot_number, block_number, 661);
         sponge.sponge.cache_size = 0;
         sponge.sponge.squeeze_mode = false;
         sponge

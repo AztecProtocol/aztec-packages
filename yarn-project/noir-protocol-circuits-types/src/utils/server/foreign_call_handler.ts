@@ -1,4 +1,10 @@
-import { Blob, BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import {
+  BatchedBlobAccumulator,
+  BlobAccumulator,
+  FinalBlobBatchingChallenges,
+  computeBlobFieldsHash,
+  getBlobsPerL1Block,
+} from '@aztec/blob-lib';
 import {
   BLOB_ACCUMULATOR_LENGTH,
   BLS12_FQ_LIMBS,
@@ -80,20 +86,34 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     const startBlobAccumulator = BlobAccumulator.fromFields(startBlobAccumulatorFields.map(Fr.fromString));
 
     const blobsAsFr = paddedBlobsAsFr.slice(0, numBlobFields);
-    const blobs = await Blob.getBlobsPerBlock(blobsAsFr);
+    const blobFieldsHash = await computeBlobFieldsHash(blobsAsFr);
+    if (!expectedBlobFieldsHash.equals(blobFieldsHash)) {
+      throw new Error(
+        `Injected blob fields do not match rolled up fields. Computed hash: ${blobFieldsHash}. Hash used in circuits: ${expectedBlobFieldsHash}.`,
+      );
+    }
+
+    const blobs = getBlobsPerL1Block(blobsAsFr);
     blobs.forEach((blob, i) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);
       if (!calculated.equals(injected)) {
         throw new Error(`Blob commitment mismatch. Real: ${calculated}, Injected: ${injected}`);
       }
-      if (!expectedBlobFieldsHash.equals(blob.fieldsHash)) {
-        throw new Error(
-          `Injected blob fields do not match rolled up fields. Real hash: ${expectedBlobFieldsHash}, Injected hash: ${blob.fieldsHash}`,
-        );
-      }
     });
-    const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs, finalBlobChallenges);
+
+    const batchedBlobAccumulator = new BatchedBlobAccumulator(
+      startBlobAccumulator.blobCommitmentsHashAcc,
+      startBlobAccumulator.zAcc,
+      startBlobAccumulator.yAcc,
+      startBlobAccumulator.cAcc,
+      BLS12Point.ZERO,
+      startBlobAccumulator.gammaAcc,
+      startBlobAccumulator.gammaPowAcc,
+      finalBlobChallenges,
+    );
+    const endBatchedBlobAccumulator = await batchedBlobAccumulator.accumulateBlobs(blobs);
+    const endBlobAccumulator = endBatchedBlobAccumulator.toBlobAccumulator();
     return Promise.resolve([endBlobAccumulator.toFields().map(field => field.toString())]);
   } else if (name === 'noOp') {
     // Workaround for compiler issues where data is deleted because it's "unused"

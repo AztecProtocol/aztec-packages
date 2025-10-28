@@ -17,6 +17,8 @@ else
   if [ "$CI_FULL" -eq 1 ]; then
     # cores=192,128,64
     cores=128,64
+    # Allow for 75 minutes as ci-full time has crept up.
+    export AWS_SHUTDOWN_TIME=75
   else
     cores=128,64
   fi
@@ -136,8 +138,8 @@ container_script=$(
   ci_log_id=\$(log_ci_run)
   export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
-  if [ -z "${DOCKERHUB_PASSWORD:-}" ]; then
-    echo $DOCKERHUB_PASSWORD | docker login -u aztecprotocolci --password-stdin
+  if [ -n "\$DOCKERHUB_PASSWORD" ]; then
+    echo \$DOCKERHUB_PASSWORD | docker login -u \$DOCKERHUB_USERNAME --password-stdin
   fi
 
   # Heartbeat.
@@ -269,6 +271,7 @@ function run {
         -e EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER:-} \
         -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
         -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
+        -e DOCKERHUB_USERNAME=${DOCKERHUB_USERNAME:-} \
         -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
         -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
         -e R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-} \

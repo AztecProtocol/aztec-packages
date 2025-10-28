@@ -132,7 +132,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const blobFieldsPerCheckpoint = this.blocks.map(block => block.body.toBlobFields());
+      const blobFieldsPerCheckpoint = this.blocks.map(block => block.getCheckpointBlobFields());
       const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
 
       // TODO(#17027): Enable multiple blocks per checkpoint.

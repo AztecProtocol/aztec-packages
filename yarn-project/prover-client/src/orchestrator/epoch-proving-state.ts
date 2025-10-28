@@ -236,7 +236,7 @@ export class EpochProvingState {
     if (!this.endBlobAccumulator) {
       throw new Error('End blob accumulator not ready.');
     }
-    this.finalBatchedBlob = await this.endBlobAccumulator.finalize();
+    this.finalBatchedBlob = await this.endBlobAccumulator.finalize(true /* verifyProof */);
   }
 
   public getParentLocation(location: TreeNodeLocation) {

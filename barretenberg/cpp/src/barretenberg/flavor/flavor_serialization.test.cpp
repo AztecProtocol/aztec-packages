@@ -5,6 +5,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -46,7 +47,7 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
-    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
+    stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     auto prover_instance = std::make_shared<ProverInstance>(builder);
     VerificationKey original_vkey{ prover_instance->get_precomputed() };
 

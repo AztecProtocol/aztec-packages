@@ -321,7 +321,7 @@ export class Fr extends BaseField {
    * @returns A square root of the field element (null if it does not exist).
    */
   async sqrt(): Promise<Fr | null> {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton({ wasmPath: process.env.BB_WASM_PATH });
     const api = BarretenbergSync.getSingleton();
     const response = api.bn254FrSqrt({ input: this.toBuffer() });
     if (!response.isSquareRoot) {

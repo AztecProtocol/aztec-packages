@@ -342,6 +342,7 @@ The note emission API has been significantly reworked to provide clearer semanti
    - `CONSTRAINED_ONCHAIN`: For onchain delivery with cryptographic guarantees that recipients can discover and decrypt messages. Uses constrained encryption but is slower to prove. Best for critical messages that contracts need to verify.
    - `UNCONSTRAINED_ONCHAIN`: For onchain delivery without encryption constraints. Faster proving but trusts the sender. Good when the sender is incentivized to perform encryption correctly (e.g. they are buying something and will only get it if the recipient sees the note). No guarantees that recipients will be able to find or decrypt messages.
    - `UNCONSTRAINED_OFFCHAIN`: For offchain delivery (e.g. cloud storage) without constraints. Lowest cost since no onchain storage needed. Requires custom infrastructure for delivery. No guarantees that messages will be delivered or that recipients will ever find them.
+5. The `context` object no longer needs to be passed to these functions
 
 Example migration:
 

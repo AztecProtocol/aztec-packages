@@ -1,4 +1,4 @@
-import type { BlobJson } from '@aztec/blob-lib';
+import type { BlobJson } from '@aztec/blob-lib/types';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';

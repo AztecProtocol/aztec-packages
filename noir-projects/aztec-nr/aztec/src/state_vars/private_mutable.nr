@@ -348,11 +348,18 @@ where
         let is_initialized =
             unsafe { check_nullifier_exists(self.compute_initialization_nullifier()) };
 
-        if !is_initialized {
-            self.initialize(f(Option::none()))
+        let emission_content = if !is_initialized {
+            self.initialize(f(Option::none())).content
         } else {
-            self.replace(|note| f(Option::some(note)))
-        }
+            self.replace(|note| f(Option::some(note))).content
+        };
+
+        NoteEmission::new(
+            emission_content.note,
+            emission_content.storage_slot,
+            emission_content.note_hash_counter,
+            self.context,
+        )
     }
 
     /// Reads the current note of a PrivateMutable state variable instance.

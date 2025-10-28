@@ -4,7 +4,7 @@ import {
   FinalBlobBatchingChallenges,
   Poseidon2Sponge,
   SpongeBlob,
-} from '@aztec/blob-lib';
+} from '@aztec/blob-lib/types';
 import {
   AZTEC_MAX_EPOCH_DURATION,
   BLS12_FQ_LIMBS,
@@ -245,8 +245,8 @@ function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseidon2Spong
 function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
   return {
     sponge: mapPoseidon2SpongeToNoir(spongeBlob.sponge),
-    fields: mapNumberToNoir(spongeBlob.fields),
-    expected_fields: mapNumberToNoir(spongeBlob.expectedFields),
+    num_absorbed_fields: mapNumberToNoir(spongeBlob.numAbsorbedFields),
+    num_expected_fields: mapNumberToNoir(spongeBlob.numExpectedFields),
   };
 }
 
@@ -258,8 +258,8 @@ function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
 function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
     mapPoseidon2SpongeFromNoir(spongeBlob.sponge),
-    mapNumberFromNoir(spongeBlob.fields),
-    mapNumberFromNoir(spongeBlob.expected_fields),
+    mapNumberFromNoir(spongeBlob.num_absorbed_fields),
+    mapNumberFromNoir(spongeBlob.num_expected_fields),
   );
 }
 

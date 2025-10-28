@@ -46,11 +46,7 @@ pub contract StaticChild {
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(note).emit(
-            &mut context,
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         new_value
     }
 
@@ -59,11 +55,7 @@ pub contract StaticChild {
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
 
-        storage.a_private_value.insert(note).emit(
-            &mut context,
-            owner,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         new_value
     }
 

@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError, SpongeBlob } from '@aztec/blob-lib';
+import { BlobDeserializationError, SpongeBlob, getBlobFieldsInCheckpoint } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -41,7 +41,7 @@ export type RetrievedL2Block = {
   archiveRoot: Fr;
   stateReference: StateReference;
   header: CheckpointHeader;
-  body: Body;
+  blobFields: Fr[];
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
@@ -54,7 +54,7 @@ export async function retrievedBlockToPublishedL2Block(retrievedBlock: Retrieved
     archiveRoot,
     stateReference,
     header: checkpointHeader,
-    body,
+    blobFields,
     l1,
     chainId,
     version,
@@ -80,10 +80,13 @@ export async function retrievedBlockToPublishedL2Block(retrievedBlock: Retrieved
   // TODO(#17027)
   // This works when there's only one block in the checkpoint.
   // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
-  const blobFields = body.toBlobFields();
-  const spongeBlob = SpongeBlob.init(blobFields.length);
-  await spongeBlob.absorb(blobFields);
+  const spongeBlob = await SpongeBlob.init(blobFields.length);
+  // Skip the first field which is the checkpoint prefix indicating the number of total blob fields in a checkpoint.
+  const blockBlobFields = blobFields.slice(1);
+  await spongeBlob.absorb(blockBlobFields);
   const spongeBlobHash = await spongeBlob.squeeze();
+
+  const body = Body.fromBlobFields(blockBlobFields);
 
   const header = L2BlockHeader.from({
     lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
@@ -353,9 +356,13 @@ async function getBlockFromRollupTx(
     throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
-  let blockFields: Fr[];
+  let blobFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+    // Get the fields that were actually added in the checkpoint. And check the encoding of the fields.
+    blobFields = getBlobFieldsInCheckpoint(
+      blobBodies.map(b => b.blob),
+      true /* checkEncoding */,
+    );
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -364,9 +371,6 @@ async function getBlockFromRollupTx(
     }
     throw err;
   }
-
-  // The blob source gives us blockFields, and we must construct the body from them:
-  const body = Body.fromBlobFields(blockFields);
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
@@ -377,7 +381,7 @@ async function getBlockFromRollupTx(
     archiveRoot,
     stateReference,
     header,
-    body,
+    blobFields,
     attestations,
   };
 }
