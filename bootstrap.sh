@@ -37,6 +37,12 @@ function check_toolchains {
       exit 1
     fi
   done
+  if ! command -v ldid > /dev/null; then
+    encourage_dev_container
+    echo "Utility ldid not found."
+    echo "Install from https://github.com/ProcursusTeam/ldid."
+    exit 1
+  fi
   if ! yq --version | grep "version v4" > /dev/null; then
     encourage_dev_container
     echo "yq v4 not installed."
@@ -56,6 +62,13 @@ function check_toolchains {
     encourage_dev_container
     echo "clang 16 not installed."
     echo "Installation: sudo apt install clang-20"
+    exit 1
+  fi
+  # Check zig version.
+  if ! zig version | grep "0.15.1" > /dev/null; then
+    encourage_dev_container
+    echo "zig 0.15.1 not installed."
+    echo "Install in /opt/zig."
     exit 1
   fi
   # Check rustup installed.
@@ -81,7 +94,7 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
-  local foundry_version="v1.3.3"
+  local foundry_version="v1.4.1"
   for tool in forge anvil; do
     if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       echo "$tool not in PATH or incorrect version (requires $foundry_version)."

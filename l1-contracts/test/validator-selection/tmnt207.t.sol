@@ -123,9 +123,8 @@ contract Tmnt207Test is RollupBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = COMMITTEE_SIZE == 0 ? 1 : COMMITTEE_SIZE;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(MANA_TARGET).setTargetCommitteeSize(
-      COMMITTEE_SIZE
-    ).setValidators(initialValidators).setStakingQueueConfig(stakingQueueConfig);
+    RollupBuilder builder = new RollupBuilder(address(this)).setManaTarget(MANA_TARGET)
+      .setTargetCommitteeSize(COMMITTEE_SIZE).setValidators(initialValidators).setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
     rollup = IInstance(address(builder.getConfig().rollup));
@@ -225,9 +224,7 @@ contract Tmnt207Test is RollupBase {
         start: 1,
         end: 1,
         args: PublicInputArgs({
-          previousArchive: rollup.getBlock(0).archive,
-          endArchive: rollup.getBlock(1).archive,
-          proverId: address(0)
+          previousArchive: rollup.getBlock(0).archive, endArchive: rollup.getBlock(1).archive, proverId: address(0)
         }),
         fees: new bytes32[](Constants.AZTEC_MAX_EPOCH_DURATION * 2),
         attestations: AttestationLibHelper.packAttestations(l2BlockReal.attestations),

@@ -50,7 +50,11 @@ library StakingQueueConfigLib {
     return CompressedStakingQueueConfig.wrap(value);
   }
 
-  function decompress(CompressedStakingQueueConfig _compressedConfig) internal pure returns (StakingQueueConfig memory) {
+  function decompress(CompressedStakingQueueConfig _compressedConfig)
+    internal
+    pure
+    returns (StakingQueueConfig memory)
+  {
     uint256 value = CompressedStakingQueueConfig.unwrap(_compressedConfig);
 
     return StakingQueueConfig({

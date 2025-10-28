@@ -55,7 +55,8 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   function test_WhenRoundTooFarInPast(uint256 _slotToHit) external givenCanonicalInstanceHoldCode whenRoundInPast {
     // it revert
 
-    Slot lower = validatorSelection.getCurrentSlot()
+    Slot lower =
+    validatorSelection.getCurrentSlot()
       + Slot.wrap(governanceProposer.ROUND_SIZE() * governanceProposer.LIFETIME_IN_ROUNDS() + 1);
     Slot upper = Slot.wrap(
       (type(uint64).max - Timestamp.unwrap(validatorSelection.getGenesisTime())) / validatorSelection.getSlotDuration()

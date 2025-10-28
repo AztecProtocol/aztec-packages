@@ -8,7 +8,11 @@ import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {MerkleProof} from "@oz/utils/cryptography/MerkleProof.sol";
 import {
-  ZKPassportVerifier, ProofVerificationParams, BoundData, OS, FaceMatchMode
+  ZKPassportVerifier,
+  ProofVerificationParams,
+  BoundData,
+  OS,
+  FaceMatchMode
 } from "@zkpassport/ZKPassportVerifier.sol";
 
 /**
@@ -361,8 +365,9 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       zkPassportVerifier.enforceSanctionsRoot(_params.commitments);
 
       // Face match check
-      bool isFaceMatchValid =
-        zkPassportVerifier.isFaceMatchVerified(FaceMatchMode.STRICT, OS.ANY, _params.commitments, _params.serviceConfig);
+      bool isFaceMatchValid = zkPassportVerifier.isFaceMatchVerified(
+        FaceMatchMode.STRICT, OS.ANY, _params.commitments, _params.serviceConfig
+      );
       require(isFaceMatchValid, InvalidFaceMatch());
     }
 
@@ -411,9 +416,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     // Try to flush the entry queue, but don't let it revert the deposit
     // solhint-disable-next-line no-empty-blocks
     try _rollup.flushEntryQueue(validatorsToFlush) {
-      // Flush succeeded, no action needed
-      // solhint-disable-next-line no-empty-blocks
-    } catch {
+    // Flush succeeded, no action needed
+    // solhint-disable-next-line no-empty-blocks
+    }
+      catch {
       // Flush failed, but we don't want to revert the deposit
       // The validator is still in the queue and can be flushed later
     }

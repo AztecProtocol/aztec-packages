@@ -3,7 +3,9 @@ pragma solidity >=0.8.27;
 
 import {TestBase} from "@test/base/Base.sol";
 import {
-  AttestationLib, CommitteeAttestations, CommitteeAttestation
+  AttestationLib,
+  CommitteeAttestations,
+  CommitteeAttestation
 } from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";

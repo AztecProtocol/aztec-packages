@@ -22,7 +22,10 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
-  ManaBaseFeeComponentsModel, L1FeesModel, L1GasOracleValuesModel, FeeHeaderModel
+  ManaBaseFeeComponentsModel,
+  L1FeesModel,
+  L1GasOracleValuesModel,
+  FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
