@@ -728,7 +728,7 @@ export async function setup(
 
 export async function ensureAccountContractsPublished(wallet: Wallet, accountsToDeploy: AztecAddress[]) {
   // We have to check whether the accounts are already deployed. This can happen if the test runs against
-  // the sandbox and the test accounts exist
+  // the local network and the test accounts exist
   const accountsAndAddresses = await Promise.all(
     accountsToDeploy.map(async address => {
       return {

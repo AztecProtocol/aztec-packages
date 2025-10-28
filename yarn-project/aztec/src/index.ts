@@ -1,6 +1,6 @@
 export {
-  createSandbox,
+  createLocalNetwork,
   registerDeployedBananaCoinInWalletAndGetAddress,
   registerDeployedBananaFPCInWalletAndGetAddress,
   registerDeployedSponsoredFPCInWalletAndGetAddress,
-} from './sandbox/index.js';
+} from './local-network/index.js';
