@@ -1,0 +1,43 @@
+# Disk-based cache system for CI logs.
+# Logs are written to /logs-disk on bastion via SSH.
+# NOTE: This file depends on source_redis being sourced first.
+
+# Transfer log to bastion via SSH (accepts gzipped data on stdin)
+# Usage: cat file.gz | cache_disk_transfer <key>
+function cache_disk_transfer {
+  local key="$1"
+  local prefix="${key:0:4}"
+
+  # Transfer via SSH pipe using persistent multiplexed connection
+  # Use first 4 chars as subdirectory to avoid too many files in one dir
+  ssh -F "${ci3}/aws/build_instance_ssh_config" \
+      -o ConnectTimeout=5 \
+      ci-bastion.aztecprotocol.com \
+      "mkdir -p /logs-disk/${prefix} && cat > /logs-disk/${prefix}/${key}.log.gz" &>/dev/null
+}
+
+# Persistent cache function that writes to both Redis and disk
+function cache_persistent {
+  local key="$1"
+  local expire="$2"
+  local tmpfile="/tmp/cache_log_$$_${key}.gz"
+
+  # Save gzipped data to temp file (synchronous - must complete first)
+  cat | gzip > "$tmpfile"
+
+  # Write to Redis (synchronous - must complete before returning)
+  cat "$tmpfile" | redis_cli -x SETEX "$key" "$expire" &>/dev/null
+
+  # Transfer to bastion disk in background (only if disk logging enabled)
+  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
+    {
+      cat "$tmpfile" | cache_disk_transfer "$key"
+      rm -f "$tmpfile"
+    } &
+  else
+    rm -f "$tmpfile"
+  fi
+}
+
+# Export functions
+export -f cache_disk_transfer cache_persistent

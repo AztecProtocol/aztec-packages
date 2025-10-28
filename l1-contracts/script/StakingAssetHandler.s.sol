@@ -43,23 +43,23 @@ contract StakingAssetHandlerScript is Test {
     address[] memory isUnhinged = new address[](1);
     isUnhinged[0] = amin;
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: ME,
-      stakingAsset: address(stakingAsset),
-      registry: registry,
-      withdrawer: amin,
-      mintInterval: 60 * 60 * 24,
-      depositsPerMint: 1000,
-      depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: isUnhinged,
-      domain: DOMAIN,
-      scope: SCOPE,
-      skipBindCheck: false, // DO NOT: skip bind check
-      skipMerkleCheck: true, // DO: skip merkle check
-      validatorsToFlush: 48
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: ME,
+        stakingAsset: address(stakingAsset),
+        registry: registry,
+        withdrawer: amin,
+        mintInterval: 60 * 60 * 24,
+        depositsPerMint: 1000,
+        depositMerkleRoot: DEPOSIT_MERKLE_ROOT,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: isUnhinged,
+        domain: DOMAIN,
+        scope: SCOPE,
+        skipBindCheck: false, // DO NOT: skip bind check
+        skipMerkleCheck: true, // DO: skip merkle check
+        validatorsToFlush: 48
+      });
 
     vm.startBroadcast(ME);
     StakingAssetHandler stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);

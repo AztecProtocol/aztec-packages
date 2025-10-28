@@ -15,7 +15,7 @@
  * @return int Status code: 0 for success, non-zero for errors or verification failure
  */
 #include "barretenberg/api/api_avm.hpp"
-#include "barretenberg/api/api_client_ivc.hpp"
+#include "barretenberg/api/api_chonk.hpp"
 #include "barretenberg/api/api_msgpack.hpp"
 #include "barretenberg/api/api_ultra_honk.hpp"
 #include "barretenberg/api/aztec_process.hpp"
@@ -172,7 +172,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 "particular type of circuit to be constructed and proven for some implicit scheme.")
             ->envname("BB_SCHEME")
             ->default_val("ultra_honk")
-            ->check(CLI::IsMember({ "client_ivc", "avm", "ultra_honk" }).name("is_member"));
+            ->check(CLI::IsMember({ "chonk", "avm", "ultra_honk" }).name("is_member"));
     };
 
     const auto add_crs_path_option = [&](CLI::App* subcommand) {
@@ -248,7 +248,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
                          "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "SumcheckClientIVC class)")
+                         "SumcheckChonk class)")
             ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
@@ -334,7 +334,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         "check",
         "A debugging tool to quickly check whether a witness satisfies a circuit The "
         "function constructs the execution trace and iterates through it row by row, applying the "
-        "polynomial relations defining the gate types. For client IVC, we check the VKs in the folding stack.");
+        "polynomial relations defining the gate types. For Chonk, we check the VKs in the folding stack.");
 
     add_scheme_option(check);
     add_bytecode_path_option(check);
@@ -568,7 +568,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         print_subcommand_options(deepest);
     }
 
-    // TODO(AD): it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a
+    // TODO(AD): it is inflexible that Chonk shares an API command (prove) with UH this way. The base API class is a
     // poor fit. It would be better to have a separate handling for each scheme with subcommands to prove.
     const auto execute_non_prove_command = [&](API& api) {
         if (check->parsed()) {
@@ -640,12 +640,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return avm_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_simulate_command->parsed()) {
             avm_simulate(avm_inputs_path);
-        } else if (flags.scheme == "client_ivc") {
-            ClientIVCAPI api;
+        } else if (flags.scheme == "chonk") {
+            ChonkAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort(
-                        "The prove command for SumcheckClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "The prove command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
                         "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
@@ -667,7 +667,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort(
-                        "The check command for SumcheckClientIVC expect a valid file passed with --ivc_inputs_path "
+                        "The check command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
                         "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;

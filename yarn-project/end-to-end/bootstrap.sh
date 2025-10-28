@@ -119,7 +119,7 @@ function build_bench {
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
   rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
   rm -rf bench-out && mkdir -p bench-out
-  if cache_download bb-client-ivc-captures-$hash.tar.gz; then
+  if cache_download bb-chonk-captures-$hash.tar.gz; then
     return
   fi
   parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
@@ -128,7 +128,7 @@ function build_bench {
     client_flows/bridging \
     client_flows/transfers \
     client_flows/amm
-  cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
 
 function bench {

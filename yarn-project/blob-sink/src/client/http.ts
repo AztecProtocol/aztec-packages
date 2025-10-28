@@ -112,7 +112,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
 
     if (successfulSourceCount === 0) {
-      throw new Error('No blob sources are reachable');
+      if (this.config.blobAllowEmptySources) {
+        this.log.warn('No blob sources are reachable');
+      } else {
+        throw new Error('No blob sources are reachable');
+      }
     }
   }
 

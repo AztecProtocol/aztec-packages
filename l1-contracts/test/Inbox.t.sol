@@ -39,8 +39,7 @@ contract InboxTest is Test {
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
       recipient: DataStructures.L2Actor({
-        actor: 0x1000000000000000000000000000000000000000000000000000000000000000,
-        version: version
+        actor: 0x1000000000000000000000000000000000000000000000000000000000000000, version: version
       }),
       content: 0x2000000000000000000000000000000000000000000000000000000000000000,
       secretHash: 0x3000000000000000000000000000000000000000000000000000000000000000,

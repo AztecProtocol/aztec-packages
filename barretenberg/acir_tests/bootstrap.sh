@@ -143,7 +143,7 @@ function test {
 # Paths are all relative to the repository root.
 # this function is used to generate the commands for running the tests.
 function test_cmds {
-  # NOTE: client-ivc commands are tested in yarn-project/end-to-end bench due to circular dependencies.
+  # NOTE: chonk commands are tested in yarn-project/end-to-end bench due to circular dependencies.
   # Locally, you can do ./bootstrap.sh bench_ivc to run the 'tests' (benches with validation)
 
   # non_recursive_tests include all of the non recursive test programs

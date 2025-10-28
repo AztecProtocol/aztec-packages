@@ -8,7 +8,7 @@
 #include "aes128_constraint.hpp"
 #include "avm2_recursion_constraint.hpp"
 
-#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"
@@ -52,7 +52,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> pg_recursion_constraints;
-    std::vector<size_t> civc_recursion_constraints;
+    std::vector<size_t> chonk_recursion_constraints;
     std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
@@ -92,7 +92,7 @@ struct AcirFormat {
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> pg_recursion_constraints;
-    std::vector<RecursionConstraint> civc_recursion_constraints;
+    std::vector<RecursionConstraint> chonk_recursion_constraints;
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -140,7 +140,7 @@ struct AcirFormat {
                    honk_recursion_constraints,
                    avm_recursion_constraints,
                    pg_recursion_constraints,
-                   civc_recursion_constraints,
+                   chonk_recursion_constraints,
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
