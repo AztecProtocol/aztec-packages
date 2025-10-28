@@ -1,16 +1,16 @@
+import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { poseidon2Hash, sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 // Importing directly from 'c-kzg' does not work:
-import cKzg from 'c-kzg';
-import type { Blob as BlobBuffer } from 'c-kzg';
+import cKzg, { type Blob as BlobBuffer } from 'c-kzg';
 
 import { deserializeEncodedBlobToFields, extractBlobFieldsFromBuffer } from './encoding.js';
 import { BlobDeserializationError } from './errors.js';
 import type { BlobJson } from './interface.js';
 
-const { BYTES_PER_BLOB, FIELD_ELEMENTS_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
+const { BYTES_PER_BLOB, blobToKzgCommitment, computeKzgProof, verifyKzgProof } = cKzg;
 
 // The prefix to the EVM blobHash, defined here: https://eips.ethereum.org/EIPS/eip-4844#specification
 export const VERSIONED_HASH_VERSION_KZG = 0x01;
@@ -20,6 +20,8 @@ export const EMPTY_BLOB_VERSIONED_HASH = Buffer.from(
   `010657f37554c781402a22917dee2f75def7ab966d7b770905398eba3c444014`,
   'hex',
 );
+
+export { FIELDS_PER_BLOB };
 
 /**
  * A class to create, manage, and prove EVM blobs.
@@ -60,6 +62,13 @@ export class Blob {
     }
   }
 
+  static async fromBlobBuffer(data: BlobBuffer, fieldsHash: Fr): Promise<Blob> {
+    const commitment = Buffer.from(blobToKzgCommitment(data));
+    const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
+
+    return new Blob(data, fieldsHash, challengeZ, commitment);
+  }
+
   /**
    * Create a Blob from an array of fields.
    *
@@ -68,16 +77,14 @@ export class Blob {
    * @returns A Blob created from the array of fields.
    */
   static async fromFields(fields: Fr[], multiBlobFieldsHash?: Fr): Promise<Blob> {
-    if (fields.length > FIELD_ELEMENTS_PER_BLOB) {
-      throw new Error(
-        `Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELD_ELEMENTS_PER_BLOB}`,
-      );
+    if (fields.length > FIELDS_PER_BLOB) {
+      throw new Error(`Attempted to overfill blob with ${fields.length} elements. The maximum is ${FIELDS_PER_BLOB}`);
     }
 
     const data = Buffer.concat([serializeToBuffer(fields)], BYTES_PER_BLOB);
 
     // This matches the output of SpongeBlob.squeeze() in the blob circuit
-    const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await poseidon2Hash(fields);
+    const fieldsHash = multiBlobFieldsHash ? multiBlobFieldsHash : await Blob.getFieldsHash(fields);
     const commitment = Buffer.from(blobToKzgCommitment(data));
     const challengeZ = await poseidon2Hash([fieldsHash, ...commitmentToFields(commitment)]);
 
@@ -96,10 +103,10 @@ export class Blob {
    * @param json - The JSON object to create the Blob from.
    * @returns A Blob created from the JSON object.
    */
-  static async fromJson(json: BlobJson): Promise<Blob> {
+  static async fromJson(json: BlobJson, fieldsHash: Fr): Promise<Blob> {
     const blobBuffer = Buffer.from(json.blob.slice(2), 'hex');
 
-    const blob = await Blob.fromEncodedBlobBuffer(blobBuffer);
+    const blob = await Blob.fromBlobBuffer(blobBuffer, fieldsHash);
 
     if (blob.commitment.toString('hex') !== json.kzg_commitment.slice(2)) {
       throw new Error('KZG commitment does not match');
@@ -203,6 +210,10 @@ export class Blob {
     return hash;
   }
 
+  static getFieldsHash(blobs: Fr[]): Promise<Fr> {
+    return poseidon2Hash(blobs);
+  }
+
   /**
    * Evaluate the blob at a given challenge and return the evaluation and KZG proof.
    *
@@ -295,12 +306,12 @@ export class Blob {
    * @dev Assumes we share the fields hash between all blobs which can only be done for ONE BLOCK because the hash is calculated in block root.
    */
   static async getBlobsPerBlock(fields: Fr[]): Promise<Blob[]> {
-    const numBlobs = Math.max(Math.ceil(fields.length / FIELD_ELEMENTS_PER_BLOB), 1);
-    const multiBlobFieldsHash = await poseidon2Hash(fields);
+    const numBlobs = Math.max(Math.ceil(fields.length / FIELDS_PER_BLOB), 1);
+    const multiBlobFieldsHash = await Blob.getFieldsHash(fields);
     const res = [];
     for (let i = 0; i < numBlobs; i++) {
-      const end = fields.length < (i + 1) * FIELD_ELEMENTS_PER_BLOB ? fields.length : (i + 1) * FIELD_ELEMENTS_PER_BLOB;
-      res.push(await Blob.fromFields(fields.slice(i * FIELD_ELEMENTS_PER_BLOB, end), multiBlobFieldsHash));
+      const blobFields = fields.slice(i * FIELDS_PER_BLOB, (i + 1) * FIELDS_PER_BLOB);
+      res.push(await Blob.fromFields(blobFields, multiBlobFieldsHash));
     }
     return res;
   }

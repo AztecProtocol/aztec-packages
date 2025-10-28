@@ -2,11 +2,11 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { bufferToHex } from '@aztec/foundation/string';
 
-import cKzg from 'c-kzg';
 import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
+import cKzg from 'c-kzg';
 
 import { Blob, EMPTY_BLOB_VERSIONED_HASH } from './index.js';
-import { makeEncodedBlob } from './testing.js';
+import { makeEncodedBlobFields } from './testing.js';
 
 // Importing directly from 'c-kzg' does not work:
 
@@ -137,9 +137,11 @@ describe('blob', () => {
   });
 
   it('should create a blob from a JSON object', async () => {
-    const blob = await makeEncodedBlob(3);
+    const blobFields = makeEncodedBlobFields(3);
+    const blob = await Blob.fromFields(blobFields);
+    const fieldsHash = await Blob.getFieldsHash(blobFields);
     const blobJson = blob.toJson(1);
-    const deserialisedBlob = await Blob.fromJson(blobJson);
+    const deserialisedBlob = await Blob.fromJson(blobJson, fieldsHash);
     expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
   });
 

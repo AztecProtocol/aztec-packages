@@ -1,5 +1,6 @@
 import { makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { randomInt } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 
 import { Blob } from './blob.js';
@@ -78,6 +79,13 @@ function encodeFirstField(length: number): Fr {
   );
 }
 
+export function makeEncodedBlobFields(length: number): Fr[] {
+  return [
+    encodeFirstField(length),
+    ...Array.from({ length: length - 1 }, () => new Fr(randomInt(Number.MAX_SAFE_INTEGER))),
+  ];
+}
+
 /**
  * Make an encoded blob with the given length
  *
@@ -86,7 +94,12 @@ function encodeFirstField(length: number): Fr {
  * @returns
  */
 export function makeEncodedBlob(length: number): Promise<Blob> {
-  return Blob.fromFields([encodeFirstField(length + 1), ...Array.from({ length: length }, () => Fr.random())]);
+  return Blob.fromFields(makeEncodedBlobFields(length));
+}
+
+export async function makeEncodedBlobs(length: number): Promise<Blob[]> {
+  const fields = makeEncodedBlobFields(length);
+  return await Blob.getBlobsPerBlock(fields);
 }
 
 /**
@@ -98,8 +111,4 @@ export function makeEncodedBlob(length: number): Promise<Blob> {
  */
 export function makeUnencodedBlob(length: number): Promise<Blob> {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
-}
-
-export function makeEncodedBlobFields(fields: Fr[]): Promise<Blob> {
-  return Blob.fromFields([encodeFirstField(fields.length + 1), ...fields]);
 }

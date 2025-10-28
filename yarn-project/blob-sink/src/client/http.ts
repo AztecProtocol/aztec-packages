@@ -1,4 +1,5 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
+import { Blob, type BlobJson, FIELDS_PER_BLOB, deserializeEncodedBlobToFields } from '@aztec/blob-lib';
+import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -162,7 +163,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   ): Promise<BlobWithIndex[]> {
     // Accumulate blobs across sources, preserving order and handling duplicates
     // resultBlobs[i] will contain the blob for blobHashes[i], or undefined if not yet found
-    const resultBlobs: (BlobWithIndex | undefined)[] = new Array(blobHashes.length).fill(undefined);
+    const resultBlobs: (BlobJson | undefined)[] = new Array(blobHashes.length).fill(undefined);
 
     // Helper to get  missing blob hashes that we still need to fetch
     const getMissingBlobHashes = (): Buffer[] =>
@@ -171,10 +172,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         .filter((bh): bh is Buffer => bh !== undefined);
 
     // Helper to fill in results from fetched blobs
-    const fillResults = (fetchedBlobs: BlobWithIndex[]) => {
+    const fillResults = (fetchedBlobs: BlobJson[]) => {
       // Create a map from hash to blob for quick lookup
-      const hashToBlob = new Map<string, BlobWithIndex>(
-        fetchedBlobs.map(b => [bufferToHex(b.blob.getEthVersionedBlobHash()), b] as const),
+      const hashToBlob = new Map<string, BlobJson>(
+        fetchedBlobs.map(b => [bufferToHex(Blob.getEthVersionedBlobHash(hexToBuffer(b.kzg_commitment))), b] as const),
       );
 
       // Fill in any missing positions with matching blobs
@@ -191,6 +192,13 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     // Helper to count how many blobs we have successfully fetched so far
     const getFilledCount = () => resultBlobs.filter(b => b !== undefined).length;
 
+    const returnRelevantBlobs = () =>
+      getRelevantBlobs(
+        resultBlobs.filter((b): b is BlobJson => b !== undefined),
+        this.log,
+        this.opts.onBlobDeserializationError,
+      );
+
     const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
 
@@ -205,7 +213,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
           ...ctx,
         });
         if (getFilledCount() === blobHashes.length) {
-          return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+          return returnRelevantBlobs();
         }
       }
     }
@@ -232,7 +240,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             l1ConsensusHostUrl,
             ...ctx,
           });
-          const blobs = await this.getBlobSidecarFrom(
+          const blobs = await this.fetchBlobSidecarFrom(
             l1ConsensusHostUrl,
             slotNumber,
             missingHashes,
@@ -245,7 +253,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             { slotNumber, l1ConsensusHostUrl, ...ctx },
           );
           if (getFilledCount() === blobHashes.length) {
-            return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+            return returnRelevantBlobs();
           }
         }
       }
@@ -258,22 +266,17 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
       if (!allBlobs) {
         this.log.debug('No blobs found from archive client', archiveCtx);
-        return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+        return returnRelevantBlobs();
       }
       this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
-      const blobs = await getRelevantBlobs(
-        allBlobs,
-        missingAfterConsensus,
-        this.log,
-        this.opts.onBlobDeserializationError,
-      );
+      const blobs = getRequestedBlobs(allBlobs, missingAfterConsensus);
       fillResults(blobs);
       this.log.debug(
         `Got ${blobs.length} blobs from archive client (total: ${getFilledCount()}/${blobHashes.length})`,
         archiveCtx,
       );
       if (getFilledCount() === blobHashes.length) {
-        return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+        return returnRelevantBlobs();
       }
     }
 
@@ -288,10 +291,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         },
       );
     }
-    return resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+    return returnRelevantBlobs();
   }
 
-  private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobWithIndex[]> {
+  private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobJson[]> {
     try {
       const hashStrings = blobHashes.map(bufferToHex).join(',');
       const res = await this.fetch(`${blobSinkUrl}/blobs?blobHashes=${hashStrings}`, {
@@ -299,7 +302,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       });
 
       if (res.ok) {
-        return getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
+        return getRequestedBlobs((await res.json()).data, blobHashes);
       }
 
       this.log.warn(`Failed to get blobs from blob sink: ${res.statusText} (${res.status})`);
@@ -317,10 +320,19 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     indices: number[] = [],
     l1ConsensusHostIndex?: number,
   ): Promise<BlobWithIndex[]> {
-    try {
-      const getBlobs = async (res: Response) =>
-        getRelevantBlobs((await res.json()).data, blobHashes, this.log, this.opts.onBlobDeserializationError);
+    const blobs = await this.fetchBlobSidecarFrom(hostUrl, blockHashOrSlot, blobHashes, indices, l1ConsensusHostIndex);
+    return getRelevantBlobs(blobs, this.log, this.opts.onBlobDeserializationError);
+  }
 
+  public async fetchBlobSidecarFrom(
+    hostUrl: string,
+    blockHashOrSlot: string | number,
+    blobHashes: Buffer[] = [],
+    indices: number[] = [],
+    l1ConsensusHostIndex?: number,
+  ): Promise<BlobJson[]> {
+    try {
+      const getBlobs = async (res: Response) => getRequestedBlobs((await res.json()).data, blobHashes);
       let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
       if (res.ok) {
         return await getBlobs(res);
@@ -472,35 +484,34 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   }
 }
 
-async function getRelevantBlobs(
-  data: BlobJson[],
-  blobHashes: Buffer[],
-  logger: Logger,
-  onBlobDeserializationError: 'warn' | 'trace' = 'warn',
-): Promise<BlobWithIndex[]> {
+function getRequestedBlobs(data: BlobJson[], blobHashes: Buffer[]): BlobJson[] {
   const hashToBlob = new Map<string, BlobJson>(
     data.map(b => [bufferToHex(Blob.getEthVersionedBlobHash(hexToBuffer(b.kzg_commitment))), b] as const),
   );
+  return blobHashes.map(bh => hashToBlob.get(bufferToHex(bh))).filter((b): b is BlobJson => b !== undefined);
+}
 
-  const requestedBlobs = blobHashes
-    .map(bh => hashToBlob.get(bufferToHex(bh)))
-    .filter((b): b is BlobJson => b !== undefined);
+async function getRelevantBlobs(
+  blobs: BlobJson[],
+  logger: Logger,
+  onBlobDeserializationError: 'warn' | 'trace' = 'warn',
+): Promise<BlobWithIndex[]> {
+  let blobFields: Fr[] = [];
+  try {
+    blobFields = deserializeEncodedBlobToFields(Buffer.concat(blobs.map(b => hexToBuffer(b.blob.slice(2)))));
+  } catch (err) {
+    logger[onBlobDeserializationError](
+      `Failed to deserialise blob: ${err}`,
+      blobs.map(b => b.kzg_commitment),
+    );
+    return [];
+  }
 
-  const deserializedBlobs = requestedBlobs.map(async (b: BlobJson): Promise<BlobWithIndex | undefined> => {
-    try {
-      const blob = await Blob.fromJson(b);
-      return new BlobWithIndex(blob, parseInt(b.index));
-    } catch (err) {
-      if (err instanceof BlobDeserializationError) {
-        logger[onBlobDeserializationError](`Failed to deserialise blob`, { commitment: b.kzg_commitment });
-        return undefined;
-      }
-      throw err;
-    }
-  });
+  const fieldsHash = await Blob.getFieldsHash(blobFields);
+  const numBlobs = Math.ceil(blobFields.length / FIELDS_PER_BLOB);
 
-  return (await Promise.all(deserializedBlobs)).filter(
-    (b: BlobWithIndex | undefined): b is BlobWithIndex => b !== undefined,
+  return Promise.all(
+    blobs.slice(0, numBlobs).map(async b => new BlobWithIndex(await Blob.fromJson(b, fieldsHash), parseInt(b.index))),
   );
 }
 
