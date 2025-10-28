@@ -47,6 +47,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using Builder = typename Curve::Builder;
     using witness_ct = stdlib::witness_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
         info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -65,22 +66,105 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(a.get_origin_tag(), next_submitted_value_origin_tag);
 
         // Tags from members are merged
-        bool_ct pif = bool_ct(witness_ct(&builder, 0));
+        // Create field elements with specific tags before constructing the biggroup element
+        affine_element input_c(element::random_element());
+        auto x = element_ct::BaseField::from_witness(&builder, input_c.x);
+        auto y = element_ct::BaseField::from_witness(&builder, input_c.y);
+        auto pif = bool_ct(witness_ct(&builder, false));
+
+        // Set tags on the individual field elements
+        x.set_origin_tag(submitted_value_origin_tag);
+        y.set_origin_tag(challenge_origin_tag);
         pif.set_origin_tag(next_challenge_tag);
-        a.x.set_origin_tag(submitted_value_origin_tag);
-        a.y.set_origin_tag(challenge_origin_tag);
-        a.set_point_at_infinity(pif);
-        EXPECT_EQ(a.get_origin_tag(), first_second_third_merged_tag);
+
+        // Construct biggroup element from pre-tagged field elements
+        element_ct c(x, y, pif);
+
+        // The tag of the biggroup element should be the union of all 3 member tags
+        EXPECT_EQ(c.get_origin_tag(), first_second_third_merged_tag);
 
 #ifndef NDEBUG
+        // Test that instant_death_tag on x coordinate propagates correctly
         affine_element input_b(element::random_element());
-        // Working with instant death tagged element causes an exception
-        element_ct b = element_ct::from_witness(&builder, input_b);
-        b.set_origin_tag(instant_death_tag);
+        auto x_death = element_ct::BaseField::from_witness(&builder, input_b.x);
+        auto y_normal = element_ct::BaseField::from_witness(&builder, input_b.y);
+        auto pif_normal = bool_ct(witness_ct(&builder, false));
 
+        x_death.set_origin_tag(instant_death_tag);
+
+        element_ct b(x_death, y_normal, pif_normal);
+        // Working with instant death tagged element causes an exception
         EXPECT_THROW(b + b, std::runtime_error);
 #endif
     }
+
+    static void test_assert_coordinates_in_field()
+    {
+        // Only test for non-goblin builders (goblin elements don't have assert_coordinates_in_field
+        // because coordinate checks are done in the ECCVM circuit)
+        if constexpr (!HasGoblinBuilder<TestType>) {
+            // Test 1: Valid coordinates should pass
+            {
+                Builder builder;
+
+                // Test multiple random points to ensure assert_coordinates_in_field works correctly
+                for (size_t i = 0; i < 3; ++i) {
+                    affine_element valid_point(element::random_element());
+                    element_ct point = element_ct::from_witness(&builder, valid_point);
+
+                    // This should not fail - coordinates are in field
+                    point.assert_coordinates_in_field();
+                }
+
+                // Verify the circuit is correct
+                EXPECT_CIRCUIT_CORRECTNESS(builder);
+            }
+
+            // Test 2: Invalid x coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                // Create a bigfield element with x coordinate that will be out of range
+                // We do this by creating a valid witness but then manipulating the limb values
+                // to make them represent a value >= the modulus
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                x_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                x_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because x coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+
+            // Test 3: Invalid y coordinate should cause circuit to fail
+            {
+                Builder builder;
+                affine_element valid_point(element::random_element());
+
+                auto x_coord = element_ct::BaseField::from_witness(&builder, valid_point.x);
+                auto y_coord = element_ct::BaseField::from_witness(&builder, valid_point.y);
+
+                // Manipulate the limbs to create an invalid value
+                // Set the highest limb to a very large value that would make the total >= modulus
+                y_coord.binary_basis_limbs[3].element = field_ct::from_witness(&builder, fr(uint256_t(1) << 68));
+                y_coord.binary_basis_limbs[3].maximum_value = uint256_t(1) << 68;
+
+                element_ct point(x_coord, y_coord, bool_ct(witness_ct(&builder, false)));
+                point.assert_coordinates_in_field();
+
+                // Circuit should fail because y coordinate is out of field
+                EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            }
+        }
+    }
+
     static void test_add()
     {
         Builder builder;
@@ -109,8 +193,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a) + element(input_b));
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -207,11 +291,11 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(standard_a.is_point_at_infinity().get_value(), true);
             EXPECT_EQ(standard_b.is_point_at_infinity().get_value(), true);
 
-            fq standard_a_x = standard_a.x.get_value().lo;
-            fq standard_a_y = standard_a.y.get_value().lo;
+            fq standard_a_x = standard_a.x().get_value().lo;
+            fq standard_a_y = standard_a.y().get_value().lo;
 
-            fq standard_b_x = standard_b.x.get_value().lo;
-            fq standard_b_y = standard_b.y.get_value().lo;
+            fq standard_b_x = standard_b.x().get_value().lo;
+            fq standard_b_y = standard_b.y().get_value().lo;
 
             EXPECT_EQ(standard_a_x, 0);
             EXPECT_EQ(standard_a_y, 0);
@@ -243,8 +327,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a) - element(input_b));
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -330,8 +414,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a).dbl());
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -478,23 +562,27 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         {
             Builder builder;
             affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-            // Ensure inputs are different
-            while (input_a == input_b) {
-                input_b = element::random_element();
-            }
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
+
+            // Create a point with the same x coordinate but different y
+            // For an elliptic curve y^2 = x^3 + ax + b, if (x, y) is on the curve, then (x, -y) is also on the curve
+            affine_element input_b = input_a;
+            input_b.y = -input_a.y; // Negate y to get a different point with same x
+
+            // Construct the circuit elements with same x but different y
+            auto x_coord = element_ct::BaseField::from_witness(&builder, input_a.x);
+            auto y_coord_a = element_ct::BaseField::from_witness(&builder, input_a.y);
+            auto y_coord_b = element_ct::BaseField::from_witness(&builder, input_b.y);
+
+            element_ct a(x_coord, y_coord_a, bool_ct(witness_ct(&builder, false)));
+            element_ct b(x_coord, y_coord_b, bool_ct(witness_ct(&builder, false)));
 
             // Set different tags in a and b
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            // Make the x-coordinates equal, so we should get an error message about y-coordinates
-            b.x = a.x;
             a.incomplete_assert_equal(b, "elements don't match");
 
-            // Circuit should fail
+            // Circuit should fail with y coordinate error
             EXPECT_EQ(builder.failed(), true);
             EXPECT_EQ(builder.err(), "elements don't match (y coordinate)");
         }
@@ -569,8 +657,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             affine_element c_expected(element(input_a).dbl() + element(input_b));
 
-            uint256_t c_x_u256 = c.x.get_value().lo;
-            uint256_t c_y_u256 = c.y.get_value().lo;
+            uint256_t c_x_u256 = c.x().get_value().lo;
+            uint256_t c_y_u256 = c.y().get_value().lo;
 
             fq c_x_result(c_x_u256);
             fq c_y_result(c_y_u256);
@@ -606,8 +694,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
@@ -651,8 +739,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
 
@@ -691,8 +779,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
 
@@ -786,8 +874,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_c = (element(input_a) * scalar_a);
             element input_d = (element(input_b) * scalar_b);
             affine_element expected(input_c + input_d);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -848,8 +936,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_g = (element(input_c) * scalar_c);
 
             affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -924,8 +1012,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_h = (element(input_d) * scalar_d);
 
             affine_element expected(input_e + input_f + input_g + input_h);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -956,8 +1044,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             // Check that the resulting tag is a union
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
             affine_element expected(g1::one * scalar_a);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -1007,8 +1095,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
 
         EXPECT_EQ(result_x, expected_point.x);
         EXPECT_EQ(result_y, expected_point.y);
@@ -1057,8 +1145,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         expected_point = expected_point.normalize();
 
-        fq result2_x(result_point2.x.get_value().lo);
-        fq result2_y(result_point2.y.get_value().lo);
+        fq result2_x(result_point2.x().get_value().lo);
+        fq result2_y(result_point2.y().get_value().lo);
 
         EXPECT_EQ(result2_x, expected_point.x);
         EXPECT_EQ(result2_y, expected_point.y);
@@ -1111,8 +1199,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -1169,8 +1257,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element expected_point = points[1];
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -1217,8 +1305,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element expected_point = points[1];
             expected_point = expected_point.normalize();
 
-            fq result_x(result_point.x.get_value().lo);
-            fq result_y(result_point.y.get_value().lo);
+            fq result_x(result_point.x().get_value().lo);
+            fq result_y(result_point.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected_point.x);
             EXPECT_EQ(result_y, expected_point.y);
@@ -1396,8 +1484,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         }
 
         expected_point = expected_point.normalize();
-        fq result_x(result_point.x.get_value().lo);
-        fq result_y(result_point.y.get_value().lo);
+        fq result_x(result_point.x().get_value().lo);
+        fq result_y(result_point.y().get_value().lo);
 
         EXPECT_EQ(result_x, expected_point.x);
         EXPECT_EQ(result_y, expected_point.y);
@@ -1477,8 +1565,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             out += (input4 * scalar4);
             affine_element c_expected(out);
 
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, c_expected.x);
             EXPECT_EQ(c_y_result, c_expected.y);
@@ -1522,8 +1610,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             }
             expected = expected.normalize();
 
-            fq result_x(double_opening_result.x.get_value().lo);
-            fq result_y(double_opening_result.y.get_value().lo);
+            fq result_x(double_opening_result.x().get_value().lo);
+            fq result_y(double_opening_result.y().get_value().lo);
 
             EXPECT_EQ(result_x, expected.x);
             EXPECT_EQ(result_y, expected.y);
@@ -1543,6 +1631,12 @@ TYPED_TEST(stdlib_biggroup, basic_tag_logic)
 {
     TestFixture::test_basic_tag_logic();
 }
+
+TYPED_TEST(stdlib_biggroup, assert_coordinates_in_field)
+{
+    TestFixture::test_assert_coordinates_in_field();
+}
+
 TYPED_TEST(stdlib_biggroup, add)
 {
 
