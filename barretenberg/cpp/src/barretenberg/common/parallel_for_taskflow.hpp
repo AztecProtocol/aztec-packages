@@ -10,8 +10,8 @@
 #include "taskflow/taskflow.hpp"
 #pragma clang diagnostic pop
 
-#include <functional>
 #include <cstddef>
+#include <functional>
 
 namespace bb {
 namespace detail {
@@ -33,16 +33,14 @@ tf::Executor& get_global_taskflow_executor();
  *   // Do other work...
  *   future.wait();  // Wait for completion
  */
-template<typename Func>
-tf::Future<void> parallel_for_async(size_t num_iterations, Func&& func) {
+template <typename Func> tf::Future<void> parallel_for_async(size_t num_iterations, Func&& func)
+{
     auto& executor = detail::get_global_taskflow_executor();
 
     auto taskflow = std::make_shared<tf::Taskflow>();
 
     for (size_t i = 0; i < num_iterations; ++i) {
-        taskflow->emplace([func, i]() {
-            func(i);
-        });
+        taskflow->emplace([func, i]() { func(i); });
     }
 
     // Return future - taskflow is kept alive via shared_ptr captured in the future
@@ -66,17 +64,15 @@ tf::Future<void> parallel_for_async(size_t num_iterations, Func&& func) {
  * This ensures maximum thread utilization: in nested scenarios, all N worker threads
  * actively execute tasks via work-stealing, with no threads sitting idle.
  */
-template<typename Func>
-void parallel_for_impl(size_t num_iterations, Func&& func) {
+template <typename Func> void parallel_for_impl(size_t num_iterations, Func&& func)
+{
     auto& executor = detail::get_global_taskflow_executor();
 
     // Create taskflow with tasks - stack allocation is fine since we block until complete
     tf::Taskflow taskflow;
 
     for (size_t i = 0; i < num_iterations; ++i) {
-        taskflow.emplace([func, i]() {
-            func(i);
-        });
+        taskflow.emplace([func, i]() { func(i); });
     }
 
     // Attempt corun() first for maximum efficiency
