@@ -214,6 +214,21 @@ function fail {
   track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
   track_test "failed_tests${TARGET_BRANCH:+_$TARGET_BRANCH}" "$line"
 
+  # Publish failed status to Redis channel
+  local redis_data=$(jq -n \
+    --arg status "failed" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "${CI_REDIS_AVAILABLE:+http://ci.aztec-labs.com/$log_key}" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson is_scenario "$SCENARIO_TESTS" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, is_scenario_test: ($is_scenario == 1), timestamp: now | todate}')
+  redis_publish "ci:test:failed" "$redis_data"
+
   # notify slack if scenario test failed
   if [ "$SCENARIO_TESTS" -eq 1 ] && [ -n "${SLACK_BOT_TOKEN:-}" ]; then
     read -r -d '' data <<EOF
@@ -248,6 +263,23 @@ function flake {
   if [ -n "${FLAKES_FILE:-}" ]; then
     echo "$line" >> "$FLAKES_FILE"
   fi
+
+  # Publish flake status to Redis channel
+  local owners_json=$(echo "$owners" | jq -R -s 'split("\n") | map(select(length > 0))')
+  local redis_data=$(jq -n \
+    --arg status "flaked" \
+    --arg test_cmd "$test_cmd" \
+    --arg log_url "http://ci.aztec-labs.com/$log_key" \
+    --arg ref_name "${TARGET_BRANCH:-$REF_NAME}" \
+    --arg commit_hash "$COMMIT_HASH" \
+    --arg commit_author "$COMMIT_AUTHOR" \
+    --arg commit_msg "$COMMIT_MSG" \
+    --argjson code "$code" \
+    --argjson duration "$SECONDS" \
+    --argjson owners "$owners_json" \
+    --arg flake_group_id "${flake_group_id:-}" \
+    '{status: $status, test_cmd: $test_cmd, log_url: $log_url, ref_name: $ref_name, commit_hash: $commit_hash, commit_author: $commit_author, commit_msg: $commit_msg, exit_code: $code, duration_seconds: $duration, owners: $owners, flake_group_id: $flake_group_id, timestamp: now | todate}')
+  redis_publish "ci:test:flaked" "$redis_data"
 
   # Early out if no token or not in merge queue (unless on backport-to-v2-staging).
   if [ -z "${SLACK_BOT_TOKEN:-}" ] || { [ "$is_merge_queue" -eq 0 ] && [ "$REF_NAME" != "backport-to-v2-staging" ]; }; then
