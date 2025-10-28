@@ -43,11 +43,11 @@ export async function deployFundedSchnorrAccounts(
 }
 
 /**
- * Registers the initial sandbox accounts in the wallet.
+ * Registers the initial local network accounts in the wallet.
  * @param wallet - Test wallet to use to register the accounts.
  * @returns Addresses of the registered accounts.
  */
-export async function registerInitialSandboxAccountsInWallet(wallet: BaseTestWallet): Promise<AztecAddress[]> {
+export async function registerInitialLocalNetworkAccountsInWallet(wallet: BaseTestWallet): Promise<AztecAddress[]> {
   const testAccounts = await getInitialTestAccountsData();
   return Promise.all(
     testAccounts.map(async account => {

@@ -12,7 +12,7 @@ import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
-import { TestWallet, registerInitialSandboxAccountsInWallet } from '@aztec/test-wallet/server';
+import { TestWallet, registerInitialLocalNetworkAccountsInWallet } from '@aztec/test-wallet/server';
 
 import { format } from 'util';
 
@@ -20,31 +20,31 @@ import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 
 const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 
-// To run these tests against a local sandbox:
+// To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):
 //    anvil --host 127.0.0.1 --port 8545
 //
-// 2. Start the Aztec sandbox:
+// 2. Start the Aztec local_network:
 //    cd yarn-project/aztec
-//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
 //
 // 3. Run the tests:
-//    yarn test:e2e e2e_sandbox_example.test.ts
-describe('e2e_sandbox_example', () => {
-  it('sandbox example works', async () => {
+//    yarn test:e2e e2e_local_network_example.test.ts
+describe('e2e_local_network_example', () => {
+  it('local network example works', async () => {
     // docs:start:setup
-    ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE SANDBOX //////////////
+    ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE LOCAL NETWORK //////////////
     const logger = createLogger('e2e:token');
 
-    // We create PXE client connected to the sandbox URL
+    // We create PXE client connected to the local network URL
     const node = createAztecNodeClient(AZTEC_NODE_URL);
-    // Wait for sandbox to be ready
+    // Wait for local network to be ready
     await waitForNode(node, logger);
     const wallet = await TestWallet.create(node);
 
     const nodeInfo = await node.getNodeInfo();
 
-    logger.info(format('Aztec Sandbox Info ', nodeInfo));
+    logger.info(format('Aztec Local Network Info ', nodeInfo));
 
     // docs:end:setup
 
@@ -52,12 +52,12 @@ describe('e2e_sandbox_example', () => {
     expect(typeof nodeInfo.l1ChainId).toBe('number');
     expect(typeof nodeInfo.l1ContractAddresses.rollupAddress).toBe('object');
 
-    // For the sandbox quickstart we just want to show them preloaded accounts (since it is a quickstart)
+    // For the local network quickstart we just want to show them preloaded accounts (since it is a quickstart)
     // We show creation of accounts in a later test
 
-    ////////////// LOAD SOME ACCOUNTS FROM THE SANDBOX //////////////
-    // The sandbox comes with a set of created accounts. Load them
-    const [alice, bob] = await registerInitialSandboxAccountsInWallet(wallet);
+    ////////////// LOAD SOME ACCOUNTS FROM THE LOCAL NETWORK //////////////
+    // The local network comes with a set of created accounts. Load them
+    const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
     logger.info(`Loaded alice's account at ${alice.toString()}`);
     logger.info(`Loaded bob's account at ${bob.toString()}`);
@@ -117,18 +117,18 @@ describe('e2e_sandbox_example', () => {
     expect(bobBalance).toBe(transferQuantity + mintQuantity);
   });
 
-  it('can create accounts on the sandbox', async () => {
+  it('can create accounts on the local network', async () => {
     const logger = createLogger('e2e:token');
-    // We create PXE client connected to the sandbox URL
+    // We create PXE client connected to the local network URL
     const node = createAztecNodeClient(AZTEC_NODE_URL);
-    // Wait for sandbox to be ready
+    // Wait for local network to be ready
     await waitForNode(node, logger);
     const wallet = await TestWallet.create(node);
 
     ////////////// CREATE SOME ACCOUNTS WITH SCHNORR SIGNERS //////////////
 
     // Use one of the pre-funded accounts to pay for the deployments.
-    const [fundedAccount] = await registerInitialSandboxAccountsInWallet(wallet);
+    const [fundedAccount] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
     // Creates new accounts using an account contract that verifies schnorr signatures
     // Returns once the deployment transactions have settled

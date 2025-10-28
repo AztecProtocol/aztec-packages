@@ -108,23 +108,23 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     configToFlag('--sync-mode', sharedNodeConfigMappings.syncMode),
     configToFlag('--snapshots-urls', sharedNodeConfigMappings.snapshotsUrls),
   ],
-  SANDBOX: [
+  LOCAL_NETWORK: [
     {
-      flag: '--sandbox',
-      description: 'Starts Aztec Sandbox',
+      flag: '--local-network',
+      description: 'Starts Aztec Local Network',
       defaultValue: undefined,
       env: undefined,
     },
     {
-      flag: '--sandbox.l1Mnemonic <value>',
+      flag: '--local-network.l1Mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used ',
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
     {
-      flag: '--sandbox.deployAztecContractsSalt <value>',
+      flag: '--local-network.deployAztecContractsSalt <value>',
       description:
-        'Numeric salt for deploying L1 Aztec contracts before starting the sandbox. Needs mnemonic or private key to be set.',
+        'Numeric salt for deploying L1 Aztec contracts before starting the local network. Needs mnemonic or private key to be set.',
       env: 'DEPLOY_AZTEC_CONTRACTS_SALT',
       defaultValue: undefined,
       parseVal: (val: string) => (val ? parseInt(val) : undefined),

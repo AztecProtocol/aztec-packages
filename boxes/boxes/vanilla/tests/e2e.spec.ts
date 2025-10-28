@@ -9,7 +9,7 @@ test.beforeAll(async () => {
   const nodeResp = await fetch(nodeUrl + '/status');
   if (!nodeResp.ok) {
     throw new Error(
-      `Failed to connect to node. This test assumes you have a Sandbox running at ${nodeUrl}.`
+      `Failed to connect to node. This test assumes you have a local network running at ${nodeUrl}.`
     );
   }
 });

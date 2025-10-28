@@ -152,7 +152,7 @@ export class EmbeddedWallet extends BaseWallet {
     const testAccountData = await getInitialTestAccountsData();
     const [sampleAccount] = testAccountData;
     let i = 0;
-    // Assume we're in a network with test accounts (sandbox) if the first of them
+    // Assume we're in a network with test accounts (local network) if the first of them
     // is initialized
     if (
       !aliasedAccounts.find(aliased => aliased.item.equals(sampleAccount.address)) &&
