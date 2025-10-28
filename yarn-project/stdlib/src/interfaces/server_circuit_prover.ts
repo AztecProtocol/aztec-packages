@@ -26,8 +26,8 @@ import type {
   CheckpointRootSingleBlockRollupPrivateInputs,
 } from '../rollup/checkpoint_root_rollup_private_inputs.js';
 import type { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
-import type { PublicTubePrivateInputs } from '../rollup/public_tube_private_inputs.js';
-import type { PublicTubePublicInputs } from '../rollup/public_tube_public_inputs.js';
+import type { PublicChonkVerifierPrivateInputs } from '../rollup/public_chonk_verifier_private_inputs.js';
+import type { PublicChonkVerifierPublicInputs } from '../rollup/public_chonk_verifier_public_inputs.js';
 import type { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import type { RootRollupPrivateInputs } from '../rollup/root_rollup_private_inputs.js';
 import type { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
@@ -60,11 +60,13 @@ export interface ServerCircuitProver {
     epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH>>;
 
-  getPublicTubeProof(
-    inputs: PublicTubePrivateInputs,
+  getPublicChonkVerifierProof(
+    inputs: PublicChonkVerifierPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  ): Promise<
+    PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  >;
 
   /**
    * Creates a proof for the given input.

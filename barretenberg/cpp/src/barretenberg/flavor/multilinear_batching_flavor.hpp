@@ -30,7 +30,7 @@ class MultilinearBatchingFlavor {
     using Transcript = NativeTranscript;
 
     // An upper bound on the size of the MultilinearBatching-circuits. `CONST_PG_LOG_N` bounds the log circuit sizes in
-    // the CIVC context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
+    // the Chonk context. `MEGA_AVM_LOG_N` is determined by the size of the AVMRecursiveVerifier.
     static constexpr size_t VIRTUAL_LOG_N = std::max(CONST_PG_LOG_N, MEGA_AVM_LOG_N);
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.

@@ -11,7 +11,7 @@ import {
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
-import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import { ChonkProof } from '../proofs/chonk_proof.js';
 import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
@@ -69,7 +69,7 @@ export class PrivateSimulationResult {
 
     return await Tx.create({
       data: this.publicInputs,
-      clientIvcProof: ClientIvcProof.empty(),
+      chonkProof: ChonkProof.empty(),
       contractClassLogFields: contractClassLogs,
       publicFunctionCalldata: this.privateExecutionResult.publicFunctionCalldata,
     });

@@ -34,8 +34,8 @@ import {
   CheckpointConstantData,
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   RootRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
@@ -57,7 +57,7 @@ import {
   buildBlockHeaderFromTxs,
   buildHeaderFromCircuitOutputs,
   getLastSiblingPath,
-  getPublicTubePrivateInputsFromTx,
+  getPublicChonkVerifierPrivateInputsFromTx,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -327,7 +327,7 @@ export class ProvingOrchestrator implements EpochProver {
         const txProvingState = new TxProvingState(tx, hints, treeSnapshots, this.proverId.toField());
         const txIndex = provingState.addNewTx(txProvingState);
         if (txProvingState.requireAvmProof) {
-          this.getOrEnqueueTube(provingState, txIndex);
+          this.getOrEnqueueChonkVerifier(provingState, txIndex);
           logger.debug(`Enqueueing public VM for tx ${txIndex}`);
           this.enqueueVM(provingState, txIndex);
         } else {
@@ -350,27 +350,30 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
-   * Kickstarts tube circuits for the specified txs. These will be used during epoch proving.
-   * Note that if the tube circuits are not started this way, they will be started nontheless after processing.
+   * Kickstarts chonk verifier circuits for the specified txs. These will be used during epoch proving.
+   * Note that if the chonk verifier circuits are not started this way, they will be started nontheless after processing.
    */
-  @trackSpan('ProvingOrchestrator.startTubeCircuits')
-  public startTubeCircuits(txs: Tx[]) {
+  @trackSpan('ProvingOrchestrator.startChonkVerifierCircuits')
+  public startChonkVerifierCircuits(txs: Tx[]) {
     if (!this.provingState?.verifyState()) {
-      throw new Error(`Empty epoch proving state. call startNewEpoch before starting tube circuits.`);
+      throw new Error(`Empty epoch proving state. call startNewEpoch before starting chonk verifier circuits.`);
     }
     const publicTxs = txs.filter(tx => tx.data.forPublic);
     for (const tx of publicTxs) {
       const txHash = tx.getTxHash().toString();
-      const privateInputs = getPublicTubePrivateInputsFromTx(tx, this.proverId.toField());
+      const privateInputs = getPublicChonkVerifierPrivateInputsFromTx(tx, this.proverId.toField());
       const tubeProof =
         promiseWithResolvers<
-          PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+          PublicInputsAndRecursiveProof<
+            PublicChonkVerifierPublicInputs,
+            typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+          >
         >();
-      logger.debug(`Starting tube circuit for tx ${txHash}`);
-      this.doEnqueueTube(txHash, privateInputs, proof => {
+      logger.debug(`Starting chonk verifier circuit for tx ${txHash}`);
+      this.doEnqueueChonkVerifier(txHash, privateInputs, proof => {
         tubeProof.resolve(proof);
       });
-      this.provingState.cachedTubeProofs.set(txHash, tubeProof.promise);
+      this.provingState.cachedChonkVerifierProofs.set(txHash, tubeProof.promise);
     }
     return Promise.resolve();
   }
@@ -643,7 +646,7 @@ export class ProvingOrchestrator implements EpochProver {
     db: MerkleTreeWriteOperations,
   ): Promise<[BaseRollupHints, TreeSnapshots]> {
     // We build the base rollup inputs using a mock proof and verification key.
-    // These will be overwritten later once we have proven the tube circuit and any public kernels
+    // These will be overwritten later once we have proven the chonk verifier circuit and any public kernels
     const [ms, hints] = await elapsed(
       insertSideEffectsAndBuildBaseRollupHints(
         tx,
@@ -720,11 +723,11 @@ export class ProvingOrchestrator implements EpochProver {
     );
   }
 
-  // Enqueues the public tube circuit for a given transaction index, or reuses the one already enqueued.
+  // Enqueues the public chonk verifier circuit for a given transaction index, or reuses the one already enqueued.
   // Once completed, will enqueue the the public tx base rollup.
-  private getOrEnqueueTube(provingState: BlockProvingState, txIndex: number) {
+  private getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
-      logger.debug('Not running tube circuit, state invalid');
+      logger.debug('Not running chonk verifier circuit, state invalid');
       return;
     }
 
@@ -732,34 +735,40 @@ export class ProvingOrchestrator implements EpochProver {
     const txHash = txProvingState.processedTx.hash.toString();
     NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
     const handleResult = (
-      result: PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
+      result: PublicInputsAndRecursiveProof<
+        PublicChonkVerifierPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
     ) => {
-      logger.debug(`Got tube proof for tx index: ${txIndex}`, { txHash });
-      txProvingState.setPublicTubeProof(result);
-      this.provingState?.cachedTubeProofs.delete(txHash);
+      logger.debug(`Got chonk verifier proof for tx index: ${txIndex}`, { txHash });
+      txProvingState.setPublicChonkVerifierProof(result);
+      this.provingState?.cachedChonkVerifierProofs.delete(txHash);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     };
 
-    if (this.provingState?.cachedTubeProofs.has(txHash)) {
-      logger.debug(`Tube proof already enqueued for tx index: ${txIndex}`, { txHash });
-      void this.provingState!.cachedTubeProofs.get(txHash)!.then(handleResult);
+    if (this.provingState?.cachedChonkVerifierProofs.has(txHash)) {
+      logger.debug(`Chonk verifier proof already enqueued for tx index: ${txIndex}`, { txHash });
+      void this.provingState!.cachedChonkVerifierProofs.get(txHash)!.then(handleResult);
       return;
     }
 
-    logger.debug(`Enqueuing tube circuit for tx index: ${txIndex}`);
-    this.doEnqueueTube(txHash, txProvingState.getPublicTubePrivateInputs(), handleResult);
+    logger.debug(`Enqueuing chonk verifier circuit for tx index: ${txIndex}`);
+    this.doEnqueueChonkVerifier(txHash, txProvingState.getPublicChonkVerifierPrivateInputs(), handleResult);
   }
 
-  private doEnqueueTube(
+  private doEnqueueChonkVerifier(
     txHash: string,
-    inputs: PublicTubePrivateInputs,
+    inputs: PublicChonkVerifierPrivateInputs,
     handler: (
-      result: PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>,
+      result: PublicInputsAndRecursiveProof<
+        PublicChonkVerifierPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
     ) => void,
     provingState: EpochProvingState | BlockProvingState = this.provingState!,
   ) {
     if (!provingState.verifyState()) {
-      logger.debug('Not running tube circuit, state invalid');
+      logger.debug('Not running chonk verifier circuit, state invalid');
       return;
     }
 
@@ -767,12 +776,12 @@ export class ProvingOrchestrator implements EpochProver {
       provingState,
       wrapCallbackInSpan(
         this.tracer,
-        'ProvingOrchestrator.prover.getPublicTubeProof',
+        'ProvingOrchestrator.prover.getPublicChonkVerifierProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-public' satisfies CircuitName,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'chonk-verifier-public' satisfies CircuitName,
         },
-        signal => this.prover.getPublicTubeProof(inputs, signal, provingState.epochNumber),
+        signal => this.prover.getPublicChonkVerifierProof(inputs, signal, provingState.epochNumber),
       ),
       handler,
     );
@@ -1255,7 +1264,7 @@ export class ProvingOrchestrator implements EpochProver {
       return;
     }
 
-    // We must have completed all proving (tube proof and (if required) vm proof are generated), we now move to the base rollup.
+    // We must have completed all proving (chonk verifier proof and (if required) vm proof are generated), we now move to the base rollup.
     logger.debug(`Public functions completed for tx ${txIndex} enqueueing base rollup`);
 
     this.enqueueBaseRollup(provingState, txIndex);

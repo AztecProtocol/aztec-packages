@@ -5,7 +5,7 @@ import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { TxHash } from '@aztec/stdlib/tx';
 import { ServerWorldStateSynchronizer, worldStateConfigMappings } from '@aztec/world-state';
@@ -181,7 +181,7 @@ describe('TxPool: Benchmarks', () => {
 
   it.each(batchSizes)('add txs in batches of %d', async batchSize => {
     for (let i = 0; i < RUNS; i++) {
-      const txs = await timesAsync(batchSize, seed => mockTx(seed, { clientIvcProof: ClientIvcProof.random() }));
+      const txs = await timesAsync(batchSize, seed => mockTx(seed, { chonkProof: ChonkProof.random() }));
       const timer = new Timer();
       await pool.addTxs(txs);
       addHistogram[batchSize].record(Math.max(1, Math.ceil(timer.ms())));
@@ -192,7 +192,7 @@ describe('TxPool: Benchmarks', () => {
   });
 
   it.each(batchSizes)('get txs in batches of %d', async batchSize => {
-    const txs = await timesAsync(2 * batchSize, seed => mockTx(seed, { clientIvcProof: ClientIvcProof.random() }));
+    const txs = await timesAsync(2 * batchSize, seed => mockTx(seed, { chonkProof: ChonkProof.random() }));
     await pool.addTxs(txs);
     const allHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     for (let i = 0; i < RUNS; i++) {
@@ -209,7 +209,7 @@ describe('TxPool: Benchmarks', () => {
 
     for (let i = 0; i < RUNS / 2; i++) {
       const txs = await timesAsync(batchSize, seed =>
-        mockTx(i * batchSize + seed, { clientIvcProof: ClientIvcProof.random() }),
+        mockTx(i * batchSize + seed, { chonkProof: ChonkProof.random() }),
       );
       await pool.addTxs(txs);
       allHashes.push(...(await Promise.all(txs.map(tx => tx.getTxHash()))));

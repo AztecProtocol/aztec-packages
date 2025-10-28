@@ -188,7 +188,7 @@ function getProofCounts(
   counts[priorityIndex(ProvingRequestType.PRIVATE_TX_BASE_ROLLUP)] = numPrivateBasesPerBlock * totalNumBlocks;
   counts[priorityIndex(ProvingRequestType.PUBLIC_TX_BASE_ROLLUP)] = numPublicBasesPerBlock * totalNumBlocks;
   counts[priorityIndex(ProvingRequestType.PUBLIC_VM)] = numPublicBasesPerBlock * totalNumBlocks;
-  counts[priorityIndex(ProvingRequestType.PUBLIC_TUBE)] = numPublicBasesPerBlock * totalNumBlocks;
+  counts[priorityIndex(ProvingRequestType.PUBLIC_CHONK_VERIFIER)] = numPublicBasesPerBlock * totalNumBlocks;
 
   return counts;
 }

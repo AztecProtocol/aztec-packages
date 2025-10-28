@@ -7,10 +7,10 @@ pub use protocol_types::{
     abis::avm_circuit_public_inputs::AvmCircuitPublicInputs,
     constants::{
         AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-        CIVC_PROOF_LENGTH, CIVC_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
-        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, PROOF_TYPE_AVM, PROOF_TYPE_CIVC, PROOF_TYPE_OINK,
-        PROOF_TYPE_PG, PROOF_TYPE_PG_FINAL, PROOF_TYPE_PG_TAIL, PROOF_TYPE_ROLLUP_HONK,
-        PROOF_TYPE_ROOT_ROLLUP_HONK,
+        CHONK_PROOF_LENGTH, CHONK_VK_LENGTH_IN_FIELDS, MEGA_VK_LENGTH_IN_FIELDS,
+        NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, PROOF_TYPE_AVM, PROOF_TYPE_CHONK,
+        PROOF_TYPE_OINK, PROOF_TYPE_PG, PROOF_TYPE_PG_FINAL, PROOF_TYPE_PG_TAIL,
+        PROOF_TYPE_ROLLUP_HONK, PROOF_TYPE_ROOT_ROLLUP_HONK,
     },
     proof::{
         traits::SerializeToColumns,
@@ -166,13 +166,14 @@ impl PreviousRollupData {
     }
 }
 
-pub struct CivcProofData {
+// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+pub struct ChonkProofData {
     pub public_inputs: KernelPublicInputs,
-    pub proof: [Field; CIVC_PROOF_LENGTH],
-    pub vk_data: VerificationKey<CIVC_VK_LENGTH_IN_FIELDS>,
+    pub proof: [Field; CHONK_PROOF_LENGTH],
+    pub vk_data: VerificationKey<CHONK_VK_LENGTH_IN_FIELDS>,
 }
 
-impl CivcProofData {
+impl ChonkProofData {
     pub fn verify(self) {
         let inputs = KernelPublicInputs::serialize(self.public_inputs);
         std::verify_proof_with_type(
@@ -180,7 +181,7 @@ impl CivcProofData {
             self.proof,
             inputs,
             self.vk_data.hash,
-            PROOF_TYPE_CIVC,
+            PROOF_TYPE_CHONK,
         );
     }
 }

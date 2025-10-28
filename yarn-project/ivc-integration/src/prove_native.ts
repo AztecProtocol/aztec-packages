@@ -4,7 +4,7 @@ import {
   PUBLIC_INPUTS_FILENAME,
   type UltraHonkFlavor,
   VK_FILENAME,
-  executeBbClientIvcProof,
+  executeBbChonkProof,
   extractVkData,
   generateAvmProof,
   generateProof,
@@ -15,7 +15,7 @@ import {
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -48,14 +48,14 @@ async function convertVkBytesToVkData(vkBytes: Buffer): Promise<VerificationKeyD
   return new VerificationKeyData(vkAsFields, vkBytes);
 }
 
-export async function proveClientIVC(
+export async function proveChonk(
   bbBinaryPath: string,
   bbWorkingDirectory: string,
   witnessStack: Uint8Array[],
   bytecodes: string[],
   vks: string[],
   logger: Logger,
-): Promise<ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>> {
+): Promise<ProofAndVerificationKey<typeof CHONK_PROOF_LENGTH>> {
   const stepToStruct = (bytecode: string, index: number) => {
     return {
       bytecode: Buffer.from(bytecode, 'base64'),
@@ -68,20 +68,14 @@ export async function proveClientIVC(
   const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
   await fs.writeFile(ivcInputsPath, encoded);
 
-  const provingResult = await executeBbClientIvcProof(
-    bbBinaryPath,
-    bbWorkingDirectory,
-    ivcInputsPath,
-    logger.info,
-    true,
-  );
+  const provingResult = await executeBbChonkProof(bbBinaryPath, bbWorkingDirectory, ivcInputsPath, logger.info, true);
 
   if (provingResult.status === BB_RESULT.FAILURE) {
     throw new Error(provingResult.reason);
   }
 
   const vk = await extractVkData(provingResult.vkDirectoryPath!);
-  const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vk, CIVC_PROOF_LENGTH, logger);
+  const proof = await readProofsFromOutputDirectory(provingResult.proofPath!, vk, CHONK_PROOF_LENGTH, logger);
 
   return makeProofAndVerificationKey(proof, vk);
 }

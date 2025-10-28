@@ -17,13 +17,13 @@ using Commands = ::testing::Types<bbapi::CircuitProve,
                                   bbapi::CircuitVerify,
                                   bbapi::VkAsFields,
                                   bbapi::CircuitWriteSolidityVerifier,
-                                  bbapi::ClientIvcStart,
-                                  bbapi::ClientIvcLoad,
-                                  bbapi::ClientIvcAccumulate,
-                                  bbapi::ClientIvcProve,
-                                  bbapi::ClientIvcComputeStandaloneVk,
-                                  bbapi::ClientIvcComputeIvcVk,
-                                  bbapi::ClientIvcCheckPrecomputedVk>;
+                                  bbapi::ChonkStart,
+                                  bbapi::ChonkLoad,
+                                  bbapi::ChonkAccumulate,
+                                  bbapi::ChonkProve,
+                                  bbapi::ChonkComputeStandaloneVk,
+                                  bbapi::ChonkComputeIvcVk,
+                                  bbapi::ChonkCheckPrecomputedVk>;
 
 // Typed test suites
 template <typename T> class BBApiMsgpack : public ::testing::Test {};

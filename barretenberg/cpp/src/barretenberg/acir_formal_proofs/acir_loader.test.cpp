@@ -13,7 +13,7 @@
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "formal_proofs.hpp"
 #include "helpers.hpp"

@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
@@ -26,7 +26,7 @@ bb::Goblin::MergeProof create_mock_merge_proof();
 bb::HonkProof create_mock_pre_ipa_proof();
 bb::HonkProof create_mock_ipa_proof();
 bb::HonkProof create_mock_translator_proof();
-template <typename Builder> bb::HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size = 0);
+template <typename Builder> bb::HonkProof create_mock_chonk_proof(const size_t inner_public_inputs_size = 0);
 template <typename Flavor>
 std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construct_honk_proof_for_simple_circuit(
     size_t num_inner_public_inputs);

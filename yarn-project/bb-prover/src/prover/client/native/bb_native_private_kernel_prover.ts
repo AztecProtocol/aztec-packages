@@ -3,14 +3,14 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import type { CircuitSimulator } from '@aztec/simulator/server';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
-import type { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
+import type { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 
 import { promises as fs } from 'fs';
 import path from 'path';
 
-import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../../../bb/execute.js';
+import { BB_RESULT, computeGateCountForCircuit, executeBbChonkProof } from '../../../bb/execute.js';
 import type { BBConfig } from '../../../config.js';
-import { readClientIVCProofFromOutputDirectory } from '../../proof_utils.js';
+import { readChonkProofFromOutputDirectory } from '../../proof_utils.js';
 import { BBPrivateKernelProver } from '../bb_private_kernel_prover.js';
 
 /**
@@ -38,22 +38,22 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     );
   }
 
-  private async _createClientIvcProof(
+  private async _createChonkProof(
     directory: string,
     executionSteps: PrivateExecutionStep[],
-  ): Promise<ClientIvcProofWithPublicInputs> {
+  ): Promise<ChonkProofWithPublicInputs> {
     const inputsPath = path.join(directory, 'ivc-inputs.msgpack');
     await fs.writeFile(inputsPath, serializePrivateExecutionSteps(executionSteps));
-    const provingResult = await executeBbClientIvcProof(this.bbBinaryPath, directory, inputsPath, this.log.info);
+    const provingResult = await executeBbChonkProof(this.bbBinaryPath, directory, inputsPath, this.log.info);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      this.log.error(`Failed to generate client ivc proof`);
+      this.log.error(`Failed to generate chonk proof`);
       throw new Error(provingResult.reason);
     }
 
-    const proof = await readClientIVCProofFromOutputDirectory(directory);
+    const proof = await readChonkProofFromOutputDirectory(directory);
 
-    this.log.info(`Generated IVC proof`, {
+    this.log.info(`Generated Chonk proof`, {
       duration: provingResult.durationMs,
       eventName: 'circuit-proving',
     });
@@ -61,12 +61,10 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     return proof;
   }
 
-  public override async createClientIvcProof(
-    executionSteps: PrivateExecutionStep[],
-  ): Promise<ClientIvcProofWithPublicInputs> {
-    this.log.info(`Generating Client IVC proof`);
+  public override async createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
+    this.log.info(`Generating Chonk proof`);
     const operation = async (directory: string) => {
-      return await this._createClientIvcProof(directory, executionSteps);
+      return await this._createChonkProof(directory, executionSteps);
     };
     return await this.runInDirectory(operation);
   }

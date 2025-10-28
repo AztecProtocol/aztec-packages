@@ -19,7 +19,7 @@ function cleanup {
 }
 trap cleanup EXIT SIGINT
 aztec-wallet profile transfer_in_private --debug-execution-steps-dir $tmp -ca token --args accounts:main accounts:operator 100 secrets:auth_nonce -aw authwits:last -f operator
-# Crude check, check that $tmp is over one megabyte, the validity of these files is checked more directly in the client ivc benches.
+# Crude check, check that $tmp is over one megabyte, the validity of these files is checked more directly in the chonk benches.
 size=$(du -sb $tmp | awk '{print $1}')
 if [ "$size" -lt 1000000 ]; then
     echo "Debug execution steps directory is less than 1MB, something went wrong."

@@ -49,8 +49,8 @@ import {
   EpochConstantData,
   FeeRecipient,
   type PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   type PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -97,9 +97,9 @@ import type {
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateTxBaseRollupPrivateInputs as PrivateTxBaseRollupPrivateInputsNoir,
   ProofData as ProofDataNoir,
+  PublicChonkVerifierPrivateInputs as PublicChonkVerifierPrivateInputsNoir,
+  PublicChonkVerifierPublicInputs as PublicChonkVerifierPublicInputsNoir,
   PublicLogs as PublicLogsNoir,
-  PublicTubePrivateInputs as PublicTubePrivateInputsNoir,
-  PublicTubePublicInputs as PublicTubePublicInputsNoir,
   PublicTxBaseRollupPrivateInputs as PublicTxBaseRollupPrivateInputsNoir,
   RootRollupPrivateInputs as RootRollupPrivateInputsNoir,
   RootRollupPublicInputs as RootRollupPublicInputsNoir,
@@ -695,7 +695,9 @@ export function mapParityRootPrivateInputsToNoir(inputs: ParityRootPrivateInputs
   };
 }
 
-export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs): PublicTubePrivateInputsNoir {
+export function mapPublicChonkVerifierPrivateInputsToNoir(
+  inputs: PublicChonkVerifierPrivateInputs,
+): PublicChonkVerifierPrivateInputsNoir {
   return {
     hiding_kernel_proof_data: mapProofDataToNoir(
       inputs.hidingKernelProofData,
@@ -705,14 +707,16 @@ export function mapPublicTubePrivateInputsToNoir(inputs: PublicTubePrivateInputs
   };
 }
 
-export function mapPublicTubePublicInputsFromNoir(inputs: PublicTubePublicInputsNoir) {
-  return new PublicTubePublicInputs(
+export function mapPublicChonkVerifierPublicInputsFromNoir(inputs: PublicChonkVerifierPublicInputsNoir) {
+  return new PublicChonkVerifierPublicInputs(
     mapPrivateToPublicKernelCircuitPublicInputsFromNoir(inputs.private_tail),
     mapFieldFromNoir(inputs.prover_id),
   );
 }
 
-export function mapPublicTubePublicInputsToNoir(inputs: PublicTubePublicInputs): PublicTubePublicInputsNoir {
+export function mapPublicChonkVerifierPublicInputsToNoir(
+  inputs: PublicChonkVerifierPublicInputs,
+): PublicChonkVerifierPublicInputsNoir {
   return {
     private_tail: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.privateTail),
     prover_id: mapFieldToNoir(inputs.proverId),
@@ -743,7 +747,10 @@ export function mapPublicTxBaseRollupPrivateInputsToNoir(
   inputs: PublicTxBaseRollupPrivateInputs,
 ): PublicTxBaseRollupPrivateInputsNoir {
   return {
-    public_tube_proof_data: mapProofDataToNoir(inputs.publicTubeProofData, mapPublicTubePublicInputsToNoir),
+    public_chonk_verifier_proof_data: mapProofDataToNoir(
+      inputs.publicChonkVerifierProofData,
+      mapPublicChonkVerifierPublicInputsToNoir,
+    ),
     avm_proof_data: mapProofDataToNoir(inputs.avmProofData, mapAvmCircuitPublicInputsToNoir),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     last_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.hints.lastArchive),

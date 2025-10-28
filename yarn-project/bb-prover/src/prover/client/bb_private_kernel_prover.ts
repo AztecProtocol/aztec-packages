@@ -37,7 +37,7 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
-import type { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
+import type { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
@@ -263,7 +263,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public createClientIvcProof(_executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProofWithPublicInputs> {
+  public createChonkProof(_executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
     throw new Error('Not implemented');
   }
 

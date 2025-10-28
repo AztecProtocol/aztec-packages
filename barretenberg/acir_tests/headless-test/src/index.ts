@@ -167,9 +167,9 @@ program
   });
 
 program
-  .command("prove_client_ivc")
+  .command("prove_chonk")
   .description(
-    "Generate a ClientIVC proof. Process exits with success or failure code."
+    "Generate a Chonk proof. Process exits with success or failure code."
   )
   .option(
     "-i, --ivc-inputs-path <path>",
@@ -187,7 +187,7 @@ program
         continue;
       }
       console.log(
-        chalk.blue(`Testing ClientIVC ${ivcInputsPath} in ${name}...`)
+        chalk.blue(`Testing Chonk ${ivcInputsPath} in ${name}...`)
       );
       const browser = await browserType.launch();
 
@@ -204,7 +204,7 @@ program
           const ivcInputsUint8Array = new Uint8Array(ivcInputsData);
           return await (
             window as any
-          ).proveClientIvc(ivcInputsUint8Array, threads);
+          ).proveChonk(ivcInputsUint8Array, threads);
         },
         [Array.from(ivcInputs), threads]
       );
@@ -213,7 +213,7 @@ program
       if (!verificationResult) {
         process.exit(1);
       }
-      console.log(chalk.green(`ClientIVC proof generated and self-verified successfully in ${name}.`));
+      console.log(chalk.green(`Chonk proof generated and self-verified successfully in ${name}.`));
     }
   });
 

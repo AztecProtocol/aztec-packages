@@ -15,7 +15,7 @@ import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_t
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType } from '../p2p/topic_type.js';
-import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import { ChonkProof } from '../proofs/chonk_proof.js';
 import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';
 import { PublicCallRequestWithCalldata } from './public_call_request_with_calldata.js';
@@ -39,7 +39,7 @@ export class Tx extends Gossipable {
     /**
      * Proof from the private kernel circuit.
      */
-    public readonly clientIvcProof: ClientIvcProof,
+    public readonly chonkProof: ChonkProof,
     /**
      * Contract class log fields emitted from the tx.
      * Their order should match the order of the log hashes returned from `this.data.getNonEmptyContractClassLogsHashes`.
@@ -108,7 +108,7 @@ export class Tx extends Gossipable {
     return new Tx(
       reader.readObject(TxHash),
       reader.readObject(PrivateKernelTailCircuitPublicInputs),
-      reader.readObject(ClientIvcProof),
+      reader.readObject(ChonkProof),
       reader.readVectorUint8Prefix(ContractClassLogFields),
       reader.readVectorUint8Prefix(HashedValues),
     );
@@ -122,7 +122,7 @@ export class Tx extends Gossipable {
     return serializeToBuffer([
       this.txHash,
       this.data,
-      this.clientIvcProof,
+      this.chonkProof,
       serializeArrayOfBufferableToVector(this.contractClassLogFields, 1),
       serializeArrayOfBufferableToVector(this.publicFunctionCalldata, 1),
     ]);
@@ -132,7 +132,7 @@ export class Tx extends Gossipable {
     return z
       .object({
         data: PrivateKernelTailCircuitPublicInputs.schema,
-        clientIvcProof: ClientIvcProof.schema,
+        chonkProof: ChonkProof.schema,
         contractClassLogFields: z.array(ContractClassLogFields.schema),
         publicFunctionCalldata: z.array(HashedValues.schema),
       })
@@ -155,7 +155,7 @@ export class Tx extends Gossipable {
     return new Tx(
       fields.txHash,
       fields.data,
-      fields.clientIvcProof,
+      fields.chonkProof,
       fields.contractClassLogFields,
       fields.publicFunctionCalldata,
     );
@@ -237,7 +237,7 @@ export class Tx extends Gossipable {
       classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
-      proofSize: this.clientIvcProof.fields.length,
+      proofSize: this.chonkProof.fields.length,
       size: this.toBuffer().length,
 
       feePaymentMethod:
@@ -249,7 +249,7 @@ export class Tx extends Gossipable {
   getSize() {
     return (
       this.data.getSize() +
-      this.clientIvcProof.fields.length * Fr.SIZE_IN_BYTES +
+      this.chonkProof.fields.length * Fr.SIZE_IN_BYTES +
       arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
       this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
     );
@@ -275,10 +275,10 @@ export class Tx extends Gossipable {
    */
   static clone(tx: Tx): Tx {
     const publicInputs = PrivateKernelTailCircuitPublicInputs.fromBuffer(tx.data.toBuffer());
-    const clientIvcProof = ClientIvcProof.fromBuffer(tx.clientIvcProof.toBuffer());
+    const chonkProof = ChonkProof.fromBuffer(tx.chonkProof.toBuffer());
     const contractClassLogFields = tx.contractClassLogFields.map(p => p.clone());
     const publicFunctionCalldata = tx.publicFunctionCalldata.map(cd => HashedValues.fromBuffer(cd.toBuffer()));
-    const clonedTx = new Tx(tx.txHash, publicInputs, clientIvcProof, contractClassLogFields, publicFunctionCalldata);
+    const clonedTx = new Tx(tx.txHash, publicInputs, chonkProof, contractClassLogFields, publicFunctionCalldata);
 
     return clonedTx;
   }
@@ -292,7 +292,7 @@ export class Tx extends Gossipable {
     return Tx.from({
       txHash: (typeof args.txHash === 'string' ? TxHash.fromString(args.txHash) : args.txHash) ?? TxHash.random(),
       data: PrivateKernelTailCircuitPublicInputs.emptyWithNullifier(),
-      clientIvcProof: args.randomProof ? ClientIvcProof.random() : ClientIvcProof.empty(),
+      chonkProof: args.randomProof ? ChonkProof.random() : ChonkProof.empty(),
       contractClassLogFields: [ContractClassLogFields.random()],
       publicFunctionCalldata: [HashedValues.random()],
     });

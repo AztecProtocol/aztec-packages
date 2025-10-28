@@ -1,5 +1,5 @@
 import {
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE,
   IPA_CLAIM_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -9,7 +9,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
-import { ClientIvcProofWithPublicInputs, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
+import { ChonkProofWithPublicInputs, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import assert from 'assert';
@@ -19,33 +19,33 @@ import * as path from 'path';
 import { PROOF_FILENAME, PUBLIC_INPUTS_FILENAME } from '../bb/execute.js';
 
 /**
- * Create a ClientIvcProof proof file.
+ * Create a ChonkProof proof file.
  *
  * @param directory the directory to read the proof from.
- * @returns the encapsulated client ivc proof
+ * @returns the encapsulated chonk proof
  */
-export async function readClientIVCProofFromOutputDirectory(directory: string) {
+export async function readChonkProofFromOutputDirectory(directory: string) {
   const proofFilename = path.join(directory, PROOF_FILENAME);
   const binaryProof = await fs.readFile(proofFilename);
   const proofFields = splitBufferIntoFields(binaryProof);
-  return new ClientIvcProofWithPublicInputs(proofFields);
+  return new ChonkProofWithPublicInputs(proofFields);
 }
 
 /**
- * Serialize a ClientIvcProof to a proof file.
+ * Serialize a ChonkProof to a proof file.
  *
- * @param proof the ClientIvcProof from object
+ * @param proof the ChonkProof from object
  * @param directory the directory to write in
  */
-export async function writeClientIVCProofToPath(clientIvcProof: ClientIvcProofWithPublicInputs, outputPath: string) {
-  // NB: Don't use clientIvcProof.toBuffer here because it will include the proof length.
-  const fieldsBuf = Buffer.concat(clientIvcProof.fieldsWithPublicInputs.map(field => field.toBuffer()));
+export async function writeChonkProofToPath(chonkProof: ChonkProofWithPublicInputs, outputPath: string) {
+  // NB: Don't use chonkProof.toBuffer here because it will include the proof length.
+  const fieldsBuf = Buffer.concat(chonkProof.fieldsWithPublicInputs.map(field => field.toBuffer()));
   await fs.writeFile(outputPath, fieldsBuf);
 }
 
 function getNumCustomPublicInputs(proofLength: number, vkData: VerificationKeyData) {
   let numPublicInputs = vkData.numPublicInputs;
-  if (proofLength == CIVC_PROOF_LENGTH) {
+  if (proofLength == CHONK_PROOF_LENGTH) {
     numPublicInputs -= HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE;
   } else {
     numPublicInputs -= PAIRING_POINTS_SIZE;
@@ -71,7 +71,7 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
   logger: Logger,
 ): Promise<RecursiveProof<PROOF_LENGTH>> {
   assert(
-    proofLength == CIVC_PROOF_LENGTH ||
+    proofLength == CHONK_PROOF_LENGTH ||
       proofLength == NESTED_RECURSIVE_PROOF_LENGTH ||
       proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH ||
       proofLength == ULTRA_KECCAK_PROOF_LENGTH,
@@ -81,17 +81,17 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
   const publicInputsFilename = path.join(directory, PUBLIC_INPUTS_FILENAME);
   const proofFilename = path.join(directory, PROOF_FILENAME);
 
-  // Handle CIVC separately because bb outputs the proof fields with public inputs for CIVC.
-  const isCIVC = proofLength == CIVC_PROOF_LENGTH;
+  // Handle CHONK separately because bb outputs the proof fields with public inputs for CHONK.
+  const isChonk = proofLength == CHONK_PROOF_LENGTH;
 
   const [binaryPublicInputs, binaryProof] = await Promise.all([
-    isCIVC ? Buffer.alloc(0) : fs.readFile(publicInputsFilename),
+    isChonk ? Buffer.alloc(0) : fs.readFile(publicInputsFilename),
     fs.readFile(proofFilename),
   ]);
 
   const numPublicInputs = getNumCustomPublicInputs(proofLength, vkData);
   let fieldsWithoutPublicInputs = splitBufferIntoFields(binaryProof);
-  if (isCIVC) {
+  if (isChonk) {
     fieldsWithoutPublicInputs = fieldsWithoutPublicInputs.slice(numPublicInputs);
   }
 

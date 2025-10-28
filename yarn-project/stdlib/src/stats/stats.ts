@@ -88,7 +88,7 @@ export type ClientCircuitName =
 export type ServerCircuitName =
   | 'parity-base'
   | 'parity-root'
-  | 'tube-public'
+  | 'chonk-verifier-public'
   | 'rollup-tx-base-private'
   | 'rollup-tx-base-public'
   | 'rollup-tx-merge'
@@ -181,8 +181,8 @@ export type CircuitVerificationStats = {
   eventName: 'circuit-verification';
   /** Name of the circuit. */
   circuitName: CircuitName;
-  /** Type of proof (client-ivc, honk, etc) */
-  proofType: 'client-ivc' | 'ultra-honk';
+  /** Type of proof (chonk, honk, etc) */
+  proofType: 'chonk' | 'ultra-honk';
   /** Duration in ms. */
   duration: number;
 };

@@ -41,7 +41,7 @@ struct CircuitComputeVk {
  * @struct CircuitProve
  * @brief Represents a request to generate a proof.
  * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
- * This is used for one-shot proving, not our "IVC" scheme, SumcheckClientIVC-honk. For that, use the SumcheckClientIVC*
+ * This is used for one-shot proving, not our "IVC" scheme, SumcheckChonk-honk. For that, use the SumcheckChonk*
  * commands.
  */
 struct CircuitProve {

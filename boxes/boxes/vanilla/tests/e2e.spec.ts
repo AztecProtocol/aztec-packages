@@ -76,7 +76,7 @@ test('create account and cast vote', async ({ page }, testInfo) => {
 
   await voteButton.click();
 
-  // This will take some time to complete (Client IVC proof generation)
+  // This will take some time to complete (chonk proof generation)
   // Button is enabled when the transaction is complete
   await expect(voteButton).toBeEnabled({
     enabled: true,

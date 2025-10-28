@@ -1,8 +1,8 @@
-import { BB_RESULT, verifyClientIvcProof } from '@aztec/bb-prover';
+import { BB_RESULT, verifyChonkProof } from '@aztec/bb-prover';
 import {
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  CIVC_PROOF_LENGTH,
-  CIVC_VK_LENGTH_IN_FIELDS,
+  CHONK_PROOF_LENGTH,
+  CHONK_VK_LENGTH_IN_FIELDS,
   ULTRA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'url';
 
 import MockHidingJson from '../artifacts/mock_hiding.json' with { type: 'json' };
 import { getWorkingDirectory } from './bb_working_directory.js';
-import { proveAvm, proveClientIVC, proveRollupHonk } from './prove_native.js';
+import { proveAvm, proveChonk, proveRollupHonk } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 import {
   MockRollupTxBasePrivateCircuit,
@@ -57,12 +57,12 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
   describe('Rollup IVC Integration', () => {
     let bbBinaryPath: string;
 
-    let ivcProof: ProofAndVerificationKey<typeof CIVC_PROOF_LENGTH>;
+    let chonkProof: ProofAndVerificationKey<typeof CHONK_PROOF_LENGTH>;
     let avmVK: VerificationKeyAsFields;
     let avmProof: Fr[];
     let avmPublicInputs: AvmCircuitPublicInputs;
 
-    let clientIVCPublicInputs: KernelPublicInputs;
+    let chonkPublicInputs: KernelPublicInputs;
     let workingDirectory: string;
 
     beforeAll(async () => {
@@ -72,16 +72,16 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
         'bb-avm',
       );
 
-      // Create a client IVC proof
-      const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
+      // Create a chonk proof
+      const chonkWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-chonk-');
       const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
-      clientIVCPublicInputs = tailPublicInputs;
+      chonkPublicInputs = tailPublicInputs;
 
-      ivcProof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, vks, logger);
-      const ivcVerifyResult = await verifyClientIvcProof(
+      chonkProof = await proveChonk(bbBinaryPath, chonkWorkingDirectory, witnessStack, bytecodes, vks, logger);
+      const ivcVerifyResult = await verifyChonkProof(
         bbBinaryPath,
-        clientIVCWorkingDirectory.concat('/proof'),
-        clientIVCWorkingDirectory.concat('/vk'),
+        chonkWorkingDirectory.concat('/proof'),
+        chonkWorkingDirectory.concat('/vk'),
         logger.info,
       );
       expect(ivcVerifyResult.status).toEqual(BB_RESULT.SUCCESS);
@@ -107,15 +107,15 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
 
     it('Should be able to generate a proof of a 3 transaction rollup', async () => {
       // Use the pre-generated standalone vk to verify the proof recursively.
-      const ivcVk = await VerificationKeyAsFields.fromKey(
+      const chonkVk = await VerificationKeyAsFields.fromKey(
         MockHidingJson.verificationKey.fields.map((str: string) => Fr.fromHexString(str)),
       );
 
       const privateBaseRollupWitnessResult = await witnessGenMockRollupTxBasePrivateCircuit({
-        civc_proof_data: {
-          public_inputs: clientIVCPublicInputs,
-          proof: mapRecursiveProofToNoir(ivcProof.proof),
-          vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
+        chonk_proof_data: {
+          public_inputs: chonkPublicInputs,
+          proof: mapRecursiveProofToNoir(chonkProof.proof),
+          vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
         },
       });
 
@@ -135,10 +135,10 @@ describe('Rollup IVC Integration (suite wrapper)', () => {
       };
 
       const publicBaseRollupWitnessResult = await witnessGenMockPublicBaseCircuit({
-        civc_proof_data: {
-          public_inputs: clientIVCPublicInputs,
-          proof: mapRecursiveProofToNoir(ivcProof.proof),
-          vk_data: mapVerificationKeyToNoir(ivcVk, CIVC_VK_LENGTH_IN_FIELDS),
+        chonk_proof_data: {
+          public_inputs: chonkPublicInputs,
+          proof: mapRecursiveProofToNoir(chonkProof.proof),
+          vk_data: mapVerificationKeyToNoir(chonkVk, CHONK_VK_LENGTH_IN_FIELDS),
         },
         verification_key: mapVerificationKeyToNoir(avmVK, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
         proof: mapAvmProofToNoir(avmProof),

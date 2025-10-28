@@ -28,9 +28,7 @@ pub fn generate_fake_rollup_honk_vk_for_index(
     generate_fake_vk_for_index(index)
 }
 
-pub fn generate_fake_client_ivc_vk_for_index(
-    index: u32,
-) -> VerificationKey<MEGA_VK_LENGTH_IN_FIELDS> {
+pub fn generate_fake_chonk_vk_for_index(index: u32) -> VerificationKey<MEGA_VK_LENGTH_IN_FIELDS> {
     generate_fake_vk_for_index(index)
 }
 
@@ -39,13 +37,13 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
 
     // Fake VK hashes for testing purposes
 
-    // Client IVC
+    // CHONK
     for i in 0..HIDING_KERNEL_TO_PUBLIC_VK_INDEX + 1 {
-        leaves[i] = generate_fake_client_ivc_vk_for_index(i).hash;
+        leaves[i] = generate_fake_chonk_vk_for_index(i).hash;
     }
     // Creating 4 reset variants.
     for i in PRIVATE_KERNEL_RESET_INDEX..PRIVATE_KERNEL_RESET_INDEX + 4 {
-        leaves[i] = generate_fake_client_ivc_vk_for_index(i).hash;
+        leaves[i] = generate_fake_chonk_vk_for_index(i).hash;
     }
 
     // Rollup Honk

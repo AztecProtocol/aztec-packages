@@ -67,7 +67,7 @@ export class ProvenTx extends Tx {
     // eslint-disable-next-line jsdoc/require-jsdoc
     public stats?: ProvingStats,
   ) {
-    super(tx.getTxHash(), tx.data, tx.clientIvcProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
+    super(tx.getTxHash(), tx.data, tx.chonkProof, tx.contractClassLogFields, tx.publicFunctionCalldata);
   }
 
   send() {

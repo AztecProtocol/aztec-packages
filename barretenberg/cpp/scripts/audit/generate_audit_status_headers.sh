@@ -85,7 +85,7 @@ EXCLUDED_SUBDIRS=(
   "smt_verification"
   "solidity_helpers"
   "srs"
-  "ultra_vanilla_client_ivc"
+  "ultra_vanilla_chonk"
   "vm2"
   "wasi"
   "world_state"

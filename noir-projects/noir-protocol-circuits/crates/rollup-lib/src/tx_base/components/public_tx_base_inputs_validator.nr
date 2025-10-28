@@ -1,10 +1,10 @@
-use crate::{abis::PublicTubePublicInputs, tx_base::components::private_tail_validator};
+use crate::{abis::PublicChonkVerifierPublicInputs, tx_base::components::private_tail_validator};
 use super::fees::compute_effective_gas_fees;
 use dep::types::{
     abis::{
         avm_circuit_public_inputs::AvmCircuitPublicInputs, block_constant_data::BlockConstantData,
     },
-    constants::{ARCHIVE_HEIGHT, AVM_VK_INDEX, PUBLIC_TUBE_VK_INDEX},
+    constants::{ARCHIVE_HEIGHT, AVM_VK_INDEX, PUBLIC_CHONK_VERIFIER_VK_INDEX},
     proof::proof_data::{AvmV2ProofData, RollupHonkProofData},
     traits::Empty,
     utils::arrays::array_length,
@@ -26,7 +26,7 @@ where
 }
 
 pub struct PublicTxBaseInputsValidator {
-    public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
+    public_chonk_verifier_proof_data: RollupHonkProofData<PublicChonkVerifierPublicInputs>,
     avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
     constants: BlockConstantData,
     anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
@@ -34,13 +34,13 @@ pub struct PublicTxBaseInputsValidator {
 
 impl PublicTxBaseInputsValidator {
     pub fn new(
-        public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
+        public_chonk_verifier_proof_data: RollupHonkProofData<PublicChonkVerifierPublicInputs>,
         avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
         constants: BlockConstantData,
         anchor_block_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
     ) -> Self {
         PublicTxBaseInputsValidator {
-            public_tube_proof_data,
+            public_chonk_verifier_proof_data,
             avm_proof_data,
             constants,
             anchor_block_archive_sibling_path,
@@ -48,29 +48,29 @@ impl PublicTxBaseInputsValidator {
     }
 
     pub fn validate(self) {
-        self.validate_public_tube_proof_and_vk();
+        self.validate_public_chonk_verifier_proof_and_vk();
         self.validate_avm_proof_and_vk();
 
         // The public inputs of `private_tail_to_public` are propagated to `hiding_kernel_to_public` and then to
-        // `public_tube`. The following two functions verify the public inputs to ensure that the private side was
+        // `public_chonk_verifier`. The following two functions verify the public inputs to ensure that the private side was
         // executed correctly and that the data from private is passed to the AVM properly.
         self.validate_private_tail();
-        self.validate_public_tube_against_avm();
+        self.validate_public_chonk_verifier_against_avm();
     }
 
-    fn validate_public_tube_proof_and_vk(self) {
+    fn validate_public_chonk_verifier_proof_and_vk(self) {
         if !dep::std::runtime::is_unconstrained() {
-            self.public_tube_proof_data.verify_proof();
+            self.public_chonk_verifier_proof_data.verify_proof();
         }
 
         assert_eq(
-            self.public_tube_proof_data.vk_data.leaf_index,
-            PUBLIC_TUBE_VK_INDEX,
-            "Incorrect public tube vk index",
+            self.public_chonk_verifier_proof_data.vk_data.leaf_index,
+            PUBLIC_CHONK_VERIFIER_VK_INDEX,
+            "Incorrect public chonk verifier vk index",
         );
 
         let vk_tree_root = self.constants.vk_tree_root;
-        self.public_tube_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
+        self.public_chonk_verifier_proof_data.vk_data.validate_in_vk_tree(vk_tree_root);
     }
 
     fn validate_avm_proof_and_vk(self) {
@@ -86,7 +86,7 @@ impl PublicTxBaseInputsValidator {
     }
 
     fn validate_private_tail(self) {
-        let private_tail = self.public_tube_proof_data.public_inputs.private_tail;
+        let private_tail = self.public_chonk_verifier_proof_data.public_inputs.private_tail;
 
         private_tail_validator::validate_tx_constant_data(
             private_tail.constants,
@@ -104,19 +104,19 @@ impl PublicTxBaseInputsValidator {
         );
     }
 
-    fn validate_public_tube_against_avm(self) {
+    fn validate_public_chonk_verifier_against_avm(self) {
         let avm = self.avm_proof_data.public_inputs;
-        let public_tube = self.public_tube_proof_data.public_inputs;
+        let public_chonk_verifier = self.public_chonk_verifier_proof_data.public_inputs;
 
         // --- Prover id ---
 
         assert_eq(
-            public_tube.prover_id,
+            public_chonk_verifier.prover_id,
             avm.prover_id,
             "Mismatched prover_id between private and avm",
         );
 
-        let private_tail = public_tube.private_tail;
+        let private_tail = public_chonk_verifier.private_tail;
 
         // --- Protocol contracts ---
 

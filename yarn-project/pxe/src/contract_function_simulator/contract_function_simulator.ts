@@ -51,7 +51,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import {
   CallContext,
   HashedValues,
@@ -269,7 +269,7 @@ class OrderedSideEffect<T> {
 }
 
 /**
- * Generates the final public inputs of the tail kernel circuit, an empty ClientIVC proof
+ * Generates the final public inputs of the tail kernel circuit, an empty Chonk proof
  * and the execution steps for a `PrivateExecutionResult` as if it had been
  * processed by the private kernel prover. This skips many of the checks performed by the kernels
  * (allowing state overrides) and is much faster, while still generating a valid
@@ -489,8 +489,8 @@ export async function generateSimulatedProvingResult(
 
   return {
     publicInputs,
-    clientIvcProof: ClientIvcProof.empty(),
-    executionSteps: executionSteps,
+    chonkProof: ChonkProof.empty(),
+    executionSteps,
   };
 }
 

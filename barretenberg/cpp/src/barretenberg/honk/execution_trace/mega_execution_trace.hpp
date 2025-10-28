@@ -368,7 +368,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
      * @brief Defines the circuit block types for the Mega arithmetization
      * @note Its useful to define this as a template since it is used to actually store gate data (T = MegaTraceBlock)
      * but also to store corresponding block sizes (T = uint32_t) for the structured trace or dynamic block size
-     * tracking in ClientIvc.
+     * tracking in Chonk.
      *
      * @tparam T
      */

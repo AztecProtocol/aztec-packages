@@ -10,7 +10,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { Gas } from '@aztec/stdlib/gas';
 import { PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { TX_ERROR_INVALID_PROOF } from '@aztec/stdlib/tx';
 import { ProvenTx, proveInteraction } from '@aztec/test-wallet/server';
@@ -325,7 +325,7 @@ describe('full_prover', () => {
       const data = provenTx.data;
       const invalidTxs = await Promise.all(
         Array.from({ length: NUM_INVALID_TXS }, async (_, i) => {
-          // Use a random ClientIvcProof and alter the public tx data to generate a unique invalid tx hash
+          // Use a random ChonkProof and alter the public tx data to generate a unique invalid tx hash
           const invalidProvenTx = new ProvenTx(
             aztecNode,
             await Tx.create({
@@ -337,7 +337,7 @@ describe('full_prover', () => {
                 data.forPublic,
                 data.forRollup,
               ),
-              clientIvcProof: ClientIvcProof.random(),
+              chonkProof: ChonkProof.random(),
               contractClassLogFields: provenTx.contractClassLogFields,
               publicFunctionCalldata: provenTx.publicFunctionCalldata,
             }),

@@ -17,7 +17,7 @@ const circuits = [
   'private_kernel_tail_to_public',
   'hiding_kernel_to_rollup',
   'hiding_kernel_to_public',
-  'tube_public',
+  'chonk_verifier_public',
   'rollup_tx_base_private',
   'rollup_tx_base_public',
   'rollup_tx_merge',

@@ -128,8 +128,8 @@ export class ProvingJobController {
         return await this.circuitProver.getAvmProof(inputs, undefined, signal, this.epochNumber);
       }
 
-      case ProvingRequestType.PUBLIC_TUBE: {
-        return await this.circuitProver.getPublicTubeProof(inputs, signal, this.epochNumber);
+      case ProvingRequestType.PUBLIC_CHONK_VERIFIER: {
+        return await this.circuitProver.getPublicChonkVerifierProof(inputs, signal, this.epochNumber);
       }
 
       case ProvingRequestType.PRIVATE_TX_BASE_ROLLUP: {

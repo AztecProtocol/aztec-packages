@@ -398,10 +398,10 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-#### Debugging and profiling realistic ClientIVC flows
+#### Debugging and profiling realistic Chonk flows
 
 
-#### Running Realistic ClientIVC from barretenberg folder
+#### Running Realistic Chonk from barretenberg folder
 
 Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
 One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
@@ -411,7 +411,7 @@ To do a single benchmark you can do e.g.
 `IVC_BENCH=ecdsar1+transfer_0_recursions+sponsored_fpc ./bootstrap.sh bench_ivc origin/master~3`
 
 If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
-To use these inputs manually, just abort after input download and run ClientIVC proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+To use these inputs manually, just abort after input download and run Chonk proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

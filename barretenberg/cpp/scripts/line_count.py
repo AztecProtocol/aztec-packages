@@ -21,7 +21,7 @@ weights = {"acir_formal_proofs": 0,
            "benchmark": 0,
            "boomerang_value_detection": 0,
            "circuit_checker": 1,
-           "client_ivc": 1,
+           "chonk": 1,
            "commitment_schemes": 1,
            "commitment_schemes_recursion": 1,
            "common": 0,
@@ -92,7 +92,7 @@ def count_weighted_lines():
 print(
     f"Total number of unweighted code lines to be audited: {count_weighted_lines()}")
 
-weights["client_ivc"] = 1.5
+weights["chonk"] = 1.5
 weights["eccvm"] = 2
 weights["goblin"] = 1.5
 weights["relations"] = 2

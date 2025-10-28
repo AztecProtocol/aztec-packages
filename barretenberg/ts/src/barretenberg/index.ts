@@ -68,7 +68,7 @@ export class Barretenberg extends AsyncApi {
     await this.srsInitSrs({ pointsBuf: crs.getG1Data(), numPoints: crs.numPoints, g2Point: crs.getG2Data() });
   }
 
-  async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
+  async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(srsSize + 1, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath, this.options.logger);

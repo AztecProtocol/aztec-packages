@@ -10,8 +10,8 @@ import { type BarretenbergWasmMain } from './index.js';
  */
 export class HeapAllocator {
   private allocs: number[] = [];
-  private inScratchPtr = 0;      // Next input starts here, grows UP
-  private outScratchPtr = 1024;  // Next output ends here, grows DOWN
+  private inScratchPtr = 0; // Next input starts here, grows UP
+  private outScratchPtr = 1024; // Next output ends here, grows DOWN
 
   constructor(private wasm: BarretenbergWasmMain) {}
 
@@ -22,7 +22,7 @@ export class HeapAllocator {
         // Check if there's room in scratch space (inputs grow up, outputs grow down)
         if (this.inScratchPtr + size <= this.outScratchPtr) {
           const ptr = this.inScratchPtr;
-          this.inScratchPtr += size;  // Grow UP
+          this.inScratchPtr += size; // Grow UP
           this.wasm.writeMemory(ptr, bufOrNum);
           return ptr;
         } else {
@@ -46,7 +46,7 @@ export class HeapAllocator {
 
       // Check if there's room in scratch space (inputs grow up, outputs grow down)
       if (this.inScratchPtr + size <= this.outScratchPtr) {
-        this.outScratchPtr -= size;  // Grow DOWN
+        this.outScratchPtr -= size; // Grow DOWN
         return this.outScratchPtr;
       } else {
         // Fall back to heap allocation

@@ -150,7 +150,7 @@ class GoblinMockCircuits {
     /**
      * @brief Construct a mock kernel circuit
      * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
-     * folding verification is handled internally by ClientIvc, not in the kernel.
+     * folding verification is handled internally by Chonk, not in the kernel.
      *
      * @param builder
      * @param function_fold_proof

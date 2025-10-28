@@ -8,7 +8,7 @@ import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
 import { computeL2ToL1MessageHash } from '../hash/hash.js';
 import type { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
-import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import type { ChonkProof } from '../proofs/chonk_proof.js';
 import type { GlobalVariables } from './global_variables.js';
 import type { Tx } from './tx.js';
 import { TxEffect } from './tx_effect.js';
@@ -36,7 +36,7 @@ export type ProcessedTx = {
   /**
    * Proof for the private execution.
    */
-  clientIvcProof: ClientIvcProof;
+  chonkProof: ChonkProof;
   /**
    * The request for AVM proving.
    */
@@ -118,7 +118,7 @@ export function makeProcessedTxFromPrivateOnlyTx(
   return {
     hash: txEffect.txHash,
     data: tx.data,
-    clientIvcProof: tx.clientIvcProof,
+    chonkProof: tx.chonkProof,
     avmProvingRequest: undefined,
     globalVariables,
     txEffect,
@@ -176,7 +176,7 @@ export function makeProcessedTxFromTxWithPublicCalls(
   return {
     hash: txEffect.txHash,
     data: tx.data,
-    clientIvcProof: tx.clientIvcProof,
+    chonkProof: tx.chonkProof,
     avmProvingRequest,
     globalVariables,
     txEffect,

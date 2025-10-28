@@ -47,7 +47,7 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - Rationale for pruning is that an epoch may contain a block that provers cannot prove. Pruning allows us to
  *        trade a large reorg for chain liveness, by removing potential unprovable blocks so we can continue.
  *      - A prover may not be able to prove a block if the transaction data for that block is not available. Transaction
- *        data is NOT posted to DA since transactions (along with their ClientIVC proofs) are big, and it would be too
+ *        data is NOT posted to DA since transactions (along with their Chonk proofs) are big, and it would be too
  *        costly to submit everything to blocks. So we count on the committee to attest to the availability of that
  *        data, but if for some reason the data does not reach provers via p2p, then provers will not be able to prove.
  *

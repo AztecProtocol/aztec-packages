@@ -273,7 +273,7 @@ export const extractRelevantOptions = <T>(
 };
 
 /**
- * Downloads just enough points to be able to verify ClientIVC proofs.
+ * Downloads just enough points to be able to verify Chonk proofs.
  * @param opts - Whether proof are to be verifier
  * @param log - Logging function
  */

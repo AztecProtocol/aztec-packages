@@ -50,7 +50,7 @@ function installUltraHonkGlobals() {
 }
 installUltraHonkGlobals();
 
-function installClientIvcGlobal() {
+function installChonkGlobal() {
   interface PrivateExecutionStepRaw {
     functionName: string;
     bytecode: Uint8Array;
@@ -58,7 +58,7 @@ function installClientIvcGlobal() {
     vk: Uint8Array;
   }
 
-  async function processClientIvcInputs(
+  async function processChonkInputs(
     ivcInputsBuf: Uint8Array,
   ): Promise<[Uint8Array[], Uint8Array[], Uint8Array[]]> {
     const acirBufs: Uint8Array[] = [];
@@ -74,14 +74,14 @@ function installClientIvcGlobal() {
     return [acirBufs, witnessBufs, vkBufs];
   }
 
-  async function proveClientIvc(
+  async function proveChonk(
     ivcInputsBuf: Uint8Array,
     threads?: number,
   ): Promise<{ proof: Uint8Array; verificationKey: Uint8Array }> {
     const { AztecClientBackend } = await import("@aztec/bb.js");
 
     const [acirBufs, witnessBufs, vkBufs] =
-      await processClientIvcInputs(ivcInputsBuf);
+      await processChonkInputs(ivcInputsBuf);
     logger.debug("starting test...");
     const backend = new AztecClientBackend(acirBufs, {
       threads,
@@ -95,10 +95,10 @@ function installClientIvcGlobal() {
     return { proof, verificationKey };
   }
 
-  (window as any).proveClientIvc = proveClientIvc;
+  (window as any).proveChonk = proveChonk;
 }
 
-installClientIvcGlobal();
+installChonkGlobal();
 
 document.addEventListener("DOMContentLoaded", function () {
   const ultraHonkButton = document.createElement("button");
@@ -133,9 +133,9 @@ document.addEventListener("DOMContentLoaded", function () {
   });
   document.body.appendChild(ultraHonkButton);
 
-  const clientIvcButton = document.createElement("button");
-  clientIvcButton.innerText = "Run ClientIVC Proving";
-  clientIvcButton.addEventListener("click", async () => {
+  const chonkButton = document.createElement("button");
+  chonkButton.innerText = "Run Chonk Proving";
+  chonkButton.addEventListener("click", async () => {
     const ivcInputsFile = await new Promise<File>((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
@@ -146,12 +146,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const ivcInputsBuf = new Uint8Array(await ivcInputsFile.arrayBuffer());
     try {
-      await (window as any).proveClientIvc(ivcInputsBuf);
+      await (window as any).proveChonk(ivcInputsBuf);
     } catch (error) {
-      logger.error("Error during ClientIVC proving:", error);
+      logger.error("Error during Chonk proving:", error);
       return false;
     }
     return true;
   });
-  document.body.appendChild(clientIvcButton);
+  document.body.appendChild(chonkButton);
 });

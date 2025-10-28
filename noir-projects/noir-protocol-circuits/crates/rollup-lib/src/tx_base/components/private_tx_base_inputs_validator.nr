@@ -11,11 +11,11 @@ use dep::types::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX,
     },
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    proof::proof_data::CivcProofData,
+    proof::proof_data::ChonkProofData,
 };
 
 pub struct PrivateTxBaseInputsValidator {
-    hiding_kernel_proof_data: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
+    hiding_kernel_proof_data: ChonkProofData<PrivateToRollupKernelCircuitPublicInputs>,
     constants: BlockConstantData,
     contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
     fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
@@ -24,7 +24,7 @@ pub struct PrivateTxBaseInputsValidator {
 
 impl PrivateTxBaseInputsValidator {
     pub fn new(
-        hiding_kernel_proof_data: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
+        hiding_kernel_proof_data: ChonkProofData<PrivateToRollupKernelCircuitPublicInputs>,
         constants: BlockConstantData,
         contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         fee_payer_balance_leaf_preimage: PublicDataTreeLeafPreimage,
