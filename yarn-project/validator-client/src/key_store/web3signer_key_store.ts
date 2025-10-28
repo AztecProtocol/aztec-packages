@@ -1,4 +1,5 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import { normalizeSignature } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 
@@ -45,11 +46,8 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    * @param typedData - The complete EIP-712 typed data structure (domain, types, primaryType, message)
    * @return signatures
    */
-  public async signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
-    const signatures = await Promise.all(
-      this.addresses.map(address => this.makeJsonRpcSignTypedDataRequest(address, typedData)),
-    );
-    return signatures;
+  public signTypedData(typedData: TypedDataDefinition): Promise<Signature[]> {
+    return Promise.all(this.addresses.map(address => this.makeJsonRpcSignTypedDataRequest(address, typedData)));
   }
 
   /**
@@ -73,9 +71,8 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
    * @param message - The message to sign
    * @return signatures
    */
-  public async signMessage(message: Buffer32): Promise<Signature[]> {
-    const signatures = await Promise.all(this.addresses.map(address => this.makeJsonRpcSignRequest(address, message)));
-    return signatures;
+  public signMessage(message: Buffer32): Promise<Signature[]> {
+    return Promise.all(this.addresses.map(address => this.makeJsonRpcSignRequest(address, message)));
   }
 
   /**
@@ -144,7 +141,7 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
     }
 
     // Parse the signature from the hex string
-    return Signature.fromString(signatureHex as `0x${string}`);
+    return normalizeSignature(Signature.fromString(signatureHex as `0x${string}`));
   }
 
   private async makeJsonRpcSignTypedDataRequest(
@@ -190,6 +187,6 @@ export class Web3SignerKeyStore implements ValidatorKeyStore {
       signatureHex = '0x' + signatureHex;
     }
 
-    return Signature.fromString(signatureHex as `0x${string}`);
+    return normalizeSignature(Signature.fromString(signatureHex as `0x${string}`));
   }
 }

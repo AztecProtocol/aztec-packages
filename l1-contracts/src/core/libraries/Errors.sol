@@ -211,4 +211,32 @@ library Errors {
 
   // SlashPayloadLib
   error SlashPayload_ArraySizeMismatch(uint256 expected, uint256 actual);
+
+  // OpenZeppelin dependencies
+
+  // ECDSA
+  error ECDSAInvalidSignature();
+  error ECDSAInvalidSignatureLength(uint256 length);
+  error ECDSAInvalidSignatureS(bytes32 s);
+
+  // Ownable
+  error OwnableUnauthorizedAccount(address account);
+  error OwnableInvalidOwner(address owner);
+
+  // Checkpoints
+  error CheckpointUnorderedInsertion();
+
+  // ERC20
+  error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed);
+  error ERC20InvalidSender(address sender);
+  error ERC20InvalidReceiver(address receiver);
+  error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed);
+  error ERC20InvalidApprover(address approver);
+  error ERC20InvalidSpender(address spender);
+
+  // SafeCast
+  error SafeCastOverflowedUintDowncast(uint8 bits, uint256 value);
+  error SafeCastOverflowedIntToUint(int256 value);
+  error SafeCastOverflowedIntDowncast(uint8 bits, int256 value);
+  error SafeCastOverflowedUintToInt(uint256 value);
 }
