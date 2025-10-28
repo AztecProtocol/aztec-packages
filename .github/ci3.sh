@@ -41,8 +41,8 @@ if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
   echo "Instance postfix set to: ${PR_COMMITS:-}"
 fi
 
-# Setup SSH key
-if [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
+# Setup SSH key (internal only)
+if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
   mkdir -p ~/.ssh
   echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
   chmod 600 ~/.ssh/build_instance_key
