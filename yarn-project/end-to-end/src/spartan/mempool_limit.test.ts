@@ -27,7 +27,7 @@
 
 // const pxeOptions = {
 //   dataDirectory: undefined,
-//   dataStoreMapSizeKB: 1024 ** 2, // max size is 1GB
+//   dataStoreMapSizeKb: 1024 ** 2, // max size is 1GB
 // };
 
 // const TX_FLOOD_SIZE = 100;

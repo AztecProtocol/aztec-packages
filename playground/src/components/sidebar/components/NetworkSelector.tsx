@@ -99,7 +99,7 @@ export function NetworkSelector() {
       const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
       const walletDBStore = await createStore(
         `wallet-${rollupAddress}`,
-        { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
+        { dataDirectory: 'wallet', dataStoreMapSizeKb: 2e10 },
         walletLogger,
       );
       const walletDB = WalletDB.getInstance();

@@ -569,7 +569,7 @@ export async function setup(
         l1Contracts: config.l1Contracts,
         port: blobSinkPort,
         dataDirectory: config.dataDirectory,
-        dataStoreMapSizeKB: config.dataStoreMapSizeKB,
+        dataStoreMapSizeKb: config.dataStoreMapSizeKb,
       },
       telemetry,
     );
