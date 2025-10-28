@@ -32,6 +32,7 @@ function ensure_zig {
   echo "Installing zig $zig_version..."
   curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
 }
+export -f ensure_zig
 
 function ensure_ldid {
   if command -v ldid &>/dev/null; then
@@ -49,6 +50,7 @@ function ensure_ldid {
   sudo curl -sL https://github.com/ProcursusTeam/ldid/releases/download/${version}/ldid_linux_${arch} -o $bin_path/ldid
   sudo chmod +x $bin_path/ldid
 }
+export -f ensure_ldid
 
 # Injects version number into a given bb binary.
 # The version is either taken from REF_NAME (if it is a valid semver, with leading 'v' stripped),
