@@ -70,6 +70,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<VKAndHash>& vk_and_hash,
+                                     size_t virtual_log_n = Flavor::NativeFlavor::VIRTUAL_LOG_N,
                                      const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     template <class IO>
@@ -81,6 +82,7 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
+    size_t virtual_log_n;
 };
 
 } // namespace bb::stdlib::recursion::honk

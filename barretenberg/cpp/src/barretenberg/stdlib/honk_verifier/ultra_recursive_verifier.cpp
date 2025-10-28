@@ -20,10 +20,12 @@ namespace bb::stdlib::recursion::honk {
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
                                                          const std::shared_ptr<VKAndHash>& vk_and_hash,
+                                                         size_t virtual_log_n,
                                                          const std::shared_ptr<Transcript>& transcript)
     : verifier_instance(std::make_shared<RecursiveVerifierInstance>(builder, vk_and_hash))
     , builder(builder)
     , transcript(transcript)
+    , virtual_log_n(virtual_log_n)
 {}
 
 /**
@@ -70,24 +72,23 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const std::vector<FF>& public_inputs = verifier_instance->public_inputs;
 
     VerifierCommitments commitments{ verifier_instance->vk_and_hash->vk, verifier_instance->witness_commitments };
-    static constexpr size_t VIRTUAL_LOG_N = Flavor::NativeFlavor::VIRTUAL_LOG_N;
     // Get the gate challenges for sumcheck computation
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", VIRTUAL_LOG_N);
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
 
-    std::vector<FF> padding_indicator_array(VIRTUAL_LOG_N, 1);
+    std::vector<FF> padding_indicator_array(virtual_log_n, 1);
     if constexpr (Flavor::HasZK) {
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1521): ZK Recursive verifiers need to evaluate
         // RowDisablingPolynomial, which requires knowing the actual `log_circuit_size`. Can be fixed by reserving the
         // first rows of the trace for masking.
         padding_indicator_array =
-            compute_padding_indicator_array<Curve, VIRTUAL_LOG_N>(verifier_instance->vk_and_hash->vk->log_circuit_size);
+            compute_padding_indicator_array<Curve>(verifier_instance->vk_and_hash->vk->log_circuit_size, virtual_log_n);
     }
 
-    Sumcheck sumcheck(transcript, verifier_instance->alpha, VIRTUAL_LOG_N);
+    Sumcheck sumcheck(transcript, verifier_instance->alpha, virtual_log_n);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};

@@ -12,43 +12,58 @@
 namespace bb::stdlib {
 
 /**
- * @file
- * @brief For a small integer N = `virtual_log_n` and a given witness x = `log_n`, compute in-circuit an
+ * @brief Compute padding indicator array with runtime-specified virtual_log_n
+ * @details For a small integer N = `virtual_log_n` and a given witness x = `log_n`, compute in-circuit an
  * `indicator_padding_array` of size \f$ N \f$, such that
- * \f{align}{ \text{indicator_padding_array}[i] = \text{"} i < x \text{"}. \f}. To achieve the strict ineqaulity, we
- * evaluate all Lagranges at (x-1) and compute step functions. More concretely
+ * \f{align}{ \text{indicator_padding_array}[i] = \text{"} i < x \text{"}. \f}
+ *
+ * To achieve the strict inequality, we evaluate all Lagranges at (x-1) and compute step functions:
  *
  * 1) Constrain x to be in the range \f$ [1, \ldots, N] \f$ by asserting
- * \f{align}{ \prod_{i=0}^{N-1} (x - 1 - i) = 0 \f}.
+ *    \f{align}{ \prod_{i=0}^{N-1} (x - 1 - i) = 0 \f}.
  *
- * 2) For \f$ i = 0, ..., N-1 \f$, evaluate \f$ L_i(x) \f$.
- * Since \f$ 1 < x <= N \f$, \f$ L_i(x - 1) = 1 \f$ if and only if \f$  x - 1 =  i  \f$.
+ * 2) For \f$ i = 0, ..., N-1 \f$, evaluate \f$ L_i(x - 1) \f$.
+ *    Since \f$ 1 < x <= N \f$, \f$ L_i(x - 1) = 1 \f$ if and only if \f$  x - 1 =  i  \f$.
  *
  * 3) Starting at \f$ b_{N-1} = L_{N-1}(x - 1)\f$, compute the step functions
- * \f{align}{
- * b_i(x - 1) = \sum_{i}^{N-1} L_i(x - 1) = L_i(x - 1) + b_{i+1}(x - 1) \f}.
+ *    \f{align}{ b_i(x - 1) = \sum_{i}^{N-1} L_i(x - 1) = L_i(x - 1) + b_{i+1}(x - 1) \f}.
  *
- * We compute the Lagrange coefficients out-of-circuit, since \f$ N \f$ is a circuit constant.
+ * The resulting array is used to pad the number of Verifier rounds in Sumcheck and Shplemini to a fixed constant
+ * and turn Recursive Verifier circuits into constant circuits. The number of gates required to compute
+ * \f$ [b_0(x-1), \ldots, b_{N-1}(x-1)] \f$ only depends on \f$ N \f$, adding ~\f$ 4\cdot N \f$ gates to the circuit.
  *
- * The resulting array is being used to pad the number of Verifier rounds in Sumcheck and Shplemini to a fixed constant
- * and turn Recursive Verifier circuits into constant circuits. Note that the number of gates required to compute
- * \f$ [b_0(x-1), \ldots, b_{N-1}(x-1)] \f$ only depends on \f$ N \f$ adding ~\f$ 4\cdot N \f$ gates to the circuit.
- *
+ * @tparam Curve The curve type (e.g., bn254<Builder>)
+ * @param log_n The witness value representing log of actual circuit size
+ * @param virtual_log_n The maximum log size (runtime parameter)
+ * @return Padding indicator array of size virtual_log_n
  */
-template <typename Curve, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N>
+template <typename Curve>
 static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
-    const typename Curve::ScalarField& log_n)
+    const typename Curve::ScalarField& log_n, size_t virtual_log_n)
 {
     using Fr = typename Curve::ScalarField;
-    // Create a domain of size `virtual_log_n` and compute Lagrange denominators
-    using Data = BarycentricDataRunTime<Fr, virtual_log_n, /*num_evals=*/1>;
+    using BarycentricHelper = BarycentricDataRunTime<Fr>;
+
+    // Allocate storage for barycentric data
+    std::vector<Fr> big_domain(virtual_log_n);
+    std::vector<Fr> lagrange_denominators(virtual_log_n);
+    std::vector<Fr> precomputed_denominator_inverses(virtual_log_n);
+
+    // Build barycentric data using span methods
+    BarycentricHelper::construct_big_domain_span(std::span<Fr>(big_domain));
+    BarycentricHelper::construct_lagrange_denominators_span(std::span<Fr>(lagrange_denominators),
+                                                            std::span<const Fr>(big_domain));
+    BarycentricHelper::construct_denominator_inverses_span(std::span<Fr>(precomputed_denominator_inverses),
+                                                           std::span<const Fr>(big_domain),
+                                                           std::span<const Fr>(lagrange_denominators));
 
     std::vector<Fr> result(virtual_log_n);
+
     // 1) Build prefix products:
     //    prefix[i] = ∏_{m=0..(i-1)} (x - 1 - big_domain[m]), with prefix[0] = 1.
     std::vector<Fr> prefix(virtual_log_n, Fr{ 1 });
     for (size_t i = 1; i < virtual_log_n; ++i) {
-        prefix[i] = prefix[i - 1] * (log_n - Fr{ 1 } - Data::big_domain[i - 1]);
+        prefix[i] = prefix[i - 1] * (log_n - Fr{ 1 } - big_domain[i - 1]);
     }
 
     // 2) Build suffix products:
@@ -57,10 +72,10 @@ static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
     //    suffix[virtual_log_n] = 1.
     std::vector<Fr> suffix(virtual_log_n + 1, Fr(1));
     for (size_t i = virtual_log_n; i > 0; i--) {
-        suffix[i - 1] = suffix[i] * (log_n - Fr{ 1 } - Data::big_domain[i - 1]);
+        suffix[i - 1] = suffix[i] * (log_n - Fr{ 1 } - big_domain[i - 1]);
     }
 
-    // To ensure 0 < log_n < N, note that suffix[1] = \prod_{i=1}^{N-1} (x - 1 - i), therefore we just need to ensure
+    // To ensure 0 < log_n < N, note that suffix[0] = \prod_{i=0}^{N-1} (x - 1 - i), therefore we just need to ensure
     // that this product is 0.
     if constexpr (Curve::is_stdlib_type) {
         suffix[0].assert_equal(Fr{ 0 });
@@ -70,11 +85,11 @@ static std::vector<typename Curve::ScalarField> compute_padding_indicator_array(
     //    L_i(x-1) = (1 / lagrange_denominators[i]) * prefix[i] * suffix[i+1].
     //    (We skip factor (x - big_domain[i]) by splitting into prefix & suffix.)
     for (size_t i = 0; i < virtual_log_n; ++i) {
-        result[i] = Data::precomputed_denominator_inverses[i] * prefix[i] * suffix[i + 1];
+        result[i] = precomputed_denominator_inverses[i] * prefix[i] * suffix[i + 1];
     }
+
     // Convert result into the array of step function evaluations sums b_i.
     for (size_t idx = virtual_log_n - 1; idx > 0; idx--) {
-        // Use idx - 1 in the body if you prefer
         result[idx - 1] += result[idx];
     }
 
