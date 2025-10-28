@@ -21,7 +21,6 @@ export class ValidationService {
   /**
    * Create a block proposal with the given header, archive, and transactions
    *
-   * @param blockNumber - The block number this proposal is for
    * @param header - The block header
    * @param archive - The archive of the current block
    * @param txs - TxHash[] ordered list of transactions
@@ -29,7 +28,6 @@ export class ValidationService {
    * @returns A block proposal signing the above information (not the current implementation!!!)
    */
   async createBlockProposal(
-    blockNumber: number,
     header: ProposedBlockHeader,
     archive: Fr,
     stateReference: StateReference,
@@ -49,7 +47,6 @@ export class ValidationService {
     const txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
 
     return BlockProposal.createProposalFromSigner(
-      blockNumber,
       new ConsensusPayload(header, archive, stateReference),
       txHashes,
       options.publishFullTxs ? txs : undefined,
@@ -74,7 +71,7 @@ export class ValidationService {
     const signatures = await Promise.all(
       attestors.map(attestor => this.keyStore.signMessageWithAddress(attestor, buf)),
     );
-    return signatures.map(sig => new BlockAttestation(proposal.blockNumber, proposal.payload, sig, proposal.signature));
+    return signatures.map(sig => new BlockAttestation(proposal.payload, sig, proposal.signature));
   }
 
   async signAttestationsAndSigners(

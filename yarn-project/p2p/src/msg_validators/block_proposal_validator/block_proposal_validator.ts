@@ -6,14 +6,31 @@ import { type BlockProposal, type P2PValidator, PeerErrorSeverity } from '@aztec
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {
   private epochCache: EpochCacheInterface;
   private logger: Logger;
+  private txsPermitted: boolean;
 
-  constructor(epochCache: EpochCacheInterface) {
+  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean }) {
     this.epochCache = epochCache;
+    this.txsPermitted = opts.txsPermitted;
     this.logger = createLogger('p2p:block_proposal_validator');
   }
 
   async validate(block: BlockProposal): Promise<PeerErrorSeverity | undefined> {
     try {
+      // Check signature validity first - invalid signatures are a high-severity issue
+      const proposer = block.getSender();
+      if (!proposer) {
+        this.logger.debug(`Penalizing peer for block proposal with invalid signature`);
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
+      // Check if transactions are permitted when the proposal contains transaction hashes
+      if (!this.txsPermitted && block.txHashes.length > 0) {
+        this.logger.debug(
+          `Penalizing peer for block proposal with ${block.txHashes.length} transaction(s) when transactions are not permitted`,
+        );
+        return PeerErrorSeverity.MidToleranceError;
+      }
+
       const { currentProposer, nextProposer, currentSlot, nextSlot } =
         await this.epochCache.getProposerAttesterAddressInCurrentOrNextSlot();
 
@@ -25,12 +42,11 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
       }
 
       // Check that the block proposal is from the current or next proposer
-      const proposer = block.getSender();
       if (slotNumberBigInt === currentSlot && currentProposer !== undefined && !proposer.equals(currentProposer)) {
         this.logger.debug(`Penalizing peer for invalid proposer for current slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
-          proposer,
+          proposer: proposer.toString(),
         });
         return PeerErrorSeverity.MidToleranceError;
       }
@@ -39,7 +55,7 @@ export class BlockProposalValidator implements P2PValidator<BlockProposal> {
         this.logger.debug(`Penalizing peer for invalid proposer for next slot ${slotNumberBigInt}`, {
           currentProposer,
           nextProposer,
-          proposer,
+          proposer: proposer.toString(),
         });
         return PeerErrorSeverity.MidToleranceError;
       }

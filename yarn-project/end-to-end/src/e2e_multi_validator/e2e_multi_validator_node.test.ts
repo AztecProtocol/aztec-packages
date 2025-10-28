@@ -135,11 +135,11 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
+      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
@@ -192,11 +192,11 @@ describe('e2e_multi_validator_node', () => {
     const payload = ConsensusPayload.fromBlock(block.block);
     const attestations = block.attestations
       .filter(a => !a.signature.isEmpty())
-      .map(a => new BlockAttestation(block.block.number, payload, a.signature, Signature.empty()));
+      .map(a => new BlockAttestation(payload, a.signature, Signature.empty()));
 
     expect(attestations.length).toBeGreaterThanOrEqual((COMMITTEE_SIZE * 2) / 3 + 1);
 
-    const signers = attestations.map(att => att.getSender().toString());
+    const signers = attestations.map(att => att.getSender()!.toString());
 
     expect(signers).toEqual(expect.arrayContaining(validatorAddresses.slice(0, COMMITTEE_SIZE)));
   });
