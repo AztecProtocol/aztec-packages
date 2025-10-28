@@ -478,7 +478,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 }
 
 /**
- * @brief Test LegacyChonk proof generation and verification given an ivc-inputs msgpack file
+ * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
