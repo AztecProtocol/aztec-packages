@@ -35,7 +35,6 @@ namespace acir_format {
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments)
 {
-    // Input to cycle_group points
     using cycle_group_ct = bb::stdlib::cycle_group<Builder>;
     using field_ct = bb::stdlib::field_t<Builder>;
     using bool_ct = bb::stdlib::bool_t<Builder>;
@@ -43,13 +42,12 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Step 1.
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
-    field_ct input_result_infinite = field_ct::from_witness_index(&builder, input.result_infinite);
-    bool_ct predicate;
+    bool_ct input_result_infinite = static_cast<bool_ct>(field_ct::from_witness_index(&builder, input.result_infinite));
+    bool_ct predicate; // To be instantiated in Step 3 if needed.
 
     cycle_group_ct input1 = to_grumpkin_point_unsafe(builder, input.input1_x, input.input1_y, input.input1_infinite);
     cycle_group_ct input2 = to_grumpkin_point_unsafe(builder, input.input2_x, input.input2_y, input.input2_infinite);
-    cycle_group_ct input_result(
-        input_result_x, input_result_y, static_cast<bool_ct>(input_result_infinite), /*assert_on_curve=*/true);
+    cycle_group_ct input_result(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/true);
 
     // Step 2.
     if (!has_valid_witness_assignments) {
@@ -60,15 +58,15 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     if (!input.predicate.is_constant) {
         predicate = static_cast<bool_ct>(to_field_ct(input.predicate, builder));
 
-        // SHOULD WE CONDITIONALLY ASSIGN INPUT_RESULT AS WELL? - NO BECAUSE INPUT RESULT IS PASSED BY NOIR, SO IT IS
-        // ALWAYS A POINT ON THE CURVE FOR HONEST USERS
+        // Note that we do not need to assign input_result because for an honest user it passed by Noir and is always a
+        // point on the curve.
         auto affine_one = bb::grumpkin::g1::affine_one;
         input1 = cycle_group_ct::conditional_assign(predicate, input1, cycle_group_ct(affine_one));
         input2 = cycle_group_ct::conditional_assign(predicate, input2, cycle_group_ct(affine_one));
     }
 
     // Step 4.
-    // Q: DO WE WANT TO ALSO CHECK THAT THE COORDINATES ARE UNIQUE?
+    // AUDITTODO: Do we want also check that the coordinates are smaller than the field modulus?
     input1.validate_on_curve();
     input2.validate_on_curve();
 
@@ -79,11 +77,11 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(predicate, input_result, result);
         result.assert_equal(to_be_asserted_equal);
     } else {
-        // WHAT THIS METHOD DOES IS TO MAKE BOTH SIDES STANDARD (I.E. (0,0) IF INFINITY) AND THEN COMPARE X, Y, AND
-        // INFINITY FLAG. THIS IS OK AS LONG AS THE CALLER OF THIS METHOD DOES NOT DO ANYTHING WITH THE X AND Y
-        // COORDINATES OF THE POINT. THIS IS BECAUSE IF (X, Y, TRUE) IS PASSED AS RESULT AND THEN THE DEV USES (X, Y)
-        // EXPECTING THEM TO BE (0,0) WHEN THE POINT IS AT INFINITY, THIS MIGHT NOT BE THE CASE (EVEN THOUGH NOIR
-        // CURRENTLY SETS X = Y = 0 WHEN THE RESULT OF AN OPERATION IS THE POINT AT INFINITY)
+        // The assert_equal method standardizes both points before comparing, so if either of them is the point at
+        // infinity, the coordinates will be assigned to be (0,0). This is OK as long as developers do not use the
+        // coordinates of a point at infinity (otherwise input_result might be the point at infinity different from (0,
+        // 0, true), and the fact that assert_equal passes doesn't imply anything for the original coordinates of
+        // input_result).
         result.assert_equal(input_result);
     }
 }
@@ -98,9 +96,9 @@ void create_dummy_ec_add_constraint(Builder& builder,
 
     for (auto const& input : { input1, input2, input_result }) {
         if (!input.is_constant()) {
-            builder.set_variable(input1.x().get_witness_index(), affine_one.x);
-            builder.set_variable(input1.y().get_witness_index(), affine_one.y);
-            builder.set_variable(input1.is_point_at_infinity().get_witness_index(), false);
+            builder.set_variable(input.x().get_witness_index(), affine_one.x);
+            builder.set_variable(input.y().get_witness_index(), affine_one.y);
+            builder.set_variable(input.is_point_at_infinity().get_witness_index(), false);
         }
     }
 }

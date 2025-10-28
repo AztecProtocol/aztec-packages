@@ -17,10 +17,10 @@ namespace acir_format {
  * @details EcAdd constraints have 10 components:
  * - input1_x: x-coordinate of the first input point
  * - input1_y: y-coordinate of the first input point
- * - input1_infinite: flag indicating if the first input point is at infinity
+ * - input1_infinite: flag indicating if the first input point is the point at infinity
  * - input2_x: x-coordinate of the second input point
  * - input2_y: y-coordinate of the second input point
- * - input2_infinite: flag indicating if the second input point is at infinity
+ * - input2_infinite: flag indicating if the second input point is the point at infinity
  * - predicate: flag indicating whether the constraint is active
  * - result_x: witness index for the x-coordinate of the resulting point
  * - result_y: witness index for the y-coordinate of the resulting point
