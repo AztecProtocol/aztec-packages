@@ -12,14 +12,19 @@ struct TrackedSideEffects {
     std::vector<FF> nullifiers;
     std::vector<FF> note_hashes;
     std::vector<ScopedL2ToL1Message> l2_to_l1_messages;
-    std::vector<PublicLog> public_logs;
-    // These two are required for squashing.
+    PublicLogs public_logs;
+    // These two are required for on-the-fly squashing.
     std::vector<FF> storage_writes_slots_by_insertion;
     std::unordered_map<FF, FF> storage_writes_slot_to_value;
 
     uint32_t get_num_unencrypted_log_fields() const;
 };
 
+/**
+ * @brief Interface for a side effect tracker.
+ *
+ * This is the equivalent to the SideEffectTrace in TypeScript.
+ */
 class SideEffectTrackerInterface {
   public:
     virtual ~SideEffectTrackerInterface() = default;

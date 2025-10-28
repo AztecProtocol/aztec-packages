@@ -14,6 +14,8 @@
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracking_db.hpp"
 
 // Events.
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
@@ -68,7 +70,6 @@
 #include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
 
 // Standalone.
-#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
 #include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
@@ -168,9 +169,6 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocolContracts);
 
-    // TODO(fcarreiro): consider tracking DB side effects as well.
-    // WARNING: WE NEED TO DO THIS! or otherwise make it a checkpointnotifiable.
-    // REVIEWER: DO NOT LET ME MERGE THIS!
     MerkleDB base_merkle_db(raw_merkle_db,
                             public_data_tree_check,
                             nullifier_tree_check,

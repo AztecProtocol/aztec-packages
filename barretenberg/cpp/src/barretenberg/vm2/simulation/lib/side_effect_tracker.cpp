@@ -6,10 +6,7 @@ namespace bb::avm2::simulation {
 
 uint32_t TrackedSideEffects::get_num_unencrypted_log_fields() const
 {
-    return std::accumulate(
-        public_logs.begin(), public_logs.end(), static_cast<uint32_t>(0), [](uint32_t sum, const PublicLog& log) {
-            return sum + PUBLIC_LOG_HEADER_LENGTH + log.fields.size();
-        });
+    return public_logs.length;
 }
 
 void SideEffectTracker::add_nullifier(const FF& siloed_nullifier)
@@ -32,7 +29,7 @@ void SideEffectTracker::add_l2_to_l1_message(const AztecAddress& contract_addres
 
 void SideEffectTracker::add_public_log(const AztecAddress& contract_address, const std::vector<FF>& fields)
 {
-    tracked_tree_side_effects.top().public_logs.push_back(
+    tracked_tree_side_effects.top().public_logs.add_log(
         PublicLog{ .fields = fields, .contractAddress = contract_address });
 }
 
