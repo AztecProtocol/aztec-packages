@@ -108,7 +108,6 @@ void DataCopy::cd_copy(ContextInterface& context, uint32_t copy_size, uint32_t o
     uint64_t data_index_upper_bound = min(static_cast<uint64_t>(offset) + copy_size, context.get_parent_cd_size());
 
     // Check that we will not access out of bounds memory.
-    // todo(ilyas): think of a way to not need to leak enqueued/nested context information here.
     uint64_t read_addr_upper_bound = data_index_upper_bound + context.get_parent_cd_addr();
     uint64_t write_addr_upper_bound = static_cast<uint64_t>(dst_addr) + copy_size;
 
