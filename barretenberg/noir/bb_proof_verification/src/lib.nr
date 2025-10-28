@@ -17,7 +17,7 @@ pub type RollupHonkProof = [Field; RECURSIVE_ROLLUP_HONK_PROOF_LENGTH];
 pub type RollupHonkVerificationKey = [Field; ULTRA_VK_LENGTH_IN_FIELDS];
 
 pub global PROOF_TYPE_HONK_ZK: u32 = 7; // identifier for UltraHonk ZK verfier
-pub global RECURSIVE_ZK_PROOF_LENGTH: u32 = 492 + 16;
+pub global RECURSIVE_ZK_PROOF_LENGTH: u32 = 394 + 16;
 
 pub type UltraHonkZKProof = [Field; RECURSIVE_ZK_PROOF_LENGTH];
 

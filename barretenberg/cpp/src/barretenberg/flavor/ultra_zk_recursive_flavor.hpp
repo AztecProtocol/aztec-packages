@@ -31,6 +31,8 @@ template <typename BuilderType> class UltraZKRecursiveFlavor_ : public UltraRecu
 
     static constexpr bool HasZK = true;
 
+    static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 };
 
