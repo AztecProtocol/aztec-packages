@@ -11,7 +11,11 @@ import {BlobLib} from "./BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
-  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
+  ProposeLib,
+  ProposeArgs,
+  CommitteeAttestations,
+  ValidateHeaderArgs,
+  ValidatorSelectionLib
 } from "./ProposeLib.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 

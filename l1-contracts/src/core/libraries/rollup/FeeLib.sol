@@ -93,10 +93,10 @@ library FeeLib {
     FeeStore storage feeStore = getStorage();
 
     feeStore.config = FeeConfig({
-      manaTarget: _manaTarget,
-      congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
-      provingCostPerMana: _provingCostPerMana
-    }).compress();
+        manaTarget: _manaTarget,
+        congestionUpdateFraction: _manaTarget * MAGIC_CONGESTION_VALUE_MULTIPLIER / MAGIC_CONGESTION_VALUE_DIVISOR,
+        provingCostPerMana: _provingCostPerMana
+      }).compress();
 
     feeStore.l1GasOracleValues = L1GasOracleValues({
       pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}).compress(),
@@ -199,13 +199,15 @@ library FeeLib {
       // Prover cost per mana
       {
         proverCostPerMana = EthValue.wrap(
-          Math.mulDiv(
-            Math.mulDiv(L1_GAS_PER_EPOCH_VERIFIED, fees.baseFee, TimeLib.getStorage().epochDuration, Math.Rounding.Ceil),
-            1,
-            manaTarget,
-            Math.Rounding.Ceil
-          )
-        ) + feeStore.config.getProvingCostPerMana();
+            Math.mulDiv(
+              Math.mulDiv(
+                L1_GAS_PER_EPOCH_VERIFIED, fees.baseFee, TimeLib.getStorage().epochDuration, Math.Rounding.Ceil
+              ),
+              1,
+              manaTarget,
+              Math.Rounding.Ceil
+            )
+          ) + feeStore.config.getProvingCostPerMana();
       }
 
       total = sequencerCostPerMana + proverCostPerMana;
@@ -216,9 +218,10 @@ library FeeLib {
       FeeLib.clampedAdd(parentFeeHeader.getExcessMana() + parentFeeHeader.getManaUsed(), -int256(manaTarget));
     uint256 congestionMultiplier_ = congestionMultiplier(excessMana);
 
-    EthValue congestionCost = EthValue.wrap(
-      Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
-    ) - total;
+    EthValue congestionCost =
+    EthValue.wrap(
+        Math.mulDiv(EthValue.unwrap(total), congestionMultiplier_, MINIMUM_CONGESTION_MULTIPLIER, Math.Rounding.Floor)
+      ) - total;
 
     FeeAssetPerEthE9 feeAssetPrice =
       _inFeeAsset ? FeeLib.getFeeAssetPerEthAtBlock(_blockOfInterest) : FeeAssetPerEthE9.wrap(1e9);

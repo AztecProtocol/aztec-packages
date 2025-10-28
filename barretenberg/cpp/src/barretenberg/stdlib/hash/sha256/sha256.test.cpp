@@ -456,7 +456,7 @@ TEST(stdlib_sha256, test_boomerang_value_regression)
     for (auto& single_extended_witness : w_ext) {
 
         auto random32bits = engine.get_random_uint32();
-        uint32_t variable_index = single_extended_witness.witness_index;
+        uint32_t variable_index = single_extended_witness.get_witness_index();
         // Ensure our random value is different
         while (builder.get_variable(variable_index) == fr(random32bits)) {
             random32bits = engine.get_random_uint32();

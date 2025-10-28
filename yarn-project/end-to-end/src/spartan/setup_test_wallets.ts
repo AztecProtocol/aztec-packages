@@ -287,7 +287,7 @@ export async function createWalletAndAztecNodeClient(
   const [bbConfig, acvmConfig] = await Promise.all([getBBConfig(logger), getACVMConfig(logger)]);
   const pxeConfig = {
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 1024 * 1024,
+    dataStoreMapSizeKb: 1024 * 1024,
     ...bbConfig,
     ...acvmConfig,
     proverEnabled,

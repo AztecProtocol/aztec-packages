@@ -7,12 +7,12 @@ use dep::aztec::macros::aztec;
 /// call. This can be achieved by enqueueing an `incognito` public call.
 #[aztec]
 pub contract Router {
-    use aztec::{macros::functions::{public, view}, utils::comparison::compare};
+    use aztec::{macros::functions::{external, view}, utils::comparison::compare};
 
     // docs:start:check_timestamp
     /// Asserts that the current timestamp satisfies the `operation` with respect
     /// to the `value.
-    #[public]
+    #[external("public")]
     #[view]
     fn check_timestamp(operation: u8, value: u64) {
         let lhs_field = context.timestamp() as Field;
@@ -23,7 +23,7 @@ pub contract Router {
 
     /// Asserts that the current block number satisfies the `operation` with respect
     /// to the `value.
-    #[public]
+    #[external("public")]
     #[view]
     fn check_block_number(operation: u8, value: u32) {
         assert(

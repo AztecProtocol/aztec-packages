@@ -162,6 +162,8 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
       return LocalGovernanceConfiguration;
     case 'next-net':
       return LocalGovernanceConfiguration;
+    case 'devnet':
+      return LocalGovernanceConfiguration;
     case 'staging-public':
       return StagingPublicGovernanceConfiguration;
     case 'testnet':
@@ -187,6 +189,7 @@ const DefaultRewardConfig = {
 export const getRewardConfig = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
+    case 'devnet':
     case 'next-net':
     case 'staging-public':
     case 'testnet':
@@ -247,6 +250,8 @@ export const getEntryQueueConfig = (networkName: NetworkNames) => {
     case 'local':
       return LocalEntryQueueConfig;
     case 'next-net':
+      return LocalEntryQueueConfig;
+    case 'devnet':
       return LocalEntryQueueConfig;
     case 'staging-public':
       return StagingPublicEntryQueueConfig;

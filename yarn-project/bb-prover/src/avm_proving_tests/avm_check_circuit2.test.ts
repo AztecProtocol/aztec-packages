@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
@@ -11,14 +12,20 @@ describe('AVM check-circuit – unhappy paths 2', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
+  let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
       AvmTestContractArtifact,
     );
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it(
@@ -45,7 +52,7 @@ describe('AVM check-circuit – unhappy paths 2', () => {
 
   it('top-level exceptional halts due to a non-existent contract in app-logic and teardown', async () => {
     // don't insert contracts into trees, and make sure retrieval fails
-    const tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
+    const tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly=*/ true);
     // Note: we need to specify the contract artifacts here because we intentionally skip registration,
     // so the tester can't retrieve them on its own.
     await tester.simProveVerify(

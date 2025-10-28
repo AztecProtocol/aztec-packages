@@ -4,13 +4,13 @@ use crate::{
     constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
     merkle_tree::MembershipWitness,
-    proof::verification_key::ClientIVCVerificationKey,
+    proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
-    pub vk: ClientIVCVerificationKey,
+    pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 
@@ -24,7 +24,7 @@ impl PrivateCallData {
             PROOF_TYPE_PG
         };
 
-        // Client IVC public inputs are linked in the backend via the databus.
+        // CHONK public inputs are linked in the backend via the databus.
         //
         // Seeing empty args being passed to verify_proof is quite jarring, so I think it could do with more explanation about exactly what's happening behind the scenes, so that a reader can gain confidence in what's being done "magically" by bberg.
         // How does bb know the locations of the proof and public inputs in the databus?
@@ -51,7 +51,7 @@ pub struct PrivateVerificationKeyHints {
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {
-    pub vk: ClientIVCVerificationKey,
+    pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 

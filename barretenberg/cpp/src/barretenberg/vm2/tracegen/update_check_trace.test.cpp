@@ -131,7 +131,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
         poseidon2, range_check, gt, merkle_db, update_check_event_emitter, { .timestamp = current_timestamp });
 
     uint32_t leaf_index = 27;
-    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
@@ -234,7 +234,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
         update_leaf_slots.push_back(leaf_slot);
     }
 
-    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))

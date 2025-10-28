@@ -123,7 +123,13 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       const constants = this.txCollection.getConstants();
       const nextSlotTimestampSeconds = Number(getTimestampForSlot(block.slotNumber.toBigInt() + 1n, constants));
       const deadline = new Date(nextSlotTimestampSeconds * 1000);
-      await this.txProvider.getTxsForBlockProposal(block, { pinnedPeer: sender, deadline });
+      const parentBlock = await this.l2BlockSource.getBlockHeaderByArchive(block.payload.header.lastArchiveRoot);
+      if (!parentBlock) {
+        this.log.debug(`Cannot collect txs for proposal as parent block not found`);
+        return;
+      }
+      const blockNumber = parentBlock.getBlockNumber() + 1;
+      await this.txProvider.getTxsForBlockProposal(block, blockNumber, { pinnedPeer: sender, deadline });
       return undefined;
     });
 
@@ -365,7 +371,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.blockNumber,
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),

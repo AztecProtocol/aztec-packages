@@ -14,6 +14,7 @@ import type {
 import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import { MerkleTreeId, NullifierLeaf, type NullifierLeafPreimage, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
+import { WorldStateRevision } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import assert from 'assert/strict';
@@ -33,7 +34,6 @@ import {
   sanitizeFullStatus,
   sanitizeSummary,
   treeStateReferenceToSnapshot,
-  worldStateRevision,
 } from './message.js';
 import { NativeWorldState } from './native_world_state_instance.js';
 
@@ -147,11 +147,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   public getCommitted(): MerkleTreeReadOperations {
-    return new MerkleTreesFacade(this.instance, this.initialHeader!, worldStateRevision(false, 0, 0));
+    return new MerkleTreesFacade(this.instance, this.initialHeader!, WorldStateRevision.empty());
   }
 
   public getSnapshot(blockNumber: number): MerkleTreeReadOperations {
-    return new MerkleTreesFacade(this.instance, this.initialHeader!, worldStateRevision(false, 0, blockNumber));
+    return new MerkleTreesFacade(
+      this.instance,
+      this.initialHeader!,
+      new WorldStateRevision(/*forkId=*/ 0, /* blockNumber=*/ blockNumber, /* includeUncommitted=*/ false),
+    );
   }
 
   public async fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
@@ -160,7 +164,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       blockNumber: blockNumber ?? 0,
       canonical: true,
     });
-    return new MerkleTreesForkFacade(this.instance, this.initialHeader!, worldStateRevision(true, resp.forkId, 0));
+    return new MerkleTreesForkFacade(
+      this.instance,
+      this.initialHeader!,
+      new WorldStateRevision(/*forkId=*/ resp.forkId, /* blockNumber=*/ 0, /* includeUncommitted=*/ true),
+    );
   }
 
   public getInitialHeader(): BlockHeader {

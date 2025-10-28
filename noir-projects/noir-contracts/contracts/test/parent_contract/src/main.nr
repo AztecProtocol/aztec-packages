@@ -3,19 +3,19 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract Parent {
-    use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
+    use dep::aztec::{context::gas::GasOpts, macros::functions::external};
     use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
     use aztec::protocol_types::{
         abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
     };
     // Private function to call another private function in the target_contract using the provided selector
-    #[private]
+    #[external("private")]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
         // Call the target private function
         context.call_private_function(target_contract, target_selector, [0]).get_preimage()
     }
     // Public function to directly call another public function to the target_contract using the selector and value provided
-    #[public]
+    #[external("public")]
     fn pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -29,7 +29,7 @@ pub contract Parent {
         )[0]
     }
     // Same as pub_entry_point, but calls the target contract twice, using the return value from the first invocation as the argument for the second.
-    #[public]
+    #[external("public")]
     fn pub_entry_point_twice(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -49,7 +49,7 @@ pub contract Parent {
         )[0]
     }
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
-    #[private]
+    #[external("private")]
     fn enqueue_call_to_child(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -58,12 +58,12 @@ pub contract Parent {
         context.call_public_function(target_contract, target_selector, [target_value], false);
     }
 
-    #[public]
+    #[external("public")]
     fn public_call_with_max_over_n_args(
         _args: [Field; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10],
     ) {}
 
-    #[private]
+    #[external("private")]
     fn enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions: u32) {
         let args = [0; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10];
         // +1 for function selector brings us to max
@@ -80,7 +80,7 @@ pub contract Parent {
     // Private function that enqueues two calls to a child contract:
     // - one through a nested call to enqueue_call_to_child with value 10,
     // - followed by one issued directly from this function with value 20.
-    #[private]
+    #[external("private")]
     fn enqueue_calls_to_child_with_nested_first(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -98,7 +98,7 @@ pub contract Parent {
     // Private function that enqueues two calls to a child contract:
     // - one issued directly from this function with value 20,
     // - followed by one through a nested call to enqueue_call_to_child with value 10.
-    #[private]
+    #[external("private")]
     fn enqueue_calls_to_child_with_nested_last(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -114,7 +114,7 @@ pub contract Parent {
         );
     }
     // Private function to enqueue a call to the target_contract address using the selector and argument provided
-    #[private]
+    #[external("private")]
     fn enqueue_call_to_child_twice(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -126,7 +126,7 @@ pub contract Parent {
         context.call_public_function(target_contract, target_selector, [target_value + 1], false);
     }
     // Private function to enqueue a call to the pub_entry_point function of this same contract, passing the target arguments provided
-    #[private]
+    #[external("private")]
     fn enqueue_call_to_pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -143,7 +143,7 @@ pub contract Parent {
         );
     }
     // Private function to enqueue two calls to the pub_entry_point function of this same contract, passing the target arguments provided
-    #[private]
+    #[external("private")]
     fn enqueue_calls_to_pub_entry_point(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -165,7 +165,7 @@ pub contract Parent {
             false,
         );
     }
-    #[private]
+    #[external("private")]
     fn private_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -174,7 +174,7 @@ pub contract Parent {
         // Call the target private function
         context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
-    #[private]
+    #[external("private")]
     fn private_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -184,7 +184,7 @@ pub contract Parent {
         context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
     // Private function to set a static context and verify correct propagation for nested private calls
-    #[private]
+    #[external("private")]
     fn private_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -205,7 +205,7 @@ pub contract Parent {
         return_value
     }
     // Public function to directly call another public function to the target_contract using the selector and value provided
-    #[public]
+    #[external("public")]
     fn public_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -219,7 +219,7 @@ pub contract Parent {
         )[0]
     }
     // Public function to set a static context and verify correct propagation for nested public calls
-    #[public]
+    #[external("public")]
     fn public_nested_static_call(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -237,7 +237,7 @@ pub contract Parent {
         )[0]
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
-    #[private]
+    #[external("private")]
     fn enqueue_static_nested_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,
@@ -255,7 +255,7 @@ pub contract Parent {
         );
     }
     // Private function to enqueue a static call to the pub_entry_point function of another contract, passing the target arguments provided
-    #[private]
+    #[external("private")]
     fn enqueue_static_call_to_pub_function(
         target_contract: AztecAddress,
         target_selector: FunctionSelector,

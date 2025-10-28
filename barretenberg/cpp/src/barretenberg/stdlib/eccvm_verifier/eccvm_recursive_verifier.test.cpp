@@ -5,6 +5,7 @@
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -93,7 +94,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         verifier.transcript->enable_manifest();
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
-        stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
+        stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
         info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
@@ -160,8 +161,9 @@ class ECCVMRecursiveTests : public ::testing::Test {
         std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         [[maybe_unused]] auto output = verifier.verify_proof(proof);
-        stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
-        info("Recursive Verifier: num finalized gates = ", outer_circuit.get_num_finalized_gates_inefficient());
+        stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
+        info("Recursive Verifier: estimated num finalized gates = ",
+             outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));
@@ -184,7 +186,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             std::shared_ptr<StdlibTranscript> stdlib_verifier_transcript = std::make_shared<StdlibTranscript>();
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
             auto [opening_claim, ipa_proof] = verifier.verify_proof(proof);
-            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
+            stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             if (idx == 0) {
                 // In this case, we changed the first non-zero value in the proof. It leads to a circuit check failure.
@@ -228,7 +230,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
             RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
 
             auto [opening_claim, ipa_transcript] = verifier.verify_proof(inner_proof);
-            stdlib::recursion::PairingPoints<OuterBuilder>::add_default_to_public_inputs(outer_circuit);
+            stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =

@@ -11,7 +11,6 @@
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"

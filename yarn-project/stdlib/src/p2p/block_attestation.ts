@@ -7,8 +7,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { z } from 'zod';
 
-import { type ZodFor, schemas } from '../schemas/index.js';
-import type { UInt32 } from '../types/index.js';
+import type { ZodFor } from '../schemas/index.js';
 import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
@@ -33,9 +32,6 @@ export class BlockAttestation extends Gossipable {
   private proposer: EthAddress | undefined;
 
   constructor(
-    /** The block number of the attestation. */
-    public readonly blockNumber: UInt32,
-
     /** The payload of the message, and what the signature is over */
     public readonly payload: ConsensusPayload,
 
@@ -51,12 +47,11 @@ export class BlockAttestation extends Gossipable {
   static get schema(): ZodFor<BlockAttestation> {
     return z
       .object({
-        blockNumber: schemas.UInt32,
         payload: ConsensusPayload.schema,
         signature: Signature.schema,
         proposerSignature: Signature.schema,
       })
-      .transform(obj => new BlockAttestation(obj.blockNumber, obj.payload, obj.signature, obj.proposerSignature));
+      .transform(obj => new BlockAttestation(obj.payload, obj.signature, obj.proposerSignature));
   }
 
   override generateP2PMessageIdentifier(): Promise<Buffer32> {
@@ -90,12 +85,12 @@ export class BlockAttestation extends Gossipable {
    * Lazily evaluate and cache the proposer of the block
    * @returns The proposer of the block
    */
-  getProposer(): EthAddress {
+  getProposer(): EthAddress | undefined {
     if (!this.proposer) {
       // Recover the proposer from the proposal signature
       const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
       // Cache the proposer for later use
-      this.proposer = tryRecoverAddress(hashed, this.proposerSignature)!;
+      this.proposer = tryRecoverAddress(hashed, this.proposerSignature);
     }
 
     return this.proposer;
@@ -106,13 +101,12 @@ export class BlockAttestation extends Gossipable {
   }
 
   toBuffer(): Buffer {
-    return serializeToBuffer([this.blockNumber, this.payload, this.signature, this.proposerSignature]);
+    return serializeToBuffer([this.payload, this.signature, this.proposerSignature]);
   }
 
   static fromBuffer(buf: Buffer | BufferReader): BlockAttestation {
     const reader = BufferReader.asReader(buf);
     return new BlockAttestation(
-      reader.readNumber(),
       reader.readObject(ConsensusPayload),
       reader.readObject(Signature),
       reader.readObject(Signature),
@@ -120,25 +114,19 @@ export class BlockAttestation extends Gossipable {
   }
 
   static empty(): BlockAttestation {
-    return new BlockAttestation(0, ConsensusPayload.empty(), Signature.empty(), Signature.empty());
+    return new BlockAttestation(ConsensusPayload.empty(), Signature.empty(), Signature.empty());
   }
 
   static random(): BlockAttestation {
-    return new BlockAttestation(
-      Math.floor(Math.random() * 1000) + 1,
-      ConsensusPayload.random(),
-      Signature.random(),
-      Signature.random(),
-    );
+    return new BlockAttestation(ConsensusPayload.random(), Signature.random(), Signature.random());
   }
 
   getSize(): number {
-    return 4 /* blockNumber */ + this.payload.getSize() + this.signature.getSize() + this.proposerSignature.getSize();
+    return this.payload.getSize() + this.signature.getSize() + this.proposerSignature.getSize();
   }
 
   toInspect() {
     return {
-      blockNumber: this.blockNumber,
       payload: this.payload.toInspect(),
       signature: this.signature.toString(),
       proposerSignature: this.proposerSignature.toString(),

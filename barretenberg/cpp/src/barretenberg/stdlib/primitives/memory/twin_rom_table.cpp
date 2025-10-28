@@ -61,12 +61,12 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
         if (entry[0].is_constant()) {
             first = field_pt::from_witness_index(context, context->put_constant_variable(entry[0].get_value()));
         } else {
-            first = entry[0].normalize();
+            first = entry[0];
         }
         if (entry[1].is_constant()) {
             second = field_pt::from_witness_index(context, context->put_constant_variable(entry[1].get_value()));
         } else {
-            second = entry[1].normalize();
+            second = entry[1];
         }
         entries.emplace_back(field_pair_pt{ first, second });
     }
@@ -159,7 +159,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 
-    auto output_indices = context->read_ROM_array_pair(rom_id, index.get_normalized_witness_index());
+    auto output_indices = context->read_ROM_array_pair(rom_id, index.get_witness_index());
     auto pair = field_pair_pt{
         field_pt::from_witness_index(context, output_indices[0]),
         field_pt::from_witness_index(context, output_indices[1]),

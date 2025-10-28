@@ -47,7 +47,7 @@ using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeCheckEvent;
 
 using testing::NiceMock;
-using testing::ReturnRef;
+using testing::Return;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -121,7 +121,7 @@ TEST(SLoadConstrainingTest, Interactions)
 
     TreeSnapshots trees;
     trees.publicDataTree.root = 42;
-    EXPECT_CALL(low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
+    EXPECT_CALL(low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
 
     FF value = merkle_db.storage_read(contract_address, slot);
 

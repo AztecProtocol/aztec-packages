@@ -658,7 +658,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
         pub_inputs_block_idx = 3;
     }
 
-    for (size_t blk_idx = 0; blk_idx < block_data.size() - 1; blk_idx++) {
+    for (size_t blk_idx = 0; blk_idx < block_data.size(); blk_idx++) {
         if (block_data[blk_idx].size() == 0 || blk_idx == pub_inputs_block_idx) {
             continue;
         }

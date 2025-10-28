@@ -52,7 +52,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     Polynomial read_counts{ circuit_size };
     Polynomial read_tags{ circuit_size };
 
-    builder.blocks.compute_offsets(/*is_structured=*/false);
+    builder.blocks.compute_offsets();
     construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder, circuit_size);
 
     // The table polys are constructed at the start of the lookup gates block, thus so to are the counts/tags

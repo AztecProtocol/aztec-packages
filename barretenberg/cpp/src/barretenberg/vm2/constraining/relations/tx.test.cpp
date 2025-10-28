@@ -34,6 +34,7 @@ using tracegen::TxTraceBuilder;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using tx = bb::avm2::tx<FF>;
+using tx_context = bb::avm2::tx_context<FF>;
 
 TEST(TxExecutionConstrainingTest, NegativeEmptyTrace)
 {
@@ -368,6 +369,49 @@ TEST_F(TxExecutionConstrainingTestHelper, SimpleControlFlowRead)
                       lookup_tx_read_phase_table_settings,
                       lookup_tx_read_phase_length_settings,
                       lookup_tx_read_public_call_request_phase_settings>(trace);
+}
+
+TEST_F(TxExecutionConstrainingTestHelper, SimpleHandleRevert)
+{
+    auto test_public_inputs = testing::PublicInputsBuilder()
+                                  .rand_public_setup_call_requests(2)
+                                  .rand_public_app_logic_call_requests(2)
+                                  .set_reverted(true)
+                                  .build();
+
+    auto first_setup_call_request = test_public_inputs.publicSetupCallRequests[0];
+    auto second_setup_call_request = test_public_inputs.publicSetupCallRequests[1];
+    auto first_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[0];
+    auto second_app_logic_call_request = test_public_inputs.publicAppLogicCallRequests[1];
+
+    TestTraceContainer trace;
+    set_initial_columns(trace,
+                        { first_setup_call_request, second_setup_call_request },
+                        { first_app_logic_call_request, second_app_logic_call_request });
+
+    // Set teardown as padded:
+    trace.set(11, { { { C::tx_is_padded, 1 } } });
+
+    // Set the second app logic call to have reverted:
+    trace.set(10, { { { C::tx_reverted, 1 } } });
+
+    // Set some tx_context values:
+    trace.set(1, { { { C::tx_start_tx, 1 } } });
+    for (uint32_t i = 10; i < 15; i++) {
+        trace.set(i, { { { C::tx_tx_reverted, 1 } } });
+    }
+    trace.set(14, { { { C::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX } } });
+
+    public_inputs_builder.process_public_inputs(trace, test_public_inputs);
+    public_inputs_builder.process_public_inputs_aux_precomputed(trace);
+
+    precomputed_builder.process_phase_table(trace);
+    precomputed_builder.process_misc(trace, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+
+    check_relation<tx>(trace);
+    check_relation<tx_context>(
+        trace, tx_context::SR_INIT_TX_REVERTED, tx_context::SR_SET_TX_REVERTED, tx_context::SR_TX_REVERTED_CONTINUITY);
+    check_interaction<TxTraceBuilder, lookup_tx_context_public_inputs_read_reverted_settings>(trace);
 }
 
 TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)

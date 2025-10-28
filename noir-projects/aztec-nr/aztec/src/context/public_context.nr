@@ -9,14 +9,14 @@ use dep::protocol_types::traits::{Empty, FromField, Packable, Serialize, ToField
 
 /// # PublicContext
 ///
-/// The **main interface** between a #[public] function and the Aztec blockchain.
+/// The **main interface** between an #[external("public")] function and the Aztec blockchain.
 ///
 /// An instance of the PublicContext is initialized automatically at the outset
-/// of every public function, within the #[public] macro, so you'll never
+/// of every public function, within the #[external("public")] macro, so you'll never
 /// need to consciously instantiate this yourself.
 ///
 /// The instance is always named `context`, and it will always be available
-/// within the body of every #[public] function in your smart contract.
+/// within the body of every #[external("public")] function in your smart contract.
 ///
 /// Typical usage for a smart contract developer will be to call getter
 /// methods of the PublicContext.
@@ -83,7 +83,7 @@ impl Eq for PublicContext {
 impl PublicContext {
     /// Creates a new PublicContext instance.
     ///
-    /// Low-level function: This is called automatically by the #[public]
+    /// Low-level function: This is called automatically by the #[external("public")]
     /// macro, so you shouldn't need to be called directly by smart contract
     /// developers.
     ///
@@ -490,7 +490,7 @@ impl PublicContext {
 
     /// Returns the hash of the arguments passed to the current function.
     ///
-    /// Very low-level function: The #[public] macro uses this internally.
+    /// Very low-level function: The #[external("public")] macro uses this internally.
     /// Smart contract developers typically won't need to access this
     /// directly as arguments are automatically made available.
     ///

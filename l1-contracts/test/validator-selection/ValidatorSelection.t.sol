@@ -204,8 +204,8 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     uint256 preSize = rollup.getActiveAttesterCount();
 
     uint32 upper = uint32(
-      Timestamp.unwrap(rollup.getGenesisTime())
-        + rollup.getEpochDuration() * rollup.getSlotDuration() * (Epoch.unwrap(epoch) + 1) - 1
+      Timestamp.unwrap(rollup.getGenesisTime()) + rollup.getEpochDuration() * rollup.getSlotDuration()
+        * (Epoch.unwrap(epoch) + 1) - 1
     );
 
     uint32 ts = uint32(block.timestamp);
@@ -538,10 +538,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
 
     ree.proposeArgs = ProposeArgs({
-      header: header,
-      archive: full.block.archive,
-      stateReference: EMPTY_STATE_REFERENCE,
-      oracleInput: OracleInput(0)
+      header: header, archive: full.block.archive, stateReference: EMPTY_STATE_REFERENCE, oracleInput: OracleInput(0)
     });
 
     skipBlobCheck(address(rollup));

@@ -9,11 +9,17 @@ On this page you will learn about function attributes and macros.
 
 If you are looking for a reference of function macros, go [here](../../../reference/smart_contract_reference/macros.md).
 
-## Private functions #[private]
+# External functions #[external("...")]
 
-A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[private]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
+Like in Solidity, external functions can be called from outside the contract.
+There are 3 types of external functions differing in the execution environment they are executed in: private, public, and utility.
+We will describe each type in the following sections.
 
-`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../advanced/circuits/kernels/private_kernel.md).
+## Private functions #[external("private")]
+
+A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[external("private")]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
+
+`#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../advanced/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -76,9 +82,9 @@ Any state variables declared in the `Storage` struct can now be accessed as norm
 
 This function takes the application context, and converts it into the `PrivateCircuitPublicInputs` structure. This structure is then passed to the kernel circuit.
 
-## Utility functions #[utility]
+## Utility functions #[external("utility")]
 
-Contract functions marked with `#[utility]` are used to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle).
+Contract functions marked with `#[external("utility")]` are used to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle).
 
 Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Utility functions exist as Noir contract code because they let developers utilize the rest of the contract code directly by being part of the same Noir crate, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
 
@@ -110,7 +116,7 @@ Beyond using them inside your other functions, they are convenient for providing
 Note, that utility functions can have access to both private and (historical) public data when executed on the user's device. This is possible since these functions are not invoked as part of transactions, so we don't need to worry about preventing a contract from e.g. accidentally using stale or unverified public state.
 :::
 
-## Public functions #[public]
+## Public functions #[external("public")]
 
 A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 
@@ -118,7 +124,7 @@ A public function is executed by the sequencer and has access to a state model t
 All data inserted into private storage from a public function will be publicly viewable (not private).
 :::
 
-To create a public function you can annotate it with the `#[public]` attribute. This will make the public context available within the function's execution scope.
+To create a public function you can annotate it with the `#[external("public")]` attribute. This will make the public context available within the function's execution scope.
 
 #include_code set_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
@@ -144,7 +150,7 @@ let storage = Storage::init(&mut context);
 
 ## Constrained `view` Functions #[view]
 
-The `#[view]` attribute can be applied to a `#[private]` or a `#[public]` function and it guarantees that the function cannot modify any contract state (just like `view` functions in Solidity).
+The `#[view]` attribute can be applied to a `#[external("private")]` or a `#[external("public")]` function and it guarantees that the function cannot modify any contract state (just like `view` functions in Solidity).
 
 ## `Initializer` Functions #[initializer]
 

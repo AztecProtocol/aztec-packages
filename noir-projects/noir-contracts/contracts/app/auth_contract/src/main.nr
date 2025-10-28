@@ -7,7 +7,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Auth {
     use dep::aztec::{
-        macros::{functions::{initializer, private, public, view}, storage::storage},
+        macros::{functions::{external, initializer, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{DelayedPublicMutable, PublicImmutable},
     };
@@ -22,45 +22,45 @@ pub contract Auth {
         authorized: DelayedPublicMutable<AztecAddress, CHANGE_AUTHORIZED_DELAY, Context>,
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(admin: AztecAddress) {
         assert(!admin.is_zero(), "invalid admin");
         storage.admin.initialize(admin);
     }
 
-    #[public]
+    #[external("public")]
     fn set_authorized(authorized: AztecAddress) {
         assert_eq(storage.admin.read(), context.msg_sender().unwrap(), "caller is not admin");
         storage.authorized.schedule_value_change(authorized);
     }
 
     // docs:start:public_getter
-    #[public]
+    #[external("public")]
     #[view]
     fn get_authorized() -> AztecAddress {
         storage.authorized.get_current_value()
     }
     // docs:end:public_getter
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_scheduled_authorized() -> (AztecAddress, u64) {
         storage.authorized.get_scheduled_value()
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_authorized_delay() -> pub u64 {
         storage.authorized.get_current_delay()
     }
 
-    #[public]
+    #[external("public")]
     fn set_authorized_delay(new_delay: u64) {
         storage.authorized.schedule_delay_change(new_delay);
     }
 
-    #[private]
+    #[external("private")]
     fn do_private_authorized_thing() {
         // Reading a value from authorized in private automatically adds an extra validity condition: the base rollup
         // circuit will reject this tx if timestamp of the block being built is past the time horizon of
@@ -70,7 +70,7 @@ pub contract Auth {
         assert_eq(authorized, context.msg_sender().unwrap(), "caller is not authorized");
     }
 
-    #[private]
+    #[external("private")]
     #[view]
     fn get_authorized_in_private() -> AztecAddress {
         storage.authorized.get_current_value()

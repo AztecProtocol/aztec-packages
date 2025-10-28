@@ -23,6 +23,7 @@ describe('Public Processor app tests: TokenContract', () => {
   const sender = AztecAddress.fromNumber(111);
 
   let token: ContractInstanceWithAddress;
+  let worldStateService: NativeWorldStateService;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -33,7 +34,8 @@ describe('Public Processor app tests: TokenContract', () => {
     globals.gasFees = new GasFees(2, 3);
 
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    worldStateService = await NativeWorldStateService.tmp();
+    const merkleTrees = await worldStateService.fork();
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
@@ -54,6 +56,10 @@ describe('Public Processor app tests: TokenContract', () => {
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);
     await tester.setFeePayerBalance(sender);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('token constructor, mint, many transfers', async () => {

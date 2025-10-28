@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -22,7 +22,7 @@ auto& engine = numeric::get_debug_randomness();
  *
  * @details Fix the following notation:
  *  1. \f$E\f$ is an elliptic curve over the base field \f$\mathbb{F}_q\f$.
- *  2. \f$G\f$ is a generator of the group of points of \f$E\f$, the order of \f$G\f$ is \f$n\f$.
+ *  2. \f$G\f$ is a generator of the group of points of \f$E\f$, the order of \f$G\f$ is \f$n\f$ and prime.
  *  3. \f$a \in \mathbb{F}_n^{\ast}\f$ is a private key, and \f$P := aG\f$ is the associated public key
  *  4. \f$\mathbf{H}\f$ is a hash function
  *
@@ -112,7 +112,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
     Fr s(sig.s);
     s.assert_less_than(
         (Fr::modulus + 1) / 2,
-        "ECDSA input validation: the s component of the signature is bigger than Fr::modulus - s."); // s < (n+1)/2
+        "ECDSA input validation: the s component of the signature is bigger than (Fr::modulus + 1)/2."); // s < (n+1)/2
     s.assert_is_not_equal(Fr::zero(), "ECDSA input validation: the s component of the signature is zero."); // 0 < s
 
     // Step 6.
@@ -137,9 +137,7 @@ bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed
         bool_t<Builder>(false), "ECDSA validation: the result of the batch multiplication is the point at infinity.");
 
     // Step 8.
-    // We reduce result.x to 2^s, where s is the smallest s.t. 2^s > q. It is cheap in terms of constraints, and avoids
-    // possible edge cases
-    result.x.self_reduce();
+    result.x.reduce_mod_target_modulus();
 
     // Transfer Fq value result.x to Fr (this is just moving from a C++ class to another)
     Fr result_x_mod_r = Fr::unsafe_construct_from_limbs(result.x.binary_basis_limbs[0].element,

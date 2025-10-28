@@ -7,7 +7,7 @@ pub contract PriceFeed {
     use crate::asset::Asset;
     use dep::aztec::state_vars::{Map, PublicMutable};
 
-    use dep::aztec::macros::{functions::{public, view}, storage::storage};
+    use dep::aztec::macros::{functions::{external, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
@@ -15,13 +15,13 @@ pub contract PriceFeed {
         assets: Map<Field, PublicMutable<Asset, Context>, Context>,
     }
 
-    #[public]
+    #[external("public")]
     fn set_price(asset_id: Field, price: u128) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price });
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_price(asset_id: Field) -> Asset {
         storage.assets.at(asset_id).read()

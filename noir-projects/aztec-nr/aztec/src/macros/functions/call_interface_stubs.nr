@@ -1,10 +1,11 @@
-// This file generates call interface stub functions for Aztec contract methods.
-// It creates wrapper functions that serialize arguments and return appropriate call interfaces
-// for invoking contract functions across different contexts (private, public, static, utility).
+//! Stubs are auto-generated wrapper functions that provide an ergonomic interface for cross-contract calls.
+//! Instead of manually serializing arguments and creating call interfaces, stubs allow natural syntax, e.g. for
+//! enqueuing calls to public functions:
+//!
+//!   ExternalContract.at(address).some_method(arg1, arg2).enqueue()
 
-use crate::macros::utils::{
-    AsStrQuote, compute_fn_selector, is_fn_private, is_fn_public, is_fn_view,
-};
+use crate::macros::utils::{AsStrQuote, compute_fn_selector, is_fn_view};
+use super::stub_registry;
 use protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::unquote;
 
@@ -18,24 +19,27 @@ comptime global FROM_FIELD: TypedExpr = {
         .as_typed_expr()
 };
 
-pub comptime fn stub_fn(f: FunctionDefinition) -> Quoted {
-    let is_static_call = is_fn_view(f);
-
-    if is_fn_private(f) {
-        if is_static_call {
-            create_private_static_stub(f)
-        } else {
-            create_private_stub(f)
-        }
-    } else if is_fn_public(f) {
-        if is_static_call {
-            create_public_static_stub(f)
-        } else {
-            create_public_stub(f)
-        }
+pub comptime fn register_private_fn_stub(f: FunctionDefinition) {
+    let stub = if is_fn_view(f) {
+        create_private_static_stub(f)
     } else {
-        create_utility_stub(f)
-    }
+        create_private_stub(f)
+    };
+    stub_registry::register(f.module(), stub);
+}
+
+pub comptime fn register_public_fn_stub(f: FunctionDefinition) {
+    let stub = if is_fn_view(f) {
+        create_public_static_stub(f)
+    } else {
+        create_public_stub(f)
+    };
+    stub_registry::register(f.module(), stub);
+}
+
+pub comptime fn register_utility_fn_stub(f: FunctionDefinition) {
+    let stub = create_utility_stub(f);
+    stub_registry::register(f.module(), stub);
 }
 
 /// Utility function creating stubs used by all the stub functions in this file.

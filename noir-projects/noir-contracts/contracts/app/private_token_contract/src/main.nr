@@ -2,7 +2,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract PrivateToken {
-    use dep::aztec::macros::{functions::{initializer, private, utility}, storage::storage};
+    use dep::aztec::macros::{functions::{external, initializer}, storage::storage};
     use dep::aztec::{protocol_types::address::AztecAddress, state_vars::Map};
     use dep::easy_private_state::EasyPrivateUint;
 
@@ -14,7 +14,7 @@ pub contract PrivateToken {
     /**
      * initialize the contract's initial state variables.
      */
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(initial_supply: u64, owner: AztecAddress) {
         let balances = storage.balances;
@@ -23,7 +23,7 @@ pub contract PrivateToken {
     }
 
     // Mints `amount` of tokens to `owner`.
-    #[private]
+    #[external("private")]
     fn mint(amount: u64, owner: AztecAddress) {
         let balances = storage.balances;
 
@@ -31,7 +31,7 @@ pub contract PrivateToken {
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
-    #[private]
+    #[external("private")]
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         let balances = storage.balances;
 
@@ -40,7 +40,7 @@ pub contract PrivateToken {
     }
 
     // Helper function to get the balance of a user.
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_balance(owner: AztecAddress) -> Field {
         storage.balances.at(owner).get_value()
     }

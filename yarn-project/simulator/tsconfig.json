@@ -14,6 +14,9 @@
       "path": "../foundation"
     },
     {
+      "path": "../native"
+    },
+    {
       "path": "../noir-protocol-circuits-types"
     },
     {
@@ -41,5 +44,7 @@
       "path": "../noir-test-contracts.js"
     }
   ],
-  "include": ["src"]
+  "include": ["src"],
+  // Note(ilyas): This exclude kinda redundant now, but a reminder for when we move the fuzzer into /src/avm
+  "exclude": ["scripts/fuzzing/avm_simulator_bin.ts"]
 }

@@ -51,7 +51,10 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -161,13 +164,11 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
-      MANA_TARGET
-    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
-      initialValidators
-    ).setTargetCommitteeSize(_targetCommitteeSize).setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(
-      VOTING_ROUND_SIZE
-    ).setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+      .setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize)
+      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
+      .setSlashingRoundSize(VOTING_ROUND_SIZE);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;

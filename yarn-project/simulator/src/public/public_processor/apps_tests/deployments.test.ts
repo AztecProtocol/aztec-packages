@@ -21,6 +21,7 @@ describe('Public processor contract registration/deployment tests', () => {
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
+  let worldStateService: NativeWorldStateService;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -31,7 +32,8 @@ describe('Public processor contract registration/deployment tests', () => {
     globals.gasFees = new GasFees(2, 3);
 
     const contractDataSource = new SimpleContractDataSource();
-    const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    worldStateService = await NativeWorldStateService.tmp();
+    const merkleTrees = await worldStateService.fork();
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
     const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
@@ -52,6 +54,10 @@ describe('Public processor contract registration/deployment tests', () => {
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);
     await tester.setFeePayerBalance(sender);
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('can deploy in a private-only tx and call a public function later in the block', async () => {

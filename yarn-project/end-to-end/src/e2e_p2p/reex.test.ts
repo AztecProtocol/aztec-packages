@@ -4,11 +4,13 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { Tx } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
+import { unfreeze } from '@aztec/foundation/types';
+import type { LibP2PService, P2PClient } from '@aztec/p2p';
 import type { BlockBuilder } from '@aztec/sequencer-client';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
-import type { ValidatorClient } from '@aztec/validator-client';
+import type { ValidatorClient, ValidatorKeyStore } from '@aztec/validator-client';
 
 import { describe, it, jest } from '@jest/globals';
 import fs from 'fs';
@@ -124,25 +126,30 @@ describe('e2e_p2p_reex', () => {
     // Make sure the nodes submit faulty proposals, in this case a faulty proposal is one where we remove one of the transactions
     // Such that the calculated archive will be different!
     const interceptBroadcastProposal = (node: AztecNodeService) => {
-      jest.spyOn((node as any).p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
+      const p2pClient = (node as any).p2pClient as P2PClient;
+      jest.spyOn(p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
+        const proposerAddress = proposal.getSender();
         const txHashes = proposal.txHashes;
 
-        // We need to mutate the proposal, so we cast to any
-        (proposal as any).txHashes = txHashes.slice(0, txHashes.length - 1);
+        // Mutate txhashes to remove the last one
+        unfreeze(proposal).txHashes = txHashes.slice(0, txHashes.length - 1);
 
         // We sign over the proposal using the node's signing key
-        // Abusing javascript to access the nodes signing key
-        const signer = (node as any).sequencer.sequencer.validatorClient.validationService.keyStore;
+        const signer = (node as any).sequencer.sequencer.validatorClient.validationService
+          .keyStore as ValidatorKeyStore;
         const newProposal = new BlockProposal(
-          proposal.blockNumber,
           proposal.payload,
-          await signer.signMessage(getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal)),
+          await signer.signMessageWithAddress(
+            proposerAddress!,
+            getHashedSignaturePayload(proposal.payload, SignatureDomainSeparator.blockProposal),
+          ),
           proposal.txHashes,
         );
 
-        return (node as any).p2pClient.p2pService.propagate(newProposal);
+        const p2pService = (p2pClient as any).p2pService as LibP2PService;
+        return p2pService.propagate(newProposal);
       });
     };
 

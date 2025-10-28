@@ -21,7 +21,7 @@ describe.each([
     const directory = await mkdtemp(join(tmpdir(), 'proving-broker-test'));
     const config: ProverBrokerConfig = {
       ...defaultProverBrokerConfig,
-      dataStoreMapSizeKB: 1024 * 1024 * 1024, // 1GB
+      dataStoreMapSizeKb: 1024 * 1024 * 1024, // 1GB
       dataDirectory: directory,
       proverBrokerJobMaxRetries: 1,
       proverBrokerJobTimeoutMs: 1000,

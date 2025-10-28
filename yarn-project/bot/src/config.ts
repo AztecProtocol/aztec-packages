@@ -78,7 +78,7 @@ export type BotConfig = {
   stopWhenUnhealthy: boolean;
   /** Deploy an AMM contract and do swaps instead of transfers */
   ammTxs: boolean;
-} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'>;
+} & Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'>;
 
 export const BotConfigSchema = z
   .object({
@@ -108,7 +108,7 @@ export const BotConfigSchema = z
     stopWhenUnhealthy: z.boolean(),
     ammTxs: z.boolean().default(false),
     dataDirectory: z.string().optional(),
-    dataStoreMapSizeKB: z.number().optional(),
+    dataStoreMapSizeKb: z.number().optional(),
   })
   .transform(config => ({
     nodeUrl: undefined,
@@ -121,7 +121,7 @@ export const BotConfigSchema = z
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 1_024 * 1_024,
+    dataStoreMapSizeKb: 1_024 * 1_024,
     ...config,
   })) satisfies ZodFor<BotConfig>;
 
@@ -267,7 +267,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Deploy an AMM and send swaps to it',
     ...booleanConfigHelper(false),
   },
-  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKB', 'dataDirectory']),
+  ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKb', 'dataDirectory']),
 };
 
 export function getBotConfigFromEnv(): BotConfig {

@@ -19,7 +19,6 @@
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/protogalaxy_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 
@@ -34,23 +33,6 @@ template <typename Builder> void generate_sha256_test_circuit(Builder& builder, 
         input = stdlib::SHA256<Builder>::hash(input);
     }
 }
-
-/**
- * @brief An arbitrary but small-ish structuring that can be used for testing with non-trivial circuits in cases when
- * they overflow
- */
-static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
-                                                                    .busread = 1 << 14,
-                                                                    .lookup = 1 << 14,
-                                                                    .pub_inputs = 1 << 14,
-                                                                    .arithmetic = 1 << 15,
-                                                                    .delta_range = 1 << 14,
-                                                                    .elliptic = 1 << 14,
-                                                                    .memory = 1 << 14,
-                                                                    .nnf = 1 << 7,
-                                                                    .poseidon2_external = 1 << 14,
-                                                                    .poseidon2_internal = 1 << 15,
-                                                                    .overflow = 0 };
 
 class GoblinMockCircuits {
   public:
@@ -99,7 +81,6 @@ class GoblinMockCircuits {
         // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
         // folding where the absense of goblin ecc ops will result in zero commitments.
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-        bb::stdlib::recursion::honk::AppIO::add_default(builder);
     }
 
     /**
@@ -169,7 +150,7 @@ class GoblinMockCircuits {
     /**
      * @brief Construct a mock kernel circuit
      * @details Construct an arbitrary circuit meant to represent the aztec private function execution kernel. Recursive
-     * folding verification is handled internally by ClientIvc, not in the kernel.
+     * folding verification is handled internally by Chonk, not in the kernel.
      *
      * @param builder
      * @param function_fold_proof

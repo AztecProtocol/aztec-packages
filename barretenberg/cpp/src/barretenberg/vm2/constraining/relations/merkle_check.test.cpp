@@ -51,25 +51,25 @@ TEST(MerkleCheckConstrainingTest, EmptyRow)
     check_relation<merkle_check>(testing::empty_trace());
 }
 
-TEST(MerkleCheckConstrainingTest, TraceContinuity)
+TEST(MerkleCheckConstrainingTest, ComputationCannotBeStoppedPrematurely)
 {
-    // Test that the trace is contiguous
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 }, { C::merkle_check_sel, 0 } },
         { { C::merkle_check_sel, 1 } },
         { { C::merkle_check_sel, 1 } },
-        { { C::merkle_check_sel, 0 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 } },
         { { C::merkle_check_sel, 0 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY);
+    check_relation<merkle_check>(
+        trace, merkle_check::SR_COMPUTATION_FINISH_AT_END, merkle_check::SR_SELECTOR_ON_START_OR_END);
 
-    const uint32_t last_row_idx = 4;
+    const uint32_t last_row_idx = 3;
     // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_sel, last_row_idx, 1); // This should fail - sel went from 0 back to 1
+    trace.set(C::merkle_check_end, last_row_idx, 0); // This should fail - end went from 1 back to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY),
-                              "TRACE_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_COMPUTATION_FINISH_AT_END),
+                              "COMPUTATION_FINISH_AT_END");
 }
 
 TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
@@ -90,48 +90,38 @@ TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace), "Relation merkle_check");
 }
 
-TEST(MerkleCheckConstrainingTest, StartAfterLatch)
-{
-    // Test constraint: sel' * (start' - LATCH_CONDITION) = 0
-    // After a row with end=1, the next row with sel=1 must have start=1
-    TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_start, 0 },
-          { C::merkle_check_end, 1 } },                               // end=1 triggers LATCH_CONDITION
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after LATCH is correct
-    });
-
-    check_relation<merkle_check>(trace, merkle_check::SR_START_AFTER_LATCH);
-
-    // First row has precomputed_first_row=1, which also triggers LATCH_CONDITION
-    TestTraceContainer trace2({
-        { { C::precomputed_first_row, 1 }, { C::merkle_check_sel, 0 } },
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_start, 1 } }, // start=1 after precomputed_first_row is correct
-    });
-
-    check_relation<merkle_check>(trace2, merkle_check::SR_START_AFTER_LATCH);
-
-    // Negative test - start=0 after LATCH
-    trace.set(C::merkle_check_start, 1, 0); // This should fail - start should be 1 after LATCH
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_START_AFTER_LATCH),
-                              "START_AFTER_LATCH");
-}
-
 TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
 {
-    // Test constraint: end * (1 - sel) = 0
+    // Test constraint: (start + end) * (1 - sel) = 0
     // If end=1, sel must be 1
     TestTraceContainer trace({
         { { C::merkle_check_end, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when end=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when end=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END), "SELECTOR_ON_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
+}
+
+TEST(MerkleCheckConstrainingTest, SelectorOnStart)
+{
+    // Test constraint: (start + end) * (1 - sel) = 0
+    // If start=1, sel must be 1
+    TestTraceContainer trace({
+        { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when start=1 is correct
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+
+    // Negative test - now modify to an incorrect value
+    trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when start=1
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
+                              "SELECTOR_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, PropagateReadRoot)
@@ -224,21 +214,21 @@ TEST(MerkleCheckConstrainingTest, EndWhenPathLenOne)
     TestTraceContainer trace({
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_path_len, 2 },
-          { C::merkle_check_remaining_path_len_inv, FF(1).invert() },
+          { C::merkle_check_path_len_min_one_inv, FF(1).invert() },
           { C::merkle_check_end, 0 } },
         { { C::merkle_check_sel, 1 },
           { C::merkle_check_path_len, 1 },
-          { C::merkle_check_remaining_path_len_inv, 0 },
+          { C::merkle_check_path_len_min_one_inv, 0 },
           { C::merkle_check_end, 1 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY);
+    check_relation<merkle_check>(trace, merkle_check::SR_END_IFF_REM_PATH_EMPTY);
 
     // Negative test - now modify to an incorrect value and verify it fails
     trace.set(C::merkle_check_end, 1, 0); // Should be 1, change to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_END_WHEN_PATH_EMPTY),
-                              "END_WHEN_PATH_EMPTY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_END_IFF_REM_PATH_EMPTY),
+                              "END_IFF_REM_PATH_EMPTY");
 }
 
 TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
@@ -285,140 +275,104 @@ TEST(MerkleCheckConstrainingTest, NextIndexIsHalved)
                               "NEXT_INDEX_IS_HALVED");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignCurrentReadNodeLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignReadNodesEven)
 {
-    // Test even index (current_node goes to left_node)
+    // Test even index (current_node goes to left_node and sibling goes to right_node)
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 123 },
-          { C::merkle_check_read_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_index_is_even, 1 },
+            { C::merkle_check_read_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_read_left_node, 123 },
+            { C::merkle_check_read_right_node, 456 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
+    check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE, merkle_check::SR_READ_RIGHT_NODE);
 
-    // Test odd index (current_node goes to right_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 456 },
-          { C::merkle_check_read_right_node, 123 } },
-    });
+    // Negative test - swap values of read_left_node and read_right_node
+    trace.set(C::merkle_check_read_left_node, 0, 456);
+    trace.set(C::merkle_check_read_right_node, 0, 123);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_READ),
-                              "ASSIGN_NODE_LEFT_OR_RIGHT_READ");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_RIGHT_NODE), "READ_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE), "READ_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignCurrentWriteNodeLeftOrRight)
+TEST(MerkleCheckConstrainingTest, AssignReadNodesOdd)
 {
-    // Test even index (current_node goes to left_node)
+    // Test odd index (current_node goes to right_node and sibling goes to left_node)
     TestTraceContainer trace({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 123 },
-          { C::merkle_check_write_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_index_is_even, 0 },
+            { C::merkle_check_read_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_read_left_node, 456 },
+            { C::merkle_check_read_right_node, 123 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE);
+    check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE, merkle_check::SR_READ_RIGHT_NODE);
 
-    // Test odd index (current_node goes to right_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 456 },
-          { C::merkle_check_write_right_node, 123 } },
-    });
+    // Negative test - swap values of read_left_node and read_right_node
+    trace.set(C::merkle_check_read_left_node, 0, 123);
+    trace.set(C::merkle_check_read_right_node, 0, 456);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_write_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_write_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_NODE_LEFT_OR_RIGHT_WRITE),
-                              "ASSIGN_NODE_LEFT_OR_RIGHT_WRITE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_RIGHT_NODE), "READ_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_READ_LEFT_NODE), "READ_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightRead)
+TEST(MerkleCheckConstrainingTest, AssignWriteNodesEven)
 {
-    // Test even index (sibling goes to right_node)
+    // Test even index (current_node goes to left_node and sibling goes to right_node)
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 123 },
-          { C::merkle_check_read_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_write, 1 },
+            { C::merkle_check_index_is_even, 1 },
+            { C::merkle_check_write_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_write_left_node, 123 },
+            { C::merkle_check_write_right_node, 456 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
+    check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE, merkle_check::SR_WRITE_RIGHT_NODE);
 
-    // Test odd index (sibling goes to left_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_sel, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_read_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_read_left_node, 456 },
-          { C::merkle_check_read_right_node, 123 } },
-    });
+    // Negative test - swap values of write_left_node and write_right_node
+    trace.set(C::merkle_check_write_left_node, 0, 456);
+    trace.set(C::merkle_check_write_right_node, 0, 123);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_read_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_read_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_READ),
-                              "ASSIGN_SIBLING_LEFT_OR_RIGHT_READ");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_RIGHT_NODE),
+                              "WRITE_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE), "WRITE_LEFT_NODE");
 }
 
-TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightWrite)
+TEST(MerkleCheckConstrainingTest, AssignWriteNodesOdd)
 {
-    // Test even index (sibling goes to right_node)
+    // Test odd index (current_node goes to right_node and sibling goes to left_node)
     TestTraceContainer trace({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 123 },
-          { C::merkle_check_write_right_node, 456 } },
+        {
+            { C::merkle_check_sel, 1 },
+            { C::merkle_check_write, 1 },
+            { C::merkle_check_index_is_even, 0 },
+            { C::merkle_check_write_node, 123 },
+            { C::merkle_check_sibling, 456 },
+            { C::merkle_check_write_left_node, 456 },
+            { C::merkle_check_write_right_node, 123 },
+        },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE);
+    check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE, merkle_check::SR_WRITE_RIGHT_NODE);
 
-    // Test odd index (sibling goes to left_node)
-    TestTraceContainer trace2({
-        { { C::merkle_check_write, 1 },
-          { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_write_node, 123 },
-          { C::merkle_check_sibling, 456 },
-          { C::merkle_check_write_left_node, 456 },
-          { C::merkle_check_write_right_node, 123 } },
-    });
+    // Negative test - swap values of write_left_node and write_right_node
+    trace.set(C::merkle_check_write_left_node, 0, 123);
+    trace.set(C::merkle_check_write_right_node, 0, 456);
 
-    check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE);
-
-    // Negative test - now modify to an incorrect value and verify it fails
-    trace2.set(C::merkle_check_write_left_node, 0, 123);  // Should be 456
-    trace2.set(C::merkle_check_write_right_node, 0, 456); // Should be 123
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace2, merkle_check::SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE),
-                              "ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_RIGHT_NODE),
+                              "WRITE_RIGHT_NODE");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_WRITE_LEFT_NODE), "WRITE_LEFT_NODE");
 }
 
 TEST(MerkleCheckConstrainingTest, ReadOutputHashIsNextRowsNode)
@@ -687,7 +641,7 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
     trace.set(Column::merkle_check_write_node, after_last_row_index, 0);
     trace.set(Column::merkle_check_index, after_last_row_index, 0);
     trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
-    trace.set(Column::merkle_check_remaining_path_len_inv, after_last_row_index, 0);
+    trace.set(Column::merkle_check_path_len_min_one_inv, after_last_row_index, 0);
     trace.set(Column::merkle_check_read_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_write_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_sibling, after_last_row_index, 0);

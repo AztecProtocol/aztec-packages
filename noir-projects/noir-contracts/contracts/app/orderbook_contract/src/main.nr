@@ -35,11 +35,7 @@ pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
         event::event_emission::emit_event_in_public,
-        macros::{
-            events::event,
-            functions::{initializer, internal, private, public, utility},
-            storage::storage,
-        },
+        macros::{events::event, functions::{external, initializer, internal}, storage::storage},
         oracle::notes::check_nullifier_exists,
         protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
@@ -65,7 +61,7 @@ pub contract Orderbook {
         orders: Map<Field, PublicImmutable<Order, Context>, Context>,
     }
 
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(token0: AztecAddress, token1: AztecAddress) {
         storage.config.initialize(Config::new(token0, token1));
@@ -73,7 +69,7 @@ pub contract Orderbook {
 
     /// Privately creates a new order in the orderbook
     /// The maker specifies the tokens and amounts they want to trade
-    #[private]
+    #[external("private")]
     fn create_order(
         bid_token: AztecAddress,
         ask_token: AztecAddress,
@@ -109,7 +105,7 @@ pub contract Orderbook {
         order_id
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _create_order(order_id: Field, order: Order) {
         // Note that PublicImmutable can be initialized only once so this is a secondary check that the order is
@@ -121,7 +117,7 @@ pub contract Orderbook {
 
     /// Privately fulfills an existing order in the orderbook
     /// The taker provides the order ID they want to fulfill
-    #[private]
+    #[external("private")]
     fn fulfill_order(order_id: Field, authwit_nonce: Field) {
         let config = storage.config.read();
         let order = storage.orders.at(order_id).read();
@@ -160,7 +156,7 @@ pub contract Orderbook {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _fulfill_order(
         order_id: Field,
@@ -177,7 +173,7 @@ pub contract Orderbook {
     }
 
     /// Returns the order and whether it has been fulfilled.
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_order(order_id: Field) -> pub (Order, bool) {
         let order = storage.orders.at(order_id).read();
         let is_fulfilled = check_nullifier_exists(order_id);

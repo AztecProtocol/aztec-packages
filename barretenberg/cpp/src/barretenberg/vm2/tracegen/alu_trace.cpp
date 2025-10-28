@@ -8,34 +8,41 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
-#include "barretenberg/vm2/simulation/events/alu_event.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
-AluTraceBuilder::AluTraceBuilder()
+namespace {
+
+// Get tag inverse for a given index using static precomputed inverses.
+const FF& get_tag_inverse(size_t index)
 {
-    for (size_t i = 0; i < NUM_TAGS; i++) {
-        tag_inverses.at(i) = FF(i);
-    }
-    FF::batch_invert(tag_inverses);
+    constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
+    static const std::array<FF, NUM_TAGS> tag_inverses = []() {
+        std::array<FF, NUM_TAGS> inverses;
+        for (size_t i = 0; i < NUM_TAGS; i++) {
+            inverses.at(i) = FF(i);
+        }
+        FF::batch_invert(inverses);
+        return inverses;
+    }();
+
+    return tag_inverses.at(index);
 }
 
-FF AluTraceBuilder::get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag) const
+FF get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag)
 {
     if (static_cast<uint8_t>(a_tag) >= static_cast<uint8_t>(b_tag)) {
-        return tag_inverses[static_cast<uint8_t>(a_tag) - static_cast<uint8_t>(b_tag)];
+        return get_tag_inverse(static_cast<uint8_t>(a_tag) - static_cast<uint8_t>(b_tag));
     }
 
-    return -tag_inverses[static_cast<uint8_t>(b_tag) - static_cast<uint8_t>(a_tag)];
+    return -get_tag_inverse(static_cast<uint8_t>(b_tag) - static_cast<uint8_t>(a_tag));
 }
 
-std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_columns(
-    const simulation::AluEvent& event) const
+std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
     bool is_ff = a_tag == MemoryTag::FF;
@@ -106,7 +113,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_helper1, remainder },
             { Column::alu_constant_64, 64 },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
             { Column::alu_sel_is_u128, is_u128 },
             { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
             { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff() }, // Will be inverted in batch later
@@ -136,7 +144,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_sel_op_fdiv, 1 },
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::FDIV).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) },         // Relies on MemoryTag::FF is 0
             { Column::alu_b_inv, div_0_error ? 0 : event.b.as_ff() }, // Will be inverted in batch later
         };
     }
@@ -160,7 +169,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
             { Column::alu_sel_int_lt_ops, !is_ff && no_tag_err },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
     case simulation::AluOperation::LTE:
         return {
@@ -174,14 +184,16 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_sel_ff_lt_ops, is_ff && no_tag_err },
             { Column::alu_sel_int_lt_ops, !is_ff && no_tag_err },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
     case simulation::AluOperation::NOT: {
         return {
             { Column::alu_sel_op_not, 1 },
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::NOT).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
     }
     case simulation::AluOperation::SHL: {
@@ -208,7 +220,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_shift_lo_bits, shift_lo_bits },
             { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
             { Column::alu_helper1, static_cast<uint128_t>(1) << b_num },
         };
@@ -237,7 +250,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
             { Column::alu_shift_lo_bits, shift_lo_bits },
             { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv, tag_inverses[static_cast<uint8_t>(a_tag)] }, // Relies on MemoryTag::FF is 0
+            { Column::alu_tag_ff_diff_inv,
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
         };
     }
@@ -270,7 +284,7 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_operation_specific_colum
     }
 }
 
-std::vector<std::pair<Column, FF>> AluTraceBuilder::get_tag_error_columns(const simulation::AluEvent& event) const
+std::vector<std::pair<Column, FF>> get_tag_error_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
     const FF a_tag_ff = static_cast<FF>(static_cast<uint8_t>(a_tag));
@@ -304,6 +318,8 @@ std::vector<std::pair<Column, FF>> AluTraceBuilder::get_tag_error_columns(const 
     assert(false && "ALU Event emitted with tag error, but none exists");
     return {};
 }
+
+} // namespace
 
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
                               TraceContainer& trace)

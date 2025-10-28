@@ -253,13 +253,17 @@ void finalize_block(TreeType& tree, const block_number_t& blockNumber, bool expe
     signal.wait_for_level();
 }
 
-void check_leaf(
-    TreeType& tree, const fr& leaf, index_t leaf_index, bool expected_success, bool includeUncommitted = true)
+void check_leaf(TreeType& tree,
+                const fr& leaf,
+                index_t leaf_index,
+                bool expected_success,
+                bool expected_match = true,
+                bool includeUncommitted = true)
 {
     Signal signal;
     tree.get_leaf(leaf_index, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
+        if (response.success && expected_match) {
             EXPECT_EQ(response.inner.leaf, leaf);
         }
         signal.signal_level();
@@ -272,12 +276,13 @@ void check_historic_leaf(TreeType& tree,
                          const fr& leaf,
                          index_t leaf_index,
                          bool expected_success,
+                         bool expected_match = true,
                          bool includeUncommitted = true)
 {
     Signal signal;
     tree.get_leaf(leaf_index, blockNumber, includeUncommitted, [&](const TypedResponse<GetLeafResponse>& response) {
         EXPECT_EQ(response.success, expected_success);
-        if (response.success) {
+        if (response.success && expected_match) {
             EXPECT_EQ(response.inner.leaf, leaf);
         }
         signal.signal_level();
@@ -424,7 +429,6 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
 {
     constexpr size_t depth = 4;
     std::string name = random_string();
-    std::string directory = random_temp_directory();
     LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
     std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
 
@@ -432,6 +436,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     TreeType tree(std::move(store), pool);
 
     std::vector<fr> values;
+    values.reserve(16);
     for (uint32_t i = 0; i < 16; i++) {
         values.push_back(VALUES[i]);
     }
@@ -448,6 +453,49 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_tree_is_
     };
     tree.add_value(VALUES[16], add_completion);
     signal.wait_for_level();
+}
+
+TEST_F(PersistedContentAddressedAppendOnlyTreeTest, reports_an_error_if_index_out_of_tree_range)
+{
+    constexpr size_t depth = 4;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<Store> store = std::make_unique<Store>(name, depth, db);
+
+    ThreadPoolPtr pool = make_thread_pool(1);
+    TreeType tree(std::move(store), pool);
+
+    std::vector<fr> values;
+    values.reserve(16);
+    for (uint32_t i = 0; i < 16; i++) {
+        values.push_back(VALUES[i]);
+    }
+    add_values(tree, values);
+    commit_tree(tree);
+
+    {
+        std::string str = "Unable to get leaf at index 17, leaf index out of tree range.";
+        Signal signal;
+        auto get_completion = [&](const TypedResponse<GetLeafResponse>& response) {
+            EXPECT_EQ(response.success, false);
+            EXPECT_EQ(response.message, str);
+            signal.signal_level();
+        };
+        tree.get_leaf(17, true, get_completion);
+        signal.wait_for_level();
+    }
+
+    {
+        std::string str = "Unable to get leaf at index 17 for block 1, leaf index out of tree range.";
+        Signal signal;
+        auto get_completion = [&](const TypedResponse<GetLeafResponse>& response) {
+            EXPECT_EQ(response.success, false);
+            EXPECT_EQ(response.message, str);
+            signal.signal_level();
+        };
+        tree.get_leaf(17, 1, true, get_completion);
+        signal.wait_for_level();
+    }
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, errors_are_caught_and_handled)
@@ -974,11 +1022,14 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
         commit_tree(tree);
     }
 
+    uint64_t block_tree_size = 0;
+
     for (uint32_t i = 0; i < num_blocks; i++) {
+        tree.get_meta_data(i + 1, false, [&](auto response) -> void { block_tree_size = response.inner.meta.size; });
         for (uint32_t j = 0; j < num_blocks; j++) {
             index_t indexToQuery = j * batch_size;
             fr expectedLeaf = j <= i ? VALUES[indexToQuery] : fr::zero();
-            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, j <= i, false);
+            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, indexToQuery <= block_tree_size, true, false);
         }
     }
 }
@@ -1107,7 +1158,9 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_get_inserted_leaves)
     check_leaf(tree, 20, 2, true);
     check_leaf(tree, 40, 3, true);
 
-    check_leaf(tree, 0, 4, false);
+    check_leaf(tree, 1, 4, true, false);
+    check_leaf(tree, 0, 4, true);
+    check_leaf(tree, 0, 9, false);
 }
 
 TEST_F(PersistedContentAddressedAppendOnlyTreeTest, returns_sibling_path)
@@ -1217,7 +1270,7 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, can_create_images_at_histori
     check_find_leaf_index_from(treeAtBlock2, fr(15), 1, 4, true);
 
     // should not exist in our image
-    check_leaf(treeAtBlock2, 4, 9, false);
+    check_leaf(treeAtBlock2, 4, 9, true, false);
     check_find_leaf_index<fr, TreeType>(treeAtBlock2, { fr(4) }, { std::nullopt }, true);
 
     // now add the same values to our image
@@ -1427,7 +1480,7 @@ void test_unwind(std::string directory,
                            true);
 
         // Trying to find leaves appended in the block that was removed should fail
-        check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, false);
+        check_leaf(tree, values[1 + deletedBlockStartIndex], 1 + deletedBlockStartIndex, true, false);
         check_find_leaf_index<fr, TreeType>(tree, { values[1 + deletedBlockStartIndex] }, { std::nullopt }, true);
 
         for (block_number_t j = 0; j < numBlocks; j++) {
