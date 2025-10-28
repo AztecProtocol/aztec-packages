@@ -22,6 +22,15 @@ export interface AttestationPool {
   getBlockProposal(id: string): Promise<BlockProposal | undefined>;
 
   /**
+   * Check if a block proposal exists in the pool
+   *
+   * @param idOrProposal - The ID of the block proposal or the block proposal itself to check. The ID is proposal.payload.archive
+   *
+   * @return True if the block proposal exists, false otherwise.
+   */
+  hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean>;
+
+  /**
    * AddAttestations
    *
    * @param attestations - Attestations to add into the pool
@@ -83,6 +92,14 @@ export interface AttestationPool {
    * @return BlockAttestations
    */
   getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+
+  /**
+   * Check if a specific attestation exists in the pool
+   *
+   * @param attestation - The attestation to check
+   * @return True if the attestation exists, false otherwise
+   */
+  hasAttestation(attestation: BlockAttestation): Promise<boolean>;
 
   /** Returns whether the pool is empty. */
   isEmpty(): Promise<boolean>;

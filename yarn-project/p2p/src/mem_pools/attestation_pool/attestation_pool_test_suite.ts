@@ -72,6 +72,11 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(retrievedAttestations.length).toBe(attestations.length);
     compareAttestations(retrievedAttestations, attestations);
 
+    // Check hasAttestation for added attestations
+    for (const attestation of attestations) {
+      expect(await ap.hasAttestation(attestation)).toBe(true);
+    }
+
     const retrievedAttestationsForSlot = await ap.getAttestationsForSlot(BigInt(slotNumber));
     expect(retrievedAttestationsForSlot.length).toBe(attestations.length);
     compareAttestations(retrievedAttestationsForSlot, attestations);
@@ -85,6 +90,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     );
     expect(retrievedAttestationsAfterAdd.length).toBe(attestations.length + 1);
     compareAttestations(retrievedAttestationsAfterAdd, [...attestations, newAttestation]);
+    expect(await ap.hasAttestation(newAttestation)).toBe(true);
     const retrievedAttestationsForSlotAfterAdd = await ap.getAttestationsForSlot(BigInt(slotNumber));
     expect(retrievedAttestationsForSlotAfterAdd.length).toBe(attestations.length + 1);
     compareAttestations(retrievedAttestationsForSlotAfterAdd, [...attestations, newAttestation]);
@@ -97,6 +103,11 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       archive.toString(),
     );
     expect(retreivedAttestationsAfterDelete.length).toBe(0);
+    // Check hasAttestation after deletion
+    for (const attestation of attestations) {
+      expect(await ap.hasAttestation(attestation)).toBe(false);
+    }
+    expect(await ap.hasAttestation(newAttestation)).toBe(false);
   });
 
   it('should handle duplicate proposals in a slot', async () => {
@@ -170,10 +181,20 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(retreivedAttestations.length).toBe(NUMBER_OF_SIGNERS_PER_TEST);
     compareAttestations(retreivedAttestations, attestations);
 
+    // Check hasAttestation before deletion
+    for (const attestation of attestations) {
+      expect(await ap.hasAttestation(attestation)).toBe(true);
+    }
+
     await ap.deleteAttestations(attestations);
 
     const gottenAfterDelete = await ap.getAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
     expect(gottenAfterDelete.length).toBe(0);
+
+    // Check hasAttestation after deletion
+    for (const attestation of attestations) {
+      expect(await ap.hasAttestation(attestation)).toBe(false);
+    }
   });
 
   it('should blanket delete attestations per slot', async () => {
@@ -265,12 +286,19 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!).toEqual(proposal);
+
+      // Check hasBlockProposal with both id and object
+      expect(await ap.hasBlockProposal(proposalId)).toBe(true);
+      expect(await ap.hasBlockProposal(proposal)).toBe(true);
     });
 
     it('should return undefined for non-existent block proposal', async () => {
       const nonExistentId = Fr.random().toString();
       const retrievedProposal = await ap.getBlockProposal(nonExistentId);
       expect(retrievedProposal).toBeUndefined();
+
+      // Check hasBlockProposal returns false for non-existent proposal
+      expect(await ap.hasBlockProposal(nonExistentId)).toBe(false);
     });
 
     it('should update block proposal if added twice with same id', async () => {
@@ -323,6 +351,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       // Verify proposal exists
       let retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeDefined();
+      expect(await ap.hasBlockProposal(proposalId)).toBe(true);
 
       // Delete attestations for slot and proposal
       await ap.deleteAttestationsForSlotAndProposal(BigInt(slotNumber), proposalId);
@@ -330,6 +359,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       // Proposal should be deleted
       retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeUndefined();
+      expect(await ap.hasBlockProposal(proposalId)).toBe(false);
     });
 
     it('should delete block proposal when deleting attestations for slot', async () => {
@@ -344,6 +374,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       // Verify proposal exists
       let retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeDefined();
+      expect(await ap.hasBlockProposal(proposal)).toBe(true);
 
       // Delete attestations for slot
       await ap.deleteAttestationsForSlot(BigInt(slotNumber));
@@ -351,6 +382,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       // Proposal should be deleted
       retrievedProposal = await ap.getBlockProposal(proposalId);
       expect(retrievedProposal).toBeUndefined();
+      expect(await ap.hasBlockProposal(proposal)).toBe(false);
     });
 
     it('should be able to fetch both block proposal and attestations', async () => {
@@ -372,8 +404,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal).toEqual(proposal);
+      expect(await ap.hasBlockProposal(proposalId)).toBe(true);
 
       compareAttestations(retrievedAttestations, attestations);
+      // Check hasAttestation for all attestations
+      for (const attestation of attestations) {
+        expect(await ap.hasAttestation(attestation)).toBe(true);
+      }
     });
   });
 }

@@ -273,6 +273,11 @@ export class AztecKVTxPool extends (EventEmitter as new () => TypedEventEmitter<
     return await Promise.all(txHashes.map(txHash => this.#txs.hasAsync(txHash.toString())));
   }
 
+  async hasTx(txHash: TxHash): Promise<boolean> {
+    const result = await this.hasTxs([txHash]);
+    return result[0];
+  }
+
   /**
    * Checks if an archived tx exists and returns it.
    * @param txHash - The tx hash.

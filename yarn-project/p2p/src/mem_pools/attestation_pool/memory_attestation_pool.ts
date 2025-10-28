@@ -173,6 +173,29 @@ export class InMemoryAttestationPool implements AttestationPool {
     return Promise.resolve();
   }
 
+  public hasAttestation(attestation: BlockAttestation): Promise<boolean> {
+    const slotNumber = attestation.payload.header.slotNumber;
+    const proposalId = attestation.archive.toString();
+    const sender = attestation.getSender();
+
+    // Attestations with invalid signatures are never in the pool
+    if (!sender) {
+      return Promise.resolve(false);
+    }
+
+    const slotAttestationMap = this.attestations.get(slotNumber.toBigInt());
+    if (!slotAttestationMap) {
+      return Promise.resolve(false);
+    }
+
+    const proposalAttestationMap = slotAttestationMap.get(proposalId);
+    if (!proposalAttestationMap) {
+      return Promise.resolve(false);
+    }
+
+    return Promise.resolve(proposalAttestationMap.has(sender.toString()));
+  }
+
   public addBlockProposal(blockProposal: BlockProposal): Promise<void> {
     // We initialize slot-proposal mapping if it does not exist
     // This is important to ensure we can delete this proposal if there were not attestations for it
@@ -185,6 +208,11 @@ export class InMemoryAttestationPool implements AttestationPool {
 
   public getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     return Promise.resolve(this.proposals.get(id));
+  }
+
+  public hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
+    return Promise.resolve(this.proposals.has(id));
   }
 }
 

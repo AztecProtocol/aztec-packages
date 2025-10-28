@@ -28,15 +28,12 @@ export class P2PMessage {
  */
 export abstract class Gossipable {
   private cachedId: Buffer32 | undefined;
-  /** p2p Topic
-   *
-   * - The p2p topic identifier, this determines how the message is handled
-   */
+  /** The p2p topic identifier, this determines how the message is handled */
   static p2pTopic: TopicType;
 
-  /** p2p Message Identifier
-   *
-   *  - A digest of the message information, this key is used for deduplication
+  /**
+   * A digest of the message information **used for logging only**.
+   * The identifier used for deduplication is `getMsgIdFn` as defined in `encoding.ts` which is a hash over topic and data.
    */
   async p2pMessageIdentifier(): Promise<Buffer32> {
     if (this.cachedId) {
@@ -48,10 +45,6 @@ export abstract class Gossipable {
 
   abstract generateP2PMessageIdentifier(): Promise<Buffer32>;
 
-  /** To Buffer
-   *
-   * - Serialization method
-   */
   abstract toBuffer(): Buffer;
 
   toMessage(): Buffer {
@@ -60,7 +53,6 @@ export abstract class Gossipable {
 
   /**
    * Get the size of the gossipable object.
-   *
    * This is used for metrics recording.
    */
   abstract getSize(): number;
