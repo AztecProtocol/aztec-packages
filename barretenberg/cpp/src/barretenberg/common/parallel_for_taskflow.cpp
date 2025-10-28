@@ -15,7 +15,8 @@ namespace bb {
 namespace detail {
 
 // Get the global shared executor - all parallel_for calls use the same thread pool
-tf::Executor& get_global_taskflow_executor() {
+tf::Executor& get_global_taskflow_executor()
+{
     static tf::Executor executor(bb::get_num_cpus());
     return executor;
 }
