@@ -17,7 +17,68 @@ namespace acir_format {
 // ACIR
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
-enum PROOF_TYPE { PLONK, HONK, OINK, PG, AVM, ROLLUP_HONK, ROOT_ROLLUP_HONK, HONK_ZK, PG_FINAL, PG_TAIL, CIVC };
+enum PROOF_TYPE {
+    HONK,
+    OINK,
+    PG,
+    AVM,
+    ROLLUP_HONK,
+    ROOT_ROLLUP_HONK,
+    HONK_ZK,
+    PG_FINAL,
+    PG_TAIL,
+    CIVC,
+    // Ultra ZK proof types with different circuit sizes (virtual_log_n)
+    HONK_ZK_23,
+    HONK_ZK_21,
+    HONK_ZK_19
+};
+
+/**
+ * @brief Maps proof type to the virtual_log_n (circuit size) it expects
+ * @details Different proof types have different fixed circuit sizes. This function returns the expected
+ * virtual_log_n for each proof type. Ultra ZK proofs support multiple sizes: 25 (default), 23, 21, and 19.
+ * Non-ZK HONK uses the default size of 25.
+ *
+ * @param proof_type The proof type from the recursion constraint
+ * @return size_t The virtual_log_n (log2 of circuit size) for this proof type
+ */
+inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
+{
+    switch (proof_type) {
+    // Ultra non-ZK proof - default size 25
+    case HONK:
+        return 25;
+    // Ultra ZK proofs - default size 25
+    case HONK_ZK:
+        return 25;
+    // Ultra ZK proofs - size 23
+    case HONK_ZK_23:
+        return 23;
+    // Ultra ZK proofs - size 21
+    case HONK_ZK_21:
+        return 21;
+    // Ultra ZK proofs - size 19
+    case HONK_ZK_19:
+        return 19;
+    // Rollup proofs (keep existing size)
+    case ROLLUP_HONK:
+    case ROOT_ROLLUP_HONK:
+        return 28;
+    // IVC-related proof types (keep existing size)
+    case OINK:
+    case PG:
+    case PG_FINAL:
+    case PG_TAIL:
+    case CIVC:
+        return 28;
+    // AVM proofs (keep existing size)
+    case AVM:
+        return 28;
+    default:
+        throw_or_abort("Unknown proof type");
+    }
+}
 
 /**
  * @brief RecursionConstraint struct contains information required to recursively verify a proof!

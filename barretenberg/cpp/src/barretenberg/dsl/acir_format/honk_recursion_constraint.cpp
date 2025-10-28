@@ -50,7 +50,8 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                  size_t proof_size,
                                  size_t public_inputs_size,
                                  const std::vector<field_ct<typename Flavor::CircuitBuilder>>& key_fields,
-                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields,
+                                 size_t virtual_log_n = Flavor::NativeFlavor::VIRTUAL_LOG_N)
     requires IsRecursiveFlavor<Flavor>
 {
     using Builder = typename Flavor::CircuitBuilder;
@@ -67,7 +68,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
 
     // Generate mock honk vk
     auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
-        1 << Flavor::VIRTUAL_LOG_N, pub_inputs_offset, num_inner_public_inputs);
+        1 << virtual_log_n, pub_inputs_offset, num_inner_public_inputs);
 
     size_t offset = 0;
 
@@ -78,7 +79,8 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
     }
 
     // Generate dummy honk proof
-    bb::HonkProof honk_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(num_inner_public_inputs);
+    bb::HonkProof honk_proof =
+        create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(num_inner_public_inputs, virtual_log_n);
 
     offset = 0;
     // Set honk proof in builder
@@ -112,7 +114,8 @@ void place_holder_proof_and_vk(typename Flavor::CircuitBuilder& builder,
                                size_t proof_size,
                                size_t public_inputs_size,
                                const std::vector<field_ct<typename Flavor::CircuitBuilder>>& vk_fields,
-                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+                               const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields,
+                               size_t virtual_log_n = Flavor::NativeFlavor::VIRTUAL_LOG_N)
 {
     using IO = std::conditional_t<HasIPAAccumulator<Flavor>,
                                   stdlib::recursion::honk::RollupIO,
@@ -125,16 +128,17 @@ void place_holder_proof_and_vk(typename Flavor::CircuitBuilder& builder,
         size_t total_num_public_inputs = public_inputs_size + IO::PUBLIC_INPUTS_SIZE;
         // Set a dummy vkey and proof in the builder
         create_dummy_vkey_and_proof<Flavor>(
-            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, vk_fields, proof_fields);
+            builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, vk_fields, proof_fields, virtual_log_n);
         // Generate a mock place holder proof, vk and vk hash, to keep the circuit the same independent of whether a
         // witness is provided or not.
         uint32_t pub_inputs_offset = Flavor::NativeFlavor::has_zero_row ? 1 : 0;
 
         // Generate mock honk vk
         auto honk_vk = create_mock_honk_vk<typename Flavor::NativeFlavor, IO>(
-            1 << Flavor::VIRTUAL_LOG_N, pub_inputs_offset, public_inputs_size);
+            1 << virtual_log_n, pub_inputs_offset, public_inputs_size);
         place_holder_vk_fields = honk_vk->to_field_elements();
-        place_holder_proof = create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(public_inputs_size);
+        place_holder_proof =
+            create_mock_honk_proof<typename Flavor::NativeFlavor, IO>(public_inputs_size, virtual_log_n);
         place_holder_vk_hash = honk_vk->hash();
     } else {
         // If we have an actual witness, the place holder proof and VK should be an actual verifiable honk proof and
@@ -172,8 +176,14 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                                   stdlib::recursion::honk::RollupIO,
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
-    BB_ASSERT(input.proof_type == HONK || input.proof_type == HONK_ZK || HasIPAAccumulator<Flavor>);
+    // Check that proof type is valid for this flavor
+    bool is_ultra_proof = (input.proof_type == HONK || input.proof_type == HONK_ZK || input.proof_type == HONK_ZK_23 ||
+                           input.proof_type == HONK_ZK_21 || input.proof_type == HONK_ZK_19);
+    BB_ASSERT(is_ultra_proof || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
+
+    // Extract virtual_log_n from proof type
+    size_t virtual_log_n = get_virtual_log_n_from_proof_type(static_cast<PROOF_TYPE>(input.proof_type));
 
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
@@ -205,7 +215,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                                       input.proof.size(),
                                       input.public_inputs.size(),
                                       vk_fields,
-                                      proof_fields);
+                                      proof_fields,
+                                      virtual_log_n);
 
     if (!input.predicate.is_constant) {
         bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);

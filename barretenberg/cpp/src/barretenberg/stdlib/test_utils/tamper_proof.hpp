@@ -39,7 +39,7 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
 
     // Deserialize the transcript into the struct so that we can tamper it
     auto num_public_inputs = inner_prover.prover_instance->num_public_inputs();
-    inner_prover.transcript->deserialize_full_transcript(num_public_inputs, InnerFlavor::VIRTUAL_LOG_N);
+    inner_prover.transcript->deserialize_full_transcript(num_public_inputs, inner_prover.virtual_log_n);
 
     switch (type) {
 
@@ -86,9 +86,10 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
     // be empty. This is a hack, we should probably have a better way of tampering with proofs.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1411) Use std::unordered map in Transcript so that we
     // can access/modify elements of a proof more easily
-    inner_prover.transcript->serialize_full_transcript(InnerFlavor::VIRTUAL_LOG_N);
+    inner_prover.transcript->serialize_full_transcript(inner_prover.virtual_log_n);
     inner_prover.transcript->proof_start = 0;
-    inner_prover.transcript->num_frs_written = InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs;
+    inner_prover.transcript->num_frs_written =
+        InnerFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(inner_prover.virtual_log_n) + num_public_inputs;
     if (HasIPAAccumulator<InnerFlavor>) {
         // Exclude the IPA points from the proof - they are added again by export_proof
         inner_prover.transcript->num_frs_written -= IPA_PROOF_LENGTH;

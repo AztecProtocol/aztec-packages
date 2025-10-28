@@ -15,11 +15,13 @@
 namespace acir_format {
 
 template <typename Flavor, class PublicInputs>
-bb::HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size = 0);
-template <typename Flavor> bb::HonkProof create_mock_decider_proof();
+bb::HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size = 0,
+                                     const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
+template <typename Flavor> bb::HonkProof create_mock_decider_proof(const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
 template <typename Flavor, class PublicInputs>
-bb::HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size = 0);
-template <typename Flavor> bb::HonkProof create_mock_pcs_proof();
+bb::HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size = 0,
+                                     const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
+template <typename Flavor> bb::HonkProof create_mock_pcs_proof(const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
 // template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_pg_proof();
 template <typename Flavor, class PublicInputs> bb::HonkProof create_mock_hyper_nova_proof(bool include_fold = false);
 bb::Goblin::MergeProof create_mock_merge_proof();
