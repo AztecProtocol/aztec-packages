@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct perm_execution_dispatch_to_cd_copy_settings_ {
     static constexpr std::string_view NAME = "PERM_EXECUTION_DISPATCH_TO_CD_COPY";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t COLUMNS_PER_SET = 10;
+    static constexpr size_t COLUMNS_PER_SET = 9;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_calldata_copy;
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_cd_copy_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_cd_copy_inv;
@@ -29,7 +29,6 @@ struct perm_execution_dispatch_to_cd_copy_settings_ {
         ColumnAndShifts::execution_rop_2_,
         ColumnAndShifts::execution_parent_calldata_addr,
         ColumnAndShifts::execution_parent_calldata_size,
-        ColumnAndShifts::execution_sel_exec_dispatch_calldata_copy,
         ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
@@ -41,7 +40,6 @@ struct perm_execution_dispatch_to_cd_copy_settings_ {
         ColumnAndShifts::data_copy_dst_addr,
         ColumnAndShifts::data_copy_src_addr,
         ColumnAndShifts::data_copy_src_data_size,
-        ColumnAndShifts::data_copy_sel_cd_copy,
         ColumnAndShifts::data_copy_err
     };
 };
@@ -56,7 +54,7 @@ using perm_execution_dispatch_to_cd_copy_relation =
 struct perm_execution_dispatch_to_rd_copy_settings_ {
     static constexpr std::string_view NAME = "PERM_EXECUTION_DISPATCH_TO_RD_COPY";
     static constexpr std::string_view RELATION_NAME = "execution";
-    static constexpr size_t COLUMNS_PER_SET = 10;
+    static constexpr size_t COLUMNS_PER_SET = 9;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_exec_dispatch_returndata_copy;
     static constexpr Column DST_SELECTOR = Column::data_copy_sel_rd_copy_start;
     static constexpr Column INVERSES = Column::perm_execution_dispatch_to_rd_copy_inv;
@@ -69,7 +67,6 @@ struct perm_execution_dispatch_to_rd_copy_settings_ {
         ColumnAndShifts::execution_rop_2_,
         ColumnAndShifts::execution_last_child_returndata_addr,
         ColumnAndShifts::execution_last_child_returndata_size,
-        ColumnAndShifts::execution_sel_exec_dispatch_returndata_copy,
         ColumnAndShifts::execution_sel_opcode_error
     };
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
@@ -81,7 +78,6 @@ struct perm_execution_dispatch_to_rd_copy_settings_ {
         ColumnAndShifts::data_copy_dst_addr,
         ColumnAndShifts::data_copy_src_addr,
         ColumnAndShifts::data_copy_src_data_size,
-        ColumnAndShifts::data_copy_sel_rd_copy,
         ColumnAndShifts::data_copy_err
     };
 };

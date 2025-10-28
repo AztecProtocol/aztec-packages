@@ -661,6 +661,7 @@ pub global MEM_TAG_U128: Field = 6;
 // AVM memory related constants
 pub global AVM_HIGHEST_MEM_ADDRESS: u32 = MAX_U32_VALUE;
 pub global AVM_MEMORY_NUM_BITS: u8 = 32;
+pub global AVM_MEMORY_SIZE: u64 = 0x100000000;
 
 // AVM bitwise operation IDs
 pub global AVM_BITWISE_AND_OP_ID: u8 = 0;
