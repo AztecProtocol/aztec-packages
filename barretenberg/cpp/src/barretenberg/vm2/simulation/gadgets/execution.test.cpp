@@ -1093,14 +1093,17 @@ TEST_F(ExecutionSimulationTest, EmitUnencryptedLog)
 
 TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
 {
+    AztecAddress contract_address = 0xc0ffee;
+    EthAddress recipient_address = EthAddress(0x12345678);
+    FF content = 0x999;
     MemoryAddress recipient_addr = 10;
     MemoryAddress content_addr = 11;
 
-    auto recipient = MemoryValue::from<FF>(42);
-    auto content = MemoryValue::from<FF>(27);
+    auto recipient = MemoryValue::from<FF>(recipient_address);
+    auto content_value = MemoryValue::from<FF>(content);
 
-    ScopedL2ToL1Message dummy_msg = { .message = { .recipient = EthAddress(0x12345678), .content = 0x12345678 },
-                                      .contractAddress = 0x12345678 };
+    ScopedL2ToL1Message dummy_msg = { .message = { .recipient = recipient_address, .content = content },
+                                      .contractAddress = contract_address };
     TrackedSideEffects side_effects_states;
     for (int i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX - 1; i++) {
         side_effects_states.l2_to_l1_messages.push_back(dummy_msg);
@@ -1109,17 +1112,19 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1Msg)
     side_effects_states_after.l2_to_l1_messages.push_back(dummy_msg);
 
     EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_address).WillOnce(ReturnRef(contract_address));
+    EXPECT_CALL(context, get_side_effect_tracker);
 
     EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
-    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));
+    EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content_value));
 
     EXPECT_CALL(gas_tracker, consume_gas(Gas{ 0, 0 }));
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(false));
 
     EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
-    EXPECT_CALL(side_effect_tracker,
-                add_l2_to_l1_message(AztecAddress(0x12345678), EthAddress(0x12345678), FF(0x12345678)));
+    EXPECT_CALL(side_effect_tracker, add_l2_to_l1_message(contract_address, recipient_address, content))
+        .WillOnce(Return());
 
     execution.send_l2_to_l1_msg(context, recipient_addr, content_addr);
 }
@@ -1143,8 +1148,6 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgStaticCall)
 
     EXPECT_CALL(context, get_is_static).WillOnce(Return(true));
 
-    EXPECT_CALL(side_effect_tracker, get_side_effects()).WillOnce(ReturnRef(side_effects_states));
-
     EXPECT_THROW_WITH_MESSAGE(execution.send_l2_to_l1_msg(context, recipient_addr, content_addr),
                               "SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
 }
@@ -1164,6 +1167,7 @@ TEST_F(ExecutionSimulationTest, SendL2ToL1MsgLimitReached)
     }
 
     EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(context, get_side_effect_tracker);
 
     EXPECT_CALL(memory, get(recipient_addr)).WillOnce(ReturnRef(recipient));
     EXPECT_CALL(memory, get(content_addr)).WillOnce(ReturnRef(content));

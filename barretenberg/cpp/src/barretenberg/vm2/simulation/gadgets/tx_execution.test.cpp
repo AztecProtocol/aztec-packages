@@ -34,7 +34,7 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockRetrievedBytecodesTreeCheck> retrieved_bytecodes_tree_check;
-    NiceMock<MockSideEffectTracker> side_effect_tracker;
+    SideEffectTracker side_effect_tracker; // Using the real thing.
     TxExecution tx_execution = TxExecution(execution,
                                            context_provider,
                                            merkle_db,
@@ -78,8 +78,6 @@ TEST_F(TxExecutionTest, simulateTx)
         .l1ToL2MessageTree = { .tree = dummy_snapshot, .counter = 0 },
         .publicDataTree = { .tree = dummy_snapshot, .counter = 0 },
     };
-    TrackedSideEffects side_effect_states{};
-    ON_CALL(side_effect_tracker, get_side_effects()).WillByDefault(ReturnRef(side_effect_states));
     ON_CALL(merkle_db, get_tree_state()).WillByDefault([&]() { return tree_state; });
     ON_CALL(merkle_db, siloed_nullifier_write(_)).WillByDefault(Return());
     // Number of Enqueued Calls in the transaction : 1 setup, 1 app logic, and 1 teardown

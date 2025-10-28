@@ -1043,7 +1043,7 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
         throw OpcodeExecutionException("SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
     }
 
-    side_effect_tracker.add_l2_to_l1_message(context.get_address(), recipient.as_ff(), content.as_ff());
+    side_effect_tracker.add_l2_to_l1_message(context.get_address(), EthAddress(recipient.as_ff()), content.as_ff());
 }
 
 void Execution::sha256_compression(ContextInterface& context,
