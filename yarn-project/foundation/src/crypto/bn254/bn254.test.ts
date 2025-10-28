@@ -128,11 +128,38 @@ describe('Bn254 Point Classes', () => {
   });
 
   describe('Bn254G2Point', () => {
+    it('should get generator point with correct properties', async () => {
+      const generator = await Bn254G2Point.generator();
+
+      // Verify the generator point is on the curve
+      const onCurve = await generator.isOnCurve();
+      expect(onCurve).toBe(true);
+    });
+
+    it('should verify point is on curve', async () => {
+      const point = await Bn254G2Point.generator(testScalar);
+      const onCurve = await point.isOnCurve();
+
+      expect(onCurve).toBe(true);
+    });
+
     it('should produce different points for different scalars', async () => {
       const point1 = await Bn254G2Point.generator(Fr.fromString('0x01'));
       const point2 = await Bn254G2Point.generator(Fr.fromString('0x02'));
 
       expect(point1.equals(point2)).toBe(false);
+    });
+
+    it('should detect invalid G2 point not on curve', async () => {
+      // Create an invalid G2 point (coordinates not on the BN254 G2 curve)
+      const invalidPoint = new Bn254G2Point(
+        [new Fq(1n), new Fq(1n)],
+        [new Fq(1n), new Fq(1n)], // Not on the curve
+      );
+
+      // Verify the point is not on the curve
+      const onCurve = await invalidPoint.isOnCurve();
+      expect(onCurve).toBe(false);
     });
 
     it('should throw error when multiplying invalid point not on curve', async () => {

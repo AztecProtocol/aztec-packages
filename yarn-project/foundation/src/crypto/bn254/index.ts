@@ -42,6 +42,9 @@ export class Bn254G1Point {
    * Get the generator point for BN254 G1, or perform scalar multiplication.
    * When called without arguments, returns the base generator point.
    * When called with a scalar, returns scalar * generator (useful for public key derivation).
+   *
+   * Note: The bbapi validates that input points are on the curve and throws BBApiException
+   * if not. The output point from scalar multiplication is guaranteed to be on the curve.
    */
   static async generator(scalar?: Fr): Promise<Bn254G1Point> {
     if (!scalar) {
@@ -66,11 +69,15 @@ export class Bn254G1Point {
    * Decompress a BN254 G1 point from compressed form (32 bytes).
    * The compressed format encodes the x-coordinate and the sign bit of the y-coordinate
    * in the most significant bit.
+   *
+   * Note: The bbapi validates that the decompressed point is on the curve and throws
+   * BBApiException if the compressed data is invalid.
    */
   static async fromCompressed(compressed: Buffer): Promise<Bn254G1Point> {
     await BarretenbergSync.initSingleton();
     const api = BarretenbergSync.getSingleton();
 
+    // The bbapi will throw BBApiException if the decompressed point is not on the curve
     const response = api.bn254G1FromCompressed({
       compressed: new Uint8Array(compressed),
     });
@@ -128,10 +135,22 @@ export class Bn254G2Point {
     );
   }
 
+  async isOnCurve(): Promise<boolean> {
+    await BarretenbergSync.initSingleton();
+    const api = BarretenbergSync.getSingleton();
+
+    const apiPoint = this.toBbApiPoint();
+    const response = api.bn254G2IsOnCurve({ point: apiPoint });
+    return response.isOnCurve;
+  }
+
   /**
    * Get the generator point for BN254 G2, or perform scalar multiplication.
    * When called without arguments, returns the base generator point.
    * When called with a scalar, returns scalar * generator.
+   *
+   * Note: The bbapi validates that input points are on the curve and throws BBApiException
+   * if not. The output point from scalar multiplication is guaranteed to be on the curve.
    */
   static async generator(scalar?: Fr): Promise<Bn254G2Point> {
     if (!scalar) {
