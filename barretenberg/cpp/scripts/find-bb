@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-echo $root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb
+if [ ${AVM:-1} -eq 1 ]; then
+  echo $root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb-avm
+else
+  echo $root/barretenberg/cpp/$(./native-preset-build-dir)/bin/bb
+fi

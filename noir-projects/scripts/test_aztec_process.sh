@@ -6,6 +6,11 @@ cd $(dirname $0)/../noir-contracts
 
 bb=$(../../barretenberg/cpp/scripts/find-bb)
 
+if [ ${AVM:-1} -eq 0 ]; then
+  echo "Skipping aztec_process tests because AVM=0 was explicitly set."
+  exit 0
+fi
+
 echo "Testing bb aztec_process command..."
 
 # Test 1: Process a single contract file

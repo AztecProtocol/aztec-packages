@@ -84,9 +84,16 @@ export class SchemaCompiler {
     const commands = commandsSchema[1] as Array<[string, Schema]>;
     const responses = responsesSchema[1] as Array<[string, Schema]>;
 
+    // Filter out ErrorResponse - it's a special error variant, not a command response
+    const normalResponses = responses.filter(([name]) => name !== 'ErrorResponse');
+
+    if (commands.length !== normalResponses.length) {
+      throw new Error(`Command count (${commands.length}) does not match response count (${normalResponses.length})`);
+    }
+
     for (let i = 0; i < commands.length; i++) {
       const [commandName] = commands[i];
-      const [responseName] = responses[i];
+      const [responseName] = normalResponses[i];
 
       this.functionMetadata.push({
         name: camelCase(commandName),
@@ -399,6 +406,13 @@ export class SchemaCompiler {
         return { typeName: 'string' };
       case 'bin32':
         return { typeName: 'Uint8Array' };
+      case 'field2':
+        // field2 is an extension field type (fq2) represented as a tuple of two Uint8Arrays
+        return {
+          typeName: 'Field2',
+          msgpackTypeName: '[Uint8Array, Uint8Array]',
+          declaration: 'export type Field2 = [Uint8Array, Uint8Array];',
+        };
       default:
         return { typeName: pascalCase(schema) };
     }
@@ -674,8 +688,11 @@ ${destroyMethod}
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
     return msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
+      if (variantName === 'ErrorResponse') {
+        throw new BBApiException(result.message || 'Unknown error from barretenberg');
+      }
       if (variantName !== '${responseType}') {
-        throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+        throw new BBApiException(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
       }
       return to${responseType}(result);
     });
@@ -686,8 +703,11 @@ ${destroyMethod}
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
     const [variantName, result] = msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]);
+    if (variantName === 'ErrorResponse') {
+      throw new BBApiException(result.message || 'Unknown error from barretenberg');
+    }
     if (variantName !== '${responseType}') {
-      throw new Error(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
+      throw new BBApiException(\`Expected variant name '${responseType}' but got '\${variantName}'\`);
     }
     return to${responseType}(result);
   }`;
@@ -708,6 +728,7 @@ export function createSyncApiCompiler(): SchemaCompiler {
     imports: [
       `import { IMsgpackBackendSync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
+      `import { BBApiException } from '../../bbapi_exception.js';`,
     ],
   });
 }
@@ -718,6 +739,7 @@ export function createAsyncApiCompiler(): SchemaCompiler {
     imports: [
       `import { IMsgpackBackendAsync } from '../../bb_backends/interface.js';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
+      `import { BBApiException } from '../../bbapi_exception.js';`,
     ],
   });
 }

@@ -11,7 +11,7 @@ fi
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb-avm}
+export BB=${BB:-$(../../barretenberg/cpp/scripts/find-bb)}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
@@ -103,6 +103,7 @@ function compile {
         denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
       fi
     }
+
     echo_stderr "Generating vk for function: $name..."
     jq -r '.bytecode' $json_path | base64 -d | gunzip | write_vk
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
