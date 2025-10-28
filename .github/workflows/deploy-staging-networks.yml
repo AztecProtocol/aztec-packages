@@ -95,8 +95,9 @@ jobs:
     secrets: inherit
 
   deploy-testnet:
-    # Depends on staging-ignition until we are confident in concurrent deployments
-    needs: [determine-semver, deploy-staging-ignition]
+    # Add deploy-staging-ignition here as a dependency if the version for testnet is the same
+    # needs: [determine-semver, deploy-staging-ignition]
+    needs: [determine-semver]
     # Only deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
     if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '0' && !contains(needs.determine-semver.outputs.semver, '-')
     uses: ./.github/workflows/deploy-staging-network.yml
@@ -107,8 +108,9 @@ jobs:
     secrets: inherit
 
   deploy-fisherman:
-    # Depends on testnet until we are confident in concurrent deployments
-    needs: [determine-semver, deploy-testnet]
+    # Switch to deploy-testnet as a dependency if the version for fisherman is the same
+    # needs: [determine-semver, deploy-testnet]
+    needs: [determine-semver, deploy-staging-ignition]
     if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
     uses: ./.github/workflows/deploy-fisherman-network.yaml
     with:
