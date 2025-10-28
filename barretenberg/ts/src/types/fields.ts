@@ -5,13 +5,12 @@ import {
   bigIntToBufferBE,
   bigIntToUint8ArrayBE,
 } from '../bigint-array/index.js';
-import { BufferReader } from '../serialize/index.js';
 
-// TODO(#4189): Replace with implementation in yarn-project/foundation/src/fields/fields.ts
 /**
- * Fr field class.
- * @dev This class is used to represent elements of BN254 scalar field or elements in the base field of Grumpkin.
- * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
+ * Internal Fr field class for tests.
+ * @dev This minimal implementation is provided for testing barretenberg directly.
+ * Projects using bb.js should create their own field abstraction using the curve constants
+ * exported from the barretenberg binary (see CurveConstants generation).
  */
 export class Fr {
   static ZERO = new Fr(0n);
@@ -42,14 +41,18 @@ export class Fr {
     return new this(r);
   }
 
-  static fromBuffer(buffer: Uint8Array | Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(reader.readBytes(this.SIZE_IN_BYTES));
+  static fromBuffer(buffer: Uint8Array | Buffer) {
+    if (buffer.length !== this.SIZE_IN_BYTES) {
+      throw new Error(`Expected ${this.SIZE_IN_BYTES} bytes, got ${buffer.length}`);
+    }
+    return new this(buffer);
   }
 
-  static fromBufferReduce(buffer: Uint8Array | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
+  static fromBufferReduce(buffer: Uint8Array | Buffer) {
+    if (buffer.length !== this.SIZE_IN_BYTES) {
+      throw new Error(`Expected ${this.SIZE_IN_BYTES} bytes, got ${buffer.length}`);
+    }
+    return new this(uint8ArrayToBigIntBE(buffer instanceof Buffer ? new Uint8Array(buffer) : buffer) % Fr.MODULUS);
   }
 
   static fromString(str: string) {
@@ -70,57 +73,5 @@ export class Fr {
 
   isZero() {
     return this.value.every(v => v === 0);
-  }
-}
-
-/**
- * Fq field class.
- * @dev This class is used to represent elements of BN254 base field or elements in the scalar field of Grumpkin.
- * (Grumpkin's scalar field corresponds to BN254's base field and vice versa.)
- */
-export class Fq {
-  static MODULUS = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47n;
-  static MAX_VALUE = this.MODULUS - 1n;
-  static SIZE_IN_BYTES = 32;
-
-  constructor(public readonly value: bigint) {
-    if (value > Fq.MAX_VALUE) {
-      throw new Error(`Fq out of range ${value}.`);
-    }
-  }
-
-  static random() {
-    const r = uint8ArrayToBigIntBE(randomBytes(64)) % Fq.MODULUS;
-    return new this(r);
-  }
-
-  static fromBuffer(buffer: Uint8Array | Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)));
-  }
-
-  static fromBufferReduce(buffer: Uint8Array | Buffer | BufferReader) {
-    const reader = BufferReader.asReader(buffer);
-    return new this(uint8ArrayToBigIntBE(reader.readBytes(this.SIZE_IN_BYTES)) % Fr.MODULUS);
-  }
-
-  static fromString(str: string) {
-    return this.fromBuffer(Buffer.from(str.replace(/^0x/i, ''), 'hex'));
-  }
-
-  toBuffer() {
-    return bigIntToBufferBE(this.value, Fq.SIZE_IN_BYTES);
-  }
-
-  toString() {
-    return '0x' + this.value.toString(16);
-  }
-
-  equals(rhs: Fq) {
-    return this.value === rhs.value;
-  }
-
-  isZero() {
-    return this.value === 0n;
   }
 }
