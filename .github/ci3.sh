@@ -11,11 +11,11 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 # Labels passed as comma-separated string
 labels="${1:-}"
 
-ci3/echo_header "CI3 Main Script"
+echo_header "CI3 Main Script"
 echo "Labels: ${labels}"
 
 echo ""
-ci3/echo_header "Setup"
+echo_header "Setup"
 
 # Store GCP key
 if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
@@ -53,7 +53,7 @@ if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
 fi
 
 echo ""
-ci3/echo_header "Label Processing"
+echo_header "Label Processing"
 
 # Parse labels into array
 IFS=',' read -ra label_array <<< "${labels}"
@@ -88,7 +88,7 @@ for label in "${label_array[@]}"; do
 done
 
 echo ""
-ci3/echo_header "CI Mode Determination"
+echo_header "CI Mode Determination"
 
 # Determine CI mode
 if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
@@ -113,13 +113,13 @@ echo "CI mode: ${ci_mode}"
 echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
 
 echo ""
-ci3/echo_header "Cache Check"
+echo_header "Cache Check"
 
 # Check cache (unless disabled)
 cache_name="ci-success-${ci_mode}.tar.gz"
 if [ "${ci_no_cache:-0}" -eq 0 ]; then
   mkdir -p .ci-cache
-  if ci3/cache_download "$cache_name" .ci-cache 2>/dev/null; then
+  if cache_download "$cache_name" .ci-cache 2>/dev/null; then
     if [ -f ".ci-cache/ci-success-${ci_mode}.txt" ]; then
       echo "Cache hit! Previous run: $(cat ".ci-cache/ci-success-${ci_mode}.txt")"
       exit 0
@@ -130,7 +130,7 @@ fi
 echo "Cache miss, running CI in ${ci_mode} mode..."
 
 echo ""
-ci3/echo_header "Run CI"
+echo_header "Run CI"
 
 # Run CI
 exec ./ci.sh "${ci_mode}"

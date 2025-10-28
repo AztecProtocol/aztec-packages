@@ -4,7 +4,7 @@ set -euo pipefail
 # Source ci3 framework
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-ci3/echo_header "CI3 Post-Actions"
+echo_header "CI3 Post-Actions"
 
 # Read CI mode from env vars set by ci3.sh
 ci_mode="${CI_MODE:-fast}"
@@ -20,7 +20,7 @@ echo "Saved CI success marker: ${run_url}"
 
 # Upload cache
 cache_name="ci-success-${ci_mode}.tar.gz"
-ci3/cache_upload "$cache_name" ".ci-cache/ci-success-${ci_mode}.txt" 2>&1 | grep -v "^$" || true
+cache_upload "$cache_name" ".ci-cache/ci-success-${ci_mode}.txt" 2>&1 | grep -v "^$" || true
 
 # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
@@ -57,4 +57,4 @@ if [ "${SHOULD_UPLOAD_BENCHMARKS}" -eq 1 ] && [ "${CI_INTERNAL}" -eq 1 ]; then
 fi
 
 echo ""
-ci3/echo_header "Post-Actions Complete"
+echo_header "Post-Actions Complete"
