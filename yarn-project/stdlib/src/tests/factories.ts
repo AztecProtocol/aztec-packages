@@ -41,9 +41,9 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { compact, padArrayEnd } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -1186,13 +1186,10 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
-export function makePublicKeys(seed = 0): PublicKeys {
-  return new PublicKeys(
-    new Point(new Fr(seed + 0), new Fr(seed + 1), false),
-    new Point(new Fr(seed + 2), new Fr(seed + 3), false),
-    new Point(new Fr(seed + 4), new Fr(seed + 5), false),
-    new Point(new Fr(seed + 6), new Fr(seed + 7), false),
-  );
+export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
+  const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
+
+  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1208,7 +1205,7 @@ export async function makeContractInstanceFromClassId(
   const salt = new Fr(seed);
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
-  const publicKeys = overrides?.publicKeys ?? makePublicKeys(seed + 3);
+  const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],

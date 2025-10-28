@@ -21,6 +21,7 @@
 #include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
+#include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
@@ -525,6 +526,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     add_verbose_flag(msgpack_schema_command);
 
+    // Subcommand: msgpack curve_constants
+    CLI::App* msgpack_curve_constants_command =
+        msgpack_command->add_subcommand("curve_constants", "Output curve constants as msgpack to stdout.");
+    add_verbose_flag(msgpack_curve_constants_command);
+
     // Subcommand: msgpack run
     CLI::App* msgpack_run_command =
         msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
@@ -602,6 +608,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // MSGPACK
         if (msgpack_schema_command->parsed()) {
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
+            return 0;
+        }
+        if (msgpack_curve_constants_command->parsed()) {
+            write_curve_constants_msgpack_to_stdout();
             return 0;
         }
         if (msgpack_run_command->parsed()) {

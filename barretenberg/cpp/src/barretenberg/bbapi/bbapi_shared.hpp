@@ -152,7 +152,28 @@ struct BBApiRequest {
     std::vector<uint8_t> loaded_circuit_vk;
     // Policy for handling verification keys during accumulation
     VkPolicy vk_policy = VkPolicy::DEFAULT;
+    // Error message - empty string means no error
+    std::string error_message;
 };
+
+/**
+ * @brief Error response returned when a command fails
+ */
+struct ErrorResponse {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
+    std::string message;
+    MSGPACK_FIELDS(message);
+    bool operator==(const ErrorResponse&) const = default;
+};
+
+/**
+ * @brief Macro to set error in BBApiRequest and return default response
+ */
+#define BBAPI_ERROR(request, msg)                                                                                      \
+    do {                                                                                                               \
+        (request).error_message = (msg);                                                                               \
+        return {};                                                                                                     \
+    } while (0)
 
 struct Shutdown {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "Shutdown";
