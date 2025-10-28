@@ -52,9 +52,12 @@ class PairingPointsTagging {
      * @param tag2 Second tag
      * @details If the tags are different, all instances of tag2 are replaced with tag1
      */
-    void merge_pairing_point_tags(uint32_t tag1, uint32_t tag2)
+    void merge_pairing_point_tags(uint32_t tag1_index, uint32_t tag2_index)
     {
         // If different tags, override tag2 with tag1
+        uint32_t tag1 = pairing_points_tags_[tag1_index];
+        uint32_t tag2 = pairing_points_tags_[tag2_index];
+
         if (tag1 != tag2) {
             for (auto& tag : pairing_points_tags_) {
                 tag = tag == tag2 ? tag1 : tag;
@@ -101,10 +104,9 @@ class PairingPointsTagging {
     bool has_pairing_points() const { return has_pairing_points_; }
 
     /**
-     * @brief Get the pairing points tags vector
-     * @return const reference to the tags vector
+     * @brief Get the tag for a specific pairing point index
      */
-    const std::vector<uint32_t>& get_pairing_points_tags() const { return pairing_points_tags_; }
+    uint32_t get_tag(uint32_t tag_index) const { return pairing_points_tags_.at(tag_index); }
 };
 
 } // namespace bb

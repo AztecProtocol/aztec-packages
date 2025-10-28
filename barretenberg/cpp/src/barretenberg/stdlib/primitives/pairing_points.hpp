@@ -40,7 +40,7 @@ template <typename Builder_> struct PairingPoints {
     Group P1;
 
     bool has_data = false;
-    uint32_t tag = 0; // Tag for tracking pairing point aggregation
+    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
@@ -55,7 +55,7 @@ template <typename Builder_> struct PairingPoints {
         // Get the builder from the group elements and assign a new tag
         Builder* builder = P0.get_context();
         if (builder != nullptr) {
-            tag = builder->create_pairing_point_tag();
+            tag_index = builder->create_pairing_point_tag();
         }
     }
 
@@ -102,7 +102,17 @@ template <typename Builder_> struct PairingPoints {
         auto P0 = Group::batch_mul(first_components, challenges);
         auto P1 = Group::batch_mul(second_components, challenges);
 
-        return { P0, P1 };
+        PairingPoints aggregated_points(P0, P1);
+
+        // Merge tags
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+            }
+        }
+
+        return aggregated_points;
     }
 
     /**
@@ -146,7 +156,7 @@ template <typename Builder_> struct PairingPoints {
         // Merge the tags in the builder
         Builder* builder = P0.get_context();
         if (builder != nullptr) {
-            builder->merge_pairing_point_tags(this->tag, other.tag);
+            builder->merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
     }
 

@@ -249,9 +249,9 @@ template <typename FF_> class CircuitBuilderBase {
     /**
      * @brief Merge two pairing point tags
      */
-    void merge_pairing_point_tags(uint32_t tag1, uint32_t tag2) const
+    void merge_pairing_point_tags(uint32_t tag1_index, uint32_t tag2_index) const
     {
-        pairing_points_tagging.merge_pairing_point_tags(tag1, tag2);
+        pairing_points_tagging.merge_pairing_point_tags(tag1_index, tag2_index);
     }
 
     /**
@@ -264,6 +264,11 @@ template <typename FF_> class CircuitBuilderBase {
      * @brief Return the number of unique pairing point tags
      */
     uint32_t num_unique_pairing_points() const { return pairing_points_tagging.num_unique_pairing_points(); }
+
+    /**
+     * @brief Get the pairing points tagging object
+     */
+    uint32_t get_tag(uint32_t tag_index) const { return pairing_points_tagging.get_tag(tag_index); }
 };
 
 /**
