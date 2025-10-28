@@ -170,6 +170,11 @@ function test_cmds {
   echo "$browser_prefix $scripts/browser_prove.sh verify_honk_proof webkit"
   echo "$browser_prefix $scripts/browser_prove.sh a_1_mul webkit"
 
+  # Browser integration tests (only if explicitly enabled)
+  if [ -n "${RUN_BROWSER_INTEGRATION_TESTS:-}" ]; then
+    echo "$browser_prefix $scripts/browser_integration_test.sh"
+  fi
+
   # bb.js tests.
   # ecdsa_secp256r1_3x through bb.js on node to check 256k support.
   echo "$tests_hash $scripts/bbjs_prove.sh ecdsa_secp256r1_3x"
