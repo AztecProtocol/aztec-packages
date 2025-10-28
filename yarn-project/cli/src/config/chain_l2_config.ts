@@ -443,7 +443,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 1,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 0,
+  lagInEpochs: 1,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
