@@ -75,9 +75,9 @@ resource "google_storage_bucket_object" "testnet" {
   })
 }
 
-resource "google_storage_bucket_object" "ignition-mainnet" {
+resource "google_storage_bucket_object" "mainnet" {
   bucket        = google_storage_managed_folder.aztec_mainnet_auto_update_folder.bucket
-  name          = "${google_storage_managed_folder.aztec_mainnet_auto_update_folder.name}ignition-mainnet.json"
+  name          = "${google_storage_managed_folder.aztec_mainnet_auto_update_folder.name}mainnet.json"
   content_type  = "application/json"
   cache_control = "no-store"
   content = jsonencode({

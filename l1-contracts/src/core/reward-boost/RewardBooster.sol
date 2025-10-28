@@ -115,7 +115,7 @@ contract RewardBooster is IBooster {
   }
 
   function _toShares(uint256 _value) internal view returns (uint256) {
-    if (_value > CONFIG_MAX_SCORE) {
+    if (_value >= CONFIG_MAX_SCORE) {
       return CONFIG_K;
     }
     uint256 t = (CONFIG_MAX_SCORE - _value);

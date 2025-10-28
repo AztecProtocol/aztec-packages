@@ -114,7 +114,7 @@ contract Inbox is IInbox {
 
     bytes16 updatedRollingHash = bytes16(keccak256(abi.encodePacked(rollingHash, leaf)));
     state = InboxState({
-      rollingHash: bytes16(updatedRollingHash),
+      rollingHash: updatedRollingHash,
       totalMessagesInserted: totalMessagesInserted + 1,
       inProgress: inProgress
     });

@@ -11,6 +11,7 @@ import type { PeerId } from '@libp2p/interface';
 import { z } from 'zod';
 
 import type { CommitteeAttestationsAndSigners } from '../block/index.js';
+import { AllowedElementSchema } from './allowed_element.js';
 
 /**
  * Validator client configuration
@@ -43,7 +44,13 @@ export interface ValidatorClientConfig {
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowList'> &
-  Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'>;
+  Pick<SlasherConfig, 'slashBroadcastedInvalidBlockPenalty'> & {
+    /**
+     * Whether transactions are disabled for this node
+     * @remarks This should match the property in P2PConfig. It's not picked from there to avoid circular dependencies.
+     */
+    disableTransactions?: boolean;
+  };
 
 export const ValidatorClientConfigSchema = z.object({
   validatorAddresses: z.array(schemas.EthAddress).optional(),
@@ -54,6 +61,12 @@ export const ValidatorClientConfigSchema = z.object({
   validatorReexecuteDeadlineMs: z.number().min(0),
   alwaysReexecuteBlockProposals: z.boolean().optional(),
 }) satisfies ZodFor<Omit<ValidatorClientConfig, 'validatorPrivateKeys'>>;
+
+export const ValidatorClientFullConfigSchema = ValidatorClientConfigSchema.extend({
+  txPublicSetupAllowList: z.array(AllowedElementSchema).optional(),
+  slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+  disableTransactions: z.boolean().optional(),
+}) satisfies ZodFor<Omit<ValidatorClientFullConfig, 'validatorPrivateKeys'>>;
 
 export interface Validator {
   start(): Promise<void>;

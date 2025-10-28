@@ -62,6 +62,18 @@ export interface ArchiverDataStore {
   getPublishedBlock(number: number): Promise<PublishedL2Block | undefined>;
 
   /**
+   * Returns the block for the given hash, or undefined if not exists.
+   * @param blockHash - The block hash to return.
+   */
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Returns the block for the given archive root, or undefined if not exists.
+   * @param archive - The archive root to return.
+   */
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
    * Gets up to `limit` amount of published L2 blocks starting from `from`.
    * @param from - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
@@ -76,6 +88,18 @@ export interface ArchiverDataStore {
    * @returns The requested L2 block headers.
    */
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]>;
+
+  /**
+   * Returns the block header for the given hash, or undefined if not exists.
+   * @param blockHash - The block hash to return.
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Returns the block header for the given archive root, or undefined if not exists.
+   * @param archive - The archive root to return.
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
 
   /**
    * Gets a tx effect.

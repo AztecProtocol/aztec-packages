@@ -66,7 +66,19 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender().toString();
+        const sender = attestation.getSender();
+
+        // Skip attestations with invalid signatures
+        if (!sender) {
+          this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber.toBigInt()}`, {
+            signature: attestation.signature.toString(),
+            slotNumber,
+            proposalId,
+          });
+          continue;
+        }
+
+        const address = sender.toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
@@ -176,7 +188,15 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender().toString();
+        const sender = attestation.getSender();
+
+        // Skip attestations with invalid signatures
+        if (!sender) {
+          this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber.toBigInt()}`);
+          continue;
+        }
+
+        const address = sender.toString();
         const key = this.getAttestationKey(slotNumber, proposalId, address);
 
         if (await this.attestations.hasAsync(key)) {
