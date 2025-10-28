@@ -17,7 +17,7 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
   public:
     SideEffectTrackingDB(const FF& first_nullifier,
                          HighLevelMerkleDBInterface& merkle_db,
-                         SideEffectTracker& tracked_side_effects)
+                         SideEffectTrackerInterface& tracked_side_effects)
         : first_nullifier(first_nullifier)
         , merkle_db(merkle_db)
         , tracked_side_effects(tracked_side_effects)
@@ -54,7 +54,7 @@ class SideEffectTrackingDB : public HighLevelMerkleDBInterface {
   private:
     FF first_nullifier;
     HighLevelMerkleDBInterface& merkle_db;
-    SideEffectTracker& tracked_side_effects;
+    SideEffectTrackerInterface& tracked_side_effects;
 };
 
 } // namespace bb::avm2::simulation
