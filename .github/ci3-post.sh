@@ -15,6 +15,10 @@ run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
 echo "${run_url}" > ".ci-cache/ci-success-${ci_mode}.txt"
 echo "Saved CI success marker: ${run_url}"
 
+# Upload cache
+cache_name="ci-success-${ci_mode}.tar.gz"
+ci3/cache_upload "$cache_name" ".ci-cache/ci-success-${ci_mode}.txt" 2>&1 | grep -v "^$" || true
+
 if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
   exit 0
 fi

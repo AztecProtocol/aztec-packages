@@ -35,15 +35,6 @@ jobs:
           fetch-depth: ${{ github.event.pull_request.commits || 0 }}
           persist-credentials: false
 
-      - name: Get Tree Hash
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Restore cache
-        uses: actions/cache/restore@v3
-        with:
-          path: .ci-cache
-          key: ci-${{ env.TREE_HASH }}
-
       - name: Run
         env:
           CI_INTERNAL: "1"
@@ -81,13 +72,6 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./.github/ci3-post.sh
-
-      - name: Save cache
-        if: always()
-        uses: actions/cache/save@v3
-        with:
-          path: .ci-cache
-          key: ci-${{ env.TREE_HASH }}
 
       - name: Upload benchmarks
         if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'ci-full')

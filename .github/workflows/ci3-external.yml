@@ -59,15 +59,6 @@ jobs:
           fi
           GITHUB_TOKEN=${{ secrets.AZTEC_BOT_GITHUB_TOKEN }} gh pr edit ${{ github.event.pull_request.number }} --remove-label "ci-external-once"
 
-      - name: Get Tree Hash
-        run: echo "TREE_HASH=$(git rev-parse HEAD^{tree})" >> $GITHUB_ENV
-
-      - name: Restore cache
-        uses: actions/cache/restore@v3
-        with:
-          path: .ci-cache
-          key: ci-${{ env.TREE_HASH }}
-
       - name: Run
         env:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
@@ -98,10 +89,3 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: ./.github/ci3-post.sh
-
-      - name: Save cache
-        if: always()
-        uses: actions/cache/save@v3
-        with:
-          path: .ci-cache
-          key: ci-${{ env.TREE_HASH }}

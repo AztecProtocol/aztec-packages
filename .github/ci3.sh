@@ -113,10 +113,15 @@ echo ""
 ci3/echo_header "Cache Check"
 
 # Check cache (unless disabled)
-cache_file=".ci-cache/ci-success-${ci_mode}.txt"
-if [ "${ci_no_cache:-0}" -eq 0 ] && [ -f "$cache_file" ]; then
-  echo "Cache hit! Previous run: $(cat "$cache_file")"
-  exit 0
+cache_name="ci-success-${ci_mode}.tar.gz"
+if [ "${ci_no_cache:-0}" -eq 0 ]; then
+  mkdir -p .ci-cache
+  if ci3/cache_download "$cache_name" .ci-cache 2>/dev/null; then
+    if [ -f ".ci-cache/ci-success-${ci_mode}.txt" ]; then
+      echo "Cache hit! Previous run: $(cat ".ci-cache/ci-success-${ci_mode}.txt")"
+      exit 0
+    fi
+  fi
 fi
 
 echo "Cache miss, running CI in ${ci_mode} mode..."
