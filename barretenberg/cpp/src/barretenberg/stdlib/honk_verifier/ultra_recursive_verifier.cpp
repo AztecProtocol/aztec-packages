@@ -20,11 +20,11 @@ namespace bb::stdlib::recursion::honk {
 template <typename Flavor>
 UltraRecursiveVerifier_<Flavor>::UltraRecursiveVerifier_(Builder* builder,
                                                          const std::shared_ptr<VKAndHash>& vk_and_hash,
-                                                         size_t virtual_log_n,
-                                                         const std::shared_ptr<Transcript>& transcript)
+                                                         std::shared_ptr<Transcript> transcript,
+                                                         size_t virtual_log_n)
     : verifier_instance(std::make_shared<RecursiveVerifierInstance>(builder, vk_and_hash))
     , builder(builder)
-    , transcript(transcript)
+    , transcript(std::move(transcript))
     , virtual_log_n(virtual_log_n)
 {}
 
@@ -54,7 +54,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     StdlibProof ipa_proof;
     StdlibProof honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
-        const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() - IPA_PROOF_LENGTH;
+        const size_t HONK_PROOF_LENGTH =
+            Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) - IPA_PROOF_LENGTH;
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         BB_ASSERT_EQ(proof.size(), HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);

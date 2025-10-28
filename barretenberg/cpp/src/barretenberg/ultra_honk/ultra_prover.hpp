@@ -44,18 +44,26 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     SumcheckOutput<Flavor> sumcheck_output;
 
     CommitmentKey commitment_key;
+    size_t virtual_log_n;
 
-    UltraProver_(const std::shared_ptr<ProverInstance>&, const std::shared_ptr<HonkVK>&, const CommitmentKey&);
+    UltraProver_(const std::shared_ptr<ProverInstance>&,
+                 const std::shared_ptr<HonkVK>&,
+                 const CommitmentKey&,
+                 const size_t& = Flavor::VIRTUAL_LOG_N);
 
     explicit UltraProver_(const std::shared_ptr<ProverInstance>&,
                           const std::shared_ptr<HonkVK>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                          const size_t& virtual_log_n = Flavor::VIRTUAL_LOG_N);
 
     explicit UltraProver_(Builder&,
                           const std::shared_ptr<HonkVK>&,
-                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+                          const size_t& virtual_log_n = Flavor::VIRTUAL_LOG_N);
 
-    explicit UltraProver_(Builder&&, const std::shared_ptr<HonkVK>&);
+    explicit UltraProver_(Builder&&,
+                          const std::shared_ptr<HonkVK>&,
+                          const size_t& virtual_log_n = Flavor::VIRTUAL_LOG_N);
 
     BB_PROFILE void generate_gate_challenges();
 

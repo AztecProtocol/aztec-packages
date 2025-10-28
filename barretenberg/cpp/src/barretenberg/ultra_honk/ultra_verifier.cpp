@@ -31,11 +31,13 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     oink_verifier.verify();
 
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t log_n =
-        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verifier_instance->vk->log_circuit_size);
+
+    if constexpr (!Flavor::USE_PADDING) {
+        virtual_log_n = verifier_instance->vk->log_circuit_size;
+    }
     verifier_instance->target_sum = 0;
     verifier_instance->gate_challenges =
-        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
+        transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
     DeciderVerifier decider_verifier{ verifier_instance, transcript };
     auto decider_output = decider_verifier.verify();

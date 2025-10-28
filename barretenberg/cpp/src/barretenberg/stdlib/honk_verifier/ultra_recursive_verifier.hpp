@@ -70,8 +70,8 @@ template <typename Flavor> class UltraRecursiveVerifier_ {
 
     explicit UltraRecursiveVerifier_(Builder* builder,
                                      const std::shared_ptr<VKAndHash>& vk_and_hash,
-                                     size_t virtual_log_n = Flavor::NativeFlavor::VIRTUAL_LOG_N,
-                                     const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+                                     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(),
+                                     size_t virtual_log_n = Flavor::NativeFlavor::VIRTUAL_LOG_N);
 
     template <class IO>
     [[nodiscard("IPA claim and Pairing points should be accumulated")]] Output verify_proof(const StdlibProof& proof);

@@ -41,10 +41,12 @@ template <typename Flavor> class UltraVerifier_ {
     explicit UltraVerifier_(
         const std::shared_ptr<VerificationKey>& vk,
         VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key = VerifierCommitmentKey<curve::Grumpkin>(),
-        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>())
+        const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
+        const size_t& virtual_log_n = Flavor::VIRTUAL_LOG_N)
         : verifier_instance(std::make_shared<VerifierInstance>(vk))
         , ipa_verification_key(std::move(ipa_verification_key))
         , transcript(transcript)
+        , virtual_log_n(virtual_log_n)
     {}
 
     template <class IO> UltraVerifierOutput verify_proof(const Proof& proof, const Proof& ipa_proof = {});
@@ -53,6 +55,7 @@ template <typename Flavor> class UltraVerifier_ {
     std::shared_ptr<VerifierInstance> verifier_instance;
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key;
     std::shared_ptr<Transcript> transcript;
+    size_t virtual_log_n;
 };
 
 using UltraVerifier = UltraVerifier_<UltraFlavor>;

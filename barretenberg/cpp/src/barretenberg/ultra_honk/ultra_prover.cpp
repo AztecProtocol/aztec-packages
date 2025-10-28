@@ -13,11 +13,13 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const CommitmentKey& commitment_key)
+                                   const CommitmentKey& commitment_key,
+                                   const size_t& virtual_log_n)
     : prover_instance(std::move(prover_instance))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
     , commitment_key(commitment_key)
+    , virtual_log_n(virtual_log_n)
 {}
 
 /**
@@ -30,11 +32,13 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover_instance,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript)
+                                   const std::shared_ptr<Transcript>& transcript,
+                                   const size_t& virtual_log_n)
     : prover_instance(std::move(prover_instance))
     , honk_vk(honk_vk)
     , transcript(transcript)
     , commitment_key(prover_instance->commitment_key)
+    , virtual_log_n(virtual_log_n)
 {}
 
 /**
@@ -47,19 +51,26 @@ UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<ProverInstance>& prover
 template <IsUltraOrMegaHonk Flavor>
 UltraProver_<Flavor>::UltraProver_(Builder& circuit,
                                    const std::shared_ptr<HonkVK>& honk_vk,
-                                   const std::shared_ptr<Transcript>& transcript)
+                                   const std::shared_ptr<Transcript>& transcript,
+                                   const size_t& virtual_log_n)
     : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(transcript)
     , commitment_key(prover_instance->commitment_key)
+    , virtual_log_n(virtual_log_n)
+
 {}
 
 template <IsUltraOrMegaHonk Flavor>
-UltraProver_<Flavor>::UltraProver_(Builder&& circuit, const std::shared_ptr<HonkVK>& honk_vk)
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit,
+                                   const std::shared_ptr<HonkVK>& honk_vk,
+                                   const size_t& virtual_log_n)
     : prover_instance(std::make_shared<ProverInstance>(circuit))
     , honk_vk(honk_vk)
     , transcript(std::make_shared<Transcript>())
     , commitment_key(prover_instance->commitment_key)
+    , virtual_log_n(virtual_log_n)
+
 {}
 
 template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::export_proof()
@@ -79,8 +90,9 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
 template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
 {
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
-    const size_t virtual_log_n =
-        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(prover_instance->log_dyadic_size());
+    if constexpr (!Flavor::USE_PADDING) {
+        virtual_log_n = static_cast<size_t>(prover_instance->log_dyadic_size());
+    }
 
     prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
