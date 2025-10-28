@@ -94,7 +94,7 @@ ContextEvent EnqueuedCallContext::serialize_context_event()
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
-        // Side Effects
+        // Non-tree-tracked side effects
         .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase
@@ -160,7 +160,7 @@ ContextEvent NestedContext::serialize_context_event()
         .tree_states = merkle_db.get_tree_state(),
         .written_public_data_slots_tree_snapshot = written_public_data_slots_tree.get_snapshot(),
         .retrieved_bytecodes_tree_snapshot = retrieved_bytecodes_tree.get_snapshot(),
-        // Side Effects
+        // Non-tree-tracked side effects
         .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
         .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         // Phase

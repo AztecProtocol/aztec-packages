@@ -139,6 +139,15 @@ struct PublicLogs {
     std::array<FF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH> payload{};
     bool operator==(const PublicLogs& other) const = default;
 
+    PublicLogs() = default;
+    PublicLogs(uint32_t length, const std::array<FF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH>& payload)
+        : length(length)
+        , payload(payload)
+    {}
+    PublicLogs(const std::vector<PublicLog>& logs)
+        : PublicLogs(from_logs(logs))
+    {}
+
     void add_log(const PublicLog& log)
     {
         // Header

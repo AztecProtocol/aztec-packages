@@ -46,7 +46,7 @@ TEST(EmitUnencryptedLogTest, Basic)
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     uint64_t end_log_address = 28;
     TrackedSideEffects side_effect_states = { .public_logs = {} };
-    TrackedSideEffects side_effect_states_after = { .public_logs = { { log_fields, address } } };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
@@ -163,8 +163,9 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     uint64_t end_log_address = 28;
     // Minus three so header = 2 + log_size = 2 doesn't fit
     TrackedSideEffects side_effect_states = {
-        .public_logs = { { testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - FLAT_PUBLIC_LOGS_HEADER_LENGTH - 3),
-                           0xdeadbeef } }
+        .public_logs = PublicLogs{ { { .fields = testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH -
+                                                                        FLAT_PUBLIC_LOGS_HEADER_LENGTH - 3),
+                                       .contractAddress = 0xdeadbeef } } }
     };
     // No change to side effect states due to failure.
     const TrackedSideEffects& side_effect_states_after = side_effect_states;

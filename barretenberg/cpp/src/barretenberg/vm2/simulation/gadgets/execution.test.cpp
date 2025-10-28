@@ -277,7 +277,7 @@ TEST_F(ExecutionSimulationTest, Call)
                                    .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
                                    .contractAddress = parent_address,
                                } },
-        .public_logs = { { { 4 }, parent_address } },
+        .public_logs = PublicLogs{ { { { 4 }, parent_address } } },
     };
 
     EXPECT_CALL(gas_tracker, compute_gas_limit_for_call(Gas{ 6, 7 })).WillOnce(Return(Gas{ 2, 3 }));
@@ -357,7 +357,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
                                    .message = { .recipient = EthAddress(0x333333), .content = 0x12345678 },
                                    .contractAddress = parent_address,
                                } },
-        .public_logs = { { { 4 }, parent_address } },
+        .public_logs = PublicLogs{ { { { 4 }, parent_address } } },
     };
 
     auto setup_context_expectations = [&](bool parent_is_static) {

@@ -57,7 +57,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Positive)
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     TrackedSideEffects side_effect_states = { .public_logs = {} };
-    TrackedSideEffects side_effect_states_after = { .public_logs = { { log_fields, address } } };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
 
     EmitUnencryptedLogWriteEvent event = {
         .execution_clk = 1,
@@ -89,7 +89,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorMemoryOutOfBounds)
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = AVM_HIGHEST_MEM_ADDRESS;
     uint32_t log_size = 2;
-    TrackedSideEffects side_effect_states = { .public_logs = { { { 4 }, address } } };
+    TrackedSideEffects side_effect_states = { .public_logs = PublicLogs{ { { { 4 }, address } } } };
     const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLogWriteEvent event = {
@@ -125,7 +125,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTooManyLogFields)
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     // Minus three so header = 2 + log_size = 2 doesn't fit
     TrackedSideEffects side_effect_states = {
-        .public_logs = { { testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3), address } }
+        .public_logs = PublicLogs{ { { testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3), address } } }
     };
     const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
@@ -160,7 +160,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
     MemoryAddress log_address = 27;
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
-    TrackedSideEffects side_effect_states = { .public_logs = { { { 4 }, address } } };
+    TrackedSideEffects side_effect_states = { .public_logs = PublicLogs{ { { { 4 }, address } } } };
     const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLogWriteEvent event = {
@@ -194,7 +194,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorStatic)
     MemoryAddress log_address = 27;
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
-    TrackedSideEffects side_effect_states = { .public_logs = { { { 4 }, address } } };
+    TrackedSideEffects side_effect_states = { .public_logs = PublicLogs{ { { { 4 }, address } } } };
     const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLogWriteEvent event = {
@@ -227,7 +227,7 @@ TEST(EmitUnencryptedLogConstrainingTest, Interactions)
     const std::vector<FF> log_fields = { 4, 5 };
     uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     TrackedSideEffects side_effect_states = { .public_logs = {} };
-    TrackedSideEffects side_effect_states_after = { .public_logs = { { log_fields, address } } };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
     AvmAccumulatedData accumulated_data = {};
     accumulated_data.publicLogs.add_log({
         .fields = { FF(4), FF(5) },
