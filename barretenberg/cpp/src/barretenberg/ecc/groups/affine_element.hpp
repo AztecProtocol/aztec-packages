@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/ecc/curves/bn254/fq2.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
@@ -201,55 +202,96 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
     Fq x;
     Fq y;
 
-    // Note: only applicable to field-templated curves (i.e. not something like G2).
+    // Concept to detect if Fq is a field2 type
+    template <typename T>
+    static constexpr bool is_field2_v = requires(T t) {
+        t.c0;
+        t.c1;
+    };
+
+    // Msgpack serialization optimized for single uint256_t or array of uint256_t
     struct MsgpackRawAffineElement {
-        uint256_t x{};
-        uint256_t y{};
+        // For regular fields (uint256_t), use uint256_t directly
+        // For field2 types, use std::array<uint256_t, 2>
+        using FieldType = std::conditional_t<is_field2_v<Fq>, std::array<uint256_t, 2>, uint256_t>;
+
+        FieldType x{};
+        FieldType y{};
         MSGPACK_FIELDS(x, y);
     };
+
     void msgpack_pack(auto& packer) const
     {
         MsgpackRawAffineElement raw_element{};
+
         if (is_point_at_infinity()) {
-            // If we are a point at infinity, just set all bits to 1
-            // We only need this case because the below gets mangled converting from montgomery for infinity points
+            // Set all bits to 1 for infinity representation
             constexpr uint256_t all_ones = {
                 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
             };
-            raw_element = { all_ones, all_ones };
+
+            if constexpr (is_field2_v<Fq>) {
+                raw_element.x = { all_ones, all_ones };
+                raw_element.y = { all_ones, all_ones };
+            } else {
+                raw_element.x = all_ones;
+                raw_element.y = all_ones;
+            }
         } else {
-            // Note: internally calls from_montgomery_form()
-            raw_element = { x, y };
+            // Note: field assignment operators internally call from_montgomery_form()
+            if constexpr (is_field2_v<Fq>) {
+                raw_element.x = { x.c0, x.c1 };
+                raw_element.y = { y.c0, y.c1 };
+            } else {
+                raw_element.x = x;
+                raw_element.y = y;
+            }
         }
         packer.pack(raw_element);
     }
+
     void msgpack_unpack(auto o)
     {
-        using namespace serialize;
         MsgpackRawAffineElement raw_element = o;
-        // If we are point and infinity, the serialized bits will be all ones.
+
+        // Check if this is point at infinity (all bits set)
         constexpr uint256_t all_ones = {
             0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL, 0xffffffffffffffffUL
         };
-        if (raw_element.x == all_ones && raw_element.y == all_ones) {
-            // If we are infinity, just set all bits to 1
-            // We only need this case because the below gets mangled converting from montgomery for infinity points
+
+        bool is_infinity;
+        if constexpr (is_field2_v<Fq>) {
+            is_infinity = (raw_element.x[0] == all_ones && raw_element.x[1] == all_ones &&
+                           raw_element.y[0] == all_ones && raw_element.y[1] == all_ones);
+        } else {
+            is_infinity = (raw_element.x == all_ones && raw_element.y == all_ones);
+        }
+
+        if (is_infinity) {
             self_set_infinity();
         } else {
-            // Note: internally calls to_montgomery_form()
-            x = raw_element.x;
-            y = raw_element.y;
+            // Note: field assignment operators internally call to_montgomery_form()
+            if constexpr (is_field2_v<Fq>) {
+                x.c0 = raw_element.x[0];
+                x.c1 = raw_element.x[1];
+                y.c0 = raw_element.y[0];
+                y.c1 = raw_element.y[1];
+            } else {
+                x = raw_element.x;
+                y = raw_element.y;
+            }
         }
     }
     void msgpack_schema(auto& packer) const
     {
-        if (packer.set_emitted("affine_element")) {
-            packer.pack("affine_element");
+        std::string schema_name = msgpack_schema_name(*this);
+        if (packer.set_emitted(schema_name)) {
+            packer.pack(schema_name);
             return; // already emitted
         }
         packer.pack_map(3);
         packer.pack("__typename");
-        packer.pack("affine_element");
+        packer.pack(schema_name);
         packer.pack("x");
         packer.pack_schema(x);
         packer.pack("y");
