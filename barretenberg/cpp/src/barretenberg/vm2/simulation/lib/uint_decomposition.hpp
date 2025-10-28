@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 

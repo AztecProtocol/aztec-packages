@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
@@ -1119,10 +1120,17 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_fdiv_with_tracegen(ThreeOperandTestParams params)
+    TestTraceContainer process_fdiv_with_tracegen(ThreeOperandTestParams params, bool upcast_to_ff = false)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
+
+        if (upcast_to_ff) {
+            a = MemoryValue::from_tag(MemoryTag::FF, a);
+            b = MemoryValue::from_tag(MemoryTag::FF, b);
+            c = MemoryValue::from_tag(MemoryTag::FF, c);
+        }
+
         bool div_0_error = b.as_ff() == FF(0);
 
         builder.process(
@@ -1150,7 +1158,9 @@ TEST_P(AluFDivConstrainingTest, AluFDiv)
 
 TEST_P(AluFDivConstrainingTest, AluFDivTraceGen)
 {
-    auto trace = process_fdiv_with_tracegen(GetParam());
+    auto trace = process_fdiv_with_tracegen(GetParam(), true);
+    // InteractiveDebugger debugger(trace);
+    // debugger.run();
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
     check_relation<alu>(trace);

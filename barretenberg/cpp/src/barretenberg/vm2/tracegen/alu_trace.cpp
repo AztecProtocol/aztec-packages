@@ -259,6 +259,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         bool is_trivial = dst_tag == MemoryTag::FF || value <= get_tag_max_value(dst_tag);
         bool is_lt_128 = !is_trivial && value < (static_cast<uint256_t>(1) << 128);
         bool is_gte_128 = !is_trivial && !is_lt_128;
+        // Make use of x % pow_of_two = x & (pow_of_two - 1)
         const uint256_t lo_128 = is_trivial ? 0 : value & ((static_cast<uint256_t>(1) << 128) - 1);
         const uint8_t dst_bits = get_tag_bits(dst_tag);
         const uint256_t mid = is_trivial ? 0 : lo_128 >> dst_bits;
