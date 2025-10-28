@@ -1,5 +1,5 @@
 import { createLogger } from '@aztec/foundation/log';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
 
 import os from 'os';
 import { ungzip } from 'pako';
@@ -15,7 +15,7 @@ export async function proveClientIVC(
   witnessStack: Uint8Array[],
   vks: string[],
   threads?: number,
-): Promise<ClientIvcProof> {
+): Promise<ClientIvcProofWithPublicInputs> {
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
@@ -26,7 +26,7 @@ export async function proveClientIVC(
       witnessStack.map((arr: Uint8Array) => ungzip(arr)),
       vks.map(hex => new Uint8Array(Buffer.from(hex, 'hex'))),
     );
-    return ClientIvcProof.fromBufferArray(proof);
+    return ClientIvcProofWithPublicInputs.fromBufferArray(proof);
   } finally {
     await backend.destroy();
   }

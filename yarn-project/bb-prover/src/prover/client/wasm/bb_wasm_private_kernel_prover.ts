@@ -5,7 +5,7 @@ import { serializeWitness } from '@aztec/noir-noirc_abi';
 import type { ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
 
 import { ungzip } from 'pako';
 
@@ -21,7 +21,9 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     super(artifactProvider, simulator, log);
   }
 
-  public override async createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
+  public override async createClientIvcProof(
+    executionSteps: PrivateExecutionStep[],
+  ): Promise<ClientIvcProofWithPublicInputs> {
     const timer = new Timer();
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
@@ -39,7 +41,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       duration: timer.ms(),
       proofSize: proof.length,
     });
-    return ClientIvcProof.fromBufferArray(proof);
+    return ClientIvcProofWithPublicInputs.fromBufferArray(proof);
   }
 
   public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
