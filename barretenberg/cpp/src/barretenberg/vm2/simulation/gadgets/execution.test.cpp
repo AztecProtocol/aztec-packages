@@ -298,6 +298,7 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_parent_gas_limit);
     EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
         .WillOnce(Return(written_public_data_slots_tree_snapshot));
+    EXPECT_CALL(context, get_side_effect_tracker);
     EXPECT_CALL(side_effect_tracker, get_side_effects()).WillRepeatedly(ReturnRef(side_effect_states));
 
     EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
@@ -377,6 +378,7 @@ TEST_F(ExecutionSimulationTest, ExternalCallStaticnessPropagation)
         EXPECT_CALL(context, get_parent_gas_limit);
         EXPECT_CALL(context, get_written_public_data_slots_tree_snapshot)
             .WillOnce(Return(written_public_data_slots_tree_snapshot));
+        EXPECT_CALL(context, get_side_effect_tracker);
         EXPECT_CALL(side_effect_tracker, get_side_effects()).WillRepeatedly(ReturnRef(side_effect_states));
         EXPECT_CALL(context, get_phase).WillOnce(Return(TransactionPhase::APP_LOGIC));
         EXPECT_CALL(merkle_db, get_tree_state).WillOnce(Return(tree_states));
