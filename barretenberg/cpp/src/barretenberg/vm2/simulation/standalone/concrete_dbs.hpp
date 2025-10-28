@@ -5,7 +5,6 @@
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
-#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 
 namespace bb::avm2::simulation {
 
