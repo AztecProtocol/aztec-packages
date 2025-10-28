@@ -38,12 +38,12 @@ import { AnvilTestWatcher } from '../testing/anvil_test_watcher.js';
 import { getBananaFPCAddress, setupBananaFPC } from './banana_fpc.js';
 import { getSponsoredFPCAddress } from './sponsored_fpc.js';
 
-const logger = createLogger('sandbox');
+const logger = createLogger('local-network');
 
 const localAnvil = foundry;
 
 /**
- * Function to deploy our L1 contracts to the sandbox L1
+ * Function to deploy our L1 contracts to the local network L1
  * @param aztecNodeConfig - The Aztec Node Config
  * @param hdAccount - Account for publishing L1 contracts
  */
@@ -78,8 +78,8 @@ export async function deployContractsToL1(
       genesisArchiveRoot: opts.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
       salt: opts.salt,
       feeJuicePortalInitialBalance: opts.feeJuicePortalInitialBalance,
-      aztecTargetCommitteeSize: 0, // no committee in sandbox
-      slasherFlavor: 'none', // no slashing in sandbox
+      aztecTargetCommitteeSize: 0, // no committee in local network
+      slasherFlavor: 'none', // no slashing in local network
       realVerifier: false,
     },
   );
@@ -92,29 +92,29 @@ export async function deployContractsToL1(
   return aztecNodeConfig.l1Contracts;
 }
 
-/** Sandbox settings. */
-export type SandboxConfig = AztecNodeConfig & {
+/** Local network settings. */
+export type LocalNetworkConfig = AztecNodeConfig & {
   /** Mnemonic used to derive the L1 deployer private key.*/
   l1Mnemonic: string;
   /** Salt used to deploy L1 contracts.*/
   deployAztecContractsSalt: string;
-  /** Whether to deploy test accounts on sandbox start.*/
+  /** Whether to deploy test accounts on local network start.*/
   testAccounts: boolean;
 };
 
 /**
  * Create and start a new Aztec Node and PXE. Deploys L1 contracts.
  * Does not start any HTTP services nor populate any initial accounts.
- * @param config - Optional Sandbox settings.
+ * @param config - Optional local network settings.
  */
-export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog: LogFn) {
-  // sandbox is meant for test envs. We should only need one l1RpcUrl
+export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {}, userLog: LogFn) {
+  // local network is meant for test envs. We should only need one l1RpcUrl
   const l1RpcUrl = config.l1RpcUrls?.[0];
   if (!l1RpcUrl) {
     throw new Error('An L1 RPC URL is required');
   }
   if ((config.l1RpcUrls?.length || 0) > 1) {
-    logger.warn(`Multiple L1 RPC URLs provided. Sandbox will only use the first one: ${l1RpcUrl}`);
+    logger.warn(`Multiple L1 RPC URLs provided. Local networks will only use the first one: ${l1RpcUrl}`);
   }
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars(), ...config };
   const hdAccount = mnemonicToAccount(config.l1Mnemonic || DefaultMnemonic);
@@ -179,12 +179,12 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
       publicClient,
       dateProvider,
     );
-    watcher.setIsSandbox(true);
+    watcher.setisLocalNetwork(true);
     await watcher.start();
   }
 
   const telemetry = initTelemetryClient(getTelemetryClientConfig());
-  // Create a local blob sink client inside the sandbox, no http connectivity
+  // Create a local blob sink client inside the local network, no http connectivity
   const blobSinkClient = createBlobSinkClient();
   const node = await createAztecNode(
     aztecNodeConfig,

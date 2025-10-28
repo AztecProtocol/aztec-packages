@@ -5,13 +5,13 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';
 
-// To run these tests against a local sandbox:
+// To run these tests against a local network:
 // 1. Start a local Ethereum node (Anvil):
 //    anvil --host 127.0.0.1 --port 8545
 //
-// 2. Start the Aztec sandbox:
+// 2. Start the Aztec local network:
 //    cd yarn-project/aztec
-//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --sandbox
+//    NODE_NO_WARNINGS=1 ETHEREUM_HOSTS=http://127.0.0.1:8545 node ./dest/bin/index.js start --local-network
 //
 // 3. Run the tests:
 //    yarn test:e2e docs_examples.test.ts
