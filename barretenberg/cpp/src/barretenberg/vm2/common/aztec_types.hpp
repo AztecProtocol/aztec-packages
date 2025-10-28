@@ -4,8 +4,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
 #include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/default_print.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2 {
@@ -114,7 +114,6 @@ struct L2ToL1Message {
     bool operator==(const L2ToL1Message& other) const = default;
 
     MSGPACK_FIELDS(recipient, content);
-    DEFINE_PRINT_MEMBERS(recipient, content);
 };
 
 struct ScopedL2ToL1Message {
@@ -124,7 +123,6 @@ struct ScopedL2ToL1Message {
     bool operator==(const ScopedL2ToL1Message& other) const = default;
 
     MSGPACK_FIELDS(message, contractAddress);
-    DEFINE_PRINT_MEMBERS(message, contractAddress);
 };
 
 struct PublicLog {
@@ -134,7 +132,6 @@ struct PublicLog {
     bool operator==(const PublicLog& other) const = default;
 
     MSGPACK_FIELDS(fields, contractAddress);
-    DEFINE_PRINT_MEMBERS(fields, contractAddress);
 };
 
 struct PublicLogs {
@@ -164,7 +161,6 @@ struct PublicLogs {
     }
 
     MSGPACK_FIELDS(length, payload);
-    DEFINE_PRINT_MEMBERS(length, payload);
 };
 
 struct PublicDataWrite {
@@ -174,7 +170,6 @@ struct PublicDataWrite {
     bool operator==(const PublicDataWrite& other) const = default;
 
     MSGPACK_FIELDS(leafSlot, value);
-    DEFINE_PRINT_MEMBERS(leafSlot, value);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -188,7 +183,6 @@ struct GasFees {
     bool operator==(const GasFees& other) const = default;
 
     MSGPACK_FIELDS(feePerDaGas, feePerL2Gas);
-    DEFINE_PRINT_MEMBERS(feePerDaGas, feePerL2Gas);
 };
 
 struct Gas {
@@ -201,7 +195,6 @@ struct Gas {
     Gas operator-(const Gas& other) const { return { l2Gas - other.l2Gas, daGas - other.daGas }; }
 
     MSGPACK_FIELDS(l2Gas, daGas);
-    DEFINE_PRINT_MEMBERS(l2Gas, daGas);
 };
 
 struct GasSettings {
@@ -213,7 +206,6 @@ struct GasSettings {
     bool operator==(const GasSettings& other) const = default;
 
     MSGPACK_FIELDS(gasLimits, teardownGasLimits, maxFeesPerGas, maxPriorityFeesPerGas);
-    DEFINE_PRINT_MEMBERS(gasLimits, teardownGasLimits, maxFeesPerGas, maxPriorityFeesPerGas);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -229,7 +221,6 @@ struct PublicCallRequest {
     bool operator==(const PublicCallRequest& other) const = default;
 
     MSGPACK_FIELDS(msgSender, contractAddress, isStaticCall, calldataHash);
-    DEFINE_PRINT_MEMBERS(msgSender, contractAddress, isStaticCall, calldataHash);
 };
 
 struct PublicCallRequestArrayLengths {
@@ -240,7 +231,6 @@ struct PublicCallRequestArrayLengths {
     bool operator==(const PublicCallRequestArrayLengths& other) const = default;
 
     MSGPACK_FIELDS(setupCalls, appLogicCalls, teardownCall);
-    DEFINE_PRINT_MEMBERS(setupCalls, appLogicCalls, teardownCall);
 };
 
 struct AvmAccumulatedDataArrayLengths {
@@ -252,7 +242,6 @@ struct AvmAccumulatedDataArrayLengths {
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
-    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -267,7 +256,6 @@ struct PrivateToAvmAccumulatedDataArrayLengths {
     bool operator==(const PrivateToAvmAccumulatedDataArrayLengths& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs);
-    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Msgs);
 };
 
 struct PrivateToAvmAccumulatedData {
@@ -278,7 +266,6 @@ struct PrivateToAvmAccumulatedData {
     bool operator==(const PrivateToAvmAccumulatedData& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs);
-    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Msgs);
 };
 
 struct AvmAccumulatedData {
@@ -291,7 +278,6 @@ struct AvmAccumulatedData {
     bool operator==(const AvmAccumulatedData& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
-    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -311,7 +297,6 @@ struct GlobalVariables {
     bool operator==(const GlobalVariables& other) const = default;
 
     MSGPACK_FIELDS(chainId, version, blockNumber, slotNumber, timestamp, coinbase, feeRecipient, gasFees);
-    DEFINE_PRINT_MEMBERS(chainId, version, blockNumber, slotNumber, timestamp, coinbase, feeRecipient, gasFees);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -326,7 +311,6 @@ struct AppendOnlyTreeSnapshot {
     bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
 
     MSGPACK_FIELDS(root, nextAvailableLeafIndex);
-    DEFINE_PRINT_MEMBERS(root, nextAvailableLeafIndex);
 };
 
 struct TreeSnapshots {
@@ -338,7 +322,6 @@ struct TreeSnapshots {
     bool operator==(const TreeSnapshots& other) const = default;
 
     MSGPACK_FIELDS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
-    DEFINE_PRINT_MEMBERS(l1ToL2MessageTree, noteHashTree, nullifierTree, publicDataTree);
 };
 
 struct TreeState {
@@ -346,7 +329,7 @@ struct TreeState {
     uint32_t counter;
 
     bool operator==(const TreeState& other) const = default;
-    DEFINE_PRINT_MEMBERS(tree, counter);
+    MSGPACK_FIELDS(tree, counter);
 };
 
 struct TreeStates {
@@ -356,7 +339,7 @@ struct TreeStates {
     TreeState publicDataTree;
 
     bool operator==(const TreeStates& other) const = default;
-    DEFINE_PRINT_MEMBERS(noteHashTree, nullifierTree, l1ToL2MessageTree, publicDataTree);
+    MSGPACK_FIELDS(noteHashTree, nullifierTree, l1ToL2MessageTree, publicDataTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -413,7 +396,6 @@ struct DebugLog {
 
     bool operator==(const DebugLog& other) const = default;
     MSGPACK_FIELDS(contractAddress, level, message, fields);
-    DEFINE_PRINT_MEMBERS(contractAddress, level, message, fields);
 };
 
 struct ProtocolContracts {
@@ -422,7 +404,6 @@ struct ProtocolContracts {
     bool operator==(const ProtocolContracts& other) const = default;
 
     MSGPACK_FIELDS(derivedAddresses);
-    DEFINE_PRINT_MEMBERS(derivedAddresses);
 };
 
 inline bool is_protocol_contract_address(const AztecAddress& address)

@@ -6,6 +6,7 @@
 #include <ostream>
 #include <vector>
 
+#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -14,7 +15,6 @@
 
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/common/default_print.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
@@ -110,28 +110,6 @@ struct PublicInputs {
                    accumulatedData,
                    transactionFee,
                    reverted);
-    DEFINE_PRINT_MEMBERS(globalVariables,
-                         protocolContracts,
-                         startTreeSnapshots,
-                         startGasUsed,
-                         gasSettings,
-                         effectiveGasFees,
-                         feePayer,
-                         proverId,
-                         publicCallRequestArrayLengths,
-                         publicSetupCallRequests,
-                         publicAppLogicCallRequests,
-                         publicTeardownCallRequest,
-                         previousNonRevertibleAccumulatedDataArrayLengths,
-                         previousRevertibleAccumulatedDataArrayLengths,
-                         previousNonRevertibleAccumulatedData,
-                         previousRevertibleAccumulatedData,
-                         endTreeSnapshots,
-                         endGasUsed,
-                         accumulatedDataArrayLengths,
-                         accumulatedData,
-                         transactionFee,
-                         reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -184,7 +162,6 @@ struct BytecodeCommitmentHint {
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
     MSGPACK_FIELDS(classId, commitment);
-    DEFINE_PRINT_MEMBERS(classId, commitment);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -324,7 +301,6 @@ struct AccumulatedData {
     bool operator==(const AccumulatedData& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Messages);
-    DEFINE_PRINT_MEMBERS(noteHashes, nullifiers, l2ToL1Messages);
 };
 
 // We are currently using this structure as the input to TX simulation.
