@@ -13,14 +13,13 @@ ci_mode="${CI_MODE:-fast}"
 github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
 
 # Save CI success marker for cache
-mkdir -p .ci-cache
 run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
-echo "${run_url}" > ".ci-cache/ci-success-${ci_mode}.txt"
+echo "${run_url}" > ".ci-success.txt"
 echo "Saved CI success marker: ${run_url}"
 
 # Upload cache
 cache_name="ci-success-${ci_mode}.tar.gz"
-cache_upload "$cache_name" ".ci-cache/ci-success-${ci_mode}.txt" 2>&1 | grep -v "^$" || true
+cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
 
 # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
