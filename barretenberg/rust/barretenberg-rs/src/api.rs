@@ -6,17 +6,6 @@ use crate::error::{BarretenbergError, Result};
 use crate::generated_types::*;
 
 /// High-level Barretenberg API
-///
-/// Hides all msgpack serialization details. Just call methods with Rust types.
-///
-/// # Example
-/// ```ignore
-/// use barretenberg_rs::{BarretenbergApi, backends::IpcBackend};
-///
-/// let backend = IpcBackend::new("/path/to/bb")?;
-/// let mut api = BarretenbergApi::new(backend);
-/// let hash = api.blake2s(b"hello")?;
-/// ```
 pub struct BarretenbergApi<B: Backend> {
     backend: B,
 }
@@ -28,8 +17,6 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     fn execute(&mut self, command: Command) -> Result<Response> {
-        // BB expects an array of size 1 containing the command tuple
-        // Use to_vec_named to ensure structs serialize as maps, not arrays
         let input_buffer = rmp_serde::to_vec_named(&vec![command])
             .map_err(|e| BarretenbergError::Serialization(e.to_string()))?;
 
@@ -75,8 +62,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute CircuitVerify command
-    pub fn circuit_verify(&mut self, verification_key: &[u8], public_inputs: &[Vec<u8>], proof: &[Vec<u8>], settings: ProofSystemSettings) -> Result<CircuitVerifyResponse> {
-        let cmd = Command::CircuitVerify(CircuitVerify::new(verification_key.to_vec(), public_inputs.to_vec(), proof.to_vec(), settings));
+    pub fn circuit_verify(&mut self, verification_key: &[u8], public_inputs: Vec<Vec<u8>>, proof: Vec<Vec<u8>>, settings: ProofSystemSettings) -> Result<CircuitVerifyResponse> {
+        let cmd = Command::CircuitVerify(CircuitVerify::new(verification_key.to_vec(), public_inputs, proof, settings));
         match self.execute(cmd)? {
             Response::CircuitVerifyResponse(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -218,8 +205,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Poseidon2Hash command
-    pub fn poseidon2_hash(&mut self, inputs: &[Vec<u8>]) -> Result<Poseidon2HashResponse> {
-        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs.to_vec()));
+    pub fn poseidon2_hash(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashResponse> {
+        let cmd = Command::Poseidon2Hash(Poseidon2Hash::new(inputs));
         match self.execute(cmd)? {
             Response::Poseidon2HashResponse(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -240,8 +227,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute Poseidon2HashAccumulate command
-    pub fn poseidon2_hash_accumulate(&mut self, inputs: &[Vec<u8>]) -> Result<Poseidon2HashAccumulateResponse> {
-        let cmd = Command::Poseidon2HashAccumulate(Poseidon2HashAccumulate::new(inputs.to_vec()));
+    pub fn poseidon2_hash_accumulate(&mut self, inputs: Vec<Vec<u8>>) -> Result<Poseidon2HashAccumulateResponse> {
+        let cmd = Command::Poseidon2HashAccumulate(Poseidon2HashAccumulate::new(inputs));
         match self.execute(cmd)? {
             Response::Poseidon2HashAccumulateResponse(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -251,8 +238,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute PedersenCommit command
-    pub fn pedersen_commit(&mut self, inputs: &[Vec<u8>], hash_index: u32) -> Result<PedersenCommitResponse> {
-        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs.to_vec(), hash_index));
+    pub fn pedersen_commit(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenCommitResponse> {
+        let cmd = Command::PedersenCommit(PedersenCommit::new(inputs, hash_index));
         match self.execute(cmd)? {
             Response::PedersenCommitResponse(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse(
@@ -262,8 +249,8 @@ impl<B: Backend> BarretenbergApi<B> {
     }
 
     /// Execute PedersenHash command
-    pub fn pedersen_hash(&mut self, inputs: &[Vec<u8>], hash_index: u32) -> Result<PedersenHashResponse> {
-        let cmd = Command::PedersenHash(PedersenHash::new(inputs.to_vec(), hash_index));
+    pub fn pedersen_hash(&mut self, inputs: Vec<Vec<u8>>, hash_index: u32) -> Result<PedersenHashResponse> {
+        let cmd = Command::PedersenHash(PedersenHash::new(inputs, hash_index));
         match self.execute(cmd)? {
             Response::PedersenHashResponse(resp) => Ok(resp),
             _ => Err(BarretenbergError::InvalidResponse(

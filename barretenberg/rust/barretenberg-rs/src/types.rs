@@ -24,6 +24,13 @@ impl Fr {
         Fr(bytes)
     }
 
+    /// Create a field element from a 32-byte buffer (no reduction)
+    /// Panics if buffer is not exactly 32 bytes
+    pub fn from_buffer(buffer: &[u8]) -> Self {
+        let bytes: [u8; 32] = buffer.try_into().expect("Buffer must be exactly 32 bytes");
+        Fr(bytes)
+    }
+
     /// Create a field element from a byte slice, reducing if necessary
     pub fn from_buffer_reduce(buffer: &[u8]) -> Self {
         let mut bytes = [0u8; 32];

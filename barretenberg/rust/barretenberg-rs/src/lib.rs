@@ -1,18 +1,54 @@
-//! Barretenberg Rust bindings with msgpack backend support
+//! # Barretenberg Rust Bindings
 //!
-//! This crate provides Rust bindings to the Barretenberg cryptographic library
-//! using msgpack protocol over various pluggable backends.
+//! High-performance Rust bindings to the Barretenberg cryptographic library
+//! using msgpack protocol over stdin/stdout pipes.
 //!
-//! # Example
+//! ## Architecture
+//!
+//! This crate provides two ways to use Barretenberg:
+//!
+//! 1. **PipeBackend** (recommended): Simple stdin/stdout IPC
+//! 2. **Custom Backend**: Implement the `Backend` trait for your use case
+//!
+//! ## Quick Start
 //!
 //! ```ignore
-//! use barretenberg_rs::{BarretenbergApi, backends::UnixSocketBackend};
+//! use barretenberg_rs::{BarretenbergApi, backends::PipeBackend};
 //!
-//! let backend = UnixSocketBackend::new("/path/to/bb", "/tmp/bb.sock", Some(4))?;
+//! // Create a pipe backend (simplest approach)
+//! let backend = PipeBackend::new("/path/to/bb", Some(4))?;
 //! let mut api = BarretenbergApi::new(backend);
 //!
+//! // Use the API
 //! let response = api.blake2s(b"hello world")?;
 //! println!("Hash: {:?}", response.hash);
+//!
+//! // Cleanup
+//! api.destroy()?;
+//! ```
+//!
+//! ## Custom Backend
+//!
+//! Implement the `Backend` trait for custom IPC strategies:
+//!
+//! ```ignore
+//! use barretenberg_rs::{Backend, BarretenbergError, Result};
+//!
+//! struct MyBackend {
+//!     // Your implementation
+//! }
+//!
+//! impl Backend for MyBackend {
+//!     fn call(&mut self, request: &[u8]) -> Result<Vec<u8>> {
+//!         // Send msgpack request, receive msgpack response
+//!         todo!()
+//!     }
+//!
+//!     fn destroy(&mut self) -> Result<()> {
+//!         // Cleanup resources
+//!         Ok(())
+//!     }
+//! }
 //! ```
 
 pub mod backend;
@@ -30,13 +66,12 @@ pub use generated_types::{Command, Response};
 pub use api::BarretenbergApi;
 pub use error::{BarretenbergError, Result};
 
+/// Backend implementations
+///
+/// - `PipeBackend`: Recommended default using stdin/stdout
+/// - Implement `Backend` trait for custom backends
 #[cfg(feature = "native")]
 pub mod backends {
-    pub mod shared_memory;
-    pub mod unix_socket;
     pub mod pipe;
-
-    pub use shared_memory::SharedMemoryBackend;
-    pub use unix_socket::UnixSocketBackend;
     pub use pipe::PipeBackend;
 }

@@ -3,16 +3,16 @@
 //! Parallels barretenberg/ts/src/barretenberg/poseidon.test.ts
 
 #[cfg(test)]
-use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
-use crate::utils::{get_bb_binary_path, get_test_socket_path, Timer};
+use crate::utils::{get_bb_binary_path, Timer};
 
 #[test]
 fn test_poseidon2_hash() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("poseidon2_hash");
+    
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -21,7 +21,7 @@ fn test_poseidon2_hash() {
         Fr::from_u64(8).to_buffer(),
     ];
 
-    let response = api.poseidon2_hash(&inputs).expect("Poseidon2Hash failed");
+    let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
@@ -34,9 +34,9 @@ fn test_poseidon2_hash() {
 #[ignore] // Performance test - run with --ignored
 fn test_poseidon2_hash_perf() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("poseidon2_hash_perf");
+    
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -52,7 +52,7 @@ fn test_poseidon2_hash_perf() {
             fields[i * 2].clone(),
             fields[i * 2 + 1].clone(),
         ];
-        let _ = api.poseidon2_hash(&inputs).expect("Poseidon2Hash failed");
+        let _ = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
     }
     let us = timer.us() / loops as u128;
 

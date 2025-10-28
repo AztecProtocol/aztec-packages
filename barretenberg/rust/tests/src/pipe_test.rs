@@ -46,7 +46,7 @@ fn test_pipe_pedersen_hash() {
         Fr::from_u64(8).to_buffer(),
     ];
 
-    let response = api.pedersen_hash(&inputs, 7).expect("PedersenHash failed");
+    let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
@@ -68,7 +68,7 @@ fn test_pipe_poseidon2_hash() {
         Fr::from_u64(8).to_buffer(),
     ];
 
-    let response = api.poseidon2_hash(&inputs).expect("Poseidon2Hash failed");
+    let response = api.poseidon2_hash(inputs).expect("Poseidon2Hash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison

@@ -3,16 +3,15 @@
 //! Parallels barretenberg/ts/src/barretenberg/pedersen.test.ts
 
 #[cfg(test)]
-use barretenberg_rs::{backends::UnixSocketBackend, BarretenbergApi, Fr};
+use barretenberg_rs::{backends::PipeBackend, BarretenbergApi, Fr};
 #[cfg(test)]
-use crate::utils::{get_bb_binary_path, get_test_socket_path, Timer};
+use crate::utils::{get_bb_binary_path, Timer};
 
 #[test]
 fn test_pedersen_hash() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("pedersen_hash");
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -21,7 +20,7 @@ fn test_pedersen_hash() {
         Fr::from_u64(8).to_buffer().try_into().unwrap(),
     ];
 
-    let response = api.pedersen_hash(&inputs, 7).expect("PedersenHash failed");
+    let response = api.pedersen_hash(inputs, 7).expect("PedersenHash failed");
     let result = Fr::from_buffer_reduce(&response.hash);
 
     // Print result for snapshot comparison
@@ -33,9 +32,8 @@ fn test_pedersen_hash() {
 #[test]
 fn test_pedersen_hash_buffer() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("pedersen_hash_buffer");
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -57,9 +55,9 @@ fn test_pedersen_hash_buffer() {
 #[test]
 fn test_pedersen_commit() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("pedersen_commit");
+    
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -69,7 +67,7 @@ fn test_pedersen_commit() {
         Fr::from_u64(12).to_buffer().try_into().unwrap(),
     ];
 
-    let response = api.pedersen_commit(&inputs, 0).expect("PedersenCommit failed");
+    let response = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
 
     let x = Fr::from_buffer_reduce(&response.point.x);
     let y = Fr::from_buffer_reduce(&response.point.y);
@@ -85,9 +83,9 @@ fn test_pedersen_commit() {
 #[ignore] // Performance test - run with --ignored
 fn test_pedersen_hash_perf() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("pedersen_hash_perf");
+    
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -103,7 +101,7 @@ fn test_pedersen_hash_perf() {
             fields[i * 2].to_buffer().try_into().unwrap(),
             fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
-        let _ = api.pedersen_hash(&inputs, 0).expect("PedersenHash failed");
+        let _ = api.pedersen_hash(inputs, 0).expect("PedersenHash failed");
     }
     let us = timer.us() / loops as u128;
 
@@ -116,9 +114,9 @@ fn test_pedersen_hash_perf() {
 #[ignore] // Performance test - run with --ignored
 fn test_pedersen_commit_perf() {
     let bb_path = get_bb_binary_path();
-    let socket_path = get_test_socket_path("pedersen_commit_perf");
+    
 
-    let backend = UnixSocketBackend::new(&bb_path, &socket_path, Some(1))
+    let backend = PipeBackend::new(&bb_path, Some(1))
         .expect("Failed to create backend");
     let mut api = BarretenbergApi::new(backend);
 
@@ -134,7 +132,7 @@ fn test_pedersen_commit_perf() {
             fields[i * 2].to_buffer().try_into().unwrap(),
             fields[i * 2 + 1].to_buffer().try_into().unwrap(),
         ];
-        let _ = api.pedersen_commit(&inputs, 0).expect("PedersenCommit failed");
+        let _ = api.pedersen_commit(inputs, 0).expect("PedersenCommit failed");
     }
     let us = timer.us() / loops as u128;
 

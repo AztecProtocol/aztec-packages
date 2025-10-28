@@ -11,43 +11,563 @@ mod serde_bytes {
     where D: Deserializer<'de> { <Vec<u8>>::deserialize(deserializer) }
 }
 
-/// AesDecrypt
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AesDecrypt {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub ciphertext: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub iv: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub key: Vec<u8>,
-    pub length: u32,
+mod serde_vec_bytes {
+    use serde::{Deserialize, Deserializer, Serializer, Serialize};
+    use serde::ser::SerializeSeq;
+    use serde::de::{SeqAccess, Visitor};
+
+    #[derive(Serialize, Deserialize)]
+    struct BytesWrapper(#[serde(with = "super::serde_bytes")] Vec<u8>);
+
+    pub fn serialize<S>(vec: &Vec<Vec<u8>>, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        let mut seq = serializer.serialize_seq(Some(vec.len()))?;
+        for bytes in vec {
+            seq.serialize_element(&BytesWrapper(bytes.clone()))?;
+        }
+        seq.end()
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<Vec<u8>>, D::Error>
+    where D: Deserializer<'de> {
+        struct VecVecU8Visitor;
+        impl<'de> Visitor<'de> for VecVecU8Visitor {
+            type Value = Vec<Vec<u8>>;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a sequence of byte arrays")
+            }
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where A: SeqAccess<'de> {
+                let mut vec = Vec::new();
+                while let Some(wrapper) = seq.next_element::<BytesWrapper>()? {
+                    vec.push(wrapper.0);
+                }
+                Ok(vec)
+            }
+        }
+        deserializer.deserialize_seq(VecVecU8Visitor)
+    }
 }
 
-impl AesDecrypt {
-    pub fn new(ciphertext: Vec<u8>, iv: Vec<u8>, key: Vec<u8>, length: u32) -> Self {
+/// CircuitInput
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitInput {
+    pub name: String,
+    #[serde(with = "serde_bytes")]
+    pub bytecode: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub verification_key: Vec<u8>,
+}
+
+/// ProofSystemSettings
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProofSystemSettings {
+    pub ipa_accumulation: bool,
+    pub oracle_hash_type: String,
+    pub disable_zk: bool,
+    pub optimized_solidity_verifier: bool,
+}
+
+/// CircuitProve
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitProve {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInput,
+    #[serde(with = "serde_bytes")]
+    pub witness: Vec<u8>,
+    pub settings: ProofSystemSettings,
+}
+
+impl CircuitProve {
+    pub fn new(circuit: CircuitInput, witness: Vec<u8>, settings: ProofSystemSettings) -> Self {
         Self {
-            type_name: "AesDecrypt".to_string(),
-            ciphertext,
-            iv,
-            key,
-            length,
+            type_name: "CircuitProve".to_string(),
+            circuit,
+            witness,
+            settings,
         }
     }
 }
 
-/// AesDecryptResponse
+/// CircuitComputeVkResponse
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AesDecryptResponse {
+pub struct CircuitComputeVkResponse {
     #[serde(with = "serde_bytes")]
-    pub plaintext: Vec<u8>,
+    pub bytes: Vec<u8>,
+    #[serde(with = "serde_vec_bytes")]
+    pub fields: Vec<Vec<u8>>,
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// CircuitInputNoVK
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitInputNoVK {
+    pub name: String,
+    #[serde(with = "serde_bytes")]
+    pub bytecode: Vec<u8>,
+}
+
+/// CircuitComputeVk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitComputeVk {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInputNoVK,
+    pub settings: ProofSystemSettings,
+}
+
+impl CircuitComputeVk {
+    pub fn new(circuit: CircuitInputNoVK, settings: ProofSystemSettings) -> Self {
+        Self {
+            type_name: "CircuitComputeVk".to_string(),
+            circuit,
+            settings,
+        }
+    }
+}
+
+/// CircuitStats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitStats {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInput,
+    pub include_gates_per_opcode: bool,
+    pub settings: ProofSystemSettings,
+}
+
+impl CircuitStats {
+    pub fn new(circuit: CircuitInput, include_gates_per_opcode: bool, settings: ProofSystemSettings) -> Self {
+        Self {
+            type_name: "CircuitStats".to_string(),
+            circuit,
+            include_gates_per_opcode,
+            settings,
+        }
+    }
+}
+
+/// CircuitVerify
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitVerify {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub verification_key: Vec<u8>,
+    #[serde(with = "serde_vec_bytes")]
+    pub public_inputs: Vec<Vec<u8>>,
+    #[serde(with = "serde_vec_bytes")]
+    pub proof: Vec<Vec<u8>>,
+    pub settings: ProofSystemSettings,
+}
+
+impl CircuitVerify {
+    pub fn new(verification_key: Vec<u8>, public_inputs: Vec<Vec<u8>>, proof: Vec<Vec<u8>>, settings: ProofSystemSettings) -> Self {
+        Self {
+            type_name: "CircuitVerify".to_string(),
+            verification_key,
+            public_inputs,
+            proof,
+            settings,
+        }
+    }
+}
+
+/// ClientIvcComputeStandaloneVk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcComputeStandaloneVk {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInputNoVK,
+}
+
+impl ClientIvcComputeStandaloneVk {
+    pub fn new(circuit: CircuitInputNoVK) -> Self {
+        Self {
+            type_name: "ClientIvcComputeStandaloneVk".to_string(),
+            circuit,
+        }
+    }
+}
+
+/// ClientIvcComputeIvcVk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcComputeIvcVk {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInputNoVK,
+}
+
+impl ClientIvcComputeIvcVk {
+    pub fn new(circuit: CircuitInputNoVK) -> Self {
+        Self {
+            type_name: "ClientIvcComputeIvcVk".to_string(),
+            circuit,
+        }
+    }
+}
+
+/// ClientIvcStart
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcStart {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub num_circuits: u64,
+}
+
+impl ClientIvcStart {
+    pub fn new(num_circuits: u64) -> Self {
+        Self {
+            type_name: "ClientIvcStart".to_string(),
+            num_circuits,
+        }
+    }
+}
+
+/// ClientIvcLoad
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcLoad {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInput,
+}
+
+impl ClientIvcLoad {
+    pub fn new(circuit: CircuitInput) -> Self {
+        Self {
+            type_name: "ClientIvcLoad".to_string(),
+            circuit,
+        }
+    }
+}
+
+/// ClientIvcAccumulate
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcAccumulate {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub witness: Vec<u8>,
+}
+
+impl ClientIvcAccumulate {
+    pub fn new(witness: Vec<u8>) -> Self {
+        Self {
+            type_name: "ClientIvcAccumulate".to_string(),
+            witness,
+        }
+    }
+}
+
+/// ClientIvcProve
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcProve {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+
+}
+
+impl ClientIvcProve {
+    pub fn new() -> Self {
+        Self {
+            type_name: "ClientIvcProve".to_string(),
+        }
+    }
+}
+
+/// ECCVMProof
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ECCVMProof {
+    #[serde(with = "serde_vec_bytes")]
+    pub pre_ipa_proof: Vec<Vec<u8>>,
+    #[serde(with = "serde_vec_bytes")]
+    pub ipa_proof: Vec<Vec<u8>>,
+}
+
+/// GoblinProof
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoblinProof {
+    #[serde(with = "serde_vec_bytes")]
+    pub merge_proof: Vec<Vec<u8>>,
+    pub eccvm_proof: ECCVMProof,
+    #[serde(with = "serde_vec_bytes")]
+    pub translator_proof: Vec<Vec<u8>>,
+}
+
+/// ClientIVCProof
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIVCProof {
+    #[serde(with = "serde_vec_bytes")]
+    pub mega_proof: Vec<Vec<u8>>,
+    pub goblin_proof: GoblinProof,
+}
+
+/// ClientIvcVerify
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcVerify {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub proof: ClientIVCProof,
+    #[serde(with = "serde_bytes")]
+    pub vk: Vec<u8>,
+}
+
+impl ClientIvcVerify {
+    pub fn new(proof: ClientIVCProof, vk: Vec<u8>) -> Self {
+        Self {
+            type_name: "ClientIvcVerify".to_string(),
+            proof,
+            vk,
+        }
+    }
+}
+
+/// VkAsFields
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VkAsFields {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub verification_key: Vec<u8>,
+}
+
+impl VkAsFields {
+    pub fn new(verification_key: Vec<u8>) -> Self {
+        Self {
+            type_name: "VkAsFields".to_string(),
+            verification_key,
+        }
+    }
+}
+
+/// MegaVkAsFields
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MegaVkAsFields {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub verification_key: Vec<u8>,
+}
+
+impl MegaVkAsFields {
+    pub fn new(verification_key: Vec<u8>) -> Self {
+        Self {
+            type_name: "MegaVkAsFields".to_string(),
+            verification_key,
+        }
+    }
+}
+
+/// CircuitWriteSolidityVerifier
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitWriteSolidityVerifier {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub verification_key: Vec<u8>,
+    pub settings: ProofSystemSettings,
+}
+
+impl CircuitWriteSolidityVerifier {
+    pub fn new(verification_key: Vec<u8>, settings: ProofSystemSettings) -> Self {
+        Self {
+            type_name: "CircuitWriteSolidityVerifier".to_string(),
+            verification_key,
+            settings,
+        }
+    }
+}
+
+/// ClientIvcCheckPrecomputedVk
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcCheckPrecomputedVk {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInput,
+}
+
+impl ClientIvcCheckPrecomputedVk {
+    pub fn new(circuit: CircuitInput) -> Self {
+        Self {
+            type_name: "ClientIvcCheckPrecomputedVk".to_string(),
+            circuit,
+        }
+    }
+}
+
+/// ClientIvcStats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcStats {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub circuit: CircuitInputNoVK,
+    pub include_gates_per_opcode: bool,
+}
+
+impl ClientIvcStats {
+    pub fn new(circuit: CircuitInputNoVK, include_gates_per_opcode: bool) -> Self {
+        Self {
+            type_name: "ClientIvcStats".to_string(),
+            circuit,
+            include_gates_per_opcode,
+        }
+    }
+}
+
+/// Poseidon2Hash
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2Hash {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_vec_bytes")]
+    pub inputs: Vec<Vec<u8>>,
+}
+
+impl Poseidon2Hash {
+    pub fn new(inputs: Vec<Vec<u8>>) -> Self {
+        Self {
+            type_name: "Poseidon2Hash".to_string(),
+            inputs,
+        }
+    }
+}
+
+/// Poseidon2Permutation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2Permutation {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub inputs: [Vec<u8>; 4],
+}
+
+impl Poseidon2Permutation {
+    pub fn new(inputs: [Vec<u8>; 4]) -> Self {
+        Self {
+            type_name: "Poseidon2Permutation".to_string(),
+            inputs,
+        }
+    }
+}
+
+/// Poseidon2HashAccumulate
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2HashAccumulate {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_vec_bytes")]
+    pub inputs: Vec<Vec<u8>>,
+}
+
+impl Poseidon2HashAccumulate {
+    pub fn new(inputs: Vec<Vec<u8>>) -> Self {
+        Self {
+            type_name: "Poseidon2HashAccumulate".to_string(),
+            inputs,
+        }
+    }
+}
+
+/// PedersenCommit
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenCommit {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_vec_bytes")]
+    pub inputs: Vec<Vec<u8>>,
+    pub hash_index: u32,
+}
+
+impl PedersenCommit {
+    pub fn new(inputs: Vec<Vec<u8>>, hash_index: u32) -> Self {
+        Self {
+            type_name: "PedersenCommit".to_string(),
+            inputs,
+            hash_index,
+        }
+    }
+}
+
+/// PedersenHash
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenHash {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_vec_bytes")]
+    pub inputs: Vec<Vec<u8>>,
+    pub hash_index: u32,
+}
+
+impl PedersenHash {
+    pub fn new(inputs: Vec<Vec<u8>>, hash_index: u32) -> Self {
+        Self {
+            type_name: "PedersenHash".to_string(),
+            inputs,
+            hash_index,
+        }
+    }
+}
+
+/// PedersenHashBuffer
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenHashBuffer {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub input: Vec<u8>,
+    pub hash_index: u32,
+}
+
+impl PedersenHashBuffer {
+    pub fn new(input: Vec<u8>, hash_index: u32) -> Self {
+        Self {
+            type_name: "PedersenHashBuffer".to_string(),
+            input,
+            hash_index,
+        }
+    }
+}
+
+/// Blake2s
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Blake2s {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
+}
+
+impl Blake2s {
+    pub fn new(data: Vec<u8>) -> Self {
+        Self {
+            type_name: "Blake2s".to_string(),
+            data,
+        }
+    }
+}
+
+/// Blake2sToField
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Blake2sToField {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
+}
+
+impl Blake2sToField {
+    pub fn new(data: Vec<u8>) -> Self {
+        Self {
+            type_name: "Blake2sToField".to_string(),
+            data,
+        }
+    }
 }
 
 /// AesEncrypt
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AesEncrypt {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub plaintext: Vec<u8>,
@@ -70,15 +590,35 @@ impl AesEncrypt {
     }
 }
 
-/// AesEncryptResponse
+/// AesDecrypt
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AesEncryptResponse {
+pub struct AesDecrypt {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub ciphertext: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub iv: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub key: Vec<u8>,
+    pub length: u32,
 }
 
-/// AffineElement
+impl AesDecrypt {
+    pub fn new(ciphertext: Vec<u8>, iv: Vec<u8>, key: Vec<u8>, length: u32) -> Self {
+        Self {
+            type_name: "AesDecrypt".to_string(),
+            ciphertext,
+            iv,
+            key,
+            length,
+        }
+    }
+}
+
+/// affine_element
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename = "affine_element")]
 pub struct AffineElement {
     #[serde(with = "serde_bytes")]
     pub x: Vec<u8>,
@@ -86,60 +626,159 @@ pub struct AffineElement {
     pub y: Vec<u8>,
 }
 
-/// Blake2s
+/// GrumpkinMul
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Blake2s {
-    #[serde(rename = "__typename")]
+pub struct GrumpkinMul {
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
+    pub point: AffineElement,
     #[serde(with = "serde_bytes")]
-    pub data: Vec<u8>,
+    pub scalar: Vec<u8>,
 }
 
-impl Blake2s {
-    pub fn new(data: Vec<u8>) -> Self {
+impl GrumpkinMul {
+    pub fn new(point: AffineElement, scalar: Vec<u8>) -> Self {
         Self {
-            type_name: "Blake2s".to_string(),
-            data,
+            type_name: "GrumpkinMul".to_string(),
+            point,
+            scalar,
         }
     }
 }
 
-/// Blake2sResponse
+/// GrumpkinAdd
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Blake2sResponse {
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// Blake2sToField
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Blake2sToField {
-    #[serde(rename = "__typename")]
+pub struct GrumpkinAdd {
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub data: Vec<u8>,
+    pub point_a: AffineElement,
+    pub point_b: AffineElement,
 }
 
-impl Blake2sToField {
-    pub fn new(data: Vec<u8>) -> Self {
+impl GrumpkinAdd {
+    pub fn new(point_a: AffineElement, point_b: AffineElement) -> Self {
         Self {
-            type_name: "Blake2sToField".to_string(),
-            data,
+            type_name: "GrumpkinAdd".to_string(),
+            point_a,
+            point_b,
         }
     }
 }
 
-/// Blake2sToFieldResponse
+/// GrumpkinBatchMul
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Blake2sToFieldResponse {
+pub struct GrumpkinBatchMul {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub points: Vec<AffineElement>,
     #[serde(with = "serde_bytes")]
-    pub field: Vec<u8>,
+    pub scalar: Vec<u8>,
+}
+
+impl GrumpkinBatchMul {
+    pub fn new(points: Vec<AffineElement>, scalar: Vec<u8>) -> Self {
+        Self {
+            type_name: "GrumpkinBatchMul".to_string(),
+            points,
+            scalar,
+        }
+    }
+}
+
+/// GrumpkinGetRandomFr
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinGetRandomFr {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub dummy: u8,
+}
+
+impl GrumpkinGetRandomFr {
+    pub fn new(dummy: u8) -> Self {
+        Self {
+            type_name: "GrumpkinGetRandomFr".to_string(),
+            dummy,
+        }
+    }
+}
+
+/// GrumpkinReduce512
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinReduce512 {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub input: Vec<u8>,
+}
+
+impl GrumpkinReduce512 {
+    pub fn new(input: Vec<u8>) -> Self {
+        Self {
+            type_name: "GrumpkinReduce512".to_string(),
+            input,
+        }
+    }
+}
+
+/// Secp256k1Mul
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1Mul {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub point: AffineElement,
+    #[serde(with = "serde_bytes")]
+    pub scalar: Vec<u8>,
+}
+
+impl Secp256k1Mul {
+    pub fn new(point: AffineElement, scalar: Vec<u8>) -> Self {
+        Self {
+            type_name: "Secp256k1Mul".to_string(),
+            point,
+            scalar,
+        }
+    }
+}
+
+/// Secp256k1GetRandomFr
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1GetRandomFr {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    pub dummy: u8,
+}
+
+impl Secp256k1GetRandomFr {
+    pub fn new(dummy: u8) -> Self {
+        Self {
+            type_name: "Secp256k1GetRandomFr".to_string(),
+            dummy,
+        }
+    }
+}
+
+/// Secp256k1Reduce512
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1Reduce512 {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub input: Vec<u8>,
+}
+
+impl Secp256k1Reduce512 {
+    pub fn new(input: Vec<u8>) -> Self {
+        Self {
+            type_name: "Secp256k1Reduce512".to_string(),
+            input,
+        }
+    }
 }
 
 /// Bn254FrSqrt
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bn254FrSqrt {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub input: Vec<u8>,
@@ -154,414 +793,75 @@ impl Bn254FrSqrt {
     }
 }
 
-/// Bn254FrSqrtResponse
+/// SchnorrComputePublicKey
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Bn254FrSqrtResponse {
-    pub is_square_root: bool,
-    #[serde(with = "serde_bytes")]
-    pub value: Vec<u8>,
-}
-
-/// CircuitComputeVk
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitComputeVk {
-    #[serde(rename = "__typename")]
+pub struct SchnorrComputePublicKey {
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
-    pub circuit: CircuitInputNoVK,
-    pub settings: ProofSystemSettings,
+    #[serde(with = "serde_bytes")]
+    pub private_key: Vec<u8>,
 }
 
-impl CircuitComputeVk {
-    pub fn new(circuit: CircuitInputNoVK, settings: ProofSystemSettings) -> Self {
+impl SchnorrComputePublicKey {
+    pub fn new(private_key: Vec<u8>) -> Self {
         Self {
-            type_name: "CircuitComputeVk".to_string(),
-            circuit,
-            settings,
+            type_name: "SchnorrComputePublicKey".to_string(),
+            private_key,
         }
     }
 }
 
-/// CircuitComputeVkResponse
+/// SchnorrConstructSignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitComputeVkResponse {
-    #[serde(with = "serde_bytes")]
-    pub bytes: Vec<u8>,
-    pub fields: Vec<Vec<u8>>,
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// CircuitInfoResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitInfoResponse {
-    pub num_gates: u32,
-    pub num_gates_dyadic: u32,
-    pub num_acir_opcodes: u32,
-    pub gates_per_opcode: Vec<u64>,
-}
-
-/// CircuitInput
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitInput {
-    pub name: String,
-    #[serde(with = "serde_bytes")]
-    pub bytecode: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub verification_key: Vec<u8>,
-}
-
-/// CircuitInputNoVK
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitInputNoVK {
-    pub name: String,
-    #[serde(with = "serde_bytes")]
-    pub bytecode: Vec<u8>,
-}
-
-/// CircuitProve
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitProve {
-    #[serde(rename = "__typename")]
+pub struct SchnorrConstructSignature {
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
-    pub circuit: CircuitInput,
     #[serde(with = "serde_bytes")]
-    pub witness: Vec<u8>,
-    pub settings: ProofSystemSettings,
+    pub message: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub private_key: Vec<u8>,
 }
 
-impl CircuitProve {
-    pub fn new(circuit: CircuitInput, witness: Vec<u8>, settings: ProofSystemSettings) -> Self {
+impl SchnorrConstructSignature {
+    pub fn new(message: Vec<u8>, private_key: Vec<u8>) -> Self {
         Self {
-            type_name: "CircuitProve".to_string(),
-            circuit,
-            witness,
-            settings,
+            type_name: "SchnorrConstructSignature".to_string(),
+            message,
+            private_key,
         }
     }
 }
 
-/// CircuitProveResponse
+/// SchnorrVerifySignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitProveResponse {
-    pub public_inputs: Vec<Vec<u8>>,
-    pub proof: Vec<Vec<u8>>,
-    pub vk: CircuitComputeVkResponse,
-}
-
-/// CircuitStats
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitStats {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInput,
-    pub include_gates_per_opcode: bool,
-    pub settings: ProofSystemSettings,
-}
-
-impl CircuitStats {
-    pub fn new(circuit: CircuitInput, include_gates_per_opcode: bool, settings: ProofSystemSettings) -> Self {
-        Self {
-            type_name: "CircuitStats".to_string(),
-            circuit,
-            include_gates_per_opcode,
-            settings,
-        }
-    }
-}
-
-/// CircuitVerify
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitVerify {
-    #[serde(rename = "__typename")]
+pub struct SchnorrVerifySignature {
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
-    pub verification_key: Vec<u8>,
-    pub public_inputs: Vec<Vec<u8>>,
-    pub proof: Vec<Vec<u8>>,
-    pub settings: ProofSystemSettings,
-}
-
-impl CircuitVerify {
-    pub fn new(verification_key: Vec<u8>, public_inputs: Vec<Vec<u8>>, proof: Vec<Vec<u8>>, settings: ProofSystemSettings) -> Self {
-        Self {
-            type_name: "CircuitVerify".to_string(),
-            verification_key,
-            public_inputs,
-            proof,
-            settings,
-        }
-    }
-}
-
-/// CircuitVerifyResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitVerifyResponse {
-    pub verified: bool,
-}
-
-/// CircuitWriteSolidityVerifier
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitWriteSolidityVerifier {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
+    pub message: Vec<u8>,
+    pub public_key: AffineElement,
     #[serde(with = "serde_bytes")]
-    pub verification_key: Vec<u8>,
-    pub settings: ProofSystemSettings,
-}
-
-impl CircuitWriteSolidityVerifier {
-    pub fn new(verification_key: Vec<u8>, settings: ProofSystemSettings) -> Self {
-        Self {
-            type_name: "CircuitWriteSolidityVerifier".to_string(),
-            verification_key,
-            settings,
-        }
-    }
-}
-
-/// CircuitWriteSolidityVerifierResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitWriteSolidityVerifierResponse {
-    pub solidity_code: String,
-}
-
-/// ClientIvcAccumulate
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcAccumulate {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
+    pub s: Vec<u8>,
     #[serde(with = "serde_bytes")]
-    pub witness: Vec<u8>,
+    pub e: Vec<u8>,
 }
 
-impl ClientIvcAccumulate {
-    pub fn new(witness: Vec<u8>) -> Self {
+impl SchnorrVerifySignature {
+    pub fn new(message: Vec<u8>, public_key: AffineElement, s: Vec<u8>, e: Vec<u8>) -> Self {
         Self {
-            type_name: "ClientIvcAccumulate".to_string(),
-            witness,
+            type_name: "SchnorrVerifySignature".to_string(),
+            message,
+            public_key,
+            s,
+            e,
         }
     }
-}
-
-/// ClientIvcAccumulateResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcAccumulateResponse {
-
-}
-
-/// ClientIvcCheckPrecomputedVk
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcCheckPrecomputedVk {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInput,
-}
-
-impl ClientIvcCheckPrecomputedVk {
-    pub fn new(circuit: CircuitInput) -> Self {
-        Self {
-            type_name: "ClientIvcCheckPrecomputedVk".to_string(),
-            circuit,
-        }
-    }
-}
-
-/// ClientIvcCheckPrecomputedVkResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcCheckPrecomputedVkResponse {
-    pub valid: bool,
-    #[serde(with = "serde_bytes")]
-    pub actual_vk: Vec<u8>,
-}
-
-/// ClientIvcComputeIvcVk
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcComputeIvcVk {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInputNoVK,
-}
-
-impl ClientIvcComputeIvcVk {
-    pub fn new(circuit: CircuitInputNoVK) -> Self {
-        Self {
-            type_name: "ClientIvcComputeIvcVk".to_string(),
-            circuit,
-        }
-    }
-}
-
-/// ClientIvcComputeIvcVkResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcComputeIvcVkResponse {
-    #[serde(with = "serde_bytes")]
-    pub bytes: Vec<u8>,
-}
-
-/// ClientIvcComputeStandaloneVk
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcComputeStandaloneVk {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInputNoVK,
-}
-
-impl ClientIvcComputeStandaloneVk {
-    pub fn new(circuit: CircuitInputNoVK) -> Self {
-        Self {
-            type_name: "ClientIvcComputeStandaloneVk".to_string(),
-            circuit,
-        }
-    }
-}
-
-/// ClientIvcComputeStandaloneVkResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcComputeStandaloneVkResponse {
-    #[serde(with = "serde_bytes")]
-    pub bytes: Vec<u8>,
-    pub fields: Vec<Vec<u8>>,
-}
-
-/// ClientIvcLoad
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcLoad {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInput,
-}
-
-impl ClientIvcLoad {
-    pub fn new(circuit: CircuitInput) -> Self {
-        Self {
-            type_name: "ClientIvcLoad".to_string(),
-            circuit,
-        }
-    }
-}
-
-/// ClientIvcLoadResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcLoadResponse {
-
-}
-
-/// ClientIVCProof
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIVCProof {
-    pub mega_proof: Vec<Vec<u8>>,
-    pub goblin_proof: GoblinProof,
-}
-
-/// ClientIvcProve
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcProve {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-
-}
-
-impl ClientIvcProve {
-    pub fn new() -> Self {
-        Self {
-            type_name: "ClientIvcProve".to_string(),
-        }
-    }
-}
-
-/// ClientIvcProveResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcProveResponse {
-    pub proof: ClientIVCProof,
-}
-
-/// ClientIvcStart
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcStart {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub num_circuits: u64,
-}
-
-impl ClientIvcStart {
-    pub fn new(num_circuits: u64) -> Self {
-        Self {
-            type_name: "ClientIvcStart".to_string(),
-            num_circuits,
-        }
-    }
-}
-
-/// ClientIvcStartResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcStartResponse {
-
-}
-
-/// ClientIvcStats
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcStats {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub circuit: CircuitInputNoVK,
-    pub include_gates_per_opcode: bool,
-}
-
-impl ClientIvcStats {
-    pub fn new(circuit: CircuitInputNoVK, include_gates_per_opcode: bool) -> Self {
-        Self {
-            type_name: "ClientIvcStats".to_string(),
-            circuit,
-            include_gates_per_opcode,
-        }
-    }
-}
-
-/// ClientIvcStatsResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcStatsResponse {
-    pub acir_opcodes: u32,
-    pub circuit_size: u32,
-    pub gates_per_opcode: Vec<u32>,
-}
-
-/// ClientIvcVerify
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcVerify {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub proof: ClientIVCProof,
-    #[serde(with = "serde_bytes")]
-    pub vk: Vec<u8>,
-}
-
-impl ClientIvcVerify {
-    pub fn new(proof: ClientIVCProof, vk: Vec<u8>) -> Self {
-        Self {
-            type_name: "ClientIvcVerify".to_string(),
-            proof,
-            vk,
-        }
-    }
-}
-
-/// ClientIvcVerifyResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ClientIvcVerifyResponse {
-    pub valid: bool,
-}
-
-/// ECCVMProof
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ECCVMProof {
-    pub pre_ipa_proof: Vec<Vec<u8>>,
-    pub ipa_proof: Vec<Vec<u8>>,
 }
 
 /// EcdsaSecp256k1ComputePublicKey
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcdsaSecp256k1ComputePublicKey {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub private_key: Vec<u8>,
@@ -576,16 +876,28 @@ impl EcdsaSecp256k1ComputePublicKey {
     }
 }
 
-/// EcdsaSecp256k1ComputePublicKeyResponse
+/// EcdsaSecp256r1ComputePublicKey
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256k1ComputePublicKeyResponse {
-    pub public_key: AffineElement,
+pub struct EcdsaSecp256r1ComputePublicKey {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub private_key: Vec<u8>,
+}
+
+impl EcdsaSecp256r1ComputePublicKey {
+    pub fn new(private_key: Vec<u8>) -> Self {
+        Self {
+            type_name: "EcdsaSecp256r1ComputePublicKey".to_string(),
+            private_key,
+        }
+    }
 }
 
 /// EcdsaSecp256k1ConstructSignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcdsaSecp256k1ConstructSignature {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub message: Vec<u8>,
@@ -603,20 +915,31 @@ impl EcdsaSecp256k1ConstructSignature {
     }
 }
 
-/// EcdsaSecp256k1ConstructSignatureResponse
+/// EcdsaSecp256r1ConstructSignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256k1ConstructSignatureResponse {
+pub struct EcdsaSecp256r1ConstructSignature {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
     #[serde(with = "serde_bytes")]
-    pub r: Vec<u8>,
+    pub message: Vec<u8>,
     #[serde(with = "serde_bytes")]
-    pub s: Vec<u8>,
-    pub v: u8,
+    pub private_key: Vec<u8>,
+}
+
+impl EcdsaSecp256r1ConstructSignature {
+    pub fn new(message: Vec<u8>, private_key: Vec<u8>) -> Self {
+        Self {
+            type_name: "EcdsaSecp256r1ConstructSignature".to_string(),
+            message,
+            private_key,
+        }
+    }
 }
 
 /// EcdsaSecp256k1RecoverPublicKey
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcdsaSecp256k1RecoverPublicKey {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub message: Vec<u8>,
@@ -639,16 +962,36 @@ impl EcdsaSecp256k1RecoverPublicKey {
     }
 }
 
-/// EcdsaSecp256k1RecoverPublicKeyResponse
+/// EcdsaSecp256r1RecoverPublicKey
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256k1RecoverPublicKeyResponse {
-    pub public_key: AffineElement,
+pub struct EcdsaSecp256r1RecoverPublicKey {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub message: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub r: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub s: Vec<u8>,
+    pub v: u8,
+}
+
+impl EcdsaSecp256r1RecoverPublicKey {
+    pub fn new(message: Vec<u8>, r: Vec<u8>, s: Vec<u8>, v: u8) -> Self {
+        Self {
+            type_name: "EcdsaSecp256r1RecoverPublicKey".to_string(),
+            message,
+            r,
+            s,
+            v,
+        }
+    }
 }
 
 /// EcdsaSecp256k1VerifySignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcdsaSecp256k1VerifySignature {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub message: Vec<u8>,
@@ -673,103 +1016,10 @@ impl EcdsaSecp256k1VerifySignature {
     }
 }
 
-/// EcdsaSecp256k1VerifySignatureResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256k1VerifySignatureResponse {
-    pub verified: bool,
-}
-
-/// EcdsaSecp256r1ComputePublicKey
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1ComputePublicKey {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub private_key: Vec<u8>,
-}
-
-impl EcdsaSecp256r1ComputePublicKey {
-    pub fn new(private_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "EcdsaSecp256r1ComputePublicKey".to_string(),
-            private_key,
-        }
-    }
-}
-
-/// EcdsaSecp256r1ComputePublicKeyResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1ComputePublicKeyResponse {
-    pub public_key: AffineElement,
-}
-
-/// EcdsaSecp256r1ConstructSignature
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1ConstructSignature {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub message: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub private_key: Vec<u8>,
-}
-
-impl EcdsaSecp256r1ConstructSignature {
-    pub fn new(message: Vec<u8>, private_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "EcdsaSecp256r1ConstructSignature".to_string(),
-            message,
-            private_key,
-        }
-    }
-}
-
-/// EcdsaSecp256r1ConstructSignatureResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1ConstructSignatureResponse {
-    #[serde(with = "serde_bytes")]
-    pub r: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub s: Vec<u8>,
-    pub v: u8,
-}
-
-/// EcdsaSecp256r1RecoverPublicKey
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1RecoverPublicKey {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub message: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub r: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub s: Vec<u8>,
-    pub v: u8,
-}
-
-impl EcdsaSecp256r1RecoverPublicKey {
-    pub fn new(message: Vec<u8>, r: Vec<u8>, s: Vec<u8>, v: u8) -> Self {
-        Self {
-            type_name: "EcdsaSecp256r1RecoverPublicKey".to_string(),
-            message,
-            r,
-            s,
-            v,
-        }
-    }
-}
-
-/// EcdsaSecp256r1RecoverPublicKeyResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1RecoverPublicKeyResponse {
-    pub public_key: AffineElement,
-}
-
 /// EcdsaSecp256r1VerifySignature
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EcdsaSecp256r1VerifySignature {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub message: Vec<u8>,
@@ -794,541 +1044,10 @@ impl EcdsaSecp256r1VerifySignature {
     }
 }
 
-/// EcdsaSecp256r1VerifySignatureResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcdsaSecp256r1VerifySignatureResponse {
-    pub verified: bool,
-}
-
-/// GoblinProof
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GoblinProof {
-    pub merge_proof: Vec<Vec<u8>>,
-    pub eccvm_proof: ECCVMProof,
-    pub translator_proof: Vec<Vec<u8>>,
-}
-
-/// GrumpkinAdd
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinAdd {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub point_a: AffineElement,
-    pub point_b: AffineElement,
-}
-
-impl GrumpkinAdd {
-    pub fn new(point_a: AffineElement, point_b: AffineElement) -> Self {
-        Self {
-            type_name: "GrumpkinAdd".to_string(),
-            point_a,
-            point_b,
-        }
-    }
-}
-
-/// GrumpkinAddResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinAddResponse {
-    pub point: AffineElement,
-}
-
-/// GrumpkinBatchMul
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinBatchMul {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub points: Vec<AffineElement>,
-    #[serde(with = "serde_bytes")]
-    pub scalar: Vec<u8>,
-}
-
-impl GrumpkinBatchMul {
-    pub fn new(points: Vec<AffineElement>, scalar: Vec<u8>) -> Self {
-        Self {
-            type_name: "GrumpkinBatchMul".to_string(),
-            points,
-            scalar,
-        }
-    }
-}
-
-/// GrumpkinBatchMulResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinBatchMulResponse {
-    pub points: Vec<AffineElement>,
-}
-
-/// GrumpkinGetRandomFr
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinGetRandomFr {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub dummy: u8,
-}
-
-impl GrumpkinGetRandomFr {
-    pub fn new(dummy: u8) -> Self {
-        Self {
-            type_name: "GrumpkinGetRandomFr".to_string(),
-            dummy,
-        }
-    }
-}
-
-/// GrumpkinGetRandomFrResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinGetRandomFrResponse {
-    #[serde(with = "serde_bytes")]
-    pub value: Vec<u8>,
-}
-
-/// GrumpkinMul
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinMul {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub point: AffineElement,
-    #[serde(with = "serde_bytes")]
-    pub scalar: Vec<u8>,
-}
-
-impl GrumpkinMul {
-    pub fn new(point: AffineElement, scalar: Vec<u8>) -> Self {
-        Self {
-            type_name: "GrumpkinMul".to_string(),
-            point,
-            scalar,
-        }
-    }
-}
-
-/// GrumpkinMulResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinMulResponse {
-    pub point: AffineElement,
-}
-
-/// GrumpkinReduce512
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinReduce512 {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub input: Vec<u8>,
-}
-
-impl GrumpkinReduce512 {
-    pub fn new(input: Vec<u8>) -> Self {
-        Self {
-            type_name: "GrumpkinReduce512".to_string(),
-            input,
-        }
-    }
-}
-
-/// GrumpkinReduce512Response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GrumpkinReduce512Response {
-    #[serde(with = "serde_bytes")]
-    pub value: Vec<u8>,
-}
-
-/// MegaVkAsFields
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MegaVkAsFields {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub verification_key: Vec<u8>,
-}
-
-impl MegaVkAsFields {
-    pub fn new(verification_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "MegaVkAsFields".to_string(),
-            verification_key,
-        }
-    }
-}
-
-/// MegaVkAsFieldsResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MegaVkAsFieldsResponse {
-    pub fields: Vec<Vec<u8>>,
-}
-
-/// PedersenCommit
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenCommit {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub inputs: Vec<Vec<u8>>,
-    pub hash_index: u32,
-}
-
-impl PedersenCommit {
-    pub fn new(inputs: Vec<Vec<u8>>, hash_index: u32) -> Self {
-        Self {
-            type_name: "PedersenCommit".to_string(),
-            inputs,
-            hash_index,
-        }
-    }
-}
-
-/// PedersenCommitResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenCommitResponse {
-    pub point: AffineElement,
-}
-
-/// PedersenHash
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenHash {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub inputs: Vec<Vec<u8>>,
-    pub hash_index: u32,
-}
-
-impl PedersenHash {
-    pub fn new(inputs: Vec<Vec<u8>>, hash_index: u32) -> Self {
-        Self {
-            type_name: "PedersenHash".to_string(),
-            inputs,
-            hash_index,
-        }
-    }
-}
-
-/// PedersenHashBuffer
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenHashBuffer {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub input: Vec<u8>,
-    pub hash_index: u32,
-}
-
-impl PedersenHashBuffer {
-    pub fn new(input: Vec<u8>, hash_index: u32) -> Self {
-        Self {
-            type_name: "PedersenHashBuffer".to_string(),
-            input,
-            hash_index,
-        }
-    }
-}
-
-/// PedersenHashBufferResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenHashBufferResponse {
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// PedersenHashResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PedersenHashResponse {
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// Poseidon2Hash
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2Hash {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub inputs: Vec<Vec<u8>>,
-}
-
-impl Poseidon2Hash {
-    pub fn new(inputs: Vec<Vec<u8>>) -> Self {
-        Self {
-            type_name: "Poseidon2Hash".to_string(),
-            inputs,
-        }
-    }
-}
-
-/// Poseidon2HashAccumulate
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2HashAccumulate {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub inputs: Vec<Vec<u8>>,
-}
-
-impl Poseidon2HashAccumulate {
-    pub fn new(inputs: Vec<Vec<u8>>) -> Self {
-        Self {
-            type_name: "Poseidon2HashAccumulate".to_string(),
-            inputs,
-        }
-    }
-}
-
-/// Poseidon2HashAccumulateResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2HashAccumulateResponse {
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// Poseidon2HashResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2HashResponse {
-    #[serde(with = "serde_bytes")]
-    pub hash: Vec<u8>,
-}
-
-/// Poseidon2Permutation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2Permutation {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub inputs: [Vec<u8>; 4],
-}
-
-impl Poseidon2Permutation {
-    pub fn new(inputs: [Vec<u8>; 4]) -> Self {
-        Self {
-            type_name: "Poseidon2Permutation".to_string(),
-            inputs,
-        }
-    }
-}
-
-/// Poseidon2PermutationResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Poseidon2PermutationResponse {
-    pub outputs: [Vec<u8>; 4],
-}
-
-/// ProofSystemSettings
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ProofSystemSettings {
-    pub ipa_accumulation: bool,
-    pub oracle_hash_type: String,
-    pub disable_zk: bool,
-    pub optimized_solidity_verifier: bool,
-}
-
-/// SchnorrComputePublicKey
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrComputePublicKey {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub private_key: Vec<u8>,
-}
-
-impl SchnorrComputePublicKey {
-    pub fn new(private_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "SchnorrComputePublicKey".to_string(),
-            private_key,
-        }
-    }
-}
-
-/// SchnorrComputePublicKeyResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrComputePublicKeyResponse {
-    pub public_key: AffineElement,
-}
-
-/// SchnorrConstructSignature
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrConstructSignature {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub message: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub private_key: Vec<u8>,
-}
-
-impl SchnorrConstructSignature {
-    pub fn new(message: Vec<u8>, private_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "SchnorrConstructSignature".to_string(),
-            message,
-            private_key,
-        }
-    }
-}
-
-/// SchnorrConstructSignatureResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrConstructSignatureResponse {
-    #[serde(with = "serde_bytes")]
-    pub s: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub e: Vec<u8>,
-}
-
-/// SchnorrVerifySignature
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrVerifySignature {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub message: Vec<u8>,
-    pub public_key: AffineElement,
-    #[serde(with = "serde_bytes")]
-    pub s: Vec<u8>,
-    #[serde(with = "serde_bytes")]
-    pub e: Vec<u8>,
-}
-
-impl SchnorrVerifySignature {
-    pub fn new(message: Vec<u8>, public_key: AffineElement, s: Vec<u8>, e: Vec<u8>) -> Self {
-        Self {
-            type_name: "SchnorrVerifySignature".to_string(),
-            message,
-            public_key,
-            s,
-            e,
-        }
-    }
-}
-
-/// SchnorrVerifySignatureResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SchnorrVerifySignatureResponse {
-    pub verified: bool,
-}
-
-/// Secp256k1GetRandomFr
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1GetRandomFr {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub dummy: u8,
-}
-
-impl Secp256k1GetRandomFr {
-    pub fn new(dummy: u8) -> Self {
-        Self {
-            type_name: "Secp256k1GetRandomFr".to_string(),
-            dummy,
-        }
-    }
-}
-
-/// Secp256k1GetRandomFrResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1GetRandomFrResponse {
-    #[serde(with = "serde_bytes")]
-    pub value: Vec<u8>,
-}
-
-/// Secp256k1Mul
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1Mul {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    pub point: AffineElement,
-    #[serde(with = "serde_bytes")]
-    pub scalar: Vec<u8>,
-}
-
-impl Secp256k1Mul {
-    pub fn new(point: AffineElement, scalar: Vec<u8>) -> Self {
-        Self {
-            type_name: "Secp256k1Mul".to_string(),
-            point,
-            scalar,
-        }
-    }
-}
-
-/// Secp256k1MulResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1MulResponse {
-    pub point: AffineElement,
-}
-
-/// Secp256k1Reduce512
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1Reduce512 {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub input: Vec<u8>,
-}
-
-impl Secp256k1Reduce512 {
-    pub fn new(input: Vec<u8>) -> Self {
-        Self {
-            type_name: "Secp256k1Reduce512".to_string(),
-            input,
-        }
-    }
-}
-
-/// Secp256k1Reduce512Response
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Secp256k1Reduce512Response {
-    #[serde(with = "serde_bytes")]
-    pub value: Vec<u8>,
-}
-
-/// Shutdown
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Shutdown {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-
-}
-
-impl Shutdown {
-    pub fn new() -> Self {
-        Self {
-            type_name: "Shutdown".to_string(),
-        }
-    }
-}
-
-/// ShutdownResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ShutdownResponse {
-
-}
-
-/// SrsInitGrumpkinSrs
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SrsInitGrumpkinSrs {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub points_buf: Vec<u8>,
-    pub num_points: u32,
-}
-
-impl SrsInitGrumpkinSrs {
-    pub fn new(points_buf: Vec<u8>, num_points: u32) -> Self {
-        Self {
-            type_name: "SrsInitGrumpkinSrs".to_string(),
-            points_buf,
-            num_points,
-        }
-    }
-}
-
-/// SrsInitGrumpkinSrsResponse
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SrsInitGrumpkinSrsResponse {
-    pub dummy: u8,
-}
-
 /// SrsInitSrs
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SrsInitSrs {
-    #[serde(rename = "__typename")]
+    #[serde(rename = "__typename", skip_serializing)]
     pub type_name: String,
     #[serde(with = "serde_bytes")]
     pub points_buf: Vec<u8>,
@@ -1348,40 +1067,380 @@ impl SrsInitSrs {
     }
 }
 
+/// SrsInitGrumpkinSrs
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SrsInitGrumpkinSrs {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+    #[serde(with = "serde_bytes")]
+    pub points_buf: Vec<u8>,
+    pub num_points: u32,
+}
+
+impl SrsInitGrumpkinSrs {
+    pub fn new(points_buf: Vec<u8>, num_points: u32) -> Self {
+        Self {
+            type_name: "SrsInitGrumpkinSrs".to_string(),
+            points_buf,
+            num_points,
+        }
+    }
+}
+
+/// Shutdown
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Shutdown {
+    #[serde(rename = "__typename", skip_serializing)]
+    pub type_name: String,
+
+}
+
+impl Shutdown {
+    pub fn new() -> Self {
+        Self {
+            type_name: "Shutdown".to_string(),
+        }
+    }
+}
+
+/// CircuitProveResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitProveResponse {
+    #[serde(with = "serde_vec_bytes")]
+    pub public_inputs: Vec<Vec<u8>>,
+    #[serde(with = "serde_vec_bytes")]
+    pub proof: Vec<Vec<u8>>,
+    pub vk: CircuitComputeVkResponse,
+}
+
+/// CircuitInfoResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitInfoResponse {
+    pub num_gates: u32,
+    pub num_gates_dyadic: u32,
+    pub num_acir_opcodes: u32,
+    pub gates_per_opcode: Vec<u64>,
+}
+
+/// CircuitVerifyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitVerifyResponse {
+    pub verified: bool,
+}
+
+/// ClientIvcComputeStandaloneVkResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcComputeStandaloneVkResponse {
+    #[serde(with = "serde_bytes")]
+    pub bytes: Vec<u8>,
+    #[serde(with = "serde_vec_bytes")]
+    pub fields: Vec<Vec<u8>>,
+}
+
+/// ClientIvcComputeIvcVkResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcComputeIvcVkResponse {
+    #[serde(with = "serde_bytes")]
+    pub bytes: Vec<u8>,
+}
+
+/// ClientIvcStartResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcStartResponse {
+
+}
+
+/// ClientIvcLoadResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcLoadResponse {
+
+}
+
+/// ClientIvcAccumulateResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcAccumulateResponse {
+
+}
+
+/// ClientIvcProveResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcProveResponse {
+    pub proof: ClientIVCProof,
+}
+
+/// ClientIvcVerifyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcVerifyResponse {
+    pub valid: bool,
+}
+
+/// VkAsFieldsResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VkAsFieldsResponse {
+    #[serde(with = "serde_vec_bytes")]
+    pub fields: Vec<Vec<u8>>,
+}
+
+/// MegaVkAsFieldsResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MegaVkAsFieldsResponse {
+    #[serde(with = "serde_vec_bytes")]
+    pub fields: Vec<Vec<u8>>,
+}
+
+/// CircuitWriteSolidityVerifierResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CircuitWriteSolidityVerifierResponse {
+    pub solidity_code: String,
+}
+
+/// ClientIvcCheckPrecomputedVkResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcCheckPrecomputedVkResponse {
+    pub valid: bool,
+    #[serde(with = "serde_bytes")]
+    pub actual_vk: Vec<u8>,
+}
+
+/// ClientIvcStatsResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientIvcStatsResponse {
+    pub acir_opcodes: u32,
+    pub circuit_size: u32,
+    pub gates_per_opcode: Vec<u32>,
+}
+
+/// Poseidon2HashResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2HashResponse {
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// Poseidon2PermutationResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2PermutationResponse {
+    pub outputs: [Vec<u8>; 4],
+}
+
+/// Poseidon2HashAccumulateResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Poseidon2HashAccumulateResponse {
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// PedersenCommitResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenCommitResponse {
+    pub point: AffineElement,
+}
+
+/// PedersenHashResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenHashResponse {
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// PedersenHashBufferResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PedersenHashBufferResponse {
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// Blake2sResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Blake2sResponse {
+    #[serde(with = "serde_bytes")]
+    pub hash: Vec<u8>,
+}
+
+/// Blake2sToFieldResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Blake2sToFieldResponse {
+    #[serde(with = "serde_bytes")]
+    pub field: Vec<u8>,
+}
+
+/// AesEncryptResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AesEncryptResponse {
+    #[serde(with = "serde_bytes")]
+    pub ciphertext: Vec<u8>,
+}
+
+/// AesDecryptResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AesDecryptResponse {
+    #[serde(with = "serde_bytes")]
+    pub plaintext: Vec<u8>,
+}
+
+/// GrumpkinMulResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinMulResponse {
+    pub point: AffineElement,
+}
+
+/// GrumpkinAddResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinAddResponse {
+    pub point: AffineElement,
+}
+
+/// GrumpkinBatchMulResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinBatchMulResponse {
+    pub points: Vec<AffineElement>,
+}
+
+/// GrumpkinGetRandomFrResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinGetRandomFrResponse {
+    #[serde(with = "serde_bytes")]
+    pub value: Vec<u8>,
+}
+
+/// GrumpkinReduce512Response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GrumpkinReduce512Response {
+    #[serde(with = "serde_bytes")]
+    pub value: Vec<u8>,
+}
+
+/// Secp256k1MulResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1MulResponse {
+    pub point: AffineElement,
+}
+
+/// Secp256k1GetRandomFrResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1GetRandomFrResponse {
+    #[serde(with = "serde_bytes")]
+    pub value: Vec<u8>,
+}
+
+/// Secp256k1Reduce512Response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Secp256k1Reduce512Response {
+    #[serde(with = "serde_bytes")]
+    pub value: Vec<u8>,
+}
+
+/// Bn254FrSqrtResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Bn254FrSqrtResponse {
+    pub is_square_root: bool,
+    #[serde(with = "serde_bytes")]
+    pub value: Vec<u8>,
+}
+
+/// SchnorrComputePublicKeyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchnorrComputePublicKeyResponse {
+    pub public_key: AffineElement,
+}
+
+/// SchnorrConstructSignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchnorrConstructSignatureResponse {
+    #[serde(with = "serde_bytes")]
+    pub s: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub e: Vec<u8>,
+}
+
+/// SchnorrVerifySignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchnorrVerifySignatureResponse {
+    pub verified: bool,
+}
+
+/// EcdsaSecp256k1ComputePublicKeyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256k1ComputePublicKeyResponse {
+    pub public_key: AffineElement,
+}
+
+/// EcdsaSecp256r1ComputePublicKeyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256r1ComputePublicKeyResponse {
+    pub public_key: AffineElement,
+}
+
+/// EcdsaSecp256k1ConstructSignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256k1ConstructSignatureResponse {
+    #[serde(with = "serde_bytes")]
+    pub r: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub s: Vec<u8>,
+    pub v: u8,
+}
+
+/// EcdsaSecp256r1ConstructSignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256r1ConstructSignatureResponse {
+    #[serde(with = "serde_bytes")]
+    pub r: Vec<u8>,
+    #[serde(with = "serde_bytes")]
+    pub s: Vec<u8>,
+    pub v: u8,
+}
+
+/// EcdsaSecp256k1RecoverPublicKeyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256k1RecoverPublicKeyResponse {
+    pub public_key: AffineElement,
+}
+
+/// EcdsaSecp256r1RecoverPublicKeyResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256r1RecoverPublicKeyResponse {
+    pub public_key: AffineElement,
+}
+
+/// EcdsaSecp256k1VerifySignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256k1VerifySignatureResponse {
+    pub verified: bool,
+}
+
+/// EcdsaSecp256r1VerifySignatureResponse
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EcdsaSecp256r1VerifySignatureResponse {
+    pub verified: bool,
+}
+
 /// SrsInitSrsResponse
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SrsInitSrsResponse {
     pub dummy: u8,
 }
 
-/// VkAsFields
+/// SrsInitGrumpkinSrsResponse
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VkAsFields {
-    #[serde(rename = "__typename")]
-    pub type_name: String,
-    #[serde(with = "serde_bytes")]
-    pub verification_key: Vec<u8>,
+pub struct SrsInitGrumpkinSrsResponse {
+    pub dummy: u8,
 }
 
-impl VkAsFields {
-    pub fn new(verification_key: Vec<u8>) -> Self {
-        Self {
-            type_name: "VkAsFields".to_string(),
-            verification_key,
-        }
-    }
-}
-
-/// VkAsFieldsResponse
+/// ShutdownResponse
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VkAsFieldsResponse {
-    pub fields: Vec<Vec<u8>>,
+pub struct ShutdownResponse {
+
 }
 
 /// Command enum - wraps all possible commands
 #[derive(Debug, Clone)]
 pub enum Command {
+    CircuitInput(CircuitInput),
+    ProofSystemSettings(ProofSystemSettings),
     CircuitProve(CircuitProve),
+    CircuitComputeVkResponse(CircuitComputeVkResponse),
+    CircuitInputNoVK(CircuitInputNoVK),
     CircuitComputeVk(CircuitComputeVk),
     CircuitStats(CircuitStats),
     CircuitVerify(CircuitVerify),
@@ -1391,6 +1450,9 @@ pub enum Command {
     ClientIvcLoad(ClientIvcLoad),
     ClientIvcAccumulate(ClientIvcAccumulate),
     ClientIvcProve(ClientIvcProve),
+    ECCVMProof(ECCVMProof),
+    GoblinProof(GoblinProof),
+    ClientIVCProof(ClientIVCProof),
     ClientIvcVerify(ClientIvcVerify),
     VkAsFields(VkAsFields),
     MegaVkAsFields(MegaVkAsFields),
@@ -1407,6 +1469,7 @@ pub enum Command {
     Blake2sToField(Blake2sToField),
     AesEncrypt(AesEncrypt),
     AesDecrypt(AesDecrypt),
+    AffineElement(AffineElement),
     GrumpkinMul(GrumpkinMul),
     GrumpkinAdd(GrumpkinAdd),
     GrumpkinBatchMul(GrumpkinBatchMul),
@@ -1438,8 +1501,24 @@ impl Serialize for Command {
         use serde::ser::SerializeTuple;
         let mut tuple = serializer.serialize_tuple(2)?;
         match self {
+            Command::CircuitInput(data) => {
+                tuple.serialize_element("CircuitInput")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::ProofSystemSettings(data) => {
+                tuple.serialize_element("ProofSystemSettings")?;
+                tuple.serialize_element(data)?;
+            }
             Command::CircuitProve(data) => {
                 tuple.serialize_element("CircuitProve")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::CircuitComputeVkResponse(data) => {
+                tuple.serialize_element("CircuitComputeVkResponse")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::CircuitInputNoVK(data) => {
+                tuple.serialize_element("CircuitInputNoVK")?;
                 tuple.serialize_element(data)?;
             }
             Command::CircuitComputeVk(data) => {
@@ -1476,6 +1555,18 @@ impl Serialize for Command {
             }
             Command::ClientIvcProve(data) => {
                 tuple.serialize_element("ClientIvcProve")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::ECCVMProof(data) => {
+                tuple.serialize_element("ECCVMProof")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::GoblinProof(data) => {
+                tuple.serialize_element("GoblinProof")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::ClientIVCProof(data) => {
+                tuple.serialize_element("ClientIVCProof")?;
                 tuple.serialize_element(data)?;
             }
             Command::ClientIvcVerify(data) => {
@@ -1540,6 +1631,10 @@ impl Serialize for Command {
             }
             Command::AesDecrypt(data) => {
                 tuple.serialize_element("AesDecrypt")?;
+                tuple.serialize_element(data)?;
+            }
+            Command::AffineElement(data) => {
+                tuple.serialize_element("affine_element")?;
                 tuple.serialize_element(data)?;
             }
             Command::GrumpkinMul(data) => {
@@ -1655,10 +1750,30 @@ impl<'de> Deserialize<'de> for Command {
                 let name: String = seq.next_element()?
                     .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
                 match name.as_str() {
+                    "CircuitInput" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::CircuitInput(data))
+                    }
+                    "ProofSystemSettings" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::ProofSystemSettings(data))
+                    }
                     "CircuitProve" => {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
                         Ok(Command::CircuitProve(data))
+                    }
+                    "CircuitComputeVkResponse" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::CircuitComputeVkResponse(data))
+                    }
+                    "CircuitInputNoVK" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::CircuitInputNoVK(data))
                     }
                     "CircuitComputeVk" => {
                         let data = seq.next_element()?
@@ -1704,6 +1819,21 @@ impl<'de> Deserialize<'de> for Command {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
                         Ok(Command::ClientIvcProve(data))
+                    }
+                    "ECCVMProof" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::ECCVMProof(data))
+                    }
+                    "GoblinProof" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::GoblinProof(data))
+                    }
+                    "ClientIVCProof" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::ClientIVCProof(data))
                     }
                     "ClientIvcVerify" => {
                         let data = seq.next_element()?
@@ -1784,6 +1914,11 @@ impl<'de> Deserialize<'de> for Command {
                         let data = seq.next_element()?
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
                         Ok(Command::AesDecrypt(data))
+                    }
+                    "affine_element" => {
+                        let data = seq.next_element()?
+                            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+                        Ok(Command::AffineElement(data))
                     }
                     "GrumpkinMul" => {
                         let data = seq.next_element()?
@@ -1900,7 +2035,7 @@ impl<'de> Deserialize<'de> for Command {
                             .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
                         Ok(Command::Shutdown(data))
                     }
-                    _ => Err(serde::de::Error::unknown_variant(&name, &["CircuitProve", "CircuitComputeVk", "CircuitStats", "CircuitVerify", "ClientIvcComputeStandaloneVk", "ClientIvcComputeIvcVk", "ClientIvcStart", "ClientIvcLoad", "ClientIvcAccumulate", "ClientIvcProve", "ClientIvcVerify", "VkAsFields", "MegaVkAsFields", "CircuitWriteSolidityVerifier", "ClientIvcCheckPrecomputedVk", "ClientIvcStats", "Poseidon2Hash", "Poseidon2Permutation", "Poseidon2HashAccumulate", "PedersenCommit", "PedersenHash", "PedersenHashBuffer", "Blake2s", "Blake2sToField", "AesEncrypt", "AesDecrypt", "GrumpkinMul", "GrumpkinAdd", "GrumpkinBatchMul", "GrumpkinGetRandomFr", "GrumpkinReduce512", "Secp256k1Mul", "Secp256k1GetRandomFr", "Secp256k1Reduce512", "Bn254FrSqrt", "SchnorrComputePublicKey", "SchnorrConstructSignature", "SchnorrVerifySignature", "EcdsaSecp256k1ComputePublicKey", "EcdsaSecp256r1ComputePublicKey", "EcdsaSecp256k1ConstructSignature", "EcdsaSecp256r1ConstructSignature", "EcdsaSecp256k1RecoverPublicKey", "EcdsaSecp256r1RecoverPublicKey", "EcdsaSecp256k1VerifySignature", "EcdsaSecp256r1VerifySignature", "SrsInitSrs", "SrsInitGrumpkinSrs", "Shutdown"])),
+                    _ => Err(serde::de::Error::unknown_variant(&name, &["CircuitInput", "ProofSystemSettings", "CircuitProve", "CircuitComputeVkResponse", "CircuitInputNoVK", "CircuitComputeVk", "CircuitStats", "CircuitVerify", "ClientIvcComputeStandaloneVk", "ClientIvcComputeIvcVk", "ClientIvcStart", "ClientIvcLoad", "ClientIvcAccumulate", "ClientIvcProve", "ECCVMProof", "GoblinProof", "ClientIVCProof", "ClientIvcVerify", "VkAsFields", "MegaVkAsFields", "CircuitWriteSolidityVerifier", "ClientIvcCheckPrecomputedVk", "ClientIvcStats", "Poseidon2Hash", "Poseidon2Permutation", "Poseidon2HashAccumulate", "PedersenCommit", "PedersenHash", "PedersenHashBuffer", "Blake2s", "Blake2sToField", "AesEncrypt", "AesDecrypt", "affine_element", "GrumpkinMul", "GrumpkinAdd", "GrumpkinBatchMul", "GrumpkinGetRandomFr", "GrumpkinReduce512", "Secp256k1Mul", "Secp256k1GetRandomFr", "Secp256k1Reduce512", "Bn254FrSqrt", "SchnorrComputePublicKey", "SchnorrConstructSignature", "SchnorrVerifySignature", "EcdsaSecp256k1ComputePublicKey", "EcdsaSecp256r1ComputePublicKey", "EcdsaSecp256k1ConstructSignature", "EcdsaSecp256r1ConstructSignature", "EcdsaSecp256k1RecoverPublicKey", "EcdsaSecp256r1RecoverPublicKey", "EcdsaSecp256k1VerifySignature", "EcdsaSecp256r1VerifySignature", "SrsInitSrs", "SrsInitGrumpkinSrs", "Shutdown"])),
                 }
             }
         }

@@ -48,8 +48,3 @@ pub fn get_bb_binary_path() -> String {
             "../../cpp/build/bin/bb".to_string()
         })
 }
-
-/// Get a unique socket path for testing
-pub fn get_test_socket_path(test_name: &str) -> String {
-    format!("/tmp/bb_test_{}_{}.sock", test_name, std::process::id())
-}
