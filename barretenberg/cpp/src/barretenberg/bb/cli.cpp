@@ -559,12 +559,13 @@ int parse_and_run_cli_command(int argc, char* argv[])
     debug_logging = flags.debug;
     verbose_logging = debug_logging || flags.verbose;
     slow_low_memory = flags.slow_low_memory;
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
     if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
         bb::detail::use_bb_bench = true;
+        vinfo("BB_BENCH enabled via --print_bench or --bench_out");
     }
 #endif
 
@@ -659,9 +660,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
                         "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
                 if (print_bench) {
+                    vinfo("Printing BB_BENCH results...");
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+                    std::cout << std::flush;
                 }
                 if (!bench_out.empty()) {
                     std::ofstream file(bench_out);
@@ -687,7 +690,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             UltraHonkAPI api;
             if (prove->parsed()) {
                 api.prove(flags, bytecode_path, witness_path, vk_path, output_path);
-#ifndef __wasm__
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
                 if (print_bench) {
                     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
                 }

@@ -45,11 +45,15 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  local avm_transpiler_flag=""
+  local cmake_args=()
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
-    avm_transpiler_flag="-DAVM_TRANSPILER_LIB="
+    cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
-  cmake --fresh --preset "$preset" $avm_transpiler_flag
+  # Auto-enable ENABLE_WASM_BENCH for wasm-threads preset on non-semver builds
+  if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
+    cmake_args+=(-DENABLE_WASM_BENCH=ON)
+  fi
+  cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
 
