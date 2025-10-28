@@ -4,9 +4,15 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 
-// Size excluding number of public inputs
+// Size including aggregation object (16 elements)
+// HONK (non-ZK) proof sizes
 const NUMBER_OF_ELEMENTS_IN_HONK_PROOF = 457;
-const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 394 + 16;
+
+// HONK ZK proof sizes (different circuit sizes)
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_PROOF = 466; // Updated: virtual_log_n=25 (default)
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_23_PROOF = 438; // virtual_log_n=23
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_21_PROOF = 410; // virtual_log_n=21
+const NUMBER_OF_ELEMENTS_IN_HONK_ZK_19_PROOF = 382; // virtual_log_n=19
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
