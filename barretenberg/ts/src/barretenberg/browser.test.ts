@@ -287,6 +287,116 @@ describe('Barretenberg Browser Integration', () => {
     },
     BROWSER_TEST_TIMEOUT,
   );
+
+  it.skip(
+    'should initialize and use emscripten backend with ASAN',
+    async () => {
+      // NOTE: This test is skipped by default because:
+      // 1. Emscripten WASM is 250MB+ and not included in standard builds
+      // 2. Requires: cd ../cpp && ./bootstrap.sh build_emscripten_threads_asan
+      // 3. Emscripten JS is not built with MODULARIZE, so dynamic imports don't work
+      //
+      // To enable, manually copy files and adapt backend loading:
+      // cp ../cpp/build-emscripten-threads-asan/bin/barretenberg-debug.wasm.* dest/browser/emscripten/
+      //
+      // This test validates that emscripten ASAN builds can be loaded in browser for debugging.
+
+      const result = await page.evaluate(async () => {
+        try {
+          console.log('Loading emscripten backend with ASAN...');
+
+          // @ts-ignore - BarretenbergEmscriptenBackend is loaded globally
+          const BarretenbergEmscriptenBackend = window.BarretenbergEmscriptenBackend;
+
+          if (!BarretenbergEmscriptenBackend) {
+            throw new Error('BarretenbergEmscriptenBackend not found');
+          }
+
+          // Create emscripten backend with paths to ASAN-instrumented WASM
+          const emBackend = await BarretenbergEmscriptenBackend.new(
+            '/emscripten/barretenberg-debug.wasm.wasm',
+            '/emscripten/barretenberg-debug.wasm.js',
+          );
+
+          console.log('Emscripten backend loaded successfully');
+
+          // Verify we have emscripten-specific features
+          // @ts-ignore
+          const hasModule = emBackend.module !== undefined;
+          // @ts-ignore
+          const hasHeapU8 = emBackend.heapU8 !== undefined;
+
+          // Check for emscripten-specific symbols in the module
+          // @ts-ignore
+          const hasEmscriptenMalloc = typeof emBackend.module._malloc === 'function';
+          // @ts-ignore
+          const hasEmscriptenFree = typeof emBackend.module._free === 'function';
+          // @ts-ignore
+          const hasHEAPU8 = emBackend.module.HEAPU8 !== undefined;
+          // @ts-ignore
+          const hasHEAPU32 = emBackend.module.HEAPU32 !== undefined;
+
+          // Verify ASAN is active by checking memory size
+          // ASAN builds need significantly more memory (we set INITIAL_MEMORY to 256MB)
+          // @ts-ignore
+          const heapSize = emBackend.module.HEAPU8.buffer.byteLength;
+          const isLargeHeap = heapSize >= 256 * 1024 * 1024; // >= 256MB
+
+          console.log(`Heap size: ${(heapSize / (1024 * 1024)).toFixed(2)} MB`);
+          console.log(`Has emscripten _malloc: ${hasEmscriptenMalloc}`);
+          console.log(`Has emscripten _free: ${hasEmscriptenFree}`);
+          console.log(`Has HEAPU8: ${hasHEAPU8}`);
+          console.log(`Has HEAPU32: ${hasHEAPU32}`);
+
+          await emBackend.destroy();
+
+          return {
+            success: true,
+            hasModule,
+            hasHeapU8,
+            hasEmscriptenMalloc,
+            hasEmscriptenFree,
+            hasHEAPU8,
+            hasHEAPU32,
+            isLargeHeap,
+            heapSizeMB: heapSize / (1024 * 1024),
+            message: 'Emscripten backend with ASAN verified',
+          };
+        } catch (err) {
+          console.error('Emscripten backend error:', err);
+          return {
+            success: false,
+            error: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          };
+        }
+      });
+
+      console.log('Emscripten backend result:', result);
+      if (!result.success) {
+        console.error('Emscripten error:', result.error);
+        console.error('Stack:', result.stack);
+      }
+
+      // Verify backend loaded successfully
+      expect(result.success).toBe(true);
+
+      // Verify emscripten-specific features
+      expect(result.hasModule).toBe(true);
+      expect(result.hasHeapU8).toBe(true);
+      expect(result.hasEmscriptenMalloc).toBe(true);
+      expect(result.hasEmscriptenFree).toBe(true);
+      expect(result.hasHEAPU8).toBe(true);
+      expect(result.hasHEAPU32).toBe(true);
+
+      // Verify ASAN memory configuration
+      expect(result.isLargeHeap).toBe(true);
+      expect(result.heapSizeMB).toBeGreaterThanOrEqual(256);
+
+      console.log(`✓ Confirmed emscripten backend with ASAN (${result.heapSizeMB.toFixed(2)} MB heap)`);
+    },
+    BROWSER_TEST_TIMEOUT,
+  );
 });
 
 /**

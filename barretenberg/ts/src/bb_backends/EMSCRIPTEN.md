@@ -85,6 +85,21 @@ export class BarretenbergEmscriptenBackend implements IMsgpackBackendAsync {
 5. Fix the issue
 6. Switch back to WASI builds for normal development
 
+## Browser Testing with Emscripten
+
+The browser integration tests in `src/barretenberg/browser.test.ts` include a skipped test for emscripten ASAN builds. To enable:
+
+1. **Build emscripten WASM**: `cd ../cpp && ./bootstrap.sh build_emscripten_threads_asan`
+2. **Copy to browser directory**:
+   ```bash
+   cd ts
+   mkdir -p dest/browser/emscripten
+   cp ../cpp/build-emscripten-threads-asan/bin/barretenberg-debug.wasm.* dest/browser/emscripten/
+   ```
+3. **Enable test**: Remove `.skip` from the emscripten test in `browser.test.ts`
+
+**Note**: The emscripten JS file is not built with `MODULARIZE=1`, so it cannot be loaded via ES6 dynamic imports. The test is designed to validate emscripten-specific features (HEAPU8, _malloc, _free, large ASAN heap) once the module loading issue is resolved.
+
 ## Resources
 
 - Emscripten ASAN docs: https://emscripten.org/docs/debugging/Sanitizers.html
