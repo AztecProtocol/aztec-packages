@@ -1,4 +1,5 @@
-import { EthAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { GovernanceProposerContract, PublisherFilter, PublisherManager, RollupContract } from '@aztec/ethereum';

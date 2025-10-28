@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract FeeJuice {
     use dep::aztec::{
         context::private_context::PrivateContext,
-        macros::{functions::{internal, private, public, view}, storage::storage},
+        macros::{functions::{external, internal, view}, storage::storage},
         protocol_types::{
             address::{AztecAddress, EthAddress},
             constants::FEE_JUICE_ADDRESS,
@@ -48,7 +48,7 @@ pub contract FeeJuice {
     }
 
     /// Claims FeeJuice by consuming an L1 to L2 message with the provided information.
-    #[private]
+    #[external("private")]
     fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
         claim_helper(&mut context, to, amount, secret, message_leaf_index);
     }
@@ -57,7 +57,7 @@ pub contract FeeJuice {
     /// the balance increase it ends the setup phase, making sure the claim happens in the non-revertible phase
     /// of the transaction. This variant should only be used when the intent is to pay the transaction fee via
     /// the claimed fee juice in a single interaction.
-    #[private]
+    #[external("private")]
     fn claim_and_end_setup(
         to: AztecAddress,
         amount: u128,
@@ -68,14 +68,14 @@ pub contract FeeJuice {
         context.end_setup();
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         let new_balance = storage.balances.at(to).read().add(amount);
         storage.balances.at(to).write(new_balance);
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn check_balance(fee_limit: u128) {
         assert(
@@ -85,7 +85,7 @@ pub contract FeeJuice {
     }
 
     // utility function for testing
-    #[public]
+    #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> pub u128 {
         storage.balances.at(owner).read()

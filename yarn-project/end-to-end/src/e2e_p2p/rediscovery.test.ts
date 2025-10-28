@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { SentTx, sleep } from '@aztec/aztec.js';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { sleep } from '@aztec/foundation/sleep';
 
 import fs from 'fs';
 import os from 'os';

@@ -115,7 +115,8 @@ library TestConstants {
       stakingQueueConfig: getStakingQueueConfig(),
       slashAmounts: [AZTEC_SLASH_AMOUNT_SMALL, AZTEC_SLASH_AMOUNT_MEDIUM, AZTEC_SLASH_AMOUNT_LARGE],
       slasherFlavor: SlasherFlavor.EMPIRE,
-      localEjectionThreshold: 0 // The same as it being off, and only using the global.
+      localEjectionThreshold: 0, // The same as it being off, and only using the global.
+      earliestRewardsClaimableTimestamp: Timestamp.wrap(0) // Default to 0 (no restriction)
     });
 
     // For the version we derive it based on the config (with a 0 version)

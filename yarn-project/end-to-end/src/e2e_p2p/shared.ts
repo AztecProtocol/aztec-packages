@@ -1,18 +1,14 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  AztecAddress,
-  Fr,
-  type Logger,
-  type SentTx,
-  Tx,
-  TxStatus,
-  getContractInstanceFromInstantiationParams,
-  retryUntil,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type SentTx, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { Tx, TxStatus } from '@aztec/aztec.js/tx';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
 import type { EmpireSlashingProposerContract, RollupContract, TallySlashingProposerContract } from '@aztec/ethereum';
 import { timesAsync, unique } from '@aztec/foundation/collection';
+import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';

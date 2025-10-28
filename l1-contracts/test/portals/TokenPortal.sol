@@ -53,7 +53,9 @@ contract TokenPortal {
    * Field element)
    * @return The key of the entry in the Inbox and its leaf index
    */
-  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash) external returns (bytes32, uint256) 
+  function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
+    external
+    returns (bytes32, uint256)
   // docs:end:deposit_public
   {
     // Preamble
@@ -142,7 +144,7 @@ contract TokenPortal {
 
     outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-    underlying.transfer(_recipient, _amount);
+    underlying.safeTransfer(_recipient, _amount);
   }
   // docs:end:token_portal_withdraw
 }

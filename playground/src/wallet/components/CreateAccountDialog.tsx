@@ -1,7 +1,10 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import { Fr, DeployMethod, type DeployOptions, AztecAddress, type DeployAccountOptions } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import { useState } from 'react';
 import { deriveSigningKey } from '@aztec/stdlib/keys';

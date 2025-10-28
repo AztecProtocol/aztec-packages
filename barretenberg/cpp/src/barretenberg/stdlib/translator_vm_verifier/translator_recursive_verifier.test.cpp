@@ -116,7 +116,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         typename RecursiveVerifier::PairingPoints pairing_points =
             verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
         pairing_points.set_public();
-        info("Recursive Verifier: num gates = ", outer_circuit.num_gates);
+        info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();

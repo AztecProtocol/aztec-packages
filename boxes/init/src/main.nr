@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Main {
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor() { }
 }

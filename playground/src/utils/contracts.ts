@@ -1,4 +1,5 @@
-import { AztecAddress, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 
 export async function filterDeployedAliasedContracts(
   aliasedContracts: { alias: string; item: string }[],

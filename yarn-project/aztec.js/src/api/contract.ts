@@ -49,7 +49,6 @@ export {
   toSimulateOptions,
 } from '../contract/interaction_options.js';
 
-export { TxProfileResult } from '@aztec/stdlib/tx';
 export { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
 export { ContractBase, type ContractMethod, type ContractStorageLayout } from '../contract/contract_base.js';
 export { BatchCall } from '../contract/batch_call.js';

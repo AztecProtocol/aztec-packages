@@ -1,8 +1,9 @@
-import { EthAddress, retryUntil } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { timeoutPromise } from '@aztec/foundation/timer';
 import { type SlasherConfig, type TallySlasherSettings, getTallySlasherSettings } from '@aztec/slasher';
 import { type L1RollupConstants, getSlotRangeForEpoch, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';

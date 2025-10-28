@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js';
+import { BatchCall, type SentTx, type WaitOpts } from '@aztec/aztec.js/contracts';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import type { MetricsType } from '@aztec/telemetry-client';

@@ -1,14 +1,13 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
-  AztecAddress,
   BatchCall,
   ContractFunctionInteraction,
   type SendInteractionOptions,
   SentTx,
-  TxHash,
-  TxReceipt,
-  createLogger,
   waitForProven,
-} from '@aztec/aztec.js';
+} from '@aztec/aztec.js/contracts';
+import { createLogger } from '@aztec/aztec.js/log';
+import { TxHash, TxReceipt } from '@aztec/aztec.js/tx';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { TestWallet } from '@aztec/test-wallet/server';

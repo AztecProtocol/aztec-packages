@@ -8,14 +8,21 @@ import {
   invalidTagValueTest,
   pcOutOfRangeTest,
 } from '@aztec/simulator/public/fixtures';
+import { NativeWorldStateService } from '@aztec/world-state';
 
 import { AvmProvingTester } from './avm_proving_tester.js';
 
 describe('AVM custom bytecodes unhappy paths', () => {
   let tester: AvmProvingTester;
+  let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('Base address uninitialized indirect relative', async () => {
@@ -31,9 +38,15 @@ describe('AVM custom bytecodes unhappy paths', () => {
 
 describe('AVM bytecode flow unhappy paths', () => {
   let tester: AvmProvingTester;
+  let worldStateService: NativeWorldStateService;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
   });
 
   it('PC out of range', async () => {

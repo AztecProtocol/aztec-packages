@@ -1,5 +1,10 @@
-import { type AztecAddress, type AztecNode, type Logger, MerkleTreeId, type Wallet, retryUntil } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 

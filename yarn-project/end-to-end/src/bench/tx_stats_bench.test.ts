@@ -1,7 +1,10 @@
-import { type AztecAddress, EthAddress, Tx, sleep } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { parseBooleanEnv } from '@aztec/foundation/config';
+import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server';
+import type { Tx } from '@aztec/stdlib/tx';
 import { type TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import '@jest/globals';

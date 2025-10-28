@@ -1,4 +1,4 @@
-import { computeSecretHash } from '@aztec/aztec.js';
+import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 

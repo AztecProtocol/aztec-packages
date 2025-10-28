@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract Spam {
 
     use aztec::{
-        macros::{functions::{internal, private, public}, storage::storage},
+        macros::{functions::{external, internal}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::{
             address::AztecAddress,
@@ -27,14 +27,13 @@ pub contract Spam {
         public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender().unwrap();
         let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, amount).emit(
-                &mut context,
                 caller,
                 MessageDelivery.UNCONSTRAINED_ONCHAIN,
             );
@@ -62,7 +61,7 @@ pub contract Spam {
         }
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn public_spam(start: u32, end: u32) {
         let one = 1 as u128;

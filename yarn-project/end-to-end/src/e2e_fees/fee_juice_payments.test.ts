@@ -1,6 +1,7 @@
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecAddress, FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import type { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import type { GasSettings } from '@aztec/stdlib/gas';

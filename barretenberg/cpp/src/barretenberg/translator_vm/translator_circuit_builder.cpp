@@ -404,10 +404,10 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
     if (ultra_op.op_code.is_random_op) {
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_1));
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_2));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_1)));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_2)));
     } else {
-        op_wire.push_back(add_variable(ultra_op.op_code.value()));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.value())));
         // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
         // genuine op
         op_wire.push_back(zero_idx());
@@ -511,10 +511,10 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
     lay_limbs_in_row(acc_step.quotient_microlimbs[2], QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
     lay_limbs_in_row(top_quotient_microlimbs, QUOTIENT_HIGH_LIMBS_RANGE_CONSTRAIN_0);
 
-    num_gates += 2;
+    increment_num_gates(2);
 
     // Check that all the wires are filled equally
-    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates); });
+    bb::constexpr_for<0, TOTAL_COUNT, 1>([&]<size_t i>() { BB_ASSERT_EQ(std::get<i>(wires).size(), num_gates()); });
 }
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
@@ -535,7 +535,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         wire.push_back(zero_idx());
         wire.push_back(zero_idx());
     }
-    num_gates += 2;
+    increment_num_gates(2);
 
     auto process_random_op = [&](const UltraOp& ultra_op) {
         BB_ASSERT(ultra_op.op_code.is_random_op, "function should only be called to process a random op");
@@ -545,14 +545,14 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             wires[i].push_back(zero_idx());
             wires[i].push_back(zero_idx());
         }
-        num_gates += 2;
+        increment_num_gates(2);
     };
 
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
     // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in ClientIVC::hide_op_queue_content_tail_kernel and
-    // ClientIVC::hide_op_queue_content_hiding_kernel
+    // The position and number of these random ops are explained in LegacyChonk::hide_op_queue_content_tail_kernel
+    // and LegacyChonk::hide_op_queue_content_hiding_kernel
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
@@ -565,9 +565,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
     // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
     // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
-    // result is sent as part of the CIVC proof, and so we add a genuine operation with randomly generated values during
-    // CIVC execution to ensure no information about the rest of the ops is leaked.
-    // Acccumulator pre-computation is achieved by processing the queue in reverse order.
+    // result is sent as part of the Chonk proof, and so we add a genuine operation with randomly generated values
+    // during Chonk execution to ensure no information about the rest of the ops is leaked. Acccumulator pre-computation
+    // is achieved by processing the queue in reverse order.
     for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
@@ -611,7 +611,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
                 wires[j].push_back(zero_idx());
                 wires[j].push_back(zero_idx());
             }
-            num_gates += 2;
+            increment_num_gates(2);
             continue;
         }
         Fq previous_accumulator{ 0 };

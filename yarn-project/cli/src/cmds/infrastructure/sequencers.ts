@@ -1,4 +1,5 @@
-import { Fr, createAztecNodeClient } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { GSEContract, RollupContract, createEthereumChain, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import type { LogFn } from '@aztec/foundation/log';
 import { RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';

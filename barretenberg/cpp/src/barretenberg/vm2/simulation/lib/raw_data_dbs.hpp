@@ -41,7 +41,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
   public:
     HintedRawMerkleDB(const ExecutionHints& hints);
 
-    const TreeSnapshots& get_tree_roots() const override { return tree_roots; }
+    TreeSnapshots get_tree_roots() const override { return tree_roots; }
 
     // Query methods.
     SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
@@ -97,6 +97,45 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
     AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
+};
+
+// todo(facundo): When used in pure simulation mode, the return values from tree insertions are not used (since we don't
+// care about sibling paths nor do we need new root info within the simulator - they're managed by the world state).
+// We might need to look into a different interface for the simulator only. This might even open the door to batch
+// insertions (since we won't be tied to SequentialInsertionResult).
+class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
+  public:
+    PureRawMerkleDB(world_state::WorldStateRevision ws_revision, world_state::WorldState& ws_instance)
+        : ws_revision(ws_revision)
+        , ws_instance(ws_instance)
+    {}
+
+    TreeSnapshots get_tree_roots() const override;
+
+    // Query methods.
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
+
+    // State modification methods.
+    SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
+        const PublicDataLeafValue& leaf_value) override;
+    SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
+        const NullifierLeafValue& leaf_value) override;
+    std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const override;
+
+  private:
+    world_state::WorldStateRevision ws_revision;
+    world_state::WorldState& ws_instance;
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
 };
 
 } // namespace bb::avm2::simulation

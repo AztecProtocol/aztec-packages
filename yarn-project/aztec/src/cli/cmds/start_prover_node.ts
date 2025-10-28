@@ -1,5 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum';
@@ -71,7 +71,7 @@ export async function startProverNode(
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
-    // at 1TPS we'd enqueue ~1k tube proofs and ~1k AVM proofs immediately
+    // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
     // set a lower connection limit such that we don't overload the server
     // Keep retrying up to 30s
     const fetch = makeTracedFetch(

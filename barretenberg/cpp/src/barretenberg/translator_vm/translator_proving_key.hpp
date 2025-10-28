@@ -49,7 +49,7 @@ class TranslatorProvingKey {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE) {
+        if (circuit.num_gates() > Flavor::MINI_CIRCUIT_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 
@@ -59,7 +59,7 @@ class TranslatorProvingKey {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
-            parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
+            parallel_for_range(circuit.num_gates(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);

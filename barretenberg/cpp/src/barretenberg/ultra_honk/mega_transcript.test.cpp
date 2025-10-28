@@ -41,7 +41,6 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t NUM_PUBLIC_INPUTS =
             stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
         size_t frs_per_Fr = FrCodec::calc_num_fields<FF>();
         size_t frs_per_G = FrCodec::calc_num_fields<Commitment>();
@@ -85,13 +84,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
-        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
-        for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "alpha_" + std::to_string(i);
-            alpha_labels[i] = label;
-        }
-
-        manifest_expected.add_challenge(round, alpha_labels);
+        manifest_expected.add_challenge(round, "alpha");
         round++;
 
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");

@@ -1,4 +1,7 @@
-import { AztecAddress, type AztecNode, type ContractArtifact, type Wallet } from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 
 import { createContext } from 'react';
 import { type UserTx } from './utils/txs';

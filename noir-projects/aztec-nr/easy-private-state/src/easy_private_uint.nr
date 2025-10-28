@@ -42,7 +42,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         let addend_note = ValueNote::new(addend as Field, owner);
 
         // Insert the new note to the owner's set of notes.
-        self.set.insert(addend_note).emit(self.context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.set.insert(addend_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     // Very similar to `value_note::utils::decrement`.
@@ -63,7 +63,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
         // Creates change note for the owner.
         let result_value = minuend - subtrahend;
         let result_note = ValueNote::new(result_value as Field, owner);
-        self.set.insert(result_note).emit(self.context, owner, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.set.insert(result_note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 }
 

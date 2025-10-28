@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { maxBigint } from '@aztec/foundation/bigint';

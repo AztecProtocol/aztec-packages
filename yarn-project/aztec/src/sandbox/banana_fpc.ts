@@ -1,5 +1,5 @@
 import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
-import type { Wallet } from '@aztec/aztec.js';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';

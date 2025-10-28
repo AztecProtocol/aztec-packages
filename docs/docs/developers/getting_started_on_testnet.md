@@ -179,7 +179,7 @@ const fullConfig = { ...config, l1Contracts };
 
 const store = await createStore("pxe1", {
   dataDirectory: "store",
-  dataStoreMapSizeKB: 1e6,
+  dataStoreMapSizeKb: 1e6,
 });
 
 const pxe = await createPXE(node, fullConfig, { store });

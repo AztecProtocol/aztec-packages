@@ -1,8 +1,11 @@
-import { type AztecAddress, type AztecNode, type Logger, createLogger, sleep } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { type DeployL1ContractsArgs, RollupContract, createExtendedL1Client } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi } from '@aztec/l1-artifacts';
 import { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';

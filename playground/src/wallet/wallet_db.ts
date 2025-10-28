@@ -1,7 +1,9 @@
-import { AztecAddress, Fr, Fq, type Aliased } from '@aztec/aztec.js';
+import type { Aliased } from '@aztec/aztec.js/wallet';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr, Fq } from '@aztec/aztec.js/fields';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore } from '@aztec/kv-store';
-import { convertFromUTF8BufferAsString, parseAliasedBuffersAsString } from '../utils/conversion';
+import { convertFromUTF8BufferAsString } from '../utils/conversion';
 
 export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];

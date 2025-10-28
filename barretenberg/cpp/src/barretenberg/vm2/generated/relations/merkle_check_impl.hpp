@@ -15,9 +15,8 @@ void merkle_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
 {
     using C = ColumnAndShifts;
 
-    const auto merkle_check_NOT_END = in.get(C::merkle_check_sel) * (FF(1) - in.get(C::merkle_check_end));
+    const auto merkle_check_PATH_LEN_MIN_ONE = (in.get(C::merkle_check_path_len) - FF(1));
     const auto merkle_check_LATCH_CONDITION = in.get(C::merkle_check_end) + in.get(C::precomputed_first_row);
-    const auto merkle_check_REMAINING_PATH_LEN = (in.get(C::merkle_check_path_len) - FF(1));
     const auto merkle_check_INDEX_IS_ODD = (FF(1) - in.get(C::merkle_check_index_is_even));
 
     {
@@ -26,169 +25,157 @@ void merkle_checkImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             static_cast<View>(in.get(C::merkle_check_sel)) * (FF(1) - static_cast<View>(in.get(C::merkle_check_sel)));
         std::get<0>(evals) += (tmp * scaling_factor);
     }
-    { // TRACE_CONTINUITY
+    {
         using View = typename std::tuple_element_t<1, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   (FF(1) - static_cast<View>(in.get(C::merkle_check_sel))) *
-                   static_cast<View>(in.get(C::merkle_check_sel_shift));
+        auto tmp = static_cast<View>(in.get(C::merkle_check_start)) *
+                   (FF(1) - static_cast<View>(in.get(C::merkle_check_start)));
         std::get<1>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<2, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_write)) *
-                   (FF(1) - static_cast<View>(in.get(C::merkle_check_write)));
-        std::get<2>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_start)) *
-                   (FF(1) - static_cast<View>(in.get(C::merkle_check_start)));
-        std::get<3>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::merkle_check_end)) * (FF(1) - static_cast<View>(in.get(C::merkle_check_end)));
-        std::get<4>(evals) += (tmp * scaling_factor);
+        std::get<2>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_end)) * static_cast<View>(in.get(C::precomputed_first_row));
-        std::get<5>(evals) += (tmp * scaling_factor);
-    }
-    { // START_AFTER_LATCH
-        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_sel_shift)) *
-                   (static_cast<View>(in.get(C::merkle_check_start_shift)) - CView(merkle_check_LATCH_CONDITION));
-        std::get<6>(evals) += (tmp * scaling_factor);
-    }
-    { // SELECTOR_ON_END
-        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::merkle_check_end)) * (FF(1) - static_cast<View>(in.get(C::merkle_check_sel)));
-        std::get<7>(evals) += (tmp * scaling_factor);
-    }
-    { // PROPAGATE_READ_ROOT
-        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_read_root_shift)) -
-                                                  static_cast<View>(in.get(C::merkle_check_read_root)));
-        std::get<8>(evals) += (tmp * scaling_factor);
-    }
-    { // PROPAGATE_WRITE
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_write_shift)) -
-                                                  static_cast<View>(in.get(C::merkle_check_write)));
-        std::get<9>(evals) += (tmp * scaling_factor);
-    }
-    { // PROPAGATE_WRITE_ROOT
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_write_root_shift)) -
-                                                  static_cast<View>(in.get(C::merkle_check_write_root)));
-        std::get<10>(evals) += (tmp * scaling_factor);
-    }
-    { // PATH_LEN_DECREMENTS
-        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * ((static_cast<View>(in.get(C::merkle_check_path_len_shift)) -
-                                                   static_cast<View>(in.get(C::merkle_check_path_len))) +
-                                                  FF(1));
-        std::get<11>(evals) += (tmp * scaling_factor);
-    }
-    { // END_WHEN_PATH_EMPTY
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+    { // END_IFF_REM_PATH_EMPTY
+        using View = typename std::tuple_element_t<3, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
-                   ((CView(merkle_check_REMAINING_PATH_LEN) *
+                   ((CView(merkle_check_PATH_LEN_MIN_ONE) *
                          (static_cast<View>(in.get(C::merkle_check_end)) *
-                              (FF(1) - static_cast<View>(in.get(C::merkle_check_remaining_path_len_inv))) +
-                          static_cast<View>(in.get(C::merkle_check_remaining_path_len_inv))) -
+                              (FF(1) - static_cast<View>(in.get(C::merkle_check_path_len_min_one_inv))) +
+                          static_cast<View>(in.get(C::merkle_check_path_len_min_one_inv))) -
                      FF(1)) +
                     static_cast<View>(in.get(C::merkle_check_end)));
-        std::get<12>(evals) += (tmp * scaling_factor);
+        std::get<3>(evals) += (tmp * scaling_factor);
+    }
+    { // COMPUTATION_FINISH_AT_END
+        using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::merkle_check_sel_shift))) *
+                   (FF(1) - static_cast<View>(in.get(C::merkle_check_end)));
+        std::get<4>(evals) += (tmp * scaling_factor);
+    }
+    { // SELECTOR_ON_START_OR_END
+        using View = typename std::tuple_element_t<5, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::merkle_check_start)) + static_cast<View>(in.get(C::merkle_check_end))) *
+                   (FF(1) - static_cast<View>(in.get(C::merkle_check_sel)));
+        std::get<5>(evals) += (tmp * scaling_factor);
+    }
+    { // PROPAGATE_READ_ROOT
+        using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(merkle_check_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::merkle_check_read_root_shift)) -
+                    static_cast<View>(in.get(C::merkle_check_read_root)));
+        std::get<6>(evals) += (tmp * scaling_factor);
+    }
+    { // PROPAGATE_WRITE
+        using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
+        auto tmp =
+            (FF(1) - CView(merkle_check_LATCH_CONDITION)) *
+            (static_cast<View>(in.get(C::merkle_check_write_shift)) - static_cast<View>(in.get(C::merkle_check_write)));
+        std::get<7>(evals) += (tmp * scaling_factor);
+    }
+    { // PROPAGATE_WRITE_ROOT
+        using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
+        auto tmp = (FF(1) - CView(merkle_check_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::merkle_check_write_root_shift)) -
+                    static_cast<View>(in.get(C::merkle_check_write_root)));
+        std::get<8>(evals) += (tmp * scaling_factor);
+    }
+    { // PATH_LEN_DECREMENTS
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::merkle_check_end))) *
+                   ((static_cast<View>(in.get(C::merkle_check_path_len_shift)) -
+                     static_cast<View>(in.get(C::merkle_check_path_len))) +
+                    FF(1));
+        std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_index_is_even)) *
                    (FF(1) - static_cast<View>(in.get(C::merkle_check_index_is_even)));
-        std::get<13>(evals) += (tmp * scaling_factor);
+        std::get<10>(evals) += (tmp * scaling_factor);
     }
     { // NEXT_INDEX_IS_HALVED
-        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(merkle_check_NOT_END) *
-            ((static_cast<View>(in.get(C::merkle_check_index_shift)) * FF(2) + CView(merkle_check_INDEX_IS_ODD)) -
+            static_cast<View>(in.get(C::merkle_check_sel)) * (FF(1) - static_cast<View>(in.get(C::merkle_check_end))) *
+            ((FF(2) * static_cast<View>(in.get(C::merkle_check_index_shift)) + CView(merkle_check_INDEX_IS_ODD)) -
              static_cast<View>(in.get(C::merkle_check_index)));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // FINAL_INDEX_EQUAL_TO_FIRST_BIT
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::merkle_check_end)) *
+                   (static_cast<View>(in.get(C::merkle_check_index)) - CView(merkle_check_INDEX_IS_ODD));
+        std::get<12>(evals) += (tmp * scaling_factor);
+    }
+    { // READ_LEFT_NODE
+        using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::merkle_check_read_left_node)) -
+                    (static_cast<View>(in.get(C::merkle_check_index_is_even)) *
+                         (static_cast<View>(in.get(C::merkle_check_read_node)) -
+                          static_cast<View>(in.get(C::merkle_check_sibling))) +
+                     static_cast<View>(in.get(C::merkle_check_sibling))));
+        std::get<13>(evals) += (tmp * scaling_factor);
+    }
+    { // READ_RIGHT_NODE
+        using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::merkle_check_read_right_node)) -
+                    (static_cast<View>(in.get(C::merkle_check_index_is_even)) *
+                         (static_cast<View>(in.get(C::merkle_check_sibling)) -
+                          static_cast<View>(in.get(C::merkle_check_read_node))) +
+                     static_cast<View>(in.get(C::merkle_check_read_node))));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
-    { // FINAL_INDEX_IS_0_OR_1
+    { // WRITE_LEFT_NODE
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_end)) * static_cast<View>(in.get(C::merkle_check_index)) *
-                   (FF(1) - static_cast<View>(in.get(C::merkle_check_index)));
+        auto tmp = (static_cast<View>(in.get(C::merkle_check_write_left_node)) -
+                    static_cast<View>(in.get(C::merkle_check_write)) *
+                        (static_cast<View>(in.get(C::merkle_check_index_is_even)) *
+                             (static_cast<View>(in.get(C::merkle_check_write_node)) -
+                              static_cast<View>(in.get(C::merkle_check_sibling))) +
+                         static_cast<View>(in.get(C::merkle_check_sibling))));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
-    { // ASSIGN_NODE_LEFT_OR_RIGHT_READ
+    { // WRITE_RIGHT_NODE
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
-                   ((static_cast<View>(in.get(C::merkle_check_index_is_even)) *
-                         (static_cast<View>(in.get(C::merkle_check_read_left_node)) -
-                          static_cast<View>(in.get(C::merkle_check_read_right_node))) +
-                     static_cast<View>(in.get(C::merkle_check_read_right_node))) -
-                    static_cast<View>(in.get(C::merkle_check_read_node)));
+        auto tmp = (static_cast<View>(in.get(C::merkle_check_write_right_node)) -
+                    static_cast<View>(in.get(C::merkle_check_write)) *
+                        (static_cast<View>(in.get(C::merkle_check_index_is_even)) *
+                             (static_cast<View>(in.get(C::merkle_check_sibling)) -
+                              static_cast<View>(in.get(C::merkle_check_write_node))) +
+                         static_cast<View>(in.get(C::merkle_check_write_node))));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
-    { // ASSIGN_SIBLING_LEFT_OR_RIGHT_READ
+    { // OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_sel)) *
-                   ((static_cast<View>(in.get(C::merkle_check_index_is_even)) *
-                         (static_cast<View>(in.get(C::merkle_check_read_right_node)) -
-                          static_cast<View>(in.get(C::merkle_check_read_left_node))) +
-                     static_cast<View>(in.get(C::merkle_check_read_left_node))) -
-                    static_cast<View>(in.get(C::merkle_check_sibling)));
+        auto tmp = (FF(1) - CView(merkle_check_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::merkle_check_read_node_shift)) -
+                    static_cast<View>(in.get(C::merkle_check_read_output_hash)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
-    { // ASSIGN_NODE_LEFT_OR_RIGHT_WRITE
+    { // OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_write)) *
-                   ((static_cast<View>(in.get(C::merkle_check_index_is_even)) *
-                         (static_cast<View>(in.get(C::merkle_check_write_left_node)) -
-                          static_cast<View>(in.get(C::merkle_check_write_right_node))) +
-                     static_cast<View>(in.get(C::merkle_check_write_right_node))) -
-                    static_cast<View>(in.get(C::merkle_check_write_node)));
+        auto tmp = (FF(1) - CView(merkle_check_LATCH_CONDITION)) *
+                   (static_cast<View>(in.get(C::merkle_check_write_node_shift)) -
+                    static_cast<View>(in.get(C::merkle_check_write_output_hash)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
-    { // ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE
-        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::merkle_check_write)) *
-                   ((static_cast<View>(in.get(C::merkle_check_index_is_even)) *
-                         (static_cast<View>(in.get(C::merkle_check_write_right_node)) -
-                          static_cast<View>(in.get(C::merkle_check_write_left_node))) +
-                     static_cast<View>(in.get(C::merkle_check_write_left_node))) -
-                    static_cast<View>(in.get(C::merkle_check_sibling)));
-        std::get<19>(evals) += (tmp * scaling_factor);
-    }
-    { // OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_read_node_shift)) -
-                                                  static_cast<View>(in.get(C::merkle_check_read_output_hash)));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
-    { // OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = CView(merkle_check_NOT_END) * (static_cast<View>(in.get(C::merkle_check_write_node_shift)) -
-                                                  static_cast<View>(in.get(C::merkle_check_write_output_hash)));
-        std::get<21>(evals) += (tmp * scaling_factor);
-    }
     { // READ_OUTPUT_HASH_IS_READ_ROOT
-        using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_end)) *
                    (static_cast<View>(in.get(C::merkle_check_read_output_hash)) -
                     static_cast<View>(in.get(C::merkle_check_read_root)));
-        std::get<22>(evals) += (tmp * scaling_factor);
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
     { // WRITE_OUTPUT_HASH_IS_WRITE_ROOT
-        using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::merkle_check_end)) *
                    (static_cast<View>(in.get(C::merkle_check_write_output_hash)) -
                     static_cast<View>(in.get(C::merkle_check_write_root)));
-        std::get<23>(evals) += (tmp * scaling_factor);
+        std::get<20>(evals) += (tmp * scaling_factor);
     }
 }
 

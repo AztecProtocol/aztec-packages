@@ -1,16 +1,15 @@
-import {
-  AztecAddress,
-  type AztecNode,
-  BatchCall,
-  Fr,
-  type Logger,
-  TxStatus,
-  type Wallet,
-  generateClaimSecret,
-  retryUntil,
-} from '@aztec/aztec.js';
-import { isL1ToL2MessageReady } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { timesAsync } from '@aztec/foundation/collection';
+import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
@@ -52,7 +51,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   const advanceBlock = async () => {
     const block = await aztecNode.getBlockNumber();
     log.warn(`Sending noop tx at block ${block}`);
-    await BatchCall.empty(wallet).send({ from: user1Address }).wait();
+    const sentTx = new SentTx(wallet, () => wallet.sendTx(ExecutionPayload.empty(), { from: user1Address }));
+    await sentTx.wait();
     const newBlock = await aztecNode.getBlockNumber();
     log.warn(`Advanced to block ${newBlock}`);
     if (newBlock === block) {

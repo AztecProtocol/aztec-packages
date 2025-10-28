@@ -1,7 +1,7 @@
-/* eslint-disable import/no-duplicates */
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { Fr, GrumpkinScalar, createAztecNodeClient } from '@aztec/aztec.js';
-import { Contract } from '@aztec/aztec.js';
+import { Contract } from '@aztec/aztec.js/contracts';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';
 

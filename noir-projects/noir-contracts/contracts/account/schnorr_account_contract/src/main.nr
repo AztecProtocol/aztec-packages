@@ -14,7 +14,7 @@ pub contract SchnorrAccount {
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
-        macros::{functions::{initializer, noinitcheck, private, utility, view}, storage::storage},
+        macros::{functions::{external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness,
@@ -35,7 +35,7 @@ pub contract SchnorrAccount {
     }
 
     // Constructs the contract
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
@@ -55,7 +55,6 @@ pub contract SchnorrAccount {
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
         storage.signing_public_key.initialize(pub_key_note).emit(
-            &mut context,
             this,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -65,7 +64,7 @@ pub contract SchnorrAccount {
 
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`).
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs.
@@ -77,7 +76,7 @@ pub contract SchnorrAccount {
         actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
-    #[private]
+    #[external("private")]
     #[noinitcheck]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
@@ -117,7 +116,7 @@ pub contract SchnorrAccount {
     * @param message_hash The message hash of the message to check the validity
     * @return True if the message_hash can be consumed, false otherwise
     */
-    #[utility]
+    #[external("utility")]
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
         let public_key = storage.signing_public_key.view_note();
 

@@ -12,8 +12,7 @@ use crate::macros::{
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
-    // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
-    // allowed in contracts.
+    // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
 
     // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
@@ -248,30 +247,30 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 }
 
 comptime fn generate_sync_private_state() -> Quoted {
-    // We obtain the `utility` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
-    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
-    // to determine whether a function is `private`, `public`, or `utility`.
-    let utility = crate::macros::functions::utility;
+    // We obtain the `external` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
+    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
+    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
+    let external = crate::macros::functions::external;
 
-    // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
+    // All we need to do here is trigger message discovery, but this is already done by the #[external("utility")] macro - we don't
     // need to do anything extra.
     quote {
-        #[$utility]
+        #[$external("utility")]
         unconstrained fn sync_private_state() {
         }
     }
 }
 
 comptime fn generate_process_message() -> Quoted {
-    // We obtain the `utility` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
-    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
-    // to determine whether a function is `private`, `public`, or `utility`.
-    let utility = crate::macros::functions::utility;
+    // We obtain the `external` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
+    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
+    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
+    let external = crate::macros::functions::external;
 
     quote {
-        #[$utility]
+        #[$external("utility")]
         unconstrained fn process_message(
             message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,

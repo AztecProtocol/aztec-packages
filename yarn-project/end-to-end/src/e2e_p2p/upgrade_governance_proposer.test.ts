@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
 import { L1TxUtils, RollupContract, createL1TxUtilsFromViemWallet, deployL1Contract } from '@aztec/ethereum';
+import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
   GovernanceProposerAbi,
@@ -68,7 +68,7 @@ describe('e2e_p2p_governance_proposer', () => {
     }
   });
 
-  it('Should cast votes to upgrade governanceProposer', async () => {
+  it('should cast votes to upgrade governanceProposer', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

@@ -1,4 +1,9 @@
-import { AztecAddress, type AztecNode, type FieldLike, Fr, type Logger, getDecodedPublicEvents } from '@aztec/aztec.js';
+import type { FieldLike } from '@aztec/aztec.js/abi';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { type OrderCreated, type OrderFulfilled, OrderbookContract } from '@aztec/noir-contracts.js/Orderbook';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { TestWallet } from '@aztec/test-wallet/server';

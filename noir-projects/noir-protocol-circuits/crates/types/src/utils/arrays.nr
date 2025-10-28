@@ -6,6 +6,7 @@ pub mod assert_sorted_transformed_padded_array;
 pub mod assert_split_sorted_transformed_value_arrays;
 pub mod assert_split_transformed_padded_arrays;
 pub mod assert_split_transformed_value_arrays;
+pub mod assert_trailing_zeros;
 pub mod find_index;
 pub mod get_sorted_result;
 pub mod get_sorted_tuple;
@@ -33,6 +34,7 @@ pub use assert_split_sorted_transformed_value_arrays::{
     get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
+pub use assert_trailing_zeros::assert_trailing_zeros;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};

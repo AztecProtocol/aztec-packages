@@ -459,7 +459,9 @@ std::pair<uint32_t, uint32_t> is_assert_equal(Acir::Opcode::AssertZero const& ar
 void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size_t opcode_index)
 {
     // If the expression fits in a polytriple, we use it.
-    if (arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1) {
+    bool might_fit_in_polytriple = arg.value.linear_combinations.size() <= 3 && arg.value.mul_terms.size() <= 1;
+    bool needs_to_be_parsed_as_mul_quad = !might_fit_in_polytriple;
+    if (might_fit_in_polytriple) {
         poly_triple pt = serialize_arithmetic_gate(arg.value);
 
         auto assert_equal = is_assert_equal(arg, pt, af);
@@ -502,15 +504,14 @@ void handle_arithmetic(Acir::Opcode::AssertZero const& arg, AcirFormat& af, size
         // gate. This is the case if the linear terms are all distinct witness from the multiplication term. In that
         // case, the serialize_arithmetic_gate() function will return a poly_triple with all 0's, and we use a width-4
         // gate instead. We could probably always use a width-4 gate in fact.
-        if (pt == poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
-            af.quad_constraints.push_back(serialize_mul_quad_gate(arg.value));
-            af.original_opcode_indices.quad_constraints.push_back(opcode_index);
-
-        } else {
+        if (pt != poly_triple{ 0, 0, 0, 0, 0, 0, 0, 0 }) {
             af.poly_triple_constraints.push_back(pt);
             af.original_opcode_indices.poly_triple_constraints.push_back(opcode_index);
+        } else {
+            needs_to_be_parsed_as_mul_quad = true;
         }
-    } else {
+    }
+    if (needs_to_be_parsed_as_mul_quad) {
         std::vector<mul_quad_<fr>> mul_quads;
         // We try to use a single mul_quad gate to represent the expression.
         if (arg.value.mul_terms.size() <= 1) {
@@ -553,7 +554,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
                 };
             } else if constexpr (std::is_same_v<T, Acir::FunctionInput::Constant>) {
                 return WitnessOrConstant<bb::fr>{
-                    .index = 0,
+                    .index = bb::stdlib::IS_CONSTANT,
                     .value = from_be_bytes(e.value),
                     .is_constant = true,
                 };
@@ -561,7 +562,7 @@ WitnessOrConstant<bb::fr> parse_input(Acir::FunctionInput input)
                 throw_or_abort("Unrecognized Acir::ConstantOrWitnessEnum variant.");
             }
             return WitnessOrConstant<bb::fr>{
-                .index = 0,
+                .index = bb::stdlib::IS_CONSTANT,
                 .value = bb::fr::zero(),
                 .is_constant = true,
             };
@@ -662,6 +663,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.blake3_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256k1>) {
                 af.ecdsa_k1_constraints.push_back(EcdsaConstraint{
+                    .type = bb::CurveType::SECP256K1,
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -677,6 +679,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 af.original_opcode_indices.ecdsa_k1_constraints.push_back(opcode_index);
             } else if constexpr (std::is_same_v<T, Acir::BlackBoxFuncCall::EcdsaSecp256r1>) {
                 af.ecdsa_r1_constraints.push_back(EcdsaConstraint{
+                    .type = bb::CurveType::SECP256R1,
                     .hashed_message =
                         transform::map(*arg.hashed_message, [](auto& e) { return get_witness_from_function_input(e); }),
                     .signature =
@@ -778,9 +781,9 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                     af.avm_recursion_constraints.push_back(c);
                     af.original_opcode_indices.avm_recursion_constraints.push_back(opcode_index);
                     break;
-                case CIVC:
-                    af.civc_recursion_constraints.push_back(c);
-                    af.original_opcode_indices.civc_recursion_constraints.push_back(opcode_index);
+                case CHONK:
+                    af.chonk_recursion_constraints.push_back(c);
+                    af.original_opcode_indices.chonk_recursion_constraints.push_back(opcode_index);
                     break;
                 default:
                     throw_or_abort("Invalid PROOF_TYPE in RecursionConstraint!");

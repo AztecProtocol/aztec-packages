@@ -1,4 +1,4 @@
-import { Fr } from '@aztec/aztec.js';
+import { Fr } from '@aztec/aztec.js/fields';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';

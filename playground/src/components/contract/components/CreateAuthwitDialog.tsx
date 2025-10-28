@@ -1,16 +1,11 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import {
-  AztecAddress,
-  computeAuthWitMessageHash,
-  Contract,
-  ContractFunctionInteraction,
-  Fr,
-  SetPublicAuthwitContractInteraction,
-  type SendInteractionOptions,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash, SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { type SendInteractionOptions, Contract, ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormGroup from '@mui/material/FormGroup';
 import TextField from '@mui/material/TextField';

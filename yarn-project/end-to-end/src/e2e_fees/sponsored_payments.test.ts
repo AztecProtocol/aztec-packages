@@ -1,5 +1,6 @@
-import type { AztecAddress, AztecNode } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';

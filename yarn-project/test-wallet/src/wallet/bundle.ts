@@ -1,14 +1,11 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
-import {
-  AccountManager,
-  type AztecAddress,
-  type AztecNode,
-  Fq,
-  Fr,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fq, Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import { type PXEConfig, type PXECreationOptions, createPXE, getPXEConfig } from '@aztec/pxe/client/bundle';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 

@@ -43,7 +43,8 @@ TEST(stdlib_schnorr, schnorr_verify_signature)
 
         stdlib::cycle_group<Builder> pub_key{ witness_ct(&builder, account.public_key.x),
                                               witness_ct(&builder, account.public_key.y),
-                                              false };
+                                              false,
+                                              /*assert_on_curve=*/false };
         stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
         byte_array_ct message(&builder, message_string);
         schnorr_verify_signature(message, pub_key, sig);
@@ -85,7 +86,8 @@ TEST(stdlib_schnorr, verify_signature_failure)
     // check stdlib verification with account 2 public key fails
     stdlib::cycle_group<Builder> pub_key2_ct{ witness_ct(&builder, account2.public_key.x),
                                               witness_ct(&builder, account2.public_key.y),
-                                              false };
+                                              false,
+                                              /*assert_on_curve=*/false };
     stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
     byte_array_ct message(&builder, message_string);
     schnorr_verify_signature(message, pub_key2_ct, sig);
@@ -119,7 +121,8 @@ TEST(stdlib_schnorr, schnorr_signature_verification_result)
 
     stdlib::cycle_group<Builder> pub_key{ witness_ct(&builder, account.public_key.x),
                                           witness_ct(&builder, account.public_key.y),
-                                          false };
+                                          false,
+                                          /*assert_on_curve=*/false };
     stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
     byte_array_ct message(&builder, longer_string);
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key, sig);
@@ -162,7 +165,8 @@ TEST(stdlib_schnorr, signature_verification_result_failure)
     // check stdlib verification with account 2 public key fails
     stdlib::cycle_group<Builder> pub_key2_ct{ witness_ct(&builder, account2.public_key.x),
                                               witness_ct(&builder, account2.public_key.y),
-                                              false };
+                                              false,
+                                              /*assert_on_curve=*/false };
     stdlib::schnorr_signature_bits sig = stdlib::schnorr_convert_signature(&builder, signature);
     byte_array_ct message(&builder, message_string);
     bool_ct signature_result = schnorr_signature_verification_result(message, pub_key2_ct, sig);

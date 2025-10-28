@@ -98,6 +98,8 @@ struct ContractClass {
     FF private_function_root;
     FF public_bytecode_commitment;
     std::vector<uint8_t> packed_bytecode;
+
+    bool operator==(const ContractClass& other) const = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////

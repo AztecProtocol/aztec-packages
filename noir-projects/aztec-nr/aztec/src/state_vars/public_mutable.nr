@@ -5,7 +5,7 @@ use dep::protocol_types::traits::Packable;
 /// # PublicMutable
 ///
 /// PublicMutable is a public state variable type for values that can be read
-/// and written within #[public] functions of your smart contract.
+/// and written within #[external("public")] functions of your smart contract.
 ///
 /// You can declare a state variable of type PublicMutable within your contract's
 /// #[storage] struct:

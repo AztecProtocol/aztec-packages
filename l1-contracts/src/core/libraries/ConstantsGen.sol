@@ -15,7 +15,7 @@ library Constants {
 
   uint256 internal constant MAX_FIELD_VALUE =
     21_888_242_871_839_275_222_246_405_745_257_275_088_548_364_400_416_034_343_698_204_186_575_808_495_616;
-  uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 4;
+  uint256 internal constant L1_TO_L2_MSG_SUBTREE_HEIGHT = 10;
   uint256 internal constant MAX_L2_TO_L1_MSGS_PER_TX = 8;
   uint256 internal constant INITIAL_L2_BLOCK_NUM = 1;
   uint256 internal constant BLOBS_PER_BLOCK = 3;
@@ -26,6 +26,6 @@ library Constants {
   uint256 internal constant BLS12_POINT_COMPRESSED_BYTES = 48;
   uint256 internal constant PROPOSED_BLOCK_HEADER_LENGTH_BYTES = 284;
   uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 158;
-  uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 4;
+  uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 256;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
 }

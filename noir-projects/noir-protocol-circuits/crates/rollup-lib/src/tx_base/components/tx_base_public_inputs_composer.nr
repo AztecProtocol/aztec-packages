@@ -1,5 +1,5 @@
 use crate::{
-    abis::{PublicTubePublicInputs, TxEffect, TxRollupPublicInputs},
+    abis::{PublicChonkVerifierPublicInputs, TxEffect, TxRollupPublicInputs},
     tx_base::components::{
         private_tx_effect_builder,
         public_tx_effect_builder,
@@ -70,14 +70,14 @@ impl TxBasePublicInputsComposer {
         }
     }
 
-    pub fn new_from_public_tube_and_avm(
-        public_tube: PublicTubePublicInputs,
+    pub fn new_from_public_chonk_verifier_and_avm(
+        public_chonk_verifier: PublicChonkVerifierPublicInputs,
         avm: AvmCircuitPublicInputs,
         last_archive: AppendOnlyTreeSnapshot,
         contract_class_log_fields: [[Field; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS]; MAX_CONTRACT_CLASS_LOGS_PER_TX],
         start_sponge_blob: SpongeBlob,
     ) -> Self {
-        let private_to_public = public_tube.private_tail;
+        let private_to_public = public_chonk_verifier.private_tail;
 
         // Note: Some values below are copied from `avm` rather than `private_to_public` and this must remain unchanged.
         // The constants are checked in `private_tail_validator` to ensure they match the values in `private_to_public`.
@@ -87,8 +87,8 @@ impl TxBasePublicInputsComposer {
             global_variables: avm.global_variables,
             vk_tree_root: private_to_public.constants.vk_tree_root,
             protocol_contracts_hash: private_to_public.constants.protocol_contracts_hash,
-            // We take the prover id of the public tube, but we validate that it matches the prover id of the avm in validate_public_tube_against_avm
-            prover_id: public_tube.prover_id,
+            // We take the prover id of the public chonk verifier, but we validate that it matches the prover id of the avm in validate_public_chonk_verifier_against_avm
+            prover_id: public_chonk_verifier.prover_id,
         };
 
         let (tx_effect, tx_effect_array_lengths) = public_tx_effect_builder::build_tx_effect(

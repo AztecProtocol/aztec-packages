@@ -90,7 +90,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.arithmetic.q_c().emplace_back(0);
     blocks.arithmetic.set_gate_selector(0);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 
     // q_delta_range
     blocks.delta_range.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
@@ -103,7 +103,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.delta_range.set_gate_selector(1);
 
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
     create_unconstrained_gate(
         blocks.delta_range, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
@@ -117,7 +117,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.elliptic.q_c().emplace_back(0);
     blocks.elliptic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
     create_unconstrained_gate(blocks.elliptic, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // q_memory
@@ -130,7 +130,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.memory.q_c().emplace_back(0);
     blocks.memory.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
     create_unconstrained_gate(blocks.memory, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // q_nnf
@@ -143,7 +143,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.nnf.q_c().emplace_back(0);
     blocks.nnf.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
     create_unconstrained_gate(blocks.nnf, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
     // Add nonzero values in w_4 and q_c (q_4*w_4 + q_c --> 1*1 - 1 = 0)
@@ -190,7 +190,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_external.q_4().emplace_back(0);
     blocks.poseidon2_external.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 
     // unconstrained gate to be read into by previous poseidon external gate via shifts
     create_unconstrained_gate(
@@ -206,7 +206,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
     blocks.poseidon2_internal.q_4().emplace_back(0);
     blocks.poseidon2_internal.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 
     // dummy gate to be read into by previous poseidon internal gate via shifts
     create_unconstrained_gate(
@@ -234,7 +234,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -263,7 +263,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -288,7 +288,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -310,7 +310,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_gate(const mul_quad_<F
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -333,7 +333,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 /**
  * @brief Generate an arithmetic gate equivalent to x^2 - x = 0, which forces x to be 0 or 1
@@ -354,7 +354,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -377,54 +377,41 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_poly_gate(const poly_triple_<F
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
  * @brief Create an elliptic curve addition gate
+ * @details Adds either one or two gates. In general, this method creates two gates with the following structure:
  *
- * @details x and y are defined over scalar field.
+ *      | q_ecc | w1  | w2  | w3  | w4  |
+ *      |-------|-----|-----|-----|-----|
+ *      |    1  |  -  | x1  | y1  |  -  | --> constrained
+ *      |    0  | x2  | x3  | y3  | y2  | --> "unconstrained" (utilized by previous gate via shifts)
  *
- * @param in Elliptic curve point addition gate parameters, including the affine coordinates of the two points being
- * added, the resulting point coordinates and the selector values that describe whether the second point is negated.
+ * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
+ * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
+ * and q_1 = sign_coefficient (which in the relation translates to q_sign). We take advantage of this frequently when
+ * performing chained additions or doubling operations.
+ *
+ * @param in Elliptic curve point addition gate parameters
  */
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_<FF>& in)
 {
-    /**
-     * gate structure:
-     * | 1  | 2  | 3  | 4  |
-     * | -- | x1 | y1 | -- |
-     * | x2 | x3 | y3 | y2 |
-     * we can chain successive ecc_add_gates if x3 y3 of previous gate equals x1 y1 of current gate
-     **/
-
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
     auto& block = blocks.elliptic;
 
-    bool previous_elliptic_gate_exists = block.size() > 0;
-    bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1482): scrutinize and clean up this logic
-    if (can_fuse_into_previous_gate) {
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_3()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_4()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_1()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_arith()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_m()[block.size() - 1] == 0);
-    }
-
-    // AUDITTODO: use this instead.
-    [[maybe_unused]] bool can_fuse =
+    // Determine whether we can fuse this addition operation into the previous gate in the block
+    bool can_fuse_into_previous_gate =
         block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* and output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* and output y coord of previous gate is input of this one */
+        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
+        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
     if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, in.sign_coefficient);
-        block.q_elliptic().set(block.size() - 1, 1);
+        block.q_1().set(block.size() - 1, in.sign_coefficient); // set q_sign of previous gate
+        block.q_elliptic().set(block.size() - 1, 1);            // set q_ecc of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
@@ -436,52 +423,45 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.q_c().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
-        ++this->num_gates;
+        this->increment_num_gates();
     }
+    // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
     create_unconstrained_gate(block, in.x2, in.x3, in.y3, in.y2);
 }
 
 /**
  * @brief Create an elliptic curve doubling gate
+ * @details Adds either one or two gates. In general, this method creates two gates with the following structure:
+ *
+ *      | q_ecc | w1  | w2  | w3  | w4  |
+ *      |-------|-----|-----|-----|-----|
+ *      |    1  |  -  | x1  | y1  |  -  | --> constrained
+ *      |    0  |  -  | x3  | y3  |  -  | --> "unconstrained" (utilized by previous gate via shifts)
+ *
+ * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
+ * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
+ * and q_m = 1 (which in the relation translates to q_is_double = 1). We take advantage of this frequently when
+ * performing chained additions or doubling operations.
  *
  * @param in Elliptic curve point doubling gate parameters
  */
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
-    auto& block = blocks.elliptic;
-
-    /**
-     * gate structure:
-     * | 1  | 2  | 3  | 4  |
-     * | -  | x1 | y1 | -  |
-     * | -  | x3 | y3 | -  |
-     * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
-     * can also chain double gates together
-     **/
     this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
 
-    bool previous_elliptic_gate_exists = block.size() > 0;
-    bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1482): scrutinize and clean up this logic
-    if (can_fuse_into_previous_gate) {
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_r()[block.size() - 1] == in.x1);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.w_o()[block.size() - 1] == in.y1);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_arith()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_lookup_type()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_memory()[block.size() - 1] == 0);
-        can_fuse_into_previous_gate = can_fuse_into_previous_gate && (block.q_nnf()[block.size() - 1] == 0);
-    }
+    auto& block = blocks.elliptic;
 
-    // AUDITTODO: use this instead.
-    [[maybe_unused]] bool can_fuse =
+    // Determine whether we can fuse this doubling operation into the previous gate in the block
+    bool can_fuse_into_previous_gate =
         block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* and output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* and output y coord of previous gate is input of this one */
+        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
+        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
 
+    // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
     if (can_fuse_into_previous_gate) {
-        block.q_elliptic().set(block.size() - 1, 1);
-        block.q_m().set(block.size() - 1, 1);
+        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
+        block.q_m().set(block.size() - 1, 1);        // set q_m (q_is_double) of previous gate to 1
     } else {
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_m().emplace_back(1);
@@ -492,8 +472,9 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.q_4().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
-        ++this->num_gates;
+        this->increment_num_gates();
     }
+    // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
     create_unconstrained_gate(block, this->zero_idx(), in.x3, in.y3, this->zero_idx());
 }
 
@@ -517,7 +498,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 template <typename ExecutionTrace>
@@ -594,7 +575,7 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
         blocks.lookup.q_4().emplace_back(0);
         blocks.lookup.set_gate_selector(1);
         check_selector_length_consistency();
-        ++this->num_gates;
+        this->increment_num_gates();
     }
     return read_data;
 }
@@ -619,12 +600,12 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
 
     result.variable_indices.reserve((uint32_t)num_multiples_of_three);
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
-        const uint32_t index = this->add_variable(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
+        const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
     {
-        const uint32_t index = this->add_variable(target_range);
+        const uint32_t index = this->add_variable(fr(target_range));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
@@ -680,7 +661,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
         accumulator = accumulator >> target_range_bitnum;
     }
     for (size_t i = 0; i < sublimbs.size(); ++i) {
-        const auto limb_idx = this->add_variable(sublimbs[i]);
+        const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
         sublimb_indices.emplace_back(limb_idx);
         if ((i == sublimbs.size() - 1) && has_remainder_bits) {
             create_new_range_constraint(limb_idx, last_limb_range);
@@ -736,7 +717,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
             ((i == num_limb_triples - 1) ? false : true));
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
         // wire/variable in the circuit, in the last iteration of the loop.
-        accumulator_idx = this->add_variable(new_accumulator);
+        accumulator_idx = this->add_variable(fr(new_accumulator));
         accumulator = new_accumulator;
     }
     return sublimb_indices;
@@ -851,7 +832,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         indices.emplace_back(this->zero_idx());
     }
     for (const auto sorted_value : sorted_list) {
-        const uint32_t index = this->add_variable(sorted_value);
+        const uint32_t index = this->add_variable(fr(sorted_value));
         assign_tag(index, list.tau_tag);
         indices.emplace_back(index);
     }
@@ -889,7 +870,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint(const std::vec
         blocks.delta_range.populate_wires(
             variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
 
-        ++this->num_gates;
+        this->increment_num_gates();
         blocks.delta_range.q_m().emplace_back(0);
         blocks.delta_range.q_1().emplace_back(0);
         blocks.delta_range.q_2().emplace_back(0);
@@ -947,7 +928,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     for (size_t i = 0; i < variable_index.size() - gate_width; i += gate_width) {
 
         block.populate_wires(variable_index[i], variable_index[i + 1], variable_index[i + 2], variable_index[i + 3]);
-        ++this->num_gates;
+        this->increment_num_gates();
         block.q_m().emplace_back(0);
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
@@ -963,7 +944,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
                              variable_index[variable_index.size() - 3],
                              variable_index[variable_index.size() - 2],
                              variable_index[variable_index.size() - 1]);
-        ++this->num_gates;
+        this->increment_num_gates();
         block.q_m().emplace_back(0);
         block.q_1().emplace_back(0);
         block.q_2().emplace_back(0);
@@ -1219,11 +1200,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     BB_ASSERT_LTE(hi_limb_bits, 14U * 5U);
 
     // If the value is larger than the range, we log the error in builder
-    const bool is_lo_out_of_range = (uint256_t(this->get_variable_reference(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
+    const bool is_lo_out_of_range = (uint256_t(this->get_variable(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
     if (is_lo_out_of_range && !this->failed()) {
         this->failure(msg + ": lo limb.");
     }
-    const bool is_hi_out_of_range = (uint256_t(this->get_variable_reference(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
+    const bool is_hi_out_of_range = (uint256_t(this->get_variable(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
     if (is_hi_out_of_range && !this->failed()) {
         this->failure(msg + ": hi limb.");
     }
@@ -1236,15 +1217,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
         // We also use zero_idx to substitute variables that should be zero
         constexpr uint256_t MAX_SUBLIMB_MASK = (uint256_t(1) << 14) - 1;
         std::array<uint32_t, 5> sublimb_indices;
-        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(limb & MAX_SUBLIMB_MASK) : this->zero_idx();
+        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(fr(limb & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[1] =
-            sublimb_masks[1] != 0 ? this->add_variable((limb >> 14) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[1] != 0 ? this->add_variable(fr((limb >> 14) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[2] =
-            sublimb_masks[2] != 0 ? this->add_variable((limb >> 28) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[2] != 0 ? this->add_variable(fr((limb >> 28) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[3] =
-            sublimb_masks[3] != 0 ? this->add_variable((limb >> 42) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[3] != 0 ? this->add_variable(fr((limb >> 42) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[4] =
-            sublimb_masks[4] != 0 ? this->add_variable((limb >> 56) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[4] != 0 ? this->add_variable(fr((limb >> 56) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         return sublimb_indices;
     };
 
@@ -1274,7 +1255,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_1);
     apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_2);
     apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
-    this->num_gates += 3;
+    this->increment_num_gates(3);
 
     for (size_t i = 0; i < 5; i++) {
         if (lo_masks[i] != 0) {
@@ -1300,15 +1281,15 @@ template <typename ExecutionTrace>
 std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_native_field_double_width_limb(
     const uint32_t limb_idx, const size_t num_limb_bits)
 {
-    BB_ASSERT_LT(uint256_t(this->get_variable_reference(limb_idx)), (uint256_t(1) << num_limb_bits));
+    BB_ASSERT_LT(uint256_t(this->get_variable(limb_idx)), (uint256_t(1) << num_limb_bits));
     constexpr FF LIMB_MASK = (uint256_t(1) << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) - 1;
     const uint256_t value = this->get_variable(limb_idx);
     const uint256_t low = value & LIMB_MASK;
     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
 
-    const uint32_t low_idx = this->add_variable(low);
-    const uint32_t hi_idx = this->add_variable(hi);
+    const uint32_t low_idx = this->add_variable(fr(low));
+    const uint32_t hi_idx = this->add_variable(fr(hi));
 
     BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
@@ -1421,7 +1402,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     //
     // Check if hi_0 was computed correctly.
@@ -1436,7 +1417,7 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     //
     blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     //
     // Check if hi_1 was computed correctly.
@@ -1451,14 +1432,14 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     //
     blocks.nnf.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
     apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     //
     // Does nothing, but is used by the previous gate to read the hi_1 limb.
     //
     blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
     apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
-    ++this->num_gates;
+    this->increment_num_gates();
 
     /**
      * product gate 6
@@ -1539,19 +1520,19 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
 
         blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.lo_0);
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
-        ++this->num_gates;
+        this->increment_num_gates();
 
         blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
-        ++this->num_gates;
+        this->increment_num_gates();
 
         blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), input.hi_0);
         apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
-        ++this->num_gates;
+        this->increment_num_gates();
 
         blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.hi_1);
         apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
-        ++this->num_gates;
+        this->increment_num_gates();
     }
 }
 
@@ -1722,7 +1703,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 
     check_selector_length_consistency();
 
-    this->num_gates += 4;
+    this->increment_num_gates(4);
     return std::array<uint32_t, 5>{
         z_0, z_1, z_2, z_3, z_p,
     };
@@ -1837,7 +1818,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 
     check_selector_length_consistency();
 
-    this->num_gates += 4;
+    this->increment_num_gates(4);
     return std::array<uint32_t, 5>{
         z_0, z_1, z_2, z_3, z_p,
     };
@@ -1984,7 +1965,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
     block.set_gate_selector(1);
     this->check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**
@@ -2003,7 +1984,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
     block.q_4().emplace_back(0);
     block.set_gate_selector(1);
     this->check_selector_length_consistency();
-    ++this->num_gates;
+    this->increment_num_gates();
 }
 
 /**

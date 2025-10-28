@@ -4,7 +4,7 @@ THE PROJECT ROOT IS AT TWO LEVELS ABOVE THIS FOLDER. Typically, the repository i
 
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
 Bootstrap scripts can be called with relative paths e.g. ../barretenberg/bootstrap.sh
-You can use DISABLE_AVM=1 to bootstrap things generally.
+You can use DISABLE_AZTEC_VM=1 to bootstrap things generally.
 
 # Working on modules:
 
@@ -15,7 +15,7 @@ The core proving system library. Focus development is in barretenberg/cpp.
 Bootstrap modes:
 - `./bootstrap.sh` => full build, needed for other components
 - `./bootstrap.sh build` => standard build
-- `DISABLE_AVM=1 ./bootstrap.sh build_native` => quick build without AVM. Good for verifying compilation works. Needed to build ts/
+- `DISABLE_AZTEC_VM=1 ./bootstrap.sh build_native` => quick build without AVM. Good for verifying compilation works. Needed to build ts/
 Development commands:
 - cmake --preset build-no-avm
   cd build-no-avm
@@ -23,7 +23,7 @@ Development commands:
     NOTE: DO NOT add the -j flag, default is optimal.
     where test is based on what you're working on:
     - `./bin/ultra_honk_tests` - Ultra Honk circuit tests
-    - `./bin/client_ivc_tests` - Client IVC tests
+    - `./bin/chonk_tests` - Chonk tests
     - `./bin/api_tests` - API/CLI tests
     - `./bin/stdlib_*_tests` - Standard library tests
     - `./bin/crypto_*_tests` - Cryptographic primitive tests
@@ -36,7 +36,7 @@ Development commands:
 - **honk/** - The Honk proving system implementation
 - **stdlib/** - Circuit-friendly implementations of primitives
 - **ultra_honk/** - Ultra Honk prover/verifier
-- **client_ivc/** - Client-side IVC (Incremental Verifiable Computation)
+- **chonk/** - Client-side IVC (Incremental Verifiable Computation)
 - **vm2/** - AVM implementation (not enabled, but might need to be fixed for compilation issues in root ./bootstrap.sh)
 - **bbapi/** - BB API for external interaction. If changing here, we will also want to update the ts/ folder because bb.js consumes this. (first build ninja bb in build/)
 - **dsl/** - ACIR definition in C++. This is dictated by the serialization in noir/, so refactor should generally not change the structure without confirming that the user is changing noir.
@@ -72,9 +72,9 @@ yarn-project/end-to-end/scripts/run_test.sh simple e2e_prover/full
 Run IVC (Incremental Verifiable Computation) integration tests from the root:
 ```bash
 # Run specific IVC tests
-yarn-project/scripts/run_test.sh ivc-integration/src/native_client_ivc_integration.test.ts
-yarn-project/scripts/run_test.sh ivc-integration/src/wasm_client_ivc_integration.test.ts
-yarn-project/scripts/run_test.sh ivc-integration/src/browser_client_ivc_integration.test.ts
+yarn-project/scripts/run_test.sh ivc-integration/src/native_chonk_integration.test.ts
+yarn-project/scripts/run_test.sh ivc-integration/src/wasm_chonk_integration.test.ts
+yarn-project/scripts/run_test.sh ivc-integration/src/browser_chonk_integration.test.ts
 
 # Run rollup IVC tests (with verbose logging)
 BB_VERBOSE=1 yarn-project/scripts/run_test.sh ivc-integration/src/rollup_ivc_integration.test.ts

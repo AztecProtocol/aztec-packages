@@ -321,7 +321,7 @@ case "$cmd" in
     print_usage
     ;;
   "gh-bench")
-    cache_download bench-$COMMIT_HASH.tar.gz
+    cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

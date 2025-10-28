@@ -6,7 +6,7 @@ pub contract Counter {
     // docs:end:setup
     // docs:start:imports
     use aztec::{
-        macros::{functions::{initializer, private, utility}, storage::storage},
+        macros::{functions::{external, initializer}, storage::storage},
         oracle::debug_log::debug_log_format, protocol_types::{address::AztecAddress, traits::ToField},
         state_vars::Map,
     };
@@ -22,7 +22,7 @@ pub contract Counter {
 
     // docs:start:constructor
     #[initializer]
-    #[private]
+    #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
         let counters = storage.counters;
@@ -31,7 +31,7 @@ pub contract Counter {
     // docs:end:constructor
 
     // docs:start:increment
-    #[private]
+    #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
         let counters = storage.counters;
@@ -40,7 +40,7 @@ pub contract Counter {
     // docs:end:increment
 
     // docs:start:get_counter
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_counter(owner: AztecAddress) -> Field {
         storage.counters.at(owner).get_value()
     }

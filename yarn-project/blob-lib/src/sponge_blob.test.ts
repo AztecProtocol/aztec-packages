@@ -1,4 +1,3 @@
-import { SPONGE_BLOB_LENGTH } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
@@ -24,31 +23,20 @@ describe('SpongeBlob', () => {
     expect(res).toEqual(spongeBlob);
   });
 
-  it('number of fields matches constant', () => {
-    const fields = spongeBlob.sponge.cache.concat([
-      ...spongeBlob.sponge.state,
-      new Fr(spongeBlob.sponge.cacheSize),
-      new Fr(spongeBlob.sponge.squeezeMode),
-      new Fr(spongeBlob.fields),
-      new Fr(spongeBlob.expectedFields),
-    ]);
-    expect(fields.length).toBe(SPONGE_BLOB_LENGTH);
-  });
-
   it('matches an ordinary short poseidon2 hash', async () => {
-    spongeBlob = SpongeBlob.init(4);
-    const input = [Fr.ONE, new Fr(2), new Fr(3), new Fr(4)];
+    spongeBlob = await SpongeBlob.init(4);
+    const input = [Fr.ONE, new Fr(2), new Fr(3)];
     await spongeBlob.absorb(input);
-    const expectedHash = await poseidon2Hash(input);
+    const expectedHash = await poseidon2Hash([new Fr(4)].concat(input));
     const res = await spongeBlob.squeeze();
     expect(res).toEqual(expectedHash);
   });
 
   it('matches an ordinary long poseidon2 hash', async () => {
-    spongeBlob = SpongeBlob.init(4096);
+    spongeBlob = await SpongeBlob.init(4097);
     const input = Array(4096).fill(new Fr(3));
     await spongeBlob.absorb(input);
-    const expectedHash = await poseidon2Hash(input);
+    const expectedHash = await poseidon2Hash([new Fr(4097)].concat(input));
     const res = await spongeBlob.squeeze();
     expect(res).toEqual(expectedHash);
   });

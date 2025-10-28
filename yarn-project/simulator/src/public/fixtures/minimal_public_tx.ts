@@ -10,15 +10,13 @@ import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.
 import { testCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
-export async function simAvmMinimalPublicTx(): Promise<PublicTxResult> {
+export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester): Promise<PublicTxResult> {
   const minimalBytecode = encodeToBytecode([
     new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
     new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
     new Add(/*indirect=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.ADD_8, Add.wireFormat8),
     new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
   ]);
-
-  const tester = await PublicTxSimulationTester.create();
 
   const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
 

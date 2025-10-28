@@ -1,5 +1,6 @@
-import { type AztecNode, createAztecNodeClient, sleep } from '@aztec/aztec.js';
+import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 
 import { jest } from '@jest/globals';
 import type { ChildProcess } from 'child_process';

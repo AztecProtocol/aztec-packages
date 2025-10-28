@@ -12,7 +12,7 @@
 namespace bb {
 template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : has_dummy_witnesses_(has_dummy_witnesses)
+    : _has_dummy_witnesses(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -24,17 +24,17 @@ CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_wit
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const
 {
-    return num_gates;
+    return _num_gates;
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finalized_gates() const
 {
-    return num_gates;
+    return _num_gates;
 }
 
 template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
 {
-    info(num_gates);
+    info(_num_gates);
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_variables() const
@@ -58,26 +58,6 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
         real_variable_index[cur_index] = new_real_index;
         cur_index = next_var_index[cur_index];
     } while (cur_index != REAL_VARIABLE);
-}
-
-template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index(const uint32_t witness_index) const
-{
-    uint32_t result = static_cast<uint32_t>(-1);
-    for (size_t i = 0; i < num_public_inputs(); ++i) {
-        if (real_variable_index[public_inputs_[i]] == real_variable_index[witness_index]) {
-            result = static_cast<uint32_t>(i);
-            break;
-        }
-    }
-    BB_ASSERT(result != static_cast<uint32_t>(-1));
-    return result;
-}
-
-template <typename FF_>
-typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
-{
-    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
-    return get_variable(public_inputs_[index]);
 }
 
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
@@ -104,10 +84,10 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t
     variable_names.insert({ first_idx, name });
 }
 
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
+template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t _num_gates) const
 {
-    auto log2_n = static_cast<size_t>(numeric::get_msb(num_gates));
-    if ((1UL << log2_n) != (num_gates)) {
+    auto log2_n = static_cast<size_t>(numeric::get_msb(_num_gates));
+    if ((1UL << log2_n) != (_num_gates)) {
         ++log2_n;
     }
     return 1UL << log2_n;
@@ -122,8 +102,8 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(index);
     return index;
 }
 
@@ -138,8 +118,8 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
         }
     }
     uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(witness_index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(witness_index);
 
     return public_input_index;
 }
@@ -208,7 +188,7 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!has_dummy_witnesses_) {
+    if (!_has_dummy_witnesses) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }

@@ -3,7 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract ContractInstanceRegistry {
     use aztec::{
-        macros::{events::event, functions::{private, public, view}, storage::storage},
+        macros::{events::event, functions::{external, view}, storage::storage},
         protocol_types::{
             address::{AztecAddress, PartialAddress},
             constants::{
@@ -95,7 +95,7 @@ pub contract ContractInstanceRegistry {
         updated_class_ids: Map<AztecAddress, DelayedPublicMutable<ContractClassId, DEFAULT_UPDATE_DELAY, Context>, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn publish_for_public_execution(
         salt: Field,
         contract_class_id: ContractClassId,
@@ -146,7 +146,7 @@ pub contract ContractInstanceRegistry {
         context.emit_private_log(padded_log, length);
     }
 
-    #[public]
+    #[external("public")]
     fn update(new_contract_class_id: ContractClassId) {
         let address = context.msg_sender().unwrap();
 
@@ -180,7 +180,7 @@ pub contract ContractInstanceRegistry {
         context.emit_public_log(event);
     }
 
-    #[public]
+    #[external("public")]
     fn set_update_delay(new_update_delay: u64) {
         let address = context.msg_sender().unwrap();
 
@@ -194,7 +194,7 @@ pub contract ContractInstanceRegistry {
         storage.updated_class_ids.at(address).schedule_delay_change(new_update_delay);
     }
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_update_delay() -> u64 {
         storage.updated_class_ids.at(context.msg_sender().unwrap()).get_current_delay()

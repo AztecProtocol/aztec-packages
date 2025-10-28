@@ -1,6 +1,8 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { AztecAddress, type AztecNode, EthAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   BBCircuitVerifier,

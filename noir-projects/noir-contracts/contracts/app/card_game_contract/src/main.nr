@@ -12,7 +12,7 @@ pub contract CardGame {
 
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
-    use dep::aztec::macros::{functions::{internal, private, public, utility}, storage::storage};
+    use dep::aztec::macros::{functions::{external, internal}, storage::storage};
 
     use dep::aztec::protocol_types::traits::{FromField, ToField};
 
@@ -23,7 +23,7 @@ pub contract CardGame {
         games: Map<Field, PublicMutable<Game, Context>, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn buy_pack(
         seed: Field, // The randomness used to generate the cards. Passed in for now.
     ) {
@@ -34,7 +34,7 @@ pub contract CardGame {
         let _inserted_cards = collection.add_cards(cards, buyer);
     }
 
-    #[private]
+    #[external("private")]
     fn join_game(game: u32, cards_fields: [Field; 2]) {
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
 
@@ -50,7 +50,7 @@ pub contract CardGame {
         );
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = storage.games.at(game as Field);
@@ -64,7 +64,7 @@ pub contract CardGame {
         game_storage.write(game_data);
     }
 
-    #[public]
+    #[external("public")]
     fn start_game(game: u32) {
         let game_storage = storage.games.at(game as Field);
 
@@ -73,7 +73,7 @@ pub contract CardGame {
         game_storage.write(game_data);
     }
 
-    #[private]
+    #[external("private")]
     fn play_card(game: u32, card: Card) {
         let player = context.msg_sender().unwrap();
 
@@ -85,7 +85,7 @@ pub contract CardGame {
         );
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = storage.games.at(game as Field);
@@ -100,7 +100,7 @@ pub contract CardGame {
         game_storage.write(game_data);
     }
 
-    #[private]
+    #[external("private")]
     fn claim_cards(game: u32, cards_fields: [Field; PLAYABLE_CARDS]) {
         let player = context.msg_sender().unwrap();
         let cards = cards_fields.map(|card_field| Card::from_field(card_field));
@@ -112,7 +112,7 @@ pub contract CardGame {
             .enqueue(&mut context);
     }
 
-    #[public]
+    #[external("public")]
     #[internal]
     fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = storage.games.at(game as Field);
@@ -132,7 +132,7 @@ pub contract CardGame {
         game_storage.write(game_data);
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn view_collection_cards(
         owner: AztecAddress,
         offset: u32,
@@ -141,7 +141,7 @@ pub contract CardGame {
         collection.view_cards(offset)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn view_game_cards(
         game: u32,
         player: AztecAddress,
@@ -152,7 +152,7 @@ pub contract CardGame {
         game_deck.view_cards(offset)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn view_game(game: u32) -> Game {
         storage.games.at(game as Field).read()
     }

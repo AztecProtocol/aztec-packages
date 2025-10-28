@@ -1,9 +1,9 @@
-import { sleep } from '@aztec/aztec.js';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { RollupContract, SlasherContract, TallySlashingProposerContract } from '@aztec/ethereum/contracts';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';

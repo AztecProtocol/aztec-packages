@@ -1,12 +1,12 @@
 import {
   ARCHIVE_HEIGHT,
   L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NOTE_HASH_TREE_HEIGHT,
   NULLIFIER_TREE_HEIGHT,
+  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { timesAsync } from '@aztec/foundation/collection';
@@ -1157,8 +1157,8 @@ describe('NativeWorldState', () => {
 
         expect(status.meta.messageTreeMeta).toMatchObject({
           depth: L1_TO_L2_MSG_TREE_HEIGHT,
-          size: BigInt(2 * MAX_L2_TO_L1_MSGS_PER_TX * (i + 1)),
-          committedSize: BigInt(2 * MAX_L2_TO_L1_MSGS_PER_TX * (i + 1)),
+          size: BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * (i + 1)),
+          committedSize: BigInt(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP * (i + 1)),
           initialSize: BigInt(0),
           oldestHistoricBlock: 1n,
           unfinalizedBlockHeight: BigInt(i + 1),

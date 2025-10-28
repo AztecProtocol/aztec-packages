@@ -51,7 +51,7 @@ pub global L1_TO_L2_MSG_TREE_LEAF_COUNT: u64 = 1 << (L1_TO_L2_MSG_TREE_HEIGHT as
 pub global NOTE_HASH_SUBTREE_HEIGHT: u32 = 6;
 pub global NULLIFIER_SUBTREE_HEIGHT: u32 = 6;
 pub global PUBLIC_DATA_SUBTREE_HEIGHT: u32 = 6;
-pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 4; // TODO: Update this to publish 1024 messages per checkpoint
+pub global L1_TO_L2_MSG_SUBTREE_HEIGHT: u32 = 10;
 pub global NOTE_HASH_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
     NOTE_HASH_TREE_HEIGHT - NOTE_HASH_SUBTREE_HEIGHT;
 pub global NULLIFIER_SUBTREE_ROOT_SIBLING_PATH_LENGTH: u32 =
@@ -102,7 +102,7 @@ pub comptime global PRIVATE_KERNEL_TAIL_INDEX: u32 = 2;
 pub comptime global PRIVATE_KERNEL_TAIL_TO_PUBLIC_INDEX: u32 = 3;
 pub comptime global HIDING_KERNEL_TO_ROLLUP_VK_INDEX: u32 = 4;
 pub comptime global HIDING_KERNEL_TO_PUBLIC_VK_INDEX: u32 = 5;
-pub comptime global PUBLIC_TUBE_VK_INDEX: u32 = 6;
+pub comptime global PUBLIC_CHONK_VERIFIER_VK_INDEX: u32 = 6;
 pub comptime global AVM_VK_INDEX: u32 = 7;
 pub comptime global PRIVATE_TX_BASE_ROLLUP_VK_INDEX: u32 = 8;
 pub comptime global PUBLIC_TX_BASE_ROLLUP_VK_INDEX: u32 = 9;
@@ -400,7 +400,7 @@ pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 // TODO: Leila's considering moving this into a noir file within bb
 // The hiding kernel IO public inputs consist of pairing_inputs and table_commitments.
 // They are independent of the circuit's custom public inputs.
-pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 48;
+pub global HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE: u32 = 56;
 pub global PAIRING_POINTS_SIZE: u32 = 16;
 pub global IPA_CLAIM_SIZE: u32 = 10;
 
@@ -555,9 +555,8 @@ pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + AZTEC_MAX_EPOCH_DURATION * FEE_RECIPIENT_LENGTH /* fees */
     + FINAL_BLOB_ACCUMULATOR_LENGTH /* blob_public_inputs */;
 
-// TODO: measure whether "4" is a good choice.
 // Depends on the final number of messages per checkpoint.
-pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
+pub global NUM_MSGS_PER_BASE_PARITY: u32 = 256;
 // pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP / NUM_MSGS_PER_BASE_PARITY;
 // FIX: Sadly, writing this as above causes a type error in type_conversion.ts.
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
@@ -570,11 +569,12 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 350; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CIVC_PROOF_LENGTH: u32 = 2076;
+pub global CHONK_PROOF_LENGTH: u32 = 2084;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
-pub global CIVC_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a client ivc verification key
+// CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
+pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
@@ -1104,7 +1104,7 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 // worktodo comment here where 7 is
 pub global PROOF_TYPE_PG_FINAL: u32 = 8;
 pub global PROOF_TYPE_PG_TAIL: u32 = 9;
-pub global PROOF_TYPE_CIVC: u32 = 10;
+pub global PROOF_TYPE_CHONK: u32 = 10;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

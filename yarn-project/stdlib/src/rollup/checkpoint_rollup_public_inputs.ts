@@ -1,4 +1,4 @@
-import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BlobAccumulator, FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';

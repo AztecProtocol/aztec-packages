@@ -1,4 +1,6 @@
-import { type ABIParameter, type AbiType, type Aliased, AztecAddress, isAddressStruct } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Aliased } from '@aztec/aztec.js/wallet';
+import { type ABIParameter, type AbiType, isAddressStruct } from '@aztec/stdlib/abi';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
 import { useContext, useState } from 'react';
 import EditIcon from '@mui/icons-material/Edit';

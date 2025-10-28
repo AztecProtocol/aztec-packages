@@ -1,4 +1,6 @@
-import { AztecAddress, type AztecNode, Fr } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { OffchainEffectContract, type TestEvent } from '@aztec/noir-test-contracts.js/OffchainEffect';
 import { MessageContext } from '@aztec/stdlib/logs';

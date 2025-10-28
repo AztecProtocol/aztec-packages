@@ -31,7 +31,18 @@ function loadNativeModule(): Record<string, NativeClassCtor> {
   }
 }
 
-const nativeModule: Record<string, NativeClassCtor> = loadNativeModule();
+const nativeModule: Record<string, NativeClassCtor | Function> = loadNativeModule();
 
-export const NativeWorldState: NativeClassCtor = nativeModule.WorldState;
-export const NativeLMDBStore: NativeClassCtor = nativeModule.LMDBStore;
+export const NativeWorldState: NativeClassCtor = nativeModule.WorldState as NativeClassCtor;
+export const NativeLMDBStore: NativeClassCtor = nativeModule.LMDBStore as NativeClassCtor;
+
+/**
+ * AVM simulation function that uses pre-collected hints from TypeScript simulation.
+ * All contract data and merkle tree hints are included in the AvmCircuitInputs, so no runtime
+ * callbacks to TS or WS pointer are needed.
+ * @param inputs - Msgpack-serialized AvmCircuitInputs (AvmProvingInputs in C++) buffer
+ * @returns Promise resolving to msgpack-serialized simulation results buffer
+ */
+export const avmSimulateWithHintedDbs: (inputs: Buffer) => Promise<Buffer> = nativeModule.avmSimulateWithHintedDbs as (
+  inputs: Buffer,
+) => Promise<Buffer>;

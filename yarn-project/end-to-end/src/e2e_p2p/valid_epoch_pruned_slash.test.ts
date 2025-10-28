@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
+import { sleep } from '@aztec/foundation/sleep';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { OffenseType } from '@aztec/slasher';
 

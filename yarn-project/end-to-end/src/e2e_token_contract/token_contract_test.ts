@@ -1,4 +1,6 @@
-import { AztecAddress, type AztecNode, type Logger, createLogger } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
 import type { TestWallet } from '@aztec/test-wallet/server';

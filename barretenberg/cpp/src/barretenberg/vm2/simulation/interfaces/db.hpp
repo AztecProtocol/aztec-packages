@@ -43,7 +43,7 @@ class LowLevelMerkleDBInterface {
   public:
     virtual ~LowLevelMerkleDBInterface() = default;
 
-    virtual const TreeSnapshots& get_tree_roots() const = 0;
+    virtual TreeSnapshots get_tree_roots() const = 0;
 
     virtual SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const = 0;
     virtual GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const = 0;
@@ -58,6 +58,7 @@ class LowLevelMerkleDBInterface {
     virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) = 0;
 
+    // todo(ilyas): does this need to be a vector of appendLeafResult? We should only care abou the end of appendings
     virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;

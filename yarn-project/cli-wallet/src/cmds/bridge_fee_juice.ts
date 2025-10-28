@@ -1,4 +1,6 @@
-import { type AztecNode, L1FeeJuicePortalManager, ProtocolContractAddress } from '@aztec/aztec.js';
+import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 import { Fr } from '@aztec/foundation/fields';

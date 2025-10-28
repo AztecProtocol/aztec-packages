@@ -97,7 +97,7 @@ While Ethereum contracts are defined by bytecode that runs on the EVM, Aztec con
 
 ### Private Execution
 
-Contract functions marked with `#[private]` can only be called privately, and as such 'run' in the user's device. Since they're circuits, their 'execution' is actually the generation of a zk-SNARK proof that'll later be sent to the sequencer for verification.
+Contract functions marked with `#[external("private")]` can only be called privately, and as such 'run' in the user's device. Since they're circuits, their 'execution' is actually the generation of a zk-SNARK proof that'll later be sent to the sequencer for verification.
 
 #### Private Calls
 
@@ -153,7 +153,7 @@ For this reason it is encouraged to try to avoid public function calls and inste
 
 ### Public Execution
 
-Contract functions marked with `#[public]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
+Contract functions marked with `#[external("public")]` can only be called publicly, and are executed by the sequencer. The computation model is very similar to the EVM: all state, parameters, etc. are known to the entire network, and no data is private. Static execution like the EVM's `STATICCALL` is possible too, with similar semantics (state can be accessed but not modified, etc.).
 
 Since private calls are always run in a user's device, it is not possible to perform any private execution from a public context. A reasonably good mental model for public execution is that of an EVM in which some work has already been done privately, and all that is know about it is its correctness and side-effects (new notes and nullifiers, enqueued public calls, etc.). A reverted public execution will also revert the private side-effects.
 
@@ -167,7 +167,7 @@ This is the same function that was called by privately enqueuing a call to it! P
 
 ### Utility
 
-Contract functions marked with `#[utility]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
+Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction, and are only invoked by applications that interact with contracts to perform state queries from an offchain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr). No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls. It is possible however to verify that the bytecode being executed is the correct one, since a contract's address includes a commitment to all of its utility functions.
 
 ### aztec.js
 

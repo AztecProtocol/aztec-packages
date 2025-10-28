@@ -1,5 +1,6 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import type { AztecNode, TxReceipt } from '@aztec/aztec.js';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';

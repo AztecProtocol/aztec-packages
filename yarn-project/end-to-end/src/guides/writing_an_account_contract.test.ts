@@ -1,13 +1,10 @@
 import { DefaultAccountContract } from '@aztec/accounts/defaults';
-import {
-  AuthWitness,
-  type AuthWitnessProvider,
-  type CompleteAddress,
-  type ContractArtifact,
-  Fr,
-  GrumpkinScalar,
-  Schnorr,
-} from '@aztec/aztec.js';
+import type { ContractArtifact } from '@aztec/aztec.js/abi';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import type { CompleteAddress } from '@aztec/aztec.js/addresses';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { Schnorr } from '@aztec/foundation/crypto';
 import { SchnorrHardcodedAccountContractArtifact } from '@aztec/noir-contracts.js/SchnorrHardcodedAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TestWallet } from '@aztec/test-wallet/server';

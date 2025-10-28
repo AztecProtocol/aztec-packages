@@ -3,16 +3,12 @@ import {
   registerDeployedBananaFPCInWalletAndGetAddress,
   registerDeployedSponsoredFPCInWalletAndGetAddress,
 } from '@aztec/aztec';
-import {
-  Fr,
-  GrumpkinScalar,
-  PrivateFeePaymentMethod,
-  createAztecNodeClient,
-  createLogger,
-  getFeeJuiceBalance,
-  waitForNode,
-} from '@aztec/aztec.js';
+import { PrivateFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { createLogger } from '@aztec/aztec.js/log';
+import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { timesParallel } from '@aztec/foundation/collection';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';

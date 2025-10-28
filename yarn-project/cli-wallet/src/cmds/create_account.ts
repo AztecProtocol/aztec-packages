@@ -1,4 +1,6 @@
-import { AztecAddress, type AztecNode, type DeployAccountOptions } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { DeployAccountOptions } from '@aztec/aztec.js/wallet';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';

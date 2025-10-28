@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Performs the client ivc private transaction proving benchmarks for our 'realistic apps'.
+# Performs the chonk private transaction proving benchmarks for our 'realistic apps'.
 # This is called by yarn-project/end-to-end/bootstrap.sh bench, which creates these inputs from end-to-end tests.
 source $(git rev-parse --show-toplevel)/ci3/source
 
@@ -23,10 +23,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_rollup.ivc.vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../noir-projects/noir-protocol-circuits/target/keys/hiding_kernel_to_public.ivc.vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -59,7 +59,7 @@ function run_bb_cli_bench {
   fi
 }
 
-function client_ivc_flow {
+function chonk_flow {
   set -eu
   local runtime="$1"
   local flow_folder="$2"
@@ -72,7 +72,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v --print_bench
+  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme chonk -v --print_bench
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
@@ -101,4 +101,4 @@ EOF
 
 export -f verify_ivc_flow run_bb_cli_bench
 
-client_ivc_flow $1 $2
+chonk_flow $1 $2

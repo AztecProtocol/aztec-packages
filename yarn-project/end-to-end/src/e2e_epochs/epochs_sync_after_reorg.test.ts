@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { Logger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import { jest } from '@jest/globals';

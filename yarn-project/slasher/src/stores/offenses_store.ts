@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSet } from '@aztec/kv-store';
 import {
   type Offense,

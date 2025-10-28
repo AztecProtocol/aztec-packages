@@ -32,7 +32,6 @@ template <class Flavor> class TraceToPolynomials {
      * consistent across all folding steps.
      *
      * @param builder
-     * @param is_structured whether or not the trace is to be structured with a fixed block size
      */
     static void populate(Builder& builder, ProverPolynomials&, ActiveRegionData&);
 

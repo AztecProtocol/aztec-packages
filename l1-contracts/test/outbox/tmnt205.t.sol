@@ -120,8 +120,7 @@ contract Tmnt205Test is Test {
   function _fakeMessage(address _recipient, uint256 _content) internal view returns (DataStructures.L2ToL1Msg memory) {
     return DataStructures.L2ToL1Msg({
       sender: DataStructures.L2Actor({
-        actor: 0x2000000000000000000000000000000000000000000000000000000000000000,
-        version: AZTEC_VERSION
+        actor: 0x2000000000000000000000000000000000000000000000000000000000000000, version: AZTEC_VERSION
       }),
       recipient: DataStructures.L1Actor({actor: _recipient, chainId: block.chainid}),
       content: bytes32(_content)

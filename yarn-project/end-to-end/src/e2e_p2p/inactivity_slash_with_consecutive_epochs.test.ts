@@ -1,5 +1,6 @@
-import { type EthAddress, retryUntil } from '@aztec/aztec.js';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { unique } from '@aztec/foundation/collection';
+import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
 
 import { jest } from '@jest/globals';

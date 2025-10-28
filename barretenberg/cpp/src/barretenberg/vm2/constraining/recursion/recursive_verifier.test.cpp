@@ -134,7 +134,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
@@ -229,7 +229,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
-    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
+    vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());
 
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.

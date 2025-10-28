@@ -1,4 +1,7 @@
-import { AuthWitness, type AztecAddress, type AztecNode, Contract } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
+import { Contract } from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { prepTx } from '@aztec/cli/utils';
 import type { LogFn } from '@aztec/foundation/log';
 

@@ -31,8 +31,8 @@ size_t generate_ec_add_constraint(EcAdd& ec_add_constraint, WitnessVector& witne
     witness_values.push_back(g1.y);
     witness_values.push_back(g1.x);
     witness_values.push_back(g1.y);
-    witness_values.push_back(result.x.get_value());
-    witness_values.push_back(result.y.get_value());
+    witness_values.push_back(result.x().get_value());
+    witness_values.push_back(result.y().get_value());
     witness_values.push_back(fr(0));
     witness_values.push_back(fr(0));
     witness_values.push_back(fr(1)); // predicate

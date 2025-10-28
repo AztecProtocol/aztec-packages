@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 source $ci3/source_redis
+source $ci3/source_cache
 
 # Ensure a command is passed
 if [ "$#" != 1 ]; then
@@ -71,6 +72,26 @@ function publish_log {
   } | redis_setexz $key $CI_REDIS_EXPIRE
 }
 
+function _format_log_output {
+  echo "Parent Log: ${PARENT_LOG_URL:-none}"
+  echo "Command: $cmd"
+  echo "Date: $(date)"
+  echo "Status: $status"
+  echo "Took: ${time}"
+  echo
+  cat $outfile
+}
+
+function publish_log {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  _format_log_output | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function publish_log_final {
+  [ "$CI_REDIS_AVAILABLE" -eq 0 ] && return
+  _format_log_output | cache_persistent $key $CI_REDIS_EXPIRE
+}
+
 function live_publish_log {
   while [ -f $outfile ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
@@ -112,7 +133,7 @@ status=$?
 
 time="${SECONDS}s"
 [ -n "${publish_pid:-}" ] && kill $publish_pid &>/dev/null || true
-publish_log
+publish_log_final
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then

@@ -1,6 +1,9 @@
 // TODO(#11825) finalize (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
-import { SentTx, SponsoredFeePaymentMethod, readFieldCompressedString, sleep } from '@aztec/aztec.js';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { ProvenTx, TestWallet } from '@aztec/test-wallet/server';
 import { proveInteraction } from '@aztec/test-wallet/server';
 

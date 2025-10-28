@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --no-warnings
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
-import { EthAddress } from '@aztec/aztec.js';
+import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import {

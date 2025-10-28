@@ -38,8 +38,8 @@ import type {
   CheckpointRootRollupPrivateInputs,
   CheckpointRootSingleBlockRollupPrivateInputs,
   PrivateTxBaseRollupPrivateInputs,
-  PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   PublicTxBaseRollupPrivateInputs,
   RootRollupPrivateInputs,
   RootRollupPublicInputs,
@@ -445,14 +445,16 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     );
   }
 
-  getPublicTubeProof(
-    inputs: PublicTubePrivateInputs,
+  getPublicChonkVerifierProof(
+    inputs: PublicChonkVerifierPrivateInputs,
     signal?: AbortSignal,
     epochNumber?: number,
-  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+  ): Promise<
+    PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
     return this.enqueueJob(
-      this.generateId(ProvingRequestType.PUBLIC_TUBE, inputs, epochNumber),
-      ProvingRequestType.PUBLIC_TUBE,
+      this.generateId(ProvingRequestType.PUBLIC_CHONK_VERIFIER, inputs, epochNumber),
+      ProvingRequestType.PUBLIC_CHONK_VERIFIER,
       inputs,
       epochNumber,
       signal,
