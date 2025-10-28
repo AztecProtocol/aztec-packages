@@ -12,6 +12,7 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "pairing_points_tagging.hpp"
 #include <utility>
 
 #include <algorithm>
@@ -88,9 +89,7 @@ template <typename FF_> class CircuitBuilderBase {
     std::unordered_map<uint32_t, uint32_t> _tau;
 
     // Pairing point tag tracking
-    mutable std::vector<uint32_t> _pairing_points_tags;
-    mutable uint32_t _next_pairing_point_tag = 0;
-    mutable bool _has_pairing_points = false;
+    mutable PairingPointsTagging pairing_points_tagging;
 
   public:
     /**
@@ -245,60 +244,26 @@ template <typename FF_> class CircuitBuilderBase {
     /**
      * @brief Create a new unique pairing point tag
      */
-    uint32_t create_pairing_point_tag() const
-    {
-        _has_pairing_points = true;
-        uint32_t new_tag = _next_pairing_point_tag++;
-        _pairing_points_tags.emplace_back(
-            new_tag); // Each PairingPoints starts with tag equal to the number of PairingPoints created before it
-        return new_tag;
-    }
+    uint32_t create_pairing_point_tag() const { return pairing_points_tagging.create_pairing_point_tag(); }
 
     /**
      * @brief Merge two pairing point tags
-     * @param tag1 First tag
-     * @param tag2 Second tag
      */
     void merge_pairing_point_tags(uint32_t tag1, uint32_t tag2) const
     {
-        // If different tags, override tag2 with tag1
-        if (tag1 != tag2) {
-            for (auto& tag : _pairing_points_tags) {
-                tag = tag == tag2 ? tag1 : tag;
-            }
-        }
+        pairing_points_tagging.merge_pairing_point_tags(tag1, tag2);
     }
 
     /**
      * @brief Check if all pairing point tags belong to a single equivalence class
      * @return true if there's only one equivalence class (or no tags at all)
      */
-    bool has_single_pairing_point_tag() const
-    {
-        if (!_has_pairing_points) {
-            return true; // No pairing points created
-        }
-        // Check that there is only one tag
-        uint32_t unique_tag = _pairing_points_tags[0];
-        return std::ranges::all_of(_pairing_points_tags, [unique_tag](auto const& tag) { return tag == unique_tag; });
-    }
+    bool has_single_pairing_point_tag() const { return pairing_points_tagging.has_single_pairing_point_tag(); }
 
     /**
      * @brief Return the number of unique pairing point tags
      */
-    uint32_t unique_pairing_points() const
-    {
-        std::vector<uint32_t> unique_tags;
-        unique_tags.resize(_pairing_points_tags.size());
-        for (auto const& tag : _pairing_points_tags) {
-            unique_tags[tag] = 1;
-        }
-        uint32_t sum = 0;
-        for (auto v : unique_tags) {
-            sum += v;
-        }
-        return sum;
-    }
+    uint32_t num_unique_pairing_points() const { return pairing_points_tagging.num_unique_pairing_points(); }
 };
 
 /**

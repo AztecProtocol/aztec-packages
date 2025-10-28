@@ -140,7 +140,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         BB_ASSERT(circuit.has_single_pairing_point_tag(),
                   "Pairing points must all be aggregated together. Either no pairing points should be created, or "
                   "all created pairing points must be aggregated into a single pairing point. Found ",
-                  circuit.unique_pairing_points(),
+                  circuit.num_unique_pairing_points(),
                   " different pairing points.");
 
         // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
