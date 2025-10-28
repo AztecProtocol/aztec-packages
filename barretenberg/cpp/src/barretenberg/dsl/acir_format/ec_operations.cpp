@@ -60,9 +60,11 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
 
         // Note that we do not need to assign input_result because for an honest user it passed by Noir and is always a
         // point on the curve.
-        auto affine_one = bb::grumpkin::g1::affine_one;
-        input1 = cycle_group_ct::conditional_assign(predicate, input1, cycle_group_ct(affine_one));
-        input2 = cycle_group_ct::conditional_assign(predicate, input2, cycle_group_ct(affine_one));
+        cycle_group_ct affine_one(bb::grumpkin::g1::affine_one);
+        input1 = cycle_group_ct::conditional_assign(predicate, input1, affine_one);
+        input2 = cycle_group_ct::conditional_assign(predicate, input2, affine_one);
+    } else {
+        BB_ASSERT(input.predicate.value, "Creating EcAdd constraints with a constant predicate equal to false.");
     }
 
     // Step 4.
