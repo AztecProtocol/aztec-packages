@@ -56,4 +56,46 @@ struct SrsInitGrumpkinSrs {
     bool operator==(const SrsInitGrumpkinSrs&) const = default;
 };
 
+/**
+ * @struct SrsInit
+ * @brief Initialize BN254 and/or Grumpkin SRS from files or buffers
+ *
+ * This command allows flexible CRS initialization:
+ * - Initialize one or both curves (BN254 and Grumpkin)
+ * - Use file paths or raw buffers for each curve
+ * - If both path and buffer are provided for a curve, buffer takes precedence
+ * - If neither path nor buffer is provided for a curve, that curve is not initialized
+ */
+struct SrsInit {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInit";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "SrsInitResponse";
+        uint8_t dummy = 0; // Empty response needs a dummy field for msgpack
+        MSGPACK_FIELDS(dummy);
+        bool operator==(const Response&) const = default;
+    };
+
+    // BN254 parameters (optional - initialize if provided)
+    std::string bn254_path;                // File path to BN254 CRS (empty = not used)
+    std::vector<uint8_t> bn254_points_buf; // G1 points (64 bytes each, empty = not used)
+    uint32_t bn254_num_points = 0;         // Number of BN254 G1 points
+    std::vector<uint8_t> bn254_g2_point;   // G2 point (128 bytes, empty = not used)
+
+    // Grumpkin parameters (optional - initialize if provided)
+    std::string grumpkin_path;                // File path to Grumpkin CRS (empty = not used)
+    std::vector<uint8_t> grumpkin_points_buf; // Grumpkin affine elements (empty = not used)
+    uint32_t grumpkin_num_points = 0;         // Number of Grumpkin points
+
+    Response execute(BBApiRequest& request) &&;
+    MSGPACK_FIELDS(bn254_path,
+                   bn254_points_buf,
+                   bn254_num_points,
+                   bn254_g2_point,
+                   grumpkin_path,
+                   grumpkin_points_buf,
+                   grumpkin_num_points);
+    bool operator==(const SrsInit&) const = default;
+};
+
 } // namespace bb::bbapi

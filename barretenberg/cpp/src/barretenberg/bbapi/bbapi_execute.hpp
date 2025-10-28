@@ -66,6 +66,7 @@ using Command = NamedUnion<CircuitProve,
                            EcdsaSecp256r1VerifySignature,
                            SrsInitSrs,
                            SrsInitGrumpkinSrs,
+                           SrsInit,
                            Shutdown>;
 
 using CommandResponse = NamedUnion<ErrorResponse,
@@ -122,6 +123,7 @@ using CommandResponse = NamedUnion<ErrorResponse,
                                    EcdsaSecp256r1VerifySignature::Response,
                                    SrsInitSrs::Response,
                                    SrsInitGrumpkinSrs::Response,
+                                   SrsInit::Response,
                                    Shutdown::Response>;
 
 /**
