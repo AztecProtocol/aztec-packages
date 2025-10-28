@@ -158,9 +158,10 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
 {
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_address = 27;
-    const std::vector<FF> log_fields = { 4, 5 };
-    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
-    TrackedSideEffects side_effect_states = { .public_logs = PublicLogs{ { { { 4 }, address } } } };
+    std::vector<MemoryValue> log_values = { MemoryValue::from<uint32_t>(4), MemoryValue::from<uint32_t>(5) };
+    uint32_t log_size = static_cast<uint32_t>(log_values.size());
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    // No change to side effect states due to failure.
     const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLogWriteEvent event = {
@@ -172,7 +173,7 @@ TEST(EmitUnencryptedLogConstrainingTest, ErrorTagMismatch)
         .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
         .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = false,
-        .values = to_memory_values(log_fields),
+        .values = log_values,
         .error_memory_out_of_bounds = false,
         .error_too_many_log_fields = false,
         .error_tag_mismatch = true,
