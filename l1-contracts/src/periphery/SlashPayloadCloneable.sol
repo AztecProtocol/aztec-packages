@@ -29,8 +29,7 @@ contract SlashPayloadCloneable is IPayload {
 
     for (uint256 i = 0; i < validators.length; i++) {
       actions[i] = IPayload.Action({
-        target: validatorSelection,
-        data: abi.encodeWithSelector(IStakingCore.slash.selector, validators[i], amounts[i])
+        target: validatorSelection, data: abi.encodeWithSelector(IStakingCore.slash.selector, validators[i], amounts[i])
       });
     }
   }

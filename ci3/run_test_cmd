@@ -2,6 +2,7 @@
 # Called by 'parallelize' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
+source $ci3/source_cache
 source $ci3/source_refname
 
 # We must enable job control to ensure our test runs in it's own process group.
@@ -95,7 +96,13 @@ History: http://ci.aztec-labs.com/list/history_$test_hash${TARGET_BRANCH:+_$TARG
 EOF
 
 function publish_log {
-  cat $tmp_file 2>/dev/null | redis_setexz $log_key ${1:-$CI_REDIS_EXPIRE}
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | redis_setexz $log_key $expire
+}
+
+function publish_log_final {
+  local expire=${1:-$CI_REDIS_EXPIRE}
+  cat $tmp_file 2>/dev/null | cache_persistent $log_key $expire
 }
 
 function live_publish_log {
@@ -159,13 +166,13 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   if [ $code -eq 0 ]; then
     if [ "$CI" -eq 1 ]; then
       redis_cli SETEX $key 604800 $log_key &>/dev/null
-      publish_log
+      publish_log_final
     else
       log_info=""
     fi
   else
     # Extend lifetime of failed test logs to 12 weeks.
-    publish_log $((60 * 60 * 24 * 7 * 12))
+    publish_log_final $((60 * 60 * 24 * 7 * 12))
   fi
 fi
 

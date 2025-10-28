@@ -30,7 +30,8 @@ contract GovScript is Test {
   address internal constant ME = address(0xf8d7d601759CBcfB78044bA7cA9B0c0D6301A54f);
 
   Governance public constant governance = Governance(0xEE63E102E35F24c34b9eA09B597ACFb491c94e78);
-  GovernanceProposer public constant governanceProposer = GovernanceProposer(0xF4bf5dF1c3B2dd67A0525Fc600E98ca51143a67D);
+  GovernanceProposer public constant governanceProposer =
+    GovernanceProposer(0xF4bf5dF1c3B2dd67A0525Fc600E98ca51143a67D);
   TestERC20 public constant stakingAsset = TestERC20(0x5C30c66847866A184ccb5197cBE31Fce7A92eB26);
   TestERC20 public constant feeAsset = TestERC20(0x487Ff89A8bDAEFeA2Ad10D3e23727ccdA8F845B9);
   FeeAssetHandler public constant feeAssetHandler = FeeAssetHandler(0x80d848Dc9F52DF56789e2d62Ce66F19555FF1019);

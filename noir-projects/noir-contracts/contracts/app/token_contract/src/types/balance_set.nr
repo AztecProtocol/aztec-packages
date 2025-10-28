@@ -55,14 +55,16 @@ impl BalanceSet<UtilityContext> {
 
 impl BalanceSet<&mut PrivateContext> {
     pub fn add(self: Self, owner: AztecAddress, addend: u128) -> OuterNoteEmission<UintNote> {
-        if addend == 0 as u128 {
-            OuterNoteEmission::new(Option::none())
+        let content = if addend == 0 as u128 {
+            Option::none()
         } else {
             // We fetch the nullifier public key hash from the registry / from our PXE
             let mut addend_note = UintNote::new(addend, owner);
 
-            OuterNoteEmission::new(Option::some(self.set.insert(addend_note)))
-        }
+            Option::some(self.set.insert(addend_note).content)
+        };
+
+        OuterNoteEmission::new(content, self.set.context)
     }
 
     pub fn sub(self: Self, owner: AztecAddress, amount: u128) -> OuterNoteEmission<UintNote> {
@@ -187,8 +189,11 @@ mod test {
             let smaller_note_value = std::cmp::min(first_note_value, second_note_value);
             let larger_note_value = std::cmp::max(first_note_value, second_note_value);
 
-            let note =
-                recipient_balance_set.sub(recipient, smaller_note_value).emission.unwrap().note;
+            let note = recipient_balance_set
+                .sub(recipient, smaller_note_value)
+                .content_option
+                .unwrap()
+                .note;
             assert_eq(note.get_value(), larger_note_value - smaller_note_value);
         });
     }

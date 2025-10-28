@@ -28,7 +28,6 @@ contract Updated {
         let owner = context.msg_sender().unwrap();
 
         storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

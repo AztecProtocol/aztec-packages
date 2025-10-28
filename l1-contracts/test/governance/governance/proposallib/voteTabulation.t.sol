@@ -186,7 +186,12 @@ contract VoteTabulationTest is GovernanceBase {
     assertEq(vti, VoteTabulationInfo.YeaVotesEqVotesCast, "invalid info value");
   }
 
-  function test_WhenYeaVotesLteYeaLimit(Configuration memory _config, uint256 _totalPower, uint256 _votes, uint256 _yea)
+  function test_WhenYeaVotesLteYeaLimit(
+    Configuration memory _config,
+    uint256 _totalPower,
+    uint256 _votes,
+    uint256 _yea
+  )
     external
     whenMinimumGt0(_config)
     whenTotalPowerGteMinimum(_totalPower)

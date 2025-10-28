@@ -9,7 +9,7 @@ import {
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
-import { ClientIvcProof, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
+import { ClientIvcProofWithPublicInputs, Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import assert from 'assert';
@@ -28,7 +28,7 @@ export async function readClientIVCProofFromOutputDirectory(directory: string) {
   const proofFilename = path.join(directory, PROOF_FILENAME);
   const binaryProof = await fs.readFile(proofFilename);
   const proofFields = splitBufferIntoFields(binaryProof);
-  return new ClientIvcProof(proofFields);
+  return new ClientIvcProofWithPublicInputs(proofFields);
 }
 
 /**
@@ -37,9 +37,9 @@ export async function readClientIVCProofFromOutputDirectory(directory: string) {
  * @param proof the ClientIvcProof from object
  * @param directory the directory to write in
  */
-export async function writeClientIVCProofToPath(clientIvcProof: ClientIvcProof, outputPath: string) {
+export async function writeClientIVCProofToPath(clientIvcProof: ClientIvcProofWithPublicInputs, outputPath: string) {
   // NB: Don't use clientIvcProof.toBuffer here because it will include the proof length.
-  const fieldsBuf = Buffer.concat(clientIvcProof.proof.map(field => field.toBuffer()));
+  const fieldsBuf = Buffer.concat(clientIvcProof.fieldsWithPublicInputs.map(field => field.toBuffer()));
   await fs.writeFile(outputPath, fieldsBuf);
 }
 

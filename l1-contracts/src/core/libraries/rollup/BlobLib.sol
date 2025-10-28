@@ -22,7 +22,8 @@ import {Vm} from "forge-std/Vm.sol";
  *      The VM_ADDRESS (0x7109709ECfa91a80626fF3989D68f67F5b1DD12D) is a special address used to detect
  *      when the contract is running in a Foundry test environment. This address is derived from
  *      keccak256("hevm cheat code") and corresponds to Foundry's VM contract that provides testing utilities.
- *      When VM_ADDRESS.code.length > 0, it indicates we're in a test environment, allowing the library to:
+ *      When block.chainid == 31337 &&  VM_ADDRESS.code.length > 0, it indicates we're in a test environment,
+ *      allowing the library to:
  *      - Use Foundry's getBlobBaseFee() cheatcode instead of block.blobbasefee
  *      - Use Foundry's getBlobhashes() cheatcode instead of the blobhash() opcode
  *      This enables comprehensive testing of blob functionality without requiring actual blob transactions.
@@ -47,7 +48,7 @@ library BlobLib {
    * @return uint256 - The blob base fee
    */
   function getBlobBaseFee() internal view returns (uint256) {
-    if (VM_ADDRESS.code.length > 0) {
+    if (block.chainid == 31_337 && VM_ADDRESS.code.length > 0) {
       return Vm(VM_ADDRESS).getBlobBaseFee();
     }
     return block.blobbasefee;
@@ -62,7 +63,7 @@ library BlobLib {
    * @return blobHash - The blob hash
    */
   function getBlobHash(uint256 _index) internal view returns (bytes32 blobHash) {
-    if (VM_ADDRESS.code.length > 0) {
+    if (block.chainid == 31_337 && VM_ADDRESS.code.length > 0) {
       // We know that this one is ABHORRENT. But it should not exists, and only will
       // be hit in testing.
       bytes32[] memory blobHashes = Vm(VM_ADDRESS).getBlobhashes();

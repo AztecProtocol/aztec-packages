@@ -146,8 +146,9 @@ contract SetupEpochTest is ValidatorSelectionTestBase {
     setup(50, 48)
     whenTheRollupHasTheTargetCommitteeSize
   {
-    Timestamp epoch2Timestamp =
-      Timestamp.wrap(block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION);
+    Timestamp epoch2Timestamp = Timestamp.wrap(
+      block.timestamp + 2 * TestConstants.AZTEC_EPOCH_DURATION * TestConstants.AZTEC_SLOT_DURATION
+    );
 
     vm.warp(Timestamp.unwrap(epoch2Timestamp));
 

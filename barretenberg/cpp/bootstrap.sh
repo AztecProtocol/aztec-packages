@@ -18,22 +18,6 @@ else
   export hash="$hash-singlearch"
 fi
 
-function ensure_zig {
-  if command -v zig &>/dev/null; then
-    return
-  fi
-  local arch=$(uname -m)
-  local zig_version=0.15.1
-  local bin_path=/opt/zig-${arch}-linux-${zig_version}
-  if [ -f $bin_path/zig ]; then
-    export PATH="$bin_path:$PATH"
-    return
-  fi
-  echo "Installing zig $zig_version..."
-  curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
-  export PATH="$bin_path:$PATH"
-}
-
 # Injects version number into a given bb binary.
 # Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
@@ -191,13 +175,6 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Download ldid for code signing
-  if [ ! -f build/ldid ]; then
-    echo "Downloading ldid for macOS code signing..."
-    curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o build/ldid
-    chmod +x build/ldid
-  fi
-
   # Package arm64-linux
   cp build-zig-arm64-linux/bin/bb build-release/bb
   inject_version build-release/bb
@@ -206,13 +183,13 @@ function build_release_dir {
   # Package arm64-macos
   cp build-zig-arm64-macos/bin/bb build-release/bb
   inject_version build-release/bb
-  build/ldid -S build-release/bb
+  ldid -S build-release/bb
   tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
 
   # Package amd64-macos
   cp build-zig-amd64-macos/bin/bb build-release/bb
   inject_version build-release/bb
-  build/ldid -S build-release/bb
+  ldid -S build-release/bb
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
@@ -225,7 +202,6 @@ function build {
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # Perform release builds of bb and napi module, for all architectures.
-    ensure_zig
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
       "build_wasm" \
@@ -244,7 +220,6 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      ensure_zig
       builds+=("build_cross arm64-macos" build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"

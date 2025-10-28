@@ -237,7 +237,7 @@ export class Tx extends Gossipable {
       classPublishedCount: this.data.getNonEmptyContractClassLogsHashes().length,
       contractClassLogSize: this.data.getEmittedContractClassLogsLength(),
 
-      proofSize: this.clientIvcProof.proof.length,
+      proofSize: this.clientIvcProof.fields.length,
       size: this.toBuffer().length,
 
       feePaymentMethod:
@@ -249,7 +249,7 @@ export class Tx extends Gossipable {
   getSize() {
     return (
       this.data.getSize() +
-      this.clientIvcProof.proof.length * Fr.SIZE_IN_BYTES +
+      this.clientIvcProof.fields.length * Fr.SIZE_IN_BYTES +
       arraySerializedSizeOfNonEmpty(this.contractClassLogFields) +
       this.publicFunctionCalldata.reduce((accum, cd) => accum + cd.getSize(), 0)
     );

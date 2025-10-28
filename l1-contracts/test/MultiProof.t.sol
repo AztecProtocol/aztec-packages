@@ -22,6 +22,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
+
 // solhint-disable comprehensive-interface
 
 /**

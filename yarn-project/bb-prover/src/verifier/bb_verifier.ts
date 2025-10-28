@@ -104,7 +104,10 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
         };
 
         const proofPath = path.join(bbWorkingDirectory, PROOF_FILENAME);
-        await writeClientIVCProofToPath(tx.clientIvcProof, proofPath);
+        await writeClientIVCProofToPath(
+          tx.clientIvcProof.attachPublicInputs(tx.data.publicInputs().toFields()),
+          proofPath,
+        );
 
         const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
         const verificationKey = this.getVerificationKeyData(circuit);

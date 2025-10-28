@@ -360,7 +360,11 @@ contract SignalWithSigTest is GovernanceProposerBase {
     return createSignature(_privateKey, _payload, validatorSelection.getCurrentSlot());
   }
 
-  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot) internal view returns (Signature memory) {
+  function createSignature(uint256 _privateKey, IPayload _payload, Slot _slot)
+    internal
+    view
+    returns (Signature memory)
+  {
     bytes32 digest = getDigest(_payload, _slot);
 
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
