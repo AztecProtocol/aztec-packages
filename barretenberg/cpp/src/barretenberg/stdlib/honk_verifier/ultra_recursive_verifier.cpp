@@ -196,7 +196,7 @@ template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>
     verify_proof<DefaultIO<MegaCircuitBuilder>>(
         const UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<MegaCircuitBuilder>>::StdlibProof& proof);
 
-// LegacyClientIVC specialization
+// LegacyChonk specialization
 template UltraRecursiveVerifier_<bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::Output UltraRecursiveVerifier_<
     bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>::
     verify_proof<HidingKernelIO<UltraCircuitBuilder>>(

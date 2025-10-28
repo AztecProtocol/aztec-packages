@@ -25,7 +25,6 @@ pub contract NoteGetter {
         let note = ValueNote::new(value, context.msg_sender().unwrap());
 
         storage.set.insert(note).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

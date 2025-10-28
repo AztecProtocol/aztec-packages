@@ -31,6 +31,8 @@ export type L2ChainConfig = L1ContractsConfig &
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+    skipArchiverInitialSync?: boolean;
+    blobAllowEmptySources?: boolean;
 
     // Setting the dbMapSize provides the default for every DB in the node.
     // Then we explicitly override the sizes for the archiver and the larger trees.
@@ -42,6 +44,7 @@ export type L2ChainConfig = L1ContractsConfig &
 
     // Control whether sentinel is enabled or not. Needed for slashing
     sentinelEnabled: boolean;
+    disableTransactions: boolean;
   };
 
 const DefaultSlashConfig = {
@@ -93,6 +96,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: false,
+  disableTransactions: true,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -173,6 +177,7 @@ export const stagingPublicL2ChainConfig: L2ChainConfig = {
   l1ChainId: 11155111,
   testAccounts: false,
   sponsoredFPC: true,
+  disableTransactions: false,
   p2pEnabled: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
@@ -226,6 +231,7 @@ export const nextNetL2ChainConfig: L2ChainConfig = {
   testAccounts: true,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: false,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 8,
@@ -278,9 +284,10 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
-  seqMaxTxsPerBlock: 20,
+  seqMaxTxsPerBlock: 0,
   realProofs: true,
   snapshotsUrls: [`${SNAPSHOTS_URL}/testnet/`],
   autoUpdate: 'config-and-version',
@@ -289,6 +296,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  skipArchiverInitialSync: true,
+  blobAllowEmptySources: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -314,7 +323,7 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   /** Governance proposing round size */
   governanceProposerRoundSize: DefaultL1ContractsConfig.governanceProposerRoundSize,
   /** The mana target for the rollup */
-  manaTarget: DefaultL1ContractsConfig.manaTarget,
+  manaTarget: 0n,
   /** The proving cost per mana */
   provingCostPerMana: DefaultL1ContractsConfig.provingCostPerMana,
   /** Exit delay for stakers */
@@ -332,6 +341,7 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
+  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
@@ -414,6 +424,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   testAccounts: true,
   sponsoredFPC: true,
   p2pEnabled: true,
+  disableTransactions: false,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 8,
@@ -436,7 +447,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 1,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 0,
+  lagInEpochs: 1,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -513,6 +524,14 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
   enrichVar('PUBLIC_DATA_TREE_MAP_SIZE_KB', config.publicDataTreeMapSizeKb.toString());
 
+  if (config.skipArchiverInitialSync !== undefined) {
+    enrichVar('SKIP_ARCHIVER_INITIAL_SYNC', config.skipArchiverInitialSync.toString());
+  }
+
+  if (config.blobAllowEmptySources !== undefined) {
+    enrichVar('BLOB_ALLOW_EMPTY_SOURCES', config.blobAllowEmptySources.toString());
+  }
+
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
   }
@@ -574,4 +593,5 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('SLASH_MAX_PAYLOAD_SIZE', config.slashMaxPayloadSize.toString());
 
   enrichVar('SENTINEL_ENABLED', config.sentinelEnabled.toString());
+  enrichVar('TRANSACTIONS_DISABLED', config.disableTransactions.toString());
 }

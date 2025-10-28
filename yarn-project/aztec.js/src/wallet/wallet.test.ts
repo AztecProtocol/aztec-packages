@@ -190,6 +190,7 @@ describe('WalletSchema', () => {
   it('batch', async () => {
     const address1 = await AztecAddress.random();
     const address2 = await AztecAddress.random();
+    const address3 = await AztecAddress.random();
     const exec: ExecutionPayload = {
       calls: [],
       authWitnesses: [],
@@ -204,16 +205,18 @@ describe('WalletSchema', () => {
       { name: 'registerSender', args: [address1, 'alias1'] },
       { name: 'registerContract', args: [address2, undefined, undefined] },
       { name: 'sendTx', args: [exec, opts] },
+      { name: 'simulateUtility', args: ['testFunction', [Fr.random()], address3, [AuthWitness.random()]] },
     ];
 
     const results = await context.client.batch(methods);
-    expect(results).toHaveLength(3);
+    expect(results).toHaveLength(4);
     expect(results[0]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
     expect(results[1]).toEqual({
       name: 'registerContract',
       result: expect.objectContaining({ address: expect.any(AztecAddress) }),
     });
     expect(results[2]).toEqual({ name: 'sendTx', result: expect.any(TxHash) });
+    expect(results[3]).toEqual({ name: 'simulateUtility', result: expect.any(UtilitySimulationResult) });
   });
 });
 

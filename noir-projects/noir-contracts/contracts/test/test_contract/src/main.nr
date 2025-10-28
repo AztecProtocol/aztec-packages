@@ -141,7 +141,6 @@ pub contract Test {
     ) {
         let note = UintNote::new(value, owner);
         create_note(&mut context, storage_slot, note).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

@@ -40,10 +40,9 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
 {
     BB_BENCH_NAME("allocate_wires");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555):Wires can be allocated based on final active row
-    // rather than dyadic size.
+    // Allocate only enough memory for the active range; wires are zero outside this range
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(dyadic_size());
+        wire = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
 }
 
@@ -51,30 +50,25 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Sigma and id polynomials can be allocated based
-    // on final active row rather than dyadic size.
+    // Allocate only enough memory for the active range; permutation polynomials are zero outside this range
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial(dyadic_size());
+        sigma = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial(dyadic_size());
+        id = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
     }
-    polynomials.z_perm = Polynomial::shiftable(dyadic_size());
+    polynomials.z_perm = Polynomial::shiftable(final_active_wire_idx + 1, dyadic_size());
 }
 
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
 {
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
-    // First and last lagrange polynomials (in the full circuit size)
     polynomials.lagrange_first = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
 
-    // Even though lagrange_last has a single non-zero element, we cannot set its size to 0 as different
-    // instances being folded might have lagrange_last set at different indexes and folding does not work
-    // correctly unless the polynomial is allocated in the correct range to accomodate this
     polynomials.lagrange_last = Polynomial(
-        /* size=*/dyadic_size(), /*virtual size=*/dyadic_size(), /*start_index=*/0);
+        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
 }
 
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_selectors(const Circuit& circuit)
@@ -98,28 +92,25 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     size_t table_offset = circuit.blocks.lookup.trace_offset();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Can allocate table polynomials based on genuine
-    // lookup table sizes in all cases. Same applies to read_counts/tags, except for ZK case.
-    const size_t max_tables_size = dyadic_size() - table_offset;
-    BB_ASSERT_GT(dyadic_size(), max_tables_size);
+    const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables used in the circuit
+    BB_ASSERT_GT(dyadic_size(), tables_size);
 
     // Allocate the polynomials containing the actual table data
-    if constexpr (IsUltraOrMegaHonk<Flavor>) {
-        for (auto& poly : polynomials.get_tables()) {
-            poly = Polynomial(max_tables_size, dyadic_size(), table_offset);
-        }
+    for (auto& poly : polynomials.get_tables()) {
+        poly = Polynomial(tables_size, dyadic_size(), table_offset);
     }
 
     // Allocate the read counts and tags polynomials
-    polynomials.lookup_read_counts = Polynomial(max_tables_size, dyadic_size(), table_offset);
-    polynomials.lookup_read_tags = Polynomial(max_tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_counts = Polynomial(tables_size, dyadic_size(), table_offset);
+    polynomials.lookup_read_tags = Polynomial(tables_size, dyadic_size(), table_offset);
 
+    // Determine end index for the lookup block and the tables themselves
+    // Note that the start of the tables is aligned with the start of the lookup block in the trace
     const size_t lookup_block_end =
         static_cast<size_t>(circuit.blocks.lookup.trace_offset()) + circuit.blocks.lookup.size();
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + max_tables_size;
+    const auto tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
 
     // Allocate the lookup_inverses polynomial
-
     const size_t lookup_inverses_start = table_offset;
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
@@ -146,24 +137,25 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     requires HasDataBus<Flavor>
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Each triple of databus polynomials can be
-    // allocated based on the size of the corresponding column (except for ZK case).
-    const size_t poly_size = std::min(static_cast<size_t>(MAX_DATABUS_SIZE), dyadic_size());
-    polynomials.calldata = Polynomial(poly_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(poly_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(poly_size, dyadic_size());
 
-    // Allocate log derivative lookup argument inverse polynomials
-    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
     const size_t calldata_size = circuit.get_calldata().size();
     const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
+
+    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
+    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
+
+    polynomials.secondary_calldata = Polynomial(secondary_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(secondary_calldata_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(secondary_calldata_size, dyadic_size());
+
+    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
+    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
+
+    // Allocate log derivative lookup argument inverse polynomials
+    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Size of databus_id can always be set to max size
     // between the three databus columns. It currently uses dyadic_size because its values are later set based on its

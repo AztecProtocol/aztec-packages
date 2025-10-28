@@ -112,7 +112,7 @@ template <typename Builder>
 void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values)
 {
     for (auto [field, value] : zip_view(fields, values)) {
-        builder.set_variable(field.witness_index, value);
+        builder.set_variable(field.get_witness_index(), value);
     }
 };
 

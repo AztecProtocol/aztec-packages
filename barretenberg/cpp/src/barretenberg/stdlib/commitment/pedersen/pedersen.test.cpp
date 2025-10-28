@@ -59,8 +59,8 @@ template <typename Builder> class StdlibPedersen : public testing::Test {
         fr_ct left = public_witness_ct(&builder, left_in);
         fr_ct right = witness_ct(&builder, right_in);
 
-        builder.fix_witness(left.witness_index, left.get_value());
-        builder.fix_witness(right.witness_index, right.get_value());
+        left.fix_witness();
+        right.fix_witness();
 
         std::vector<stdlib::field_t<Builder>> inputs = { left, right };
 

@@ -72,7 +72,7 @@ class AvmGoblinRecursiveVerifier {
         , outer_key_fields(outer_key_fields)
     {
         // TODO(#15892): Set this to be the actual vk hash when vk is fixed.
-        vk_hash = UltraFF::from_witness(&builder, /* should be native hash of vk fields*/ 0);
+        vk_hash = UltraFF::from_witness(&builder, /* should be native hash of vk fields*/ typename UltraFF::native(0));
         vk_hash.fix_witness();
     }
 

@@ -307,15 +307,11 @@ std::pair<HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> construc
         builder.add_public_variable(fr::random_element());
     }
 
-    // Add the default pairing points
-    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-
+    // Add the default pairing points and IPA claim
     if constexpr (HasIPAAccumulator<Flavor>) {
-        // Create a fake ipa claim and proof
-        auto [stdlib_opening_claim, ipa_proof] =
-            IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-        stdlib_opening_claim.set_public();
-        builder.ipa_proof = ipa_proof;
+        stdlib::recursion::honk::RollupIO::add_default(builder);
+    } else {
+        stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
     }
 
     // prove the circuit constructed above
@@ -366,7 +362,7 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
-template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_public_inputs_size)
+template <typename Builder> HonkProof create_mock_chonk_proof(const size_t inner_public_inputs_size)
 {
     HonkProof proof;
 
@@ -376,8 +372,8 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    SumcheckClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
-    proof = civc_proof.to_field_elements();
+    SumcheckChonk::Proof chonk_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    proof = chonk_proof.to_field_elements();
 
     return proof;
 }
@@ -644,8 +640,8 @@ template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::h
     bool);
 template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
 
-template HonkProof create_mock_civc_proof<UltraCircuitBuilder>(const size_t);
-template HonkProof create_mock_civc_proof<MegaCircuitBuilder>(const size_t);
+template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
+template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
 
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor, stdlib::recursion::honk::AppIO>(
     const size_t, const size_t, const size_t);

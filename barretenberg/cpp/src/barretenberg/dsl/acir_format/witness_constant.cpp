@@ -71,10 +71,10 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     if (!predicate.is_constant) {
         bool_ct predicate_witness = bool_ct::from_witness_index_unsafe(&builder, predicate.index);
         auto generator = bb::grumpkin::g1::affine_one;
-        point_x = field_ct::conditional_assign(predicate_witness, point_x, generator.x).normalize();
-        point_y = field_ct::conditional_assign(predicate_witness, point_y, generator.y).normalize();
+        point_x = field_ct::conditional_assign(predicate_witness, point_x, generator.x);
+        point_y = field_ct::conditional_assign(predicate_witness, point_y, generator.y);
         bool_ct generator_is_infinity = bool_ct(&builder, generator.is_point_at_infinity());
-        infinite = bool_ct::conditional_assign(predicate_witness, infinite, generator_is_infinity).normalize();
+        infinite = bool_ct::conditional_assign(predicate_witness, infinite, generator_is_infinity);
     }
 
     cycle_group<Builder> input_point(point_x, point_y, infinite, /*assert_on_curve=*/true);

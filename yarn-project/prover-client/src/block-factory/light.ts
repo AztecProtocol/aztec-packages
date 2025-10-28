@@ -129,7 +129,7 @@ export async function buildBlockWithCleanDB(
       tx,
       lastArchive,
       l1ToL2MessageTree,
-      startSpongeBlob?.clone() ?? SpongeBlob.init(0),
+      startSpongeBlob?.clone() ?? SpongeBlob.empty(),
       proverId,
       db,
     );

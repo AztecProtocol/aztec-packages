@@ -112,7 +112,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
         if !dep::std::runtime::is_unconstrained() {
             let (end_blob_accumulator, hashed_blobs_fields) = evaluate_blobs_and_batch(
                 self.blobs_fields,
-                end_sponge_blob.expected_fields,
+                end_sponge_blob.num_expected_fields,
                 self.blob_commitments,
                 self.final_blob_challenges,
                 self.start_blob_accumulator,
@@ -129,7 +129,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs_and_batch(
                     self.blobs_fields,
-                    end_sponge_blob.fields,
+                    end_sponge_blob.num_expected_fields,
                     sponge_blob_hash,
                     self.blob_commitments,
                     self.final_blob_challenges,

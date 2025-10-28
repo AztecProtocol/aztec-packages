@@ -82,7 +82,7 @@ pub contract AppSubscription {
             note.remaining_txs -= 1;
             note
         });
-        emission.emit(&mut context, user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
+        emission.emit(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         context.set_as_fee_payer();
 
@@ -97,7 +97,7 @@ pub contract AppSubscription {
         // is performing the check.
         privately_check_block_number(
             Comparator.LT,
-            emission.note.expiry_block_number,
+            emission.content.note.expiry_block_number,
             &mut context,
         );
 
@@ -158,7 +158,7 @@ pub contract AppSubscription {
             .initialize_or_replace(|_| {
                 SubscriptionNote::new(subscriber, expiry_block_number, tx_count)
             })
-            .emit(&mut context, subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(subscriber, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

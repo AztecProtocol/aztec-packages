@@ -749,8 +749,8 @@ impl TestEnvironment {
         // is what the decoding functions expect (because they are built to manage protocol logs, which are arbitrarily
         // sized).
         let message_plaintext = BoundedVec::from_array(private_note_to_message_plaintext(
-            emission.note,
-            emission.storage_slot,
+            emission.content.note,
+            emission.content.storage_slot,
         ));
 
         // Then we fetch the transaction effects from the latest transaction, in which the note from the emission is

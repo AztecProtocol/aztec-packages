@@ -56,11 +56,8 @@ std::pair<std::vector<field_t<Builder>>, std::vector<uint64_t>> straus_scalar_sl
     }
 
     // Case 2: If the scalar is non-constant, perform the decomposition in-circuit
-    const auto slice_indices =
-        context->decompose_into_default_range(scalar.get_normalized_witness_index(),
-                                              num_bits,
-                                              table_bits,
-                                              "straus_scalar_slice decompose_into_default_range");
+    const auto slice_indices = context->decompose_into_default_range(
+        scalar.get_witness_index(), num_bits, table_bits, "straus_scalar_slice decompose_into_default_range");
     for (auto const& idx : slice_indices) {
         const auto slice = field_ct::from_witness_index(context, idx);
         stdlib_slices.push_back(slice);

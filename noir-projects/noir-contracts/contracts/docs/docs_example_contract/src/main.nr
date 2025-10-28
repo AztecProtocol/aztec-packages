@@ -75,7 +75,6 @@ pub contract DocsExample {
         let new_card = CardNote::new(points, context.msg_sender().unwrap());
 
         storage.private_immutable.initialize(new_card).emit(
-            &mut context,
             context.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -100,7 +99,7 @@ pub contract DocsExample {
                 let points = old_card.get_points() + 1;
                 CardNote::new(points, context.msg_sender().unwrap())
             })
-            .emit(&mut context, context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]

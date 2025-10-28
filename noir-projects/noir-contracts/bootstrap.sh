@@ -82,7 +82,7 @@ function process_function {
       echo_stderr "Generating vk for function: $name..."
 
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$contract_hash/$hash
 
       cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash

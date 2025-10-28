@@ -191,7 +191,7 @@ pub contract TokenBlacklist {
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, amount).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        storage.balances.add(to, amount).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -202,11 +202,7 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
@@ -222,16 +218,8 @@ pub contract TokenBlacklist {
         let to_roles = storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
-        storage.balances.add(to, amount).emit(
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        storage.balances.sub(from, amount).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        storage.balances.add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -240,11 +228,7 @@ pub contract TokenBlacklist {
         let from_roles = storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }

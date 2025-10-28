@@ -14,7 +14,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 
 - You have followed the [quickstart](../../../getting_started_on_sandbox.md)
 - Running Aztec Sandbox
-- Installed [Noir LSP](../../guides/local_env/installing_noir_lsp.md) (optional)
+- Installed [Noir LSP](../../aztec-nr/installation.md) (optional)
 
 ## Set up a project
 
@@ -145,4 +145,4 @@ You can now use the artifact and/or the TS class in your Aztec.js!
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Functions and annotations like `#[external("private")]`](../../concepts/smart_contracts/functions/function_transforms.md#private-functions)
+- [Functions and annotations like `#[external("private")]`](../../aztec-nr/framework-description/functions/function_transforms.md#private-functions)

@@ -3,7 +3,12 @@
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
-hash=$(hash_str $(../cpp/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+
+# We mix if we're a release into the hash, as releases have all architectures built.
+hash=$(hash_str \
+  $(../cpp/bootstrap.sh hash) \
+  $(cache_content_hash .rebuild_patterns) \
+  $(semver check $REF_NAME && echo 1 || echo 0))
 
 function build {
   echo_header "bb.js build"
@@ -14,6 +19,7 @@ function build {
     yarn clean
     yarn generate
     yarn build:wasm
+    # yarn build:native
     parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
     cache_upload bb.js-$hash.tar.gz dest
   fi

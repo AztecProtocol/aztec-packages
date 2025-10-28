@@ -1,10 +1,9 @@
-import { BlobAccumulator, FinalBlobAccumulator } from '@aztec/blob-lib';
 import { makeBatchedBlobAccumulator, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
   FIXED_DA_GAS,
   FIXED_L2_GAS,
@@ -42,9 +41,9 @@ import {
 } from '@aztec/constants';
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { compact, padArrayEnd } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
+import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -143,7 +142,7 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { CheckpointRollupPublicInputs, FeeRecipient } from '../rollup/checkpoint_rollup_public_inputs.js';
 import { EpochConstantData } from '../rollup/epoch_constant_data.js';
 import { PrivateTxBaseRollupPrivateInputs } from '../rollup/private_tx_base_rollup_private_inputs.js';
-import { PublicTubePublicInputs } from '../rollup/public_tube_public_inputs.js';
+import { PublicChonkVerifierPublicInputs } from '../rollup/public_chonk_verifier_public_inputs.js';
 import { PublicTxBaseRollupPrivateInputs } from '../rollup/public_tx_base_rollup_private_inputs.js';
 import { RootRollupPublicInputs } from '../rollup/root_rollup_public_inputs.js';
 import { TreeSnapshotDiffHints } from '../rollup/tree_snapshot_diff_hints.js';
@@ -417,8 +416,8 @@ export function makePrivateToPublicKernelCircuitPublicInputs(seed = 1) {
   );
 }
 
-export function makePublicTubePublicInputs(seed = 1) {
-  return new PublicTubePublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
+export function makePublicChonkVerifierPublicInputs(seed = 1) {
+  return new PublicChonkVerifierPublicInputs(makePrivateToPublicKernelCircuitPublicInputs(seed), fr(seed + 0x1000));
 }
 
 export function makeProtocolContracts(seed = 1) {
@@ -758,8 +757,8 @@ export function makeCheckpointRollupPublicInputs(seed = 0) {
     makeAppendOnlyTreeSnapshot(seed + 0x200),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x700),
-    BlobAccumulator.fromBatchedBlobAccumulator(startBlobAccumulator),
-    BlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed + 1)),
+    startBlobAccumulator.toBlobAccumulator(),
+    makeBatchedBlobAccumulator(seed + 1).toBlobAccumulator(),
     startBlobAccumulator.finalBlobChallenges,
   );
 }
@@ -795,7 +794,7 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => fr(seed), 0x300),
     makeTuple(AZTEC_MAX_EPOCH_DURATION, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
-    FinalBlobAccumulator.fromBatchedBlobAccumulator(makeBatchedBlobAccumulator(seed)),
+    makeBatchedBlobAccumulator(seed).toFinalBlobAccumulator(),
   );
 }
 
@@ -1084,18 +1083,22 @@ function makePublicBaseRollupHints(seed = 1) {
 
 export function makePrivateTxBaseRollupPrivateInputs(seed = 0) {
   return PrivateTxBaseRollupPrivateInputs.from({
-    hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CIVC_PROOF_LENGTH),
+    hidingKernelProofData: makeProofData(seed, makePrivateToRollupKernelCircuitPublicInputs, CHONK_PROOF_LENGTH),
     hints: makePrivateBaseRollupHints(seed + 0x100),
   });
 }
 
 export function makePublicTxBaseRollupPrivateInputs(seed = 0) {
-  const publicTubeProofData = makeProofData(seed, makePublicTubePublicInputs, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
+  const publicChonkVerifierProofData = makeProofData(
+    seed,
+    makePublicChonkVerifierPublicInputs,
+    RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  );
   const avmProofData = makeProofData(seed + 0x100, makeAvmCircuitPublicInputs, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   const hints = makePublicBaseRollupHints(seed + 0x200);
 
   return PublicTxBaseRollupPrivateInputs.from({
-    publicTubeProofData,
+    publicChonkVerifierProofData,
     avmProofData,
     hints,
   });
@@ -1183,13 +1186,10 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
   return new Map(await makeArrayAsync(size, i => fn(i + offset)));
 }
 
-export function makePublicKeys(seed = 0): PublicKeys {
-  return new PublicKeys(
-    new Point(new Fr(seed + 0), new Fr(seed + 1), false),
-    new Point(new Fr(seed + 2), new Fr(seed + 3), false),
-    new Point(new Fr(seed + 4), new Fr(seed + 5), false),
-    new Point(new Fr(seed + 6), new Fr(seed + 7), false),
-  );
+export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
+  const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
+
+  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1205,7 +1205,7 @@ export async function makeContractInstanceFromClassId(
   const salt = new Fr(seed);
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
-  const publicKeys = overrides?.publicKeys ?? makePublicKeys(seed + 3);
+  const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
 
   const saltedInitializationHash = await poseidon2HashWithSeparator(
     [salt, initializationHash, deployer],

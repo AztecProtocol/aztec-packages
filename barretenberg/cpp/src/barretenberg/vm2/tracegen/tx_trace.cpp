@@ -399,6 +399,7 @@ std::vector<std::pair<Column, FF>> handle_cleanup()
         { Column::tx_should_read_l1_l2_tree, 1 },
         { Column::tx_gas_used_pi_offset, AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX },
         { Column::tx_should_read_gas_used, 1 },
+        { Column::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
         { Column::tx_array_length_note_hashes_pi_offset,
           AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX },
         { Column::tx_array_length_nullifiers_pi_offset,
@@ -569,6 +570,8 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
     Gas current_gas_limit = startup_event_data.gas_limit;
     Gas teardown_gas_limit = startup_event_data.teardown_gas_limit;
     Gas gas_used = startup_event_data.state.gas_used;
+    // Track whether this tx reverted
+    bool tx_reverted = false;
 
     // Go through each phase except startup and process the events in the phase
     for (uint32_t i = 0; i < NUM_PHASES; i++) {
@@ -605,6 +608,9 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
 
         // We have events to process in this phase
         for (const auto& tx_phase_event : phase_events) {
+            // If this phase is the first revert, set tx_reverted:
+            tx_reverted = tx_reverted || tx_phase_event->reverted;
+
             // We always set the tree state
             trace.set(row, insert_state(tx_phase_event->state_before, tx_phase_event->state_after));
             trace.set(row,
@@ -615,6 +621,7 @@ void TxTraceBuilder::process(const simulation::EventEmitterInterface<simulation:
                 { {
                     { C::tx_sel, 1 },
                     { C::tx_discard, discard ? 1 : 0 },
+                    { C::tx_tx_reverted, tx_reverted ? 1 : 0 },
                     { C::tx_phase_value, static_cast<uint8_t>(tx_phase_event->phase) },
                     { Column::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
                     { C::tx_is_padded, 0 }, // overidden below if this is a skipped phase event
@@ -717,6 +724,7 @@ const InteractionDefinition TxTraceBuilder::interactions =
         .add<lookup_tx_context_public_inputs_l1_l2_tree_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_gas_used_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_read_gas_limit_settings, InteractionType::LookupIntoIndexedByClk>()
+        .add<lookup_tx_context_public_inputs_read_reverted_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_note_hash_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_nullifier_count_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,

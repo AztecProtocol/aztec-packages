@@ -127,11 +127,7 @@ pub contract SimpleToken {
         amount: u128,
         authwit_nonce: Field,
     ) {
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         SimpleToken::at(context.this_address())._increase_public_balance(to, amount).enqueue(
             &mut context,
         );
@@ -148,16 +144,8 @@ pub contract SimpleToken {
             amount,
             INITIAL_TRANSFER_CALL_MAX_NOTES,
         );
-        storage.balances.at(from).add(from, change).emit(
-            &mut context,
-            from,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
-        storage.balances.at(to).add(to, amount).emit(
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).add(from, change).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        storage.balances.at(to).add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         emit_event_in_private(
             Transfer { from, to, amount },
@@ -170,11 +158,7 @@ pub contract SimpleToken {
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn_private(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        storage.balances.at(from).sub(from, amount).emit(
-            &mut context,
-            from,
-            MessageDelivery.CONSTRAINED_ONCHAIN,
-        );
+        storage.balances.at(from).sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
         SimpleToken::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
     }
 

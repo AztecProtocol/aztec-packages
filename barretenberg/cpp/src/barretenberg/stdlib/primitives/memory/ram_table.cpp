@@ -95,7 +95,7 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
                     entry = field_pt::from_witness_index(_context,
                                                          _context->put_constant_variable(_raw_entries[i].get_value()));
                 } else {
-                    entry = _raw_entries[i].normalize();
+                    entry = _raw_entries[i];
                 }
                 _context->init_RAM_element(_ram_id, i, entry.get_witness_index());
                 _index_initialized[i] = true;
@@ -223,7 +223,7 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
         index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(index.get_value()));
     }
 
-    uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.get_normalized_witness_index());
+    uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.get_witness_index());
     auto element = field_pt::from_witness_index(_context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
@@ -280,8 +280,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
 
         _index_initialized[cast_index] = true;
     } else {
-        _context->write_RAM_array(
-            _ram_id, index_wire.get_normalized_witness_index(), value_wire.get_normalized_witness_index());
+        _context->write_RAM_array(_ram_id, index_wire.get_witness_index(), value_wire.get_witness_index());
     }
     // Update the value of the stored tag, if index is legitimate
 

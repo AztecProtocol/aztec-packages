@@ -460,16 +460,18 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
     if (predicate.is_constant()) {
         auto result = bool_t(predicate.get_value() ? lhs : rhs);
         result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
-        return result;
+        return result.normalize();
     }
 
     bool same = lhs.witness_index == rhs.witness_index;
     bool witness_same = same && !lhs.is_constant() && (lhs.witness_inverted == rhs.witness_inverted);
     bool const_same = same && lhs.is_constant() && (lhs.witness_bool == rhs.witness_bool);
     if (witness_same || const_same) {
-        return lhs;
+        return lhs.normalize();
     }
-    return (predicate && lhs) || (!predicate && rhs);
+    // Boolean operations can preserve inverted flags when constants are involved
+    // (e.g., inverted_witness && constant_true returns inverted_witness)
+    return ((predicate && lhs) || (!predicate && rhs)).normalize();
 }
 
 /**

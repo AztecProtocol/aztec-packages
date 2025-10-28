@@ -42,10 +42,10 @@ TEST(UltraCircuitSMT, AssertEqual)
 
     field_t a(witness_t(&builder, fr::random_element()));
     field_t b(witness_t(&builder, fr::random_element()));
-    builder.set_variable_name(a.witness_index, "a");
-    builder.set_variable_name(b.witness_index, "b");
+    builder.set_variable_name(a.get_witness_index(), "a");
+    builder.set_variable_name(b.get_witness_index(), "b");
     field_t c = (a + a) / (b + b + b);
-    builder.set_variable_name(c.witness_index, "c");
+    builder.set_variable_name(c.get_witness_index(), "c");
 
     field_t d(witness_t(&builder, a.get_value()));
     field_t e(witness_t(&builder, b.get_value()));
@@ -160,7 +160,7 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
     builder.set_variable_name(p2.x().get_witness_index(), "x2");
     builder.set_variable_name(p1.y().get_witness_index(), "y1");
     builder.set_variable_name(p2.y().get_witness_index(), "y2");
-    builder.set_variable_name(p1.is_point_at_infinity().get_normalized_witness_index(), "is_inf");
+    builder.set_variable_name(p1.is_point_at_infinity().get_witness_index(), "is_inf");
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);

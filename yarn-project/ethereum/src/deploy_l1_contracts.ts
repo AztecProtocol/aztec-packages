@@ -517,12 +517,206 @@ const getZkPassportScopes = (args: DeployL1ContractsArgs): [string, string] => {
 };
 
 /**
+ * Generates verification records for a deployed rollup and its associated contracts (Inbox, Outbox, Slasher, etc).
+ * @param rollup - The deployed rollup contract.
+ * @param deployer - The L1 deployer instance.
+ * @param args - The deployment arguments used for the rollup.
+ * @param addresses - The L1 contract addresses.
+ * @param extendedClient - The extended viem wallet client.
+ * @param logger - The logger.
+ */
+async function generateRollupVerificationRecords(
+  rollup: RollupContract,
+  deployer: L1Deployer,
+  args: {
+    slashingVetoer: EthAddress;
+    slashingRoundSizeInEpochs: number;
+    aztecEpochDuration: number;
+    slashingQuorum?: number;
+    slashingLifetimeInRounds: number;
+    slashingExecutionDelayInRounds: number;
+    slasherFlavor: 'none' | 'tally' | 'empire';
+    slashAmountSmall: bigint;
+    slashAmountMedium: bigint;
+    slashAmountLarge: bigint;
+    aztecTargetCommitteeSize: number;
+    slashingOffsetInRounds: number;
+  },
+  addresses: Pick<L1ContractAddresses, 'feeJuiceAddress'>,
+  extendedClient: ExtendedViemWalletClient,
+  logger: Logger,
+): Promise<void> {
+  try {
+    // Add Inbox / Outbox verification records (constructor args are created inside RollupCore)
+    const rollupAddr = rollup.address;
+    const rollupAddresses = await rollup.getRollupAddresses();
+    const inboxAddr = rollupAddresses.inboxAddress.toString();
+    const outboxAddr = rollupAddresses.outboxAddress.toString();
+    const feeAsset = rollupAddresses.feeJuiceAddress.toString();
+    const version = await rollup.getVersion();
+
+    const inboxCtor = encodeAbiParameters(
+      [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }],
+      [rollupAddr, feeAsset, version, BigInt(L1_TO_L2_MSG_SUBTREE_HEIGHT)],
+    );
+
+    const outboxCtor = encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }], [rollupAddr, version]);
+
+    deployer.verificationRecords.push(
+      { name: 'Inbox', address: inboxAddr, constructorArgsHex: inboxCtor, libraries: [] },
+      { name: 'Outbox', address: outboxAddr, constructorArgsHex: outboxCtor, libraries: [] },
+    );
+
+    // Include Slasher and SlashingProposer (if deployed) in verification data
+    try {
+      const slasherAddrHex = await rollup.getSlasherAddress();
+      const slasherAddr = EthAddress.fromString(slasherAddrHex);
+      if (!slasherAddr.isZero()) {
+        // Slasher constructor: (address _vetoer, address _governance)
+        const slasherCtor = encodeAbiParameters(
+          [{ type: 'address' }, { type: 'address' }],
+          [args.slashingVetoer.toString(), extendedClient.account.address],
+        );
+        deployer.verificationRecords.push({
+          name: 'Slasher',
+          address: slasherAddr.toString(),
+          constructorArgsHex: slasherCtor,
+          libraries: [],
+        });
+
+        // Proposer address is stored in Slasher.PROPOSER()
+        const proposerAddr = (await rollup.getSlashingProposerAddress()).toString();
+
+        // Compute constructor args matching deployment path in RollupCore
+        const computedRoundSize = BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration);
+        const computedQuorum = BigInt(
+          args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1,
+        );
+        const lifetimeInRounds = BigInt(args.slashingLifetimeInRounds);
+        const executionDelayInRounds = BigInt(args.slashingExecutionDelayInRounds);
+
+        if (args.slasherFlavor === 'tally') {
+          const slashAmounts: readonly [bigint, bigint, bigint] = [
+            args.slashAmountSmall,
+            args.slashAmountMedium,
+            args.slashAmountLarge,
+          ];
+          const committeeSize = BigInt(args.aztecTargetCommitteeSize);
+          const epochDuration = BigInt(args.aztecEpochDuration);
+          const slashOffsetInRounds = BigInt(args.slashingOffsetInRounds);
+
+          const proposerCtor = encodeAbiParameters(
+            [
+              { type: 'address' },
+              { type: 'address' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256[3]' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+            ],
+            [
+              rollup.address,
+              slasherAddr.toString(),
+              computedQuorum,
+              computedRoundSize,
+              lifetimeInRounds,
+              executionDelayInRounds,
+              slashAmounts,
+              committeeSize,
+              epochDuration,
+              slashOffsetInRounds,
+            ],
+          );
+
+          deployer.verificationRecords.push({
+            name: 'TallySlashingProposer',
+            address: proposerAddr,
+            constructorArgsHex: proposerCtor,
+            libraries: [],
+          });
+        } else if (args.slasherFlavor === 'empire') {
+          const proposerCtor = encodeAbiParameters(
+            [
+              { type: 'address' },
+              { type: 'address' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+              { type: 'uint256' },
+            ],
+            [
+              rollup.address,
+              slasherAddr.toString(),
+              computedQuorum,
+              computedRoundSize,
+              lifetimeInRounds,
+              executionDelayInRounds,
+            ],
+          );
+
+          deployer.verificationRecords.push({
+            name: 'EmpireSlashingProposer',
+            address: proposerAddr,
+            constructorArgsHex: proposerCtor,
+            libraries: [],
+          });
+        }
+      }
+    } catch (e) {
+      logger.warn(`Failed to add Slasher/Proposer verification records: ${String(e)}`);
+    }
+  } catch (e) {
+    throw new Error(`Failed to generate rollup verification records: ${String(e)}`);
+  }
+}
+
+/**
+ * Writes verification records to a JSON file for later forge verify.
+ * @param deployer - The L1 deployer containing verification records.
+ * @param outputDirectory - The directory to write the verification file to.
+ * @param chainId - The chain ID.
+ * @param filenameSuffix - Optional suffix for the filename (e.g., 'upgrade').
+ * @param logger - The logger.
+ */
+async function writeVerificationJson(
+  deployer: L1Deployer,
+  outputDirectory: string,
+  chainId: number,
+  filenameSuffix: string = '',
+  logger: Logger,
+): Promise<void> {
+  try {
+    const date = new Date();
+    const formattedDate = date.toISOString().slice(2, 19).replace(/[-T:]/g, '');
+    // Ensure the verification output directory exists
+    await mkdir(outputDirectory, { recursive: true });
+    const suffix = filenameSuffix ? `-${filenameSuffix}` : '';
+    const verificationOutputPath = `${outputDirectory}/l1-verify${suffix}-${chainId}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
+    const networkName = getActiveNetworkName();
+    const verificationData = {
+      chainId: chainId,
+      network: networkName,
+      records: deployer.verificationRecords,
+    };
+    await writeFile(verificationOutputPath, JSON.stringify(verificationData, null, 2));
+    logger.info(`Wrote L1 verification data to ${verificationOutputPath}`);
+  } catch (e) {
+    logger.warn(`Failed to write L1 verification data file: ${String(e)}`);
+  }
+}
+
+/**
  * Deploys a new rollup, using the existing canonical version to derive certain values (addresses of assets etc).
  * @param clients - The L1 clients.
  * @param args - The deployment arguments.
  * @param registryAddress - The address of the registry.
  * @param logger - The logger.
  * @param txUtilsConfig - The L1 tx utils config.
+ * @param createVerificationJson - Optional path to write verification data for forge verify.
  */
 export const deployRollupForUpgrade = async (
   extendedClient: ExtendedViemWalletClient,
@@ -533,6 +727,7 @@ export const deployRollupForUpgrade = async (
   registryAddress: EthAddress,
   logger: Logger,
   txUtilsConfig: L1TxUtilsConfig,
+  createVerificationJson: string | false = false,
 ) => {
   const deployer = new L1Deployer(
     extendedClient,
@@ -541,6 +736,7 @@ export const deployRollupForUpgrade = async (
     args.acceleratedTestDeployments,
     logger,
     txUtilsConfig,
+    !!createVerificationJson,
   );
 
   const addresses = await RegistryContract.collectAddresses(extendedClient, registryAddress, 'canonical');
@@ -548,6 +744,12 @@ export const deployRollupForUpgrade = async (
   const { rollup, slashFactoryAddress } = await deployRollup(extendedClient, deployer, args, addresses, logger);
 
   await deployer.waitForDeployments();
+
+  // Write verification data (constructor args + linked libraries) to file for later forge verify
+  if (createVerificationJson) {
+    await generateRollupVerificationRecords(rollup, deployer, args, addresses, extendedClient, logger);
+    await writeVerificationJson(deployer, createVerificationJson, extendedClient.chain.id, 'upgrade', logger);
+  }
 
   return { rollup, slashFactoryAddress };
 };
@@ -1280,144 +1482,8 @@ export const deployL1Contracts = async (
 
   // Write verification data (constructor args + linked libraries) to file for later forge verify
   if (createVerificationJson) {
-    try {
-      // Add Inbox / Outbox verification records (constructor args are created inside RollupCore)
-      const rollupAddr = l1Contracts.rollupAddress.toString();
-      const inboxAddr = l1Contracts.inboxAddress.toString();
-      const outboxAddr = l1Contracts.outboxAddress.toString();
-      const feeAsset = l1Contracts.feeJuiceAddress.toString();
-      const version = await rollup.getVersion();
-
-      const inboxCtor = encodeAbiParameters(
-        [{ type: 'address' }, { type: 'address' }, { type: 'uint256' }, { type: 'uint256' }],
-        [rollupAddr, feeAsset, version, BigInt(L1_TO_L2_MSG_SUBTREE_HEIGHT)],
-      );
-
-      const outboxCtor = encodeAbiParameters([{ type: 'address' }, { type: 'uint256' }], [rollupAddr, version]);
-
-      deployer.verificationRecords.push(
-        { name: 'Inbox', address: inboxAddr, constructorArgsHex: inboxCtor, libraries: [] },
-        { name: 'Outbox', address: outboxAddr, constructorArgsHex: outboxCtor, libraries: [] },
-      );
-
-      // Include Slasher and SlashingProposer (if deployed) in verification data
-      try {
-        const slasherAddrHex = await rollup.getSlasherAddress();
-        const slasherAddr = EthAddress.fromString(slasherAddrHex);
-        if (!slasherAddr.isZero()) {
-          // Slasher constructor: (address _vetoer, address _governance)
-          const slasherCtor = encodeAbiParameters(
-            [{ type: 'address' }, { type: 'address' }],
-            [args.slashingVetoer.toString(), l1Client.account.address],
-          );
-          deployer.verificationRecords.push({
-            name: 'Slasher',
-            address: slasherAddr.toString(),
-            constructorArgsHex: slasherCtor,
-            libraries: [],
-          });
-
-          // Proposer address is stored in Slasher.PROPOSER()
-          const proposerAddr = (await rollup.getSlashingProposerAddress()).toString();
-
-          // Compute constructor args matching deployment path in RollupCore
-          const computedRoundSize = BigInt(args.slashingRoundSizeInEpochs * args.aztecEpochDuration);
-          const computedQuorum = BigInt(
-            args.slashingQuorum ?? (args.slashingRoundSizeInEpochs * args.aztecEpochDuration) / 2 + 1,
-          );
-          const lifetimeInRounds = BigInt(args.slashingLifetimeInRounds);
-          const executionDelayInRounds = BigInt(args.slashingExecutionDelayInRounds);
-
-          if (args.slasherFlavor === 'tally') {
-            const slashAmounts: readonly [bigint, bigint, bigint] = [
-              args.slashAmountSmall,
-              args.slashAmountMedium,
-              args.slashAmountLarge,
-            ];
-            const committeeSize = BigInt(args.aztecTargetCommitteeSize);
-            const epochDuration = BigInt(args.aztecEpochDuration);
-            const slashOffsetInRounds = BigInt(args.slashingOffsetInRounds);
-
-            const proposerCtor = encodeAbiParameters(
-              [
-                { type: 'address' },
-                { type: 'address' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256[3]' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-              ],
-              [
-                rollup.address,
-                slasherAddr.toString(),
-                computedQuorum,
-                computedRoundSize,
-                lifetimeInRounds,
-                executionDelayInRounds,
-                slashAmounts,
-                committeeSize,
-                epochDuration,
-                slashOffsetInRounds,
-              ],
-            );
-
-            deployer.verificationRecords.push({
-              name: 'TallySlashingProposer',
-              address: proposerAddr,
-              constructorArgsHex: proposerCtor,
-              libraries: [],
-            });
-          } else if (args.slasherFlavor === 'empire') {
-            const proposerCtor = encodeAbiParameters(
-              [
-                { type: 'address' },
-                { type: 'address' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-                { type: 'uint256' },
-              ],
-              [
-                rollup.address,
-                slasherAddr.toString(),
-                computedQuorum,
-                computedRoundSize,
-                lifetimeInRounds,
-                executionDelayInRounds,
-              ],
-            );
-
-            deployer.verificationRecords.push({
-              name: 'EmpireSlashingProposer',
-              address: proposerAddr,
-              constructorArgsHex: proposerCtor,
-              libraries: [],
-            });
-          }
-        }
-      } catch (e) {
-        logger.warn(`Failed to add Slasher/Proposer verification records: ${String(e)}`);
-      }
-      const date = new Date();
-      const formattedDate = date.toISOString().slice(2, 19).replace(/[-T:]/g, '');
-      // Ensure the verification output directory exists
-      await mkdir(createVerificationJson, { recursive: true });
-      const verificationOutputPath = `${createVerificationJson}/l1-verify-${chain.id}-${formattedDate.slice(0, 6)}-${formattedDate.slice(6)}.json`;
-      const networkName = getActiveNetworkName();
-      const verificationData = {
-        chainId: chain.id,
-        network: networkName,
-        records: deployer.verificationRecords,
-      };
-      await writeFile(verificationOutputPath, JSON.stringify(verificationData, null, 2));
-      logger.info(`Wrote L1 verification data to ${verificationOutputPath}`);
-    } catch (e) {
-      logger.warn(`Failed to write L1 verification data file: ${String(e)}`);
-    }
+    await generateRollupVerificationRecords(rollup, deployer, args, l1Contracts, l1Client, logger);
+    await writeVerificationJson(deployer, createVerificationJson, chain.id, '', logger);
   }
 
   if (isAnvilTestChain(chain.id)) {
