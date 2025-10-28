@@ -57,7 +57,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
 
-        const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : log_n;
+        const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : log_n;
 
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
         // Size of types is number of bb::frs needed to represent the types
@@ -346,7 +346,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_TRUE(result);
     }
 
-    const size_t virtual_log_n = Flavor::USE_PADDING ? CONST_PROOF_SIZE_LOG_N : prover_instance->log_dyadic_size();
+    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
@@ -370,7 +370,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_TRUE(result); // we have not serialized it back to the proof so it should still be fine
     }
 
-    prover.transcript->serialize_full_transcript();
+    prover.transcript->serialize_full_transcript(virtual_log_n);
     verifier.transcript = std::make_shared<typename Flavor::Transcript>(); // reset verifier's transcript
     proof = TestFixture::export_serialized_proof(prover, prover_instance->num_public_inputs());
     {
@@ -378,6 +378,6 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
         EXPECT_FALSE(result); // the proof is now wrong after serializing it
     }
 
-    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs, virtual_log_n);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
