@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Source ci3 framework
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
 ci3/echo_header "CI3 Post-Actions"
 
 # Read CI mode from env vars set by ci3.sh

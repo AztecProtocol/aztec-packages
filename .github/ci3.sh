@@ -5,6 +5,9 @@ set -euo pipefail
 : "${AWS_SECRET_ACCESS_KEY:?required}"
 : "${GITHUB_TOKEN:?required}"
 
+# Source ci3 framework
+NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+
 # Labels passed as comma-separated string
 labels="${1:-}"
 
