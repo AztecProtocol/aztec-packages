@@ -536,17 +536,17 @@ inline void TFProfObserver::Summary::dump_tsum(std::ostream& os) const
         max_w = std::max(max_w, std::to_string(i.max_span).size());
     });
 
-    os << std::setw(type_w) << "-Task-" << std::setw(count_w + 2) << "Count" << std::setw(time_w + 2) << "Time (us)"
-       << std::setw(avg_w + 2) << "Avg (us)" << std::setw(min_w + 2) << "Min (us)" << std::setw(max_w + 2) << "Max (us)"
+    os << std::setw(static_cast<int>(type_w)) << "-Task-" << std::setw(static_cast<int>(count_w + 2)) << "Count" << std::setw(static_cast<int>(time_w + 2)) << "Time (us)"
+       << std::setw(static_cast<int>(avg_w + 2)) << "Avg (us)" << std::setw(static_cast<int>(min_w + 2)) << "Min (us)" << std::setw(static_cast<int>(max_w + 2)) << "Max (us)"
        << '\n';
 
     for (size_t i = 0; i < TASK_TYPES.size(); i++) {
         if (tsum[i].count == 0) {
             continue;
         }
-        os << std::setw(type_w) << to_string(TASK_TYPES[i]) << std::setw(count_w + 2) << tsum[i].count
-           << std::setw(time_w + 2) << tsum[i].total_span << std::setw(avg_w + 2) << std::to_string(tsum[i].avg_span())
-           << std::setw(min_w + 2) << tsum[i].min_span << std::setw(max_w + 2) << tsum[i].max_span << '\n';
+        os << std::setw(static_cast<int>(type_w)) << to_string(TASK_TYPES[i]) << std::setw(static_cast<int>(count_w + 2)) << tsum[i].count
+           << std::setw(static_cast<int>(time_w + 2)) << tsum[i].total_span << std::setw(static_cast<int>(avg_w + 2)) << std::to_string(tsum[i].avg_span())
+           << std::setw(static_cast<int>(min_w + 2)) << tsum[i].min_span << std::setw(static_cast<int>(max_w + 2)) << tsum[i].max_span << '\n';
     }
 }
 
@@ -593,9 +593,9 @@ inline void TFProfObserver::Summary::dump_wsum(std::ostream& os) const
         max_w = std::max(max_w, std::to_string(i.max_span).size());
     });
 
-    os << std::setw(w_w) << "-Worker-" << std::setw(l_w + 2) << "Level" << std::setw(t_w) << "Task"
-       << std::setw(c_w + 2) << "Count" << std::setw(d_w + 2) << "Time (us)" << std::setw(avg_w + 2) << "Avg (us)"
-       << std::setw(min_w + 2) << "Min (us)" << std::setw(max_w + 2) << "Max (us)" << '\n';
+    os << std::setw(static_cast<int>(w_w)) << "-Worker-" << std::setw(static_cast<int>(l_w + 2)) << "Level" << std::setw(static_cast<int>(t_w)) << "Task"
+       << std::setw(static_cast<int>(c_w + 2)) << "Count" << std::setw(static_cast<int>(d_w + 2)) << "Time (us)" << std::setw(static_cast<int>(avg_w + 2)) << "Avg (us)"
+       << std::setw(static_cast<int>(min_w + 2)) << "Min (us)" << std::setw(static_cast<int>(max_w + 2)) << "Max (us)" << '\n';
 
     for (const auto& ws : wsum) {
 
@@ -603,7 +603,7 @@ inline void TFProfObserver::Summary::dump_wsum(std::ostream& os) const
             continue;
         }
 
-        os << std::setw(w_w) << ws.id << std::setw(l_w + 2) << ws.level;
+        os << std::setw(static_cast<int>(w_w)) << ws.id << std::setw(static_cast<int>(l_w + 2)) << ws.level;
 
         bool first = true;
         for (size_t i = 0; i < TASK_TYPES.size(); i++) {
@@ -612,18 +612,18 @@ inline void TFProfObserver::Summary::dump_wsum(std::ostream& os) const
                 continue;
             }
 
-            os << (first ? std::setw(t_w) : std::setw(w_w + l_w + 2 + t_w));
+            os << (first ? std::setw(static_cast<int>(t_w)) : std::setw(static_cast<int>(w_w + l_w + 2 + t_w)));
             first = false;
 
-            os << to_string(TASK_TYPES[i]) << std::setw(c_w + 2) << ws.tsum[i].count << std::setw(d_w + 2)
-               << ws.tsum[i].total_span << std::setw(avg_w + 2) << std::to_string(ws.tsum[i].avg_span())
-               << std::setw(min_w + 2) << ws.tsum[i].min_span << std::setw(max_w + 2) << ws.tsum[i].max_span << '\n';
+            os << to_string(TASK_TYPES[i]) << std::setw(static_cast<int>(c_w + 2)) << ws.tsum[i].count << std::setw(static_cast<int>(d_w + 2))
+               << ws.tsum[i].total_span << std::setw(static_cast<int>(avg_w + 2)) << std::to_string(ws.tsum[i].avg_span())
+               << std::setw(static_cast<int>(min_w + 2)) << ws.tsum[i].min_span << std::setw(static_cast<int>(max_w + 2)) << ws.tsum[i].max_span << '\n';
         }
 
         // per-worker summary
-        os << std::setw(w_w + l_w + t_w + c_w + 4) << ws.count << std::setw(d_w + 2) << ws.total_span
-           << std::setw(avg_w + 2) << std::to_string(ws.avg_span()) << std::setw(min_w + 2) << ws.min_span
-           << std::setw(max_w + 2) << ws.max_span << '\n';
+        os << std::setw(static_cast<int>(w_w + l_w + t_w + c_w + 4)) << ws.count << std::setw(static_cast<int>(d_w + 2)) << ws.total_span
+           << std::setw(static_cast<int>(avg_w + 2)) << std::to_string(ws.avg_span()) << std::setw(static_cast<int>(min_w + 2)) << ws.min_span
+           << std::setw(static_cast<int>(max_w + 2)) << ws.max_span << '\n';
 
         // for(size_t j=0; j<w_w+l_w+t_w+4; j++) os << ' ';
         // for(size_t j=0; j<c_w+d_w+avg_w+min_w+max_w+8; j++) os << '-';
