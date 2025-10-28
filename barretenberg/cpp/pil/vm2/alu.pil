@@ -221,13 +221,13 @@ pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op
 // We use the below to prove correct decomposition of limbs. Currently used by MUL, DIV, SHL, and SHR.
 pol commit sel_decompose_a;
 // #[OP_ID_CHECK] ensures selectors are mutually exclusive:
-sel_decompose_a = sel_mul_div_u128 + SHIFT_OPS * IS_NOT_FF;
+sel_decompose_a = (1 - sel_err) * (sel_mul_div_u128 + SHIFT_OPS);
 // Currently, sel_decompose_b would just equal sel_mul_div_u128, so no need for another column.
 pol commit a_lo, a_hi, b_lo, b_hi;
 pol TWO_POW_64 = 2 ** 64;
 
 // Reusing columns for decomposition (#[OP_ID_CHECK] ensures selectors are mutually exclusive):
-pol DECOMPOSED_A = ((sel_mul_u128 + sel_shift_ops_no_overflow) * ia) + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + (sel_is_u128 * sel_op_div * (1 - sel_tag_err) * ic);
+pol DECOMPOSED_A = ((sel_mul_u128 + sel_shift_ops_no_overflow) * ia) + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + (sel_is_u128 * sel_op_div * ic);
 pol DECOMPOSED_B = ib;
 // For MUL and DIV, we decompose into 64 bit limbs. For shifts, we have one limb of b bits and one limb of max_bits - b bits.
 pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + SHIFT_OPS * two_pow_shift_lo_bits;
@@ -287,8 +287,8 @@ sel_op_mul * IS_NOT_U128 * (1 - sel_tag_err) * (ia * ib - ic - (max_value + 1) *
 // MUL - u128
 
 pol commit sel_mul_u128;
-// sel_op_mul & sel_is_u128:
-sel_mul_u128 = sel_is_u128 * sel_op_mul;
+// sel_op_mul & sel_is_u128 & sel_err == 0:
+sel_mul_u128 = (1 - sel_err) * sel_is_u128 * sel_op_mul;
 
 // Taken from vm1:
 // We express a, b in 64-bit slices: a = a_l + a_h * 2^64
@@ -302,8 +302,7 @@ sel_mul_u128 = sel_is_u128 * sel_op_mul;
 // => no need for a_h in final relation
 
 #[ALU_MUL_U128]
-sel_mul_u128 * (1 - sel_tag_err)
-    * (
+sel_mul_u128 * (
         ia * b_lo + a_lo * b_hi * TWO_POW_64            // a * b without the hi bits
         - ic                                            // c_lo
         - (max_value + 1) * (cf * TWO_POW_64 + c_hi)    // c_hi * 2^128 + (cf ? 2^192 : 0)
@@ -321,22 +320,21 @@ sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, r
 // We need to show that remainder < b (remainder stored in helper1)
 // TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1 (gated by div_0_err).
 // The below only exists to gate this lookup for now:
-pol commit sel_div_no_0_err;
-sel_div_no_0_err = sel_op_div * (1 - sel_div_0_err);
+pol commit sel_div_no_err;
+sel_div_no_err = sel_op_div * (1 - sel_err);
 #[GT_DIV_REMAINDER]
-sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
+sel_div_no_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // DIV - u128
 
 // Using this to switch on the range checks for decomposed u128 integers (#[OP_ID_CHECK] ensures selectors are mutually exclusive)
 pol commit sel_mul_div_u128;
-// sel_mul_u128 || (sel_is_u128 & sel_op_div)
-sel_mul_div_u128 = sel_mul_u128 + (sel_is_u128 * sel_op_div);
+// sel_mul_u128 || sel_is_u128 & sel_op_div & sel_err == 0
+sel_mul_div_u128 = sel_mul_u128 + (1 - sel_err) * sel_is_u128 * sel_op_div;
 
 // We share the logic from MUL, since here we also must show a product evaluates to a result:
 //  c * b = a - remainder
 
-// Taken from vm1:
 // We express c, b in 64-bit slices: c = c_l + c_h * 2^64
 //                                   b = b_l + b_h * 2^64
 // => c * b = c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 + (c_h * b_h) * 2^128 = a - r
@@ -393,7 +391,7 @@ sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) -
 // LT & LTE
 // ------------------------------------------------------------
 pol commit sel_lt_ops;
-sel_lt_ops = (1 - sel_tag_err) * (sel_op_lt + sel_op_lte);
+sel_lt_ops = (1 - sel_err) * (sel_op_lt + sel_op_lte);
 
 pol commit sel_ff_lt_ops;
 // sel_is_ff & sel_lt_ops:

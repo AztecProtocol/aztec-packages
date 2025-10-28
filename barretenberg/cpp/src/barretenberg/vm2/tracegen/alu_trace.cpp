@@ -86,13 +86,13 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_mul_u128, 1 },
-                           { Column::alu_sel_mul_div_u128, 1 },
-                           { Column::alu_sel_decompose_a, 1 },
+                           { Column::alu_sel_mul_u128, has_error ? 0 : 1 },
+                           { Column::alu_sel_mul_div_u128, has_error ? 0 : 1 },
+                           { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
                            { Column::alu_a_lo, a_decomp.lo },
-                           { Column::alu_a_lo_bits, 64 },
+                           { Column::alu_a_lo_bits, has_error ? 0 : 64 },
                            { Column::alu_a_hi, a_decomp.hi },
-                           { Column::alu_a_hi_bits, 64 },
+                           { Column::alu_a_hi_bits, has_error ? 0 : 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                            { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
@@ -119,7 +119,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_sel_is_u128, is_u128 },
             { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
             { Column::alu_b_inv, is_b_zero ? 0 : event.b.as_ff() }, // Will be inverted in batch later
-            { Column::alu_sel_div_no_0_err, is_b_zero ? 0 : 1 },
+            { Column::alu_sel_div_no_err, has_error ? 0 : 1 },
         };
         if (is_u128) {
             // For u128s, we decompose c and b into 64 bit chunks:
@@ -127,12 +127,12 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_mul_div_u128, 1 },
-                           { Column::alu_sel_decompose_a, 1 },
+                           { Column::alu_sel_mul_div_u128, has_error ? 0 : 1 },
+                           { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
                            { Column::alu_a_lo, c_decomp.lo },
-                           { Column::alu_a_lo_bits, 64 },
+                           { Column::alu_a_lo_bits, has_error ? 0 : 64 },
                            { Column::alu_a_hi, c_decomp.hi },
-                           { Column::alu_a_hi_bits, 64 },
+                           { Column::alu_a_hi_bits, has_error ? 0 : 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                        });
@@ -211,7 +211,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         return {
             { Column::alu_sel_op_shl, 1 },
             { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-            { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
+            { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
             { Column::alu_a_lo, a_lo },
             { Column::alu_a_lo_bits, shift_lo_bits },
             { Column::alu_a_hi, a_num >> shift_lo_bits },
@@ -240,7 +240,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         return {
             { Column::alu_sel_op_shr, 1 },
             { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-            { Column::alu_sel_decompose_a, is_ff ? 0 : 1 },
+            { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
             { Column::alu_a_lo, a_lo },
             { Column::alu_a_lo_bits, shift_lo_bits },
             { Column::alu_a_hi, a_num >> shift_lo_bits },

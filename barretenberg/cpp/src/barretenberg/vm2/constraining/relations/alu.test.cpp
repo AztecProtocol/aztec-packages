@@ -22,7 +22,6 @@
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tooling/debugger.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
@@ -761,7 +760,7 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
                 { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
-                { C::alu_sel_div_no_0_err, div_0_error ? 0 : 1 },
+                { C::alu_sel_div_no_err, div_0_error ? 0 : 1 },
                 { C::alu_sel_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
@@ -966,7 +965,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
         // We need to set the div_0_err and...
         trace.set(Column::alu_sel_div_0_err, 0, 1);
-        trace.set(Column::alu_sel_div_no_0_err, 0, 0);
+        trace.set(Column::alu_sel_div_no_err, 0, 0);
         EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
         // ...the overall sel_err:
         trace.set(Column::alu_sel_err, 0, 1);
@@ -1000,6 +999,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     // This case should be recoverable, so we set the tag err selectors:
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1014,13 +1014,13 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     auto trace = process_div_with_tracegen({ a, b, c });
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_err, 0, 0);
     check_relation<alu>(trace);
     // Set b, b_inv to 0 with dividing by 0 errors:
     trace.set(Column::alu_ib, 0, 0);
     trace.set(Column::alu_b_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     trace.set(Column::alu_sel_div_0_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1035,6 +1035,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     auto trace = process_div_with_tracegen({ a, b, c });
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
+    trace.set(Column::alu_sel_div_no_err, 0, 0);
     check_relation<alu>(trace);
     // Setting b to u8 also creates a tag mismatch:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U8));
@@ -1049,7 +1050,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     trace.set(Column::alu_b_inv, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DIV_0_ERR");
     trace.set(Column::alu_sel_div_0_err, 0, 1);
-    trace.set(Column::alu_sel_div_no_0_err, 0, 0);
+    trace.set(Column::alu_sel_div_no_err, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1891,6 +1892,7 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
     auto trace = process_shl_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shl_with_tracegen only handles positive case
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
     // This case should be recoverable, so we set the tag err selectors:
     trace.set(Column::alu_sel_tag_err, 0, 1);
@@ -1911,6 +1913,7 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
     auto b = MemoryValue::from_tag(MemoryTag::U32, 256);
     auto c = MemoryValue::from_tag(MemoryTag::U8, 0);
     auto trace = process_shl_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shl_with_tracegen only handles positive case
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv,
@@ -2055,6 +2058,7 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
     auto trace = process_shr_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shr_with_tracegen only handles positive case
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
     // This case should be recoverable, so we set the tag err selectors:
     trace.set(Column::alu_sel_tag_err, 0, 1);
@@ -2075,6 +2079,7 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
     auto b = MemoryValue::from_tag(MemoryTag::U64, 123456);
     auto c = MemoryValue::from_tag(MemoryTag::U16, 0);
     auto trace = process_shr_with_tracegen({ a, b, c });
+    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shr_with_tracegen only handles positive case
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
     trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     trace.set(Column::alu_ab_tags_diff_inv,

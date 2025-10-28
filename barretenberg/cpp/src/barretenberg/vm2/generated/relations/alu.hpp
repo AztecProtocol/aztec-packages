@@ -15,8 +15,8 @@ template <typename FF_> class aluImpl {
     using FF = FF_;
 
     static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 6, 5, 3, 3,
-        4, 6, 6, 3, 5, 3, 3, 6, 6, 6, 6, 3, 3, 3, 3, 3, 4, 4, 6, 6, 5, 3, 4, 3, 3, 3, 2, 2, 3, 3, 4, 3
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 5, 5, 3, 3,
+        4, 6, 6, 4, 4, 3, 4, 6, 6, 6, 6, 3, 3, 3, 3, 3, 4, 4, 6, 6, 5, 3, 4, 3, 3, 3, 2, 2, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
