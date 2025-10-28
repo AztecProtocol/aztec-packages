@@ -19,10 +19,6 @@ echo "Saved CI success marker: ${run_url}"
 cache_name="ci-success-${ci_mode}.tar.gz"
 ci3/cache_upload "$cache_name" ".ci-cache/ci-success-${ci_mode}.txt" 2>&1 | grep -v "^$" || true
 
-if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ] && [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
-  exit 0
-fi
-
 # If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
 # This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
 if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
