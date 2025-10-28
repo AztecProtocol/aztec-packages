@@ -20,7 +20,7 @@ import re
 import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template_string
 import redis
 
 app = Flask(__name__)
@@ -310,6 +310,467 @@ def get_commits_list(ref: str, limit: int, use_first_parent: bool = True, use_ca
     return commits
 
 
+# HTML Template for commits UI
+COMMITS_TEMPLATE = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aztec Commits - {{ branch }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #21262d;
+        }
+
+        h1 {
+            color: #58a6ff;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #8b949e;
+            font-size: 14px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #21262d;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            color: #8b949e;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-family: inherit;
+            font-size: 14px;
+            min-width: 150px;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        button {
+            padding: 8px 16px;
+            background: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2ea043;
+        }
+
+        button.secondary {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+
+        button.secondary:hover {
+            background: #30363d;
+        }
+
+        .stats {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #161b22;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stats-info {
+            color: #8b949e;
+            font-size: 13px;
+        }
+
+        .stats-info strong {
+            color: #c9d1d9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+            font-size: 16px;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .commits-list {
+            background: #0d1117;
+        }
+
+        .commit {
+            padding: 12px 0;
+            border-bottom: 1px solid #21262d;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            display: flex;
+            align-items: baseline;
+            transition: background 0.1s;
+        }
+
+        .commit:hover {
+            background: #161b22;
+            margin: 0 -10px;
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+
+        .commit-hash {
+            color: #fad979;
+            text-decoration: none;
+            margin-right: 12px;
+            font-weight: 500;
+            min-width: 65px;
+            flex-shrink: 0;
+        }
+
+        .commit-hash:hover {
+            text-decoration: underline;
+        }
+
+        .commit-message {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .commit-type {
+            font-weight: 600;
+        }
+
+        .commit-type.feat { color: #5fa7f1; }
+        .commit-type.fix { color: #61d668; }
+        .commit-type.chore { color: #8b949e; }
+        .commit-type.refactor { color: #bc6dd0; }
+        .commit-type.docs { color: #79c0ff; }
+        .commit-type.test { color: #f778ba; }
+        .commit-type.perf { color: #d29922; }
+        .commit-type.ci { color: #6e7681; }
+        .commit-type.build { color: #6e7681; }
+        .commit-type.style { color: #a371f7; }
+        .commit-type.revert { color: #f85149; }
+
+        .commit-pr {
+            color: #fad979;
+            text-decoration: none;
+            margin-left: 8px;
+        }
+
+        .commit-pr:hover {
+            text-decoration: underline;
+        }
+
+        .commit-meta {
+            margin-left: auto;
+            padding-left: 20px;
+            color: #8b949e;
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .commit-author {
+            color: #61d668;
+            margin-left: 8px;
+        }
+
+        .error {
+            padding: 20px;
+            background: #2d1517;
+            border: 1px solid #6e0f17;
+            border-radius: 6px;
+            color: #f85149;
+            margin: 20px 0;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 60px 20px;
+            color: #8b949e;
+            font-size: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .commit-meta {
+                display: none;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .control-group select,
+            .control-group input {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Aztec Packages Commits</h1>
+            <div class="subtitle">Browse commit history with Redis-cached data</div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="branch">Branch</label>
+                <select id="branch" name="branch">
+                    {% for b in branches %}
+                    <option value="{{ b }}" {% if b == branch %}selected{% endif %}>{{ b }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="depth">Depth</label>
+                <input type="number" id="depth" name="depth" value="{{ depth }}" min="1" max="1000" step="10">
+            </div>
+
+            <div class="button-group">
+                <button onclick="updateParams()">Load Commits</button>
+                <button class="secondary" onclick="refreshRepo()">Refresh Repo</button>
+            </div>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stats-info">
+                Showing <strong id="commit-count">0</strong> commits on <strong id="current-branch">{{ branch }}</strong>
+            </div>
+            <div class="stats-info">
+                <span id="cache-status"></span>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">Loading commits</div>
+        <div class="error" id="error" style="display: none;"></div>
+        <div class="commits-list" id="commits-list"></div>
+    </div>
+
+    <script>
+        const branch = "{{ branch }}";
+        const depth = {{ depth }};
+
+        function updateParams() {
+            const newBranch = document.getElementById('branch').value;
+            const newDepth = document.getElementById('depth').value;
+            window.location.href = `/commits?branch=${newBranch}&depth=${newDepth}`;
+        }
+
+        async function refreshRepo() {
+            const statusEl = document.getElementById('cache-status');
+            statusEl.textContent = 'Refreshing repository...';
+
+            try {
+                const response = await fetch('/update', { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    statusEl.textContent = 'Repository updated! Reloading...';
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    statusEl.textContent = 'Update failed';
+                }
+            } catch (error) {
+                statusEl.textContent = 'Update error: ' + error.message;
+            }
+        }
+
+        function formatCommitMessage(message) {
+            const match = message.match(/^(fix|feat|chore|refactor|docs|style|test|perf|ci|build|revert)(\\([^)]+\\))?(!)?(: )/);
+
+            if (match) {
+                const type = match[1];
+                const scope = match[2] || '';
+                const breaking = match[3] || '';
+                const rest = message.substring(match[0].length);
+
+                return `<span class="commit-type ${type}">${type}${scope}${breaking}:</span> ${escapeHtml(rest)}`;
+            }
+
+            return escapeHtml(message);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function renderCommit(commit) {
+            const commitUrl = `https://github.com/AztecProtocol/aztec-packages/commit/${commit.hash}`;
+            const shortHash = commit.hash.substring(0, 7);
+
+            let prLink = '';
+            if (commit.pr_number) {
+                const prUrl = `https://github.com/AztecProtocol/aztec-packages/pull/${commit.pr_number}`;
+                prLink = `<a href="${prUrl}" class="commit-pr" target="_blank">#${commit.pr_number}</a>`;
+            }
+
+            const messageHtml = formatCommitMessage(commit.message);
+
+            return `
+                <div class="commit">
+                    <a href="${commitUrl}" class="commit-hash" target="_blank">${shortHash}</a>
+                    <div class="commit-message">
+                        ${messageHtml}${prLink}
+                    </div>
+                    <div class="commit-meta">
+                        [${commit.date}]<span class="commit-author">${escapeHtml(commit.author)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function loadCommits() {
+            const loadingEl = document.getElementById('loading');
+            const errorEl = document.getElementById('error');
+            const commitsEl = document.getElementById('commits-list');
+            const statsEl = document.getElementById('stats');
+
+            loadingEl.style.display = 'block';
+            errorEl.style.display = 'none';
+            commitsEl.innerHTML = '';
+            statsEl.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/commits?ref=${branch}&limit=${depth}`);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                loadingEl.style.display = 'none';
+
+                if (data.commits.length === 0) {
+                    commitsEl.innerHTML = '<div class="empty">No commits found for this branch</div>';
+                    return;
+                }
+
+                // Render commits
+                commitsEl.innerHTML = data.commits.map(renderCommit).join('');
+
+                // Update stats
+                document.getElementById('commit-count').textContent = data.count;
+                document.getElementById('current-branch').textContent = data.ref;
+                statsEl.style.display = 'flex';
+
+                // Load cache stats
+                loadCacheStats();
+
+            } catch (error) {
+                loadingEl.style.display = 'none';
+                errorEl.style.display = 'block';
+                errorEl.textContent = `Failed to load commits: ${error.message}`;
+            }
+        }
+
+        async function loadCacheStats() {
+            try {
+                const response = await fetch('/cache/stats');
+                const data = await response.json();
+
+                if (!data.error) {
+                    const cacheInfo = `Cache: ${data.total_keys} keys, ${data.memory_used}`;
+                    document.getElementById('cache-status').textContent = cacheInfo;
+                }
+            } catch (error) {
+                // Ignore cache stats errors
+            }
+        }
+
+        // Load commits on page load
+        loadCommits();
+
+        // Allow Enter key in depth input
+        document.getElementById('depth').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                updateParams();
+            }
+        });
+    </script>
+</body>
+</html>
+'''
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""
@@ -348,8 +809,31 @@ def get_commit(commit_hash: str):
 
 
 @app.route('/commits', methods=['GET'])
-def get_commits():
-    """Get a list of commits for a given ref/range."""
+def commits_ui():
+    """Web UI for browsing commits."""
+    branch = request.args.get('branch', 'next')
+    depth = int(request.args.get('depth', '50'))
+
+    # Limit the depth to prevent abuse
+    depth = min(depth, 1000)
+
+    # Get available branches
+    branches_output = run_git_command(['git', 'branch', '-r', '--format=%(refname:short)'])
+    all_branches = [b.replace('origin/', '') for b in branches_output.split('\n') if b and 'origin/' in b]
+    # Add common branches if not present
+    common_branches = ['next', 'master', 'HEAD']
+    for cb in common_branches:
+        if cb not in all_branches:
+            all_branches.insert(0, cb)
+
+    return render_template_string(COMMITS_TEMPLATE,
+                                 branch=branch,
+                                 depth=depth,
+                                 branches=all_branches)
+
+@app.route('/api/commits', methods=['GET'])
+def get_commits_api():
+    """API endpoint for getting commits data."""
     ref = request.args.get('ref', 'HEAD')
     limit = int(request.args.get('limit', '50'))
     first_parent = request.args.get('first_parent', 'true').lower() == 'true'
