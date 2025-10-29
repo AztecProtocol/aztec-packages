@@ -523,8 +523,8 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
             auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
@@ -536,8 +536,8 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             auto program = program_in;
             auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);

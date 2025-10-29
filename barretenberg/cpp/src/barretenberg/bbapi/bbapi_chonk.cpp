@@ -222,8 +222,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
 
     // Create metadata with appropriate IVC context
     acir_format::ProgramMetadata metadata{
-        .ivc =
-            ivc_constraints.empty() ? nullptr : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints),
+        .ivc = ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints),
         .collect_gates_per_opcode = include_gates_per_opcode
     };
 

@@ -362,7 +362,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInitKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
@@ -403,7 +403,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
         kernel_vk = construct_kernel_vk_from_acir_program(program);
@@ -447,7 +447,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
@@ -497,8 +497,8 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/4);
 
         // Construct kernel consisting only of the kernel completion logic
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
-        acir_format::mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
 
@@ -542,9 +542,9 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateHidingKernelVKFromConstraints)
         // been accumulated
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
         // construct a mock tail kernel
-        acir_format::mock_sumcheck_ivc_accumulation(ivc,
-                                                    Chonk::QUEUE_TYPE::HN_FINAL,
-                                                    /*is_kernel=*/true);
+        acir_format::mock_chonk_accumulation(ivc,
+                                             Chonk::QUEUE_TYPE::HN_FINAL,
+                                             /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
         kernel_vk = construct_kernel_vk_from_acir_program(program);

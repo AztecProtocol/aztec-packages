@@ -594,7 +594,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     // constraints present in the program. This is for when we write_vk.
     if (ivc_base == nullptr) {
 
-        auto mock_ivc = create_mock_sumcheck_ivc_from_constraints(constraints.hn_recursion_constraints);
+        auto mock_ivc = create_mock_chonk_from_constraints(constraints.hn_recursion_constraints);
         process_with_ivc(mock_ivc);
     } else {
         auto sumcheck_ivc = std::static_pointer_cast<Chonk>(ivc_base);
