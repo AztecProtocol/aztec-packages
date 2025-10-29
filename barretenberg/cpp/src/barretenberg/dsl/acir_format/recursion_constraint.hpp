@@ -18,6 +18,7 @@ namespace acir_format {
 // Keep this enum values in sync with their noir counterpart constants defined in
 // noir-protocol-circuits/crates/types/src/constants.nr
 enum PROOF_TYPE {
+    PLONK,
     HONK,
     OINK,
     HN,
@@ -46,7 +47,10 @@ enum PROOF_TYPE {
 inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
 {
     switch (proof_type) {
-    // Ultra non-ZK proof - default size 25
+    // Legacy Plonk proof type (not used in practice)
+    case PLONK:
+        return 28;
+    // Ultra non-ZK proof - default size 28
     case HONK:
         return 28;
     // Ultra ZK proofs - default size 25
