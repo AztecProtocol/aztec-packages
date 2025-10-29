@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -eu
 
-TARGET=${1:-"client_ivc_bench"}
-BENCHMARK="ClientIVCBench/Full/6"
+TARGET=${1:-"chonk_bench"}
+BENCHMARK="ChonkBench/Full/6"
 BUILD_DIR="build"
 FILTER="${BENCHMARK}$" # '$' to ensure only specified bench is run
 
@@ -23,4 +23,4 @@ scp $BB_SSH_KEY $BB_SSH_INSTANCE:$BB_SSH_CPP_PATH/build/$TARGET.json .
 
 # Analyze the results
 cd ../
-python3 ./scripts/analyze_client_ivc_bench.py --json "$TARGET.json" --benchmark "$BENCHMARK" --prefix "$BUILD_DIR"
+python3 ./scripts/analyze_chonk_bench.py --json "$TARGET.json" --benchmark "$BENCHMARK" --prefix "$BUILD_DIR"

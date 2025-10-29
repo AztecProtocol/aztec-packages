@@ -16,7 +16,7 @@ namespace {
 /**
  * @brief Benchmark suite for the aztec client PG-Goblin IVC scheme
  */
-class ClientIVCBench : public benchmark::Fixture {
+class ChonkBench : public benchmark::Fixture {
   public:
     // Number of function circuits to accumulate (based on Zac's target numbers)
     static constexpr size_t NUM_ITERATIONS_MEDIUM_COMPLEXITY = 5;
@@ -30,7 +30,7 @@ class ClientIVCBench : public benchmark::Fixture {
 /**
  * @brief Benchmark only the verification work for the PG-Goblin IVC protocol
  */
-BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
+BENCHMARK_DEFINE_F(ChonkBench, VerificationOnly)(benchmark::State& state)
 {
     size_t NUM_APP_CIRCUITS = 1;
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
@@ -44,7 +44,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
 /**
  * @brief Benchmark the prover work for the full PG-Goblin IVC protocol
  */
-BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
+BENCHMARK_DEFINE_F(ChonkBench, Full)(benchmark::State& state)
 {
     size_t NUM_APP_CIRCUITS = static_cast<size_t>(state.range(0));
     auto precomputed_vks = precompute_vks(NUM_APP_CIRCUITS);
@@ -55,10 +55,10 @@ BENCHMARK_DEFINE_F(ClientIVCBench, Full)(benchmark::State& state)
     }
 }
 
-#define ARGS Arg(ClientIVCBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
+#define ARGS Arg(ChonkBench::NUM_ITERATIONS_MEDIUM_COMPLEXITY)->Arg(2)
 
-BENCHMARK_REGISTER_F(ClientIVCBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
-BENCHMARK_REGISTER_F(ClientIVCBench, VerificationOnly)->Unit(benchmark::kMillisecond);
+BENCHMARK_REGISTER_F(ChonkBench, Full)->Unit(benchmark::kMillisecond)->ARGS;
+BENCHMARK_REGISTER_F(ChonkBench, VerificationOnly)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

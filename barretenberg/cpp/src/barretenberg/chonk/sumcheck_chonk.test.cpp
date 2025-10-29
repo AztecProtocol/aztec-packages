@@ -19,7 +19,7 @@ static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The Chonk class should enforce the minimum number of
 // circuits in a test flow.
 
-class ClientIVCTests : public ::testing::Test {
+class ChonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -81,7 +81,7 @@ class ClientIVCTests : public ::testing::Test {
  * @brief Using a structured trace allows for the accumulation of circuits of varying size
  *
  */
-TEST_F(ClientIVCTests, BasicStructured)
+TEST_F(ChonkTests, BasicStructured)
 {
     const size_t NUM_APP_CIRCUITS = 1;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
@@ -96,7 +96,7 @@ TEST_F(ClientIVCTests, BasicStructured)
  * fail.
  *
  */
-TEST_F(ClientIVCTests, BadProofFailure)
+TEST_F(ChonkTests, BadProofFailure)
 {
     const size_t NUM_APP_CIRCUITS = 2;
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
@@ -171,7 +171,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
  * leads to a verification failure.
  *
  */
-TEST_F(ClientIVCTests, WrongProofComponentFailure)
+TEST_F(ChonkTests, WrongProofComponentFailure)
 {
     // Produce two valid proofs
     auto [civc_proof_1, civc_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
@@ -225,7 +225,7 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
  * @brief Ensure that the Chonk VK is independent of the number of circuits accumulated
  *
  */
-TEST_F(ClientIVCTests, VKIndependenceTest)
+TEST_F(ChonkTests, VKIndependenceTest)
 {
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
@@ -250,7 +250,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
  * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
  * functioning properly.
  */
-TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
+TEST_F(ChonkTests, VKIndependenceWithOverflow)
 {
     // Run IVC for two sets of circuits: a nomical case where all circuits fit within the structured trace and an
     // "overflow" case where all (but importantly at least one) circuit overflows the structured trace.
@@ -283,7 +283,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     const size_t NUM_APP_CIRCUITS = 14;
-    auto [proof, vk] = ClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
+    auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = Chonk::verify(proof, vk);
     EXPECT_TRUE(verified);
@@ -295,7 +295,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
  * arithmetic block size and make use of the overflow block which has sufficient capacity.
  *
  */
-TEST_F(ClientIVCTests, StructuredTraceOverflow)
+TEST_F(ChonkTests, StructuredTraceOverflow)
 {
 
     // Define trace settings with sufficient overflow capacity to accommodate each of the circuits to be accumulated
@@ -320,7 +320,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
  * @brief Test the structured trace overflow mechanism in a variety of different scenarios
  *
  */
-TEST_F(ClientIVCTests, DynamicTraceOverflow)
+TEST_F(ChonkTests, DynamicTraceOverflow)
 {
     struct TestCase {
         std::string name;
@@ -357,7 +357,7 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
  * @brief Test methods for serializing and deserializing a proof to/from a file/buffer in msgpack format
  *
  */
-TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
+TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 {
     // Generate an arbitrary valid CICV proof
     TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
@@ -403,7 +403,7 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
  * causes failure of the IVC to verify.
  *
  */
-TEST_F(ClientIVCTests, DatabusFailure)
+TEST_F(ChonkTests, DatabusFailure)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
