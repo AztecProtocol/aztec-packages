@@ -473,7 +473,6 @@ export class PXE {
     }
 
     await this.addressDataProvider.addCompleteAddress(accountCompleteAddress);
-    await this.noteDataProvider.addScope(accountCompleteAddress.address);
     return accountCompleteAddress;
   }
 

@@ -6,7 +6,7 @@ import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { DirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
-import type { NoteStatus } from '@aztec/stdlib/note';
+import type { NoteStatusFilter } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, NodeStats } from '@aztec/stdlib/tx';
 
@@ -82,7 +82,7 @@ export interface ExecutionDataProvider {
   getNotes(
     contractAddress: AztecAddress,
     storageSlot: Fr,
-    status: NoteStatus,
+    status: NoteStatusFilter,
     scopes?: AztecAddress[],
   ): Promise<NoteData[]>;
 

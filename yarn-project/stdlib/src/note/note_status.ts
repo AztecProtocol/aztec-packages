@@ -1,8 +1,12 @@
 /**
- * The status of notes to retrieve.
+ * The status of notes stored in the database.
  */
 export enum NoteStatus {
   ACTIVE = 1,
-  ACTIVE_OR_NULLIFIED = 2,
-  // TODO(#4217): add 'NULLIFIED'
+  NULLIFIED = 2,
 }
+
+/**
+ * The status filter used when querying notes.
+ */
+export type NoteStatusFilter = NoteStatus | 'ALL';

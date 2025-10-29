@@ -25,7 +25,7 @@ import {
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
-import { Note, type NoteStatus } from '@aztec/stdlib/note';
+import { Note, type NoteStatusFilter } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -95,7 +95,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
+  async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatusFilter, scopes?: AztecAddress[]) {
     const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
       storageSlot,

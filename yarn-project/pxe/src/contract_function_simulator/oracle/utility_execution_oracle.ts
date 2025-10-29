@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import type { NoteStatus } from '@aztec/stdlib/note';
+import type { NoteStatusFilter } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
 
@@ -190,7 +190,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     sortOrder: number[],
     limit: number,
     offset: number,
-    status: NoteStatus,
+    status: NoteStatusFilter,
   ): Promise<NoteData[]> {
     const dbNotes = await this.executionDataProvider.getNotes(this.contractAddress, storageSlot, status, this.scopes);
     return pickNotes<NoteData>(dbNotes, {

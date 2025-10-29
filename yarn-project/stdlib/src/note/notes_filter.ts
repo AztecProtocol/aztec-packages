@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
-import { NoteStatus } from './note_status.js';
+import { NoteStatus, type NoteStatusFilter } from './note_status.js';
 
 /**
  * A filter used to fetch notes.
@@ -19,7 +19,7 @@ export type NotesFilter = {
   /** The specific storage location of the note on the contract. */
   storageSlot?: Fr;
   /** The status of the note. Defaults to 'ACTIVE'. */
-  status?: NoteStatus;
+  status?: NoteStatusFilter;
   /** The siloed nullifier for the note. */
   siloedNullifier?: Fr;
   /** The scopes in which to get notes from. This defaults to all scopes. */
@@ -29,7 +29,7 @@ export type NotesFilter = {
 export const NotesFilterSchema: ZodFor<NotesFilter> = z.object({
   contractAddress: schemas.AztecAddress,
   storageSlot: schemas.Fr.optional(),
-  status: z.nativeEnum(NoteStatus).optional(),
+  status: z.union([z.nativeEnum(NoteStatus), z.literal('ALL')]).optional(),
   siloedNullifier: schemas.Fr.optional(),
   scopes: z.array(schemas.AztecAddress).optional(),
 });
