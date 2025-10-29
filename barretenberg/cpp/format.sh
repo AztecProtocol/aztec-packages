@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-set -euo pipefail
-
 function format_files {
-  echo "$1" | parallel -j+0 'clang-format-20 -i {} && sed -i.bak "s/\r$//" {} && rm {}.bak'
+  if [ -n "$1" ]; then
+    echo "$1" | parallel -j+0 'clang-format-20 -i {} && sed -i.bak "s/\r$//" {} && rm {}.bak'
+  fi
 }
 
 if [ "$1" == "staged" ]; then
   echo Formatting barretenberg staged files...
   files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
   format_files "$files"
-  git add $files
+  if [ -n "$files" ]; then
+    git add "$files"
+  fi
 elif [ "$1" == "changed" ]; then
   echo Formatting barretenberg changed files...
   files=$(git diff-index --diff-filter=d --relative --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
