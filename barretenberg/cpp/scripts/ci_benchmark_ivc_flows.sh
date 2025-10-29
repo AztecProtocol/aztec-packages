@@ -45,14 +45,9 @@ function run_bb_cli_bench {
   shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    # Add --bench_out_hierarchical flag when running in CI for native builds to capture hierarchical op counts and timings
-    local bench_args=("$@")
-    if [[ "${CI:-}" == "1" ]]; then
-      bench_args+=("--bench_out_hierarchical" "$output/benchmark_breakdown.json")
-    fi
-
-    memusage "./$native_build_dir/bin/bb" "${bench_args[@]}" || {
-      echo "bb native failed with args: ${bench_args[@]}"
+    # Add --bench_out_hierarchical flag for native builds to capture hierarchical op counts and timings
+    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   else # wasm
@@ -117,24 +112,14 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
   benchmark_breakdown_file="bench-out/app-proving/$flow_name/native/benchmark_breakdown.json"
 
   if [[ -f "$benchmark_breakdown_file" ]]; then
-    # Get repository info from git
-    repo_url=$(git config --get remote.origin.url)
     current_sha=$(git rev-parse HEAD)
 
-    # Use authenticated URL if GITHUB_TOKEN is available
-    if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-      # Convert SSH URL to HTTPS with token
-      if [[ "$repo_url" =~ ^git@github\.com:(.+)$ ]]; then
-        repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${BASH_REMATCH[1]}"
-      elif [[ "$repo_url" =~ ^https://github\.com/(.+)$ ]]; then
-        repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/${BASH_REMATCH[1]}"
-      fi
-    fi
+    # CI needs to authenticate from GITHUB_TOKEN.
+    gh auth setup-git &>/dev/null || true
 
-    # Shallow clone gh-pages branch if not already cloned
-    if [[ ! -d "gh-pages-repo" ]]; then
-      git clone --depth 1 --branch gh-pages "$repo_url" gh-pages-repo
-    fi
+    # Shallow clone gh-pages branch
+    rm -rf gh-pages-repo
+    git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" gh-pages-repo
 
     # Create target directory for this flow
     mkdir -p "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}"
@@ -142,14 +127,27 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     # Copy benchmark breakdown JSON (contains op counts and timing data) with commit SHA as filename
     cp "$benchmark_breakdown_file" "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}/${current_sha}.json"
 
-    # Commit and push
+    # Commit and push with retry on race condition
     cd gh-pages-repo
     git config user.name "Aztec Bot"
     git config user.email "bot@aztec.network"
     git add bench/barretenberg-breakdowns/
     if ! git diff --staged --quiet; then
       git commit -m "Update Barretenberg benchmark breakdowns (op counts and timings) for ${current_sha}"
-      git push
+
+      # Retry push up to 3 times in case of race conditions
+      for attempt in 1 2 3; do
+        if git push; then
+          break
+        elif [[ $attempt -lt 3 ]]; then
+          echo "Push failed, retrying after fetch and rebase (attempt $attempt/3)..."
+          git fetch origin gh-pages
+          git rebase origin/gh-pages
+        else
+          echo "Push failed after 3 attempts"
+          exit 1
+        fi
+      done
     fi
     cd ..
 
