@@ -85,8 +85,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1521): ZK Recursive verifiers need to evaluate
         // RowDisablingPolynomial, which requires knowing the actual `log_circuit_size`. Can be fixed by reserving the
         // first rows of the trace for masking.
-        padding_indicator_array =
-            compute_padding_indicator_array<Curve>(verifier_instance->vk_and_hash->vk->log_circuit_size, virtual_log_n);
+        padding_indicator_array = compute_padding_indicator_vector<Curve>(
+            verifier_instance->vk_and_hash->vk->log_circuit_size, virtual_log_n);
     }
 
     Sumcheck sumcheck(transcript, verifier_instance->alpha, virtual_log_n);

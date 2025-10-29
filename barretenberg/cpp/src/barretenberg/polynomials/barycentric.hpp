@@ -156,7 +156,11 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
     static constexpr size_t domain_size = domain_end;
     static constexpr size_t big_domain_size = std::max(domain_size, num_evals);
 
-    // Core span-based implementation methods
+    /**
+     * @brief  Build big_domain, currently the set of x_i in {0, ..., big_domain_size - 1 }.
+     *
+     * @param big_domain_span A span, whose entries are mutated in-place.
+     */
     static void construct_big_domain_span(std::span<Fr> big_domain_span)
     {
         for (size_t i = 0; i < big_domain_span.size(); ++i) {
@@ -164,6 +168,12 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
         }
     }
 
+    /**
+     * @brief  Build set of lagrange_denominators d_i = \prod_{j!=i} x_i - x_j in-place
+     *
+     * @param lagrange_denominators_span A span, whose entries are mutated in-place.
+     * @param big_domain_span Immutable span containing the big domain entries
+     */
     static void construct_lagrange_denominators_span(std::span<Fr> lagrange_denominators_span,
                                                      std::span<const Fr> big_domain_span)
     {
@@ -178,6 +188,12 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
         }
     }
 
+    /**
+     * @brief Batch invert coefficients in-place.
+     *
+     * @param result
+     * @param coeffs
+     */
     static void batch_invert_span(std::span<Fr> result, std::span<const Fr> coeffs)
     {
         const size_t n = coeffs.size();
@@ -187,21 +203,13 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
 
         for (size_t i = 0; i < n; ++i) {
             temporaries[i] = accumulator;
-            if constexpr (is_field_type_v<Fr>) {
-                if (coeffs[i] == Fr(0)) {
-                    skipped[i] = true;
-                } else {
-                    accumulator *= coeffs[i];
-                }
+            if (coeffs[i].get_value() == 0) {
+                skipped[i] = true;
             } else {
-                if (coeffs[i].get_value() == 0) {
-                    skipped[i] = true;
-                } else {
-                    accumulator *= coeffs[i];
-                }
+                skipped[i] = false;
+                accumulator *= coeffs[i];
             }
         }
-
         accumulator = Fr(1) / accumulator;
         for (size_t i = n; i-- > 0;) {
             if (!skipped[i]) {

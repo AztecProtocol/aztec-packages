@@ -15,8 +15,7 @@
 namespace acir_format {
 
 template <typename Flavor, class PublicInputs>
-bb::HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size = 0,
-                                     const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
+bb::HonkProof create_mock_oink_proof(const size_t inner_public_inputs_size = 0);
 template <typename Flavor> bb::HonkProof create_mock_decider_proof(const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
 template <typename Flavor, class PublicInputs>
 bb::HonkProof create_mock_honk_proof(const size_t inner_public_inputs_size = 0,
@@ -38,5 +37,7 @@ std::shared_ptr<typename Flavor::VerificationKey> create_mock_honk_vk(const size
                                                                       const size_t pub_inputs_offset,
                                                                       const size_t inner_public_inputs_size = 0);
 template <typename Flavor> std::shared_ptr<bb::VerifierInstance_<Flavor>> create_mock_verifier_instance();
+
+template <typename Flavor> bb::HonkProof create_mock_sumcheck_proof(const size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
 
 } // namespace acir_format

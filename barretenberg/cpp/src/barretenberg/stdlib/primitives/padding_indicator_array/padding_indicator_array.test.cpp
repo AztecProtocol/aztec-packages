@@ -30,7 +30,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Builder builder;
             Fr x = Fr::from_witness(&builder, typename Fr::native(idx));
 
-            auto result = compute_padding_indicator_array<Curve>(x, domain_size);
+            auto result = compute_padding_indicator_vector<Curve>(x, domain_size);
             EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
             info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -52,7 +52,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr zero = Fr::from_witness(&builder, typename Fr::native(0));
 
-            compute_padding_indicator_array<Curve>(zero, domain_size);
+            compute_padding_indicator_vector<Curve>(zero, domain_size);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -64,7 +64,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr N = Fr::from_witness(&builder, typename Fr::native(domain_size));
 
-            compute_padding_indicator_array<Curve>(N, domain_size);
+            compute_padding_indicator_vector<Curve>(N, domain_size);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
@@ -79,7 +79,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr x = Fr::from_witness(&builder, typename Fr::native(scalar_raw));
 
-            compute_padding_indicator_array<Curve>(x, domain_size);
+            compute_padding_indicator_vector<Curve>(x, domain_size);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -91,7 +91,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
         auto get_gate_count = [](const uint32_t& scalar_raw) -> size_t {
             Builder builder;
             Fr x = Fr::from_witness(&builder, typename Fr::native(scalar_raw));
-            auto result = compute_padding_indicator_array<Curve>(x, domain_size);
+            auto result = compute_padding_indicator_vector<Curve>(x, domain_size);
 
             return builder.get_estimated_num_finalized_gates();
         };
