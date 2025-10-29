@@ -132,11 +132,6 @@ template <typename FF_> class MemoryRelationImpl {
          **/
 
         /**
-         * NOTE: all of the degree calculations here are the straightforward ones. Formerly, we had modified degree
-         * calculations due to ProtoGalaxy.
-         */
-
-        /**
          * Memory Record Check
          * Degree: 1
          *

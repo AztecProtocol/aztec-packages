@@ -237,9 +237,9 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     }
     // One of the checks we run on the sorted list is to validate the difference between the index field across two
     // adjacent gates is either 0 or 1. To make this work with the last gate, we add a dummy gate at the end of the
-    // sorted list, where we input the first wire to equal `m + 1`, where `m` is the maximum allowed index in the sorted
-    // list, then all of the sorted ROM checks have passed. Moreover, as `m + 1` is a circuit constant, this ensures
-    // that the checks correctly constrain the sorted ROM gate chunks.
+    // sorted list, where we set the first wire to equal `m + 1`, where `m` is the maximum allowed index in the sorted
+    // list. Moreover, as `m + 1` is a circuit constant, this ensures that the checks correctly constrain the sorted ROM
+    // gate chunks.
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = builder->add_variable(max_index_value);
 
@@ -436,11 +436,6 @@ void RomRamLogic_<ExecutionTrace>::create_final_sorted_RAM_gate(CircuitBuilder* 
     // Note: record the index into the block that contains the RAM/ROM gates
     record.gate_index = builder->blocks.memory.size(); // no -1 since we _haven't_ added the gate yet
 
-    // NOTE: This method used to add a single arithmetic gate with two purposes: (1) to provide wire values to the
-    // previous RAM gate via shifts, and (2) to perform a consistency check on the value in wire 1. These two purposes
-    // have been split into a unconstrained gate and a simplified arithmetic gate, respectively. This allows both
-    // purposes to be served even after arithmetic gates are sorted out of sequence with the RAM gates.
-
     // Create a final gate with all selectors zero (hence unconstrained). In particular, the `MEMORY_SELECTORS` are not
     // on. Wire values are accessed by the previous RAM gate via shifted wires.
     builder->create_unconstrained_gate(builder->blocks.memory,
@@ -475,17 +470,12 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
     builder->create_tag(access_tag, sorted_list_tag);
     builder->create_tag(sorted_list_tag, access_tag);
 
-    // Make sure that every cell has been initialized.
-    // NOTE: should we throw some kind of error here? Circuit should initialize all RAM elements to prevent errors.
-    // e.g. if a RAM record is uninitialized but the index of that record is a function of witness data (e.g.
-    // public/private inputs), different public inputs will produce different circuit constraints, and in particular VKs
-    // will not be independent of witness generation.
+    // NOTE: we simply assert that all cells have been initialized. The circuit should initialize all RAM elements to
+    // prevent witness-dependent constraints. For example, if a RAM record is uninitialized but the index of that record
+    // is a function of witness data (e.g. public/private inputs), different public inputs will produce different
+    // circuit constraints, and in particular VKs will not be independent of witness generation.
     for (size_t i = 0; i < ram_array.state.size(); ++i) {
-        if (ram_array.state[i] == UNINITIALIZED_MEMORY_RECORD) {
-            info("WARNING: RAM array ", ram_id, " element ", i, " was uninitialized. Initializing to zero.");
-            // throw_or_abort("Uninitialized RAM element: ", i, "in index " ram_id);
-            init_RAM_element(builder, ram_id, static_cast<uint32_t>(i), builder->zero_idx());
-        }
+        BB_ASSERT_NEQ(ram_array.state[i], UNINITIALIZED_MEMORY_RECORD);
     }
 
 #ifdef NO_PAR_ALGOS
@@ -565,51 +555,49 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
     std::vector<uint32_t> timestamp_deltas;
     // Guard against empty sorted_ram_records (e.g., RAM array of size 0)
-    if (sorted_ram_records.size() > 1) {
-        for (size_t i = 0; i < sorted_ram_records.size() - 1; ++i) {
-            const auto& current = sorted_ram_records[i];
-            const auto& next = sorted_ram_records[i + 1];
+    if (sorted_ram_records.size() <= 1) {
+        return;
+    }
+    for (size_t i = 0; i < sorted_ram_records.size() - 1; ++i) {
+        const auto& current = sorted_ram_records[i];
+        const auto& next = sorted_ram_records[i + 1];
 
-            const bool share_index = current.index == next.index;
+        const bool share_index = current.index == next.index;
 
-            FF timestamp_delta = 0;
-            if (share_index) {
-                BB_ASSERT_GT(next.timestamp, current.timestamp);
-                timestamp_delta = FF(next.timestamp - current.timestamp);
-            }
-
-            uint32_t timestamp_delta_witness = builder->add_variable(timestamp_delta);
-            // note that the `index_witness` and `timestamp_witness` are taken from `current`. This means that there are
-            // copy constraints, which will mean that once we constrain the sorted gates to be in lexicographic order,
-            // these gates will _automatically_ be in lexicographic order.
-            builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
-            builder->blocks.memory.populate_wires(
-                current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
-
-            builder->increment_num_gates();
-
-            // store timestamp offsets for later. Need to apply range checks to them, but calling
-            // `create_new_range_constraint` can add gates, which could ruin the structure of our sorted timestamp list.
-            timestamp_deltas.push_back(timestamp_delta_witness);
+        FF timestamp_delta = 0;
+        if (share_index) {
+            BB_ASSERT_GT(next.timestamp, current.timestamp);
+            timestamp_delta = FF(next.timestamp - current.timestamp);
         }
 
-        // add the index/timestamp values of the last sorted record in an empty add gate.
-        // (the previous gate will access the wires on this gate and requires them to be those of the last record)
-        const auto& last = sorted_ram_records[ram_array.records.size() - 1];
-        builder->create_unconstrained_gate(builder->blocks.memory,
-                                           last.index_witness,
-                                           last.timestamp_witness,
-                                           builder->zero_idx(),
-                                           builder->zero_idx());
+        uint32_t timestamp_delta_witness = builder->add_variable(timestamp_delta);
+        // note that the `index_witness` and `timestamp_witness` are taken from `current`. This means that there are
+        // copy constraints, which will mean that once we constrain the sorted gates to be in lexicographic order,
+        // these gates will _automatically_ be in lexicographic order.
+        builder->apply_memory_selectors(CircuitBuilder::MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK);
+        builder->blocks.memory.populate_wires(
+            current.index_witness, current.timestamp_witness, timestamp_delta_witness, builder->zero_idx());
 
-        // Step 3: validate that the timestamp_deltas (successive difference of timestamps for the same index) are
-        // monotonically increasing. i.e. are <= maximum timestamp. NOTE: we do _not_ check that every possible
-        // timestamp between 0 and `max_timestamp` occurs at least once (which corresponds to an "honest trace," e.g.,
-        // one generated by the code in this file). However, our check nonetheless suffices for correct memory accesses.
-        const size_t max_timestamp = ram_array.access_count - 1;
-        for (auto& w : timestamp_deltas) {
-            builder->create_new_range_constraint(w, max_timestamp);
-        }
+        builder->increment_num_gates();
+
+        // store timestamp offsets for later. Need to apply range checks to them, but calling
+        // `create_new_range_constraint` can add gates, which could ruin the structure of our sorted timestamp list.
+        timestamp_deltas.push_back(timestamp_delta_witness);
+    }
+
+    // add the index/timestamp values of the last sorted record in an empty add gate.
+    // (the previous gate will access the wires on this gate and requires them to be those of the last record)
+    const auto& last = sorted_ram_records[ram_array.records.size() - 1];
+    builder->create_unconstrained_gate(
+        builder->blocks.memory, last.index_witness, last.timestamp_witness, builder->zero_idx(), builder->zero_idx());
+
+    // Step 3: validate that the timestamp_deltas (successive difference of timestamps for the same index) are
+    // monotonically increasing. i.e. are <= maximum timestamp. NOTE: we do _not_ check that every possible
+    // timestamp between 0 and `max_timestamp` occurs at least once (which corresponds to an "honest trace," e.g.,
+    // one generated by the code in this file). However, our check nonetheless suffices for correct memory accesses.
+    const size_t max_timestamp = ram_array.access_count - 1;
+    for (auto& w : timestamp_deltas) {
+        builder->create_new_range_constraint(w, max_timestamp);
     }
 }
 
