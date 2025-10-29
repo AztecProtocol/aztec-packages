@@ -526,8 +526,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
     CLI::App* cache_paths_command =
         aztec_process->add_subcommand("cache_paths",
-                                       "Output cache paths for verification keys in an artifact.\n"
-                                       "Format: <hash>:<cache_path>:<function_name> (one per line).");
+                                      "Output cache paths for verification keys in an artifact.\n"
+                                      "Format: <hash>:<cache_path>:<function_name> (one per line).");
 
     std::string cache_paths_input;
     cache_paths_command->add_option("input", cache_paths_input, "Input artifact JSON path (required).")->required();
