@@ -116,14 +116,22 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]] && [[ "${CI_ENABLE_DISK_LOGS
   if [[ -f "$benchmark_breakdown_file" ]]; then
     current_sha=$(git rev-parse HEAD)
 
-    # Create cache key: bench-bb-breakdown-<flow_name>-<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<flow_name>-<sha>
-    cache_key="bench-bb-breakdown-${flow_name}-${current_sha}"
+    # Create cache key: <flow_name>-<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench/bb-breakdown/<flow_name>-<sha>
+    cache_key="${flow_name}-${current_sha}"
 
-    # Upload to Redis and disk via cache_persistent (30 day retention)
-    cat "$benchmark_breakdown_file" | cache_persistent "$cache_key" 2592000
+    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    {
+      # Write to Redis for ci.aztec-labs.com access
+      cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "bench/bb-breakdown/$cache_key" 2592000 &>/dev/null
 
-    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+      # Write to disk in explicit subfolder (only if disk logging enabled)
+      if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+        cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$cache_key"
+      fi
+    } &
+
+    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/bench/bb-breakdown/$cache_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
