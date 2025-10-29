@@ -44,6 +44,13 @@ export interface TxPool extends TypedEventEmitter<TxPoolEvents> {
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;
 
   /**
+   * Checks if a transaction exists in the pool
+   * @param txHash - The hash of the transaction to check for
+   * @returns True if the transaction exists, false otherwise
+   */
+  hasTx(txHash: TxHash): Promise<boolean>;
+
+  /**
    * Checks if an archived transaction exists in the pool and returns it.
    * @param txHash - The hash of the transaction, used as an ID.
    * @returns The transaction, if found, 'undefined' otherwise.
