@@ -39,7 +39,7 @@ if ! command -v helm &> /dev/null; then
     sudo ./get_helm.sh
 
     if [ -f /usr/local/bin/helm ]; then
-      ( cd /usr/local/bin && cache_upload "$helm_artifact" /usr/local/bin/helm )
+      ( cd /usr/local/bin && cache_upload "$helm_artifact" helm )
     fi
 
     # Clean up installer script
