@@ -117,9 +117,21 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]]; then
     # CI needs to authenticate from GITHUB_TOKEN.
     gh auth setup-git &>/dev/null || true
 
-    # Shallow clone gh-pages branch
+    # Shallow clone gh-pages branch with retry logic
     rm -rf gh-pages-repo
-    git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" gh-pages-repo
+    for clone_attempt in 1 2 3; do
+      if git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" gh-pages-repo; then
+        break
+      else
+        echo "Clone failed, retrying (attempt $clone_attempt/3)..."
+        rm -rf gh-pages-repo
+        if [[ $clone_attempt -eq 3 ]]; then
+          echo "Failed to clone gh-pages after 3 attempts"
+          exit 1
+        fi
+        sleep 2
+      fi
+    done
 
     # Create target directory for this flow
     mkdir -p "gh-pages-repo/bench/barretenberg-breakdowns/${flow_name}"
