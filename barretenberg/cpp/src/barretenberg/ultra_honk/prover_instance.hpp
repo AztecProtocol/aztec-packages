@@ -171,27 +171,27 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             // If ZK, allocate full size polys
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
             // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
-            if (Flavor::HasZK) {
-                // Allocate full size polynomials
-                polynomials = ProverPolynomials(dyadic_size());
-            } else { // Allocate only a correct amount of memory for each polynomial
-                allocate_wires();
+            // if (Flavor::HasZK) {
+            //     // Allocate full size polynomials
+            //     polynomials = ProverPolynomials(dyadic_size());
+            // } else { // Allocate only a correct amount of memory for each polynomial
+            allocate_wires();
 
-                allocate_permutation_argument_polynomials();
+            allocate_permutation_argument_polynomials();
 
-                allocate_selectors(circuit);
+            allocate_selectors(circuit);
 
-                allocate_table_lookup_polynomials(circuit);
+            allocate_table_lookup_polynomials(circuit);
 
-                allocate_lagrange_polynomials();
+            allocate_lagrange_polynomials();
 
-                if constexpr (IsMegaFlavor<Flavor>) {
-                    allocate_ecc_op_polynomials(circuit);
-                }
-                if constexpr (HasDataBus<Flavor>) {
-                    allocate_databus_polynomials(circuit);
-                }
+            if constexpr (IsMegaFlavor<Flavor>) {
+                allocate_ecc_op_polynomials(circuit);
             }
+            if constexpr (HasDataBus<Flavor>) {
+                allocate_databus_polynomials(circuit);
+            }
+            // }
             // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
             // defined.
             polynomials.set_shifted(); // Ensure shifted wires are set correctly
