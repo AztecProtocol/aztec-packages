@@ -137,7 +137,7 @@ function compile {
       SECONDS=0
       local ivc_vk_path="$key_dir/${name}.ivc.vk"
       echo_stderr "Generating ivc vk for function: $name..."
-      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type ivc -b - -o $outdir
+      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type chonk -b - -o $outdir
       mv $outdir/vk $ivc_vk_path
       echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
       cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
