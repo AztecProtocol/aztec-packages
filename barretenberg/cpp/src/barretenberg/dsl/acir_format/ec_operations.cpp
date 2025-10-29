@@ -52,6 +52,8 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, predicate, builder);
     cycle_group_ct input2_point = to_grumpkin_point(
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, predicate, builder);
+    // Note that input_result is computed by Noir and passed to bb via ACIR. Hence, it is always a valid point on
+    // Grumpkin.
     cycle_group_ct input_result =
         has_valid_witness_assignments
             ? cycle_group_ct(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false)
@@ -65,7 +67,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         result.assert_equal(to_be_asserted_equal);
     } else {
         // The assert_equal method standardizes both points before comparing, so if either of them is the point at
-        // infinity, the coordinates will be assigned to be (0,0). This is OK as long as developers do not use the
+        // infinity, the coordinates will be assigned to be (0,0). This is OK as long as Noir developers do not use the
         // coordinates of a point at infinity (otherwise input_result might be the point at infinity different from (0,
         // 0, true), and the fact that assert_equal passes doesn't imply anything for the original coordinates of
         // input_result).

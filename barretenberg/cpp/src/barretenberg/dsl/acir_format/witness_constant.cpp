@@ -16,7 +16,7 @@ using namespace bb::stdlib;
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
  * @details Inputs x, y, and is_infinite are used to construct the point. We handle two cases:
  *  1. has_valid_witness_assignments is false:  we are in a write_vk scenario. In this case, we set the point to be the
- * generator of Grumpink.
+ * generator of Grumpkin.
  *  2. predicate is a witness: we conditionally assign the point depending on the predicate; if it is witness true, we
  * use the witnesses provided, otherwise, we set the point to be the generator of Grumpkin.
  *

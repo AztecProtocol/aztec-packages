@@ -26,8 +26,8 @@ namespace acir_format {
  * - result_y: witness index for the y-coordinate of the resulting point
  * - result_infinite: witness index for the flag indicating if the result is the point at infinity
  *
- * The data related to input1 and input2 can either be given by witnesses or constants. However, data pertaining to the
- * same input must be either all witnesses or all constants.
+ * The data related to input1 and input2 can either be given by witnesses or constants. However, x and y coordinates
+ * pertaining to the same input must be either all witnesses or all constants.
  */
 struct EcAdd {
     WitnessOrConstant<bb::fr> input1_x;
