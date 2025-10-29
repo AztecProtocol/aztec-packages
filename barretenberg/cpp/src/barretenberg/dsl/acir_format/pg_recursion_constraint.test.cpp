@@ -256,7 +256,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @brief Construct a kernel circuit VK from an acir program with IVC recursion constraints
      *
      * @param program Acir program representing a kernel circuit
-     * @return std::shared_ptr<SumcheckChonk::MegaVerificationKey>
+     * @return std::shared_ptr<LegacyChonk::MegaVerificationKey>
      */
     static std::shared_ptr<SumcheckChonk::MegaVerificationKey> construct_kernel_vk_from_acir_program(
         AcirProgram& program)
