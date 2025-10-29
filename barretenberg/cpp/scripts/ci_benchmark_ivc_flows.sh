@@ -118,10 +118,14 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]] && [[ "${CI_ENABLE_DISK_LOGS
     # Create cache key: bench/bb-breakdown/<flow_name>/<sha>
     cache_key="bench/bb-breakdown/${flow_name}/${current_sha}"
 
-    # Upload to disk via cache_disk_transfer (gzips and transfers via SSH)
-    cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer "$cache_key"
+    # Upload to disk via cache_disk_transfer (gzips and transfers via SSH in background)
+    {
+      cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer "$cache_key" && \
+        echo "Uploaded benchmark breakdown: $cache_key" || \
+        echo "Warning: Failed to upload benchmark breakdown (SSH not available?)"
+    } &
 
-    echo "Uploaded benchmark breakdown: $cache_key"
+    echo "Benchmark breakdown upload initiated in background"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
