@@ -986,7 +986,7 @@ describe('Archiver', () => {
     expect(latestBlockNum).toEqual(0);
   }, 10_000);
 
-  it('ignore block if blob hashes are not encoded correctly', async () => {
+  it('ignore block if blob fields are not encoded correctly', async () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
@@ -1021,7 +1021,7 @@ describe('Archiver', () => {
     let latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(0);
 
-    // Create a block with full side effects that requires multiple blobs
+    // Create a block with large blob data that requires multiple blobs
     const block = await L2Block.random(
       1 /* block number */,
       5 /* txs per block */,

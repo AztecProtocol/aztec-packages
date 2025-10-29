@@ -169,8 +169,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         .map((bh, i) => (resultBlobs[i] === undefined ? bh : undefined))
         .filter((bh): bh is Buffer => bh !== undefined);
 
+    // Return the result, ignoring any undefined ones
+    const getFilledBlobs = (): BlobWithIndex[] => resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
+
     // Helper to fill in results from fetched blobs
-    const fillResults = (fetchedBlobs: BlobJson[]) => {
+    const fillResults = (fetchedBlobs: BlobJson[]): BlobWithIndex[] => {
       const blobs = processFetchedBlobs(fetchedBlobs, blobHashes, this.log);
       // Fill in any missing positions with matching blobs
       for (let i = 0; i < blobHashes.length; i++) {
@@ -178,12 +181,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
           resultBlobs[i] = blobs[i];
         }
       }
+      return getFilledBlobs();
     };
-
-    // Helper to count how many blobs we have successfully fetched so far
-    const getFilledCount = () => resultBlobs.filter(b => b !== undefined).length;
-
-    const returnRelevantBlobs = () => resultBlobs.filter((b): b is BlobWithIndex => b !== undefined);
 
     const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
 
@@ -194,13 +193,13 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       if (missingHashes.length > 0) {
         this.log.trace(`Attempting to get ${missingHashes.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
         const blobs = await this.getBlobsFromSink(blobSinkUrl, missingHashes);
-        fillResults(blobs);
-        this.log.debug(`Got ${blobs.length} blobs from blob sink (total: ${getFilledCount()}/${blobHashes.length})`, {
+        const result = fillResults(blobs);
+        this.log.debug(`Got ${blobs.length} blobs from blob sink (total: ${result.length}/${blobHashes.length})`, {
           blobSinkUrl,
           ...ctx,
         });
-        if (getFilledCount() === blobHashes.length) {
-          return returnRelevantBlobs();
+        if (result.length === blobHashes.length) {
+          return result;
         }
       }
     }
@@ -234,13 +233,13 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             indices,
             l1ConsensusHostIndex,
           );
-          fillResults(blobs);
+          const result = fillResults(blobs);
           this.log.debug(
-            `Got ${blobs.length} blobs from consensus host (total: ${getFilledCount()}/${blobHashes.length})`,
+            `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
             { slotNumber, l1ConsensusHostUrl, ...ctx },
           );
-          if (getFilledCount() === blobHashes.length) {
-            return returnRelevantBlobs();
+          if (result.length === blobHashes.length) {
+            return result;
           }
         }
       }
@@ -253,23 +252,23 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
       if (!allBlobs) {
         this.log.debug('No blobs found from archive client', archiveCtx);
-        return returnRelevantBlobs();
+        return getFilledBlobs();
       }
       this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
-      fillResults(allBlobs);
+      const result = fillResults(allBlobs);
       this.log.debug(
-        `Got ${allBlobs.length} blobs from archive client (total: ${getFilledCount()}/${blobHashes.length})`,
+        `Got ${allBlobs.length} blobs from archive client (total: ${result.length}/${blobHashes.length})`,
         archiveCtx,
       );
-      if (getFilledCount() === blobHashes.length) {
-        return returnRelevantBlobs();
+      if (result.length === blobHashes.length) {
+        return result;
       }
     }
 
-    const filledCount = getFilledCount();
-    if (filledCount < blobHashes.length) {
+    const result = getFilledBlobs();
+    if (result.length < blobHashes.length) {
       this.log.warn(
-        `Failed to fetch all blobs for ${blockHash} from all blob sources (got ${filledCount}/${blobHashes.length})`,
+        `Failed to fetch all blobs for ${blockHash} from all blob sources (got ${result.length}/${blobHashes.length})`,
         {
           blobSinkUrl,
           l1ConsensusHostUrls,
@@ -277,7 +276,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         },
       );
     }
-    return returnRelevantBlobs();
+    return result;
   }
 
   private async getBlobsFromSink(blobSinkUrl: string, blobHashes: Buffer[]): Promise<BlobJson[]> {

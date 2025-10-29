@@ -46,8 +46,20 @@ export function runBlobSinkClientTests(
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
     expect(retrievedBlobs).toHaveLength(3);
-
     expect(retrievedBlobs.map(b => b.blob)).toEqual(blobs);
+  });
+
+  it('should handle retrieving subset of blobs', async () => {
+    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
+    const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
+
+    await client.sendBlobsToBlobSink(blobs);
+
+    // Retrieve only first and third blob
+    const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHashes[0], blobHashes[2]]);
+    expect(retrievedBlobs).toHaveLength(2);
+    expect(retrievedBlobs[0].blob).toEqual(blobs[0]);
+    expect(retrievedBlobs[1].blob).toEqual(blobs[2]);
   });
 
   it('should return empty array for non-existent blob hash', async () => {
@@ -68,7 +80,6 @@ export function runBlobSinkClientTests(
     // Retrieve the blobs by hash in random order
     const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHashes[2], blobHashes[0], blobHashes[1]]);
     expect(retrievedBlobs).toHaveLength(3);
-
     expect(retrievedBlobs[0].index).toBe(2);
     expect(retrievedBlobs[1].index).toBe(0);
     expect(retrievedBlobs[2].index).toBe(1);
