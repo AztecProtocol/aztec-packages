@@ -14,7 +14,8 @@ cd ..
 # - Upload the compressed results: aws s3 cp bb-chonk-inputs.tar.gz s3://aztec-ci-artifacts/protocol/bb-chonk-inputs-[hash(0:8)].tar.gz
 # Note: In case of the "Test suite failed to run ... Unexpected token 'with' " error, need to run: docker pull aztecprotocol/build:3.0
 pinned_short_hash="abdb6bae"
-pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
+pinned_civc_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
+pinned_chonk_inputs_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
 
 function compress_and_upload {
     # 1) Compress the results
@@ -55,19 +56,31 @@ if [[ "${1:-}" == "--update_inputs" ]]; then
 fi
 
 export inputs_tmp_dir=$(mktemp -d)
-trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
+trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz bb-civc-inputs.tar.gz' EXIT SIGINT
 
 echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
 if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
-    echo_stderr "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
-    echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the file may not exist in S3."
-    exit 1
+    echo_stderr "Warning: Failed to download from $pinned_chonk_inputs_url"
+    echo "Trying alternative URL: $pinned_civc_inputs_url"
+    if ! curl -s -f "$pinned_civc_inputs_url" -o bb-civc-inputs.tar.gz; then
+        echo_stderr "Error: Failed to download pinned IVC inputs from both URLs:"
+        echo_stderr "  - $pinned_chonk_inputs_url"
+        echo_stderr "  - $pinned_civc_inputs_url"
+        echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the files may not exist in S3."
+        exit 1
+    fi
+    echo "Successfully downloaded from alternative URL"
 fi
 
 echo "Extracting IVC inputs..."
-if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_tmp_dir"; then
-    echo_stderr "Error: Failed to extract IVC inputs archive"
-    exit 1
+if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_tmp_dir" 2>/dev/null; then
+    echo "Trying alternative archive: bb-civc-inputs.tar.gz"
+    if ! tar -xzf bb-civc-inputs.tar.gz -C "$inputs_tmp_dir"; then
+        echo_stderr "Error: Failed to extract IVC inputs archive from both files:"
+        echo_stderr "  - bb-chonk-inputs.tar.gz"
+        echo_stderr "  - bb-civc-inputs.tar.gz"
+        exit 1
+    fi
 fi
 
 function check_circuit_vks {
