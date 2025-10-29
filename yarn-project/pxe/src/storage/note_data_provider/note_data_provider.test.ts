@@ -502,164 +502,136 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  // describe('NoteDataProvider.rollbackNotesAndNullifiers', () => {
-  //   let provider: NoteDataProvider;
-  //   let store: AztecLMDBStoreV2;
+  describe('NoteDataProvider.rollbackNotesAndNullifiers', () => {
+    let provider: NoteDataProvider;
+    let store: AztecLMDBStoreV2;
 
-  //   beforeEach(async () => {
-  //     store = await openTmpStore('note_data_provider_rollback_test');
-  //     provider = await NoteDataProvider.create(store);
-  //     await provider.addScope(SCOPE_1);
-  //     await provider.addScope(SCOPE_2);
-  //   });
+    beforeEach(async () => {
+      store = await openTmpStore('note_data_provider_rollback_test');
+      provider = NoteDataProvider.create(store);
+    });
 
-  //   afterEach(async () => {
-  //     await store.close();
-  //   });
+    afterEach(async () => {
+      await store.close();
+    });
 
-  //   describe('rewind nullifications happy path', () => {
-  //     async function setupRollbackScenario() {
-  //       const noteBlock1 = await mkNote({ index: 1n, l2BlockNumber: 1 }); // Nullified at block 2
-  //       const noteBlock2 = await mkNote({ index: 2n, l2BlockNumber: 2 }); // Never nullified
-  //       const noteBlock3 = await mkNote({ index: 3n, l2BlockNumber: 3 }); // Nullified at block 4
-  //       const noteBlock5 = await mkNote({ index: 5n, l2BlockNumber: 5 }); // Created after rollback block 3
+    describe('rewind nullifications happy path', () => {
+      async function setupRollbackScenario() {
+        const noteBlock1 = await mkNote({ index: 1n, l2BlockNumber: 1 }); // Nullified at block 2
+        const noteBlock2 = await mkNote({ index: 2n, l2BlockNumber: 2 }); // Never nullified
+        const noteBlock3 = await mkNote({ index: 3n, l2BlockNumber: 3 }); // Nullified at block 4
+        const noteBlock5 = await mkNote({ index: 5n, l2BlockNumber: 5 }); // Created after rollback block 3
 
-  //       await provider.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1);
+        await provider.addNotes([noteBlock1, noteBlock2, noteBlock3, noteBlock5], SCOPE_1);
 
-  //       const nullifiers = [mkNullifier(noteBlock1, 2), mkNullifier(noteBlock3, 4), mkNullifier(noteBlock5, 6)];
+        const nullifiers = [mkNullifier(noteBlock1, 2), mkNullifier(noteBlock3, 4), mkNullifier(noteBlock5, 6)];
 
-  //       // Apply nullifiers and rollback to block 3
-  //       // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
-  //       await provider.applyNullifiers(nullifiers);
-  //       await provider.rollbackNotesAndNullifiers(3, 6);
-  //     }
+        // Apply nullifiers and rollback to block 3
+        // - should restore noteBlock3 (nullified at block 4) and preserve noteBlock1 (nullified at block 2)
+        await provider.applyNullifiers(nullifiers);
+        await provider.rollbackNotesAndNullifiers(3);
+      }
 
-  //     beforeEach(async () => {
-  //       await setupRollbackScenario();
-  //     });
+      beforeEach(async () => {
+        await setupRollbackScenario();
+      });
 
-  //     it('restores notes that were nullified after the rollback block', async () => {
-  //       // noteBlock2 remains active, noteBlock3 was nullified at block 4 should be restored
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n, 3n]));
-  //     });
+      it('restores notes that were nullified after the rollback block', async () => {
+        // noteBlock2 remains active, noteBlock3 was nullified at block 4 should be restored
+        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n, 3n]));
+      });
 
-  //     it('preserves nullification of notes nullified at or before the rollback block', async () => {
-  //       const allNotes = await provider.getNotes({
-  //         contractAddress: CONTRACT_A,
-  //         status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //       });
+      it('preserves nullification of notes nullified at or before the rollback block', async () => {
+        const allNotes = await provider.getNotes({
+          contractAddress: CONTRACT_A,
+          status: 'ALL',
+        });
 
-  //       // Should contain noteBlock1 (nullified), noteBlock2 (active), and noteBlock3 (restored)
-  //       expect(new Set(getIndexes(allNotes))).toEqual(new Set([1n, 2n, 3n]));
+        // Should contain noteBlock1 (nullified), noteBlock2 (active), and noteBlock3 (restored)
+        expect(new Set(getIndexes(allNotes))).toEqual(new Set([1n, 2n, 3n]));
 
-  //       // Verify noteBlock1 is not in active notes
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       const activeIndexes = getIndexes(activeNotes);
-  //       expect(activeIndexes).not.toEqual(expect.arrayContaining([1n]));
-  //     });
+        // Verify noteBlock1 is not in active notes
+        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        const activeIndexes = getIndexes(activeNotes);
+        expect(activeIndexes).not.toEqual(expect.arrayContaining([1n]));
+      });
 
-  //     it('preserves active notes created before the rollback block that were never nullified', async () => {
-  //       // noteBlock2 was created at block 2 (before rollback block 3) and never nullified
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n, 3n]));
-  //     });
+      it('preserves active notes created before the rollback block that were never nullified', async () => {
+        // noteBlock2 was created at block 2 (before rollback block 3) and never nullified
+        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n, 3n]));
+      });
 
-  //     it('deletes notes created after the rollback block', async () => {
-  //       const allNotes = await provider.getNotes({
-  //         contractAddress: CONTRACT_A,
-  //         status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //       });
+      it('deletes notes created after the rollback block', async () => {
+        const allNotes = await provider.getNotes({
+          contractAddress: CONTRACT_A,
+          status: 'ALL',
+        });
 
-  //       // noteBlock5 was created at block 5, which is after rollback block 3, should be deleted
-  //       const indexes = getIndexes(allNotes);
-  //       expect(new Set(indexes)).toEqual(new Set([1n, 2n, 3n]));
-  //       expect(indexes).not.toEqual(expect.arrayContaining([5n]));
-  //     });
-  //   });
+        // noteBlock5 was created at block 5, which is after rollback block 3, should be deleted
+        const indexes = getIndexes(allNotes);
+        expect(new Set(indexes)).toEqual(new Set([1n, 2n, 3n]));
+        expect(indexes).not.toEqual(expect.arrayContaining([5n]));
+      });
+    });
 
-  //   describe('rewind nullifications edge cases', () => {
-  //     it('handles rollback when blockNumber equals synchedBlockNumber', async () => {
-  //       const note = await mkNote({ index: 10n, l2BlockNumber: 5 });
-  //       await provider.addNotes([note], SCOPE_1);
+    describe('rewind nullifications edge cases', () => {
+      it('handles rollback when blockNumber equals synchedBlockNumber', async () => {
+        const note = await mkNote({ index: 10n, l2BlockNumber: 5 });
+        await provider.addNotes([note], SCOPE_1);
 
-  //       const nullifiers = [
-  //         {
-  //           data: note.siloedNullifier,
-  //           l2BlockNumber: 5,
-  //           l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
-  //         },
-  //       ];
-  //       await provider.applyNullifiers(nullifiers);
+        const nullifiers = [
+          {
+            data: note.siloedNullifier,
+            l2BlockNumber: 5,
+            l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+          },
+        ];
+        await provider.applyNullifiers(nullifiers);
 
-  //       // Since nullification happened at block 5 (not after), it should stay nullified
-  //       // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
-  //       await provider.rollbackNotesAndNullifiers(5, 5);
+        // Since nullification happened at block 5 (not after), it should stay nullified
+        // The rewind loop processes blocks (blockNumber+1) to synchedBlockNumber = 6 to 5 = no iterations
+        await provider.rollbackNotesAndNullifiers(5);
 
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(activeNotes).toHaveLength(0);
+        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        expect(activeNotes).toHaveLength(0);
 
-  //       const allNotes = await provider.getNotes({
-  //         contractAddress: CONTRACT_A,
-  //         status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //       });
-  //       expect(new Set(getIndexes(allNotes))).toEqual(new Set([10n]));
-  //     });
+        const allNotes = await provider.getNotes({
+          contractAddress: CONTRACT_A,
+          status: 'ALL',
+        });
+        expect(new Set(getIndexes(allNotes))).toEqual(new Set([10n]));
+      });
 
-  //     it('handles rollback when synchedBlockNumber < blockNumber', async () => {
-  //       const note = await mkNote({ index: 20n, l2BlockNumber: 3 });
-  //       await provider.addNotes([note], SCOPE_1);
+      it('handles rollback with a large block gap', async () => {
+        const note1 = await mkNote({ index: 30n, l2BlockNumber: 5 });
+        const note2 = await mkNote({ index: 31n, l2BlockNumber: 10 });
+        await provider.addNotes([note1, note2], SCOPE_1);
 
-  //       const nullifiers = [
-  //         {
-  //           data: note.siloedNullifier,
-  //           l2BlockNumber: 4,
-  //           l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
-  //         },
-  //       ];
-  //       await provider.applyNullifiers(nullifiers);
+        const nullifiers = [
+          {
+            data: note1.siloedNullifier,
+            l2BlockNumber: 7,
+            l2BlockHash: L2BlockHash.fromString(note1.l2BlockHash),
+          },
+        ];
+        await provider.applyNullifiers(nullifiers);
+        await provider.rollbackNotesAndNullifiers(5);
 
-  //       // blockNumber=6, synchedBlockNumber=4 therefore no nullifications to rewind
-  //       await provider.rollbackNotesAndNullifiers(6, 4);
+        // note1 should be restored (nullified at block 7 > rollback block 5)
+        // note2 should be deleted (created at block 10 > rollback block 5)
+        const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        expect(new Set(getIndexes(activeNotes))).toEqual(new Set([30n]));
+      });
 
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(activeNotes).toHaveLength(0);
-
-  //       const allNotes = await provider.getNotes({
-  //         contractAddress: CONTRACT_A,
-  //         status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //       });
-  //       expect(new Set(getIndexes(allNotes))).toEqual(new Set([20n]));
-  //     });
-
-  //     it('handles rollback with a large block gap', async () => {
-  //       const note1 = await mkNote({ index: 30n, l2BlockNumber: 5 });
-  //       const note2 = await mkNote({ index: 31n, l2BlockNumber: 10 });
-  //       await provider.addNotes([note1, note2], SCOPE_1);
-
-  //       const nullifiers = [
-  //         {
-  //           data: note1.siloedNullifier,
-  //           l2BlockNumber: 7,
-  //           l2BlockHash: L2BlockHash.fromString(note1.l2BlockHash),
-  //         },
-  //       ];
-  //       await provider.applyNullifiers(nullifiers);
-  //       await provider.rollbackNotesAndNullifiers(5, 100);
-
-  //       // note1 should be restored (nullified at block 7 > rollback block 5)
-  //       // note2 should be deleted (created at block 10 > rollback block 5)
-  //       const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(new Set(getIndexes(activeNotes))).toEqual(new Set([30n]));
-  //     });
-
-  //     it('handles rollback on empty PXE database gracefully', async () => {
-  //       await expect(provider.rollbackNotesAndNullifiers(10, 20)).resolves.not.toThrow();
-  //       const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //       expect(notes).toHaveLength(0);
-  //     });
-  //   });
-  // });
+      it('handles rollback on empty PXE database gracefully', async () => {
+        await expect(provider.rollbackNotesAndNullifiers(10)).resolves.not.toThrow();
+        const notes = await provider.getNotes({ contractAddress: CONTRACT_A });
+        expect(notes).toHaveLength(0);
+      });
+    });
+  });
 });
 
 // TODO:

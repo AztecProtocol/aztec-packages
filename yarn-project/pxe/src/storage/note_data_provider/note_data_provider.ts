@@ -165,37 +165,83 @@ export class NoteDataProvider {
    * and deletes any active notes created after that block.
    *
    * @param blockNumber - The new chain tip after a reorg
-   * @param synchedBlockNumber - The block number up to which PXE managed to sync before the reorg happened.
    */
-  public async rollbackNotesAndNullifiers(blockNumber: number, synchedBlockNumber: number): Promise<void> {
-    await this.#rewindNullifiersAfterBlock(blockNumber, synchedBlockNumber);
-    await this.#deleteActiveNotesAfterBlock(blockNumber);
+  public async rollbackNotesAndNullifiers(blockNumber: number): Promise<void> {
+    await this.#store.transactionAsync(async () => {
+      const highestKnownBlock = await this.#getHighestKnownBlockNumber();
+      if (highestKnownBlock === undefined || highestKnownBlock <= blockNumber) {
+        return;
+      }
+
+      // Walk blocks in descending order and revert events
+      for (let block = highestKnownBlock; block > blockNumber; block--) {
+        const events = await toArray(this.#noteEventsByBlock.getValuesAsync(block as BlockNumber));
+        if (events.length === 0) {
+          continue;
+        }
+
+        for (const event of events) {
+          switch (event.kind) {
+            // Undo nullification → restore the note to ACTIVE
+            case 'NULLIFY': {
+              const noteId = event.noteId as NoteId;
+              const noteBuffer = await this.#notes.getAsync(noteId);
+              if (!noteBuffer) {
+                continue;
+              }
+
+              await this.#noteStatusById.set(noteId, NoteStatus.ACTIVE);
+              const compositeKey = await this.#compositeKeyByNoteId.getAsync(noteId);
+              if (compositeKey) {
+                await this.#noteIdsByCompositeKey.set(compositeKey, noteId);
+              }
+              break;
+            }
+
+            // Delete note created after rollback height
+            case 'CREATE': {
+              const noteId = event.noteId as NoteId;
+              const noteBuffer = await this.#notes.getAsync(noteId);
+              if (!noteBuffer) {
+                continue;
+              }
+
+              const compositeKey = await this.#compositeKeyByNoteId.getAsync(noteId);
+              if (compositeKey) {
+                await this.#noteIdsByCompositeKey.deleteValue(compositeKey, noteId);
+                await this.#compositeKeyByNoteId.delete(noteId);
+              }
+
+              // Remove from all other indexes
+              await this.#notes.delete(noteId);
+              await this.#noteStatusById.delete(noteId);
+
+              // Remove reverse mapping to nullifier (if exists)
+              const nullifierEntries = await toArray(this.#nullifierToNoteId.entriesAsync());
+              for (const [nullifier, id] of nullifierEntries) {
+                if (id === noteId) {
+                  await this.#nullifierToNoteId.delete(nullifier);
+                }
+              }
+              break;
+            }
+          }
+        }
+
+        // Once this block’s events are reverted, remove them from the index
+        await this.#noteEventsByBlock.delete(block as BlockNumber);
+      }
+    });
   }
 
   /**
-   * Deletes (removes) all active notes created after the specified block number.
-   *
-   * Permanently delete notes from the active notes store, e.g. during a reorg.
-   * Note: This only affects #notes (active notes), not #nullifiedNotes.
-   *
-   * @param blockNumber - Notes created after this block number will be deleted
+   * Returns the highest known block number present in noteEventsByBlock.
+   * Uses a reverse range to efficiently fetch the last (largest) key.
    */
-  #deleteActiveNotesAfterBlock(blockNumber: number): Promise<void> {
-    throw new Error('Method not implemented.');
-  }
-
-  /**
-   * Rewinds nullifications after a given block number.
-   *
-   * This operation "unnullifies" notes, rolling back nullifications that occurred
-   * in orphaned blocks, e.g. during a reorg.  The notes are restored to the
-   * active notes store and removed from the nullified store.
-   *
-   * @param blockNumber - Revert nullifications that occurred after this block
-   * @param synchedBlockNumber - Upper bound for the block range to process
-   */
-  async #rewindNullifiersAfterBlock(blockNumber: number, synchedBlockNumber: number): Promise<void> {
-    throw new Error('Method not implemented.');
+  async #getHighestKnownBlockNumber(): Promise<number | undefined> {
+    const keys = await toArray(this.#noteEventsByBlock.keysAsync({ reverse: true, limit: 1 }));
+    const [lastKey] = keys;
+    return lastKey !== undefined ? Number(lastKey) : undefined;
   }
 
   /**
