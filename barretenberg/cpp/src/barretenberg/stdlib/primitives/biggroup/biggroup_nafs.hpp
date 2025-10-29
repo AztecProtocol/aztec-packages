@@ -345,11 +345,11 @@ typename element<C, Fq, Fr, G>::secp256k1_wnaf_pair element<C, Fq, Fr, G>::compu
      *
      * which we can reduce to:
      *
-     * ACC = ACC.montgomery_ladder(A)
-     * ACC = ACC.montgomery_ladder(B)
+     * ACC = ACC.dbl() + A
+     * ACC = ACC.dbl() + B
      *
      * This is more efficient than the non-staggered approach as we save 1 non-native field multiplication when we
-     * replace a DBL, ADD subroutine with a call to the montgomery ladder
+     * combine the DBL and ADD operations
      */
     C* builder = scalar.get_context();
 
