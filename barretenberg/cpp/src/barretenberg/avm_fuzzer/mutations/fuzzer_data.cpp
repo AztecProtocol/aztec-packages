@@ -1,10 +1,12 @@
 #include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
+
+#include <random>
+
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/control_flow_vec.hpp"
 #include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
-#include <random>
 
 void mutate_fuzzer_data(FuzzerData& fuzzer_data, std::mt19937_64& rng)
 {

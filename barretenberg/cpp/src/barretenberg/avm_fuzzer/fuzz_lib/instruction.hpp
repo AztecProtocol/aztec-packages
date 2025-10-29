@@ -1,11 +1,13 @@
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
 #include <variant>
+
+#include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 using MemoryTag = bb::avm2::MemoryTag;
 

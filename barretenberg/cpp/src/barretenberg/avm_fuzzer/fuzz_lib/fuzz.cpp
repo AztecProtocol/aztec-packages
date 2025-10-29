@@ -1,5 +1,7 @@
-#include "fuzz.hpp"
-#include "control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
+
+#include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 
 void log_result(const SimulatorResult& result)
 {

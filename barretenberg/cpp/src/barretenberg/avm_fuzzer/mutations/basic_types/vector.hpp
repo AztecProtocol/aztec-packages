@@ -1,9 +1,10 @@
 #pragma once
 
-#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 #include <functional>
 #include <random>
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 
 template <typename T>
 void mutate_vec(std::vector<T>& vec,

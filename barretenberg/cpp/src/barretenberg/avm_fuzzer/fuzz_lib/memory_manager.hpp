@@ -1,9 +1,11 @@
 #pragma once
-#include "barretenberg/vm2/common/memory_types.hpp"
+
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <vector>
+
+#include "barretenberg/vm2/common/memory_types.hpp"
 
 class MemoryManager {
   private:

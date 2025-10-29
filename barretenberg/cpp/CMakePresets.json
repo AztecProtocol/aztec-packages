@@ -226,8 +226,7 @@
       "cacheVariables": {
         "FUZZING": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -240,8 +239,7 @@
         "FUZZING": "ON",
         "AVM_TRANSPILER_LIB": "",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -256,8 +254,7 @@
         "AVM_TRANSPILER_LIB": "",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -270,8 +267,7 @@
         "FUZZING": "ON",
         "DISABLE_ASM": "ON",
         "AVM_TRANSPILER_LIB": "",
-        "CMAKE_BUILD_TYPE": "RelWithAssert",
-        "MULTITHREADING": "OFF"
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       },
       "environment": {
         "CXXFLAGS": "-fprofile-instr-generate -fcoverage-mapping"

@@ -1,7 +1,9 @@
-#include "control_flow.hpp"
-#include "fuzzer_data.hpp"
-#include "simulator.hpp"
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
+#include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
+#include "barretenberg/vm2/common/field.hpp"
 
 namespace arithmetic {
 

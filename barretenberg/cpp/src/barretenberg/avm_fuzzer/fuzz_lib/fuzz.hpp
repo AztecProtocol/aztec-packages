@@ -1,6 +1,7 @@
 #pragma once
-#include "fuzzer_data.hpp"
-#include "simulator.hpp"
+
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 
 /// @brief fuzz CPP vs JS simulator with the given fuzzer data
 /// @param fuzzer_data the fuzzer data to use for fuzzing

@@ -1,4 +1,5 @@
-#include "program_block.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
+
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"

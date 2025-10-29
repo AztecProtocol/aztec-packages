@@ -1,9 +1,11 @@
 #include "barretenberg/avm_fuzzer/mutations/control_flow/return_options.hpp"
+
+#include <random>
+
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
-#include <random>
 
 void mutate_return_options(ReturnOptions& return_options,
                            std::mt19937_64& rng,

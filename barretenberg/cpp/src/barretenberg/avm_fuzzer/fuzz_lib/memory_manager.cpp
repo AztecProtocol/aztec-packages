@@ -1,4 +1,4 @@
-#include "memory_manager.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/memory_manager.hpp"
 
 MemoryManager& MemoryManager::operator=(const MemoryManager& other)
 {

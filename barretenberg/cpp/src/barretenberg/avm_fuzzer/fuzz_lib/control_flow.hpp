@@ -1,8 +1,10 @@
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
-#include "instruction.hpp"
-#include "program_block.hpp"
+
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/program_block.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 struct ReturnOptions {
     uint8_t return_size;
