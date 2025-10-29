@@ -28,12 +28,18 @@ void test_acir_circuit_builder(std::vector<uint8_t>& acir_program_buf)
             tool.print_variable_info(elem);
         }
     }
-    tool.print_variable_info(2);
 }
 
-TEST(boomerang_acir_circuit_builder, init_case)
+TEST(BoomerangAcirCircuitBuilder, InitCase)
 {
     std::string init_bytecode_path = "init/target/init.json";
+    std::string bytecode_file = common_preffix + init_bytecode_path;
+    std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
+    test_acir_circuit_builder(vector_bytecode);
+}
+
+TEST(BoomerangAcirCircuitBuilder, FirstCase) {
+    std::string init_bytecode_path = "first/target/first.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
     test_acir_circuit_builder(vector_bytecode);

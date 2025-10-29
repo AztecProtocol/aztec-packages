@@ -100,7 +100,7 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     }
     std::optional<size_t> find_block_index(const auto& block);
     void process_gate_variables(std::vector<uint32_t>& gate_variables, size_t gate_index, size_t blk_idx);
-    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variables_gate_counts; };
+    std::unordered_map<uint32_t, size_t> get_variables_gate_counts() const { return this->variable_gate_count; };
 
     void process_execution_trace();
 
@@ -147,8 +147,9 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     std::unordered_set<uint32_t> get_variables_in_one_gate();
     std::pair<std::vector<ConnectedComponent>, std::unordered_set<uint32_t>> analyze_circuit(bool filter_cc = true);
 
+    std::unordered_map<size_t, std::vector<size_t>> get_variable_gates(uint32_t var_idx) const;
+
     void print_connected_components_info();
-    void print_variables_gate_counts();
     void print_arithmetic_gate_info(size_t gate_idx, auto& block);
     void print_elliptic_gate_info(size_t gate_idx, auto& block);
     void print_plookup_gate_info(size_t gate_idx, auto& block);
@@ -157,18 +158,21 @@ template <typename FF, typename CircuitBuilder> class StaticAnalyzer_ {
     void print_memory_gate_info(size_t gate_idx, auto& block);
     void print_delta_range_gate_info(size_t gate_idx, auto& block);
     void print_variable_info(const uint32_t real_idx);
+
+    bool check_variable_unconstrained();
     ~StaticAnalyzer_() = default;
 
   private:
     // Store reference to the circuit builder
     CircuitBuilder& circuit_builder;
     bool connect_variables;
+    size_t pub_inputs_block_idx;
 
     std::unordered_map<uint32_t, std::vector<uint32_t>>
         variable_adjacency_lists; // we use this data structure to contain information about variables and their
                                   // connections between each other
     std::unordered_map<uint32_t, size_t>
-        variables_gate_counts; // we use this data structure to count, how many gates use every variable
+        variable_gate_count; // we use this data structure to count, how many gates use every variable
     std::unordered_map<uint32_t, size_t>
         variables_degree; // we use this data structure to count, how many every variable have edges
     std::unordered_map<KeyPair, std::vector<size_t>, KeyHasher, KeyEquals>
