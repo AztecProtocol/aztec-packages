@@ -13,7 +13,7 @@
 
 namespace bb::bbapi {
 
-ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
+ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     request.ivc_in_progress = std::make_shared<Chonk>(num_circuits, request.trace_settings);
@@ -25,7 +25,7 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     request.loaded_circuit_name = circuit.name;
@@ -41,7 +41,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     if (!request.loaded_circuit_constraints.has_value()) {
@@ -74,7 +74,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     if (request.ivc_stack_depth == 0) {
@@ -119,10 +119,10 @@ static std::shared_ptr<Chonk::DeciderProvingKey> get_acir_program_decider_provin
     return std::make_shared<Chonk::DeciderProvingKey>(builder, request.trace_settings);
 }
 
-ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
+ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute(const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ClientIvcComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
+    info("ChonkComputeStandaloneVk - deriving VK for circuit '", circuit.name, "'");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
@@ -133,10 +133,10 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
 
-ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
+ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
+    info("ChonkComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
     auto standalone_vk_response = bbapi::ChonkComputeStandaloneVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
@@ -151,7 +151,7 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
     Response response;
     response.bytes = to_buffer(civc_vk);
 
-    info("ClientIvcComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
+    info("ChonkComputeIvcVk - IVC VK derived, size: ", response.bytes.size(), " bytes");
 
     return response;
 }

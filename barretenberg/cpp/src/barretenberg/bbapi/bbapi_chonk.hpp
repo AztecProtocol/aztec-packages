@@ -16,20 +16,20 @@
 namespace bb::bbapi {
 
 /**
- * @struct ClientIvcStart
+ * @struct ChonkStart
  * @brief Initialize a new Chonk instance for incremental proof accumulation
  *
  * @note Only one IVC request can be made at a time for each batch_request.
  */
-struct ClientIvcStart {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcStart";
+struct ChonkStart {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkStart";
 
     /**
      * @struct Response
      * @brief Empty response indicating successful initialization
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcStartResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkStartResponse";
         // Empty response - success indicated by no exception
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
@@ -38,7 +38,7 @@ struct ClientIvcStart {
     size_t num_circuits;
     Response execute(BBApiRequest& request) &&;
     MSGPACK_FIELDS(num_circuits);
-    bool operator==(const ClientIvcStart&) const = default;
+    bool operator==(const ChonkStart&) const = default;
 };
 
 /**
@@ -145,18 +145,18 @@ struct ClientIvcVerify {
 };
 
 /**
- * @struct ClientIvcComputeStandaloneVk
+ * @struct ChonkComputeStandaloneVk
  * @brief Compute standalone verification key for a circuit
  */
-struct ClientIvcComputeStandaloneVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcComputeStandaloneVk";
+struct ChonkComputeStandaloneVk {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeStandaloneVk";
 
     /**
      * @struct Response
      * @brief Contains the computed verification key in multiple formats
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcComputeStandaloneVkResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeStandaloneVkResponse";
 
         /** @brief Serialized verification key in binary format */
         std::vector<uint8_t> bytes;
@@ -169,22 +169,22 @@ struct ClientIvcComputeStandaloneVk {
     CircuitInputNoVK circuit;
     Response execute(const BBApiRequest& request = {}) &&;
     MSGPACK_FIELDS(circuit);
-    bool operator==(const ClientIvcComputeStandaloneVk&) const = default;
+    bool operator==(const ChonkComputeStandaloneVk&) const = default;
 };
 
 /**
- * @struct ClientIvcComputeIvcVk
+ * @struct ChonkComputeIvcVk
  * @brief Compute IVC verification key for the complete proof
  */
-struct ClientIvcComputeIvcVk {
-    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcComputeIvcVk";
+struct ChonkComputeIvcVk {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeIvcVk";
 
     /**
      * @struct Response
      * @brief Contains the computed IVC verification key
      */
     struct Response {
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIvcComputeIvcVkResponse";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkComputeIvcVkResponse";
 
         /** @brief Serialized IVC verification key in binary format */
         std::vector<uint8_t> bytes;
@@ -195,7 +195,7 @@ struct ClientIvcComputeIvcVk {
     CircuitInputNoVK circuit;
     Response execute(const BBApiRequest& request = {}) &&;
     MSGPACK_FIELDS(circuit);
-    bool operator==(const ClientIvcComputeIvcVk&) const = default;
+    bool operator==(const ChonkComputeIvcVk&) const = default;
 };
 
 /**

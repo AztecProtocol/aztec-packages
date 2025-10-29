@@ -22,9 +22,9 @@ TEST_F(BBApiClientIvcTest, StandaloneVerificationKeySerialization)
                                          .oracle_hash_type = "poseidon2",
                                          .disable_zk = true };
 
-    // Compute standalone VK using ClientIvcComputeStandaloneVk
+    // Compute standalone VK using ChonkComputeStandaloneVk
     auto vk_response =
-        ClientIvcComputeStandaloneVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
+        ChonkComputeStandaloneVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
     // Create a VK from the field elements
     auto vk =
@@ -36,7 +36,7 @@ TEST_F(BBApiClientIvcTest, StandaloneVerificationKeySerialization)
 TEST_F(BBApiClientIvcTest, ClientIvcVkSerialization)
 {
     auto [bytecode, _witness] = acir_bincode_mocks::create_simple_circuit_bytecode();
-    auto vk_response = ClientIvcComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
+    auto vk_response = ChonkComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
     // Create a VK from the field elements
     Chonk::VerificationKey vk = from_buffer<Chonk::VerificationKey>(vk_response.bytes);
