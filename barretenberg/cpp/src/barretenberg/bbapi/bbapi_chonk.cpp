@@ -1,11 +1,11 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/dsl/acir_format/serde/witness_stack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -16,7 +16,7 @@ ChonkStart::Response ChonkStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
 
-    request.ivc_in_progress = std::make_shared<SumcheckChonk>(num_circuits);
+    request.ivc_in_progress = std::make_shared<Chonk>(num_circuits);
 
     request.ivc_stack_depth = 0;
     return Response{};
@@ -26,7 +26,7 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("SumcheckChonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     request.loaded_circuit_name = circuit.name;
@@ -42,7 +42,7 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("SumcheckChonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     if (!request.loaded_circuit_constraints.has_value()) {
@@ -55,19 +55,17 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
-    std::shared_ptr<SumcheckChonk::MegaVerificationKey> precomputed_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> precomputed_vk;
 
     if (request.vk_policy == VkPolicy::RECOMPUTE) {
         precomputed_vk = nullptr;
     } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
         if (!request.loaded_circuit_vk.empty()) {
-            precomputed_vk =
-                from_buffer<std::shared_ptr<SumcheckChonk::MegaVerificationKey>>(request.loaded_circuit_vk);
+            precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(request.loaded_circuit_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
-                auto prover_instance = std::make_shared<SumcheckChonk::ProverInstance>(circuit);
-                auto computed_vk =
-                    std::make_shared<SumcheckChonk::MegaVerificationKey>(prover_instance->get_precomputed());
+                auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
+                auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
@@ -94,7 +92,7 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("SumcheckChonk not started. Call ChonkStart first.");
+        throw_or_abort("Chonk not started. Call ChonkStart first.");
     }
 
     if (request.ivc_stack_depth == 0) {
@@ -107,22 +105,22 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
     Response response;
     bool verification_passed = false;
 
-    info("ChonkProve - using SumcheckChonk");
-    auto sumcheck_ivc = std::dynamic_pointer_cast<SumcheckChonk>(request.ivc_in_progress);
+    info("ChonkProve - using Chonk");
+    auto sumcheck_ivc = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
     auto proof = sumcheck_ivc->prove();
     auto vk = sumcheck_ivc->get_vk();
 
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ChonkProve - verifying the generated proof as a sanity check");
-    verification_passed = SumcheckChonk::verify(proof, vk);
+    verification_passed = Chonk::verify(proof, vk);
 
     if (!verification_passed) {
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof = SumcheckChonk::Proof{ .mega_proof = std::move(proof.mega_proof),
-                                           .goblin_proof = std::move(proof.goblin_proof) };
+    response.proof =
+        Chonk::Proof{ .mega_proof = std::move(proof.mega_proof), .goblin_proof = std::move(proof.goblin_proof) };
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
@@ -134,21 +132,20 @@ ChonkVerify::Response ChonkVerify::execute(const BBApiRequest& /*request*/) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     // Deserialize the verification key directly from buffer
-    SumcheckChonk::VerificationKey verification_key = from_buffer<SumcheckChonk::VerificationKey>(vk);
+    Chonk::VerificationKey verification_key = from_buffer<Chonk::VerificationKey>(vk);
 
-    // Verify the proof using SumcheckChonk's static verify method
-    const bool verified = SumcheckChonk::verify(proof, verification_key);
+    // Verify the proof using Chonk's static verify method
+    const bool verified = Chonk::verify(proof, verification_key);
 
     return { .valid = verified };
 }
 
-static std::shared_ptr<SumcheckChonk::ProverInstance> get_acir_program_prover_instance(
-    acir_format::AcirProgram& program)
+static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(acir_format::AcirProgram& program)
 {
-    SumcheckChonk::ClientCircuit builder = acir_format::create_circuit<SumcheckChonk::ClientCircuit>(program);
+    Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<SumcheckChonk::ProverInstance>(builder);
+    return std::make_shared<Chonk::ProverInstance>(builder);
 }
 
 ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unused]] const BBApiRequest& request) &&
@@ -159,8 +156,8 @@ ChonkComputeStandaloneVk::Response ChonkComputeStandaloneVk::execute([[maybe_unu
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<SumcheckChonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto verification_key = std::make_shared<SumcheckChonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
+    auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
@@ -174,11 +171,10 @@ ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequ
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
     }.execute();
 
-    auto mega_vk = from_buffer<SumcheckChonk::MegaVerificationKey>(standalone_vk_response.bytes);
-    SumcheckChonk::VerificationKey chonk_vk{ .mega = std::make_shared<SumcheckChonk::MegaVerificationKey>(mega_vk),
-                                             .eccvm = std::make_shared<SumcheckChonk::ECCVMVerificationKey>(),
-                                             .translator =
-                                                 std::make_shared<SumcheckChonk::TranslatorVerificationKey>() };
+    auto mega_vk = from_buffer<Chonk::MegaVerificationKey>(standalone_vk_response.bytes);
+    Chonk::VerificationKey chonk_vk{ .mega = std::make_shared<Chonk::MegaVerificationKey>(mega_vk),
+                                     .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
+                                     .translator = std::make_shared<Chonk::TranslatorVerificationKey>() };
     Response response;
     response.bytes = to_buffer(chonk_vk);
 
@@ -193,8 +189,8 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<SumcheckChonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto computed_vk = std::make_shared<SumcheckChonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
+    auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
@@ -202,7 +198,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     }
 
     // Deserialize directly from buffer
-    auto precomputed_vk = from_buffer<std::shared_ptr<SumcheckChonk::MegaVerificationKey>>(circuit.verification_key);
+    auto precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(circuit.verification_key);
 
     Response response;
     response.valid = true;
@@ -222,12 +218,11 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any
-    const auto& ivc_constraints = constraint_system.pg_recursion_constraints;
+    const auto& ivc_constraints = constraint_system.hn_recursion_constraints;
 
     // Create metadata with appropriate IVC context
     acir_format::ProgramMetadata metadata{
-        .ivc =
-            ivc_constraints.empty() ? nullptr : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints),
+        .ivc = ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints),
         .collect_gates_per_opcode = include_gates_per_opcode
     };
 

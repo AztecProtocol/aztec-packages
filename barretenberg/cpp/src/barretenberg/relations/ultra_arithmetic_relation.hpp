@@ -9,7 +9,7 @@
 
 namespace bb {
 
-template <typename FF_> class UltraArithmeticRelationImpl {
+template <typename FF_> class ArithmeticRelationImpl {
   public:
     using FF = FF_;
 
@@ -25,60 +25,45 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     template <typename AllEntities> inline static bool skip(const AllEntities& in) { return in.q_arith.is_zero(); }
 
     /**
-     * @brief Expression for the Ultra Arithmetic gate.
-     * @details This relation encapsulates several idenitities, toggled by the value of q_arith in [0, 1, 2, 3, ...].
+     * @brief Expression for the Ultra (width-4) Arithmetic gate.
+     * @details This relation contains two subrelations and encapsulates several identities, toggled by the value of
+     * q_arith in [0, 1, 2, 3].
      *
-     * The whole formula is:
+     * Subrelation 1:
+     *      q_arith *
+     *         [ (-1/2) * (q_arith - 3) * (q_m * w_1 * w_2) + \sum_{i=1..4} q_i * w_i + q_c + (q_arith - 1) * w_4_shift]
      *
-     * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +
-     * (q_arith - 1)*( α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m) + w_4_omega) ) = 0
+     * Subrelation 2:
+     *      q_arith * (q_arith - 1) * (q_arith - 2) * (w_1 + w_4 - w_1_shift + q_m)
      *
-     * This formula results in several cases depending on q_arith:
-     * 1. q_arith == 0: Arithmetic gate is completely disabled
+     * These formulas result in several cases depending on q_arith:
      *
-     * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk
-     * equation with extra wires: q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c = 0
+     * CASE q_arith == 0: Arithmetic gate is completely disabled
      *
-     * 3. q_arith == 2: The (w_1 + w_4 - ...) term is disabled. The equation is:
-     * (1/2) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + w_4_omega = 0
-     * It allows defining w_4 at next index (w_4_omega) in terms of current wire values
+     * CASE q_arith == 1: Conventional 4-wire Ultra arithmetic relation
+     *      Subrelation 1: q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c
+     *      Subrelation 2: Disabled
      *
-     * 4. q_arith == 3: The product of w_1 and w_2 is disabled, but a mini addition gate is enabled. α² allows us to
-     * split the equation into two:
+     * CASE q_arith == 2: Same as above but with an additional linear term: +w_4_shift
+     *      Subrelation 1: q_m * w_1 * w_2 + [ \sum_{i=1..4} q_i * w_i + q_c + w_4_shift ] * 2
+     *      Subrelation 2: Disabled
+     *      Note: Factor of 2 on the linear term must be accounted for when constructing inputs to the relation.
      *
-     * q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
-     *
-     * w_1 + w_4 - w_1_omega + q_m = 0  (we are reusing q_m here)
-     *
-     * 5. q_arith > 3: The product of w_1 and w_2 is scaled by (q_arith - 3), while the w_4_omega term is scaled by
-     * (q_arith
-     * - 1). The equation can be split into two:
-     *
-     * (q_arith - 3)* q_m * w_1 * w_ 2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + (q_arith - 1) * w_4_omega
-     * = 0
-     *
-     * w_1 + w_4 - w_1_omega + q_m = 0
-     *
-     * The problem that q_m is used both in both equations can be dealt with by appropriately changing selector values
-     * at the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith -
-     * 3) at product.
-     *
-     * The relation is
-     * defined as C(in(X)...) = q_arith * [ -1/2(q_arith - 3)(q_m * w_r * w_l) + (q_l * w_l) + (q_r * w_r) +
-     * (q_o * w_o) + (q_4 * w_4) + q_c + (q_arith - 1)w_4_shift ]
-     *
-     *    q_arith *
-     *      (q_arith - 2) * (q_arith - 1) * (w_l + w_4 - w_l_shift + q_m)
+     * CASE q_arith == 3:
+     *      Subrelation 1: [ \sum_{i=1..4} q_i * w_i + q_c + (2 * w_4_shift) ] * 3
+     *      Subrelation 2: [ w_1 + w_4 - w_1_shift + q_m ] * 6
+     *      Note: We are repurposing q_m here as an additive term in the second subrelation.
+     *      Note: Factor of 2 on the w_4_shift term must be accounted for when constructing inputs to the relation.
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the fully extended Univariate edges.
-     * @param parameters contains beta, gamma, and public_input_delta, ....
+     * @param in Inputs to the relation algebra
+     * @param parameters Unused in this relation
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     inline static void accumulate(ContainerOverSubrelations& evals,
                                   const AllEntities& in,
-                                  const Parameters&,
+                                  BB_UNUSED const Parameters& params,
                                   const FF& scaling_factor)
     {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -91,6 +76,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
         auto q_arith_sub_1 = q_arith_m - FF(1);
         auto scaled_q_arith = q_arith_m * scaling_factor;
+        // Subrelation 1
         {
             using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
 
@@ -111,6 +97,7 @@ template <typename FF_> class UltraArithmeticRelationImpl {
 
             std::get<0>(evals) += (tmp0 + Accumulator(tmp1)) * Accumulator(scaled_q_arith);
         }
+        // Subrelation 2
         {
             using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
 
@@ -124,5 +111,5 @@ template <typename FF_> class UltraArithmeticRelationImpl {
     };
 };
 
-template <typename FF> using UltraArithmeticRelation = Relation<UltraArithmeticRelationImpl<FF>>;
+template <typename FF> using ArithmeticRelation = Relation<ArithmeticRelationImpl<FF>>;
 } // namespace bb

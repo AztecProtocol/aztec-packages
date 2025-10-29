@@ -21,6 +21,7 @@
 #include "barretenberg/api/aztec_process.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bb/cli11_formatter.hpp"
+#include "barretenberg/bb/curve_constants.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/bbapi/c_bind.hpp"
@@ -248,7 +249,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
                          "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "SumcheckChonk class)")
+                         "Chonk class)")
             ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
@@ -525,6 +526,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     add_verbose_flag(msgpack_schema_command);
 
+    // Subcommand: msgpack curve_constants
+    CLI::App* msgpack_curve_constants_command =
+        msgpack_command->add_subcommand("curve_constants", "Output curve constants as msgpack to stdout.");
+    add_verbose_flag(msgpack_curve_constants_command);
+
     // Subcommand: msgpack run
     CLI::App* msgpack_run_command =
         msgpack_command->add_subcommand("run", "Execute msgpack API commands from stdin or file.");
@@ -605,6 +611,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             std::cout << bbapi::get_msgpack_schema_as_json() << std::endl;
             return 0;
         }
+        if (msgpack_curve_constants_command->parsed()) {
+            write_curve_constants_msgpack_to_stdout();
+            return 0;
+        }
         if (msgpack_run_command->parsed()) {
             return execute_msgpack_run(msgpack_input_file, max_clients);
         }
@@ -645,9 +655,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ChonkAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The prove command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort("The prove command for Chonk expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
@@ -669,9 +678,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The check command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }

@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"

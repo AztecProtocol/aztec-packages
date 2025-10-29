@@ -251,7 +251,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling);
+    // If include_next_gate_w_4 is true then we set q_arith = 2. In this case, the linear term in the ArithmeticRelation
+    // is scaled by a factor of 2. We compensate here by scaling the quadratic term by 2 to achieve the constraint:
+    //      2 * [q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c + w_4_shift] = 0
+    const FF mul_scaling = include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling;
+    blocks.arithmetic.q_m().emplace_back(mul_scaling);
     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
@@ -1031,7 +1035,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         break;
     }
     case MEMORY_SELECTORS::ROM_READ: {
-        // Memory read gate for reading memory cells.
+        // Memory read gate for reading memory cells. Also used for the _initialization_ of ROM memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
         block.q_1().emplace_back(1);
@@ -1662,13 +1666,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(x_2, y_2, z_2, z_1);
     block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
+    // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
+    // also scale each linear term by this factor of 2 so that the constraint is effectively:
+    //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
+    const FF linear_term_scale_factor = 2;
     block.q_m().emplace_back(addconstp);
     block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 *
-                             2); // scale constants by 2. If q_arith = 3 then w_4_omega value (z0) gets scaled by 2x
-    block.q_3().emplace_back(-y_mulconst0 * 2); // z_0 - (x_0 * -xmulconst0) - (y_0 * ymulconst0) = 0 => z_0 = x_0 + y_0
+    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
+    block.q_3().emplace_back(-y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * 2);
+    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);
@@ -1774,12 +1781,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(x_2, y_2, z_2, z_1);
     block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
+    // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
+    // also scale each linear term by this factor of 2 so that the constraint is effectively:
+    //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
+    const FF linear_term_scale_factor = 2;
     block.q_m().emplace_back(-addconstp);
     block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 * 2);
-    block.q_3().emplace_back(y_mulconst0 * 2); // z_0 + (x_0 * -xmulconst0) + (y_0 * ymulconst0) = 0 => z_0 = x_0 - y_0
+    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
+    block.q_3().emplace_back(y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * 2);
+    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);
@@ -1815,7 +1826,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
 }
 
 /**
- * @brief Create a new read-only memory region
+ * @brief Create a new read-only memory region (a.k.a. ROM table)
  *
  * @details Creates a transcript object, where the inside memory state array is filled with "uninitialized memory"
  and
@@ -1885,9 +1896,10 @@ void UltraCircuitBuilder_<ExecutionTrace>::write_RAM_array(const size_t ram_id,
 /**
  * @brief Initialize a rom cell to equal `value_witness`
  *
- * @param rom_id The index of the ROM array, which cell we are initializing
- * @param index_value The index of the cell within the array (an actual index, not a witness index)
- * @param value_witness The index of the witness with the value that should be in the
+ * @param rom_id The index of the ROM array in which we are initializing a cell
+ * @param index_value The index of the cell within the array/ROM table (an actual index, not a witness index)
+ * @param value_witness The index of the witness with the value that should be in the `index_value` place in the ROM
+ * table.
  */
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::set_ROM_element(const size_t rom_id,

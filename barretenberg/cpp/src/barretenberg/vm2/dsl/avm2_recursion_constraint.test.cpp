@@ -137,6 +137,10 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
  */
 TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
 {
+    if (avm2::testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Generate AVM proof, verification key and public inputs
     InnerCircuitData avm_prover_output = create_inner_circuit_data();
 

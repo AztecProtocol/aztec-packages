@@ -195,7 +195,7 @@ for test_case in test_cases:
     for cpu, metrics in all_data.items():
         for metric_name, time_ms in metrics.items():
             # Categorize metrics based on name
-            if "Chonk" in metric_name or "SumcheckChonk" in metric_name:
+            if "Chonk" in metric_name or "Chonk" in metric_name:
                 components["Main"][metric_name][cpu] = time_ms
             elif "ProtogalaxyProver" in metric_name:
                 components["ProtogalaxyProver"][metric_name][cpu] = time_ms

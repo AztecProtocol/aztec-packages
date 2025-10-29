@@ -11,7 +11,6 @@ import { EcAdd } from './ec_add.js';
 
 describe('EC Instructions', () => {
   let context: AvmContext;
-  const grumpkin: Grumpkin = new Grumpkin();
 
   beforeEach(() => {
     context = initContext();
@@ -46,8 +45,8 @@ describe('EC Instructions', () => {
     });
 
     it(`Should double correctly`, async () => {
-      const x = new Field(grumpkin.generator().x);
-      const y = new Field(grumpkin.generator().y);
+      const x = new Field(Grumpkin.generator.x);
+      const y = new Field(Grumpkin.generator.y);
       const zero = new Uint1(0);
 
       context.machineState.memory.set(0, x);
@@ -75,17 +74,17 @@ describe('EC Instructions', () => {
         context.machineState.memory.get(7).toFr(),
         pIsInfinite,
       );
-      const expected = await grumpkin.add(grumpkin.generator(), grumpkin.generator());
+      const expected = await Grumpkin.add(Grumpkin.generator, Grumpkin.generator);
       expect(actual).toEqual(expected);
       expect(context.machineState.memory.get(8).toFr().equals(Fr.ZERO)).toBe(true);
     });
 
     it('Should add correctly', async () => {
-      const G2 = await grumpkin.add(grumpkin.generator(), grumpkin.generator());
+      const G2 = await Grumpkin.add(Grumpkin.generator, Grumpkin.generator);
       const zero = new Uint1(0);
 
-      const x1 = new Field(grumpkin.generator().x);
-      const y1 = new Field(grumpkin.generator().y);
+      const x1 = new Field(Grumpkin.generator.x);
+      const y1 = new Field(Grumpkin.generator.y);
       const x2 = new Field(G2.x);
       const y2 = new Field(G2.y);
 
@@ -113,7 +112,7 @@ describe('EC Instructions', () => {
         context.machineState.memory.get(7).toFr(),
         false,
       );
-      const G3 = await grumpkin.add(grumpkin.generator(), G2);
+      const G3 = await Grumpkin.add(Grumpkin.generator, G2);
       expect(actual).toEqual(G3);
       expect(context.machineState.memory.get(8).toFr().equals(Fr.ZERO)).toBe(true);
     });

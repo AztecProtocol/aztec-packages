@@ -2,15 +2,15 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "barretenberg/serialize/msgpack_check_eq.hpp"
 #include <algorithm>
@@ -44,7 +44,7 @@ void write_standalone_vk(std::vector<uint8_t> bytecode, const std::filesystem::p
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
     // compute the hiding kernel's vk
-    info("SumcheckChonk: computing IVC vk for hiding kernel circuit");
+    info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response = bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute();
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
@@ -65,14 +65,14 @@ void ChonkAPI::prove(const Flags& flags,
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
     bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("SumcheckChonk: starting with ", raw_steps.size(), " circuits");
+    info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
         bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        info("SumcheckChonk: accumulating " + step.function_name);
+        info("Chonk: accumulating " + step.function_name);
         bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
     }
 
@@ -85,10 +85,10 @@ void ChonkAPI::prove(const Flags& flags,
     const auto write_proof = [&]() {
         const auto buf = to_buffer(proof.to_field_elements());
         if (output_to_stdout) {
-            vinfo("writing SumcheckChonk proof to stdout");
+            vinfo("writing Chonk proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
-            vinfo("writing SumcheckChonk proof in directory ", output_dir);
+            vinfo("writing Chonk proof in directory ", output_dir);
             write_file(output_dir / "proof", buf);
         }
     };
@@ -96,7 +96,7 @@ void ChonkAPI::prove(const Flags& flags,
     write_proof();
 
     if (flags.write_vk) {
-        vinfo("writing SumcheckChonk vk in directory ", output_dir);
+        vinfo("writing Chonk vk in directory ", output_dir);
         // write CHONK vk using the bytecode of the hiding circuit (the last step of the execution)
         write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
@@ -109,7 +109,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof_fields = many_from_buffer<fr>(read_file(proof_path));
-    auto proof = SumcheckChonk::Proof::from_field_elements(proof_fields);
+    auto proof = Chonk::Proof::from_field_elements(proof_fields);
 
     auto vk_buffer = read_file(vk_path);
 
@@ -123,11 +123,11 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<SumcheckChonk> ivc = steps.accumulate();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
 
     auto proof = ivc->prove();
-    const bool verified = SumcheckChonk::verify(proof, ivc->get_vk());
+    const bool verified = Chonk::verify(proof, ivc->get_vk());
     return verified;
 }
 

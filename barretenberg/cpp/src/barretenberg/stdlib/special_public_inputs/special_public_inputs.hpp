@@ -65,7 +65,7 @@ class KernelIO {
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
-    FF output_pg_accum_hash;        // hash of the output PG verifier accumulator
+    FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
@@ -90,7 +90,7 @@ class KernelIO {
             table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
             index += G1::PUBLIC_INPUTS_SIZE;
         }
-        output_pg_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
     }
 
@@ -100,7 +100,7 @@ class KernelIO {
      */
     void set_public()
     {
-        Builder* builder = output_pg_accum_hash.get_context();
+        Builder* builder = output_hn_accum_hash.get_context();
 
         if (pairing_inputs.P0.get_context() == nullptr) {
             // Add the default pairing points to the public inputs
@@ -113,8 +113,10 @@ class KernelIO {
         for (auto& table_commitment : ecc_op_tables) {
             table_commitment.set_public();
         }
-        output_pg_accum_hash.set_public();
+        output_hn_accum_hash.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -134,7 +136,7 @@ class KernelIO {
             table_commitment = G1(DEFAULT_ECC_COMMITMENT);
             table_commitment.convert_constant_to_fixed_witness(&builder);
         }
-        inputs.output_pg_accum_hash = FF::from_witness(&builder, typename FF::native(0));
+        inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.set_public();
     }
 };
@@ -180,6 +182,8 @@ template <typename Builder_> class DefaultIO {
 
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -239,11 +243,14 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+
         mega_hash.set_public();
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 };
@@ -308,6 +315,8 @@ template <class Builder_> class HidingKernelIO {
             commitment.set_public();
         }
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -380,6 +389,8 @@ class RollupIO {
         }
         ipa_claim.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }

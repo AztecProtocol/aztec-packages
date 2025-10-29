@@ -10,6 +10,7 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <gtest/gtest.h>
@@ -136,11 +137,12 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),
                                                                                   stdlib_verifier_transcript);
-        auto pairing_points = KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript);
+        stdlib::recursion::PairingPoints<Builder> pairing_points(
+            KZG<Curve>::reduce_verify_batch_opening_claim(opening_claim, stdlib_verifier_transcript));
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         VerifierCommitmentKey<NativeCurve> vk;
-        EXPECT_EQ(vk.pairing_check(pairing_points[0].get_value(), pairing_points[1].get_value()), true);
+        EXPECT_EQ(vk.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value()), true);
 
         // Return finalized number of gates;
         return builder.num_gates();

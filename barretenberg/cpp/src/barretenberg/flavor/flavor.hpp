@@ -461,7 +461,7 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
  *
  * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
  * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
- * UltraArithmeticRelation, which is made up by two subrelations).
+ * ArithmeticRelation, which is made up by two subrelations).
  *
  * @tparam RelationsTuple
  */

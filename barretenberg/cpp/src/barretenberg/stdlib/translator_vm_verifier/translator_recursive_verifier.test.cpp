@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/translator_circuit_checker.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/translator_vm/translator_verifier.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -115,7 +116,10 @@ class TranslatorRecursiveTests : public ::testing::Test {
         RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };
         typename RecursiveVerifier::PairingPoints pairing_points =
             verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
-        pairing_points.set_public();
+
+        stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+        inputs.pairing_inputs = pairing_points;
+        inputs.set_public();
         info("Recursive Verifier: num gates = ", outer_circuit.num_gates());
 
         // Check for a failure flag in the recursive verifier circuit
@@ -198,7 +202,10 @@ class TranslatorRecursiveTests : public ::testing::Test {
             transcript->add_to_hash_buffer("batching_challenge_v", stdlib_batching_challenge_v);
             typename RecursiveVerifier::PairingPoints pairing_points =
                 verifier.verify_proof(inner_proof, stdlib_evaluation_challenge_x, stdlib_batching_challenge_v);
-            pairing_points.set_public();
+
+            stdlib::recursion::honk::DefaultIO<OuterBuilder> inputs;
+            inputs.pairing_inputs = pairing_points;
+            inputs.set_public();
 
             auto outer_proving_key = std::make_shared<OuterProverInstance>(outer_circuit);
             auto outer_verification_key =
