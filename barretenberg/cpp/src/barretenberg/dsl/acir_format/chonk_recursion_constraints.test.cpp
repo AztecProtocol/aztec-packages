@@ -71,7 +71,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
                                                .proof = proof_indices,
                                                .public_inputs = public_inputs_indices,
                                                .key_hash = key_hash_index,
-                                               .proof_type = PROOF_TYPE::Chonk };
+                                               .proof_type = PROOF_TYPE::CHONK };
 
         // Construct a constraint system
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());

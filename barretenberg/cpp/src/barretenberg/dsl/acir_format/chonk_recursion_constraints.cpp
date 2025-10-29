@@ -91,7 +91,7 @@ create_civc_recursion_constraints(Builder& builder,
     using VerificationKey = ClientIVCRecursiveVerifier::RecursiveVK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::Chonk);
+    BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
 
     // Reconstruct proof indices from proof and public inputs
     std::vector<uint32_t> proof_indices =

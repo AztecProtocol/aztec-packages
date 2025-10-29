@@ -68,16 +68,16 @@ void ChonkAPI::prove(const Flags& flags,
     bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
-        bbapi::ChonkLoad{
+        bbapi::ClientIvcLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
-        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
+        bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto proof = bbapi::ChonkProve{}.execute(request).proof;
+    auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -110,7 +110,7 @@ bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof = Chonk::Proof::from_file_msgpack(proof_path);
     auto vk_buffer = read_file(vk_path);
-    auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
+    auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
 
@@ -153,7 +153,7 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        auto response = bbapi::ChonkCheckPrecomputedVk{
+        auto response = bbapi::ClientIvcCheckPrecomputedVk{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute();
 
@@ -204,8 +204,8 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
-                                       .include_gates_per_opcode = include_gates_per_opcode }
+    auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+                                           .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 
     // Build the circuit report. It always has one function, corresponding to the ACIR constraint systems.
