@@ -12,9 +12,6 @@ NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 labels="${1:-}"
 
 echo_header "CI3 Main Script"
-echo "Labels: ${labels}"
-
-echo ""
 echo_header "Setup"
 
 # Store GCP key
@@ -38,7 +35,7 @@ target_branch="${target_branch#refs/heads/}"
 echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
 echo "Target branch: ${target_branch}"
 
-# Set instance postfix for merge-train PRs
+# To allow full concurrency, we set instance postfix for merge-train PRs
 if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
   echo "INSTANCE_POSTFIX=${PR_COMMITS:-}" >> $GITHUB_ENV
   echo "Instance postfix set to: ${PR_COMMITS:-}"
@@ -52,8 +49,8 @@ if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
   echo "SSH key configured"
 fi
 
-echo ""
 echo_header "Label Processing"
+echo "Labels: ${labels}"
 
 # Parse labels into array
 IFS=',' read -ra label_array <<< "${labels}"
