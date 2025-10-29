@@ -477,8 +477,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export RELEASE_TEST=1
     export AZTEC_RELEASE_REPO="${AZTEC_RELEASE_REPO:-aztec-dev}"
-    # Generate a test version tag using commit hash
-    export REF_NAME="v0.0.1-test-$(git rev-parse --short=7 HEAD)"
+    # Use a short fake version to avoid exceeding bb binary placeholder length
+    export REF_NAME="v0.0.1-fake"
     echo "Running release test with fake version: $REF_NAME"
     echo "Note: RELEASE_TEST=1 will prevent pushing tags starting with 'v'"
     echo "Publishing to namespace: @${AZTEC_RELEASE_REPO} and aztecprotocol/${AZTEC_RELEASE_REPO}"
