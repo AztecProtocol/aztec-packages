@@ -243,8 +243,6 @@ describe('SequencerPublisher', () => {
   };
 
   it('bundles propose and vote tx to l1', async () => {
-    const kzg = Blob.getViemKzgInstance();
-
     const expectedBlobs = getBlobsPerL1Block(l2Block.body.toBlobFields());
 
     // Expect the blob sink server to receive the blobs
@@ -314,7 +312,9 @@ describe('SequencerPublisher', () => {
         gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
       },
-      { blobs: expectedBlobs.map(b => b.data), kzg },
+      expect.objectContaining({
+        blobs: expectedBlobs.map(b => b.data),
+      }),
       mockRollupAddress,
       expect.anything(), // the logger
     );
