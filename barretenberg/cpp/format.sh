@@ -7,22 +7,18 @@ function format_files {
 
 if [ "$1" == "staged" ]; then
   echo Formatting barretenberg staged files...
-  files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD | \
-    grep -e '\.\(cpp\|hpp\|tcc\)$')
+  files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
   format_files "$files"
   git add $files
 elif [ "$1" == "changed" ]; then
   echo Formatting barretenberg changed files...
-  files=$(git diff-index --diff-filter=d --relative --name-only HEAD | \
-    grep -e '\.\(cpp\|hpp\|tcc\)$')
+  files=$(git diff-index --diff-filter=d --relative --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
   format_files "$files"
 elif [ "$1" == "check" ]; then
-  files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | \
-    grep -v src/msgpack-c | grep -v bb/deps)
+  files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc | grep -v bb/deps)
   echo "$files" | parallel -N10 clang-format-20 --dry-run --Werror
 elif [ -n "$1" ]; then
-  files=$(git diff-index --relative --name-only $1 | \
-    grep -e '\.\(cpp\|hpp\|tcc\)$')
+  files=$(git diff-index --relative --name-only $1 | grep -e '\.\(cpp\|hpp\|tcc\)$')
   format_files "$files"
 else
   files=$(find ./src -iname *.hpp -o -iname *.cpp -o -iname *.tcc)

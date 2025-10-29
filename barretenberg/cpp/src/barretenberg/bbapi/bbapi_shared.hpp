@@ -28,7 +28,7 @@ enum class VkPolicy {
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (Chonk+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
