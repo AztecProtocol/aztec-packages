@@ -10,6 +10,7 @@
 
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
@@ -477,8 +478,12 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
 {
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    HintingContractsDB hinting_contracts_db(raw_contract_db);
-    HintingRawDB hinting_raw_db(raw_merkle_db);
+    // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters:
+    MappedContractHints contract_hints;
+    MappedQueryHints query_hints;
+
+    HintingContractsDB hinting_contracts_db(raw_contract_db, contract_hints);
+    HintingRawDB hinting_raw_db(raw_merkle_db, query_hints);
     auto result =
         simulate_fast(hinting_contracts_db, hinting_raw_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 

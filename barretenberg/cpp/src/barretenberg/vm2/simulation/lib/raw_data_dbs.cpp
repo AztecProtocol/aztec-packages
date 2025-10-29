@@ -112,7 +112,7 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
     }
 }
 
-std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const AztecAddress& address)
+std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
     uint32_t hint_key = action_counter;
     auto key = std::make_tuple(hint_key, address);
@@ -139,7 +139,7 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
     });
 }
 
-std::optional<ContractClass> HintedRawContractDB::get_contract_class(const ContractClassId& class_id)
+std::optional<ContractClass> HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
     uint32_t hint_key = action_counter;
     auto key = std::make_tuple(hint_key, class_id);
@@ -336,7 +336,7 @@ AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTree
     return get_tree_info_helper(tree_id, tree_roots);
 }
 
-SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index)
+SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
@@ -355,7 +355,8 @@ SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_i
     return it->second;
 }
 
-GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id, const FF& value)
+GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                  const FF& value) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
@@ -374,7 +375,7 @@ GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::M
     return it->second;
 }
 
-FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index)
+FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
@@ -393,7 +394,7 @@ FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t 
     return it->second;
 }
 
-IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index)
+IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -410,7 +411,7 @@ IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_dat
     return it->second;
 }
 
-IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index)
+IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -725,17 +726,17 @@ TreeSnapshots PureRawMerkleDB::get_tree_roots() const
     };
 }
 
-SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index)
+SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
 {
     return ws_instance.get_sibling_path(ws_revision, tree_id, leaf_index);
 }
 
-GetLowIndexedLeafResponse PureRawMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value)
+GetLowIndexedLeafResponse PureRawMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
 {
     return ws_instance.find_low_leaf_index(ws_revision, tree_id, value);
 }
 
-FF PureRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index)
+FF PureRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
 {
     std::optional<FF> res = ws_instance.get_leaf<FF>(ws_revision, tree_id, leaf_index);
     // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
@@ -746,7 +747,7 @@ FF PureRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index)
     return res.value();
 }
 
-IndexedLeaf<PublicDataLeafValue> PureRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index)
+IndexedLeaf<PublicDataLeafValue> PureRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
     std::optional<IndexedLeaf<PublicDataLeafValue>> res =
         ws_instance.get_indexed_leaf<PublicDataLeafValue>(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
@@ -757,7 +758,7 @@ IndexedLeaf<PublicDataLeafValue> PureRawMerkleDB::get_leaf_preimage_public_data_
     return res.value();
 }
 
-IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index)
+IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
     std::optional<IndexedLeaf<NullifierLeafValue>> res =
         ws_instance.get_indexed_leaf<NullifierLeafValue>(ws_revision, MerkleTreeId::NULLIFIER_TREE, leaf_index);

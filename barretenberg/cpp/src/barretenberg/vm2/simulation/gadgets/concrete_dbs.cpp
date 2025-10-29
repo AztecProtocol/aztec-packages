@@ -7,7 +7,7 @@
 namespace bb::avm2::simulation {
 
 // Contracts DB starts.
-std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address)
+std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address) const
 {
     std::optional<ContractInstance> instance = raw_contract_db.get_contract_instance(address);
     // If we didn't get a contract instance, we don't prove anything.
@@ -26,7 +26,7 @@ std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAdd
     return instance;
 }
 
-std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id)
+std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassId& class_id) const
 {
     // Get the contract class from the raw DB.
     std::optional<ContractClass> maybe_klass = raw_contract_db.get_contract_class(class_id);

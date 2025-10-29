@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 
-#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -10,10 +9,8 @@
 
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_contract_instance_retrieval.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
@@ -41,7 +38,7 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, const auto& tree_r
 } // namespace
 
 // HintingContractsDB starts.
-std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const AztecAddress& address)
+std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const AztecAddress& address) const
 {
     info("HintingContractsDB get_contract_instance");
     auto instance = db.get_contract_instance(address);
@@ -49,7 +46,7 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
     // here we simply don't store any hint:
     if (instance.has_value()) {
         // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        contract_instances[address] = ContractInstanceHint{
+        mapped_hints.contract_instances[address] = ContractInstanceHint{
             .address = address,
             .salt = instance->salt,
             .deployer = instance->deployer_addr,
@@ -67,7 +64,7 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
     return instance;
 }
 
-std::optional<ContractClass> HintingContractsDB::get_contract_class(const ContractClassId& class_id)
+std::optional<ContractClass> HintingContractsDB::get_contract_class(const ContractClassId& class_id) const
 {
     info("HintingContractsDB get_contract_class");
     auto klass = db.get_contract_class(class_id);
@@ -75,7 +72,7 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
     // here we simply don't store any hint:
     if (klass.has_value()) {
         // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        contract_classes[class_id] = ContractClassHint{
+        mapped_hints.contract_classes[class_id] = ContractClassHint{
             .classId = class_id,
             .artifactHash = klass->artifact_hash,
             .privateFunctionsRoot = klass->private_function_root,
@@ -83,7 +80,7 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
         };
         // Note: HintedRawContractDB accesses the bytecode commitment 'hint' during get_contract_class, so following
         // same logic here:
-        bytecode_commitments[class_id] =
+        mapped_hints.bytecode_commitments[class_id] =
             BytecodeCommitmentHint{ .classId = class_id, .commitment = klass->public_bytecode_commitment };
     }
 
@@ -93,13 +90,13 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
 {
     // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& contract_instance : contract_instances) {
+    for (const auto& contract_instance : mapped_hints.contract_instances) {
         hints.contractInstances.push_back(contract_instance.second);
     }
-    for (const auto& contract_class : contract_classes) {
+    for (const auto& contract_class : mapped_hints.contract_classes) {
         hints.contractClasses.push_back(contract_class.second);
     }
-    for (const auto& bytecode_commitment : bytecode_commitments) {
+    for (const auto& bytecode_commitment : mapped_hints.bytecode_commitments) {
         hints.bytecodeCommitments.push_back(bytecode_commitment.second);
     }
 }
@@ -110,61 +107,61 @@ const AppendOnlyTreeSnapshot& HintingRawDB::get_tree_info(world_state::MerkleTre
     return get_tree_info_helper(tree_id, db.get_tree_roots());
 }
 
-SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index)
+SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     info("HintingRawDB get_sib: ", leaf_index);
     auto tree_info = get_tree_info(tree_id);
     auto path = db.get_sibling_path(tree_id, leaf_index);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
-    get_sibling_path_hints[key] = path;
+    query_hints.get_sibling_path_hints[key] = path;
 
     return path;
 }
 
-GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id, const FF& value)
+GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id, const FF& value) const
 {
     info("HintingRawDB get_low_indexed_leaf");
     auto tree_info = get_tree_info(tree_id);
     auto resp = db.get_low_indexed_leaf(tree_id, value);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
-    get_previous_value_index_hints[key] = { resp.is_already_present, resp.index };
+    query_hints.get_previous_value_index_hints[key] = { resp.is_already_present, resp.index };
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, resp.index);
     return resp;
 }
 
-FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index)
+FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     info("HintingRawDB get_leaf_value");
     auto tree_info = get_tree_info(tree_id);
     auto value = db.get_leaf_value(tree_id, leaf_index);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
-    get_leaf_value_hints[key] = value;
+    query_hints.get_leaf_value_hints[key] = value;
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, leaf_index);
     return value;
 }
 
-IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tree(index_t leaf_index)
+IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
     info("HintingRawDB get_leaf_preimage_public_data_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     auto preimage = db.get_leaf_preimage_public_data_tree(leaf_index);
 
     GetLeafPreimageKey key = { tree_info, leaf_index };
-    get_leaf_preimage_hints_public_data_tree[key] = preimage;
+    query_hints.get_leaf_preimage_hints_public_data_tree[key] = preimage;
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
     return preimage;
 }
 
-IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(index_t leaf_index)
+IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
     info("HintingRawDB get_leaf_preimage_nullifier_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     auto preimage = db.get_leaf_preimage_nullifier_tree(leaf_index);
     GetLeafPreimageKey key = { tree_info, leaf_index };
-    get_leaf_preimage_hints_nullifier_tree[key] = preimage;
+    query_hints.get_leaf_preimage_hints_nullifier_tree[key] = preimage;
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, leaf_index);
     return preimage;
@@ -320,12 +317,12 @@ AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(AppendOnlyTreeSnapshot s
 void HintingRawDB::dump_hints(ExecutionHints& hints)
 {
     // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& get_sibling_path_hint : get_sibling_path_hints) {
+    for (const auto& get_sibling_path_hint : query_hints.get_sibling_path_hints) {
         auto [hint_key, tree_id, index] = get_sibling_path_hint.first;
         hints.getSiblingPathHints.push_back(GetSiblingPathHint{
             .hintKey = hint_key, .treeId = tree_id, .index = index, .path = get_sibling_path_hint.second });
     }
-    for (const auto& get_previous_value_index_hint : get_previous_value_index_hints) {
+    for (const auto& get_previous_value_index_hint : query_hints.get_previous_value_index_hints) {
         auto [hint_key, tree_id, value] = get_previous_value_index_hint.first;
         hints.getPreviousValueIndexHints.push_back(GetPreviousValueIndexHint{
             .hintKey = hint_key,
@@ -335,17 +332,17 @@ void HintingRawDB::dump_hints(ExecutionHints& hints)
             .alreadyPresent = get_previous_value_index_hint.second.is_already_present,
         });
     }
-    for (const auto& get_leaf_preimage_hint : get_leaf_preimage_hints_public_data_tree) {
+    for (const auto& get_leaf_preimage_hint : query_hints.get_leaf_preimage_hints_public_data_tree) {
         auto [hint_key, index] = get_leaf_preimage_hint.first;
         hints.getLeafPreimageHintsPublicDataTree.push_back(
             { .hintKey = hint_key, .index = index, .leafPreimage = get_leaf_preimage_hint.second });
     }
-    for (const auto& get_leaf_preimage_hint : get_leaf_preimage_hints_nullifier_tree) {
+    for (const auto& get_leaf_preimage_hint : query_hints.get_leaf_preimage_hints_nullifier_tree) {
         auto [hint_key, index] = get_leaf_preimage_hint.first;
         hints.getLeafPreimageHintsNullifierTree.push_back(
             { .hintKey = hint_key, .index = index, .leafPreimage = get_leaf_preimage_hint.second });
     }
-    for (const auto& get_leaf_value_hint : get_leaf_value_hints) {
+    for (const auto& get_leaf_value_hint : query_hints.get_leaf_value_hints) {
         auto [hint_key, tree_id, index] = get_leaf_value_hint.first;
         hints.getLeafValueHints.push_back(GetLeafValueHint{
             .hintKey = hint_key, .treeId = tree_id, .index = index, .value = get_leaf_value_hint.second });

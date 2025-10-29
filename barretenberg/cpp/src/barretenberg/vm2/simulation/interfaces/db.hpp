@@ -54,13 +54,13 @@ class LowLevelMerkleDBInterface {
 
     virtual TreeSnapshots get_tree_roots() const = 0;
 
-    virtual SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) = 0;
-    virtual GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) = 0;
+    virtual SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const = 0;
+    virtual GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const = 0;
     // Returns the value if it exists, 0 otherwise.
-    virtual FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) = 0;
+    virtual FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const = 0;
     // We don't template the preimage methods because templated methods cannot be virtual.
-    virtual IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) = 0;
-    virtual IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) = 0;
+    virtual IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const = 0;
+    virtual IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const = 0;
 
     virtual SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
         const PublicDataLeafValue& leaf_value) = 0;

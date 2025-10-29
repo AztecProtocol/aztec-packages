@@ -65,11 +65,11 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     TreeSnapshots get_tree_roots() const override { return tree_roots; }
 
     // Query methods.
-    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) override;
-    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) override;
-    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) override;
-    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) override;
-    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) override;
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
 
     // State modification methods.
     SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
@@ -92,23 +92,16 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     std::stack<uint32_t> checkpoint_stack{ { 0 } };
 
     // Query hints.
-    using GetSiblingPathKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
     unordered_flat_map<GetSiblingPathKey, SiblingPath> get_sibling_path_hints;
-    using GetPreviousValueIndexKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, FF>;
     unordered_flat_map<GetPreviousValueIndexKey, GetLowIndexedLeafResponse> get_previous_value_index_hints;
-    using GetLeafPreimageKey = std::tuple<AppendOnlyTreeSnapshot, index_t>;
     unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<PublicDataLeafValue>> get_leaf_preimage_hints_public_data_tree;
     unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<NullifierLeafValue>> get_leaf_preimage_hints_nullifier_tree;
-    using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, index_t>;
     unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
     // State modification hints.
-    using SequentialInsertHintPublicDataTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataLeafValue>;
     unordered_flat_map<SequentialInsertHintPublicDataTreeKey, SequentialInsertHint<PublicDataLeafValue>>
         sequential_insert_hints_public_data_tree;
-    using SequentialInsertHintNullifierTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, NullifierLeafValue>;
     unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
-    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, std::vector<FF>>;
     unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
@@ -134,11 +127,11 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
     TreeSnapshots get_tree_roots() const override;
 
     // Query methods.
-    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) override;
-    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) override;
-    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) override;
-    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) override;
-    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) override;
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
 
     // State modification methods.
     SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
