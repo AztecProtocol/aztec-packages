@@ -175,6 +175,51 @@ TEST_F(AluIntegrationTest, mulWithTagU128Mismatch)
     check_all_interactions<AluTraceBuilder>(trace);
 }
 
+// Test values from fuzzer which triggered a bug related to cf computation.
+TEST_F(AluIntegrationTest, mulU128FuzzBug1Cf0)
+{
+    // We need a * b_lo + a_lo * b_hi * 2^64 < 2^192 for cf = 0
+    uint256_t a_ff = uint256_t("0x000000000000000000000000000000003c18fbdb47886300e90ed3f8e4b4b4b1");
+    uint256_t b_ff = uint256_t("0x000000000000000000000000000000008eb2fbdb4724e898de03c8ed45033bb1");
+
+    uint256_t product = a_ff * (b_ff & MASK_64) + (((a_ff & MASK_64) * (b_ff >> 64)) >> 64);
+    ASSERT_LT(product, uint256_t(1) << 192);
+
+    auto a = MemoryValue::from_tag(MemoryTag::U128, a_ff);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, b_ff);
+    alu_simulator.mul(a, b);
+
+    TestTraceContainer trace;
+    process_events(trace);
+
+    EXPECT_EQ(trace.get(Column::alu_cf, 0), 0);
+
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluIntegrationTest, mulU128Cf1)
+{
+    // We need a * b_lo + a_lo * b_hi * 2^64 >= 2^192 for cf = 1
+    uint256_t a_ff = uint256_t("0x00000000000000000000000000000000ff18fbdb47886300fffed3f8e4b4b4b1");
+    uint256_t b_ff = uint256_t("0x00000000000000000000000000000000ffb2fbdb4724e898fff3c8ed45033bb1");
+
+    uint256_t product = a_ff * (b_ff & MASK_64) + (((a_ff & MASK_64) * (b_ff >> 64)) << 64);
+    ASSERT_GT(product, uint256_t(1) << 192);
+
+    auto a = MemoryValue::from_tag(MemoryTag::U128, a_ff);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, b_ff);
+    alu_simulator.mul(a, b);
+
+    TestTraceContainer trace;
+    process_events(trace);
+
+    EXPECT_EQ(trace.get(Column::alu_cf, 0), 1);
+
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
 // DIV operations
 
 TEST_F(AluIntegrationTest, divBasicCase)

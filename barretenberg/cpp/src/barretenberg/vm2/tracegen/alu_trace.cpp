@@ -86,25 +86,26 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         if (!has_error) {
             if (is_u128) {
                 // For u128s, we decompose a and b into 64 bit chunks:
-                auto a_decomp = simulation::decompose_128(static_cast<uint128_t>(event.a.as_ff()));
-                auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(event.b.as_ff()));
-                // c_hi = old_c_hi - a_hi * b_hi % 2^64
-                auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-                res.insert(
-                    res.end(),
-                    {
-                        { Column::alu_sel_mul_u128, 1 },
-                        { Column::alu_sel_mul_div_u128, 1 },
-                        { Column::alu_sel_decompose_a, 1 },
-                        { Column::alu_a_lo, a_decomp.lo },
-                        { Column::alu_a_lo_bits, 64 },
-                        { Column::alu_a_hi, a_decomp.hi },
-                        { Column::alu_a_hi_bits, 64 },
-                        { Column::alu_b_lo, b_decomp.lo },
-                        { Column::alu_b_hi, b_decomp.hi },
-                        { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) & static_cast<uint256_t>(MASK_64) },
-                        { Column::alu_cf, hi_operand == 0 ? 0 : 1 },
-                    });
+                auto a_decomp = simulation::decompose_128(static_cast<uint128_t>(a_int));
+                auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(b_int));
+                // c_hi = (c_hi_full - a_hi * b_hi) % 2^64 (see alu.pil for more details)
+                // cf == (c_hi_full - a_hi * b_hi)/2^64
+                uint256_t hi_operand = (((a_int * b_int) >> 128) -
+                                        static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi));
+                res.insert(res.end(),
+                           {
+                               { Column::alu_sel_mul_u128, 1 },
+                               { Column::alu_sel_mul_div_u128, 1 },
+                               { Column::alu_sel_decompose_a, 1 },
+                               { Column::alu_a_lo_bits, 64 },
+                               { Column::alu_a_hi_bits, 64 },
+                               { Column::alu_a_lo, a_decomp.lo },
+                               { Column::alu_a_hi, a_decomp.hi },
+                               { Column::alu_b_lo, b_decomp.lo },
+                               { Column::alu_b_hi, b_decomp.hi },
+                               { Column::alu_c_hi, hi_operand & static_cast<uint256_t>(MASK_64) },
+                               { Column::alu_cf, hi_operand >> 64 },
+                           });
             } else {
                 // For non-u128s, we just take the top bits of a*b:
                 res.insert(res.end(),
@@ -140,10 +141,10 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                        {
                            { Column::alu_sel_mul_div_u128, 1 },
                            { Column::alu_sel_decompose_a, 1 },
-                           { Column::alu_a_lo, c_decomp.lo },
                            { Column::alu_a_lo_bits, 64 },
-                           { Column::alu_a_hi, c_decomp.hi },
                            { Column::alu_a_hi_bits, 64 },
+                           { Column::alu_a_lo, c_decomp.lo },
+                           { Column::alu_a_hi, c_decomp.hi },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                        });

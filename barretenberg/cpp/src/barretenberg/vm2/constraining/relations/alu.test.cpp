@@ -648,8 +648,10 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
     auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
 
     // c_hi = old_c_hi - a_hi * b_hi % 2^64
-    auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-    auto c_hi = ((overflow_c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
+    uint256_t hi_operand =
+        ((overflow_c_int >> 128) - static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi));
+    auto c_hi = hi_operand % (uint256_t(1) << 64);
+    auto cf = hi_operand >> 64;
     auto trace = TestTraceContainer({
         {
             { C::alu_a_hi, a_decomp.hi },
@@ -659,7 +661,7 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::alu_b_hi, b_decomp.hi },
             { C::alu_b_lo, b_decomp.lo },
             { C::alu_c_hi, c_hi },
-            { C::alu_cf, 1 }, // a * b overflows
+            { C::alu_cf, cf },
             { C::alu_constant_64, 64 },
             { C::alu_ia, a },
             { C::alu_ia_tag, tag },
