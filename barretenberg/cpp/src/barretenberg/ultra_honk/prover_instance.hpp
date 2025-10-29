@@ -143,7 +143,8 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                   circuit.pairing_points_tagging.num_unique_pairing_points(),
                   " different pairing points.");
         // Check pairing point tagging: check that the pairing points have been set to public
-        BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points(),
+        BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points() ||
+                      !circuit.pairing_points_tagging.has_pairing_points(),
                   "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
 
         // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
