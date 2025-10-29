@@ -7,7 +7,7 @@ set -euo pipefail
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-setup_environment() {
+function setup_environment {
   echo_header "Setup"
   # Store GCP key
   if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
@@ -27,10 +27,12 @@ setup_environment() {
     target_branch="${GITHUB_REF_NAME:-}"
   fi
   target_branch="${target_branch#refs/heads/}"
+  export TARGET_BRANCH="${target_branch}"
   echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
   echo "Target branch: ${target_branch}"
   # To allow full concurrency, we set instance postfix for merge-train PRs
   if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
+    export INSTANCE_POSTFIX="${PR_COMMITS:-}"
     echo "INSTANCE_POSTFIX=${PR_COMMITS:-}" >> $GITHUB_ENV
     echo "Instance postfix set to: ${PR_COMMITS:-}"
   fi
@@ -43,7 +45,7 @@ setup_environment() {
   fi
 }
 
-process_labels() {
+function process_labels {
   local labels="$1"
   echo_header "Label Processing"
   echo "Labels: ${labels}"
@@ -79,7 +81,7 @@ process_labels() {
   done
 }
 
-determine_ci_mode() {
+function determine_ci_mode {
   echo_header "CI Mode Determination"
   # Determine CI mode
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
@@ -97,11 +99,12 @@ determine_ci_mode() {
   else
     ci_mode="fast"
   fi
-  echo "CI mode: ${ci_mode}"
+  export CI_MODE="${ci_mode}"
   echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
+  echo "CI mode: ${ci_mode}"
 }
 
-check_cache() {
+function check_cache {
   local ci_mode="$1"
   echo_header "Cache Check"
   # Check cache (unless disabled)
@@ -117,7 +120,7 @@ check_cache() {
   echo "Cache miss, running CI in ${ci_mode} mode..."
 }
 
-main() {
+function main {
   local labels="${1:-}"
   echo_header "CI3 Main Script"
   setup_environment

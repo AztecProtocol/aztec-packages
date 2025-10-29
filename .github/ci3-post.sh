@@ -3,7 +3,7 @@ set -euo pipefail
 
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-save_cache() {
+function save_cache {
   local ci_mode="$1"
   local github_repository="$2"
   # Save CI success marker for cache
@@ -15,7 +15,7 @@ save_cache() {
   cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
 }
 
-handle_squash_merge() {
+function handle_squash_merge {
   local github_repository="$1"
   if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ]; then
     return
@@ -41,7 +41,7 @@ handle_squash_merge() {
   echo "Squash and merge completed"
 }
 
-handle_benchmarks() {
+function handle_benchmarks {
   if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ] || [ "${CI_INTERNAL:-0}" -eq 0 ]; then
     return
   fi
@@ -51,7 +51,7 @@ handle_benchmarks() {
   echo "Benchmarks download complete - upload will be handled by GitHub Action"
 }
 
-main() {
+function main {
   echo_header "CI3 Post-Actions"
   # Read CI mode from env vars set by ci3.sh
   local ci_mode="${CI_MODE:-fast}"
