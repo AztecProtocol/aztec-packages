@@ -78,6 +78,10 @@ jobs:
         if: contains(github.event.pull_request.labels.*.name, 'barretenberg-ci') || (github.event.pull_request.base.ref == 'merge-train/barretenberg')
         run: echo "CI_BARRETENBERG=1" >> $GITHUB_ENV
 
+      - name: CI Release Test Override
+        if: contains(github.event.pull_request.labels.*.name, 'ci-release-test')
+        run: echo "CI_RELEASE_TEST=1" >> $GITHUB_ENV
+
       # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
       - name: Set Instance Postfix for merge-train
         if: startsWith(github.event.pull_request.head.ref, 'merge-train/')
@@ -142,6 +146,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" == "merge_group" ] || [ "${CI_MERGE_QUEUE:-0}" -eq 1 ]; then
             exec ./ci.sh merge-queue
+          elif [ "${CI_RELEASE_TEST:-0}" -eq 1 ]; then
+            exec ./ci.sh release-test
           elif [ "${CI_FULL:-0}" -eq 1 ]; then
             exec ./ci.sh full
           elif [ "${CI_DOCS:-0}" -eq 1 ]; then

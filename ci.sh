@@ -176,6 +176,18 @@ case "$cmd" in
       'run x-release amd64' \
       'run a-release arm64' | DUP=1 cache_log "Release CI run" $RUN_ID
     ;;
+  "release-test")
+    prep_vars
+    # Spin up ec2 instance and run the release test flow.
+    run() {
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-test'"
+    }
+    export -f run
+    # We need to run the release test flow on both x86 and arm64.
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release-test amd64' \
+      'run a-release-test arm64' | DUP=1 cache_log "Release test CI run" $RUN_ID
+    ;;
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.

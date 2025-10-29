@@ -472,6 +472,17 @@ case "$cmd" in
     build
     release
     ;;
+  "ci-release-test")
+    export CI=1
+    export USE_TEST_CACHE=1
+    export RELEASE_TEST=1
+    # Generate a test version tag using commit hash
+    export REF_NAME="v0.0.1-test-$(git rev-parse --short=7 HEAD)"
+    echo "Running release test with fake version: $REF_NAME"
+    echo "Note: RELEASE_TEST=1 will prevent pushing tags starting with 'v'"
+    build
+    release
+    ;;
   "ci-docs")
     export CI=1
     export USE_TEST_CACHE=1

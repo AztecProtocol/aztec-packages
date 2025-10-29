@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
-if [ ${DRY_RUN:-0} = 0 ]; then
-  exec "$@"
-else
+if [ ${DRY_RUN:-0} = 1 ]; then
   echo "DRY: $@"
+  exit 0
 fi
+
+# In RELEASE_TEST mode, prevent pushing tags or creating releases that start with 'v'
+if [ ${RELEASE_TEST:-0} = 1 ]; then
+  # Check if this is a git push with a tag starting with 'v', or a gh release create with a tag starting with 'v'
+  if [[ "$*" =~ git\ push.*\ v[0-9] ]] || [[ "$*" =~ gh\ release\ create\ v[0-9] ]]; then
+    echo "RELEASE_TEST: Skipping command that would push/create tag starting with 'v': $@"
+    exit 0
+  fi
+fi
+
+exec "$@"
