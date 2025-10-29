@@ -39,9 +39,9 @@ pub contract PrivateVoting {
     #[initializer]
     // annotation to mark function as a constructor
     fn constructor(admin: AztecAddress) {
-        storage.admin.write(admin);
-        storage.vote_ended.write(false);
-        storage.active_at_block.initialize(context.block_number());
+        self.storage.admin.write(admin);
+        self.storage.vote_ended.write(false);
+        self.storage.active_at_block.initialize(self.context.block_number());
     }
     // docs:end:constructor
 
@@ -49,31 +49,32 @@ pub contract PrivateVoting {
     // annotation to mark function as private and expose private context
     fn cast_vote(candidate: Field) {
         let msg_sender_nullifier_public_key_message_hash =
-            get_public_keys(context.msg_sender().unwrap()).npk_m.hash();
+            get_public_keys(self.msg_sender().unwrap()).npk_m.hash();
 
-        let secret = context.request_nsk_app(msg_sender_nullifier_public_key_message_hash); // get secret key of caller of function
-        let nullifier = poseidon2_hash([context.msg_sender().unwrap().to_field(), secret]); // derive nullifier from sender and secret
-        context.push_nullifier(nullifier);
-        PrivateVoting::at(context.this_address()).add_to_tally_public(candidate).enqueue(
-            &mut context,
-        );
+        let secret = self.context.request_nsk_app(msg_sender_nullifier_public_key_message_hash); // get secret key of caller of function
+        let nullifier = poseidon2_hash([self.msg_sender().unwrap().to_field(), secret]); // derive nullifier from sender and secret
+        self.context.push_nullifier(nullifier);
+        PrivateVoting::at(self.address).add_to_tally_public(candidate).enqueue(self.context);
     }
 
     #[external("public")]
     #[internal]
     fn add_to_tally_public(candidate: Field) {
-        assert(storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
-        let new_tally = storage.tally.at(candidate).read() + 1;
-        storage.tally.at(candidate).write(new_tally);
+        assert(self.storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
+        let new_tally = self.storage.tally.at(candidate).read() + 1;
+        self.storage.tally.at(candidate).write(new_tally);
     }
 
     #[external("public")]
     fn end_vote() {
-        assert(storage.admin.read().eq(context.msg_sender().unwrap()), "Only admin can end votes"); // assert that caller is admin
-        storage.vote_ended.write(true);
+        assert(
+            self.storage.admin.read().eq(self.msg_sender().unwrap()),
+            "Only admin can end votes",
+        ); // assert that caller is admin
+        self.storage.vote_ended.write(true);
     }
     #[external("utility")]
     unconstrained fn get_vote(candidate: Field) -> Field {
-        storage.tally.at(candidate).read()
+        self.storage.tally.at(candidate).read()
     }
 }

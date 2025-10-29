@@ -49,7 +49,7 @@ pub contract Lending {
         collateral_asset: AztecAddress,
         stable_coin: AztecAddress,
     ) {
-        let asset_loc = storage.assets.at(0);
+        let asset_loc = self.storage.assets.at(0);
         let asset: Asset = asset_loc.read();
 
         let loan_to_value = loan_to_value;
@@ -58,7 +58,7 @@ pub contract Lending {
         assert(asset.last_updated_ts == 0);
         assert(asset.interest_accumulator == 0 as u128);
 
-        let last_updated_ts = context.timestamp();
+        let last_updated_ts = self.context.timestamp();
 
         asset_loc.write(
             Asset {
@@ -69,17 +69,17 @@ pub contract Lending {
             },
         );
 
-        storage.collateral_asset.write(collateral_asset);
-        storage.stable_coin.write(stable_coin);
+        self.storage.collateral_asset.write(collateral_asset);
+        self.storage.stable_coin.write(stable_coin);
     }
 
     // Create a position.
     #[external("public")]
     fn update_accumulator() -> Asset {
-        let asset_loc = storage.assets.at(0);
+        let asset_loc = self.storage.assets.at(0);
         let mut asset: Asset = asset_loc.read();
 
-        let timestamp = context.timestamp();
+        let timestamp = self.context.timestamp();
         let dt = timestamp - asset.last_updated_ts;
 
         // Only update if time has passed.
@@ -108,18 +108,15 @@ pub contract Lending {
         on_behalf_of: Field,
         collateral_asset: AztecAddress,
     ) {
-        let on_behalf_of = compute_identifier(
-            secret,
-            on_behalf_of,
-            context.msg_sender().unwrap().to_field(),
-        );
+        let on_behalf_of =
+            compute_identifier(secret, on_behalf_of, self.msg_sender().unwrap().to_field());
         let _res = Token::at(collateral_asset)
-            .transfer_to_public(from, context.this_address(), amount, authwit_nonce)
-            .call(&mut context);
+            .transfer_to_public(from, self.address, amount, authwit_nonce)
+            .call(self.context);
         // docs:start:enqueue_public
-        Lending::at(context.this_address())
+        Lending::at(self.address)
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
-            .enqueue(&mut context);
+            .enqueue(self.context);
         // docs:end:enqueue_public
     }
 
@@ -131,56 +128,51 @@ pub contract Lending {
         collateral_asset: AztecAddress,
     ) {
         let _ = Token::at(collateral_asset)
-            .transfer_in_public(
-                context.msg_sender().unwrap(),
-                context.this_address(),
-                amount,
-                authwit_nonce,
-            )
-            .call(&mut context);
-        let _ = Lending::at(context.this_address())
+            .transfer_in_public(self.msg_sender().unwrap(), self.address, amount, authwit_nonce)
+            .call(self.context);
+        let _ = Lending::at(self.address)
             ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
-            .call(&mut context);
+            .call(self.context);
     }
 
     #[external("public")]
     #[internal]
     fn _deposit(owner: AztecAddress, amount: u128, collateral_asset: AztecAddress) {
-        let _asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
+        let _asset = Lending::at(self.address).update_accumulator().call(self.context);
 
-        let coll_asset = storage.collateral_asset.read();
+        let coll_asset = self.storage.collateral_asset.read();
         assert(coll_asset.eq(collateral_asset));
 
-        let coll_loc = storage.collateral.at(owner);
+        let coll_loc = self.storage.collateral.at(owner);
         let collateral = coll_loc.read();
         coll_loc.write(collateral + amount);
     }
 
     #[external("private")]
     fn withdraw_private(secret: Field, to: AztecAddress, amount: u128) {
-        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().unwrap().to_field());
-        Lending::at(context.this_address())
+        let on_behalf_of = compute_identifier(secret, 0, self.msg_sender().unwrap().to_field());
+        Lending::at(self.address)
             ._withdraw(AztecAddress::from_field(on_behalf_of), to, amount)
-            .enqueue(&mut context);
+            .enqueue(self.context);
     }
 
     #[external("public")]
     fn withdraw_public(to: AztecAddress, amount: u128) {
-        let _ = Lending::at(context.this_address())
-            ._withdraw(context.msg_sender().unwrap(), to, amount)
-            .call(&mut context);
+        let _ = Lending::at(self.address)._withdraw(self.msg_sender().unwrap(), to, amount).call(
+            self.context,
+        );
     }
 
     #[external("public")]
     #[internal]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: u128) {
-        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
+        let asset = Lending::at(self.address).update_accumulator().call(self.context);
+        let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
 
-        let coll_loc = storage.collateral.at(owner);
+        let coll_loc = self.storage.collateral.at(owner);
         let collateral = coll_loc.read();
 
-        let debt_loc = storage.static_debt.at(owner);
+        let debt_loc = self.storage.static_debt.at(owner);
         let static_debt = debt_loc.read();
 
         // debt_covered will revert if decrease would leave insufficient collateral to cover debt.
@@ -199,36 +191,36 @@ pub contract Lending {
         coll_loc.write(collateral - amount);
 
         // @todo @LHerskind Support both shielding and transfers (for now just transfer)
-        let collateral_asset = storage.collateral_asset.read();
+        let collateral_asset = self.storage.collateral_asset.read();
         let _ = Token::at(collateral_asset)
-            .transfer_in_public(context.this_address(), recipient, amount, 0)
-            .call(&mut context);
+            .transfer_in_public(self.address, recipient, amount, 0)
+            .call(self.context);
     }
 
     #[external("private")]
     fn borrow_private(secret: Field, to: AztecAddress, amount: u128) {
-        let on_behalf_of = compute_identifier(secret, 0, context.msg_sender().unwrap().to_field());
-        let _ = Lending::at(context.this_address())
+        let on_behalf_of = compute_identifier(secret, 0, self.msg_sender().unwrap().to_field());
+        let _ = Lending::at(self.address)
             ._borrow(AztecAddress::from_field(on_behalf_of), to, amount)
-            .enqueue(&mut context);
+            .enqueue(self.context);
     }
 
     #[external("public")]
     fn borrow_public(to: AztecAddress, amount: u128) {
-        let _ = Lending::at(context.this_address())
-            ._borrow(context.msg_sender().unwrap(), to, amount)
-            .call(&mut context);
+        let _ = Lending::at(self.address)._borrow(self.msg_sender().unwrap(), to, amount).call(
+            self.context,
+        );
     }
 
     #[external("public")]
     #[internal]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: u128) {
-        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
-        let price = PriceFeed::at(asset.oracle).get_price(0).view(&mut context).price;
+        let asset = Lending::at(self.address).update_accumulator().call(self.context);
+        let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
 
         // Fetch collateral and static_debt, compute health of current position
-        let collateral = storage.collateral.at(owner).read();
-        let static_debt = storage.static_debt.at(owner).read();
+        let collateral = self.storage.collateral.at(owner).read();
+        let static_debt = self.storage.static_debt.at(owner).read();
 
         let debt_covered =
             covered_by_collateral(price, asset.loan_to_value, collateral, 0 as u128, 0 as u128);
@@ -236,11 +228,11 @@ pub contract Lending {
 
         assert(debt_returns.debt_value < debt_covered);
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt);
+        self.storage.static_debt.at(owner).write(debt_returns.static_debt);
 
         // @todo @LHerskind Need to support both private and public minting.
-        let stable_coin = storage.stable_coin.read();
-        let _ = Token::at(stable_coin).mint_to_public(to, amount).call(&mut context);
+        let stable_coin = self.storage.stable_coin.read();
+        let _ = Token::at(stable_coin).mint_to_public(to, amount).call(self.context);
     }
 
     #[external("private")]
@@ -252,17 +244,14 @@ pub contract Lending {
         on_behalf_of: Field,
         stable_coin: AztecAddress,
     ) {
-        let on_behalf_of = compute_identifier(
-            secret,
-            on_behalf_of,
-            context.msg_sender().unwrap().to_field(),
-        );
+        let on_behalf_of =
+            compute_identifier(secret, on_behalf_of, self.msg_sender().unwrap().to_field());
         // docs:start:private_call
-        let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(&mut context);
+        let _ = Token::at(stable_coin).burn_private(from, amount, authwit_nonce).call(self.context);
         // docs:end:private_call
-        let _ = Lending::at(context.this_address())
+        let _ = Lending::at(self.address)
             ._repay(AztecAddress::from_field(on_behalf_of), amount, stable_coin)
-            .enqueue(&mut context);
+            .enqueue(self.context);
     }
 
     #[external("public")]
@@ -273,39 +262,37 @@ pub contract Lending {
         stable_coin: AztecAddress,
     ) {
         let _ = Token::at(stable_coin)
-            .burn_public(context.msg_sender().unwrap(), amount, authwit_nonce)
-            .call(&mut context);
-        let _ = Lending::at(context.this_address())._repay(owner, amount, stable_coin).call(
-            &mut context,
-        );
+            .burn_public(self.msg_sender().unwrap(), amount, authwit_nonce)
+            .call(self.context);
+        let _ = Lending::at(self.address)._repay(owner, amount, stable_coin).call(self.context);
     }
 
     #[external("public")]
     #[internal]
     fn _repay(owner: AztecAddress, amount: u128, stable_coin: AztecAddress) {
-        let asset = Lending::at(context.this_address()).update_accumulator().call(&mut context);
+        let asset = Lending::at(self.address).update_accumulator().call(self.context);
 
         // To ensure that private is using the correct token.
-        assert(stable_coin.eq(storage.stable_coin.read()));
+        assert(stable_coin.eq(self.storage.stable_coin.read()));
 
-        let static_debt = storage.static_debt.at(owner).read();
+        let static_debt = self.storage.static_debt.at(owner).read();
         let debt_returns = debt_updates(asset.interest_accumulator, static_debt, 0 as u128, amount);
 
-        storage.static_debt.at(owner).write(debt_returns.static_debt);
+        self.storage.static_debt.at(owner).write(debt_returns.static_debt);
     }
 
     #[external("public")]
     #[view]
     fn get_asset(asset_id: Field) -> Asset {
-        storage.assets.at(asset_id).read()
+        self.storage.assets.at(asset_id).read()
     }
 
     #[external("public")]
     #[view]
     fn get_position(owner: AztecAddress) -> pub Position {
-        let collateral = storage.collateral.at(owner).read();
-        let static_debt = storage.static_debt.at(owner).read();
-        let asset: Asset = storage.assets.at(0).read();
+        let collateral = self.storage.collateral.at(owner).read();
+        let static_debt = self.storage.static_debt.at(owner).read();
+        let asset: Asset = self.storage.assets.at(0).read();
         let debt = debt_value(static_debt, asset.interest_accumulator);
         Position { collateral, static_debt, debt }
     }
@@ -313,6 +300,6 @@ pub contract Lending {
     #[external("public")]
     #[view]
     fn get_assets() -> pub [AztecAddress; 2] {
-        [storage.collateral_asset.read(), storage.stable_coin.read()]
+        [self.storage.collateral_asset.read(), self.storage.stable_coin.read()]
     }
 }

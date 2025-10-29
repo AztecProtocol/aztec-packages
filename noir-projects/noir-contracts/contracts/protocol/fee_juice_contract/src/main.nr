@@ -50,7 +50,7 @@ pub contract FeeJuice {
     /// Claims FeeJuice by consuming an L1 to L2 message with the provided information.
     #[external("private")]
     fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
-        claim_helper(&mut context, to, amount, secret, message_leaf_index);
+        claim_helper(self.context, to, amount, secret, message_leaf_index);
     }
 
     /// Claims FeeJuice by consuming an L1 to L2 message with the provided information. After enqueuing the
@@ -64,22 +64,22 @@ pub contract FeeJuice {
         secret: Field,
         message_leaf_index: Field,
     ) {
-        claim_helper(&mut context, to, amount, secret, message_leaf_index);
-        context.end_setup();
+        claim_helper(self.context, to, amount, secret, message_leaf_index);
+        self.context.end_setup();
     }
 
     #[external("public")]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
-        let new_balance = storage.balances.at(to).read().add(amount);
-        storage.balances.at(to).write(new_balance);
+        let new_balance = self.storage.balances.at(to).read().add(amount);
+        self.storage.balances.at(to).write(new_balance);
     }
 
     #[external("public")]
     #[view]
     fn check_balance(fee_limit: u128) {
         assert(
-            storage.balances.at(context.msg_sender().unwrap()).read() >= fee_limit,
+            self.storage.balances.at(self.msg_sender().unwrap()).read() >= fee_limit,
             "Balance too low",
         );
     }
@@ -88,6 +88,6 @@ pub contract FeeJuice {
     #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> pub u128 {
-        storage.balances.at(owner).read()
+        self.storage.balances.at(owner).read()
     }
 }

@@ -29,11 +29,11 @@ pub contract Spam {
 
     #[external("private")]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
-        let caller = context.msg_sender().unwrap();
+        let caller = self.msg_sender().unwrap();
         let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            storage.balances.at(caller).add(caller, amount).emit(
+            self.storage.balances.at(caller).add(caller, amount).emit(
                 caller,
                 MessageDelivery.UNCONSTRAINED_ONCHAIN,
             );
@@ -41,7 +41,7 @@ pub contract Spam {
 
         for i in 0..MAX_NULLIFIERS_PER_CALL {
             if (i < nullifier_count) {
-                context.push_nullifier(poseidon2_hash_with_separator(
+                self.context.push_nullifier(poseidon2_hash_with_separator(
                     [nullifier_seed, i as Field],
                     GENERATOR_INDEX__NOTE_NULLIFIER as Field,
                 ));
@@ -49,15 +49,15 @@ pub contract Spam {
         }
 
         if (call_public) {
-            Spam::at(context.this_address())
-                .public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
-                .enqueue(&mut context);
-            Spam::at(context.this_address())
+            Spam::at(self.address).public_spam(0, MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX).enqueue(
+                self.context,
+            );
+            Spam::at(self.address)
                 .public_spam(
                     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
                     MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
                 )
-                .enqueue(&mut context);
+                .enqueue(self.context);
         }
     }
 
@@ -66,8 +66,8 @@ pub contract Spam {
     fn public_spam(start: u32, end: u32) {
         let one = 1 as u128;
         for i in start..end {
-            let prev = storage.public_balances.at(i as Field).read();
-            storage.public_balances.at(i as Field).write(prev + one);
+            let prev = self.storage.public_balances.at(i as Field).read();
+            self.storage.public_balances.at(i as Field).write(prev + one);
         }
     }
 }

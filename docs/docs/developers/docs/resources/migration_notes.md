@@ -197,6 +197,140 @@ The following commands were dropped from the `aztec` command:
 
 ## [Aztec.nr]
 
+### Introducing `self` in contracts
+
+Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface for accessing the contract's address, storage, and execution context.
+
+#### What is `self`?
+
+`self` is an instance of `ContractSelf<Context, Storage>` that provides:
+
+- `self.address` - The contract's own address
+- `self.storage` - Access to your contract's storage
+- `self.context` - The execution context (private, public, or utility)
+- `self.msg_sender()` - Get the address of the caller
+- `self.emit(...)` - Emit events
+
+And soon to be implemented also:
+- `self.call(...)` - Make contract calls
+
+#### How it works
+
+The `#[external(...)]` macro automatically injects `self` into your function. When you write:
+
+```noir
+#[external("private")]
+fn transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+    self.storage.balances.at(recipient).add(amount);
+}
+```
+
+The macro transforms it to initialize `self` with the context and storage before your code executes.
+
+#### Migration guide
+
+**Before:** Access context and storage as separate parameters
+
+```noir
+#[external("private")]
+fn old_transfer(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    storage.balances.at(sender).sub(amount);
+}
+```
+
+**After:** Use `self` to access everything
+
+```noir
+#[external("private")]
+fn new_transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+}
+```
+
+#### Key changes
+
+1. **Storage and context access:**
+
+Storage and context are no longer injected into the function as standalone variables and instead you need to access them via `self`:
+
+   ```diff
+   - let balance = storage.balances.at(owner).read();
+   + let balance = self.storage.balances.at(owner).read();
+   ```
+
+   ```diff
+   - context.push_nullifier(nullifier);
+   + self.context.push_nullifier(nullifier);
+   ```
+
+Note that `context` is expected to be use only when needing to access a low-level API (like directly emitting a nullifier).
+
+2. **Getting caller address:** Use `self.msg_sender()` instead of `context.msg_sender()`
+
+   ```diff
+   - let caller = context.msg_sender().unwrap();
+   + let caller = self.msg_sender().unwrap();
+   ```
+
+3. **Getting contract address:** Use `self.address` instead of `context.this_address()`
+
+   ```diff
+   - let this_contract = context.this_address();
+   + let this_contract = self.address;
+   ```
+
+4. **Emitting events:**
+
+   In private functions:
+
+   ```diff
+   - emit_event_in_private(event, context, recipient, delivery_mode);
+   + self.emit(event, recipient, delivery_mode);
+   ```
+
+   In public functions:
+
+   ```diff
+   - emit_event_in_public(event, context);
+   + self.emit(event);
+   ```
+
+#### Example: Full contract migration
+
+**Before:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    let token = storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    emit_event_in_private(Withdraw { withdrawer, amount }, context, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+**After:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    let token = self.storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    self.emit(Withdraw { withdrawer, amount }, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
 ### Replacing #[private], #[public], #[utility] with #[external(...)] macro
 
 The original naming was not great in that it did not sufficiently communicate what the given macro did.

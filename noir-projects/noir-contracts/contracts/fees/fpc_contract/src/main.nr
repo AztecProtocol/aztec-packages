@@ -31,7 +31,7 @@ pub contract FPC {
     #[initializer]
     fn constructor(accepted_asset: AztecAddress, admin: AztecAddress) {
         let config = Config { accepted_asset, admin };
-        storage.config.initialize(config);
+        self.storage.config.initialize(config);
     }
 
     /// Pays for the tx fee with msg_sender's private balance of accepted asset (AA). The maximum fee a user is willing
@@ -78,31 +78,29 @@ pub contract FPC {
     // docs:start:fee_entrypoint_private
     #[external("private")]
     fn fee_entrypoint_private(max_fee: u128, authwit_nonce: Field) {
-        let accepted_asset = storage.config.read().accepted_asset;
+        let accepted_asset = self.storage.config.read().accepted_asset;
 
-        let user = context.msg_sender().unwrap();
+        let user = self.msg_sender().unwrap();
         let token = Token::at(accepted_asset);
 
         // TODO(#10805): Here we should check that `max_fee` converted to fee juice is enough to cover the tx
         // fee juice/mana/gas limit. Currently the fee juice/AA exchange rate is fixed 1:1.
 
         // Pull the max fee from the user's balance of the accepted asset to the public balance of this contract.
-        token.transfer_to_public(user, context.this_address(), max_fee, authwit_nonce).call(
-            &mut context,
-        );
+        token.transfer_to_public(user, self.address, max_fee, authwit_nonce).call(self.context);
 
         // Prepare a partial note for the refund for the user.
-        let partial_note = token.prepare_private_balance_increase(user).call(&mut context);
+        let partial_note = token.prepare_private_balance_increase(user).call(self.context);
 
         // Set a public teardown function in which the refund will be paid back to the user by finalizing the partial note.
-        FPC::at(context.this_address())
+        FPC::at(self.address)
             ._complete_refund(accepted_asset, partial_note, max_fee)
-            .set_as_teardown(&mut context);
+            .set_as_teardown(self.context);
 
         // Set the FPC as the fee payer of the tx.
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
         // End the setup phase, from now on all side effects are revertible
-        context.end_setup();
+        self.context.end_setup();
     }
     // docs:end:fee_entrypoint_private
 
@@ -116,7 +114,7 @@ pub contract FPC {
         partial_note: PartialUintNote,
         max_fee: u128,
     ) {
-        let tx_fee = safe_cast_to_u128(context.transaction_fee());
+        let tx_fee = safe_cast_to_u128(self.context.transaction_fee());
 
         // 1. Check that user funded the fee payer contract with at least the transaction fee.
         // TODO(#10805): Nuke this check once we have a proper max_fee check in the fee_entrypoint_private.
@@ -127,7 +125,7 @@ pub contract FPC {
         let refund_amount = max_fee - tx_fee;
 
         Token::at(accepted_asset).finalize_transfer_to_private(refund_amount, partial_note).call(
-            &mut context,
+            self.context,
         );
     }
     // docs:end:complete_refund
@@ -154,28 +152,23 @@ pub contract FPC {
     /// 4. The protocol deducts the actual fee denominated in fee juice from the FPC's balance.
     #[external("private")]
     fn fee_entrypoint_public(max_fee: u128, authwit_nonce: Field) {
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // We pull the max fee from the user's balance of the accepted asset to this contract.
         // docs:start:public_call
         Token::at(config.accepted_asset)
-            .transfer_in_public(
-                context.msg_sender().unwrap(),
-                context.this_address(),
-                max_fee,
-                authwit_nonce,
-            )
-            .enqueue(&mut context);
+            .transfer_in_public(self.msg_sender().unwrap(), self.address, max_fee, authwit_nonce)
+            .enqueue(self.context);
         // docs:end:public_call
 
-        FPC::at(context.this_address())
-            ._pay_refund(context.msg_sender().unwrap(), max_fee, config.accepted_asset)
-            .set_as_teardown(&mut context);
+        FPC::at(self.address)
+            ._pay_refund(self.msg_sender().unwrap(), max_fee, config.accepted_asset)
+            .set_as_teardown(self.context);
 
         // Set the FPC as the fee payer of the tx.
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
         // End the setup phase, from now on all side effects are revertible
-        context.end_setup();
+        self.context.end_setup();
     }
 
     /// Pays the refund to the `refund_recipient` as part of the public fee payment flow. The refund is the difference
@@ -184,36 +177,36 @@ pub contract FPC {
     #[external("public")]
     #[internal]
     fn _pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
-        let actual_fee = safe_cast_to_u128(context.transaction_fee());
+        let actual_fee = safe_cast_to_u128(self.context.transaction_fee());
 
         assert(actual_fee <= max_fee, "Max fee paid to the paymaster does not cover actual fee");
         // TODO(#10805): Introduce a real exchange rate
         let refund = max_fee - actual_fee;
 
         Token::at(accepted_asset)
-            .transfer_in_public(context.this_address(), refund_recipient, refund, 0)
-            .call(&mut context);
+            .transfer_in_public(self.address, refund_recipient, refund, 0)
+            .call(self.context);
     }
 
     /// Pulls all the accepted asset funds from this contract to the `to` address. Only the admin can call
     /// this function.
     #[external("public")]
     fn pull_funds(to: AztecAddress) {
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
-        assert(context.msg_sender().unwrap() == config.admin, "Only admin can pull funds");
+        assert(self.msg_sender().unwrap() == config.admin, "Only admin can pull funds");
 
         let token = Token::at(config.accepted_asset);
 
         // We send the full balance to `to`.
-        let balance = token.balance_of_public(context.this_address()).view(&mut context);
-        token.transfer_in_public(context.this_address(), to, balance, 0).call(&mut context);
+        let balance = token.balance_of_public(self.address).view(self.context);
+        token.transfer_in_public(self.address, to, balance, 0).call(self.context);
     }
 
     /// Note: Not marked as view as we need it to be callable as an entrypoint since in some places we need to obtain
     /// this value before we have access to an account contract (kernels do not allow for static entrypoints).
     #[external("private")]
     fn get_accepted_asset() -> AztecAddress {
-        storage.config.read().accepted_asset
+        self.storage.config.read().accepted_asset
     }
 }

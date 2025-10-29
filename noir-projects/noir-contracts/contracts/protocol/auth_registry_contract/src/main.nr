@@ -37,8 +37,8 @@ pub contract AuthRegistry {
         // We use the unsafe method, because for some use cases a "null"
         // msg_sender might be acceptable (e.g. if it doesn't matter who takes
         // an action).
-        let msg_sender = context.msg_sender_unsafe();
-        storage.approved_actions.at(msg_sender).at(message_hash).write(authorize);
+        let msg_sender = self.context.msg_sender_unsafe();
+        self.storage.approved_actions.at(msg_sender).at(message_hash).write(authorize);
     }
 
     /**
@@ -50,7 +50,7 @@ pub contract AuthRegistry {
      */
     #[external("public")]
     fn set_reject_all(reject: bool) {
-        storage.reject_all.at(context.msg_sender().unwrap()).write(reject);
+        self.storage.reject_all.at(self.msg_sender().unwrap()).write(reject);
     }
 
     /**
@@ -65,19 +65,19 @@ pub contract AuthRegistry {
      */
     #[external("public")]
     fn consume(on_behalf_of: AztecAddress, inner_hash: Field) -> Field {
-        assert_eq(false, storage.reject_all.at(on_behalf_of).read(), "rejecting all");
+        assert_eq(false, self.storage.reject_all.at(on_behalf_of).read(), "rejecting all");
 
         let message_hash = compute_authwit_message_hash(
-            context.msg_sender_unsafe(), // we allow "null" msg_sender.
-            context.chain_id(),
-            context.version(),
+            self.context.msg_sender_unsafe(), // we allow "null" msg_sender.
+            self.context.chain_id(),
+            self.context.version(),
             inner_hash,
         );
 
-        let authorized = storage.approved_actions.at(on_behalf_of).at(message_hash).read();
+        let authorized = self.storage.approved_actions.at(on_behalf_of).at(message_hash).read();
 
         assert_eq(true, authorized, "unauthorized");
-        storage.approved_actions.at(on_behalf_of).at(message_hash).write(false);
+        self.storage.approved_actions.at(on_behalf_of).at(message_hash).write(false);
 
         IS_VALID_SELECTOR
     }
@@ -95,10 +95,10 @@ pub contract AuthRegistry {
      */
     #[external("private")]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
-        assert_current_call_valid_authwit::<3>(&mut context, approver);
-        AuthRegistry::at(context.this_address())
-            ._set_authorized(approver, message_hash, authorize)
-            .enqueue(&mut context);
+        assert_current_call_valid_authwit::<3>(self.context, approver);
+        AuthRegistry::at(self.address)._set_authorized(approver, message_hash, authorize).enqueue(
+            self.context,
+        );
     }
 
     /**
@@ -112,7 +112,7 @@ pub contract AuthRegistry {
     #[external("public")]
     #[internal]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
-        storage.approved_actions.at(approver).at(message_hash).write(authorize);
+        self.storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }
 
     /**
@@ -124,7 +124,7 @@ pub contract AuthRegistry {
     #[external("public")]
     #[view]
     fn is_reject_all(on_behalf_of: AztecAddress) -> bool {
-        storage.reject_all.at(on_behalf_of).read()
+        self.storage.reject_all.at(on_behalf_of).read()
     }
 
     /**
@@ -137,7 +137,7 @@ pub contract AuthRegistry {
     #[external("public")]
     #[view]
     fn is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
-        storage.approved_actions.at(on_behalf_of).at(message_hash).read()
+        self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
     /**
@@ -148,6 +148,6 @@ pub contract AuthRegistry {
         on_behalf_of: AztecAddress,
         message_hash: Field,
     ) -> bool {
-        storage.approved_actions.at(on_behalf_of).at(message_hash).read()
+        self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }

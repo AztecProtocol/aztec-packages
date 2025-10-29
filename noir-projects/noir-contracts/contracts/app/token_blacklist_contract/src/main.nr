@@ -62,119 +62,119 @@ pub contract TokenBlacklist {
     #[initializer]
     fn constructor(admin: AztecAddress) {
         let admin_roles = UserFlags { is_admin: true, is_minter: false, is_blacklisted: false };
-        storage.roles.at(admin).schedule_value_change(admin_roles);
+        self.storage.roles.at(admin).schedule_value_change(admin_roles);
     }
 
     #[external("public")]
     #[view]
     fn total_supply() -> pub Field {
-        storage.total_supply.read().to_field()
+        self.storage.total_supply.read().to_field()
     }
 
     #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> pub Field {
-        storage.public_balances.at(owner).read().to_field()
+        self.storage.public_balances.at(owner).read().to_field()
     }
 
     #[external("public")]
     #[view]
     fn get_roles(user: AztecAddress) -> UserFlags {
-        storage.roles.at(user).get_current_value()
+        self.storage.roles.at(user).get_current_value()
     }
 
     #[external("public")]
     fn update_roles(user: AztecAddress, roles: UserFlags) {
-        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_admin, "caller is not admin");
 
-        storage.roles.at(user).schedule_value_change(roles);
+        self.storage.roles.at(user).schedule_value_change(roles);
     }
 
     #[external("public")]
     fn mint_public(to: AztecAddress, amount: u128) {
-        let to_roles = storage.roles.at(to).get_current_value();
+        let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
-        let new_balance = storage.public_balances.at(to).read().add(amount);
-        let supply = storage.total_supply.read().add(amount);
+        let new_balance = self.storage.public_balances.at(to).read().add(amount);
+        let supply = self.storage.total_supply.read().add(amount);
 
-        storage.public_balances.at(to).write(new_balance);
-        storage.total_supply.write(supply);
+        self.storage.public_balances.at(to).write(new_balance);
+        self.storage.total_supply.write(supply);
     }
 
     #[external("public")]
     fn mint_private(amount: u128, secret_hash: Field) {
-        let caller_roles = storage.roles.at(context.msg_sender().unwrap()).get_current_value();
+        let caller_roles = self.storage.roles.at(self.msg_sender().unwrap()).get_current_value();
         assert(caller_roles.is_minter, "caller is not minter");
 
-        let pending_shields = storage.pending_shields;
+        let pending_shields = self.storage.pending_shields;
         let note = TransparentNote::new(amount, secret_hash);
-        let supply = storage.total_supply.read().add(amount);
+        let supply = self.storage.total_supply.read().add(amount);
 
-        storage.total_supply.write(supply);
+        self.storage.total_supply.write(supply);
 
         // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
         // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
         // public context. Hence we need to manually get the slot and insert the note hash into the context.
         let note_hash = note.compute_note_hash(pending_shields.storage_slot);
-        context.push_note_hash(note_hash);
+        self.context.push_note_hash(note_hash);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
     fn shield(from: AztecAddress, amount: u128, secret_hash: Field, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
+        let from_balance = self.storage.public_balances.at(from).read().sub(amount);
 
-        let pending_shields = storage.pending_shields;
+        let pending_shields = self.storage.pending_shields;
         let note = TransparentNote::new(amount, secret_hash);
 
-        storage.public_balances.at(from).write(from_balance);
+        self.storage.public_balances.at(from).write(from_balance);
 
         // We insert the note hash into the pending_shields. Since the TransparentNote flow is deprecated (use partial
         // notes instead), we no longer have utility a function exposed on the PrivateSet to insert the note hash from
         // public context. Hence we need to manually get the slot and insert the note hash into the context.
         let note_hash = note.compute_note_hash(pending_shields.storage_slot);
-        context.push_note_hash(note_hash);
+        self.context.push_note_hash(note_hash);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
     fn transfer_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value();
+        let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
+        let from_balance = self.storage.public_balances.at(from).read().sub(amount);
+        self.storage.public_balances.at(from).write(from_balance);
 
-        let to_balance = storage.public_balances.at(to).read().add(amount);
-        storage.public_balances.at(to).write(to_balance);
+        let to_balance = self.storage.public_balances.at(to).read().add(amount);
+        self.storage.public_balances.at(to).write(to_balance);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("public")]
     fn burn_public(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        let from_balance = storage.public_balances.at(from).read().sub(amount);
-        storage.public_balances.at(from).write(from_balance);
+        let from_balance = self.storage.public_balances.at(from).read().sub(amount);
+        self.storage.public_balances.at(from).write(from_balance);
 
-        let new_supply = storage.total_supply.read().sub(amount);
-        storage.total_supply.write(new_supply);
+        let new_supply = self.storage.total_supply.read().sub(amount);
+        self.storage.total_supply.write(new_supply);
     }
 
     #[external("private")]
     fn redeem_shield(to: AztecAddress, amount: u128, secret: Field) {
-        let to_roles = storage.roles.at(to).get_current_value();
+        let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
         let secret_hash = compute_secret_hash(secret);
@@ -187,71 +187,69 @@ pub contract TokenBlacklist {
             .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
             .set_limit(1);
 
-        let notes = storage.pending_shields.pop_notes(options);
+        let notes = self.storage.pending_shields.pop_notes(options);
         assert(notes.len() == 1, "note not popped");
 
         // Add the token note to user's balances set
-        storage.balances.add(to, amount).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.add(to, amount).emit(to, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn unshield(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value();
+        let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(context.this_address())._increase_public_balance(to, amount).enqueue(
-            &mut context,
-        );
+        TokenBlacklist::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
     }
 
     // docs:start:transfer_private
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn transfer(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
-        let to_roles = storage.roles.at(to).get_current_value();
+        let to_roles = self.storage.roles.at(to).get_current_value();
         assert(!to_roles.is_blacklisted, "Blacklisted: Recipient");
 
-        storage.balances.sub(from, amount).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
-        storage.balances.add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.sub(from, amount).emit(from, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.add(to, amount).emit(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
     fn burn(from: AztecAddress, amount: u128, authwit_nonce: Field) {
-        let from_roles = storage.roles.at(from).get_current_value();
+        let from_roles = self.storage.roles.at(from).get_current_value();
         assert(!from_roles.is_blacklisted, "Blacklisted: Sender");
 
-        storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
+        self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(context.this_address())._reduce_total_supply(amount).enqueue(&mut context);
+        TokenBlacklist::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
     }
 
     /// Internal ///
     #[external("public")]
     #[internal]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
-        let new_balance = storage.public_balances.at(to).read().add(amount);
-        storage.public_balances.at(to).write(new_balance);
+        let new_balance = self.storage.public_balances.at(to).read().add(amount);
+        self.storage.public_balances.at(to).write(new_balance);
     }
 
     #[external("public")]
     #[internal]
     fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
-        let new_supply = storage.total_supply.read().sub(amount);
-        storage.total_supply.write(new_supply);
+        let new_supply = self.storage.total_supply.read().sub(amount);
+        self.storage.total_supply.write(new_supply);
     }
 
     #[external("utility")]
     unconstrained fn balance_of_private(owner: AztecAddress) -> Field {
-        storage.balances.balance_of(owner).to_field()
+        self.storage.balances.balance_of(owner).to_field()
     }
 
     // We cannot replace this function with the standard `process_message` function because the transparent note

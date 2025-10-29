@@ -39,10 +39,29 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let (args_serialization, _, serialized_args_name) =
         derive_serialization_quotes(original_params, false);
 
-    let context_creation = quote {
-        $args_serialization
-        let args_hash = dep::aztec::hash::hash_args_array($serialized_args_name);
-        let mut context = dep::aztec::context::private_context::PrivateContext::new(inputs, args_hash);
+    let storage_init = if module_has_storage {
+        // Contract has Storage defined so we initialize it.
+        quote {
+            let storage = Storage::init(&mut context);
+        }
+    } else {
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
+        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
+        // constraint counts so we use the unit type `()` instead.
+        quote {
+            let storage = ();
+        }
+    };
+
+    let contract_self_creation = quote {
+        #[allow(unused_variables)]
+        let mut self = {
+            $args_serialization
+            let args_hash = aztec::hash::hash_args_array($serialized_args_name);
+            let mut context = aztec::context::private_context::PrivateContext::new(inputs, args_hash);
+            $storage_init
+            aztec::contract_self::ContractSelf::new_private(&mut context, storage)
+        };
     };
 
     let function_name = f.name();
@@ -50,7 +69,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
         let assertion_message = f"Function {function_name} can only be called internally";
-        quote { assert(context.msg_sender().unwrap() == context.this_address(), $assertion_message); }
+        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
     };
@@ -58,34 +77,23 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let view_check = if is_fn_view(f) {
         let assertion_message =
             f"Function {function_name} can only be called statically".as_ctstring().as_quoted_str();
-        quote { assert(context.inputs.call_context.is_static_call, $assertion_message); }
+        quote { assert(self.context.inputs.call_context.is_static_call, $assertion_message); }
     } else {
         quote {}
     };
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (
-            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_private(&mut context); },
+            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_private(*self.context); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_private(self.context); },
         )
     } else {
         (quote {}, quote {})
     };
 
-    let storage_init = if module_has_storage {
-        quote {
-            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
-            // referenced. We instead ignore 'unused variable' warnings for it.
-            #[allow(unused_variables)]
-            let storage = Storage::init(&mut context);
-        }
-    } else {
-        quote {}
-    };
-
     // Initialization checks are not included in contracts that don't have initializers.
     let init_check = if module_has_initializer & !is_fn_initializer(f) & !fn_has_noinitcheck(f) {
-        quote { aztec::macros::functions::initialization_utils::assert_is_initialized_private(&mut context); }
+        quote { aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context); }
     } else {
         quote {}
     };
@@ -129,7 +137,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         quote {
             $return_value_assignment
             $return_serialization
-            context.set_return_hash($serialized_return_name);
+            self.context.set_return_hash($serialized_return_name);
         }
     } else {
         let (body_without_return, last_body_expr) = body.pop_back();
@@ -147,17 +155,16 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
         quote {}
     };
 
-    let context_finish = quote { context.finish() };
+    let context_finish = quote { self.context.finish() };
 
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
-        $context_creation
+        $contract_self_creation
         $assert_initializer
         $init_check
         $internal_check
         $view_check
-        $storage_init
         $message_discovery_call
         $authorize_once_check
     };
@@ -199,20 +206,38 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
             .join(quote {+})
     };
 
+    let storage_init = if module_has_storage {
+        quote {
+            let storage = Storage::init(&mut context);
+        }
+    } else {
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
+        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
+        // constraint counts so we use the unit type `()` instead.
+        quote {
+            let storage = ();
+        }
+    };
+
     // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
-    let context_creation = quote {
-        let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
-        // We start from 1 because we skip the selector for the dispatch function.
-        let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
-        dep::aztec::hash::hash_args_array(serialized_args)
-        });
+    let contract_self_creation = quote {
+        #[allow(unused_variables)]
+        let mut self = {
+            let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
+            // We start from 1 because we skip the selector for the dispatch function.
+            let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
+            dep::aztec::hash::hash_args_array(serialized_args)
+            });
+            $storage_init
+            aztec::contract_self::ContractSelf::new_public(&mut context, storage)
+        };
     };
 
     let name = f.name();
     // Modifications introduced by the different marker attributes.
     let internal_check = if is_fn_internal(f) {
         let assertion_message = f"Function {name} can only be called internally";
-        quote { assert(context.msg_sender().unwrap() == context.this_address(), $assertion_message); }
+        quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
     };
@@ -221,34 +246,23 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
         let name = f.name();
         let assertion_message =
             f"Function {name} can only be called statically".as_ctstring().as_quoted_str();
-        quote { assert(context.is_static_call(), $assertion_message); }
+        quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}
     };
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (
-            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(context); },
-            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_public(&mut context); },
+            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(*self.context); },
+            quote { aztec::macros::functions::initialization_utils::mark_as_initialized_public(self.context); },
         )
     } else {
         (quote {}, quote {})
     };
 
-    let storage_init = if module_has_storage {
-        // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
-        // referenced. We instead ignore 'unused variable' warnings for it.
-        quote {
-            #[allow(unused_variables)]
-            let storage = Storage::init(&mut context);
-        }
-    } else {
-        quote {}
-    };
-
     // Initialization checks are not included in contracts that don't have initializers.
     let init_check = if module_has_initializer & !fn_has_noinitcheck(f) & !is_fn_initializer(f) {
-        quote { aztec::macros::functions::initialization_utils::assert_is_initialized_public(&mut context); }
+        quote { aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context); }
     } else {
         quote {}
     };
@@ -261,12 +275,11 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     };
 
     let to_prepend = quote {
-        $context_creation
+        $contract_self_creation
         $assert_initializer
         $init_check
         $internal_check
         $view_check
-        $storage_init
         $authorize_once_check
     };
 
@@ -288,20 +301,28 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
 pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     register_utility_fn_stub(f);
 
-    // Create utility context
-    let context_creation =
-        quote { let mut context = dep::aztec::context::utility_context::UtilityContext::new(); };
-
     // Initialize Storage if module has storage
     let storage_init = if module_has_storage(f.module()) {
         quote {
-            // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
-            // referenced. We instead ignore 'unused variable' warnings for it.
-            #[allow(unused_variables)]
             let storage = Storage::init(context);
         }
     } else {
-        quote {}
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
+        // storage struct in its constructor. Using an Option type would lead to worse developer experience and higher
+        // constraint counts so we use the unit type `()` instead.
+        quote {
+            let storage = ();
+        }
+    };
+
+    // Create utility context
+    let contract_self_creation = quote {
+        #[allow(unused_variables)]
+        let mut self = {
+            let context = dep::aztec::context::utility_context::UtilityContext::new();
+            $storage_init
+            aztec::contract_self::ContractSelf::new_utility(context, storage)
+        };
     };
 
     // All utility functions perform message discovery, since they may need to access private notes that would be
@@ -312,8 +333,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     // A quote to be injected at the beginning of the function body.
     let to_prepend = quote {
         dep::aztec::oracle::version::assert_compatible_oracle_version();
-        $context_creation
-        $storage_init
+        $contract_self_creation
         $message_discovery_call
     };
     let body = f.body().as_block().unwrap();
@@ -331,7 +351,7 @@ pub(crate) comptime fn create_message_discovery_call() -> Quoted {
         /// always safe to call.
         unsafe {
             dep::aztec::messages::discovery::discover_new_messages(
-                context.this_address(),
+                self.address,
                 _compute_note_hash_and_nullifier,
             );
         };
@@ -419,8 +439,8 @@ pub(crate) comptime fn create_authorize_once_check(
         .as_ctstring()
         .as_quoted_str();
     quote {         
-        if (!$from_arg_name_quoted.eq(context.msg_sender().unwrap())) {
-            $fn_call(&mut context, $from_arg_name_quoted);
+        if (!$from_arg_name_quoted.eq(self.msg_sender().unwrap())) {
+            $fn_call(self.context, $from_arg_name_quoted);
         } else {
             assert($nonce_check_quote, $invalid_nonce_message);
         }
