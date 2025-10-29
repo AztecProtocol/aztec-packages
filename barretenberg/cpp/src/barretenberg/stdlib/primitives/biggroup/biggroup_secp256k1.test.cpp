@@ -37,7 +37,7 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     using bool_ct = stdlib::bool_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 

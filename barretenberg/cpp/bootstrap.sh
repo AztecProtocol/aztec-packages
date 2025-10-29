@@ -256,19 +256,23 @@ function test_cmds {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
-    # Mostly arbitrary set that touches lots of the code.
-    declare -A asan_tests=(
-      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["chonk_tests"]="ChonkTests.Basic"
-      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-    )
-    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
-    for bin_name in "${!asan_tests[@]}"; do
-      local filter=${asan_tests[$bin_name]}
-      local prefix="$hash:CPUS=4:MEM=8g"
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-    done
+
+    # only run ASAN tests if not building a release
+    if ! semver check "$REF_NAME"; then
+      # Mostly arbitrary set that touches lots of the code.
+      declare -A asan_tests=(
+        ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+        ["chonk_tests"]="ChonkTests.Basic"
+        ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+        ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+      )
+      # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
+      for bin_name in "${!asan_tests[@]}"; do
+        local filter=${asan_tests[$bin_name]}
+        local prefix="$hash:CPUS=4:MEM=8g"
+        echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+      done
+    fi
   fi
 
   # Run the SMT compatibility tests

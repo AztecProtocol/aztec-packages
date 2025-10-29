@@ -39,15 +39,12 @@ cd "$worktree_dir"
 git config user.name "$pr_author"
 git config user.email "$author_email"
 
-# Save our current branch commits
+# Save our current branch commit
 original_head=$(git rev-parse HEAD)
 
-# Deepen by 50 to ensure we have the base commit
-
-# Fetch the base commit with depth
+# Deepen our history for comparisons
 git fetch --depth=200 origin "$base_sha"
-
-# Fetch the base branch to ensure we have it
+git fetch --depth=200 origin "$base_sha"
 git fetch --depth=200 origin "$base_branch"
 
 # Find the merge-base between our branch and the base branch
