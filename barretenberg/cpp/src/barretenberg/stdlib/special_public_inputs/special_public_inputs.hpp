@@ -65,7 +65,7 @@ class KernelIO {
     G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
     G1 app_return_data;             // Commitment to the return data of an app circuit
     TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
-    FF output_pg_accum_hash;        // hash of the output PG verifier accumulator
+    FF output_pg_accum_hash;        // hash of the output HN verifier accumulator
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;

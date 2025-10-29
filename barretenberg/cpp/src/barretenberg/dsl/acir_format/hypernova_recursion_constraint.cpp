@@ -27,7 +27,7 @@ using namespace bb;
  * @details Construction of a kernel circuit requires two inputs: kernel prgram acir constraints and an IVC instance
  * containing state needed to complete the kernel logic, e.g. proofs for input to recursive verifiers. To construct
  * verification keys for kernel circuits without running a full IVC, we mock the IVC state corresponding to a provided
- * set of IVC recurson constraints. For example, if the constraints contain a single PG recursive verification, we
+ * set of IVC recurson constraints. For example, if the constraints contain a single HN recursive verification, we
  * initialize an IVC with mocked data for the verifier accumulator, the folding proof, the circuit verification key,
  * and a merge proof.
  * @note There are only three valid combinations of IVC recursion constraints for a kernel program. See below for
@@ -54,19 +54,19 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vect
         return ivc;
     }
 
-    // Case: RESET kernel; single PG recursive verification of a kernel
+    // Case: RESET kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         return ivc;
     }
 
-    // Case: TAIL kernel; single PG recursive verification of a kernel
+    // Case: TAIL kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
-    // Case: INNER kernel; two PG recursive verifications, kernel and app in that order
+    // Case: INNER kernel; two HN recursive verifications, kernel and app in that order
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
@@ -101,7 +101,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
     size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
     size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0; // always 1
 
-    // Construct a mock Oink or PG proof and a mock MegaHonk verification key
+    // Construct a mock Oink or HN proof and a mock MegaHonk verification key
     std::vector<FF> proof;
     std::shared_ptr<MegaVerificationKey> verification_key;
 
@@ -136,7 +136,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
  * Also initializes the recursive verifier accumulator since it is hashed in circuit.
  *
  * @param ivc
- * @param type The type of verification (OINK, PG, PG_TAIL, PG_FINAL)
+ * @param type The type of verification (OINK, HN, PG_TAIL, PG_FINAL)
  * @param is_kernel Whether this is a kernel circuit accumulation
  */
 void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)

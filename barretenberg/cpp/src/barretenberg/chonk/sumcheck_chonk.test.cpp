@@ -114,7 +114,7 @@ TEST_F(ChonkTests, Basic)
  */
 TEST_F(ChonkTests, BadProofFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
     const size_t NUM_APP_CIRCUITS = 2;
     // Confirm that the IVC verifies if nothing is tampered with
@@ -375,7 +375,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
  */
 TEST_F(ChonkTests, DatabusFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;

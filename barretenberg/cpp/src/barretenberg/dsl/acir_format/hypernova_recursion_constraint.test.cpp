@@ -41,7 +41,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         Builder circuit{ ivc->goblin.op_queue };
         GoblinMockCircuits::add_some_ecc_op_gates(circuit);
         MockCircuits::add_arithmetic_gates(circuit);
-        PairingPoints::add_default_to_public_inputs(circuit);
+        stdlib::recursion::honk::AppIO::add_default(circuit);
         return circuit;
     }
 
@@ -101,7 +101,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        InnerPairingPoints::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
         return builder;
     }
 
@@ -174,7 +174,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
             ProofSurgeon<FF>::populate_recursion_witness_data(
                 witness, proof_witnesses, key_witnesses, key_hash_witness, /*num_public_inputs_to_extract=*/0);
 
-        // The proof type can be either Oink or PG or PG_FINAL
+        // The proof type can be either Oink or HN or PG_FINAL
         PROOF_TYPE proof_type;
         switch (input.type) {
         case QUEUE_TYPE::OINK:
@@ -313,7 +313,7 @@ TEST_F(HypernovaRecursionConstraintTest, AccumulateSingleApp)
 
 /**
  * @brief Test IVC accumulation of two apps and two kernels; The first kernel contains a recursive oink verification and
- * the second contains two recursive PG verifications, all specified via ACIR RecursionConstraints.
+ * the second contains two recursive HN verifications, all specified via ACIR RecursionConstraints.
  */
 TEST_F(HypernovaRecursionConstraintTest, AccumulateTwoApps)
 {
@@ -394,7 +394,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateResetKernelVKFromConstraints)
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN);
 
-        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
+        // Construct and accumulate a mock RESET kernel (HN recursion for kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc);
         expected_kernel_vk = ivc->verification_queue.back().honk_vk;
     }
@@ -432,10 +432,10 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateTailKernelVKFromConstraints)
         // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
         construct_and_accumulate_mock_kernel(ivc);
 
-        // Construct and accumulate a mock RESET kernel (PG recursion for kernel accumulation)
+        // Construct and accumulate a mock RESET kernel (HN recursion for kernel accumulation)
         construct_and_accumulate_mock_kernel(ivc);
 
-        // Construct and accumulate a mock TAIL kernel (PG recursion for kernel accumulation)
+        // Construct and accumulate a mock TAIL kernel (HN recursion for kernel accumulation)
         EXPECT_TRUE(ivc->verification_queue.size() == 1);
         EXPECT_TRUE(ivc->verification_queue[0].type == bb::Chonk::QUEUE_TYPE::HN_TAIL);
         construct_and_accumulate_mock_kernel(ivc);
@@ -484,7 +484,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
             construct_and_accumulate_mock_app(ivc);
         }
 
-        { // Construct and accumulate a mock INNER kernel (PG recursion for kernel accumulation)
+        { // Construct and accumulate a mock INNER kernel (HN recursion for kernel accumulation)
             EXPECT_TRUE(ivc->verification_queue.size() == 2);
             EXPECT_TRUE(ivc->verification_queue[1].type == bb::Chonk::QUEUE_TYPE::HN);
             construct_and_accumulate_mock_kernel(ivc);
@@ -584,7 +584,7 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuit)
  */
 TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
     auto ivc = std::make_shared<Chonk>(/*num_circuits*/ 5);
 
