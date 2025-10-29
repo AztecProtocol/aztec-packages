@@ -55,8 +55,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
         // Deepcopy the opqueue to avoid modifying the original one
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<Chonk::ProverInstance> prover_instance =
-            std::make_shared<Chonk::ProverInstance>(builder);
+        std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }

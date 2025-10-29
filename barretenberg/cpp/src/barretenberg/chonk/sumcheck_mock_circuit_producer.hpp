@@ -149,8 +149,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<Chonk::ProverInstance> prover_instance =
-            std::make_shared<Chonk::ProverInstance>(builder);
+        std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
     }
@@ -243,9 +242,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         return { circuit, get_verification_key(circuit) };
     }
 
-    void construct_and_accumulate_next_circuit(Chonk& ivc,
-                                               TestSettings settings = {},
-                                               bool check_circuit_sizes = false)
+    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
         ivc.accumulate(circuit, vk);

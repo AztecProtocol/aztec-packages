@@ -37,8 +37,7 @@ using namespace bb;
  * @return Chonk
  */
 
-std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
-    const std::vector<RecursionConstraint>& constraints)
+std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
     auto ivc = std::make_shared<Chonk>(constraints.size());
 
@@ -92,7 +91,7 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
  *
  */
 Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUEUE_TYPE verification_type,
-                                                                    const bool is_kernel)
+                                                                const bool is_kernel)
 {
     using IvcType = Chonk;
     using FF = IvcType::FF;
@@ -108,8 +107,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
 
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN ||
-                         verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN || verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
                          verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
                      true);
 
@@ -120,8 +118,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
         verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN,
-                     true);
+        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
 
         // The first app is not folded thus the proof does not include the nova fold proof
         bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
@@ -142,9 +139,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUE
  * @param type The type of verification (OINK, PG, PG_TAIL, PG_FINAL)
  * @param is_kernel Whether this is a kernel circuit accumulation
  */
-void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc,
-                                    Chonk::QUEUE_TYPE type,
-                                    const bool is_kernel)
+void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)
 {
     using FF = Chonk::FF;
     using Commitment = Chonk::Commitment;

@@ -39,8 +39,8 @@ Chonk::Chonk(size_t num_circuits)
  *
  * @param circuit
  */
-void Chonk::instantiate_stdlib_verification_queue(
-    ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
+void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
+                                                  const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
@@ -89,9 +89,8 @@ void Chonk::instantiate_stdlib_verification_queue(
  * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
  * tables as read from the proof by the Merge verifier
  */
-std::
-    tuple<std::optional<Chonk::RecursiveVerifierAccumulator>, Chonk::PairingPoints, Chonk::TableCommitments>
-    Chonk::perform_recursive_verification_and_databus_consistency_checks(
+std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>, Chonk::PairingPoints, Chonk::TableCommitments> Chonk::
+    perform_recursive_verification_and_databus_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
         const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
@@ -526,8 +525,8 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  * @brief Construct a zero-knowledge proof for the hiding circuit, which recursively verifies the last folding,
  * merge and decider proof.
  */
-HonkProof Chonk::construct_honk_proof_for_hiding_kernel(
-    ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& verification_key)
+HonkProof Chonk::construct_honk_proof_for_hiding_kernel(ClientCircuit& circuit,
+                                                        const std::shared_ptr<MegaVerificationKey>& verification_key)
 {
     auto hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit, bn254_commitment_key);
 
@@ -715,7 +714,7 @@ Chonk::VerificationKey Chonk::get_vk() const
 
 #ifndef NDEBUG
 void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                                   const std::shared_ptr<Transcript>& verifier_transcript)
+                                               const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto verifier_inst = std::make_shared<VerifierInstance>(queue_entry.honk_vk);
 

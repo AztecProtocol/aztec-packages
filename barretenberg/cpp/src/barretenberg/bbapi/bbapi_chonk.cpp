@@ -119,8 +119,8 @@ ChonkProve::Response ChonkProve::execute(BBApiRequest& request) &&
         throw_or_abort("Failed to verify the generated proof!");
     }
 
-    response.proof = Chonk::Proof{ .mega_proof = std::move(proof.mega_proof),
-                                           .goblin_proof = std::move(proof.goblin_proof) };
+    response.proof =
+        Chonk::Proof{ .mega_proof = std::move(proof.mega_proof), .goblin_proof = std::move(proof.goblin_proof) };
 
     request.ivc_in_progress.reset();
     request.ivc_stack_depth = 0;
@@ -173,9 +173,8 @@ ChonkComputeIvcVk::Response ChonkComputeIvcVk::execute(BB_UNUSED const BBApiRequ
 
     auto mega_vk = from_buffer<Chonk::MegaVerificationKey>(standalone_vk_response.bytes);
     Chonk::VerificationKey chonk_vk{ .mega = std::make_shared<Chonk::MegaVerificationKey>(mega_vk),
-                                             .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
-                                             .translator =
-                                                 std::make_shared<Chonk::TranslatorVerificationKey>() };
+                                     .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
+                                     .translator = std::make_shared<Chonk::TranslatorVerificationKey>() };
     Response response;
     response.bytes = to_buffer(chonk_vk);
 

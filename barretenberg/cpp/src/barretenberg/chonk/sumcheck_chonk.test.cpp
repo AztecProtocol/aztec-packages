@@ -51,8 +51,9 @@ class ChonkTests : public ::testing::Test {
         }
     }
 
-    static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(
-        size_t num_app_circuits, TestSettings settings = {}, bool check_circuit_sizes = false)
+    static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
+                                                                                    TestSettings settings = {},
+                                                                                    bool check_circuit_sizes = false)
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;

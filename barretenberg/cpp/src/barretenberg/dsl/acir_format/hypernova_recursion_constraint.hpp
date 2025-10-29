@@ -14,12 +14,9 @@ namespace acir_format {
 
 using namespace bb;
 
-std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(
-    const std::vector<RecursionConstraint>& constraints);
+std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints);
 
-void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc,
-                                    Chonk::QUEUE_TYPE type,
-                                    const bool is_kernel);
+void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel);
 
 void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
