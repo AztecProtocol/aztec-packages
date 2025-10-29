@@ -54,7 +54,7 @@ else
   instance_name=$(echo -n "$REF_NAME" | head -c 50 | tr -c 'a-zA-Z0-9-' '_')_$arch
 fi
 
-if semver check $REF_NAME; then
+if semver check $REF_NAME && [ "${AZTEC_RELEASE_REPO:-aztec}" = "aztec" ]; then
   # Override the public key that aws will load into ~/.ssh/authorized_keys on the launched instance.
   # This requires the restricted key only available in release environments.
   key_name="super-build-instance"
