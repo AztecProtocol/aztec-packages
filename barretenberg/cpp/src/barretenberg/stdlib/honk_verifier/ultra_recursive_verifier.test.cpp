@@ -394,6 +394,78 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             }
         }
     }
+
+    /**
+     * @brief Test recursive verification with variable proof size (virtual_log_n >= actual circuit size)
+     * This specifically tests UltraZK proofs with padding. The virtual_log_n parameter specifies the proof size,
+     * which must be greater than or equal to the actual circuit size. This test uses a larger virtual size to
+     * verify that proofs can be padded to a uniform size.
+     */
+    static void test_recursive_verification_variable_proof_size()
+        requires(IsAnyOf<InnerFlavor, UltraZKFlavor>)
+    {
+        // Create a small inner circuit (2^8 gates)
+        auto inner_circuit = create_inner_circuit(8);
+
+        // Generate a proof with a larger virtual size (2^12)
+        // Note: virtual_log_n can be equal to or greater than the actual circuit size
+        auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
+        auto verification_key =
+            std::make_shared<typename InnerFlavor::VerificationKey>(prover_instance->get_precomputed());
+
+        const size_t virtual_log_n = 12; // Must be >= actual circuit size (9 in this case)
+        InnerProver inner_prover(
+            prover_instance, verification_key, std::make_shared<typename InnerFlavor::Transcript>(), virtual_log_n);
+
+        info("Actual circuit size: 2^", prover_instance->log_dyadic_size());
+        info("Virtual circuit size: 2^", virtual_log_n);
+
+        auto inner_proof = inner_prover.construct_proof();
+
+        // Create a recursive verification circuit for the proof of the inner circuit
+        OuterBuilder outer_circuit;
+        auto stdlib_vk_and_hash =
+            std::make_shared<typename RecursiveFlavor::VKAndHash>(outer_circuit, verification_key);
+        RecursiveVerifier verifier{ &outer_circuit, stdlib_vk_and_hash };
+
+        OuterStdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
+        VerifierOutput output = verifier.template verify_proof<OuterIO>(stdlib_inner_proof);
+
+        // Set public inputs
+        OuterIO inputs;
+        inputs.pairing_inputs = output.points_accumulator;
+        inputs.set_public();
+
+        // Check for a failure flag in the recursive verifier circuit
+        EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
+
+        // Perform native verification and check that it agrees with recursive verification
+        InnerVerifier native_verifier(verification_key);
+        bool native_result = native_verifier.template verify_proof<bb::DefaultIO>(inner_proof).result;
+        EXPECT_TRUE(native_result);
+
+        NativeVerifierCommitmentKey pcs_vkey{};
+        bool recursive_result =
+            pcs_vkey.pairing_check(output.points_accumulator.P0.get_value(), output.points_accumulator.P1.get_value());
+        EXPECT_EQ(recursive_result, native_result);
+
+        // Construct and verify a proof of the recursive verifier circuit
+        auto outer_prover_instance = std::make_shared<OuterProverInstance>(outer_circuit);
+        auto outer_verification_key =
+            std::make_shared<typename OuterFlavor::VerificationKey>(outer_prover_instance->get_precomputed());
+        info("Recursive Verifier for variable proof size: num gates = ", outer_circuit.get_num_finalized_gates());
+        OuterProver outer_prover(outer_prover_instance, outer_verification_key);
+        auto outer_proof = outer_prover.construct_proof();
+        OuterVerifier outer_verifier(outer_verification_key);
+        bool result = outer_verifier.template verify_proof<bb::DefaultIO>(outer_proof).result;
+        ASSERT_TRUE(result);
+    }
+
+    static void test_recursive_verification_variable_proof_size()
+        requires(!IsAnyOf<InnerFlavor, UltraZKFlavor>)
+    {
+        GTEST_SKIP() << "Variable proof size test only for UltraZK flavor";
+    }
 };
 
 TYPED_TEST_SUITE(RecursiveVerifierTest, Flavors);
@@ -429,6 +501,11 @@ HEAVY_TYPED_TEST(RecursiveVerifierTest, IndependentVKHash)
 HEAVY_TYPED_TEST(RecursiveVerifierTest, SingleRecursiveVerificationFailure)
 {
     TestFixture::test_recursive_verification_fails();
+};
+
+HEAVY_TYPED_TEST(RecursiveVerifierTest, VariableProofSize)
+{
+    TestFixture::test_recursive_verification_variable_proof_size();
 };
 
 #ifdef DISABLE_HEAVY_TESTS

@@ -94,6 +94,9 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
         virtual_log_n = static_cast<size_t>(prover_instance->log_dyadic_size());
     }
 
+    // Ensure the actual circuit size does not exceed the virtual size
+    BB_ASSERT(prover_instance->log_dyadic_size() <= virtual_log_n, "Actual circuit size exceeds virtual circuit size");
+
     prover_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
