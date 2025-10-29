@@ -1,6 +1,4 @@
-#include "control_flow.hpp"
-
-#include "fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 
 void ControlFlow::process_insert_simple_instruction_block(InsertSimpleInstructionBlock instruction)
 {

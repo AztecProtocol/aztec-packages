@@ -1,9 +1,11 @@
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction_block.hpp"
+
+#include <random>
+#include <vector>
+
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
 #include "barretenberg/avm_fuzzer/mutations/instructions/instruction.hpp"
-#include <random>
-#include <vector>
 
 constexpr uint16_t MAX_INSTRUCTION_BLOCK_SIZE_ON_GENERATION = 10;
 

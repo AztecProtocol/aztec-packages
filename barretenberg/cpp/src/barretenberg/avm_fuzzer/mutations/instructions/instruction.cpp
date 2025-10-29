@@ -1,4 +1,5 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+
 #include "barretenberg/avm_fuzzer/mutations/basic_types/memory_tag.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint16_t.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"

@@ -5,14 +5,16 @@
 /// 3. Decrement by 1
 /// 4. Add a random value
 
-#include "uint8_t.hpp"
-#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
-#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/uint8_t.hpp"
+
 #include <algorithm>
 #include <array>
 #include <functional>
 #include <random>
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
+#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 
 uint8_t generate_random_uint8(std::mt19937_64& rng)
 {

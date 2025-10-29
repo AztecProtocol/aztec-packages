@@ -1,9 +1,11 @@
 #pragma once
-#include "barretenberg/serialize/msgpack.hpp"
-#include "control_flow.hpp"
-#include "instruction.hpp"
+
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
 
 /// @brief describes the data which will be used for fuzzing
 /// Should contain instructions, calldata, CFG instructions, options to disable/enable instructions, etc

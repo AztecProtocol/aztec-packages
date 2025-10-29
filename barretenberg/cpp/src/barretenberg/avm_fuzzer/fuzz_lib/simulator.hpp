@@ -1,8 +1,11 @@
 #pragma once
+
+#include <vector>
+
 #include "barretenberg/avm_fuzzer/common/process.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/interfaces/execution.hpp"
-#include <vector>
+
 using namespace bb::avm2::simulation;
 using namespace bb::avm2;
 

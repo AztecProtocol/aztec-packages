@@ -1,7 +1,8 @@
 #pragma once
 
-#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
 
 constexpr uint8_t MAX_MUTATION_NUM = 20;
 

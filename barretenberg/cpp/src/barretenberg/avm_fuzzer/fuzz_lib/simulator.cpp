@@ -1,7 +1,9 @@
-#include "simulator.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 
 #include <iomanip>
 #include <iostream>
+#include <libdeflate.h>
+#include <nlohmann/json.hpp>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <vector>
@@ -16,8 +18,6 @@
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
-#include "libdeflate.h"
-#include <nlohmann/json.hpp>
 
 using bb::avm2::GlobalVariables;
 using namespace bb::avm2;

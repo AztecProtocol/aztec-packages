@@ -16,15 +16,16 @@
   In the BLOCK 3 only one of {1338, 1339} is defined, so we cannot use them.
 */
 #pragma once
-#include "barretenberg/vm2/common/memory_types.hpp"
+
 #include <cstdint>
 #include <map>
 #include <optional>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/memory_manager.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
-#include "instruction.hpp"
-#include "memory_manager.hpp"
 
 class ProgramBlock {
   private:

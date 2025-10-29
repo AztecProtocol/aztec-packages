@@ -56,7 +56,7 @@ if(AVM)
 
   if(FUZZING)
       target_compile_options(
-          vm2_sim
+          vm2
           PRIVATE
           -fsanitize=fuzzer-no-link)
   endif()

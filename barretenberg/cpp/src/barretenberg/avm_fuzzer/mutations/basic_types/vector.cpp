@@ -5,14 +5,16 @@
 /// 3. Swap two random elements at random indices
 /// 4. Mutate a random element at a random index
 
-#include "vector.hpp"
-#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
-#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
+#include "barretenberg/avm_fuzzer/mutations/basic_types/vector.hpp"
+
 #include <algorithm>
 #include <array>
 #include <functional>
 #include <random>
 #include <vector>
+
+#include "barretenberg/avm_fuzzer/common/weighted_selection.hpp"
+#include "barretenberg/avm_fuzzer/mutations/configuration.hpp"
 
 /// @brief Insert a random element at a random index
 struct RandomInsertion {

@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 
+#include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
+#include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
+#include "barretenberg/avm_fuzzer/mutations/fuzzer_data.hpp"
 #include "barretenberg/serialize/msgpack_impl.hpp"
-#include "fuzz_lib/control_flow.hpp"
-#include "fuzz_lib/fuzz.hpp"
-#include "fuzz_lib/fuzzer_data.hpp"
-#include "fuzz_lib/simulator.hpp"
-#include "mutations/fuzzer_data.hpp"
 
 using FuzzInstruction = ::FuzzInstruction;
 
