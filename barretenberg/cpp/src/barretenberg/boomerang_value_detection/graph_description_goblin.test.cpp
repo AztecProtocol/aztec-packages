@@ -85,7 +85,11 @@ TEST_F(BoomerangGoblinRecursiveVerifierTests, graph_description_basic)
 
     GoblinRecursiveVerifier verifier{ &builder, verifier_input };
     GoblinRecursiveVerifierOutput output = verifier.verify(proof, recursive_merge_commitments, MergeSettings::APPEND);
-    output.points_accumulator.set_public();
+
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = output.points_accumulator;
+    inputs.set_public();
+
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
     {
         auto prover_instance = std::make_shared<OuterProverInstance>(builder);

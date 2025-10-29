@@ -120,7 +120,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints<typename Curve::Builder> pairing_points(
+        PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
     // Reconstruct the public inputs
     IO inputs;

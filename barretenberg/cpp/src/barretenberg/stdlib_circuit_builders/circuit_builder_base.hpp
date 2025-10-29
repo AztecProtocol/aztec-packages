@@ -12,8 +12,10 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "pairing_points_tagging.hpp"
 #include <utility>
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace bb {
@@ -87,6 +89,12 @@ template <typename FF_> class CircuitBuilderBase {
     std::unordered_map<uint32_t, uint32_t> _tau;
 
   public:
+    /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    mutable PairingPointsTagging pairing_points_tagging;
+
     /**
      * @brief Map from witness index to real variable index
      * @details The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib
