@@ -1840,7 +1840,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_shl_with_tracegen(ThreeOperandTestParams params)
+    TestTraceContainer process_shl_with_tracegen(ThreeOperandTestParams params, bool error = false)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
@@ -1853,7 +1853,7 @@ class AluShlConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::SHL, .a = a, .b = b, .c = c },
+                { .operation = simulation::AluOperation::SHL, .a = a, .b = b, .c = c, .error = error },
             },
             trace);
 
@@ -1891,20 +1891,19 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlFF)
     auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
-    auto trace = process_shl_with_tracegen({ a, b, c });
-    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shl_with_tracegen only handles positive case
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-    // This case should be recoverable, so we set the tag err selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
+    auto trace = process_shl_with_tracegen({ a, b, c }, true);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+
+    // Disable tag and error selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
 }
 
 TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
@@ -1912,20 +1911,27 @@ TEST_F(AluShlConstrainingTest, NegativeAluShlTagMismatchOverflow)
     auto a = MemoryValue::from_tag(MemoryTag::U8, 2);
     auto b = MemoryValue::from_tag(MemoryTag::U32, 256);
     auto c = MemoryValue::from_tag(MemoryTag::U8, 0);
-    auto trace = process_shl_with_tracegen({ a, b, c });
-    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shl_with_tracegen only handles positive case
+    auto trace = process_shl_with_tracegen({ a, b, c }, true);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+
+    // Disable tag and error selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
+    // Disable ab tag mismatch error:
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
+
+    // Second attempt with setting the ab tags diff inverse to zero:
+    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+
+    // Reset only ab tag diff related columns:
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U8)) - FF(static_cast<uint8_t>(MemoryTag::U32))).invert());
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-    // This case should be recoverable, so we set the tag err selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // SHR TESTS
@@ -2006,7 +2012,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
         return trace;
     }
 
-    TestTraceContainer process_shr_with_tracegen(ThreeOperandTestParams params)
+    TestTraceContainer process_shr_with_tracegen(ThreeOperandTestParams params, bool error = false)
     {
         TestTraceContainer trace;
         auto [a, b, c] = params;
@@ -2019,7 +2025,7 @@ class AluShrConstrainingTest : public AluConstrainingTest,
 
         builder.process(
             {
-                { .operation = simulation::AluOperation::SHR, .a = a, .b = b, .c = c },
+                { .operation = simulation::AluOperation::SHR, .a = a, .b = b, .c = c, .error = error },
             },
             trace);
 
@@ -2057,20 +2063,19 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrFF)
     auto a = MemoryValue::from_tag(MemoryTag::FF, 2);
     auto b = MemoryValue::from_tag(MemoryTag::FF, 5);
     auto c = MemoryValue::from_tag(MemoryTag::FF, 2 << 5);
-    auto trace = process_shr_with_tracegen({ a, b, c });
-    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shr_with_tracegen only handles positive case
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-    // This case should be recoverable, so we set the tag err selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
+    auto trace = process_shr_with_tracegen({ a, b, c }, true);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+
     // Check the edge case of FF tag (=> max_bits = 0) and b = 0:
     trace.set(Column::alu_ib, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
+
+    // Disable tag and error selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
 }
 
 TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
@@ -2078,20 +2083,26 @@ TEST_F(AluShrConstrainingTest, NegativeAluShrTagMismatchOverflow)
     auto a = MemoryValue::from_tag(MemoryTag::U16, 2);
     auto b = MemoryValue::from_tag(MemoryTag::U64, 123456);
     auto c = MemoryValue::from_tag(MemoryTag::U16, 0);
-    auto trace = process_shr_with_tracegen({ a, b, c });
-    trace.set(Column::alu_sel_decompose_a, 0, 0); // Hacky because process_shr_with_tracegen only handles positive case
+    auto trace = process_shr_with_tracegen({ a, b, c }, true);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+    // Disable tag and error selectors:
+    trace.set(Column::alu_sel_tag_err, 0, 0);
+    trace.set(Column::alu_sel_err, 0, 0);
+    // Disable ab tag mismatch error:
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 0);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
-    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
+
+    // Second attempt with setting the ab tags diff inverse to zero:
+    trace.set(Column::alu_ab_tags_diff_inv, 0, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "AB_TAGS_CHECK");
+
+    // Reset only ab tag diff related columns:
     trace.set(Column::alu_ab_tags_diff_inv,
               0,
               (FF(static_cast<uint8_t>(MemoryTag::U16)) - FF(static_cast<uint8_t>(MemoryTag::U64))).invert());
+    trace.set(Column::alu_sel_ab_tag_mismatch, 0, 1);
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "TAG_ERR_CHECK");
-    // This case should be recoverable, so we set the tag err selectors:
-    trace.set(Column::alu_sel_tag_err, 0, 1);
-    trace.set(Column::alu_sel_err, 0, 1);
-    check_relation<alu>(trace);
-    check_all_interactions<AluTraceBuilder>(trace);
-    check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
 }
 
 // TRUNCATE operation (SET/CAST opcodes)

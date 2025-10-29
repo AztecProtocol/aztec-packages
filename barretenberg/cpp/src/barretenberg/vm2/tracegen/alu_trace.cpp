@@ -48,7 +48,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     bool is_ff = a_tag == MemoryTag::FF;
     bool is_u128 = a_tag == MemoryTag::U128;
     bool has_error = event.error;
-    bool is_b_zero = event.b.as_ff() == 0; // Used for DIV and FDIV
 
     // We rely on the following assert in computing C::alu_tag_ff_diff_inv value
     // below. Namely: (tag - MemoryTag::FF).invert() == tag.invert().
@@ -59,13 +58,17 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
                  { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id },
-                 // I think the only situation in which a + b != c as fields is when c overflows the bit size
-                 // if this in unclear, I can use > or actually check bit sizes:
-                 { Column::alu_cf, event.a.as_ff() + event.b.as_ff() != event.c.as_ff() } };
+                 // a + b = cf * 2^(max_bits) + c so cf == 1 iff a + b != c over the integers.
+                 // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
+                 // than 128 bits.
+                 { Column::alu_cf, !has_error && (event.a.as_ff() + event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
     case simulation::AluOperation::SUB:
         return { { Column::alu_sel_op_sub, 1 },
                  { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SUB).subtrace_operation_id },
-                 { Column::alu_cf, event.a.as_ff() - event.b.as_ff() != event.c.as_ff() } };
+                 // a - b + cf * 2^(max_bits) = c so cf == 1 iff a - b != c over the integers.
+                 // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
+                 // than 128 bits.
+                 { Column::alu_cf, !has_error && (event.a.as_ff() - event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
     case simulation::AluOperation::MUL: {
         uint256_t a_int = static_cast<uint256_t>(event.a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(event.b.as_ff());
@@ -78,30 +81,34 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_sel_is_u128, is_u128 },
             { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
         };
-        if (is_u128) {
-            // For u128s, we decompose a and b into 64 bit chunks:
-            auto a_decomp = simulation::decompose(static_cast<uint128_t>(event.a.as_ff()));
-            auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
-            // c_hi = old_c_hi - a_hi * b_hi % 2^64
-            auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            res.insert(res.end(),
-                       {
-                           { Column::alu_sel_mul_u128, has_error ? 0 : 1 },
-                           { Column::alu_sel_mul_div_u128, has_error ? 0 : 1 },
-                           { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
-                           { Column::alu_a_lo, a_decomp.lo },
-                           { Column::alu_a_lo_bits, has_error ? 0 : 64 },
-                           { Column::alu_a_hi, a_decomp.hi },
-                           { Column::alu_a_hi_bits, has_error ? 0 : 64 },
-                           { Column::alu_b_lo, b_decomp.lo },
-                           { Column::alu_b_hi, b_decomp.hi },
-                           { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
-                           { Column::alu_cf, hi_operand == 0 ? 0 : 1 },
-                       });
-        } else {
-            // For non-u128s, we just take the top bits of a*b:
-            res.insert(res.end(), { { Column::alu_c_hi, is_ff ? 0 : (a_int * b_int) >> get_tag_bits(a_tag) } });
+
+        if (!has_error) {
+            if (is_u128) {
+                // For u128s, we decompose a and b into 64 bit chunks:
+                auto a_decomp = simulation::decompose(static_cast<uint128_t>(event.a.as_ff()));
+                auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
+                // c_hi = old_c_hi - a_hi * b_hi % 2^64
+                auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+                res.insert(res.end(),
+                           {
+                               { Column::alu_sel_mul_u128, 1 },
+                               { Column::alu_sel_mul_div_u128, 1 },
+                               { Column::alu_sel_decompose_a, 1 },
+                               { Column::alu_a_lo, a_decomp.lo },
+                               { Column::alu_a_lo_bits, 64 },
+                               { Column::alu_a_hi, a_decomp.hi },
+                               { Column::alu_a_hi_bits, 64 },
+                               { Column::alu_b_lo, b_decomp.lo },
+                               { Column::alu_b_hi, b_decomp.hi },
+                               { Column::alu_c_hi, (((a_int * b_int) >> 128) - hi_operand) % (uint256_t(1) << 64) },
+                               { Column::alu_cf, hi_operand == 0 ? 0 : 1 },
+                           });
+            } else {
+                // For non-u128s, we just take the top bits of a*b:
+                res.insert(res.end(), { { Column::alu_c_hi, is_ff ? 0 : (a_int * b_int) >> get_tag_bits(a_tag) } });
+            }
         }
+
         return res;
     }
     case simulation::AluOperation::DIV: {
@@ -118,21 +125,21 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
               get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
             { Column::alu_sel_is_u128, is_u128 },
             { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
-            { Column::alu_b_inv, is_b_zero ? 0 : event.b.as_ff() }, // Will be inverted in batch later
+            { Column::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
             { Column::alu_sel_div_no_err, has_error ? 0 : 1 },
         };
-        if (is_u128) {
+        if (is_u128 && !has_error) {
             // For u128s, we decompose c and b into 64 bit chunks:
             auto c_decomp = simulation::decompose(static_cast<uint128_t>(event.c.as_ff()));
             auto b_decomp = simulation::decompose(static_cast<uint128_t>(event.b.as_ff()));
             res.insert(res.end(),
                        {
-                           { Column::alu_sel_mul_div_u128, has_error ? 0 : 1 },
-                           { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
+                           { Column::alu_sel_mul_div_u128, 1 },
+                           { Column::alu_sel_decompose_a, 1 },
                            { Column::alu_a_lo, c_decomp.lo },
-                           { Column::alu_a_lo_bits, has_error ? 0 : 64 },
+                           { Column::alu_a_lo_bits, 64 },
                            { Column::alu_a_hi, c_decomp.hi },
-                           { Column::alu_a_hi_bits, has_error ? 0 : 64 },
+                           { Column::alu_a_hi_bits, 64 },
                            { Column::alu_b_lo, b_decomp.lo },
                            { Column::alu_b_hi, b_decomp.hi },
                        });
@@ -145,8 +152,8 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::FDIV).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) },       // Relies on MemoryTag::FF is 0
-            { Column::alu_b_inv, is_b_zero ? 0 : event.b.as_ff() }, // Will be inverted in batch later
+              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+            { Column::alu_b_inv, event.b.as_ff() },           // Will be inverted in batch later
         };
     }
     case simulation::AluOperation::EQ: {
@@ -154,39 +161,59 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         return {
             { Column::alu_sel_op_eq, 1 },
             { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::EQ).subtrace_operation_id },
-            { Column::alu_ab_diff_inv, diff }, // Will be inverted in batch later
+            { Column::alu_ab_diff_inv, has_error ? 0 : diff }, // Will be inverted in batch later
         };
     }
-    case simulation::AluOperation::LT:
-        return {
-            { Column::alu_lt_ops_input_a, event.b },
-            { Column::alu_lt_ops_input_b, event.a },
-            { Column::alu_lt_ops_result_c, event.c },
+    case simulation::AluOperation::LT: {
+        // Unconditional columns:
+        std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_lt, 1 },
-            { Column::alu_sel_lt_ops, has_error ? 0 : 1 },
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
+            { Column::alu_lt_ops_input_a, event.b },
+            { Column::alu_lt_ops_input_b, event.a },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt_ops, is_ff && !has_error ? 1 : 0 },
-            { Column::alu_sel_int_lt_ops, !is_ff && !has_error ? 1 : 0 },
             { Column::alu_tag_ff_diff_inv,
               get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
-    case simulation::AluOperation::LTE:
-        return {
-            { Column::alu_lt_ops_input_a, event.a },
-            { Column::alu_lt_ops_input_b, event.b },
-            { Column::alu_lt_ops_result_c, MemoryValue::from<uint1_t>(event.c.as_ff() == 0 && !has_error ? 1 : 0) },
+
+        // Columns when there is no error:
+        if (!has_error) {
+            res.insert(res.end(),
+                       {
+                           { Column::alu_lt_ops_result_c, event.c.as_ff() == 1 ? 1 : 0 },
+                           { Column::alu_sel_lt_ops, 1 },
+                           { Column::alu_sel_ff_lt_ops, is_ff ? 1 : 0 },
+                           { Column::alu_sel_int_lt_ops, is_ff ? 0 : 1 },
+                       });
+        }
+        return res;
+    }
+    case simulation::AluOperation::LTE: {
+        // Unconditional columns:
+        std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_lte, 1 },
-            { Column::alu_sel_lt_ops, has_error ? 0 : 1 },
             { Column::alu_op_id,
               static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LTE).subtrace_operation_id) },
+            { Column::alu_lt_ops_input_a, event.a },
+            { Column::alu_lt_ops_input_b, event.b },
             { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_sel_ff_lt_ops, is_ff && !has_error ? 1 : 0 },
-            { Column::alu_sel_int_lt_ops, !is_ff && !has_error ? 1 : 0 },
             { Column::alu_tag_ff_diff_inv,
               get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
+
+        // Columns when there is no error:
+        if (!has_error) {
+            res.insert(res.end(),
+                       {
+                           { Column::alu_lt_ops_result_c, event.c.as_ff() == 0 ? 1 : 0 },
+                           { Column::alu_sel_lt_ops, 1 },
+                           { Column::alu_sel_ff_lt_ops, is_ff ? 1 : 0 },
+                           { Column::alu_sel_int_lt_ops, is_ff ? 0 : 1 },
+                       });
+        }
+        return res;
+    }
     case simulation::AluOperation::NOT: {
         return {
             { Column::alu_sel_op_not, 1 },
@@ -197,61 +224,77 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         };
     }
     case simulation::AluOperation::SHL: {
-        auto a_num = static_cast<uint128_t>(event.a.as_ff());
-        auto b_num = static_cast<uint128_t>(event.b.as_ff());
-        auto tag_bits = get_tag_bits(a_tag);
-        // Whether we shift by more than the bit size (=> result is 0):
-        bool overflow = b_num > tag_bits;
-        // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
-        // b - max_bits):
-        auto shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
-        // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
-        // prove b > max_bits):
-        auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
-        return {
+        // Unconditional columns:
+        std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_shl, 1 },
-            { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-            { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
-            { Column::alu_a_lo, a_lo },
-            { Column::alu_a_lo_bits, shift_lo_bits },
-            { Column::alu_a_hi, a_num >> shift_lo_bits },
-            { Column::alu_a_hi_bits, overflow ? tag_bits : b_num },
-            { Column::alu_shift_lo_bits, shift_lo_bits },
-            { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_tag_ff_diff_inv,
               get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
-            { Column::alu_helper1, static_cast<uint128_t>(1) << b_num },
         };
+
+        if (!has_error) {
+            auto tag_bits = get_tag_bits(a_tag);
+            auto a_num = static_cast<uint128_t>(event.a.as_ff());
+            auto b_num = static_cast<uint128_t>(event.b.as_ff());
+            // Whether we shift by more than the bit size (=> result is 0):
+            bool overflow = b_num > tag_bits;
+            // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
+            // b - max_bits):
+            auto shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
+            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+            // prove b > max_bits):
+            auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
+            res.insert(res.end(),
+                       {
+                           { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                           { Column::alu_sel_decompose_a, 1 },
+                           { Column::alu_a_lo, a_lo },
+                           { Column::alu_a_lo_bits, shift_lo_bits },
+                           { Column::alu_a_hi, a_num >> shift_lo_bits },
+                           { Column::alu_a_hi_bits, overflow ? tag_bits : b_num },
+                           { Column::alu_shift_lo_bits, shift_lo_bits },
+                           { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+                           { Column::alu_helper1, static_cast<uint128_t>(1) << b_num },
+                       });
+        }
+        return res;
     }
     case simulation::AluOperation::SHR: {
-        auto a_num = static_cast<uint128_t>(event.a.as_ff());
-        auto b_num = static_cast<uint128_t>(event.b.as_ff());
-        auto tag_bits = get_tag_bits(a_tag);
-        // Whether we shift by more than the bit size (=> result is 0):
-        bool overflow = b_num > tag_bits;
-        // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
-        // b - max_bits):
-        auto shift_lo_bits = overflow ? tag_bits : b_num;
-        // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
-        // prove b > max_bits):
-        auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
-        return {
+        // Unconditional columns:
+        std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_shr, 1 },
-            { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
-            { Column::alu_sel_decompose_a, has_error ? 0 : 1 },
-            { Column::alu_a_lo, a_lo },
-            { Column::alu_a_lo_bits, shift_lo_bits },
-            { Column::alu_a_hi, a_num >> shift_lo_bits },
-            { Column::alu_a_hi_bits, overflow ? tag_bits : tag_bits - b_num },
-            { Column::alu_shift_lo_bits, shift_lo_bits },
-            { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
             { Column::alu_sel_is_ff, is_ff },
             { Column::alu_tag_ff_diff_inv,
               get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
         };
+
+        if (!has_error) {
+            auto a_num = static_cast<uint128_t>(event.a.as_ff());
+            auto b_num = static_cast<uint128_t>(event.b.as_ff());
+            auto tag_bits = get_tag_bits(a_tag);
+            // Whether we shift by more than the bit size (=> result is 0):
+            bool overflow = b_num > tag_bits;
+            // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
+            // b - max_bits):
+            auto shift_lo_bits = overflow ? tag_bits : b_num;
+            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+            // prove b > max_bits):
+            auto a_lo = overflow ? b_num - tag_bits : a_num % (static_cast<uint128_t>(1) << shift_lo_bits);
+            res.insert(res.end(),
+                       {
+                           { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
+                           { Column::alu_sel_decompose_a, 1 },
+                           { Column::alu_a_lo, a_lo },
+                           { Column::alu_a_lo_bits, shift_lo_bits },
+                           { Column::alu_a_hi, a_num >> shift_lo_bits },
+                           { Column::alu_a_hi_bits, overflow ? tag_bits : tag_bits - b_num },
+                           { Column::alu_shift_lo_bits, shift_lo_bits },
+                           { Column::alu_two_pow_shift_lo_bits, static_cast<uint128_t>(1) << shift_lo_bits },
+                       });
+        }
+        return res;
     }
     case simulation::AluOperation::TRUNCATE: {
         const uint256_t value = static_cast<uint256_t>(event.a.as_ff());
@@ -266,6 +309,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
 
         return {
             { Column::alu_sel_op_truncate, 1 },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
             { Column::alu_sel_trunc_trivial, is_trivial },
             { Column::alu_sel_trunc_lt_128, is_lt_128 },
             { Column::alu_sel_trunc_gte_128, is_gte_128 },
@@ -273,7 +317,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_a_lo, lo_128 },
             { Column::alu_a_hi, is_gte_128 ? value >> 128 : 0 },
             { Column::alu_mid, mid },
-            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_TRUNCATE },
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };
     }
