@@ -65,10 +65,8 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
     }
 }
 
-template <typename FF, typename CircuitBuilder>
-std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(
-    uint32_t var_idx) const
-{
+template<typename FF, typename CircuitBuilder>
+std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(uint32_t var_idx) const {
     std::unordered_map<size_t, std::vector<size_t>> result;
     auto search = variable_gate_count.find(var_idx);
     if (search != variable_gate_count.end() && search->second != 0) {
@@ -767,10 +765,10 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
     // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
     // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
     // pub_inputs_block_idx
-    if constexpr (IsUltraBuilder<CircuitBuilder>) {
+    if constexpr(IsUltraBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 0;
     }
-    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+    if constexpr(IsMegaBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 3;
     }
     variable_gate_count = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
@@ -1743,6 +1741,9 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t rea
             }
         }
     } else {
+        info("variable with index", real_idx, " is unconstrained!");
+    }
+    else {
         info("variable with index", real_idx, " is unconstrained!");
     }
 }
