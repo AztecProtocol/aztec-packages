@@ -183,9 +183,9 @@ SumcheckChonk::perform_recursive_verification_and_databus_consistency_checks(
                      true,
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
-        info("Accumulator hash from IO: ", kernel_input.output_pg_accum_hash);
+        info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
         BB_ASSERT(prev_accum_hash.has_value());
-        kernel_input.output_pg_accum_hash.assert_equal(*prev_accum_hash);
+        kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
         // Set the kernel return data commitment to be propagated via the public inputs
         bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data);
@@ -306,9 +306,9 @@ void SumcheckChonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         kernel_output.app_return_data = bus_depot.get_app_return_data_commitment(circuit);
         kernel_output.ecc_op_tables = T_prev_commitments;
         RecursiveTranscript hash_transcript;
-        kernel_output.output_pg_accum_hash =
+        kernel_output.output_hn_accum_hash =
             current_stdlib_verifier_accumulator->hash_through_transcript("", hash_transcript);
-        info("Kernel output accumulator hash: ", kernel_output.output_pg_accum_hash);
+        info("Kernel output accumulator hash: ", kernel_output.output_hn_accum_hash);
         kernel_output.set_public();
     }
 }
