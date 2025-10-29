@@ -33,7 +33,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
 
     if constexpr (!Flavor::USE_PADDING) {
-        virtual_log_n = verifier_instance->vk->log_circuit_size;
+        virtual_log_n = static_cast<size_t>(verifier_instance->vk->log_circuit_size);
     }
     verifier_instance->target_sum = 0;
     verifier_instance->gate_challenges =
