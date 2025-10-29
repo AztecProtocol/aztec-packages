@@ -174,10 +174,8 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // between the three databus columns. It currently uses dyadic_size because its values are later set based on its
     // size(). This means when we naively construct all ProverPolynomials with dyadic size (e.g. for ZK), we get a
     // different databus_id polynomial and therefore a different VK.
-    [[maybe_unused]] const size_t max_databus_column_size =
-        std::max({ calldata_size, secondary_calldata_size, return_data_size });
+    const size_t max_databus_column_size = std::max({ calldata_size, secondary_calldata_size, return_data_size, 2UL });
     polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
-    // polynomials.databus_id = Polynomial(dyadic_size(), dyadic_size());
 
     const size_t calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(calldata_size, q_busread_end);
     polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
