@@ -8,7 +8,7 @@ import {
   uint8ArrayToHex,
   hexToUint8Array,
 } from '../proof/index.js';
-import { fromClientIvcProve, toClientIvcProve } from '../cbind/generated/api_types.js';
+import { fromChonkProof, toChonkProof } from '../cbind/generated/api_types.js';
 import { ungzip } from 'pako';
 import { Buffer } from 'buffer';
 import { Decoder, Encoder } from 'msgpackr';
@@ -288,7 +288,7 @@ export class AztecClientBackend {
       const functionName = `unknown_wasm_${i}`;
 
       // Load the circuit
-      this.api.chonkLoad({
+      this.api.clientIvcLoad({
         circuit: {
           name: functionName,
           bytecode: Buffer.from(bytecode),
@@ -297,7 +297,7 @@ export class AztecClientBackend {
       });
 
       // Accumulate with witness
-      this.api.chonkAccumulate({
+      this.api.clientIvcAccumulate({
         witness: Buffer.from(witness),
       });
 
@@ -306,9 +306,9 @@ export class AztecClientBackend {
 
 
     // Generate the proof (and wait for all previous steps to finish)
-    const proveResult = await this.api.chonkProve({});
+    const proveResult = await this.api.clientIvcProve({});
     // The API currently expects a msgpack-encoded API.
-    const proof = new Encoder({useRecords: false}).encode(fromClientIvcProve(proveResult.proof));
+    const proof = new Encoder({useRecords: false}).encode(fromChonkProof(proveResult.proof));
     // Generate the VK
     const vkResult = await this.api.chonkComputeIvcVk({ circuit: {
       name: 'hiding',
@@ -325,8 +325,8 @@ export class AztecClientBackend {
 
   async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
     await this.instantiate();
-    const result = await this.api.chonkVerify({
-      proof: toClientIvcProve(new Decoder({useRecords: false}).decode(proof)),
+    const result = await this.api.clientIvcVerify({
+      proof: toChonkProof(new Decoder({useRecords: false}).decode(proof)),
       vk: Buffer.from(vk),
     });
     return result.valid;
@@ -336,7 +336,7 @@ export class AztecClientBackend {
     await this.instantiate();
     const circuitSizes: number[] = [];
     for (const buf of this.acirBuf) {
-      const gates = await this.api.chonkStats({
+      const gates = await this.api.clientIvcStats({
         circuit: {
           name: 'circuit',
           bytecode: buf,
