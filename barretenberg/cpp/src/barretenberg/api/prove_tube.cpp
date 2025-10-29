@@ -3,7 +3,7 @@
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include <memory>
 

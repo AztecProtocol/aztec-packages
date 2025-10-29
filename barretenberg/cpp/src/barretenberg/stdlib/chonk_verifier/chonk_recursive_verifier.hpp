@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 

@@ -1,6 +1,6 @@
-#include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/mock_circuit_producer.hpp"
-#include "barretenberg/chonk/test_bench_shared.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/sumcheck_test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
@@ -59,7 +59,7 @@ class ClientIVCTests : public ::testing::Test {
     }
 
     static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
-                                                                                            TestSettings settings = {})
+                                                                                    TestSettings settings = {})
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;

@@ -5,7 +5,7 @@
 // =====================
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "proof_surgeon.hpp"
 

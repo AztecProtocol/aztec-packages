@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "client_ivc_recursive_verifier.hpp"
+#include "chonk_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 

@@ -11,7 +11,7 @@
 #include "avm2_recursion_constraint.hpp"
 #endif
 
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/slab_allocator.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "blake2s_constraint.hpp"

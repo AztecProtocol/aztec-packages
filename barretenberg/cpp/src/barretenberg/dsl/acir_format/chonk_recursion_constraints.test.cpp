@@ -1,8 +1,8 @@
-#include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 
 #include <gtest/gtest.h>
 

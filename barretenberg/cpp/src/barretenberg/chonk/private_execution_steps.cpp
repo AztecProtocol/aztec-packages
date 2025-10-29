@@ -1,5 +1,5 @@
 #include "private_execution_steps.hpp"
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include <libdeflate.h>

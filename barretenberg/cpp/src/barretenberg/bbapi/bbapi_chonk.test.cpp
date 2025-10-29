@@ -1,6 +1,6 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/chonk/acir_bincode_mocks.hpp"
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"

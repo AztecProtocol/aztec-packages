@@ -1,7 +1,7 @@
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/sumcheck_test_bench_shared.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 

@@ -1,7 +1,7 @@
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
@@ -275,7 +275,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     }
 
     static std::shared_ptr<Chonk::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel,
-                                                                                      TraceSettings trace_settings)
+                                                                                  TraceSettings trace_settings)
     {
         auto proving_key = std::make_shared<Chonk::DeciderProvingKey>(kernel, trace_settings);
         auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(proving_key->get_precomputed());

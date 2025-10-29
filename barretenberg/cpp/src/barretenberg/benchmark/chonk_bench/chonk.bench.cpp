@@ -5,7 +5,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/chonk/test_bench_shared.hpp"
+#include "barretenberg/chonk/sumcheck_test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
 
 using namespace benchmark;

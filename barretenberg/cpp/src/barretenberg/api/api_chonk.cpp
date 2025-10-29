@@ -3,9 +3,9 @@
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/chonk/chonk.hpp"
-#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
@@ -58,8 +58,8 @@ void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& 
 } // anonymous namespace
 
 void ChonkAPI::prove(const Flags& flags,
-                         const std::filesystem::path& input_path,
-                         const std::filesystem::path& output_dir)
+                     const std::filesystem::path& input_path,
+                     const std::filesystem::path& output_dir)
 {
     BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
@@ -103,9 +103,9 @@ void ChonkAPI::prove(const Flags& flags,
 }
 
 bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
-                          [[maybe_unused]] const std::filesystem::path& public_inputs_path,
-                          const std::filesystem::path& proof_path,
-                          const std::filesystem::path& vk_path)
+                      [[maybe_unused]] const std::filesystem::path& public_inputs_path,
+                      const std::filesystem::path& proof_path,
+                      const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("ChonkAPI::verify");
     auto proof = Chonk::Proof::from_file_msgpack(proof_path);
@@ -134,8 +134,8 @@ void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_p
 }
 
 void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
-                                           [[maybe_unused]] const std::filesystem::path& output_path,
-                                           [[maybe_unused]] const std::filesystem::path& vk_path)
+                                       [[maybe_unused]] const std::filesystem::path& output_path,
+                                       [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     BB_BENCH_NAME("ChonkAPI::write_solidity_verifier");
     throw_or_abort("API function contract not implemented");
@@ -173,8 +173,8 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
 }
 
 void ChonkAPI::write_vk(const Flags& flags,
-                            const std::filesystem::path& bytecode_path,
-                            const std::filesystem::path& output_path)
+                        const std::filesystem::path& bytecode_path,
+                        const std::filesystem::path& output_path)
 {
     BB_BENCH_NAME("ChonkAPI::write_vk");
     if (flags.verifier_type == "ivc") {
@@ -188,8 +188,8 @@ void ChonkAPI::write_vk(const Flags& flags,
 }
 
 bool ChonkAPI::check([[maybe_unused]] const Flags& flags,
-                         [[maybe_unused]] const std::filesystem::path& bytecode_path,
-                         [[maybe_unused]] const std::filesystem::path& witness_path)
+                     [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                     [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     throw_or_abort("API function check_witness not implemented");
     return false;
@@ -205,7 +205,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
 
     auto bytecode = get_bytecode(bytecode_path);
     auto response = bbapi::ChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
-                                           .include_gates_per_opcode = include_gates_per_opcode }
+                                       .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 
     // Build the circuit report. It always has one function, corresponding to the ACIR constraint systems.

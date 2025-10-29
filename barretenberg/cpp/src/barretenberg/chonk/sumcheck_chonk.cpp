@@ -4,7 +4,7 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/honk/proving_key_inspector.hpp"
@@ -41,8 +41,8 @@ Chonk::Chonk(size_t num_circuits, TraceSettings trace_settings)
  *
  * @param circuit
  */
-void Chonk::instantiate_stdlib_verification_queue(
-    ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
+void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
+                                                  const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
     if (vkeys_provided) {
@@ -133,9 +133,7 @@ std::shared_ptr<Chonk::RecursiveDeciderVerificationKey> Chonk::perform_pg_recurs
  * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
  * tables as read from the proof by the Merge verifier
  */
-std::tuple<std::shared_ptr<Chonk::RecursiveDeciderVerificationKey>,
-           Chonk::PairingPoints,
-           Chonk::TableCommitments>
+std::tuple<std::shared_ptr<Chonk::RecursiveDeciderVerificationKey>, Chonk::PairingPoints, Chonk::TableCommitments>
 Chonk::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,

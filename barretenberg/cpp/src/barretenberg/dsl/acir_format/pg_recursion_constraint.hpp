@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include <vector>
@@ -15,7 +15,7 @@ namespace acir_format {
 using namespace bb;
 
 std::shared_ptr<Chonk> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
-                                                            const TraceSettings& trace_settings);
+                                                        const TraceSettings& trace_settings);
 
 void mock_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel);
 

@@ -7,7 +7,7 @@ set(DSL_DEPENDENCIES
     stdlib_poseidon2
     stdlib_schnorr
     stdlib_honk_verifier
-    stdlib_client_ivc_verifier)
+    stdlib_chonk_verifier)
 
 if (NOT DISABLE_AZTEC_VM)
     list(APPEND DSL_DEPENDENCIES vm2)

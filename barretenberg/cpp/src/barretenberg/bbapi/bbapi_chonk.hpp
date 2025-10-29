@@ -7,7 +7,7 @@
  * operations including circuit loading, accumulation, proving, and verification key computation.
  */
 #include "barretenberg/bbapi/bbapi_shared.hpp"
-#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/sumcheck_chonk.hpp"
 #include "barretenberg/common/named_union.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"

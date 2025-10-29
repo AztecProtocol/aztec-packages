@@ -1,5 +1,5 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -110,8 +110,8 @@ ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request
     return { .valid = verified };
 }
 
-static std::shared_ptr<Chonk::DeciderProvingKey> get_acir_program_decider_proving_key(
-    const BBApiRequest& request, acir_format::AcirProgram& program)
+static std::shared_ptr<Chonk::DeciderProvingKey> get_acir_program_decider_proving_key(const BBApiRequest& request,
+                                                                                      acir_format::AcirProgram& program)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
 
@@ -146,8 +146,8 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
     auto eccvm_vk = std::make_shared<Chonk::ECCVMVerificationKey>();
     auto translator_vk = std::make_shared<Chonk::TranslatorVerificationKey>();
     Chonk::VerificationKey civc_vk{ .mega = std::make_shared<Chonk::MegaVerificationKey>(mega_vk),
-                                        .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
-                                        .translator = std::make_shared<Chonk::TranslatorVerificationKey>() };
+                                    .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
+                                    .translator = std::make_shared<Chonk::TranslatorVerificationKey>() };
     Response response;
     response.bytes = to_buffer(civc_vk);
 
