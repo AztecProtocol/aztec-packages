@@ -276,7 +276,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // We shouldn't have both honk recursion constraints and pg recursion constraints.
         BB_ASSERT_EQ(!has_honk_recursion_constraints || !has_pg_recursion_constraints,
                      true,
-                     "Invalid circuit: both honk and ivc recursion constraints present.");
+                     "Invalid circuit: both honk and Chonk recursion constraints present.");
 
         // AVM constraints are not handled when using MegaBuilder
         if (has_avm_recursion_constraints) {
@@ -293,7 +293,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             inputs.set_public();
         } else if (has_pg_recursion_constraints) {
             process_pg_recursion_constraints(
-                builder, constraint_system, metadata.ivc, has_valid_witness_assignments, gate_counter);
+                builder, constraint_system, metadata.chonk, has_valid_witness_assignments, gate_counter);
         } else {
             // If its an app circuit that has no recursion constraints, add default pairing points to public inputs.
             stdlib::recursion::honk::AppIO::add_default(builder);
@@ -525,7 +525,7 @@ process_honk_recursion_constraints(Builder& builder,
 
 void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                                       AcirFormat& constraints,
-                                      std::shared_ptr<Chonk> ivc,
+                                      std::shared_ptr<Chonk> chonk,
                                       bool has_valid_witness_assignments,
                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
@@ -533,22 +533,23 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
     using StdlibFF = Chonk::RecursiveFlavor::FF;
 
-    // If an ivc instance is not provided, we mock one with the state required to construct the recursion
+    // If a chonk instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.
-    if (ivc == nullptr) {
-        ivc = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
+    if (chonk == nullptr) {
+        chonk = create_mock_ivc_from_constraints(constraints.pg_recursion_constraints, { AZTEC_TRACE_STRUCTURE });
     }
 
-    // We expect the length of the internal verification queue to match the number of ivc recursion constraints
+    // We expect the length of the internal verification queue to match the number of Chonk recursion constraints
     BB_ASSERT_EQ(constraints.pg_recursion_constraints.size(),
-                 ivc->verification_queue.size(),
+                 chonk->verification_queue.size(),
                  "WARNING: Mismatch in number of recursive verifications during kernel creation!");
 
     // If no witness is provided, populate the VK and public inputs in the recursion constraint with dummy values so
     // that the present kernel circuit is constructed correctly. (Used for constructing VKs without witnesses).
     if (!has_valid_witness_assignments) {
         // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-        for (auto [constraint, queue_entry] : zip_view(constraints.pg_recursion_constraints, ivc->verification_queue)) {
+        for (auto [constraint, queue_entry] :
+             zip_view(constraints.pg_recursion_constraints, chonk->verification_queue)) {
             populate_dummy_vk_in_constraint(builder, queue_entry.honk_vk, constraint.key);
             builder.set_variable(constraint.key_hash, queue_entry.honk_vk->hash());
         }
@@ -564,13 +565,13 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                                               StdlibFF::from_witness_index(&builder, constraint.key_hash)));
     }
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
+    chonk->instantiate_stdlib_verification_queue(builder, stdlib_vk_and_hashs);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
     // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
-    // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    // are properly connected to the constraints generated herein via the chonk scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
-         zip_view(constraints.pg_recursion_constraints, ivc->stdlib_verification_queue)) {
+         zip_view(constraints.pg_recursion_constraints, chonk->stdlib_verification_queue)) {
 
         // Get the witness indices for the public inputs contained within the proof in the verification queue
         std::vector<uint32_t> public_input_indices =
@@ -584,7 +585,7 @@ void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
     }
 
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
-    ivc->complete_kernel_circuit_logic(builder);
+    chonk->complete_kernel_circuit_logic(builder);
 
     // Note: we can't easily track the gate contribution from each individual pg_recursion_constraint since they
     // are handled simultaneously in the above function call; instead we track the total contribution
@@ -672,7 +673,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
     AcirFormat& constraints = program.constraints;
     WitnessVector& witness = program.witness;
 
-    auto op_queue = (metadata.ivc == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.ivc->goblin.op_queue;
+    auto op_queue = (metadata.chonk == nullptr) ? std::make_shared<ECCOpQueue>() : metadata.chonk->goblin.op_queue;
 
     // Construct a builder using the witness and public input data from acir and with the goblin-owned op_queue
     auto builder = MegaCircuitBuilder{ op_queue, witness, constraints.public_inputs, constraints.varnum };

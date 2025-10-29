@@ -493,7 +493,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 }
 
 /**
- * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
+ * @brief Test Chonk proof generation and verification given an chonk-inputs msgpack file
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
@@ -502,16 +502,16 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
     //      export FORCE_CACHE_DOWNLOAD=1
     //      yarn-project/end-to-end/bootstrap.sh build_bench
-    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-chonk-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/chonk-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<Chonk> ivc = steps.accumulate();
-    Chonk::Proof proof = ivc->prove();
+    std::shared_ptr<Chonk> chonk = steps.accumulate();
+    Chonk::Proof proof = chonk->prove();
 
-    EXPECT_TRUE(ivc->verify(proof));
+    EXPECT_TRUE(chonk->verify(proof));
 }
 
 /**
@@ -520,8 +520,8 @@ TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
  */
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
 {
-    std::string input_path = "../../../yarn-project/end-to-end/example-app-ivc-inputs-out/"
-                             "ecdsar1+transfer_0_recursions+sponsored_fpc/ivc-inputs.msgpack";
+    std::string input_path = "../../../yarn-project/end-to-end/example-app-chonk-inputs-out/"
+                             "ecdsar1+transfer_0_recursions+sponsored_fpc/chonk-inputs.msgpack";
 
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
@@ -540,8 +540,8 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
             auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+                .chonk = ivc_constraints.empty() ? nullptr
+                                                 : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
@@ -553,8 +553,8 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
             auto program = program_in;
             auto& ivc_constraints = program.constraints.pg_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
+                .chonk = ivc_constraints.empty() ? nullptr
+                                                 : create_mock_ivc_from_constraints(ivc_constraints, trace_settings)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);

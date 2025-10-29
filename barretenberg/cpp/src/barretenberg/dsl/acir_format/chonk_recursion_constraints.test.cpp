@@ -38,15 +38,15 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
 
-        Chonk ivc(circuit_producer.total_num_circuits, trace_settings);
+        Chonk chonk(circuit_producer.total_num_circuits, trace_settings);
 
         for (size_t idx = 0; idx < circuit_producer.total_num_circuits; idx++) {
-            circuit_producer.construct_and_accumulate_next_circuit(ivc);
+            circuit_producer.construct_and_accumulate_next_circuit(chonk);
         }
 
-        Chonk::Proof proof = ivc.prove();
+        Chonk::Proof proof = chonk.prove();
 
-        return { ivc.get_vk().mega, proof };
+        return { chonk.get_vk().mega, proof };
     }
 
     static AcirProgram create_acir_program(const ChonkData& chonk_data)

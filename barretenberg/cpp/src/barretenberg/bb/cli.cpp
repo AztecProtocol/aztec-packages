@@ -133,7 +133,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path ivc_inputs_path{ "./ivc-inputs.msgpack" };
+    std::filesystem::path ivc_inputs_path{ "./chonk-inputs.msgpack" };
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
@@ -238,12 +238,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->add_option("--verifier_type",
                          flags.verifier_type,
                          "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
-                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
+                         "recursive verifier) or is it for a chonk verifier? `standalone` produces a verification key "
                          "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
                          "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
                          "verification). `ivc` produces a verification key for verifying the stack of run though a "
-                         "dedicated ivc verifier class (currently the only option is the Chonk class) ")
-            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
+                         "dedicated chonk verifier class (currently the only option is the Chonk class) ")
+            ->check(CLI::IsMember({ "standalone", "chonk" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
@@ -658,7 +658,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The prove command for Chonk expect a valid file passed with --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                                   "<chonk-inputs.msgpack> (default ./chonk-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #ifndef __wasm__
@@ -675,7 +675,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
                     throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
-                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                                   "<chonk-inputs.msgpack> (default ./chonk-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }

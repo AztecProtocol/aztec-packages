@@ -192,7 +192,7 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredWire)
         GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
     }
 
-    // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
+    // Arbitrary but realistic block structure in the chonk setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
 
@@ -263,7 +263,7 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredNonzeroComplement)
         GTEST_SKIP() << "Skipping test for Grumpkin as it has too small a CRS.";
     }
 
-    // Arbitrary but realistic block structure in the ivc setting (roughly 2^19 full size with 2^17 utlization)
+    // Arbitrary but realistic block structure in the chonk setting (roughly 2^19 full size with 2^17 utlization)
     std::vector<uint32_t> fixed_sizes = { 1000, 4000, 180000, 90000, 9000, 137000, 72000, 4000, 2500, 11500 };
     std::vector<uint32_t> actual_sizes = { 10, 16, 48873, 18209, 4132, 23556, 35443, 3, 2, 2 };
 

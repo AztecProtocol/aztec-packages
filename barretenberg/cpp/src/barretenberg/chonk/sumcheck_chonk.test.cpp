@@ -64,16 +64,16 @@ class ChonkTests : public ::testing::Test {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-        Chonk ivc{ num_circuits, trace_settings };
+        Chonk chonk{ num_circuits, trace_settings };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             // Use default test settings for the mock hiding kernel since it's size must always be consistent
             if (j == num_circuits - 1) {
                 settings = TestSettings{};
             }
-            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(chonk, settings);
         }
-        return { ivc.prove(), ivc.get_vk() };
+        return { chonk.prove(), chonk.get_vk() };
     };
 };
 
@@ -105,62 +105,62 @@ TEST_F(ChonkTests, BadProofFailure)
 
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk chonk{ NUM_CIRCUITS, trace_settings };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+            circuit_producer.construct_and_accumulate_next_circuit(chonk, settings);
         }
-        EXPECT_TRUE(ivc.prove_and_verify());
+        EXPECT_TRUE(chonk.prove_and_verify());
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk chonk{ NUM_CIRCUITS, trace_settings };
 
         size_t num_public_inputs = 0;
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
+                circuit_producer.create_next_circuit_and_vk(chonk, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
+            chonk.accumulate(circuit, vk);
 
             if (idx == 1) {
                 num_public_inputs = circuit.num_public_inputs();
             }
 
             if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[0].proof,
+                EXPECT_EQ(chonk.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
+                tamper_with_proof(chonk.verification_queue[0].proof,
                                   num_public_inputs); // tamper with first proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        EXPECT_FALSE(chonk.prove_and_verify());
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk chonk{ NUM_CIRCUITS, trace_settings };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto [circuit, vk] =
-                circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
-            ivc.accumulate(circuit, vk);
+                circuit_producer.create_next_circuit_and_vk(chonk, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
+            chonk.accumulate(circuit, vk);
 
             if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
-                tamper_with_proof(ivc.verification_queue[1].proof,
+                EXPECT_EQ(chonk.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
+                tamper_with_proof(chonk.verification_queue[1].proof,
                                   circuit.num_public_inputs()); // tamper with second proof
             }
         }
-        EXPECT_FALSE(ivc.prove_and_verify());
+        EXPECT_FALSE(chonk.prove_and_verify());
     }
 
     EXPECT_TRUE(true);
@@ -302,18 +302,18 @@ TEST_F(ChonkTests, StructuredTraceOverflow)
     size_t NUM_APP_CIRCUITS = 1;
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
+    Chonk chonk{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
     TestSettings settings;
 
     // Construct and accumulate some circuits of varying size
     size_t log2_num_gates = 14;
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         settings.log2_num_gates = log2_num_gates;
-        circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
+        circuit_producer.construct_and_accumulate_next_circuit(chonk, settings);
         log2_num_gates += 1;
     }
 
-    EXPECT_TRUE(ivc.prove_and_verify());
+    EXPECT_TRUE(chonk.prove_and_verify());
 };
 
 /**
@@ -340,16 +340,16 @@ TEST_F(ChonkTests, DynamicTraceOverflow)
 
         CircuitProducer circuit_producer(/*num_app_circuits=*/1);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
+        Chonk chonk{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
 
         // Accumulate
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(
-                ivc, { .log2_num_gates = test.log2_num_arith_gates[idx] });
+                chonk, { .log2_num_gates = test.log2_num_arith_gates[idx] });
         }
 
-        EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
-        EXPECT_TRUE(ivc.prove_and_verify());
+        EXPECT_EQ(check_accumulator_target_sum_manual(chonk.fold_output.accumulator), true);
+        EXPECT_TRUE(chonk.prove_and_verify());
     }
 }
 
@@ -407,19 +407,19 @@ TEST_F(ChonkTests, DatabusFailure)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    Chonk chonk{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(chonk);
 
         // Tamper with the return data of the app circuit before it is processed as input to the next kernel
         if (idx == 0) {
             circuit_producer.tamper_with_databus();
         }
 
-        ivc.accumulate(circuit, vk);
+        chonk.accumulate(circuit, vk);
     }
 
-    EXPECT_FALSE(ivc.prove_and_verify());
+    EXPECT_FALSE(chonk.prove_and_verify());
 };

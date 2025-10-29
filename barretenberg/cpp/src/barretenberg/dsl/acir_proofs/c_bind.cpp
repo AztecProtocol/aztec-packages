@@ -79,20 +79,20 @@ WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* acir_vec, uint8_
     *result = verifier.template verify_proof<DefaultIO>(proof).result;
 }
 
-WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
+WASM_EXPORT void acir_prove_aztec_client(uint8_t const* chonk_inputs_buf, uint8_t** out_proof, uint8_t** out_vk)
 {
-    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
-    // Accumulate the entire program stack into the IVC
+    auto chonk_inputs_vec = from_buffer<std::vector<uint8_t>>(chonk_inputs_buf);
+    // Accumulate the entire program stack into Chonk
     auto start = std::chrono::steady_clock::now();
     PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec));
-    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    steps.parse(PrivateExecutionStepRaw::parse_uncompressed(chonk_inputs_vec));
+    std::shared_ptr<Chonk> chonk = steps.accumulate();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct and accumulate all circuits: ", diff.count());
 
-    vinfo("calling ivc.prove ...");
-    Chonk::Proof proof = ivc->prove();
+    vinfo("calling chonk.prove ...");
+    Chonk::Proof proof = chonk->prove();
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
@@ -105,7 +105,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t*
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
+    *out_vk = to_heap_buffer(to_buffer(chonk->get_vk()));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to serialize vk: ", diff.count());
@@ -449,16 +449,16 @@ WASM_EXPORT void acir_vk_as_fields_mega_honk(uint8_t const* vk_buf, fr::vec_out_
     *out_vkey = to_heap_buffer(vkey_as_fields);
 }
 
-WASM_EXPORT void acir_gates_aztec_client(uint8_t const* ivc_inputs_buf, uint8_t** out)
+WASM_EXPORT void acir_gates_aztec_client(uint8_t const* chonk_inputs_buf, uint8_t** out)
 {
-    auto ivc_inputs_vec = from_buffer<std::vector<uint8_t>>(ivc_inputs_buf);
+    auto chonk_inputs_vec = from_buffer<std::vector<uint8_t>>(chonk_inputs_buf);
     // Note: we parse a stack, but only 'bytecode' needs to be set.
-    auto raw_steps = PrivateExecutionStepRaw::parse_uncompressed(ivc_inputs_vec);
+    auto raw_steps = PrivateExecutionStepRaw::parse_uncompressed(chonk_inputs_vec);
     std::vector<uint32_t> totals;
 
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/raw_steps.size(), trace_settings);
-    const acir_format::ProgramMetadata metadata{ ivc };
+    auto chonk = std::make_shared<Chonk>(/*num_circuits=*/raw_steps.size(), trace_settings);
+    const acir_format::ProgramMetadata metadata{ chonk };
 
     for (const PrivateExecutionStepRaw& step : raw_steps) {
         std::vector<uint8_t> bytecode_vec(step.bytecode.begin(), step.bytecode.end());

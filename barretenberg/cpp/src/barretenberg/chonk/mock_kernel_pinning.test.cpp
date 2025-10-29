@@ -25,15 +25,15 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
 {
     MockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    Chonk chonk{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc);
+        auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(chonk);
 
-        ivc.accumulate(circuit, vk);
+        chonk.accumulate(circuit, vk);
         EXPECT_TRUE(circuit.blocks.has_overflow); // trace overflow mechanism should be triggered
     }
 
-    EXPECT_EQ(ivc.fold_output.accumulator->log_dyadic_size(), 19);
+    EXPECT_EQ(chonk.fold_output.accumulator->log_dyadic_size(), 19);
 }

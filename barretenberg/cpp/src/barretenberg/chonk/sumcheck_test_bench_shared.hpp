@@ -17,9 +17,9 @@ namespace bb {
  * @brief Verify an IVC proof
  *
  */
-bool verify_ivc(Chonk::Proof& proof, Chonk& ivc)
+bool verify_chonk(Chonk::Proof& proof, Chonk& chonk)
 {
-    bool verified = ivc.verify(proof);
+    bool verified = chonk.verify(proof);
 
     // This is a benchmark, not a test, so just print success or failure to the log
     if (verified) {
@@ -41,7 +41,7 @@ std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc_with_pr
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    Chonk ivc{ NUM_CIRCUITS, trace_settings };
+    Chonk chonk{ NUM_CIRCUITS, trace_settings };
 
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
@@ -49,12 +49,12 @@ std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc_with_pr
         MegaCircuitBuilder circuit;
         {
             BB_BENCH_NAME("construct_circuits");
-            circuit = circuit_producer.create_next_circuit(ivc);
+            circuit = circuit_producer.create_next_circuit(chonk);
         }
 
-        ivc.accumulate(circuit, precomputed_vks[circuit_idx]);
+        chonk.accumulate(circuit, precomputed_vks[circuit_idx]);
     }
-    return { ivc.prove(), ivc.get_vk() };
+    return { chonk.prove(), chonk.get_vk() };
 }
 
 std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,
@@ -64,12 +64,12 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    Chonk ivc{ NUM_CIRCUITS, trace_settings };
+    Chonk chonk{ NUM_CIRCUITS, trace_settings };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {
 
-        auto circuit = circuit_producer.create_next_circuit(ivc);
+        auto circuit = circuit_producer.create_next_circuit(chonk);
 
         // Hiding kernel does not use structured trace
         if (j == NUM_CIRCUITS - 1) {
@@ -77,7 +77,7 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
         }
         auto vk = CircuitProducer::get_verification_key(circuit, trace_settings);
         vkeys.push_back(vk);
-        ivc.accumulate(circuit, vk);
+        chonk.accumulate(circuit, vk);
     }
 
     return vkeys;

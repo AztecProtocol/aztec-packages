@@ -18,7 +18,7 @@ class API {
         std::string scheme;                   // the proving system or IVC scheme
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
-                                   // recursive verifier) or is it for an ivc verifier?
+                                   // recursive verifier) or is it for a chonk verifier?
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
         bool slow_low_memory{ false };          // use file backed memory for polynomials

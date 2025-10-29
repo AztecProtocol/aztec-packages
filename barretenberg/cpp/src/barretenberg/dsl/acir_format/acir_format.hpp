@@ -193,8 +193,8 @@ struct AcirProgramStack {
 
 struct ProgramMetadata {
 
-    // An IVC instance; needed to construct a circuit from IVC recursion constraints
-    std::shared_ptr<bb::Chonk> ivc = nullptr;
+    // A Chonk instance; needed to construct a circuit from Chonk recursion constraints
+    std::shared_ptr<bb::Chonk> chonk = nullptr;
 
     bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
                             // The proof produced when this flag is true should be friendly for recursive verification

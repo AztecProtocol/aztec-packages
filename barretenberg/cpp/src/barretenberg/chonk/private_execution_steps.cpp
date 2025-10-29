@@ -142,9 +142,9 @@ void PrivateExecutionSteps::parse(std::vector<PrivateExecutionStepRaw>&& steps)
 std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<Chonk>(/*num_circuits=*/folding_stack.size(), trace_settings);
+    auto chonk = std::make_shared<Chonk>(/*num_circuits=*/folding_stack.size(), trace_settings);
 
-    const acir_format::ProgramMetadata metadata{ ivc };
+    const acir_format::ProgramMetadata metadata{ chonk };
 
     for (auto& vk : precomputed_vks) {
         if (vk == nullptr) {
@@ -158,12 +158,12 @@ std::shared_ptr<Chonk> PrivateExecutionSteps::accumulate()
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
         info("Chonk: accumulating " + function_name);
-        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
+        // Do one step of chonk accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, precomputed_vk);
+        chonk->accumulate(circuit, precomputed_vk);
     }
 
-    return ivc;
+    return chonk;
 }
 
 void PrivateExecutionStepRaw::compress_and_save(std::vector<PrivateExecutionStepRaw>&& steps,

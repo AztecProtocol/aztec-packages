@@ -132,7 +132,7 @@ Chonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 };
 
 // Test the ChonkAPI::prove flow, making sure --write_vk
-// returns the same output as our ivc VK generation.
+// returns the same output as our chonk VK generation.
 TEST_F(ChonkAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
 {
     auto ivc_vk = get_ivc_vk(test_dir);

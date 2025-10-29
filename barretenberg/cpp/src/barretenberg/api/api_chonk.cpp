@@ -120,10 +120,10 @@ bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    std::shared_ptr<Chonk> chonk = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
 
-    const bool verified = ivc->prove_and_verify();
+    const bool verified = chonk->prove_and_verify();
     return verified;
 }
 
@@ -235,20 +235,20 @@ void write_arbitrary_valid_chonk_proof_and_vk_to_file(const std::filesystem::pat
     BB_BENCH_NAME("write_arbitrary_valid_chonk_proof_and_vk_to_file");
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    Chonk ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    Chonk chonk{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-        circuit_producer.construct_and_accumulate_next_circuit(ivc);
+        circuit_producer.construct_and_accumulate_next_circuit(chonk);
     }
 
-    Chonk::Proof proof = ivc.prove();
+    Chonk::Proof proof = chonk.prove();
 
     // Write the proof and verification keys into the working directory in 'binary' format
     vinfo("writing Chonk proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
+    write_file(output_dir / "vk", to_buffer(chonk.get_vk()));
 }
 
 } // namespace bb

@@ -247,8 +247,8 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveAztecClient(ivcInputsBuf: Uint8Array): Promise<[Uint8Array, Uint8Array]> {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
+  async acirProveAztecClient(chonkInputsBuf: Uint8Array): Promise<[Uint8Array, Uint8Array]> {
+    const inArgs = [chonkInputsBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_aztec_client',
@@ -611,8 +611,8 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGatesAztecClient(ivcInputsBuf: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
+  async acirGatesAztecClient(chonkInputsBuf: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [chonkInputsBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_gates_aztec_client',
@@ -854,8 +854,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAztecClient(ivcInputsBuf: Uint8Array): [Uint8Array, Uint8Array] {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
+  acirProveAztecClient(chonkInputsBuf: Uint8Array): [Uint8Array, Uint8Array] {
+    const inArgs = [chonkInputsBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_prove_aztec_client',
@@ -1202,8 +1202,8 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGatesAztecClient(ivcInputsBuf: Uint8Array): Uint8Array {
-    const inArgs = [ivcInputsBuf].map(serializeBufferable);
+  acirGatesAztecClient(chonkInputsBuf: Uint8Array): Uint8Array {
+    const inArgs = [chonkInputsBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_gates_aztec_client',

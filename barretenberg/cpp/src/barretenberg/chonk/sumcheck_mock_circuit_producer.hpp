@@ -162,13 +162,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * large.
      *
      */
-    ClientCircuit create_next_circuit(Chonk& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(Chonk& chonk, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
     {
         const bool is_kernel = is_kernel_flags[circuit_counter];
 
         circuit_counter++;
 
-        ClientCircuit circuit{ ivc.goblin.op_queue };
+        ClientCircuit circuit{ chonk.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
         if (log2_num_gates != 0) {
             MockCircuits::construct_arithmetic_circuit(circuit, log2_num_gates, /* include_public_inputs= */ false);
@@ -189,7 +189,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
 
         if (is_kernel) {
-            ivc.complete_kernel_circuit_logic(circuit);
+            chonk.complete_kernel_circuit_logic(circuit);
         } else {
             stdlib::recursion::PairingPoints<ClientCircuit>::add_default_to_public_inputs(circuit);
         }
@@ -199,17 +199,17 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(Chonk& ivc,
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(Chonk& chonk,
                                                                                           TestSettings settings = {})
     {
-        auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
-        return { circuit, get_verification_key(circuit, ivc.trace_settings) };
+        auto circuit = create_next_circuit(chonk, settings.log2_num_gates, settings.num_public_inputs);
+        return { circuit, get_verification_key(circuit, chonk.trace_settings) };
     }
 
-    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {})
+    void construct_and_accumulate_next_circuit(Chonk& chonk, TestSettings settings = {})
     {
-        auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
-        ivc.accumulate(circuit, vk);
+        auto [circuit, vk] = create_next_circuit_and_vk(chonk, settings);
+        chonk.accumulate(circuit, vk);
     }
 
     /**
