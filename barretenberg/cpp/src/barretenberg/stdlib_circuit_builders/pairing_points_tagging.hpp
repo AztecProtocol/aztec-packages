@@ -27,13 +27,6 @@ class PairingPointsTagging {
 
   public:
     PairingPointsTagging() = default;
-    PairingPointsTagging(const PairingPointsTagging& other) = delete;
-    PairingPointsTagging(PairingPointsTagging&& other) noexcept = delete;
-    PairingPointsTagging& operator=(const PairingPointsTagging& other) = delete;
-    PairingPointsTagging& operator=(PairingPointsTagging&& other) noexcept = delete;
-    ~PairingPointsTagging() = default;
-
-    bool operator==(const PairingPointsTagging& other) const = default;
 
     /**
      * @brief Create a new unique pairing point tag

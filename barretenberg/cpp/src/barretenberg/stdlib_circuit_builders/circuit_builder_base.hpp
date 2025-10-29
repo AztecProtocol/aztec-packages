@@ -93,7 +93,7 @@ template <typename FF_> class CircuitBuilderBase {
      * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
      * together. This is not related to circuit logic.
      */
-    PairingPointsTagging pairing_points_tagging;
+    mutable PairingPointsTagging pairing_points_tagging;
 
     /**
      * @brief Map from witness index to real variable index
