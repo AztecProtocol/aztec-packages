@@ -73,7 +73,7 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         // Update output
         output.result &= ipa_result;
     } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-        // Add kernel return data and ecc op tables if we are verifying a LegacyChonk proof
+        // Add kernel return data and ecc op tables if we are verifying a Chonk proof
         output.kernel_return_data = inputs.kernel_return_data;
         output.ecc_op_tables = inputs.ecc_op_tables;
     }
@@ -122,7 +122,7 @@ template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlav
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
-// LegacyChonk specialization
+// Chonk specialization
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<HidingKernelIO>(
     const Proof& proof, const Proof& ipa_proof);
 

@@ -1,7 +1,7 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -183,7 +183,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock LegacyChonk proof matches expectation
+ * @brief Check that the size of a mock Chonk proof matches expectation
  *
  */
 TEST(MockVerifierInputsTest, MockChonkProofSize)
@@ -191,5 +191,5 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
     using Builder = MegaCircuitBuilder;
 
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
-    EXPECT_EQ(chonk_proof.size(), SumcheckChonk::Proof::PROOF_LENGTH());
+    EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
 }

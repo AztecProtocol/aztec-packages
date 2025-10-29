@@ -1,4 +1,4 @@
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -14,22 +14,22 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
-    // Types for LegacyChonk recursive verifier
+    // Types for Chonk recursive verifier
     using Flavor = UltraRollupFlavor;
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
 
-    // Types for LegacyChonk
+    // Types for Chonk
     using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
-    // Public inputs added by bb to a LegacyChonk proof
+    // Public inputs added by bb to a Chonk proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        SumcheckChonk::Proof proof;
+        Chonk::Proof proof;
     };
 
     static ChonkData get_chonk_data()
@@ -38,13 +38,13 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ num_circuits };
+        Chonk ivc{ num_circuits };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        SumcheckChonk::Proof proof = ivc.prove();
+        Chonk::Proof proof = ivc.prove();
         return { ivc.get_vk().mega, proof };
     }
 

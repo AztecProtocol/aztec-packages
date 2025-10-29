@@ -30,7 +30,7 @@ static constexpr std::size_t GOBLIN_GROUP_PUBLIC_INPUTS_SIZE = 2 * GOBLIN_FIELD_
  * Number of bb::fr elements used to represent a pair {P0, P1} of points in the public inputs
  * The formula assumes BIGGROUP_PUBLIC_INPUTS_SIZE == GOBLIN_GROUP_PUBLIC_INPUTS_SIZE, if this assumption
  * becomes incorrect, then the PAIRING_POINTS_SIZE should be split into two values: one for the pairing points used in
- * LegacyChonk (Mega arithmetization), and one for the pairing points used in the Rollup (Ultra arithmetization)
+ * Chonk (Mega arithmetization), and one for the pairing points used in the Rollup (Ultra arithmetization)
  */
 static constexpr std::size_t PAIRING_POINTS_SIZE = 2 * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE;
 
@@ -51,7 +51,7 @@ static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
     /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
     /*table_commitments*/ (MEGA_EXECUTION_TRACE_NUM_WIRES * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
-    /*output_pg_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;

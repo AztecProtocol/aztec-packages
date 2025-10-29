@@ -1098,13 +1098,13 @@ pub global BLOCK_END_PREFIX: Field = 0x626c6f636b5f656e64; // = "block_end".to_f
 pub global PROOF_TYPE_PLONK: u32 = 0;
 pub global PROOF_TYPE_HONK: u32 = 1;
 pub global PROOF_TYPE_OINK: u32 = 2;
-pub global PROOF_TYPE_PG: u32 = 3;
+pub global PROOF_TYPE_HN: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 // worktodo comment here where 7 is
-pub global PROOF_TYPE_PG_FINAL: u32 = 8;
-pub global PROOF_TYPE_PG_TAIL: u32 = 9;
+pub global PROOF_TYPE_HN_FINAL: u32 = 8;
+pub global PROOF_TYPE_HN_TAIL: u32 = 9;
 pub global PROOF_TYPE_CHONK: u32 = 10;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator

@@ -5,7 +5,7 @@
 // =====================
 
 #pragma once
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 
@@ -33,18 +33,18 @@ class ChonkRecursiveVerifier {
 
         static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
-            return bb::SumcheckChonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n);
+            return bb::Chonk::Proof::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n);
         }
 
         static constexpr size_t PROOF_LENGTH(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N)
         {
-            return bb::SumcheckChonk::Proof::PROOF_LENGTH(virtual_log_n);
+            return bb::Chonk::Proof::PROOF_LENGTH(virtual_log_n);
         }
 
         StdlibHonkProof mega_proof; // proof of the hiding circuit
         StdlibGoblinProof goblin_proof;
 
-        StdlibProof(Builder& builder, const SumcheckChonk::Proof& proof)
+        StdlibProof(Builder& builder, const Chonk::Proof& proof)
             : mega_proof(builder, proof.mega_proof)
             , goblin_proof(builder, proof.goblin_proof)
         {}
@@ -97,7 +97,7 @@ class ChonkRecursiveVerifier {
 
             BB_ASSERT_EQ(static_cast<uint32_t>(end_idx),
                          PROOF_LENGTH(virtual_log_n) + public_inputs_size,
-                         "Reconstructed a LegacyChonk proof of wrong the length from proof indices.");
+                         "Reconstructed a Chonk proof of wrong the length from proof indices.");
         }
     };
 

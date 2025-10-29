@@ -7,7 +7,7 @@
  * including circuit input types and proof system settings.
  */
 
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
@@ -28,7 +28,7 @@ enum class VkPolicy {
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (SumcheckChonk+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
@@ -53,7 +53,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or SumcheckChonk-honk proving.
+ * @brief A circuit to be used in either ultrahonk or Chonk proving.
  */
 struct CircuitInput {
     /**

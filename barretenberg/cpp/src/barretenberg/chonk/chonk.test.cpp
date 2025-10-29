@@ -1,6 +1,6 @@
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
-#include "barretenberg/chonk/sumcheck_test_bench_shared.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
@@ -18,18 +18,18 @@ static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The Chonk class should enforce the minimum number of
 // circuits in a test flow.
 
-class SumcheckChonkTests : public ::testing::Test {
+class ChonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using Flavor = SumcheckChonk::Flavor;
+    using Flavor = Chonk::Flavor;
     using FF = typename Flavor::FF;
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = SumcheckChonk::ClientCircuit;
-    using ProverInstance = SumcheckChonk::ProverInstance;
-    using VerifierInstance = SumcheckChonk::VerifierInstance;
-    using DeciderProver = SumcheckChonk::DeciderProver;
+    using Builder = Chonk::ClientCircuit;
+    using ProverInstance = Chonk::ProverInstance;
+    using VerifierInstance = Chonk::VerifierInstance;
+    using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   public:
@@ -51,12 +51,13 @@ class SumcheckChonkTests : public ::testing::Test {
         }
     }
 
-    static std::pair<SumcheckChonk::Proof, SumcheckChonk::VerificationKey> accumulate_and_prove_ivc(
-        size_t num_app_circuits, TestSettings settings = {}, bool check_circuit_sizes = false)
+    static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
+                                                                                    TestSettings settings = {},
+                                                                                    bool check_circuit_sizes = false)
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ num_circuits };
+        Chonk ivc{ num_circuits };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
@@ -72,21 +73,21 @@ class SumcheckChonkTests : public ::testing::Test {
  *  - No settings: first app is 2^19, all other apps are 2^17, all the kernels are 2^18
  *  - Settings: apps are 2^(log2_num_gates + 2), all kernels are smaller than 2^19
  */
-TEST_F(SumcheckChonkTests, TestCircuitSizes)
+TEST_F(ChonkTests, TestCircuitSizes)
 {
     const size_t NUM_APP_CIRCUITS = 2;
 
     // Check circuit sizes when no settings are passed
     {
         auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, {}, true);
-        EXPECT_TRUE(SumcheckChonk::verify(proof, vk));
+        EXPECT_TRUE(Chonk::verify(proof, vk));
     }
 
     // Check circuit sizes when no settings are passed
     {
         auto [proof, vk] =
             accumulate_and_prove_ivc(NUM_APP_CIRCUITS, { .log2_num_gates = SMALL_LOG_2_NUM_GATES }, true);
-        EXPECT_TRUE(SumcheckChonk::verify(proof, vk));
+        EXPECT_TRUE(Chonk::verify(proof, vk));
     }
 };
 
@@ -96,12 +97,12 @@ TEST_F(SumcheckChonkTests, TestCircuitSizes)
  * @note The circuits are of varying size: first circuit is 2^19, kernels are 2^18, apps are 2^17.
  *
  */
-TEST_F(SumcheckChonkTests, Basic)
+TEST_F(ChonkTests, Basic)
 {
     const size_t NUM_APP_CIRCUITS = 2;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    EXPECT_TRUE(SumcheckChonk::verify(proof, vk));
+    EXPECT_TRUE(Chonk::verify(proof, vk));
 };
 
 /**
@@ -111,9 +112,9 @@ TEST_F(SumcheckChonkTests, Basic)
  * fail.
  *
  */
-TEST_F(SumcheckChonkTests, BadProofFailure)
+TEST_F(ChonkTests, BadProofFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
     const size_t NUM_APP_CIRCUITS = 2;
     // Confirm that the IVC verifies if nothing is tampered with
@@ -121,7 +122,7 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
 
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ NUM_CIRCUITS };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
@@ -129,14 +130,14 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         auto proof = ivc.prove();
-        EXPECT_TRUE(SumcheckChonk::verify(proof, ivc.get_vk()));
+        EXPECT_TRUE(Chonk::verify(proof, ivc.get_vk()));
     }
 
     // The IVC throws an exception if the FIRST fold proof is tampered with
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ NUM_CIRCUITS };
 
         size_t num_public_inputs = 0;
 
@@ -157,14 +158,14 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(SumcheckChonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
     }
 
     // The IVC fails if the SECOND fold proof is tampered with
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ NUM_CIRCUITS };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -179,14 +180,14 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
             }
         }
         auto proof = ivc.prove();
-        EXPECT_FALSE(SumcheckChonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
     }
 
     // The IVC fails if the calldata of the Hiding Kernel is different from the return data of the Tail Kernels
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        SumcheckChonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ NUM_CIRCUITS };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -198,7 +199,7 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
 
         // The public input after the PairingPoints is the commitment to the return data of the Tail kernel.
         tamper_with_proof(proof.mega_proof, PAIRING_POINTS_SIZE);
-        EXPECT_FALSE(SumcheckChonk::verify(proof, ivc.get_vk()));
+        EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
     }
 
     EXPECT_TRUE(true);
@@ -209,53 +210,53 @@ TEST_F(SumcheckChonkTests, BadProofFailure)
  * leads to a verification failure.
  *
  */
-TEST_F(SumcheckChonkTests, WrongProofComponentFailure)
+TEST_F(ChonkTests, WrongProofComponentFailure)
 {
     // Produce two valid proofs
     auto [chonk_proof_1, chonk_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
     {
-        EXPECT_TRUE(SumcheckChonk::verify(chonk_proof_1, chonk_vk_1));
+        EXPECT_TRUE(Chonk::verify(chonk_proof_1, chonk_vk_1));
     }
 
     auto [chonk_proof_2, chonk_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
     {
-        EXPECT_TRUE(SumcheckChonk::verify(chonk_proof_2, chonk_vk_2));
+        EXPECT_TRUE(Chonk::verify(chonk_proof_2, chonk_vk_2));
     }
 
     {
         // Replace Merge proof
-        SumcheckChonk::Proof tampered_proof = chonk_proof_1;
+        Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.goblin_proof.merge_proof = chonk_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_THROW_OR_ABORT(SumcheckChonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace hiding circuit proof
-        SumcheckChonk::Proof tampered_proof = chonk_proof_1;
+        Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.mega_proof = chonk_proof_2.mega_proof;
 
-        EXPECT_THROW_OR_ABORT(SumcheckChonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace ECCVM proof
-        SumcheckChonk::Proof tampered_proof = chonk_proof_1;
+        Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.goblin_proof.eccvm_proof = chonk_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_THROW_OR_ABORT(SumcheckChonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, chonk_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace Translator proof
-        SumcheckChonk::Proof tampered_proof = chonk_proof_1;
+        Chonk::Proof tampered_proof = chonk_proof_1;
 
         tampered_proof.goblin_proof.translator_proof = chonk_proof_2.goblin_proof.translator_proof;
 
-        EXPECT_FALSE(SumcheckChonk::verify(tampered_proof, chonk_vk_1));
+        EXPECT_FALSE(Chonk::verify(tampered_proof, chonk_vk_1));
     }
 };
 
@@ -263,20 +264,20 @@ TEST_F(SumcheckChonkTests, WrongProofComponentFailure)
  * @brief Ensure that the Chonk VK is independent of the number of circuits accumulated
  *
  */
-TEST_F(SumcheckChonkTests, VKIndependenceFromNumberOfCircuits)
+TEST_F(ChonkTests, VKIndependenceFromNumberOfCircuits)
 {
     const TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     auto [unused_1, chonk_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
     auto [unused_2, chonk_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/3, settings);
 
-    // Check the equality of the Mega components of the SumcheckChonk VKeys.
+    // Check the equality of the Mega components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.mega.get(), *chonk_vk_2.mega.get());
 
-    // Check the equality of the ECCVM components of the SumcheckChonk VKeys.
+    // Check the equality of the ECCVM components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.eccvm.get(), *chonk_vk_2.eccvm.get());
 
-    // Check the equality of the Translator components of the SumcheckChonk VKeys.
+    // Check the equality of the Translator components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.translator.get(), *chonk_vk_2.translator.get());
 };
 
@@ -284,7 +285,7 @@ TEST_F(SumcheckChonkTests, VKIndependenceFromNumberOfCircuits)
  * @brief Ensure that the Chonk VK is independent of the sizes of the circuits being accumulated
  *
  */
-TEST_F(SumcheckChonkTests, VKIndependenceFromCircuitSize)
+TEST_F(ChonkTests, VKIndependenceFromCircuitSize)
 {
     // Run IVC for two sets of circuits
     const size_t NUM_APP_CIRCUITS = 1;
@@ -297,13 +298,13 @@ TEST_F(SumcheckChonkTests, VKIndependenceFromCircuitSize)
     auto [unused_1, chonk_vk_1] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_1);
     auto [unused_2, chonk_vk_2] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_2);
 
-    // Check the equality of the Mega components of the SumcheckChonk VKeys.
+    // Check the equality of the Mega components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.mega.get(), *chonk_vk_2.mega.get());
 
-    // Check the equality of the ECCVM components of the SumcheckChonk VKeys.
+    // Check the equality of the ECCVM components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.eccvm.get(), *chonk_vk_2.eccvm.get());
 
-    // Check the equality of the Translator components of the SumcheckChonk VKeys.
+    // Check the equality of the Translator components of the Chonk VKeys.
     EXPECT_EQ(*chonk_vk_1.translator.get(), *chonk_vk_2.translator.get());
 };
 
@@ -311,14 +312,14 @@ TEST_F(SumcheckChonkTests, VKIndependenceFromCircuitSize)
  * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
  *
  */
-HEAVY_TEST(SumcheckChonkKernelCapacity, MaxCapacityPassing)
+HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
     const size_t NUM_APP_CIRCUITS = 27;
-    auto [proof, vk] = SumcheckChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
+    auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    bool verified = SumcheckChonk::verify(proof, vk);
+    bool verified = Chonk::verify(proof, vk);
     EXPECT_TRUE(verified);
 };
 
@@ -326,7 +327,7 @@ HEAVY_TEST(SumcheckChonkKernelCapacity, MaxCapacityPassing)
  * @brief Test methods for serializing and deserializing a proof to/from a file/buffer in msgpack format
  *
  */
-TEST_F(SumcheckChonkTests, MsgpackProofFromFileOrBuffer)
+TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
 {
     // Generate an arbitrary valid CICV proof
     TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
@@ -335,31 +336,31 @@ TEST_F(SumcheckChonkTests, MsgpackProofFromFileOrBuffer)
     { // Serialize/deserialize the proof to/from a file, check that it verifies
         const std::string filename = "proof.msgpack";
         proof.to_file_msgpack(filename);
-        auto proof_deserialized = SumcheckChonk::Proof::from_file_msgpack(filename);
+        auto proof_deserialized = Chonk::Proof::from_file_msgpack(filename);
 
-        EXPECT_TRUE(SumcheckChonk::verify(proof_deserialized, vk));
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
     }
 
     { // Serialize/deserialize proof to/from a heap buffer, check that it verifies
         uint8_t* buffer = proof.to_msgpack_heap_buffer();
         auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
         uint8_t const* uint8_ptr = uint8_buffer.data();
-        auto proof_deserialized = SumcheckChonk::Proof::from_msgpack_buffer(uint8_ptr);
+        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(uint8_ptr);
 
-        EXPECT_TRUE(SumcheckChonk::verify(proof_deserialized, vk));
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
     }
 
     { // Check that attempting to deserialize a proof from a buffer with random bytes fails gracefully
         msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-        auto proof_deserialized = SumcheckChonk::Proof::from_msgpack_buffer(buffer);
-        EXPECT_TRUE(SumcheckChonk::verify(proof_deserialized, vk));
+        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(buffer);
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
 
         std::vector<uint8_t> random_bytes(buffer.size());
         std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
 
         // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-        EXPECT_THROW(SumcheckChonk::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        EXPECT_THROW(Chonk::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
     }
 };
 
@@ -372,13 +373,13 @@ TEST_F(SumcheckChonkTests, MsgpackProofFromFileOrBuffer)
  * causes failure of the IVC to verify.
  *
  */
-TEST_F(SumcheckChonkTests, DatabusFailure)
+TEST_F(ChonkTests, DatabusFailure)
 {
-    BB_DISABLE_ASSERTS(); // Disable assert in PG prover
+    BB_DISABLE_ASSERTS(); // Disable assert in HN prover
 
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    SumcheckChonk ivc{ NUM_CIRCUITS };
+    Chonk ivc{ NUM_CIRCUITS };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -393,5 +394,5 @@ TEST_F(SumcheckChonkTests, DatabusFailure)
     }
 
     auto proof = ivc.prove();
-    EXPECT_FALSE(SumcheckChonk::verify(proof, ivc.get_vk()));
+    EXPECT_FALSE(Chonk::verify(proof, ivc.get_vk()));
 };

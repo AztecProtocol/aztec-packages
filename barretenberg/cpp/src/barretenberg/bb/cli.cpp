@@ -249,7 +249,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          "verification). `standalone_hiding` is similar to `standalone` but is used for the last step "
                          "where the structured trace is not utilized. `ivc` produces a verification key for verifying "
                          "the stack of run though a dedicated ivc verifier class (currently the only option is the "
-                         "SumcheckChonk class)")
+                         "Chonk class)")
             ->check(CLI::IsMember({ "standalone", "standalone_hiding", "ivc" }).name("is_member"));
     };
 
@@ -655,9 +655,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ChonkAPI api;
             if (prove->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The prove command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort("The prove command for Chonk expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 api.prove(flags, ivc_inputs_path, output_path);
 #if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
@@ -679,9 +678,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
             }
             if (check->parsed()) {
                 if (!std::filesystem::exists(ivc_inputs_path)) {
-                    throw_or_abort(
-                        "The check command for SumcheckChonk expect a valid file passed with --ivc_inputs_path "
-                        "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
+                    throw_or_abort("The check command for Chonk expect a valid file passed with --ivc_inputs_path "
+                                   "<ivc-inputs.msgpack> (default ./ivc-inputs.msgpack)");
                 }
                 return api.check_precomputed_vks(flags, ivc_inputs_path) ? 0 : 1;
             }

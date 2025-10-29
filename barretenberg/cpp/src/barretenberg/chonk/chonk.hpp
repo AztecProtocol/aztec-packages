@@ -24,7 +24,7 @@
 namespace bb {
 
 /**
- * @brief The IVC scheme used by the aztec chonk for private function execution
+ * @brief The IVC scheme used by the aztec client for private function execution
  * @details Combines HyperNova with Goblin to accumulate one circuit at a time with efficient EC group
  * operations. It is assumed that the circuits being accumulated correspond alternatingly to an app and a kernel, as is
  * the case in Aztec. Two recursive folding verifiers are appended to each kernel (except the first one) to verify the
@@ -32,7 +32,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class SumcheckChonk : public IVCBase {
+class Chonk : public IVCBase {
     // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 
   public:
@@ -90,7 +90,7 @@ class SumcheckChonk : public IVCBase {
         GoblinProof goblin_proof;
 
         /**
-         * @brief The size of a LegacyChonk proof without backend-added public inputs
+         * @brief The size of a Chonk proof without backend-added public inputs
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -105,7 +105,7 @@ class SumcheckChonk : public IVCBase {
         }
 
         /**
-         * @brief The size of a LegacyChonk proof with backend-added public inputs: HidingKernelIO
+         * @brief The size of a Chonk proof with backend-added public inputs: HidingKernelIO
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -125,7 +125,7 @@ class SumcheckChonk : public IVCBase {
          */
         std::vector<FF> to_field_elements() const;
 
-        static Proof from_field_elements(const std::vector<SumcheckChonk::FF>& fields);
+        static Proof from_field_elements(const std::vector<Chonk::FF>& fields);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
         // and should leverage some kind of shared msgpack utility.
@@ -221,15 +221,15 @@ class SumcheckChonk : public IVCBase {
     // Specifies proof type or equivalently the type of recursive verification to be performed on a given proof
     enum class QUEUE_TYPE : uint8_t {
         OINK,
-        PG,
-        PG_FINAL, // the final PG verification, used in hiding kernel
-        PG_TAIL,  // used in tail to indicate special handling of merge for ZK
+        HN,
+        HN_FINAL, // the final HN verification, used in hiding kernel
+        HN_TAIL,  // used in tail to indicate special handling of merge for ZK
         MEGA
     };
 
     // An entry in the native verification queue
     struct VerifierInputs {
-        std::vector<FF> proof; // oink or PG
+        std::vector<FF> proof; // oink or HN
         std::shared_ptr<MegaVerificationKey> honk_vk;
         QUEUE_TYPE type;
         bool is_kernel = false;
@@ -238,7 +238,7 @@ class SumcheckChonk : public IVCBase {
 
     // An entry in the stdlib verification queue
     struct StdlibVerifierInputs {
-        StdlibProof proof; // oink or PG
+        StdlibProof proof; // oink or HN
         std::shared_ptr<RecursiveVKAndHash> honk_vk_and_hash;
         QUEUE_TYPE type;
         bool is_kernel = false;
@@ -256,14 +256,14 @@ class SumcheckChonk : public IVCBase {
   public:
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
-    ProverAccumulator prover_accumulator; // current PG prover accumulator instance
+    ProverAccumulator prover_accumulator; // current HN prover accumulator instance
 
     HonkProof decider_proof; // decider proof to be verified in the hiding circuit
 
     VerifierAccumulator recursive_verifier_native_accum; // native verifier accumulator used in recursive folding
     VerifierAccumulator native_verifier_accum;           //  native verifier accumulator used in prover folding
 
-    // Set of tuples {proof, verification_key, type (Oink/PG)} to be recursively verified
+    // Set of tuples {proof, verification_key, type (Oink/HN)} to be recursively verified
     VerificationQueue verification_queue;
     // Set of tuples {stdlib_proof, stdlib_verification_key, type} corresponding to the native verification queue
     StdlibVerificationQueue stdlib_verification_queue;
@@ -281,7 +281,7 @@ class SumcheckChonk : public IVCBase {
     Goblin& get_goblin() override { return goblin; }
     const Goblin& get_goblin() const override { return goblin; }
 
-    SumcheckChonk(size_t num_circuits);
+    Chonk(size_t num_circuits);
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
@@ -295,11 +295,11 @@ class SumcheckChonk : public IVCBase {
             const TableCommitments& T_prev_commitments,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
-    // Complete the logic of a kernel circuit (e.g. PG/merge recursive verification, databus consistency checks)
+    // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
 
     /**
-     * @brief Perform prover work for accumulation (e.g. PG folding, merge proving)
+     * @brief Perform prover work for accumulation (e.g. HN folding, merge proving)
      *
      * @param circuit The incoming statement
      * @param precomputed_vk The verification key of the incoming statement OR a mocked key whose metadata needs to be
@@ -336,12 +336,12 @@ class SumcheckChonk : public IVCBase {
     QUEUE_TYPE get_queue_type() const;
 };
 
-// Serialization methods for LegacyChonk::VerificationKey
-inline void read(uint8_t const*& it, SumcheckChonk::VerificationKey& vk)
+// Serialization methods for Chonk::VerificationKey
+inline void read(uint8_t const*& it, Chonk::VerificationKey& vk)
 {
     using serialize::read;
 
-    size_t num_frs = SumcheckChonk::VerificationKey::calc_num_data_types();
+    size_t num_frs = Chonk::VerificationKey::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);
@@ -353,7 +353,7 @@ inline void read(uint8_t const*& it, SumcheckChonk::VerificationKey& vk)
     vk.from_field_elements(field_elements);
 }
 
-inline void write(std::vector<uint8_t>& buf, SumcheckChonk::VerificationKey const& vk)
+inline void write(std::vector<uint8_t>& buf, Chonk::VerificationKey const& vk)
 {
     using serialize::write;
 

@@ -3,9 +3,9 @@
 #include "barretenberg/bbapi/bbapi.hpp"
 #include "barretenberg/bbapi/bbapi_execute.hpp"
 #include "barretenberg/chonk/acir_bincode_mocks.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
-#include "barretenberg/chonk/sumcheck_chonk.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
@@ -105,7 +105,7 @@ std::vector<uint8_t> compress(const std::vector<uint8_t>& input);
 } // namespace bb
 
 // Helper to get an IVC verification key for testing
-SumcheckChonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
+Chonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_dir)
 {
     auto [app_bytecode, app_witness_data] = acir_bincode_mocks::create_simple_circuit_bytecode();
     bbapi::BBApiRequest request;
@@ -128,7 +128,7 @@ SumcheckChonk::MegaVerificationKey get_ivc_vk(const std::filesystem::path& test_
     api.write_vk(write_vk_flags, bytecode_path, test_dir);
 
     auto buffer = read_file(test_dir / "vk");
-    return from_buffer<SumcheckChonk::MegaVerificationKey>(buffer);
+    return from_buffer<Chonk::MegaVerificationKey>(buffer);
 };
 
 // Test the ChonkAPI::prove flow, making sure --write_vk
@@ -153,10 +153,9 @@ TEST_F(ChonkAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
     };
 
     // Helper lambda to verify VK equivalence
-    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path,
-                                     const SumcheckChonk::MegaVerificationKey& vk2) {
+    auto verify_vk_equivalence = [&](const std::filesystem::path& vk1_path, const Chonk::MegaVerificationKey& vk2) {
         auto vk1_data = read_file(vk1_path);
-        auto vk1 = from_buffer<SumcheckChonk::MegaVerificationKey>(vk1_data);
+        auto vk1 = from_buffer<Chonk::MegaVerificationKey>(vk1_data);
         ASSERT_EQ(vk1, vk2);
     };
 
@@ -164,7 +163,7 @@ TEST_F(ChonkAPITests, DISABLED_ProveAndVerifyFileBasedFlow)
     auto verify_proof = [&]() {
         std::filesystem::path proof_path = output_dir / "proof";
         std::filesystem::path vk_path = output_dir / "vk";
-        std::filesystem::path public_inputs_path; // Not used for SumcheckChonk
+        std::filesystem::path public_inputs_path; // Not used for Chonk
 
         ChonkAPI::Flags flags;
         ChonkAPI verify_api;
