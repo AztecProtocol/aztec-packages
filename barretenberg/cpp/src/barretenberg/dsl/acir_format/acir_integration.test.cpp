@@ -496,7 +496,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
  * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
  *
  */
-TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
+TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3

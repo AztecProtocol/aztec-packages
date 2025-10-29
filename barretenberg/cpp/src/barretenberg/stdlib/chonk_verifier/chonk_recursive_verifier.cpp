@@ -12,9 +12,9 @@ namespace bb::stdlib::recursion::honk {
  * @brief Creates a circuit that executes the ClientIvc verification algorithm.
  *
  * @param proof Stdlib proof
- * @return ClientIVCRecursiveVerifier::Output
+ * @return ChonkRecursiveVerifier::Output
  */
-ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const StdlibProof& proof)
+ChonkRecursiveVerifier::Output ChonkRecursiveVerifier::verify(const StdlibProof& proof)
 {
     using MergeCommitments = GoblinVerifier::MergeVerifier::InputCommitments;
     std::shared_ptr<Transcript> civc_rec_verifier_transcript(std::make_shared<Transcript>());

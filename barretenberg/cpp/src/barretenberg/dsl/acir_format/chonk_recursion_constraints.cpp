@@ -39,10 +39,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
-    using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
+    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(proof_size, ClientIVCRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, ChonkRecursiveVerifier::StdlibProof::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = MegaZKFlavor::has_zero_row ? 1 : 0;
@@ -86,9 +86,9 @@ create_civc_recursion_constraints(Builder& builder,
                                   const RecursionConstraint& input,
                                   bool has_valid_witness_assignments)
 {
-    using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
-    using RecursiveVKAndHash = ClientIVCRecursiveVerifier::RecursiveVKAndHash;
-    using VerificationKey = ClientIVCRecursiveVerifier::RecursiveVK;
+    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
+    using RecursiveVKAndHash = ChonkRecursiveVerifier::RecursiveVKAndHash;
+    using VerificationKey = ChonkRecursiveVerifier::RecursiveVK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
     BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CHONK);
@@ -113,10 +113,10 @@ create_civc_recursion_constraints(Builder& builder,
     // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(builder, key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
-    ClientIVCRecursiveVerifier::StdlibProof stdlib_proof(proof_fields);
+    ChonkRecursiveVerifier::StdlibProof stdlib_proof(proof_fields);
 
-    ClientIVCRecursiveVerifier verifier(&builder, mega_vk_and_hash);
-    ClientIVCRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
+    ChonkRecursiveVerifier verifier(&builder, mega_vk_and_hash);
+    ChonkRecursiveVerifier::Output verification_output = verifier.verify(stdlib_proof);
 
     // Construct output
     HonkRecursionConstraintOutput<Builder> output;

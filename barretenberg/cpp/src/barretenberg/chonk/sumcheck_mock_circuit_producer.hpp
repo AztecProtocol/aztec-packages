@@ -88,7 +88,7 @@ class MockDatabusProducer {
 };
 
 /**
- * @brief Customises the production of mock circuits for Client IVC testing
+ * @brief Customises the production of mock circuits for Chonk testing
  *
  */
 struct TestSettings {

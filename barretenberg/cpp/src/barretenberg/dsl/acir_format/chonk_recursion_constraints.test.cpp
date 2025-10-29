@@ -18,7 +18,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
     using Flavor = UltraRollupFlavor;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
-    using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
+    using ChonkRecursiveVerifier = stdlib::recursion::honk::ChonkRecursiveVerifier;
 
     // Types for Chonk
     using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
@@ -27,12 +27,12 @@ class CivcRecursionConstraintTest : public ::testing::Test {
     // Public inputs added by bb to a Chonk proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
-    struct ClientIVCData {
+    struct ChonkData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
         Chonk::Proof proof;
     };
 
-    static ClientIVCData get_civc_data(TraceSettings trace_settings)
+    static ChonkData get_chonk_data(TraceSettings trace_settings)
     {
         static constexpr size_t NUM_APP_CIRCUITS = 2;
 
@@ -49,14 +49,14 @@ class CivcRecursionConstraintTest : public ::testing::Test {
         return { ivc.get_vk().mega, proof };
     }
 
-    static AcirProgram create_acir_program(const ClientIVCData& civc_data)
+    static AcirProgram create_acir_program(const ChonkData& chonk_data)
     {
         AcirProgram program;
 
         // Extract the witnesses from the provided data
-        auto key_witnesses = civc_data.mega_vk->to_field_elements();
-        auto key_hash_witness = civc_data.mega_vk->hash();
-        std::vector<fr> proof_witnesses = civc_data.proof.to_field_elements();
+        auto key_witnesses = chonk_data.mega_vk->to_field_elements();
+        auto key_hash_witness = chonk_data.mega_vk->hash();
+        std::vector<fr> proof_witnesses = chonk_data.proof.to_field_elements();
 
         // Construct witness indices for each component in the constraint; populate the witness array
         auto [key_indices, key_hash_index, proof_indices, public_inputs_indices] =
@@ -65,7 +65,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
                 proof_witnesses,
                 key_witnesses,
                 key_hash_witness,
-                /*num_public_inputs_to_extract=*/civc_data.mega_vk->num_public_inputs - PUBLIC_INPUTS_SIZE);
+                /*num_public_inputs_to_extract=*/chonk_data.mega_vk->num_public_inputs - PUBLIC_INPUTS_SIZE);
 
         auto constraint = RecursionConstraint{ .key = key_indices,
                                                .proof = proof_indices,
@@ -103,13 +103,13 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstraints)
 {
     using VerificationKey = CivcRecursionConstraintTest::VerificationKey;
-    using ClientIVCData = CivcRecursionConstraintTest::ClientIVCData;
+    using ChonkData = CivcRecursionConstraintTest::ChonkData;
 
-    ClientIVCData civc_data = CivcRecursionConstraintTest::get_civc_data(TraceSettings());
+    ChonkData chonk_data = CivcRecursionConstraintTest::get_chonk_data(TraceSettings());
 
     std::shared_ptr<VerificationKey> vk_from_valid_witness;
     {
-        AcirProgram program = create_acir_program(civc_data);
+        AcirProgram program = create_acir_program(chonk_data);
         auto proving_key = get_civc_recursive_verifier_pk(program);
         vk_from_valid_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
 
@@ -131,7 +131,7 @@ TEST_F(CivcRecursionConstraintTest, GenerateRecursiveCivcVerifierVKFromConstrain
 
     std::shared_ptr<VerificationKey> vk_from_constraints;
     {
-        AcirProgram program = create_acir_program(civc_data);
+        AcirProgram program = create_acir_program(chonk_data);
         program.witness.clear();
         auto proving_key = get_civc_recursive_verifier_pk(program);
         vk_from_constraints = std::make_shared<VerificationKey>(proving_key->get_precomputed());

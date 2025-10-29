@@ -186,7 +186,7 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
  * @brief Check that the size of a mock Chonk proof matches expectation
  *
  */
-TEST(MockVerifierInputsTest, MockClientIVCProofSize)
+TEST(MockVerifierInputsTest, MockChonkProofSize)
 {
     using Builder = MegaCircuitBuilder;
 

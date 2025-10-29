@@ -546,9 +546,8 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         mem.diff = mem.lagrangeFirst * libraPolyEvals[2];
 
-        mem.diff = mem.diff
-            + (geminiR - SUBGROUP_GENERATOR_INVERSE)
-                * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
+        mem.diff = mem.diff + (geminiR - SUBGROUP_GENERATOR_INVERSE)
+            * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
         mem.diff = mem.diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
 
         check = mem.diff == Fr.wrap(0);

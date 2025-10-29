@@ -278,7 +278,7 @@ TEST_F(ChonkTests, VKIndependenceWithOverflow)
  * @brief Test to establish the "max" number of apps that can be accumulated due to limitations on the ECCVM size
  *
  */
-HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 

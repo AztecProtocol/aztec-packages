@@ -10,7 +10,7 @@
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
-class ClientIVCRecursiveVerifier {
+class ChonkRecursiveVerifier {
     using Builder = UltraCircuitBuilder;                     // The circuit will be an Ultra circuit
     using RecursiveFlavor = MegaZKRecursiveFlavor_<Builder>; // The hiding circuit verifier algorithm is MegaZK
     using RecursiveDeciderVerificationKeys = RecursiveDeciderVerificationKeys_<RecursiveFlavor, 2>;
@@ -101,11 +101,11 @@ class ClientIVCRecursiveVerifier {
         }
     };
 
-    ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
+    ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<VerificationKey>& native_mega_vk)
         : builder(builder)
         , stdlib_mega_vk_and_hash(std::make_shared<RecursiveVKAndHash>(*builder, native_mega_vk)) {};
 
-    ClientIVCRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
+    ChonkRecursiveVerifier(Builder* builder, const std::shared_ptr<RecursiveVKAndHash>& stdlib_mega_vk_and_hash)
         : builder(builder)
         , stdlib_mega_vk_and_hash(stdlib_mega_vk_and_hash) {};
 

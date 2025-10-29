@@ -6,12 +6,12 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 
 namespace bb::stdlib::recursion::honk {
-class ClientIVCRecursionTests : public testing::Test {
+class ChonkRecursionTests : public testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
-    using ClientIVCVerifier = ClientIVCRecursiveVerifier;
+    using ChonkVerifier = ChonkRecursiveVerifier;
     using Proof = Chonk::Proof;
-    using StdlibProof = ClientIVCVerifier::StdlibProof;
+    using StdlibProof = ChonkVerifier::StdlibProof;
     using RollupFlavor = UltraRollupRecursiveFlavor_<Builder>;
     using NativeFlavor = RollupFlavor::NativeFlavor;
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
@@ -23,7 +23,7 @@ class ClientIVCRecursionTests : public testing::Test {
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    struct ClientIVCProverOutput {
+    struct ChonkProverOutput {
         Proof proof;
         IVCVerificationKey ivc_vk;
     };
@@ -32,7 +32,7 @@ class ClientIVCRecursionTests : public testing::Test {
      * @brief Construct a genuine Chonk prover output based on accumulation of an arbitrary set of mock circuits
      *
      */
-    static ClientIVCProverOutput construct_client_ivc_prover_output(const size_t num_app_circuits = 1)
+    static ChonkProverOutput construct_chonk_prover_output(const size_t num_app_circuits = 1)
     {
         // Construct and accumulate a series of mocked private function execution circuits
         MockCircuitProducer circuit_producer{ num_app_circuits };
@@ -51,9 +51,9 @@ class ClientIVCRecursionTests : public testing::Test {
  * @brief Ensure the Chonk proof used herein can be natively verified
  *
  */
-TEST_F(ClientIVCRecursionTests, NativeVerification)
+TEST_F(ChonkRecursionTests, NativeVerification)
 {
-    auto [proof, vk] = construct_client_ivc_prover_output();
+    auto [proof, vk] = construct_chonk_prover_output();
 
     // Confirm that the IVC proof can be natively verified
     EXPECT_TRUE(Chonk::verify(proof, vk));
@@ -63,20 +63,20 @@ TEST_F(ClientIVCRecursionTests, NativeVerification)
  * @brief Construct and Check a recursive Chonk verification circuit
  *
  */
-TEST_F(ClientIVCRecursionTests, Basic)
+TEST_F(ChonkRecursionTests, Basic)
 {
-    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+    using ChonkRecVerifierOutput = ChonkRecursiveVerifier::Output;
 
     // Generate a genuine Chonk prover output
-    auto [proof, vk] = construct_client_ivc_prover_output();
+    auto [proof, vk] = construct_chonk_prover_output();
 
     // Construct the Chonk recursive verifier
     Builder builder;
-    ClientIVCVerifier verifier{ &builder, vk.mega };
+    ChonkVerifier verifier{ &builder, vk.mega };
 
     // Generate the recursive verification circuit
     StdlibProof stdlib_proof(builder, proof);
-    CIVCRecVerifierOutput output = verifier.verify(stdlib_proof);
+    ChonkRecVerifierOutput output = verifier.verify(stdlib_proof);
 
     EXPECT_EQ(builder.failed(), false) << builder.err();
 
@@ -86,60 +86,62 @@ TEST_F(ClientIVCRecursionTests, Basic)
     info("Recursive Verifier: finalized num gates = ", builder.num_gates);
 }
 
-TEST_F(ClientIVCRecursionTests, ClientTubeBase)
+TEST_F(ChonkRecursionTests, ChonkVerifierBase)
 {
-    using CIVCRecVerifierOutput = ClientIVCRecursiveVerifier::Output;
+    using ChonkRecVerifierOutput = ChonkRecursiveVerifier::Output;
 
     // Generate a genuine Chonk prover output
-    auto [proof, vk] = construct_client_ivc_prover_output();
+    auto [proof, vk] = construct_chonk_prover_output();
 
     // Construct the Chonk recursive verifier
-    Builder tube_builder;
-    ClientIVCVerifier verifier{ &tube_builder, vk.mega };
+    Builder chonk_verifier_builder;
+    ChonkVerifier verifier{ &chonk_verifier_builder, vk.mega };
 
     // Generate the recursive verification circuit
-    StdlibProof stdlib_proof(tube_builder, proof);
-    CIVCRecVerifierOutput client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
+    StdlibProof stdlib_proof(chonk_verifier_builder, proof);
+    ChonkRecVerifierOutput chonk_rec_verifier_output = verifier.verify(stdlib_proof);
 
     {
         // IO
         RollupIO inputs;
-        inputs.pairing_inputs = client_ivc_rec_verifier_output.points_accumulator;
-        inputs.ipa_claim = client_ivc_rec_verifier_output.opening_claim;
+        inputs.pairing_inputs = chonk_rec_verifier_output.points_accumulator;
+        inputs.ipa_claim = chonk_rec_verifier_output.opening_claim;
         inputs.set_public();
     }
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-    tube_builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+    chonk_verifier_builder.ipa_proof = chonk_rec_verifier_output.ipa_proof.get_value();
 
-    info("Chonk Recursive Verifier: num prefinalized gates = ", tube_builder.num_gates);
+    info("Chonk Recursive Verifier: num prefinalized gates = ", chonk_verifier_builder.num_gates);
 
-    EXPECT_EQ(tube_builder.failed(), false) << tube_builder.err();
+    EXPECT_EQ(chonk_verifier_builder.failed(), false) << chonk_verifier_builder.err();
 
-    // EXPECT_TRUE(CircuitChecker::check(tube_builder));
+    // EXPECT_TRUE(CircuitChecker::check(chonk_verifier_builder));
 
     // Construct and verify a proof for the Chonk Recursive Verifier circuit
-    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
+    auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(chonk_verifier_builder);
     auto native_vk_with_ipa = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
-    UltraProver_<NativeFlavor> tube_prover{ proving_key, native_vk_with_ipa };
+    UltraProver_<NativeFlavor> chonk_verifier_prover{ proving_key, native_vk_with_ipa };
     // Prove the CIVCRecursiveVerifier circuit
-    auto native_tube_proof = tube_prover.construct_proof();
+    auto native_chonk_verifier_proof = chonk_verifier_prover.construct_proof();
 
     // Natively verify the tube proof
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     UltraVerifier_<NativeFlavor> native_verifier(native_vk_with_ipa, ipa_verification_key);
-    bool native_result =
-        native_verifier.template verify_proof<bb::RollupIO>(native_tube_proof, tube_prover.proving_key->ipa_proof)
-            .result;
+    bool native_result = native_verifier
+                             .template verify_proof<bb::RollupIO>(native_chonk_verifier_proof,
+                                                                  chonk_verifier_prover.proving_key->ipa_proof)
+                             .result;
     EXPECT_TRUE(native_result);
 
     // Construct a base rollup circuit that recursively verifies the tube proof and forwards the IPA proof.
     Builder base_builder;
     auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
     auto stdlib_tube_vk_and_hash = std::make_shared<RollupFlavor::VKAndHash>(base_builder, tube_vk);
-    stdlib::Proof<Builder> base_tube_proof(base_builder, native_tube_proof);
+    stdlib::Proof<Builder> base_chonk_verifier_proof(base_builder, native_chonk_verifier_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, stdlib_tube_vk_and_hash };
-    UltraRecursiveVerifierOutput<Builder> output = base_verifier.template verify_proof<RollupIO>(base_tube_proof);
+    UltraRecursiveVerifierOutput<Builder> output =
+        base_verifier.template verify_proof<RollupIO>(base_chonk_verifier_proof);
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
 
     {
@@ -150,7 +152,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
         inputs.set_public();
     }
 
-    base_builder.ipa_proof = tube_prover.proving_key->ipa_proof;
+    base_builder.ipa_proof = chonk_verifier_prover.proving_key->ipa_proof;
     EXPECT_EQ(base_builder.failed(), false) << base_builder.err();
     EXPECT_TRUE(CircuitChecker::check(base_builder));
 
@@ -162,39 +164,39 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
         ipa_verification_key, output.ipa_claim.get_native_opening_claim(), ipa_transcript);
 }
 
-// Ensure that the Client IVC Recursive Verifier Circuit does not depend on the Client IVC input
-TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
+// Ensure that the Chonk Recursive Verifier Circuit does not depend on the Chonk input
+TEST_F(ChonkRecursionTests, ChonkVerifierVKIndependentOfInputCircuits)
 {
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
     auto get_blocks = [](size_t num_app_circuits)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<NativeFlavor::VerificationKey>> {
-        auto [proof, ivc_vk] = construct_client_ivc_prover_output(num_app_circuits);
+        auto [proof, ivc_vk] = construct_chonk_prover_output(num_app_circuits);
 
-        Builder tube_builder;
-        ClientIVCVerifier verifier{ &tube_builder, ivc_vk.mega };
+        Builder chonk_verifier_builder;
+        ChonkVerifier verifier{ &chonk_verifier_builder, ivc_vk.mega };
 
-        StdlibProof stdlib_proof(tube_builder, proof);
-        auto client_ivc_rec_verifier_output = verifier.verify(stdlib_proof);
+        StdlibProof stdlib_proof(chonk_verifier_builder, proof);
+        auto chonk_rec_verifier_output = verifier.verify(stdlib_proof);
 
         // IO
         RollupIO inputs;
-        inputs.pairing_inputs = client_ivc_rec_verifier_output.points_accumulator;
-        inputs.ipa_claim = client_ivc_rec_verifier_output.opening_claim;
+        inputs.pairing_inputs = chonk_rec_verifier_output.points_accumulator;
+        inputs.ipa_claim = chonk_rec_verifier_output.opening_claim;
         inputs.set_public();
 
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA proof
-        tube_builder.ipa_proof = client_ivc_rec_verifier_output.ipa_proof.get_value();
+        chonk_verifier_builder.ipa_proof = chonk_rec_verifier_output.ipa_proof.get_value();
 
-        info("Chonk Recursive Verifier: num prefinalized gates = ", tube_builder.num_gates);
+        info("Chonk Recursive Verifier: num prefinalized gates = ", chonk_verifier_builder.num_gates);
 
-        EXPECT_EQ(tube_builder.failed(), false) << tube_builder.err();
+        EXPECT_EQ(chonk_verifier_builder.failed(), false) << chonk_verifier_builder.err();
 
         // Construct and verify a proof for the Chonk Recursive Verifier circuit
-        auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(tube_builder);
+        auto proving_key = std::make_shared<DeciderProvingKey_<NativeFlavor>>(chonk_verifier_builder);
 
         auto tube_vk = std::make_shared<NativeFlavor::VerificationKey>(proving_key->get_precomputed());
 
-        return { tube_builder.blocks, tube_vk };
+        return { chonk_verifier_builder.blocks, tube_vk };
     };
 
     auto [blocks_4, verification_key_4] = get_blocks(/*num_app_circuits=*/1);

@@ -66,7 +66,7 @@ template <class DeciderProvingKeys_> class ProtogalaxyProverInternal {
      * Given the sparse representation of our circuits, many relations are skipped each row which means many polynomials
      * can go unused. By skipping the basis extension entirely we avoid this unneccessary work.
      *
-     * Tests indicates that utilizing ShortUnivariates speeds up the `benchmark_client_ivc.sh` benchmark by 10%
+     * Tests indicates that utilizing ShortUnivariates speeds up the `benchmark_chonk.sh` benchmark by 10%
      * @note This only works if DeciderPKs::NUM == 2. The whole protogalaxy class would require substantial revision to
      * support more PKs so this should be adequate for now
      */
