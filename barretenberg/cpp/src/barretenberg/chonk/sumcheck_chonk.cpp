@@ -132,11 +132,7 @@ SumcheckChonk::perform_recursive_verification_and_databus_consistency_checks(
         break;
     }
     case QUEUE_TYPE::HN:
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/chonk/sumcheck_chonk.cpp
-    case QUEUE_TYPE::PG_TAIL: {
-=======
     case QUEUE_TYPE::HN_TAIL: {
->>>>>>> 6c9679e126 (die protogalaxy die):barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.cpp
         vinfo("Recursively verifying inner accumulation.");
         auto [_first_sumcheck_verified, _second_sumcheck_verified, new_verifier_accumulator] =
             folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
@@ -182,13 +178,8 @@ SumcheckChonk::perform_recursive_verification_and_databus_consistency_checks(
         // verification of of the folding of K_{i-1} (kernel), A_{i} (app). This verification happens in K_{i}
         merge_commitments.T_prev_commitments = std::move(kernel_input.ecc_op_tables);
 
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/chonk/sumcheck_chonk.cpp
-        BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::PG_TAIL ||
-                         verifier_inputs.type == QUEUE_TYPE::PG_FINAL,
-=======
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
                          verifier_inputs.type == QUEUE_TYPE::HN_FINAL,
->>>>>>> 6c9679e126 (die protogalaxy die):barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.cpp
                      true,
                      "Kernel circuits should be folded.");
         // Get the previous accum hash
@@ -409,11 +400,8 @@ void SumcheckChonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<Meg
         proof = prover.export_proof();
         break;
     case QUEUE_TYPE::HN:
-<<<<<<< HEAD:barretenberg/cpp/src/barretenberg/chonk/sumcheck_chonk.cpp
     case QUEUE_TYPE::PG_TAIL:
-=======
     case QUEUE_TYPE::HN_TAIL:
->>>>>>> 6c9679e126 (die protogalaxy die):barretenberg/cpp/src/barretenberg/client_ivc/client_ivc.cpp
         vinfo("Accumulating circuit number ", num_circuits_accumulated + 1);
         std::tie(proof, prover_accumulator) = prover.fold(prover_accumulator, prover_instance, precomputed_vk);
         break;

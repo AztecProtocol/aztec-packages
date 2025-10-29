@@ -56,164 +56,130 @@ std::shared_ptr<Chonk> create_mock_sumcheck_ivc_from_constraints(const std::vect
 
     // Case: RESET kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
-=======
-        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/true);
->>>>>>> 6c9679e126 (die protogalaxy die)
         return ivc;
     }
 
     // Case: TAIL kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-<<<<<<< HEAD
         mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
-=======
-        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
->>>>>>> 6c9679e126 (die protogalaxy die)
+        return ivc;
+        if (constraints.size() == 2) {
+            BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
+            BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
+            mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
+            mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+            return ivc;
+        }
+
+        // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
+        if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
+            mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
+            return ivc;
+        }
+
+        throw_or_abort("Invalid set of IVC recursion constraints!");
         return ivc;
     }
 
-    // Case: INNER kernel; two HN recursive verifications, kernel and app in that order
-    if (constraints.size() == 2) {
-        BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
-        BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-<<<<<<< HEAD
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
-=======
-        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/true);
-        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN, /*is_kernel=*/false);
->>>>>>> 6c9679e126 (die protogalaxy die)
-        return ivc;
+    /**
+     * @brief Create a mock verification queue entry with proof and VK that have the correct structure but are not
+     * necessarily valid
+     *
+     */
+    Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUEUE_TYPE verification_type,
+                                                                    const bool is_kernel)
+    {
+        using IvcType = Chonk;
+        using FF = IvcType::FF;
+        using MegaVerificationKey = IvcType::MegaVerificationKey;
+        using Flavor = IvcType::Flavor;
+
+        size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
+        size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0; // always 1
+
+        // Construct a mock Oink or HN proof and a mock MegaHonk verification key
+        std::vector<FF> proof;
+        std::shared_ptr<MegaVerificationKey> verification_key;
+
+        if (is_kernel) {
+            using KernelIO = stdlib::recursion::honk::KernelIO;
+            BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN ||
+                             verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
+                             verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
+                         true);
+
+            // kernel circuits are always folded, thus the proof always includes the nova fold proof
+            bool include_fold = true;
+            proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
+
+            verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
+        } else {
+            using AppIO = stdlib::recursion::honk::AppIO;
+            BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN,
+                         true);
+
+            // The first app is not folded thus the proof does not include the nova fold proof
+            bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
+            proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
+
+            verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
+        }
+
+        return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
     }
 
-    // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
-    if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-<<<<<<< HEAD
-        mock_sumcheck_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
-=======
-        mock_sumcheck_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
->>>>>>> 6c9679e126 (die protogalaxy die)
-        return ivc;
+    /**
+     * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation
+     * @details Mock state consists of a mock verification queue entry (proof, VK) and a mocked merge proof.
+     * Also initializes the recursive verifier accumulator since it is hashed in circuit.
+     *
+     * @param ivc
+     * @param type The type of verification (OINK, HN, PG_TAIL, PG_FINAL)
+     * @param is_kernel Whether this is a kernel circuit accumulation
+     */
+    void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)
+    {
+        using FF = Chonk::FF;
+        using Commitment = Chonk::Commitment;
+
+        // Initialize verifier accumulator with proper structure
+        ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
+        ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
+        ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
+        ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
+        ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
+
+        Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
+        ivc->verification_queue.emplace_back(entry);
+        ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
+        if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
+            ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
+        }
+        ivc->num_circuits_accumulated++;
     }
 
-    throw_or_abort("Invalid set of IVC recursion constraints!");
-    return ivc;
-}
+    /**
+     * @brief Populate VK witness fields from a recursion constraint from a provided VerificationKey
+     *
+     * @param builder
+     * @param mock_verification_key
+     * @param key_witness_indices
+     */
+    void populate_dummy_vk_in_constraint(MegaCircuitBuilder & builder,
+                                         const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
+                                         std::vector<uint32_t>& key_witness_indices)
+    {
+        using FF = Chonk::FF;
 
-/**
- * @brief Create a mock verification queue entry with proof and VK that have the correct structure but are not
- * necessarily valid
- *
- */
-Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUEUE_TYPE verification_type,
-                                                                const bool is_kernel)
-{
-    using IvcType = Chonk;
-    using FF = IvcType::FF;
-    using MegaVerificationKey = IvcType::MegaVerificationKey;
-    using Flavor = IvcType::Flavor;
+        // Convert the VerificationKey to fields
+        std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
+        BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
 
-    size_t dyadic_size = 1 << Flavor::VIRTUAL_LOG_N;         // maybe doesnt need to be correct
-    size_t pub_inputs_offset = Flavor::has_zero_row ? 1 : 0; // always 1
-
-    // Construct a mock Oink or HN proof and a mock MegaHonk verification key
-    std::vector<FF> proof;
-    std::shared_ptr<MegaVerificationKey> verification_key;
-
-    if (is_kernel) {
-        using KernelIO = stdlib::recursion::honk::KernelIO;
-<<<<<<< HEAD
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::HN || verification_type == Chonk::QUEUE_TYPE::HN_TAIL ||
-                         verification_type == Chonk::QUEUE_TYPE::HN_FINAL,
-=======
-        BB_ASSERT_EQ(verification_type == ClientIVC::QUEUE_TYPE::HN ||
-                         verification_type == ClientIVC::QUEUE_TYPE::HN_TAIL ||
-                         verification_type == ClientIVC::QUEUE_TYPE::HN_FINAL,
->>>>>>> 6c9679e126 (die protogalaxy die)
-                     true);
-
-        // kernel circuits are always folded, thus the proof always includes the nova fold proof
-        bool include_fold = true;
-        proof = create_mock_hyper_nova_proof<Flavor, KernelIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, KernelIO>(dyadic_size, pub_inputs_offset);
-    } else {
-        using AppIO = stdlib::recursion::honk::AppIO;
-<<<<<<< HEAD
-        BB_ASSERT_EQ(verification_type == Chonk::QUEUE_TYPE::OINK || verification_type == Chonk::QUEUE_TYPE::HN, true);
-=======
-        BB_ASSERT_EQ(verification_type == ClientIVC::QUEUE_TYPE::OINK || verification_type == ClientIVC::QUEUE_TYPE::HN,
-                     true);
->>>>>>> 6c9679e126 (die protogalaxy die)
-
-        // The first app is not folded thus the proof does not include the nova fold proof
-        bool include_fold = !(verification_type == Chonk::QUEUE_TYPE::OINK);
-        proof = create_mock_hyper_nova_proof<Flavor, AppIO>(include_fold);
-
-        verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
+        // Add the fields to the witness and set the key witness indices accordingly
+        for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
+            builder.set_variable(witness_idx, value);
+        }
     }
-
-    return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
-}
-
-/**
- * @brief Populate an IVC instance with data that mimics the state after a single IVC accumulation
- * @details Mock state consists of a mock verification queue entry (proof, VK) and a mocked merge proof.
- * Also initializes the recursive verifier accumulator since it is hashed in circuit.
- *
- * @param ivc
- * @param type The type of verification (OINK, HN, PG_TAIL, PG_FINAL)
- * @param is_kernel Whether this is a kernel circuit accumulation
- */
-void mock_sumcheck_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)
-{
-    using FF = Chonk::FF;
-    using Commitment = Chonk::Commitment;
-
-    // Initialize verifier accumulator with proper structure
-    ivc->recursive_verifier_native_accum.challenge = std::vector<FF>(Chonk::Flavor::VIRTUAL_LOG_N, FF::zero());
-    ivc->recursive_verifier_native_accum.non_shifted_evaluation = FF::zero();
-    ivc->recursive_verifier_native_accum.shifted_evaluation = FF::zero();
-    ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
-    ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
-
-    Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
-    ivc->verification_queue.emplace_back(entry);
-    ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
-<<<<<<< HEAD
-    if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
-        ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
-=======
-    if (type == ClientIVC::QUEUE_TYPE::HN_FINAL) {
-        ivc->decider_proof = acir_format::create_mock_pcs_proof<ClientIVC::Flavor>();
->>>>>>> 6c9679e126 (die protogalaxy die)
-    }
-    ivc->num_circuits_accumulated++;
-}
-
-/**
- * @brief Populate VK witness fields from a recursion constraint from a provided VerificationKey
- *
- * @param builder
- * @param mock_verification_key
- * @param key_witness_indices
- */
-void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
-                                     const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
-                                     std::vector<uint32_t>& key_witness_indices)
-{
-    using FF = Chonk::FF;
-
-    // Convert the VerificationKey to fields
-    std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();
-    BB_ASSERT_EQ(mock_vk_fields.size(), key_witness_indices.size());
-
-    // Add the fields to the witness and set the key witness indices accordingly
-    for (auto [witness_idx, value] : zip_view(key_witness_indices, mock_vk_fields)) {
-        builder.set_variable(witness_idx, value);
-    }
-}
 
 } // namespace acir_format

@@ -271,11 +271,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     bool has_honk_recursion_constraints = !constraint_system.honk_recursion_constraints.empty();
     bool has_avm_recursion_constraints = !constraint_system.avm_recursion_constraints.empty();
     bool has_hn_recursion_constraints = !constraint_system.hn_recursion_constraints.empty();
-<<<<<<< HEAD
     bool has_chonk_recursion_constraints = !constraint_system.chonk_recursion_constraints.empty();
-=======
-    bool has_civc_recursion_constraints = !constraint_system.civc_recursion_constraints.empty();
->>>>>>> 6c9679e126 (die protogalaxy die)
 
     if constexpr (IsMegaBuilder<Builder>) {
         // We shouldn't have both honk recursion constraints and pg recursion constraints.
@@ -312,13 +308,8 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // - HONK + AVM recursion constraints (Public Base Rollup)
         // - HONK recursion constraints
         // - AVM recursion constraints
-<<<<<<< HEAD
         // However, as mock protocol circuits use Chonk + AVM (mock Public Base Rollup), instead of throwing an assert
         // we return a vinfo for the case of Chonk + AVM
-=======
-        // However, as mock protocol circuits use CIVC + AVM (mock Public Base Rollup), instead of throwing an assert we
-        // return a vinfo for the case of CIVC + AVM
->>>>>>> 6c9679e126 (die protogalaxy die)
         BB_ASSERT_EQ(has_hn_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");

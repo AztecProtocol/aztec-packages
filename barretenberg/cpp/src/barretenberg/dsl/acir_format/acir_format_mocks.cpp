@@ -24,11 +24,7 @@ acir_format::AcirFormatOriginalOpcodeIndices create_empty_original_opcode_indice
         .honk_recursion_constraints = {},
         .avm_recursion_constraints = {},
         .hn_recursion_constraints = {},
-<<<<<<< HEAD
         .chonk_recursion_constraints = {},
-=======
-        .civc_recursion_constraints = {},
->>>>>>> 6c9679e126 (die protogalaxy die)
         .assert_equalities = {},
         .poly_triple_constraints = {},
         .quad_constraints = {},

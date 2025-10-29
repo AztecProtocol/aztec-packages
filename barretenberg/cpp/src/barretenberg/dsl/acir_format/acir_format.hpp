@@ -52,11 +52,7 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> honk_recursion_constraints;
     std::vector<size_t> avm_recursion_constraints;
     std::vector<size_t> hn_recursion_constraints;
-<<<<<<< HEAD
     std::vector<size_t> chonk_recursion_constraints;
-=======
-    std::vector<size_t> civc_recursion_constraints;
->>>>>>> 6c9679e126 (die protogalaxy die)
     std::vector<size_t> assert_equalities;
     std::vector<size_t> poly_triple_constraints;
     std::vector<size_t> quad_constraints;
@@ -96,11 +92,7 @@ struct AcirFormat {
     std::vector<RecursionConstraint> honk_recursion_constraints;
     std::vector<RecursionConstraint> avm_recursion_constraints;
     std::vector<RecursionConstraint> hn_recursion_constraints;
-<<<<<<< HEAD
     std::vector<RecursionConstraint> chonk_recursion_constraints;
-=======
-    std::vector<RecursionConstraint> civc_recursion_constraints;
->>>>>>> 6c9679e126 (die protogalaxy die)
     std::vector<bb::poly_triple_<bb::curve::BN254::ScalarField>> assert_equalities;
 
     // A standard plonk arithmetic constraint, as defined in the poly_triple struct, consists of selector values
@@ -148,11 +140,7 @@ struct AcirFormat {
                    honk_recursion_constraints,
                    avm_recursion_constraints,
                    hn_recursion_constraints,
-<<<<<<< HEAD
                    chonk_recursion_constraints,
-=======
-                   civc_recursion_constraints,
->>>>>>> 6c9679e126 (die protogalaxy die)
                    poly_triple_constraints,
                    quad_constraints,
                    big_quad_constraints,
