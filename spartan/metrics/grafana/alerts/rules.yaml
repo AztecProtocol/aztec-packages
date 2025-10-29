@@ -187,7 +187,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (delta(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[$__rate_interval]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[10m]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -252,11 +252,11 @@ groups:
                 type: threshold
           dashboardUid: ""
           panelId: 0
-          noDataState: NoData
+          noDataState: Alerting
           execErrState: Error
           for: 10m
           annotations:
-            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 5 minutes
+            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 10 minutes
           labels:
             <<: *common_labels
           isPaused: false
