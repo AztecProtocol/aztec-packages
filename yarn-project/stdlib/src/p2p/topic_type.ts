@@ -1,18 +1,25 @@
 import { P2PClientType } from './client_type.js';
 
-/** Create Topic String
- *
- * The topic channel identifier
- * @param topicType
- * @returns
+/**
+ * Creates the topic channel identifier string from a given topic type
  */
 export function createTopicString(topicType: TopicType, protocolVersion: string) {
   return `/aztec/${TopicType[topicType]}/${protocolVersion}`;
 }
 
-/**
- *
- */
+/** Extracts the topic type from a topic string */
+export function getTopicFromString(topicStr: string): TopicType | undefined {
+  const parts = topicStr.split('/');
+  if (parts.length < 4 || parts[1] !== 'aztec') {
+    return undefined;
+  }
+  const topic = parts[2];
+  if (Object.values(TopicType).includes(topic as TopicType)) {
+    return topic as TopicType;
+  }
+  return undefined;
+}
+
 export enum TopicType {
   tx = 'tx',
   block_proposal = 'block_proposal',
