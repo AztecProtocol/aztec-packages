@@ -392,6 +392,31 @@ Update attributes of your functions:
     fn my_utility_func() {
 ```
 
+### Dropping remote mutable references to public context
+
+`PrivateContext` generally needs to be passed as a mutable reference to functions because it does actually hold state
+we're mutating. This is not the case for `PublicContext`, or `UtilityContext` - these are just marker objects that
+indicate the current execution mode and make available the correct subset of the API. For this reason we have dropped
+the mutable reference from the API.
+
+If you've passed the context as an argument to custom functions you will need to do the following migration (example
+from our token contract):
+
+```diff
+#[contract_library_method]
+fn _finalize_transfer_to_private(
+    from_and_completer: AztecAddress,
+    amount: u128,
+    partial_note: PartialUintNote,
+-    context: &mut PublicContext,
+-    storage: Storage<&mut PublicContext>,
++    context: PublicContext,
++    storage: Storage<PublicContext>,
+) {
+    ...
+}
+```
+
 ### Authwit Test Helper now takes `env`
 
 The `add_private_authwit_from_call_interface` test helper available in `test::helpers::authwit` now takes a `TestEnvironment` parameter, mirroring `add_public_authwit_from_call_interface`. This adds some unfortunate verbosity, but there are bigger plans to improve authwit usage in Noir tests in the near future.

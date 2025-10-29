@@ -227,8 +227,8 @@ pub contract SimpleToken {
         from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
@@ -277,8 +277,8 @@ pub contract SimpleToken {
         completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
@@ -296,7 +296,7 @@ pub contract SimpleToken {
     fn _increase_public_balance_inner(
         to: AztecAddress,
         amount: u128,
-        storage: Storage<&mut PublicContext>,
+        storage: Storage<PublicContext>,
     ) {
         let new_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(new_balance);

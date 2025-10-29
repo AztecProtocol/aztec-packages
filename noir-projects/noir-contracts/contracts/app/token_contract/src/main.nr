@@ -471,8 +471,8 @@ pub contract Token {
         from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         // First we subtract the `amount` from the public balance of `from_and_completer`
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
@@ -548,8 +548,8 @@ pub contract Token {
         completer: AztecAddress, // entity that can complete the partial note
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         // First we increase the total supply by the `amount`
         let supply = storage.total_supply.read().add(amount);
@@ -572,7 +572,7 @@ pub contract Token {
     fn _increase_public_balance_inner(
         to: AztecAddress,
         amount: u128,
-        storage: Storage<&mut PublicContext>,
+        storage: Storage<PublicContext>,
     ) {
         let new_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(new_balance);
