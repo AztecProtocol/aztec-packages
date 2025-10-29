@@ -92,7 +92,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     await rerunEpochProvingJob(rerunDownloadPath, logger, {
       ...config,
       realProofs: false,
-      dataStoreMapSizeKB: 1024 * 1024,
+      dataStoreMapSizeKb: 1024 * 1024,
       dataDirectory: rerunDataDir,
       proverAgentCount: 2,
       proverId: EthAddress.random(),

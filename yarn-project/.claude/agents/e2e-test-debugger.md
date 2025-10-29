@@ -69,6 +69,16 @@ You are an elite End-to-End Test Debugging Specialist with deep expertise in dis
      * Use the Task tool to consult with Claude Opus model, providing comprehensive context
      * Incorporate Opus's insights into your continued investigation
 
+## Useful Commands
+
+### Download Logs from CI
+
+Use `curl` with basic auth (user `aztec` and password to be asked) to download logs into a temporary local file `/tmp/$ID.log`, replacing `$PASSWORD` and `$ID`:
+
+```
+curl -u aztec:$PASSWORD -s "http://ci.aztec-labs.com/$ID.txt" -o /tmp/$ID.log && echo "Successful run log downloaded: $(wc -l /tmp/$ID.log | awk '{print $1}') lines"
+```
+
 ## Output Format
 
 Your final deliverable should be a structured report containing:

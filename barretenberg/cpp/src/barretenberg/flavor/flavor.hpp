@@ -426,19 +426,6 @@ template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 }
 
 /**
- * @brief Utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
- * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
- * relation are regarded as variables.
- */
-template <typename Tuple> constexpr size_t compute_max_total_relation_length()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-    }(seq);
-}
-
-/**
  * @brief Utility function to find the number of subrelations.
  */
 template <typename Tuple> constexpr size_t compute_number_of_subrelations()
@@ -474,7 +461,7 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
  *
  * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
  * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
- * UltraArithmeticRelation, which is made up by two subrelations).
+ * ArithmeticRelation, which is made up by two subrelations).
  *
  * @tparam RelationsTuple
  */

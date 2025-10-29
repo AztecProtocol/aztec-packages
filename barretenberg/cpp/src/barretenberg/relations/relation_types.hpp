@@ -32,9 +32,6 @@ concept HasSubrelationLinearlyIndependentMember = requires(T) {
     { std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT) } -> std::convertible_to<bool>;
 };
 
-template <typename T>
-concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTMENTS; };
-
 /**
  * @brief Check whether a given subrelation is linearly independent from the other subrelations.
  *
@@ -51,47 +48,6 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
         return true;
     }
 }
-
-/**
- * @brief Compute the total subrelation lengths, i.e., the lengths when regarding the challenges as
- * variables.
- */
-template <typename RelationImpl>
-consteval std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> compute_total_subrelation_lengths()
-{
-    if constexpr (HasParameterLengthAdjustmentsMember<RelationImpl>) {
-        constexpr size_t NUM_SUBRELATIONS = RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size();
-        std::array<size_t, NUM_SUBRELATIONS> result;
-        for (size_t idx = 0; idx < NUM_SUBRELATIONS; idx++) {
-            result[idx] = RelationImpl::SUBRELATION_PARTIAL_LENGTHS[idx] + RelationImpl::TOTAL_LENGTH_ADJUSTMENTS[idx];
-        }
-        return result;
-    } else {
-        return RelationImpl::SUBRELATION_PARTIAL_LENGTHS;
-    }
-};
-
-/**
- * @brief Get the subrelation accumulators for the Protogalaxy combiner calculation.
- * @details A subrelation of degree D, when evaluated on polynomials of degree N, gives a polynomial of degree D
- * * N. In the context of Protogalaxy, N = NUM_INSTANCES-1. Hence, given a subrelation of length x, its
- * evaluation on such polynomials will have degree (x-1) * (NUM_INSTANCES-1), and the length of this evaluation
- * will be one greater than this.
- * @tparam NUM_INSTANCES
- * @tparam NUM_SUBRELATIONS
- * @param SUBRELATION_PARTIAL_LENGTHS The array of subrelation lengths supplied by a relation.
- * @return The transformed subrelation lenths
- */
-template <size_t NUM_INSTANCES, size_t NUM_SUBRELATIONS>
-consteval std::array<size_t, NUM_SUBRELATIONS> compute_composed_subrelation_partial_lengths(
-    std::array<size_t, NUM_SUBRELATIONS> SUBRELATION_PARTIAL_LENGTHS)
-{
-    std::transform(SUBRELATION_PARTIAL_LENGTHS.begin(),
-                   SUBRELATION_PARTIAL_LENGTHS.end(),
-                   SUBRELATION_PARTIAL_LENGTHS.begin(),
-                   [](const size_t x) { return (x - 1) * (NUM_INSTANCES - 1) + 1; });
-    return SUBRELATION_PARTIAL_LENGTHS;
-};
 
 /**
  * @brief The templates defined herein facilitate sharing the relation arithmetic between the prover and the
@@ -154,14 +110,8 @@ template <typename RelationImpl> class Relation : public RelationImpl {
   public:
     using FF = typename RelationImpl::FF;
 
-    static constexpr std::array<size_t, RelationImpl::SUBRELATION_PARTIAL_LENGTHS.size()> SUBRELATION_TOTAL_LENGTHS =
-        compute_total_subrelation_lengths<RelationImpl>();
-
     static constexpr size_t RELATION_LENGTH = *std::max_element(RelationImpl::SUBRELATION_PARTIAL_LENGTHS.begin(),
                                                                 RelationImpl::SUBRELATION_PARTIAL_LENGTHS.end());
-
-    static constexpr size_t TOTAL_RELATION_LENGTH =
-        *std::max_element(SUBRELATION_TOTAL_LENGTHS.begin(), SUBRELATION_TOTAL_LENGTHS.end());
 
     using SumcheckTupleOfUnivariatesOverSubrelations =
         TupleOfUnivariates<FF, RelationImpl::SUBRELATION_PARTIAL_LENGTHS>;

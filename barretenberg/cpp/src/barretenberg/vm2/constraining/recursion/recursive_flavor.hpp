@@ -28,9 +28,6 @@ class AvmRecursiveFlavor {
 
     using Relations = NativeFlavor::Relations_<FF>;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
-    static constexpr bool USE_SHORT_MONOMIALS = NativeFlavor::USE_SHORT_MONOMIALS;
-
     static constexpr size_t NUM_WIRES = NativeFlavor::NUM_WIRES;
     static constexpr size_t NUM_ALL_ENTITIES = NativeFlavor::NUM_ALL_ENTITIES;
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = NativeFlavor::NUM_PRECOMPUTED_ENTITIES;

@@ -1,5 +1,5 @@
 use crate::{
-    abis::{PublicTubePublicInputs, TxRollupPublicInputs},
+    abis::{PublicChonkVerifierPublicInputs, TxRollupPublicInputs},
     tx_base::components::{PublicTxBaseInputsValidator, TxBasePublicInputsComposer},
 };
 use dep::types::{
@@ -13,8 +13,8 @@ use dep::types::{
 
 pub struct PublicTxBaseRollupPrivateInputs {
     // The public inputs of `private_tail_to_public` was propagated to `hiding_kernel_to_public` and then to
-    // `public_tube`, whose public inputs are identical to those inputs, and are validated in this circuit.
-    pub(crate) public_tube_proof_data: RollupHonkProofData<PublicTubePublicInputs>,
+    // `public_chonk_verifier`, whose public inputs are identical to those inputs, and are validated in this circuit.
+    pub(crate) public_chonk_verifier_proof_data: RollupHonkProofData<PublicChonkVerifierPublicInputs>,
 
     // AVM proof data. The public inputs contains the data from executing the public functions.
     pub(crate) avm_proof_data: AvmV2ProofData<AvmCircuitPublicInputs>,
@@ -40,8 +40,8 @@ pub struct PublicTxBaseRollupPrivateInputs {
 
 impl PublicTxBaseRollupPrivateInputs {
     pub fn execute(self) -> TxRollupPublicInputs {
-        let composer = TxBasePublicInputsComposer::new_from_public_tube_and_avm(
-            self.public_tube_proof_data.public_inputs,
+        let composer = TxBasePublicInputsComposer::new_from_public_chonk_verifier_and_avm(
+            self.public_chonk_verifier_proof_data.public_inputs,
             self.avm_proof_data.public_inputs,
             self.last_archive,
             self.contract_class_log_fields,
@@ -49,7 +49,7 @@ impl PublicTxBaseRollupPrivateInputs {
         );
 
         PublicTxBaseInputsValidator::new(
-            self.public_tube_proof_data,
+            self.public_chonk_verifier_proof_data,
             self.avm_proof_data,
             composer.constants,
             self.anchor_block_archive_sibling_path,

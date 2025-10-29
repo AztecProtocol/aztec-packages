@@ -226,6 +226,20 @@ export interface AztecNode
   getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
+
+  /**
    * Method to fetch the latest block number synchronized by the node.
    * @returns The block number.
    */
@@ -400,6 +414,20 @@ export interface AztecNode
    */
   getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
+  /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
@@ -523,6 +551,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
 
+  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+
+  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+
   getBlockNumber: z.function().returns(z.number()),
 
   getProvenBlockNumber: z.function().returns(z.number()),
@@ -595,6 +627,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getPublicStorageAt: z.function().args(L2BlockNumberSchema, schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
+
+  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+
+  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
 
   getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
 

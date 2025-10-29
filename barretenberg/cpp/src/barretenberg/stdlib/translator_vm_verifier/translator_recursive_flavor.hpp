@@ -77,7 +77,6 @@ class TranslatorRecursiveFlavor {
     using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -112,8 +111,8 @@ class TranslatorRecursiveFlavor {
             // and the verification key.
             this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {
                 comm = Commitment::from_witness(builder, native_comm);

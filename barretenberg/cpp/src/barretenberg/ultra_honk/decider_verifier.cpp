@@ -57,7 +57,7 @@ template <typename Flavor> typename DeciderVerifier_<Flavor>::Output DeciderVeri
         }
     }
 
-    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alphas, virtual_log_n, accumulator->target_sum);
+    SumcheckVerifier<Flavor> sumcheck(transcript, accumulator->alpha, virtual_log_n, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {

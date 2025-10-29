@@ -28,3 +28,8 @@ add_library(nodejs_module SHARED ${SOURCE_FILES})
 set_target_properties(nodejs_module PROPERTIES PREFIX "" SUFFIX ".node")
 target_include_directories(nodejs_module PRIVATE ${NODE_API_HEADERS_DIR} ${NODE_ADDON_API_DIR})
 target_link_libraries(nodejs_module PRIVATE world_state ipc vm2_sim)
+
+# On macOS, Node.js N-API symbols are provided by the runtime, not at link time
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    target_link_options(nodejs_module PRIVATE "-undefined" "dynamic_lookup")
+endif()

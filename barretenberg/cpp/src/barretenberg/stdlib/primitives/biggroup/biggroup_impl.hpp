@@ -17,43 +17,43 @@ namespace bb::stdlib::element_default {
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element()
-    : x()
-    , y()
+    : _x()
+    , _y()
     , _is_infinity()
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const typename G::affine_element& input)
-    : x(nullptr, input.x)
-    , y(nullptr, input.y)
+    : _x(nullptr, input.x)
+    , _y(nullptr, input.y)
     , _is_infinity(nullptr, input.is_point_at_infinity())
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in)
-    : x(x_in)
-    , y(y_in)
-    , _is_infinity(x.get_context() ? x.get_context() : y.get_context(), false)
+    : _x(x_in)
+    , _y(y_in)
+    , _is_infinity(_x.get_context() ? _x.get_context() : _y.get_context(), false)
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const Fq& x_in, const Fq& y_in, const bool_ct& is_infinity)
-    : x(x_in)
-    , y(y_in)
+    : _x(x_in)
+    , _y(y_in)
     , _is_infinity(is_infinity)
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(const element& other)
-    : x(other.x)
-    , y(other.y)
+    : _x(other._x)
+    , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
 {}
 
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G>::element(element&& other) noexcept
-    : x(other.x)
-    , y(other.y)
+    : _x(other._x)
+    , _y(other._y)
     , _is_infinity(other.is_point_at_infinity())
 {}
 
@@ -63,8 +63,8 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(const element& other)
     if (&other == this) {
         return *this;
     }
-    x = other.x;
-    y = other.y;
+    _x = other._x;
+    _y = other._y;
     _is_infinity = other.is_point_at_infinity();
     return *this;
 }
@@ -75,8 +75,8 @@ element<C, Fq, Fr, G>& element<C, Fq, Fr, G>::operator=(element&& other) noexcep
     if (&other == this) {
         return *this;
     }
-    x = other.x;
-    y = other.y;
+    _x = other._x;
+    _y = other._y;
     _is_infinity = other.is_point_at_infinity();
     return *this;
 }
@@ -90,8 +90,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // If (x_1, y_1), (x_2, y_2) have x_1 == x_2, and the generic formula for lambda has a division by 0.
     // Then y_1 == y_2 (i.e. we are doubling) or y_2 == y_1 (the sum is infinity).
     // The cases have a special addition formula. The following booleans allow us to handle these cases uniformly.
-    const bool_ct x_coordinates_match = other.x == x;
-    const bool_ct y_coordinates_match = (y == other.y);
+    const bool_ct x_coordinates_match = other._x == _x;
+    const bool_ct y_coordinates_match = (_y == other._y);
     const bool_ct infinity_predicate = (x_coordinates_match && !y_coordinates_match);
     const bool_ct double_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
@@ -99,13 +99,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
-    const Fq add_lambda_numerator = other.y - y;
-    const Fq xx = x * x;
+    const Fq add_lambda_numerator = other._y - _y;
+    const Fq xx = _x * _x;
     const Fq dbl_lambda_numerator = xx + xx + xx;
     const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
 
-    const Fq add_lambda_denominator = other.x - x;
-    const Fq dbl_lambda_denominator = y + y;
+    const Fq add_lambda_denominator = other._x - _x;
+    const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
     // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger a
     // divide by zero error.
@@ -115,16 +115,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
         Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
-    const Fq x3 = lambda.sqradd({ -other.x, -x });
-    const Fq y3 = lambda.madd(x - x3, { -y });
+    const Fq x3 = lambda.sqradd({ -other._x, -_x });
+    const Fq y3 = lambda.madd(_x - x3, { -_y });
 
     element result(x3, y3);
     // if lhs infinity, return rhs
-    result.x = Fq::conditional_assign(lhs_infinity, other.x, result.x);
-    result.y = Fq::conditional_assign(lhs_infinity, other.y, result.y);
+    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
+    result._y = Fq::conditional_assign(lhs_infinity, other._y, result._y);
     // if rhs infinity, return lhs
-    result.x = Fq::conditional_assign(rhs_infinity, x, result.x);
-    result.y = Fq::conditional_assign(rhs_infinity, y, result.y);
+    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
+    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -151,8 +151,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::get_standard_form() const
     const bool_ct is_infinity = is_point_at_infinity();
     element result(*this);
     const Fq zero = Fq::zero();
-    result.x = Fq::conditional_assign(is_infinity, zero, this->x);
-    result.y = Fq::conditional_assign(is_infinity, zero, this->y);
+    result._x = Fq::conditional_assign(is_infinity, zero, this->_x);
+    result._y = Fq::conditional_assign(is_infinity, zero, this->_y);
     return result;
 }
 
@@ -162,8 +162,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
 
     // if x_coordinates match, lambda triggers a divide by zero error.
     // Adding in `x_coordinates_match` ensures that lambda will always be well-formed
-    const bool_ct x_coordinates_match = other.x == x;
-    const bool_ct y_coordinates_match = (y == other.y);
+    const bool_ct x_coordinates_match = other._x == _x;
+    const bool_ct y_coordinates_match = (_y == other._y);
     const bool_ct infinity_predicate = (x_coordinates_match && y_coordinates_match);
     const bool_ct double_predicate = (x_coordinates_match && !y_coordinates_match);
     const bool_ct lhs_infinity = is_point_at_infinity();
@@ -171,13 +171,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     const bool_ct has_infinity_input = lhs_infinity || rhs_infinity;
 
     // Compute the gradient `lambda`. If we add, `lambda = (y2 - y1)/(x2 - x1)`, else `lambda = 3x1*x1/2y1
-    const Fq add_lambda_numerator = -other.y - y;
-    const Fq xx = x * x;
+    const Fq add_lambda_numerator = -other._y - _y;
+    const Fq xx = _x * _x;
     const Fq dbl_lambda_numerator = xx + xx + xx;
     const Fq lambda_numerator = Fq::conditional_assign(double_predicate, dbl_lambda_numerator, add_lambda_numerator);
 
-    const Fq add_lambda_denominator = other.x - x;
-    const Fq dbl_lambda_denominator = y + y;
+    const Fq add_lambda_denominator = other._x - _x;
+    const Fq dbl_lambda_denominator = _y + _y;
     Fq lambda_denominator = Fq::conditional_assign(double_predicate, dbl_lambda_denominator, add_lambda_denominator);
     // If either inputs are points at infinity, we set lambda_denominator to be 1. This ensures we never trigger
     // a divide by zero error. (if either inputs are points at infinity we will not use the result of this
@@ -187,16 +187,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
         Fq::conditional_assign(has_infinity_input || infinity_predicate, safe_edgecase_denominator, lambda_denominator);
     const Fq lambda = Fq::div_without_denominator_check({ lambda_numerator }, lambda_denominator);
 
-    const Fq x3 = lambda.sqradd({ -other.x, -x });
-    const Fq y3 = lambda.madd(x - x3, { -y });
+    const Fq x3 = lambda.sqradd({ -other._x, -_x });
+    const Fq y3 = lambda.madd(_x - x3, { -_y });
 
     element result(x3, y3);
     // if lhs infinity, return rhs
-    result.x = Fq::conditional_assign(lhs_infinity, other.x, result.x);
-    result.y = Fq::conditional_assign(lhs_infinity, -other.y, result.y);
+    result._x = Fq::conditional_assign(lhs_infinity, other._x, result._x);
+    result._y = Fq::conditional_assign(lhs_infinity, -other._y, result._y);
     // if rhs infinity, return lhs
-    result.x = Fq::conditional_assign(rhs_infinity, x, result.x);
-    result.y = Fq::conditional_assign(rhs_infinity, y, result.y);
+    result._x = Fq::conditional_assign(rhs_infinity, _x, result._x);
+    result._y = Fq::conditional_assign(rhs_infinity, _y, result._y);
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -212,10 +212,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_add(const element& other) const
 {
-    other.x.assert_is_not_equal(x);
-    const Fq lambda = Fq::div_without_denominator_check({ other.y, -y }, (other.x - x));
-    const Fq x3 = lambda.sqradd({ -other.x, -x });
-    const Fq y3 = lambda.madd(x - x3, { -y });
+    other._x.assert_is_not_equal(_x);
+    const Fq lambda = Fq::div_without_denominator_check({ other._y, -_y }, (other._x - _x));
+    const Fq x3 = lambda.sqradd({ -other._x, -_x });
+    const Fq y3 = lambda.madd(_x - x3, { -_y });
     return element(x3, y3);
 }
 
@@ -223,10 +223,10 @@ template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(const element& other) const
 {
 
-    other.x.assert_is_not_equal(x);
-    const Fq lambda = Fq::div_without_denominator_check({ other.y, y }, (other.x - x));
-    const Fq x_3 = lambda.sqradd({ -other.x, -x });
-    const Fq y_3 = lambda.madd(x_3 - x, { -y });
+    other._x.assert_is_not_equal(_x);
+    const Fq lambda = Fq::div_without_denominator_check({ other._y, _y }, (other._x - _x));
+    const Fq x_3 = lambda.sqradd({ -other._x, -_x });
+    const Fq y_3 = lambda.madd(x_3 - _x, { -_y });
 
     return element(x_3, y_3);
 }
@@ -252,17 +252,17 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are
     // the same even in the case of a valid circuit
-    other.x.assert_is_not_equal(x);
+    other._x.assert_is_not_equal(_x);
 
-    const Fq denominator = other.x - x;
-    const Fq x2x1 = -(other.x + x);
+    const Fq denominator = other._x - _x;
+    const Fq x2x1 = -(other._x + _x);
 
-    const Fq lambda1 = Fq::div_without_denominator_check({ other.y, -y }, denominator);
+    const Fq lambda1 = Fq::div_without_denominator_check({ other._y, -_y }, denominator);
     const Fq x_3 = lambda1.sqradd({ x2x1 });
-    const Fq y_3 = lambda1.madd(x - x_3, { -y });
-    const Fq lambda2 = Fq::div_without_denominator_check({ -other.y, -y }, denominator);
+    const Fq y_3 = lambda1.madd(_x - x_3, { -_y });
+    const Fq lambda2 = Fq::div_without_denominator_check({ -other._y, -_y }, denominator);
     const Fq x_4 = lambda2.sqradd({ x2x1 });
-    const Fq y_4 = lambda2.madd(x - x_4, { -y });
+    const Fq y_4 = lambda2.madd(_x - x_4, { -_y });
 
     return { element(x_3, y_3), element(x_4, y_4) };
 }
@@ -270,19 +270,19 @@ std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditiona
 template <typename C, class Fq, class Fr, class G> element<C, Fq, Fr, G> element<C, Fq, Fr, G>::dbl() const
 {
 
-    Fq two_x = x + x;
+    Fq two_x = _x + _x;
     if constexpr (G::has_a) {
         Fq a(get_context(), uint256_t(G::curve_a));
-        Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), { a }, /*enable_divisor_nz_check*/ false);
+        Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), { a }, /*enable_divisor_nz_check*/ false);
         Fq x_3 = neg_lambda.sqradd({ -(two_x) });
-        Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
+        Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
         // TODO(suyash): do we handle the point at infinity case here?
         return element(x_3, y_3);
     }
     // TODO(): handle y = 0 case.
-    Fq neg_lambda = Fq::msub_div({ x }, { (two_x + x) }, (y + y), {}, /*enable_divisor_nz_check*/ false);
+    Fq neg_lambda = Fq::msub_div({ _x }, { (two_x + _x) }, (_y + _y), {}, /*enable_divisor_nz_check*/ false);
     Fq x_3 = neg_lambda.sqradd({ -(two_x) });
-    Fq y_3 = neg_lambda.madd(x_3 - x, { -y });
+    Fq y_3 = neg_lambda.madd(x_3 - _x, { -_y });
     element result = element(x_3, y_3);
     result.set_point_at_infinity(is_point_at_infinity());
     return result;
@@ -311,13 +311,13 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
                                                                                              const element& p2)
 {
     chain_add_accumulator output;
-    output.x1_prev = p1.x;
-    output.y1_prev = p1.y;
+    output.x1_prev = p1._x;
+    output.y1_prev = p1._y;
 
-    p1.x.assert_is_not_equal(p2.x);
-    const Fq lambda = Fq::div_without_denominator_check({ p2.y, -p1.y }, (p2.x - p1.x));
+    p1._x.assert_is_not_equal(p2._x);
+    const Fq lambda = Fq::div_without_denominator_check({ p2._y, -p1._y }, (p2._x - p1._x));
 
-    const Fq x3 = lambda.sqradd({ -p2.x, -p1.x });
+    const Fq x3 = lambda.sqradd({ -p2._x, -p1._x });
     output.x3_prev = x3;
     output.lambda_prev = lambda;
     return output;
@@ -332,7 +332,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
         return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev));
     }
     // validate we can use incomplete addition formulae
-    p1.x.assert_is_not_equal(acc.x3_prev);
+    p1._x.assert_is_not_equal(acc.x3_prev);
 
     // lambda = (y2 - y1) / (x2 - x1)
     // but we don't have y2!
@@ -355,15 +355,15 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
     const auto lambda =
         Fq::msub_div({ acc.lambda_prev },
                      { (x2 - acc.x1_prev) },
-                     (x2 - p1.x),
-                     { acc.y1_prev, p1.y },
+                     (x2 - p1._x),
+                     { acc.y1_prev, p1._y },
                      /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != p1.x is enforced
-    const auto x3 = lambda.sqradd({ -x2, -p1.x });
+    const auto x3 = lambda.sqradd({ -x2, -p1._x });
 
     chain_add_accumulator output;
     output.x3_prev = x3;
-    output.x1_prev = p1.x;
-    output.y1_prev = p1.y;
+    output.x1_prev = p1._x;
+    output.y1_prev = p1._y;
     output.lambda_prev = lambda;
 
     return output;
@@ -428,16 +428,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& other) const
 {
-    other.x.assert_is_not_equal(x);
-    const Fq lambda_1 = Fq::div_without_denominator_check({ other.y - y }, (other.x - x));
+    other._x.assert_is_not_equal(_x);
+    const Fq lambda_1 = Fq::div_without_denominator_check({ other._y - _y }, (other._x - _x));
 
-    const Fq x_3 = lambda_1.sqradd({ -other.x, -x });
+    const Fq x_3 = lambda_1.sqradd({ -other._x, -_x });
 
-    const Fq minus_lambda_2 = lambda_1 + Fq::div_without_denominator_check({ y + y }, (x_3 - x));
+    const Fq minus_lambda_2 = lambda_1 + Fq::div_without_denominator_check({ _y + _y }, (x_3 - _x));
 
-    const Fq x_4 = minus_lambda_2.sqradd({ -x, -x_3 });
+    const Fq x_4 = minus_lambda_2.sqradd({ -_x, -x_3 });
 
-    const Fq y_4 = minus_lambda_2.madd(x_4 - x, { -y });
+    const Fq y_4 = minus_lambda_2.madd(x_4 - _x, { -_y });
     return element(x_4, y_4);
 }
 
@@ -467,7 +467,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
     if (to_add.is_element) {
         throw_or_abort("An accumulator expected");
     }
-    x.assert_is_not_equal(to_add.x3_prev);
+    _x.assert_is_not_equal(to_add.x3_prev);
 
     // lambda = (y2 - y1) / (x2 - x1)
     // but we don't have y2!
@@ -480,16 +480,16 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_a
     auto& x2 = to_add.x3_prev;
     const auto lambda = Fq::msub_div({ to_add.lambda_prev },
                                      { (x2 - to_add.x1_prev) },
-                                     (x2 - x),
-                                     { to_add.y1_prev, y },
+                                     (x2 - _x),
+                                     { to_add.y1_prev, _y },
                                      /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != x is enforced
-    const auto x3 = lambda.sqradd({ -x2, -x });
+    const auto x3 = lambda.sqradd({ -x2, -_x });
 
-    const Fq minus_lambda_2 = lambda + Fq::div_without_denominator_check({ y + y }, (x3 - x));
+    const Fq minus_lambda_2 = lambda + Fq::div_without_denominator_check({ _y + _y }, (x3 - _x));
 
-    const Fq x4 = minus_lambda_2.sqradd({ -x, -x3 });
+    const Fq x4 = minus_lambda_2.sqradd({ -_x, -x3 });
 
-    const Fq y4 = minus_lambda_2.madd(x4 - x, { -y });
+    const Fq y4 = minus_lambda_2.madd(x4 - _x, { -_y });
     return element(x4, y4);
 }
 
@@ -523,7 +523,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         bool is_negative = false;
     };
 
-    Fq previous_x = x;
+    Fq previous_x = _x;
     composite_y previous_y{ std::vector<Fq>(), std::vector<Fq>(), std::vector<Fq>(), false };
     for (size_t i = 0; i < add.size(); ++i) {
         previous_x.assert_is_not_equal(add[i].x3_prev);
@@ -535,7 +535,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         std::vector<Fq> lambda1_add;
 
         if (i == 0) {
-            lambda1_add.emplace_back(-y);
+            lambda1_add.emplace_back(-_y);
         } else {
             lambda1_left = previous_y.mul_left;
             lambda1_right = previous_y.mul_right;
@@ -568,7 +568,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
                 lambda1_add,
                 /*enable_divisor_nz_check*/ false); // divisor is non-zero as previous_x != add[i].x3_prev is enforced
         } else {
-            lambda1 = Fq::div_without_denominator_check({ add[i].y3_prev - y }, (add[i].x3_prev - x));
+            lambda1 = Fq::div_without_denominator_check({ add[i].y3_prev - _y }, (add[i].x3_prev - _x));
         }
 
         Fq x_3 = lambda1.madd(lambda1, { -add[i].x3_prev, -previous_x });
@@ -580,7 +580,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         // field multiplication
         Fq lambda2;
         if (i == 0) {
-            lambda2 = Fq::div_without_denominator_check({ y + y }, (previous_x - x_3)) - lambda1;
+            lambda2 = Fq::div_without_denominator_check({ _y + _y }, (previous_x - x_3)) - lambda1;
         } else {
             Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
             // TODO(): analyse if l2_denominator can be zero.
@@ -600,7 +600,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
             // Each iteration flips the sign of y_previous.is_negative.
             // i.e. whether we store y_4 or -y_4 depends on the number of points we have
             bool num_points_even = ((add.size() & 0x01UL) == 0);
-            y_4.add.emplace_back(num_points_even ? y : -y);
+            y_4.add.emplace_back(num_points_even ? _y : -_y);
             y_4.mul_left.emplace_back(lambda2);
             y_4.mul_right.emplace_back(num_points_even ? x_4 - previous_x : previous_x - x_4);
             y_4.is_negative = num_points_even;
@@ -814,8 +814,8 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
     element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
 
     // Handle point at infinity
-    result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);
-    result.y = Fq::conditional_assign(is_point_at_infinity, y, result.y);
+    result._x = Fq::conditional_assign(is_point_at_infinity, _x, result._x);
+    result._y = Fq::conditional_assign(is_point_at_infinity, _y, result._y);
 
     result.set_point_at_infinity(is_point_at_infinity);
 

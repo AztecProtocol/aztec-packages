@@ -22,7 +22,6 @@ contract BoxReact {
         let mut new_number = ValueNote::new(number, owner);
 
         numbers.at(owner).initialize(new_number).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -37,7 +36,6 @@ contract BoxReact {
         .replace(|_old| {
             ValueNote::new(number, owner)
         }).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );

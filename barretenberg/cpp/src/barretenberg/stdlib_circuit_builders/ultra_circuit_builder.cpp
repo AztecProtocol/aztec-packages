@@ -251,7 +251,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
     blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling);
+    // If include_next_gate_w_4 is true then we set q_arith = 2. In this case, the linear term in the ArithmeticRelation
+    // is scaled by a factor of 2. We compensate here by scaling the quadratic term by 2 to achieve the constraint:
+    //      2 * [q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c + w_4_shift] = 0
+    const FF mul_scaling = include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling;
+    blocks.arithmetic.q_m().emplace_back(mul_scaling);
     blocks.arithmetic.q_1().emplace_back(in.a_scaling);
     blocks.arithmetic.q_2().emplace_back(in.b_scaling);
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
@@ -596,12 +600,12 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
 
     result.variable_indices.reserve((uint32_t)num_multiples_of_three);
     for (uint64_t i = 0; i <= num_multiples_of_three; ++i) {
-        const uint32_t index = this->add_variable(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE);
+        const uint32_t index = this->add_variable(fr(i * DEFAULT_PLOOKUP_RANGE_STEP_SIZE));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
     {
-        const uint32_t index = this->add_variable(target_range);
+        const uint32_t index = this->add_variable(fr(target_range));
         result.variable_indices.emplace_back(index);
         assign_tag(index, result.range_tag);
     }
@@ -657,7 +661,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
         accumulator = accumulator >> target_range_bitnum;
     }
     for (size_t i = 0; i < sublimbs.size(); ++i) {
-        const auto limb_idx = this->add_variable(sublimbs[i]);
+        const auto limb_idx = this->add_variable(bb::fr(sublimbs[i]));
         sublimb_indices.emplace_back(limb_idx);
         if ((i == sublimbs.size() - 1) && has_remainder_bits) {
             create_new_range_constraint(limb_idx, last_limb_range);
@@ -713,7 +717,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::decompose_into_defau
             ((i == num_limb_triples - 1) ? false : true));
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1450): this is probably creating an unused
         // wire/variable in the circuit, in the last iteration of the loop.
-        accumulator_idx = this->add_variable(new_accumulator);
+        accumulator_idx = this->add_variable(fr(new_accumulator));
         accumulator = new_accumulator;
     }
     return sublimb_indices;
@@ -828,7 +832,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         indices.emplace_back(this->zero_idx());
     }
     for (const auto sorted_value : sorted_list) {
-        const uint32_t index = this->add_variable(sorted_value);
+        const uint32_t index = this->add_variable(fr(sorted_value));
         assign_tag(index, list.tau_tag);
         indices.emplace_back(index);
     }
@@ -1213,15 +1217,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
         // We also use zero_idx to substitute variables that should be zero
         constexpr uint256_t MAX_SUBLIMB_MASK = (uint256_t(1) << 14) - 1;
         std::array<uint32_t, 5> sublimb_indices;
-        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(limb & MAX_SUBLIMB_MASK) : this->zero_idx();
+        sublimb_indices[0] = sublimb_masks[0] != 0 ? this->add_variable(fr(limb & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[1] =
-            sublimb_masks[1] != 0 ? this->add_variable((limb >> 14) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[1] != 0 ? this->add_variable(fr((limb >> 14) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[2] =
-            sublimb_masks[2] != 0 ? this->add_variable((limb >> 28) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[2] != 0 ? this->add_variable(fr((limb >> 28) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[3] =
-            sublimb_masks[3] != 0 ? this->add_variable((limb >> 42) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[3] != 0 ? this->add_variable(fr((limb >> 42) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         sublimb_indices[4] =
-            sublimb_masks[4] != 0 ? this->add_variable((limb >> 56) & MAX_SUBLIMB_MASK) : this->zero_idx();
+            sublimb_masks[4] != 0 ? this->add_variable(fr((limb >> 56) & MAX_SUBLIMB_MASK)) : this->zero_idx();
         return sublimb_indices;
     };
 
@@ -1284,8 +1288,8 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::decompose_non_nati
     const uint256_t hi = value >> DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
     BB_ASSERT_EQ(low + (hi << DEFAULT_NON_NATIVE_FIELD_LIMB_BITS), value);
 
-    const uint32_t low_idx = this->add_variable(low);
-    const uint32_t hi_idx = this->add_variable(hi);
+    const uint32_t low_idx = this->add_variable(fr(low));
+    const uint32_t hi_idx = this->add_variable(fr(hi));
 
     BB_ASSERT_GT(num_limb_bits, DEFAULT_NON_NATIVE_FIELD_LIMB_BITS);
     const size_t lo_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
@@ -1661,13 +1665,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(x_2, y_2, z_2, z_1);
     block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
+    // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
+    // also scale each linear term by this factor of 2 so that the constraint is effectively:
+    //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
+    const FF linear_term_scale_factor = 2;
     block.q_m().emplace_back(addconstp);
     block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 *
-                             2); // scale constants by 2. If q_arith = 3 then w_4_omega value (z0) gets scaled by 2x
-    block.q_3().emplace_back(-y_mulconst0 * 2); // z_0 - (x_0 * -xmulconst0) - (y_0 * ymulconst0) = 0 => z_0 = x_0 + y_0
+    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
+    block.q_3().emplace_back(-y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * 2);
+    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);
@@ -1773,12 +1780,16 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.populate_wires(x_2, y_2, z_2, z_1);
     block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
+    // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
+    // also scale each linear term by this factor of 2 so that the constraint is effectively:
+    //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
+    const FF linear_term_scale_factor = 2;
     block.q_m().emplace_back(-addconstp);
     block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 * 2);
-    block.q_3().emplace_back(y_mulconst0 * 2); // z_0 + (x_0 * -xmulconst0) + (y_0 * ymulconst0) = 0 => z_0 = x_0 - y_0
+    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
+    block.q_3().emplace_back(y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * 2);
+    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
     block.q_m().emplace_back(0);

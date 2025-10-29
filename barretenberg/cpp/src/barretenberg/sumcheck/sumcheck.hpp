@@ -133,7 +133,7 @@ template <typename Flavor> class SumcheckProver {
     using ClaimedEvaluations = typename Flavor::AllValues;
     using ZKData = ZKSumcheckData<Flavor>;
     using Transcript = typename Flavor::Transcript;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
     using CommitmentKey = typename Flavor::CommitmentKey;
 
     static constexpr bool isMultilinearBatchingFlavor = IsAnyOf<Flavor, MultilinearBatchingFlavor>;
@@ -211,24 +211,6 @@ template <typename Flavor> class SumcheckProver {
         , virtual_log_n(virtual_log_n)
         , accumulator_challenge(accumulator_challenge)
         , instance_challenge(instance_challenge) {};
-
-    // SumcheckProver constructor for the Flavors that generate NUM_SUBRELATIONS - 1 subrelation separator challenges.
-    SumcheckProver(size_t multivariate_n,
-                   ProverPolynomials& prover_polynomials,
-                   std::shared_ptr<Transcript> transcript,
-                   const SubrelationSeparators& relation_separator,
-                   const std::vector<FF>& gate_challenges,
-                   const RelationParameters<FF>& relation_parameters,
-                   const size_t virtual_log_n)
-        : multivariate_n(multivariate_n)
-        , multivariate_d(numeric::get_msb(multivariate_n))
-        , full_polynomials(prover_polynomials)
-        , transcript(std::move(transcript))
-        , round(multivariate_n)
-        , alphas(relation_separator)
-        , gate_challenges(gate_challenges)
-        , relation_parameters(relation_parameters)
-        , virtual_log_n(virtual_log_n) {};
 
     // SumcheckProver constructor for the Flavors that generate a single challenge `alpha` and use its powers as
     // subrelation seperator challenges.
@@ -721,7 +703,7 @@ template <typename Flavor> class SumcheckVerifier {
     // compute full_honk_relation_purported_value
     using ClaimedLibraEvaluations = typename std::vector<FF>;
     using Transcript = typename Flavor::Transcript;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparators = std::array<FF, Flavor::NUM_SUBRELATIONS - 1>;
     using Commitment = typename Flavor::Commitment;
 
     /**
@@ -752,15 +734,6 @@ template <typename Flavor> class SumcheckVerifier {
 
     std::vector<Commitment> round_univariate_commitments = {};
     std::vector<std::array<FF, 3>> round_univariate_evaluations = {};
-
-    explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
-                              SubrelationSeparators& relation_separator,
-                              size_t virtual_log_n,
-                              FF target_sum = 0)
-        : transcript(std::move(transcript))
-        , round(target_sum)
-        , virtual_log_n(virtual_log_n)
-        , alphas(relation_separator) {};
 
     explicit SumcheckVerifier(std::shared_ptr<Transcript> transcript,
                               const FF& alpha,

@@ -22,15 +22,6 @@ template <typename FF_> class MemoryRelationImpl {
         6, // RAM consistency sub-relation 2
         6  // RAM consistency sub-relation 3
     };
-    // TODO(AUDIT): get rid of the `TOTAL_LENGTH_ADJUSTMENTS` when PG is gone.
-    static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
-        1, // memory sub-relation
-        1, // ROM consistency sub-relation 1
-        1, // ROM consistency sub-relation 2
-        1, // RAM consistency sub-relation 1
-        1, // RAM consistency sub-relation 2
-        1  // RAM consistency sub-relation 3
-    };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero

@@ -1,4 +1,11 @@
-export type NetworkNames = 'local' | 'staging-ignition' | 'staging-public' | 'testnet' | 'ignition' | 'next-net';
+export type NetworkNames =
+  | 'local'
+  | 'staging-ignition'
+  | 'staging-public'
+  | 'testnet'
+  | 'mainnet'
+  | 'next-net'
+  | 'devnet';
 
 export function getActiveNetworkName(name?: string): NetworkNames {
   const network = name || process.env.NETWORK;
@@ -10,10 +17,12 @@ export function getActiveNetworkName(name?: string): NetworkNames {
     return network;
   } else if (network === 'testnet' || network === 'alpha-testnet') {
     return 'testnet';
-  } else if (network === 'ignition') {
-    return 'ignition';
+  } else if (network === 'mainnet') {
+    return 'mainnet';
   } else if (network === 'next-net') {
     return 'next-net';
+  } else if (network === 'devnet') {
+    return 'devnet';
   }
   throw new Error(`Unknown network: ${network}`);
 }

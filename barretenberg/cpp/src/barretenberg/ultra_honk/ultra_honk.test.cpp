@@ -831,10 +831,10 @@ TYPED_TEST(UltraHonkTests, RangeChecksOnDuplicates)
 {
     auto circuit_builder = UltraCircuitBuilder();
 
-    uint32_t a = circuit_builder.add_variable(100);
-    uint32_t b = circuit_builder.add_variable(100);
-    uint32_t c = circuit_builder.add_variable(100);
-    uint32_t d = circuit_builder.add_variable(100);
+    uint32_t a = circuit_builder.add_variable(fr(100));
+    uint32_t b = circuit_builder.add_variable(fr(100));
+    uint32_t c = circuit_builder.add_variable(fr(100));
+    uint32_t d = circuit_builder.add_variable(fr(100));
 
     circuit_builder.assert_equal(a, b);
     circuit_builder.assert_equal(a, c);

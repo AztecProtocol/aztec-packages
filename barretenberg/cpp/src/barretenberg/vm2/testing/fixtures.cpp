@@ -205,7 +205,7 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 
 bool skip_slow_tests()
 {
-    return std::getenv("AVM_SLOW_TESTS") == nullptr;
+    return std::getenv("AVM_SKIP_SLOW_TESTS") != nullptr;
 }
 
 } // namespace bb::avm2::testing

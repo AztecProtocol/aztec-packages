@@ -250,8 +250,8 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
             auto output = element_ct::secp256k1_ecdsa_mul(P_a, u1, u2);
 
             auto expected = affine_element(g1::one * (scalar_c * scalar_b) + g1::one * scalar_a);
-            EXPECT_EQ(output.x.get_value().lo, uint256_t(expected.x));
-            EXPECT_EQ(output.y.get_value().lo, uint256_t(expected.y));
+            EXPECT_EQ(output.x().get_value().lo, uint256_t(expected.x));
+            EXPECT_EQ(output.y().get_value().lo, uint256_t(expected.y));
         }
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
@@ -278,13 +278,13 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         // After adding the u2_low skew (i.e., its base point), we get the point at infinity. Then we handle the
         // u2 high skew as follows:
         // result = acc ± u1_high_base_point
-        // result.x = u2_high_skew ? result.x : acc.x;
-        // result.y = u2_high_skew ? result.y : acc.y;
+        // result.x() = u2_high_skew ? result.x() : acc.x();
+        // result.y() = u2_high_skew ? result.y() : acc.y();
         //
         // However, we did not set the flag _is_point_at_infinity for result. We must copy the flag from the
         // accumulator in this case, i.e., we must do:
-        // result.x = u2_high_skew ? result.x : acc.x;
-        // result.y = u2_high_skew ? result.y : acc.y;
+        // result.x() = u2_high_skew ? result.x() : acc.x();
+        // result.y() = u2_high_skew ? result.y() : acc.y();
         // result._is_point_at_infinity = u2_high_skew ? result._is_point_at_infinity :
         // acc._is_point_at_infinity;
         //

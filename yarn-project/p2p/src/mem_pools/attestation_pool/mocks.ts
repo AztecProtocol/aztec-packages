@@ -41,5 +41,5 @@ export const mockAttestation = (
   const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.blockProposal);
   const proposerSignature = signer.sign(proposalHash);
 
-  return new BlockAttestation(header.globalVariables.blockNumber, payload, attestationSignature, proposerSignature);
+  return new BlockAttestation(payload, attestationSignature, proposerSignature);
 };

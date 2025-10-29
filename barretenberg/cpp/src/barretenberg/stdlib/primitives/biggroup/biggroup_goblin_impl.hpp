@@ -58,7 +58,7 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         tag_union = OriginTag(tag_union, OriginTag(point.get_origin_tag(), scalar.get_origin_tag()));
         // Populate the goblin-style ecc op gates for the given mul inputs
         ecc_op_tuple op_tuple;
-        bool scalar_is_constant_equal_one = scalar.get_witness_index() == IS_CONSTANT && scalar.get_value() == 1;
+        bool scalar_is_constant_equal_one = scalar.is_constant() && scalar.get_value() == 1;
         if (scalar_is_constant_equal_one) { // if scalar is 1, there is no need to perform a mul
             op_tuple = builder->queue_ecc_add_accum(point.get_value());
         } else { // otherwise, perform a mul-then-accumulate
@@ -75,12 +75,12 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         // Note: These constraints do not assume or enforce that the coordinates of the original point have been
         // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
         // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
-        BB_ASSERT_LTE(uint1024_t(point.x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
-        BB_ASSERT_LTE(uint1024_t(point.y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
-        x_lo.assert_equal(point.x.limbs[0]);
-        x_hi.assert_equal(point.x.limbs[1]);
-        y_lo.assert_equal(point.y.limbs[0]);
-        y_hi.assert_equal(point.y.limbs[1]);
+        BB_ASSERT_LTE(uint1024_t(point._x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        BB_ASSERT_LTE(uint1024_t(point._y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        x_lo.assert_equal(point._x.limbs[0]);
+        x_hi.assert_equal(point._x.limbs[1]);
+        y_lo.assert_equal(point._y.limbs[0]);
+        y_hi.assert_equal(point._y.limbs[1]);
 
         // Add constraints demonstrating proper decomposition of scalar into endomorphism scalars
         if (!scalar_is_constant_equal_one) {

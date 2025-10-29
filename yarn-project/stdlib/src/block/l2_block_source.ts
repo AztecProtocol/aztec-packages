@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
@@ -67,6 +68,34 @@ export interface L2BlockSource {
   getPublishedBlocks(from: number, limit: number, proven?: boolean): Promise<PublishedL2Block[]>;
 
   /**
+   * Gets a published block by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested published block (or undefined if not found).
+   */
+  getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets a published block by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested published block (or undefined if not found).
+   */
+  getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined>;
+
+  /**
+   * Gets a block header by its hash.
+   * @param blockHash - The block hash to retrieve.
+   * @returns The requested block header (or undefined if not found).
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Gets a block header by its archive root.
+   * @param archive - The archive root to retrieve.
+   * @returns The requested block header (or undefined if not found).
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
+  /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect with block info (or undefined if not found).
@@ -81,14 +110,14 @@ export interface L2BlockSource {
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined>;
 
   /**
-   * Returns the current L2 slot number based on the current L1 timestamp.
+   * Returns the current L2 slot number based on the currently synced L1 timestamp.
    */
-  getL2SlotNumber(): Promise<bigint>;
+  getL2SlotNumber(): Promise<bigint | undefined>;
 
   /**
-   * Returns the current L2 epoch number based on the current L1 timestamp.
+   * Returns the current L2 epoch number based on the currently synced L1 timestamp.
    */
-  getL2EpochNumber(): Promise<bigint>;
+  getL2EpochNumber(): Promise<bigint | undefined>;
 
   /**
    * Returns all blocks for a given epoch.
@@ -120,8 +149,11 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /** Returns values for the genesis block */
+  getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
+
   /** Latest synced L1 timestamp. */
-  getL1Timestamp(): Promise<bigint>;
+  getL1Timestamp(): Promise<bigint | undefined>;
 
   /**
    * Returns whether the latest block in the pending chain on L1 is invalid (ie its attestations are incorrect).

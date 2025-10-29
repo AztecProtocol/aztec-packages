@@ -8,14 +8,14 @@ import { BlobSinkServer } from './server.js';
 // If data store settings are provided, the store is created and returned.
 // Otherwise, undefined is returned and an in memory store will be used.
 async function getDataStore(config?: BlobSinkConfig): Promise<AztecAsyncKVStore | undefined> {
-  if (!config?.dataDirectory || (!config?.dataStoreMapSizeKB && !config?.blobSinkMapSizeKb)) {
+  if (!config?.dataDirectory || (!config?.dataStoreMapSizeKb && !config?.blobSinkMapSizeKb)) {
     return undefined;
   }
   return await createStore('blob-sink', 1, {
     ...config,
     // re-assigning to make TypeScript happy
     dataDirectory: config.dataDirectory,
-    dataStoreMapSizeKB: (config.blobSinkMapSizeKb ?? config.dataStoreMapSizeKB)!,
+    dataStoreMapSizeKb: (config.blobSinkMapSizeKb ?? config.dataStoreMapSizeKb)!,
   });
 }
 

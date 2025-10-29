@@ -43,13 +43,12 @@ git config user.email "$author_email"
 original_head=$(git rev-parse HEAD)
 
 # Deepen by 50 to ensure we have the base commit
-git fetch --deepen=50
 
 # Fetch the base commit with depth
-git fetch --depth=50 origin "$base_sha"
+git fetch --depth=200 origin "$base_sha"
 
 # Fetch the base branch to ensure we have it
-git fetch origin "$base_branch"
+git fetch --depth=200 origin "$base_branch"
 
 # Find the merge-base between our branch and the base branch
 merge_base=$(git merge-base "$original_head" "origin/$base_branch")
@@ -93,10 +92,10 @@ git commit -m "$commit_message" --no-verify
 if [[ "$is_fork" == "true" ]]; then
   # It's a fork - need to push to the fork repository
   echo "Detected fork: pushing to $head_repo"
-  
+
   # Add the fork as a remote (assumes GITHUB_TOKEN env var is set from workflow)
   git remote add fork "https://x-access-token:${GITHUB_TOKEN}@github.com/${head_repo}.git"
-  
+
   # Push to the fork
   git push --force fork "HEAD:refs/heads/$branch"
 else

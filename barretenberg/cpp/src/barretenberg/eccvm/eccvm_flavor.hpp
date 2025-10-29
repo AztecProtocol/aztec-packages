@@ -49,14 +49,14 @@ class ECCVMFlavor {
     using MSM = bb::eccvm::MSM<CycleGroup>;
     using Transcript = NativeTranscript;
 
-    // indicates when evaluating sumcheck, edges must be extended to be MAX_TOTAL_RELATION_LENGTH
+    // indicates when evaluating sumcheck, edges must be extended to be MAX_PARTIAL_RELATION_LENGTH
     static constexpr bool USE_SHORT_MONOMIALS = false;
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // ECCVM proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
     static constexpr bool USE_PADDING = false;
-    // Fixed size of the ECCVM circuits used in LegacyClientIVC
+    // Fixed size of the ECCVM circuits used in Chonk
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
@@ -1023,7 +1023,7 @@ class ECCVMFlavor {
      * @brief   When evaluating the sumcheck protocol - can we skip evaluation of _all_ relations for a given row? This
      *          is purely a prover-side optimization.
      *
-     * @details When used in LegacyClientIVC, the ECCVM has a large fixed size, which is often not fully utilized.
+     * @details When used in Chonk, the ECCVM has a large fixed size, which is often not fully utilized.
      *          If a row is completely empty, the values of `z_perm` and `z_perm_shift` will match,
      *          we can use this as a proxy to determine if we can skip `Sumcheck::compute_univariate_with_row_skipping`.
      *          In fact, here are several other conditions that need to be checked to see if we can skip the computation

@@ -51,7 +51,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     std::string domain_separator;
 
     typename Flavor::CommitmentLabels commitment_labels;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
     OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
@@ -70,7 +70,7 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
-    SubrelationSeparators generate_alphas_round();
+    SubrelationSeparator generate_alpha_round();
     Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
 };
 

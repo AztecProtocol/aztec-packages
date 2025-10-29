@@ -24,6 +24,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     using cycle_group_ct = stdlib::cycle_group<Builder>;
     using cycle_scalar_ct = typename stdlib::cycle_group<Builder>::cycle_scalar;
     using field_ct = stdlib::field_t<Builder>;
+    using bool_ct = stdlib::bool_t<Builder>;
 
     std::vector<cycle_group_ct> points;
     std::vector<cycle_scalar_ct> scalars;
@@ -36,20 +37,12 @@ void create_multi_scalar_mul_constraint(Builder& builder,
                                                        has_valid_witness_assignments,
                                                        input.predicate,
                                                        builder);
+
         //  Reconstruct the scalar from the low and high limbs
         field_ct scalar_low_as_field = to_field_ct(input.scalars[2 * (i / 3)], builder);
         field_ct scalar_high_as_field = to_field_ct(input.scalars[2 * (i / 3) + 1], builder);
         cycle_scalar_ct scalar(scalar_low_as_field, scalar_high_as_field);
 
-        // Avoid mixing constant/witness coordinates because of issue
-        // https://github.com/AztecProtocol/aztec-packages/issues/17514
-        if (input_point.x.is_constant() != input_point.y.is_constant()) {
-            if (input_point.x.is_constant()) {
-                input_point.x.convert_constant_to_fixed_witness(&builder);
-            } else if (input_point.y.is_constant()) {
-                input_point.y.convert_constant_to_fixed_witness(&builder);
-            }
-        }
         // Add the point and scalar to the vectors
         points.push_back(input_point);
         scalars.push_back(scalar);
@@ -57,23 +50,14 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     // Call batch_mul to multiply the points and scalars and sum the results
     auto output_point = cycle_group_ct::batch_mul(points, scalars).get_standard_form();
 
-    // Add the constraints and handle constant values
-    if (output_point.is_point_at_infinity().is_constant()) {
-        builder.fix_witness(input.out_point_is_infinite, output_point.is_point_at_infinity().get_value());
-    } else {
-        builder.assert_equal(output_point.is_point_at_infinity().get_normalized_witness_index(),
-                             input.out_point_is_infinite);
-    }
-    if (output_point.x.is_constant()) {
-        builder.fix_witness(input.out_point_x, output_point.x.get_value());
-    } else {
-        builder.assert_equal(output_point.x.get_witness_index(), input.out_point_x);
-    }
-    if (output_point.y.is_constant()) {
-        builder.fix_witness(input.out_point_y, output_point.y.get_value());
-    } else {
-        builder.assert_equal(output_point.y.get_witness_index(), input.out_point_y);
-    }
+    // Create copy-constraints between the computed result and the expected result stored in the input witness indices
+    field_ct input_result_x = field_ct::from_witness_index(&builder, input.out_point_x);
+    field_ct input_result_y = field_ct::from_witness_index(&builder, input.out_point_y);
+    bool_ct input_result_infinite = bool_ct(field_ct::from_witness_index(&builder, input.out_point_is_infinite));
+
+    output_point.x().assert_equal(input_result_x);
+    output_point.y().assert_equal(input_result_y);
+    output_point.is_point_at_infinity().assert_equal(input_result_infinite);
 }
 
 template void create_multi_scalar_mul_constraint<UltraCircuitBuilder>(UltraCircuitBuilder& builder,

@@ -78,13 +78,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        PairingPoints<InnerBuilder>::add_default_to_public_inputs(builder);
-
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<grumpkin<InnerBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
+            RollupIO::add_default(builder);
+        } else {
+            DefaultIO<InnerBuilder>::add_default(builder);
         }
         return builder;
     };
@@ -121,10 +118,12 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
         PairingObject pairing_points = output.points_accumulator;
-        pairing_points.P0.x.fix_witness();
-        pairing_points.P0.y.fix_witness();
-        pairing_points.P1.x.fix_witness();
-        pairing_points.P1.y.fix_witness();
+        // BIGGROUP_AUDITTODO: It seems suspicious that we have to fix these witnesses here to make this test pass.
+        // Seems to defeat the purpose of the test.
+        pairing_points.P0.x().fix_witness();
+        pairing_points.P0.y().fix_witness();
+        pairing_points.P1.x().fix_witness();
+        pairing_points.P1.y().fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = output.ipa_proof.get_value();

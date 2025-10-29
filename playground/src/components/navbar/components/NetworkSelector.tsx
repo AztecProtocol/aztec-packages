@@ -53,7 +53,7 @@ export function NetworkSelector() {
       WebLogger.create(setLogs, setTotalLogCount);
       const store = await createStore('playground_data', {
         dataDirectory: 'playground',
-        dataStoreMapSizeKB: 1e6,
+        dataStoreMapSizeKb: 1e6,
       });
       const playgroundDB = PlaygroundDB.getInstance();
       playgroundDB.init(store, WebLogger.getInstance().createLogger('playground_db').info);

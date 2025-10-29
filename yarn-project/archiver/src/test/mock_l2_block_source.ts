@@ -1,7 +1,8 @@
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -126,6 +127,57 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     );
   }
 
+  public async getPublishedBlockByHash(blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    for (const block of this.l2Blocks) {
+      const hash = await block.hash();
+      if (hash.equals(blockHash)) {
+        return PublishedL2Block.fromFields({
+          block,
+          l1: {
+            blockNumber: BigInt(block.number),
+            blockHash: Buffer32.random().toString(),
+            timestamp: BigInt(block.number),
+          },
+          attestations: [],
+        });
+      }
+    }
+    return undefined;
+  }
+
+  public getPublishedBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
+    if (!block) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(
+      PublishedL2Block.fromFields({
+        block,
+        l1: {
+          blockNumber: BigInt(block.number),
+          blockHash: Buffer32.random().toString(),
+          timestamp: BigInt(block.number),
+        },
+        attestations: [],
+      }),
+    );
+  }
+
+  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    for (const block of this.l2Blocks) {
+      const hash = await block.hash();
+      if (hash.equals(blockHash)) {
+        return block.getBlockHeader();
+      }
+    }
+    return undefined;
+  }
+
+  public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
+    return Promise.resolve(block?.getBlockHeader());
+  }
+
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.getBlockHeader());
   }
@@ -230,6 +282,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+
+  getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
   }
 
   getL1Timestamp(): Promise<bigint> {

@@ -51,7 +51,7 @@ pub contract NFTPunk {
 
         // we create an NFT note and insert it to the PrivateSet - a collection of notes meant to be read in private
         let new_nft = NFTNote::new(to, token_id);
-        storage.owners.at(to).insert(new_nft).emit(&mut context, to, MessageDelivery.CONSTRAINED_ONCHAIN);
+        storage.owners.at(to).insert(new_nft).emit( to, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // calling the internal public function above to indicate that the NFT is taken
         NFTPunk::at(context.this_address())._mark_nft_exists(token_id, true).enqueue(&mut context);

@@ -32,7 +32,7 @@ export async function startArchiver(
   );
 
   let archiverConfig = { ...envConfig, ...cliOptions };
-  archiverConfig.dataStoreMapSizeKB = archiverConfig.archiverStoreMapSizeKb ?? archiverConfig.dataStoreMapSizeKB;
+  archiverConfig.dataStoreMapSizeKb = archiverConfig.archiverStoreMapSizeKb ?? archiverConfig.dataStoreMapSizeKb;
 
   if (!archiverConfig.l1Contracts.registryAddress || archiverConfig.l1Contracts.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start an Archiver');

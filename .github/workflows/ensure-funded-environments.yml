@@ -55,3 +55,11 @@ jobs:
       low_watermark: ${{ inputs.low_watermark || '5.0' }}
       high_watermark: ${{ inputs.high_watermark || '10.0' }}
     secrets: inherit
+
+  fund-devnet:
+    uses: ./.github/workflows/ensure-funded-environment.yml
+    with:
+      environment: devnet
+      low_watermark: ${{ inputs.low_watermark || '5.0' }}
+      high_watermark: ${{ inputs.high_watermark || '10.0' }}
+    secrets: inherit

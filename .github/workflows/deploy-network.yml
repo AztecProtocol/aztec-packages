@@ -32,6 +32,7 @@ on:
         - staging-ignition
         - testnet
         - next-net
+        - devnet
       semver:
         description: 'Semver version (e.g., 2.3.4)'
         required: true

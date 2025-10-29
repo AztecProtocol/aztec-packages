@@ -32,7 +32,7 @@ describe('PXE', () => {
     const config: PXEConfig = {
       l2BlockBatchSize: 50,
       dataDirectory: undefined,
-      dataStoreMapSizeKB: 1024 * 1024,
+      dataStoreMapSizeKb: 1024 * 1024,
       l1Contracts: { rollupAddress: EthAddress.random() },
       l1ChainId: 31337,
       rollupVersion: 1,

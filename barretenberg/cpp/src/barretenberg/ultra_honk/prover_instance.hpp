@@ -77,10 +77,11 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     using ProverPolynomials = typename Flavor::ProverPolynomials;
     using WitnessCommitments = typename Flavor::WitnessCommitments;
     using Polynomial = typename Flavor::Polynomial;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
-    MetaData metadata;                 // circuit size and public inputs metadata
-    size_t final_active_wire_idx{ 0 }; // idx of last non-trivial wire value in the trace
+    MetaData metadata; // circuit size and public inputs metadata
+    // index of the last constrained wire in the execution trace; initialize to size_t::max to indicate uninitialized
+    size_t final_active_wire_idx{ std::numeric_limits<size_t>::max() };
 
   public:
     using Trace = TraceToPolynomials<Flavor>;
@@ -88,10 +89,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     std::vector<FF> public_inputs;
     ProverPolynomials polynomials; // the multilinear polynomials used by the prover
     WitnessCommitments commitments;
-    SubrelationSeparators alphas; // a challenge for each subrelation
+    SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
+    FF target_sum{ 0 }; // Sumcheck target sum
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 
@@ -115,7 +116,12 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         return metadata.num_public_inputs;
     }
     MetaData get_metadata() const { return metadata; }
-    size_t get_final_active_wire_idx() const { return final_active_wire_idx; }
+    size_t get_final_active_wire_idx() const
+    {
+        BB_ASSERT(final_active_wire_idx != std::numeric_limits<size_t>::max(),
+                  "final_active_wire_idx has not been initialized");
+        return final_active_wire_idx;
+    }
 
     Flavor::PrecomputedData get_precomputed()
     {
@@ -133,17 +139,10 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         if (!circuit.circuit_finalized) {
             circuit.finalize_circuit(/* ensure_nonzero = */ true);
         }
-
-        // If using a structured trace, set fixed block sizes, check their validity, and set the dyadic circuit size
-        if constexpr (std::same_as<Circuit, UltraCircuitBuilder>) {
-            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic size directly from circuit block sizes
-        } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
-            metadata.dyadic_size = compute_dyadic_size(circuit); // set dyadic based on circuit block sizes
-        }
-
-        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
+        metadata.dyadic_size = compute_dyadic_size(circuit);
 
         // Find index of last non-trivial wire value in the trace
+        circuit.blocks.compute_offsets(); // compute offset of each block within the trace
         for (auto& block : circuit.blocks.get()) {
             if (block.size() > 0) {
                 final_active_wire_idx = block.trace_offset() + block.size() - 1;

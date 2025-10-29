@@ -47,7 +47,7 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
     // DeciderRecursiveVerifier's log circuit size is fixed, hence we are using a trivial `padding_indicator_array`.
     std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
 
-    Sumcheck sumcheck(transcript, accumulator->alphas, Flavor::VIRTUAL_LOG_N, accumulator->target_sum);
+    Sumcheck sumcheck(transcript, accumulator->alpha, Flavor::VIRTUAL_LOG_N, accumulator->target_sum);
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->gate_challenges, padding_indicator_array);
 

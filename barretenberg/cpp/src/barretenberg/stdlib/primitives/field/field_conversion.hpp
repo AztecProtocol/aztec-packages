@@ -256,8 +256,8 @@ template <typename Field> class StdlibCodec {
         } else if constexpr (IsAnyOf<T, bn254_element, grumpkin_element>) {
             using BaseField = typename T::BaseField;
 
-            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x);
-            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y);
+            std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
+            std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
             std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;

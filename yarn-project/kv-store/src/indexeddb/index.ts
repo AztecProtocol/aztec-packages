@@ -14,8 +14,8 @@ export async function createStore(name: string, config: DataStoreConfig, log: Lo
 
   log.info(
     dataDirectory
-      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKB} KB`
-      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKB} KB`,
+      ? `Creating ${name} data store at directory ${dataDirectory} with map size ${config.dataStoreMapSizeKb} KB`
+      : `Creating ${name} ephemeral data store with map size ${config.dataStoreMapSizeKb} KB`,
   );
   const store = await AztecIndexedDBStore.open(createLogger('kv-store:indexeddb'), dataDirectory ?? '', false);
   if (config.l1Contracts?.rollupAddress) {

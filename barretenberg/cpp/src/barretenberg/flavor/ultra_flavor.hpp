@@ -81,7 +81,7 @@ class UltraFlavor {
     // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from
     // Ultra flavor any change of ordering in this tuple needs to be reflected in the smart contract, otherwise
     // relation accumulation will not match.
-    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,
@@ -95,13 +95,9 @@ class UltraFlavor {
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
     static_assert(MAX_PARTIAL_RELATION_LENGTH == 7);
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
-    static_assert(MAX_TOTAL_RELATION_LENGTH == 11);
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) too much.
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
+    using SubrelationSeparator = FF;
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -515,12 +511,6 @@ class UltraFlavor {
      * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
      */
     template <size_t LENGTH> using ProverUnivariates = AllEntities<bb::Univariate<FF, LENGTH>>;
-    /**
-     * @brief A container for univariates used in sumcheck.
-     * @details During folding and sumcheck, the prover evaluates the relations on these univariates.
-     */
-    template <size_t LENGTH, size_t SKIP_COUNT>
-    using ProverUnivariatesWithOptimisticSkipping = AllEntities<bb::Univariate<FF, LENGTH, 0, SKIP_COUNT>>;
 
     /**
      * @brief A container for univariates produced during the hot loop in sumcheck.

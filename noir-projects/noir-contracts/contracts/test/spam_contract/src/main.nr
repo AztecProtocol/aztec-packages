@@ -34,7 +34,6 @@ pub contract Spam {
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
             storage.balances.at(caller).add(caller, amount).emit(
-                &mut context,
                 caller,
                 MessageDelivery.UNCONSTRAINED_ONCHAIN,
             );

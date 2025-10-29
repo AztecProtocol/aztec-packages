@@ -756,12 +756,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       return;
     }
     this.logger.debug(
-      `Received attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
+      `Received attestation for slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
         p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
         slot: attestation.slotNumber.toNumber(),
         archive: attestation.archive.toString(),
-        block: attestation.blockNumber,
         source: source.toString(),
       },
     );
@@ -794,7 +793,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
   // REVIEW: callback pattern https://github.com/AztecProtocol/aztec-packages/issues/7963
   @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
-    [Attributes.BLOCK_NUMBER]: block.blockNumber,
     [Attributes.SLOT_NUMBER]: block.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
     [Attributes.P2P_ID]: await block.p2pMessageIdentifier().then(i => i.toString()),
@@ -802,16 +800,12 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   private async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
     const slot = block.slotNumber.toBigInt();
     const previousSlot = slot - 1n;
-    this.logger.verbose(
-      `Received block ${block.blockNumber} for slot ${slot} from external peer ${sender.toString()}.`,
-      {
-        p2pMessageIdentifier: await block.p2pMessageIdentifier(),
-        slot: block.slotNumber.toNumber(),
-        archive: block.archive.toString(),
-        block: block.blockNumber,
-        source: sender.toString(),
-      },
-    );
+    this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
+      p2pMessageIdentifier: await block.p2pMessageIdentifier(),
+      slot: block.slotNumber.toNumber(),
+      archive: block.archive.toString(),
+      source: sender.toString(),
+    });
     const attestationsForPreviousSlot = await this.mempools.attestationPool?.getAttestationsForSlot(previousSlot);
     if (attestationsForPreviousSlot !== undefined) {
       this.logger.verbose(`Received ${attestationsForPreviousSlot.length} attestations for slot ${previousSlot}`);
@@ -826,15 +820,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     // The attestation can be undefined if no handler is registered / the validator deems the block invalid
     if (attestations?.length) {
       for (const attestation of attestations) {
-        this.logger.verbose(
-          `Broadcasting attestation for block ${attestation.blockNumber} slot ${attestation.slotNumber.toNumber()}`,
-          {
-            p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
-            slot: attestation.slotNumber.toNumber(),
-            archive: attestation.archive.toString(),
-            block: attestation.blockNumber,
-          },
-        );
+        this.logger.verbose(`Broadcasting attestation for slot ${attestation.slotNumber.toNumber()}`, {
+          p2pMessageIdentifier: await attestation.p2pMessageIdentifier(),
+          slot: attestation.slotNumber.toNumber(),
+          archive: attestation.archive.toString(),
+        });
         await this.broadcastAttestation(attestation);
       }
     }
@@ -845,7 +835,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to broadcast.
    */
   @trackSpan('Libp2pService.broadcastAttestation', async attestation => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),
@@ -1140,7 +1129,6 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @returns True if the attestation is valid, false otherwise.
    */
   @trackSpan('Libp2pService.validateAttestation', async (_, attestation) => ({
-    [Attributes.BLOCK_NUMBER]: attestation.blockNumber,
     [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: attestation.archive.toString(),
     [Attributes.P2P_ID]: await attestation.p2pMessageIdentifier().then(i => i.toString()),

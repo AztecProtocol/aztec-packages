@@ -113,7 +113,7 @@ template <typename Builder> void DynamicArray<Builder>::resize(const field_pt& n
     if (max_bounds_check.is_constant()) {
         BB_ASSERT_LTE(uint256_t(new_length.get_value()), _max_size);
     } else {
-        _context->create_new_range_constraint(max_bounds_check.normalize().get_witness_index(), _max_size);
+        _context->create_new_range_constraint(max_bounds_check.get_witness_index(), _max_size);
     }
 
     /**
@@ -138,7 +138,7 @@ template <typename Builder> void DynamicArray<Builder>::resize(const field_pt& n
             // field_pt t2 = field_pt(index_valid);
             // field_pt bounds_check = (t2 + t2).madd(t1 - 1, -t1);
 
-            _context->create_new_range_constraint(bounds_check.normalize().get_witness_index(), _max_size);
+            _context->create_new_range_constraint(bounds_check.get_witness_index(), _max_size);
         }
 
         bool_pt index_currently_invalid = bool_pt(witness_pt(_context, i >= native_size()));
@@ -153,7 +153,7 @@ template <typename Builder> void DynamicArray<Builder>::resize(const field_pt& n
 
             field_pt bounds_check = field_pt::conditional_assign(index_currently_invalid, reverse_delta, index_delta);
 
-            _context->create_new_range_constraint(bounds_check.normalize().get_witness_index(), _max_size);
+            _context->create_new_range_constraint(bounds_check.get_witness_index(), _max_size);
         }
 
         field_pt old_value = _inner_table.read(i);
@@ -183,7 +183,7 @@ template <typename Builder> field_t<Builder> DynamicArray<Builder>::read(const f
         }
     } else {
         _context->create_new_range_constraint(
-            index_delta.normalize().get_witness_index(), _max_size, "DynamicArray::read access out of bounds");
+            index_delta.get_witness_index(), _max_size, "DynamicArray::read access out of bounds");
     }
 
     return _inner_table.read(index);
@@ -207,7 +207,7 @@ template <typename Builder> void DynamicArray<Builder>::write(const field_pt& in
         }
     } else {
         _context->create_new_range_constraint(
-            index_delta.normalize().get_witness_index(), _max_size, "DynamicArray::read access out of bounds");
+            index_delta.get_witness_index(), _max_size, "DynamicArray::read access out of bounds");
     }
 
     _inner_table.write(index, value);

@@ -55,7 +55,6 @@ pub contract SchnorrAccount {
         // Safety: Comment from above applies here as well.
         unsafe { set_sender_for_tags(this) };
         storage.signing_public_key.initialize(pub_key_note).emit(
-            &mut context,
             this,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
