@@ -38,7 +38,7 @@ using namespace bb;
  * @return Chonk
  */
 std::shared_ptr<Chonk> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
-                                                            const TraceSettings& trace_settings)
+                                                        const TraceSettings& trace_settings)
 {
     auto ivc = std::make_shared<Chonk>(constraints.size(), trace_settings);
 
@@ -96,8 +96,8 @@ std::shared_ptr<Chonk> create_mock_ivc_from_constraints(const std::vector<Recurs
  *
  */
 Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TYPE verification_type,
-                                                               const TraceSettings& trace_settings,
-                                                               const bool is_kernel)
+                                                           const TraceSettings& trace_settings,
+                                                           const bool is_kernel)
 {
     using FF = Chonk::FF;
     using MegaVerificationKey = Chonk::MegaVerificationKey;
