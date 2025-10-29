@@ -1,9 +1,8 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-
-// import { L2BlockHash } from '@aztec/stdlib/block';
-// import { type NotesFilter, StoredNoteStatus } from '@aztec/stdlib/note';
+import { L2BlockHash } from '@aztec/stdlib/block';
+import type { NotesFilter } from '@aztec/stdlib/note';
 
 import { NoteDao } from './note_dao.js';
 import { NoteDataProvider } from './note_data_provider.js';
@@ -55,9 +54,6 @@ describe('NoteDataProvider', () => {
     const store = await openTmpStore(storeName);
     const provider = NoteDataProvider.create(store);
 
-    // await provider.addScope(SCOPE_1);
-    // await provider.addScope(SCOPE_2);
-
     const note1 = await mkNote({
       contractAddress: CONTRACT_A,
       storageSlot: SLOT_X,
@@ -87,13 +83,13 @@ describe('NoteDataProvider', () => {
   }
 
   // Helper to create a nullifier object matching a given note.
-  // function mkNullifier(note: NoteDao, blockNumber?: number) {
-  //   return {
-  //     data: note.siloedNullifier,
-  //     l2BlockNumber: blockNumber ?? note.l2BlockNumber,
-  //     l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
-  //   };
-  // }
+  function mkNullifier(note: NoteDao, blockNumber?: number) {
+    return {
+      data: note.siloedNullifier,
+      l2BlockNumber: blockNumber ?? note.l2BlockNumber,
+      l2BlockHash: L2BlockHash.fromString(note.l2BlockHash),
+    };
+  }
 
   // Extracts the `index` field from an array of notes for easy comparison in tests.
   function getIndexes(notes: NoteDao[]) {
@@ -119,9 +115,6 @@ describe('NoteDataProvider', () => {
       // First provider populates the store; second reopens it to verify persistence
       const provider1 = NoteDataProvider.create(store);
 
-      // await provider1.addScope(SCOPE_1);
-      // await provider1.addScope(SCOPE_2);
-
       const noteA = await mkNote({ contractAddress: CONTRACT_A, recipient: SCOPE_1, index: 1n });
       const noteB = await mkNote({ contractAddress: CONTRACT_B, recipient: SCOPE_2, index: 2n });
       await provider1.addNotes([noteA, noteB], FAKE_ADDRESS);
@@ -138,6 +131,7 @@ describe('NoteDataProvider', () => {
     });
   });
 
+  // TODO: Complete these tests
   describe('NoteDataProvider.addNotes same note twice!!! NEW TEST TO COMPLETE', () => {
     it('adds notes under different scopes and retrieves them correctly', () => {
       expect(true);
@@ -163,10 +157,10 @@ describe('NoteDataProvider', () => {
     let provider: NoteDataProvider;
     let note1: NoteDao;
     let note2: NoteDao;
-    // let note3: NoteDao;
+    let note3: NoteDao;
 
     beforeEach(async () => {
-      ({ store, provider, note1, note2 } = await setupProviderWithNotes('note_data_provider_get_notes_happy'));
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes('note_data_provider_get_notes_happy'));
     });
 
     afterEach(async () => {
@@ -207,19 +201,19 @@ describe('NoteDataProvider', () => {
       expect(new Set(getIndexes(res))).toEqual(new Set([1n, 2n, 4n])); // note1, note2, and note4
     });
 
-    // it('filters notes by status, returning ACTIVE by default and both ACTIVE and NULLIFIED when requested', async () => {
-    //   const nullifiers = [mkNullifier(note2)];
-    //   await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note2]);
+    it('filters notes by status, returning ACTIVE by default and both ACTIVE and NULLIFIED when requested', async () => {
+      const nullifiers = [mkNullifier(note2)];
+      await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note2]);
 
-    //   const resActive = await provider.getNotes({ contractAddress: CONTRACT_A });
-    //   expect(new Set(getIndexes(resActive))).toEqual(new Set([1n]));
+      const resActive = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(new Set(getIndexes(resActive))).toEqual(new Set([1n]));
 
-    //   const resAll = await provider.getNotes({
-    //     contractAddress: CONTRACT_A,
-    //     status: NoteStatus.ALL,
-    //   });
-    //   expect(new Set(getIndexes(resAll))).toEqual(new Set([1n, 2n]));
-    // });
+      const resAll = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: 'ALL',
+      });
+      expect(new Set(getIndexes(resAll))).toEqual(new Set([1n, 2n]));
+    });
 
     it('returns only notes that match all provided filters', async () => {
       const res = await provider.getNotes({
@@ -231,28 +225,28 @@ describe('NoteDataProvider', () => {
       expect(new Set(getIndexes(res))).toEqual(new Set([1n]));
     });
 
-    // it('applies scope filtering to nullified notes', async () => {
-    //   const nullifiers = [mkNullifier(note3)];
-    //   await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note3]);
+    it('applies scope filtering to nullified notes', async () => {
+      const nullifiers = [mkNullifier(note3)];
+      await expect(provider.applyNullifiers(nullifiers)).resolves.toEqual([note3]);
 
-    //   // Query for contractB, but with the wrong scope (scope1)
-    //   const res = await provider.getNotes({
-    //     contractAddress: CONTRACT_B,
-    //     scopes: [SCOPE_1],
-    //     status: NoteStatus.ALL,
-    //   });
+      // Query for contractB, but with the wrong scope (scope1)
+      const res = await provider.getNotes({
+        contractAddress: CONTRACT_B,
+        scopes: [SCOPE_1],
+        status: 'ALL',
+      });
 
-    //   expect(res).toHaveLength(0);
+      expect(res).toHaveLength(0);
 
-    //   // Query for contractB with the correct scope (scope2)
-    //   const res2 = await provider.getNotes({
-    //     contractAddress: CONTRACT_B,
-    //     scopes: [SCOPE_2],
-    //     status: NoteStatus.ALL,
-    //   });
+      // Query for contractB with the correct scope (scope2)
+      const res2 = await provider.getNotes({
+        contractAddress: CONTRACT_B,
+        scopes: [SCOPE_2],
+        status: 'ALL',
+      });
 
-    //   expect(new Set(getIndexes(res2))).toEqual(new Set([3n]));
-    // });
+      expect(new Set(getIndexes(res2))).toEqual(new Set([3n]));
+    });
 
     it('filters notes by siloedNullifier', async () => {
       const filter = {
@@ -339,174 +333,174 @@ describe('NoteDataProvider', () => {
     });
   });
 
-  // describe('NoteDataProvider.applyNullifiers happy path', () => {
-  //   let store: AztecLMDBStoreV2;
-  //   let provider: NoteDataProvider;
-  //   let note1: NoteDao;
-  //   let note2: NoteDao;
-  //   let note3: NoteDao;
+  describe('NoteDataProvider.applyNullifiers happy path', () => {
+    let store: AztecLMDBStoreV2;
+    let provider: NoteDataProvider;
+    let note1: NoteDao;
+    let note2: NoteDao;
+    let note3: NoteDao;
 
-  //   beforeEach(async () => {
-  //     ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes(
-  //       'note_data_provider_apply_nullifiers_happy',
-  //     ));
-  //   });
+    beforeEach(async () => {
+      ({ store, provider, note1, note2, note3 } = await setupProviderWithNotes(
+        'note_data_provider_apply_nullifiers_happy',
+      ));
+    });
 
-  //   afterEach(async () => {
-  //     await store.close();
-  //   });
+    afterEach(async () => {
+      await store.close();
+    });
 
-  //   it('returns empty array when given empty nullifiers array', async () => {
-  //     const result = await provider.applyNullifiers([]);
-  //     expect(result).toEqual([]);
-  //   });
+    it('returns empty array when given empty nullifiers array', async () => {
+      const result = await provider.applyNullifiers([]);
+      expect(result).toEqual([]);
+    });
 
-  //   it('nullifies a single note and moves it from active to nullified', async () => {
-  //     const result = await provider.applyNullifiers([mkNullifier(note1)]);
-  //     expect(result).toEqual([note1]);
+    it('nullifies a single note and moves it from active to nullified', async () => {
+      const result = await provider.applyNullifiers([mkNullifier(note1)]);
+      expect(result).toEqual([note1]);
 
-  //     const active = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //     const all = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
+      const active = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const all = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: 'ALL',
+      });
 
-  //     expect(new Set(getIndexes(active))).toEqual(new Set([2n]));
-  //     expect(new Set(getIndexes(all))).toEqual(new Set([1n, 2n]));
-  //   });
+      expect(new Set(getIndexes(active))).toEqual(new Set([2n]));
+      expect(new Set(getIndexes(all))).toEqual(new Set([1n, 2n]));
+    });
 
-  //   it('nullifies multiple notes and returns them', async () => {
-  //     const nullifiers = [mkNullifier(note1), mkNullifier(note3)];
-  //     const result = await provider.applyNullifiers(nullifiers);
+    it('nullifies multiple notes and returns them', async () => {
+      const nullifiers = [mkNullifier(note1), mkNullifier(note3)];
+      const result = await provider.applyNullifiers(nullifiers);
 
-  //     const activeA = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //     const activeB = await provider.getNotes({ contractAddress: CONTRACT_B });
+      const activeA = await provider.getNotes({ contractAddress: CONTRACT_A });
+      const activeB = await provider.getNotes({ contractAddress: CONTRACT_B });
 
-  //     expect(result).toEqual([note1, note3]); // returned nullified notes
-  //     expect(new Set(getIndexes(activeA))).toEqual(new Set([2n])); // note2 remains active
-  //     expect(getIndexes(activeB)).toHaveLength(0); // no active notes in contractB
-  //   });
+      expect(result).toEqual([note1, note3]); // returned nullified notes
+      expect(new Set(getIndexes(activeA))).toEqual(new Set([2n])); // note2 remains active
+      expect(getIndexes(activeB)).toHaveLength(0); // no active notes in contractB
+    });
 
-  //   it('retrieves a nullified note by its siloedNullifier when status is ACTIVE_OR_NULLIFIED', async () => {
-  //     await provider.applyNullifiers([mkNullifier(note2)]);
+    it('retrieves a nullified note by its siloedNullifier when status is ACTIVE_OR_NULLIFIED', async () => {
+      await provider.applyNullifiers([mkNullifier(note2)]);
 
-  //     const filter = {
-  //       contractAddress: CONTRACT_A,
-  //       siloedNullifier: note2.siloedNullifier,
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     };
+      const filter: NotesFilter = {
+        contractAddress: CONTRACT_A,
+        siloedNullifier: note2.siloedNullifier,
+        status: 'ALL',
+      };
 
-  //     const res = await provider.getNotes(filter);
-  //     expect(new Set(getIndexes(res))).toEqual(new Set([2n]));
-  //   });
-  // });
+      const res = await provider.getNotes(filter);
+      expect(new Set(getIndexes(res))).toEqual(new Set([2n]));
+    });
+  });
 
-  // describe('NoteDataProvider.applyNullifiers edge cases', () => {
-  //   let store: AztecLMDBStoreV2;
-  //   let provider: NoteDataProvider;
-  //   let note1: NoteDao;
-  //   let note2: NoteDao;
+  describe('NoteDataProvider.applyNullifiers edge cases', () => {
+    let store: AztecLMDBStoreV2;
+    let provider: NoteDataProvider;
+    let note1: NoteDao;
+    let note2: NoteDao;
 
-  //   beforeEach(async () => {
-  //     ({ store, provider, note1, note2 } = await setupProviderWithNotes('note_data_provider_apply_nullifiers_edge'));
-  //   });
+    beforeEach(async () => {
+      ({ store, provider, note1, note2 } = await setupProviderWithNotes('note_data_provider_apply_nullifiers_edge'));
+    });
 
-  //   afterEach(async () => {
-  //     await store.close();
-  //   });
+    afterEach(async () => {
+      await store.close();
+    });
 
-  //   it('throws error when nullifier is not found', async () => {
-  //     const fakeNullifier = {
-  //       data: Fr.random(),
-  //       l2BlockNumber: 999,
-  //       l2BlockHash: L2BlockHash.random(),
-  //     };
+    it('throws error when nullifier is not found', async () => {
+      const fakeNullifier = {
+        data: Fr.random(),
+        l2BlockNumber: 999,
+        l2BlockHash: L2BlockHash.random(),
+      };
 
-  //     await expect(provider.applyNullifiers([fakeNullifier])).rejects.toThrow('Nullifier not found in applyNullifiers');
-  //   });
+      await expect(provider.applyNullifiers([fakeNullifier])).rejects.toThrow(/Nullifier not found in applyNullifiers/);
+    });
 
-  //   it('preserves scope information when nullifying notes', async () => {
-  //     const nullifiers = [mkNullifier(note1)];
-  //     await provider.applyNullifiers(nullifiers);
+    it('preserves scope information when nullifying notes', async () => {
+      const nullifiers = [mkNullifier(note1)];
+      await provider.applyNullifiers(nullifiers);
 
-  //     // Verify nullified note remains visible only within its original scope
-  //     const wrongScopeNotes = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       scopes: [SCOPE_2],
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
-  //     expect(getIndexes(wrongScopeNotes)).not.toContain(1n);
+      // Verify nullified note remains visible only within its original scope
+      const wrongScopeNotes = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        scopes: [SCOPE_2],
+        status: 'ALL',
+      });
+      expect(getIndexes(wrongScopeNotes)).not.toContain(1n);
 
-  //     const correctScopeNotes = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       scopes: [SCOPE_1],
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
-  //     expect(getIndexes(correctScopeNotes)).toContain(1n);
-  //   });
+      const correctScopeNotes = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        scopes: [SCOPE_1],
+        status: 'ALL',
+      });
+      expect(getIndexes(correctScopeNotes)).toContain(1n);
+    });
 
-  //   it('is atomic - fails entirely if any nullifier is invalid', async () => {
-  //     // Should fail entirely: note1 remains active because transaction is atomic.
-  //     const nullifiers = [
-  //       mkNullifier(note2),
-  //       {
-  //         data: Fr.random(), // Invalid
-  //         l2BlockNumber: 999,
-  //         l2BlockHash: L2BlockHash.random(),
-  //       },
-  //     ];
+    it('is atomic - fails entirely if any nullifier is invalid', async () => {
+      // Should fail entirely: note1 remains active because transaction is atomic.
+      const nullifiers = [
+        mkNullifier(note2),
+        {
+          data: Fr.random(), // Invalid
+          l2BlockNumber: 999,
+          l2BlockHash: L2BlockHash.random(),
+        },
+      ];
 
-  //     await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow();
+      await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow();
 
-  //     // Verify note1 is still active (transaction rolled back)
-  //     const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //     expect(new Set(getIndexes(activeNotes))).toEqual(new Set([1n, 2n]));
-  //   });
+      // Verify note1 is still active (transaction rolled back)
+      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(new Set(getIndexes(activeNotes))).toEqual(new Set([1n, 2n]));
+    });
 
-  //   it('updates all relevant indexes when nullifying notes', async () => {
-  //     const nullifiers = [mkNullifier(note1)];
-  //     await provider.applyNullifiers(nullifiers);
+    it('updates all relevant indexes when nullifying notes', async () => {
+      const nullifiers = [mkNullifier(note1)];
+      await provider.applyNullifiers(nullifiers);
 
-  //     // Test various filter combinations still work
-  //     const byContract = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
-  //     expect(new Set(getIndexes(byContract))).toEqual(new Set([1n, 2n]));
+      // Test various filter combinations still work
+      const byContract = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        status: 'ALL',
+      });
+      expect(new Set(getIndexes(byContract))).toEqual(new Set([1n, 2n]));
 
-  //     const bySlot = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       storageSlot: note1.storageSlot,
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
-  //     expect(new Set(getIndexes(bySlot))).toEqual(new Set([1n]));
+      const bySlot = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        storageSlot: note1.storageSlot,
+        status: 'ALL',
+      });
+      expect(new Set(getIndexes(bySlot))).toEqual(new Set([1n]));
 
-  //     const byScope = await provider.getNotes({
-  //       contractAddress: CONTRACT_A,
-  //       scopes: [note1.recipient],
-  //       status: NoteStatus.ACTIVE_OR_NULLIFIED,
-  //     });
-  //     expect(new Set(getIndexes(byScope))).toEqual(new Set([1n, 2n]));
-  //   });
+      const byScope = await provider.getNotes({
+        contractAddress: CONTRACT_A,
+        scopes: [note1.recipient],
+        status: 'ALL',
+      });
+      expect(new Set(getIndexes(byScope))).toEqual(new Set([1n, 2n]));
+    });
 
-  //   it('attempts to nullify the same note twice in succession results in error', async () => {
-  //     await provider.applyNullifiers([mkNullifier(note1)]); // First application should succeed
-  //     const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
-  //     expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n]));
+    it('attempts to nullify the same note twice in succession results in error', async () => {
+      await provider.applyNullifiers([mkNullifier(note1)]); // First application should succeed
+      const activeNotes = await provider.getNotes({ contractAddress: CONTRACT_A });
+      expect(new Set(getIndexes(activeNotes))).toEqual(new Set([2n]));
 
-  //     // should throw on second attempt as note1 is already nullified
-  //     await expect(provider.applyNullifiers([mkNullifier(note1)])).rejects.toThrow(
-  //       'Nullifier already applied in applyNullifiers',
-  //     );
-  //   });
+      // should throw on second attempt as note1 is already nullified
+      await expect(provider.applyNullifiers([mkNullifier(note1)])).rejects.toThrow(
+        'Nullifier already applied in applyNullifiers',
+      );
+    });
 
-  //   it('attempts to nullify the same note twice in same call results in error', async () => {
-  //     const nullifiers = [mkNullifier(note1), mkNullifier(note1)];
-  //     await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow(
-  //       'Nullifier already applied in applyNullifiers',
-  //     );
-  //   });
-  // });
+    it('attempts to nullify the same note twice in same call results in error', async () => {
+      const nullifiers = [mkNullifier(note1), mkNullifier(note1)];
+      await expect(provider.applyNullifiers(nullifiers)).rejects.toThrow(
+        'Nullifier already applied in applyNullifiers',
+      );
+    });
+  });
 
   // describe('NoteDataProvider.rollbackNotesAndNullifiers', () => {
   //   let provider: NoteDataProvider;
@@ -667,3 +661,6 @@ describe('NoteDataProvider', () => {
   //   });
   // });
 });
+
+// TODO:
+// haven't tests explicitly setting notesFilter to 'ACTIVE' or 'NULLIFIED'

@@ -347,7 +347,7 @@ export class NoteDataProvider {
   }
 
   /**
-   * Transitions notes from "active" to "nullified" state.
+   * Marks notes as nullified based on the provided nullifiers.
    *
    * This operation processes a batch of nullifiers to mark the corresponding notes
    * as spent/nullified.  The operation is atomic - if any nullifier is not found,
@@ -358,6 +358,72 @@ export class NoteDataProvider {
    * @throws Error if any nullifier is not found in the active notes
    */
   applyNullifiers(nullifiers: InBlock<Fr>[]): Promise<NoteDao[]> {
-    throw new Error('Method not implemented.');
+    if (nullifiers.length === 0) {
+      return Promise.resolve([]);
+    }
+
+    return this.#store.transactionAsync(async () => {
+      const nullifiedNotes: NoteDao[] = [];
+
+      for (const { data: nullifier, l2BlockNumber } of nullifiers) {
+        const nullifierKey = toNullifier(nullifier);
+
+        // Lookup the note ID by nullifier (must exist - if not, check if it was already applied)
+        const noteId = await this.#nullifierToNoteId.getAsync(nullifierKey);
+        if (!noteId) {
+          const alreadyApplied = await this.#wasNullifierAlreadyApplied(nullifier);
+          if (alreadyApplied) {
+            throw new Error(`Nullifier already applied in applyNullifiers: ${nullifier.toString()}`);
+          }
+          throw new Error(`Nullifier not found in applyNullifiers: ${nullifier.toString()}`);
+        }
+
+        // Retrieve the note
+        const noteBuffer = await this.#notes.getAsync(noteId);
+        if (!noteBuffer) {
+          throw new Error(`Note not found in applyNullifiers for nullifier: ${nullifier.toString()}`);
+        }
+
+        const note = NoteDao.fromBuffer(noteBuffer);
+
+        // Verify status is ACTIVE
+        const status = await this.#noteStatusById.getAsync(noteId);
+        if (status !== NoteStatus.ACTIVE) {
+          throw new Error(`Attempted to nullify note ${noteId} which is not ACTIVE (status=${status})`);
+        }
+
+        // Update Indexes and status
+        await this.#noteStatusById.set(noteId, NoteStatus.NULLIFIED);
+        await this.#noteEventsByBlock.set(toBlockNumber(l2BlockNumber), { noteId, kind: 'NULLIFY' });
+        await this.#nullifierToNoteId.delete(nullifierKey);
+
+        nullifiedNotes.push(note);
+      }
+
+      return nullifiedNotes;
+    });
+  }
+
+  /**
+   * Checks whether a given nullifier has already been applied (i.e.
+   * a corresponding note was previously nullified).
+   */
+  async #wasNullifierAlreadyApplied(nullifier: Fr): Promise<boolean> {
+    for await (const [, event] of this.#noteEventsByBlock.entriesAsync()) {
+      if (event.kind !== 'NULLIFY') {
+        continue;
+      }
+
+      const serialized = await this.#notes.getAsync(event.noteId as NoteId);
+      if (!serialized) {
+        continue;
+      }
+
+      const note = NoteDao.fromBuffer(serialized);
+      if (note.siloedNullifier.equals(nullifier)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
