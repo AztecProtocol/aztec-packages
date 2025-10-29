@@ -81,8 +81,6 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
     static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using InnerPairingPoints = bb::stdlib::recursion::PairingPoints<UltraCircuitBuilder>;
-
         UltraCircuitBuilder builder;
 
         // Create 2^log_n many add gates based on input log num gates
