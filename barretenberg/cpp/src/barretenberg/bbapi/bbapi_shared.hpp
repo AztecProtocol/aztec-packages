@@ -53,7 +53,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or Chonk-honk proving.
+ * @brief A circuit to be used in either ultrahonk or Chonk proving.
  */
 struct CircuitInput {
     /**
