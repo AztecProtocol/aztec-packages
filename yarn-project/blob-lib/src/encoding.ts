@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
-import type { Blob as BlobBuffer } from 'c-kzg';
+import { BlobDeserializationError } from './errors.js';
 
 // Note duplicated from stdlib !
 // This will appear as 0x74785f7374617274 in logs
@@ -44,7 +44,7 @@ export const REVERT_CODE_PREFIX = 1;
  * @param blob - The blob buffer to deserialize.
  * @returns An array of field elements.
  */
-export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
+export function deserializeEncodedBlobToFields(blob: Uint8Array): Fr[] {
   // Convert blob buffer to array of field elements
   const reader = BufferReader.asReader(blob);
   const array = reader.readArray(blob.length >> 5, Fr); // >> 5 = / 32 (bytes per field)
@@ -57,6 +57,10 @@ export function deserializeEncodedBlobToFields(blob: BlobBuffer): Fr[] {
     // Stop when we hit a zero field
     if (!currentField || currentField.isZero()) {
       break;
+    }
+
+    if (!isValidFirstField(currentField)) {
+      throw new BlobDeserializationError(`Incorrect encoding of blob fields, this blob was likely not created by us`);
     }
 
     // Skip the remaining fields in this transaction
@@ -109,30 +113,4 @@ export function isValidFirstField(field: Fr): boolean {
     return false;
   }
   return true;
-}
-
-/**
- * Extract the fields from a blob buffer, but do not take into account encoding
- * that will include trailing zeros.
- *
- * +------------------+------------------+------------------+------------------+
- * |                  |                  |                  | Padded zeros     |
- * | [3 a,b,c]        | [3, a, b, c]     | [5 d,e,f,0,0]    | [0, 0, 0, .., 0] |
- * +------------------+------------------+------------------+------------------+
- *                                                ^
- *                                                |
- * Function reads until here ----------------------
- */
-export function extractBlobFieldsFromBuffer(blob: BlobBuffer): Fr[] {
-  const reader = BufferReader.asReader(blob);
-  const array = reader.readArray(blob.length >> 5, Fr);
-
-  // Find the index of the last non-zero field
-  let lastNonZeroIndex = array.length - 1;
-  while (lastNonZeroIndex >= 0 && array[lastNonZeroIndex].isZero()) {
-    lastNonZeroIndex--;
-  }
-
-  // Return the trimmed array
-  return array.slice(0, lastNonZeroIndex + 1);
 }

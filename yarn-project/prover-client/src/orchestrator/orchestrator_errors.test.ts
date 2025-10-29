@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob, FinalBlobBatchingChallenges } from '@aztec/blob-lib';
+import { BatchedBlob, FinalBlobBatchingChallenges, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -27,8 +27,8 @@ describe('prover/orchestrator/errors', () => {
   describe('errors', () => {
     it('throws if adding too many transactions', async () => {
       const { txs } = await context.makePendingBlock(4);
-      const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+      const blobs = getBlobsPerL1Block(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
       orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());

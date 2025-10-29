@@ -6,6 +6,7 @@ import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
 import { Blob } from './blob.js';
 import { BatchedBlobAccumulator, FinalBlobBatchingChallenges } from './blob_batching.js';
 import { BlobAccumulatorPublicInputs, BlockBlobPublicInputs } from './blob_batching_public_inputs.js';
+import { getBlobsPerL1Block } from './blob_utils.js';
 import { TX_START_PREFIX, TX_START_PREFIX_BYTES_LENGTH } from './encoding.js';
 import { Poseidon2Sponge, SpongeBlob } from './sponge_blob.js';
 
@@ -93,13 +94,13 @@ export function makeEncodedBlobFields(length: number): Fr[] {
  * @param length
  * @returns
  */
-export function makeEncodedBlob(length: number): Promise<Blob> {
+export function makeEncodedBlob(length: number): Blob {
   return Blob.fromFields(makeEncodedBlobFields(length));
 }
 
-export async function makeEncodedBlobs(length: number): Promise<Blob[]> {
+export function makeEncodedBlobs(length: number): Blob[] {
   const fields = makeEncodedBlobFields(length);
-  return await Blob.getBlobsPerBlock(fields);
+  return getBlobsPerL1Block(fields);
 }
 
 /**
@@ -109,6 +110,6 @@ export async function makeEncodedBlobs(length: number): Promise<Blob[]> {
  * @param length
  * @returns
  */
-export function makeUnencodedBlob(length: number): Promise<Blob> {
+export function makeRandomBlob(length: number): Blob {
   return Blob.fromFields([...Array.from({ length: length }, () => Fr.random())]);
 }

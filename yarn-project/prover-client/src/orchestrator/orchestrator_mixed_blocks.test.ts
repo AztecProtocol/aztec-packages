@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -12,8 +12,8 @@ describe('prover/orchestrator/mixed-blocks', () => {
   const runTest = async (numTxs: number) => {
     const { txs, l1ToL2Messages } = await context.makePendingBlock(numTxs, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
-    const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
-    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+    const blobs = getBlobsPerL1Block(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
     context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
     await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());

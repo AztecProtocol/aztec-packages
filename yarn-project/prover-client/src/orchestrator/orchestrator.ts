@@ -675,7 +675,7 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   // Executes the block root rollup circuit
-  private async enqueueBlockRootRollup(provingState: BlockProvingState) {
+  private enqueueBlockRootRollup(provingState: BlockProvingState) {
     if (!provingState.verifyState()) {
       logger.debug('Not running block root rollup, state no longer valid');
       return;
@@ -683,7 +683,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     provingState.blockRootRollupStarted = true;
 
-    const { rollupType, inputs } = await provingState.getBlockRootRollupTypeAndInputs();
+    const { rollupType, inputs } = provingState.getBlockRootRollupTypeAndInputs();
 
     logger.debug(
       `Enqueuing ${rollupType} for block ${provingState.blockNumber} with ${provingState.newL1ToL2Messages.length} l1 to l2 msgs.`,
@@ -933,7 +933,7 @@ export class ProvingOrchestrator implements EpochProver {
       .then(() => this.dbs.delete(blockNumber))
       .catch(err => logger.error(`Error closing db for block ${blockNumber}`, err));
 
-    await this.enqueueBlockRootRollup(provingState);
+    this.enqueueBlockRootRollup(provingState);
   }
 
   private checkAndEnqueueNextBlockMergeRollup(provingState: EpochProvingState, currentLocation: TreeNodeLocation) {

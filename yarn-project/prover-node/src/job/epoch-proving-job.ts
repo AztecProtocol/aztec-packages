@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -129,9 +129,7 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      const allBlobs = (
-        await Promise.all(this.blocks.map(async block => await Blob.getBlobsPerBlock(block.body.toBlobFields())))
-      ).flat();
+      const allBlobs = this.blocks.map(block => getBlobsPerL1Block(block.body.toBlobFields()));
 
       const finalBlobBatchingChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(allBlobs);
       this.prover.startNewEpoch(epochNumber, fromBlock, epochSizeBlocks, finalBlobBatchingChallenges);

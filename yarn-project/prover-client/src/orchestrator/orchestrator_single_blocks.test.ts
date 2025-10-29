@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -31,8 +31,8 @@ describe('prover/orchestrator/blocks', () => {
       const { txs } = await context.makePendingBlock(1);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-      const blobs = await Blob.getBlobsPerBlock(blobFields);
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+      const blobs = getBlobsPerL1Block(blobFields);
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
       // This will need to be a 2 tx block
       context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
@@ -49,8 +49,8 @@ describe('prover/orchestrator/blocks', () => {
       const { txs, l1ToL2Messages } = await context.makePendingBlock(4, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP);
 
       const blobFields = txs.map(tx => tx.txEffect.toBlobFields()).flat();
-      const blobs = await Blob.getBlobsPerBlock(blobFields);
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+      const blobs = getBlobsPerL1Block(blobFields);
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
       context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
       await context.orchestrator.startNewBlock(

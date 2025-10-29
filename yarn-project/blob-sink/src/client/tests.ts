@@ -1,5 +1,4 @@
-import { Blob, FIELDS_PER_BLOB } from '@aztec/blob-lib';
-import { makeEncodedBlob, makeEncodedBlobFields, makeEncodedBlobs } from '@aztec/blob-lib/testing';
+import { makeRandomBlob } from '@aztec/blob-lib/testing';
 
 import type { Hex } from 'viem';
 
@@ -29,26 +28,18 @@ export function runBlobSinkClientTests(
   });
 
   it('should send and retrieve blobs by hash', async () => {
-    const blob = await makeEncodedBlob(3);
+    const blob = makeRandomBlob(3);
     const blobHash = blob.getEthVersionedBlobHash();
 
     await client.sendBlobsToBlobSink([blob]);
 
     const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHash]);
     expect(retrievedBlobs).toHaveLength(1);
-    expect(retrievedBlobs[0].blob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
-    expect(retrievedBlobs[0].blob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+    expect(retrievedBlobs[0].blob).toEqual(blob);
   });
 
   it('should handle multiple blobs', async () => {
-    // Create 2 full blobs and 1 partially-filled blob.
-    const blobFields = makeEncodedBlobFields(2 * FIELDS_PER_BLOB + 123);
-    const fieldsHash = await Blob.getFieldsHash(blobFields);
-    const blobs = await Promise.all(
-      Array.from({ length: 3 }, (_, i) =>
-        Blob.fromFields(blobFields.slice(i * FIELDS_PER_BLOB, (i + 1) * FIELDS_PER_BLOB), fieldsHash),
-      ),
-    );
+    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
     await client.sendBlobsToBlobSink(blobs);
@@ -56,10 +47,7 @@ export function runBlobSinkClientTests(
     const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
     expect(retrievedBlobs).toHaveLength(3);
 
-    for (let i = 0; i < blobs.length; i++) {
-      expect(retrievedBlobs[i].blob.fieldsHash.toString()).toBe(fieldsHash.toString());
-      expect(retrievedBlobs[i].blob.commitment.toString('hex')).toBe(blobs[i].commitment.toString('hex'));
-    }
+    expect(retrievedBlobs.map(b => b.blob)).toEqual(blobs);
   });
 
   it('should return empty array for non-existent blob hash', async () => {
@@ -71,16 +59,18 @@ export function runBlobSinkClientTests(
   });
 
   it('should preserve blob indices', async () => {
-    const blobs = await makeEncodedBlobs(2 * FIELDS_PER_BLOB);
+    const blobs = Array.from({ length: 3 }, () => makeRandomBlob(3));
     const blobHashes = blobs.map(blob => blob.getEthVersionedBlobHash());
 
+    // Indices should be assigned sequentially based on the order they were sent
     await client.sendBlobsToBlobSink(blobs);
 
-    const retrievedBlobs = await client.getBlobSidecar(blockId, blobHashes);
-    expect(retrievedBlobs).toHaveLength(2);
+    // Retrieve the blobs by hash in random order
+    const retrievedBlobs = await client.getBlobSidecar(blockId, [blobHashes[2], blobHashes[0], blobHashes[1]]);
+    expect(retrievedBlobs).toHaveLength(3);
 
-    // Indices should be assigned sequentially based on the order they were sent
-    expect(retrievedBlobs[0].index).toBe(0);
-    expect(retrievedBlobs[1].index).toBe(1);
+    expect(retrievedBlobs[0].index).toBe(2);
+    expect(retrievedBlobs[1].index).toBe(0);
+    expect(retrievedBlobs[2].index).toBe(1);
   });
 }

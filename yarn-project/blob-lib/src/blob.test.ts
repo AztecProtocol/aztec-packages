@@ -1,54 +1,27 @@
+import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { bufferToHex } from '@aztec/foundation/string';
 
-import type { Blob as BlobBuffer, Bytes48, KZGProof } from 'c-kzg';
-import cKzg from 'c-kzg';
-
-import { Blob, EMPTY_BLOB_VERSIONED_HASH } from './index.js';
-import { makeEncodedBlobFields } from './testing.js';
-
-// Importing directly from 'c-kzg' does not work:
-
-const {
-  BYTES_PER_BLOB,
-  FIELD_ELEMENTS_PER_BLOB,
-  blobToKzgCommitment,
-  computeBlobKzgProof,
-  computeKzgProof,
-  loadTrustedSetup,
-  verifyBlobKzgProofBatch,
-  verifyKzgProof,
-} = cKzg;
-
-try {
-  loadTrustedSetup(8);
-} catch (error: any) {
-  if (error.message.includes('trusted setup is already loaded')) {
-    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
-    // and it throws an error if it's already loaded, even though nothing is wrong.
-    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
-  } else {
-    throw new Error(error);
-  }
-}
+import { Blob } from './blob.js';
+import { makeRandomBlob } from './testing.js';
+import { BYTES_PER_BLOB, kzg } from './zkg_context.js';
 
 describe('blob', () => {
   it('c-kzg lib should verify a batch of blobs', () => {
     // This test is taken from the blob-lib repo
     const BATCH_SIZE = 3;
-    const blobs: BlobBuffer[] = [];
-    const commitments: Bytes48[] = [];
-    const kzgProofs: KZGProof[] = [];
+    const blobs: Uint8Array[] = [];
+    const commitments: Uint8Array[] = [];
+    const kzgProofs: Uint8Array[] = [];
 
     for (let i = 0; i < BATCH_SIZE; i++) {
       blobs.push(Buffer.alloc(BYTES_PER_BLOB));
       (blobs[i] as Buffer).write('potato', 0, 'utf8');
       (blobs[i] as Buffer).write('potato', BYTES_PER_BLOB - 50, 'utf8');
-      commitments.push(blobToKzgCommitment(blobs[i]));
-      kzgProofs.push(computeBlobKzgProof(blobs[i], commitments[i]));
+      commitments.push(kzg.blobToKzgCommitment(blobs[i]));
+      kzgProofs.push(kzg.computeBlobKzgProof(blobs[i], commitments[i]));
     }
-    const isValid = verifyBlobKzgProofBatch(blobs, commitments, kzgProofs);
+    const isValid = kzg.verifyBlobKzgProofBatch(blobs, commitments, kzgProofs);
 
     expect(isValid).toBe(true);
   });
@@ -61,93 +34,65 @@ describe('blob', () => {
     // So the first blob field is evaluated at 0x01.
     (zBytes as Buffer).write('01', 31, 'hex');
 
-    // This is the 2nd root of unity, after 1, because we actually get the bit_reversal_permutation of the root of unity. And although `7` is the primitive root of unity, the roots of unity are derived as 7 ^ ((BLS_MODULUS - 1) / FIELD_ELEMENTS_PER_BLOB) mod BLS_MODULUS.
+    // This is the 2nd root of unity, after 1, because we actually get the bit_reversal_permutation of the root of unity. And although `7` is the primitive root of unity, the roots of unity are derived as 7 ^ ((BLS_MODULUS - 1) / FIELDS_PER_BLOB) mod BLS_MODULUS.
     (zBytes as Buffer).write('73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000000', 0, 'hex'); // equiv to 52435875175126190479447740508185965837690552500527637822603658699938581184512 which is actually -1 in the scalar field!
 
     const blob = Buffer.alloc(BYTES_PER_BLOB);
     (blob as Buffer).write('09', 31, 'hex');
     (blob as Buffer).write('07', 31 + 32, 'hex');
 
-    const proofResult = computeKzgProof(blob, zBytes);
-    const commitment = blobToKzgCommitment(blob);
+    const proofResult = kzg.computeKzgProof(blob, zBytes);
+    const commitment = kzg.blobToKzgCommitment(blob);
 
-    const isValid = verifyKzgProof(commitment, zBytes, proofResult[1], proofResult[0]);
+    const isValid = kzg.verifyKzgProof(commitment, zBytes, proofResult[1], proofResult[0]);
 
     expect(isValid).toBe(true);
   });
 
   it('should evaluate a blob of 400 items', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_400
-    const blobItems = Array(400).fill(new Fr(3));
-    const ourBlob = await Blob.fromFields(blobItems);
-    const blobItemsHash = await poseidon2Hash(Array(400).fill(new Fr(3)));
-    expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
+    const blobFields = Array(400).fill(new Fr(3));
+    const blobFieldsHash = await poseidon2Hash(blobFields);
+    const blob = Blob.fromFields(blobFields);
+    const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    // We add zeros before getting commitment as we do not store the blob along with
-    // all of the zeros
-    const dataWithZeros = Buffer.concat([ourBlob.data], BYTES_PER_BLOB);
-    expect(blobToKzgCommitment(dataWithZeros)).toEqual(ourBlob.commitment);
+    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
 
-    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
-    expect(z).toEqual(ourBlob.challengeZ);
+    expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
+      `"b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e77504dd1a971c7e8d8292be943d05bccebcfea"`,
+    );
 
-    const res = computeKzgProof(dataWithZeros, ourBlob.challengeZ.toBuffer());
-    const { y, proof } = ourBlob.evaluate();
-    expect(res[0]).toEqual(proof);
-    expect(res[1]).toEqual(y);
-
-    const isValid = verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
-    expect(isValid).toBe(true);
+    // If the snapshot has changed, update the noir test data as well.
+    expect(y.toString()).toMatchInlineSnapshot(`"0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c"`);
   });
 
   it('should evaluate full blob', async () => {
     // This test ensures that the Blob class correctly matches the c-kzg lib
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob.nr -> test_full_blob
+    const blobFields = Array.from({ length: FIELDS_PER_BLOB }).map((_, i) => new Fr(i + 2));
+    const blobFieldsHash = await poseidon2Hash(blobFields);
+    const blob = Blob.fromFields(blobFields);
+    const challengeZ = await blob.computeChallengeZ(blobFieldsHash);
 
-    const blobItems = [];
-    for (let i = 0; i < FIELD_ELEMENTS_PER_BLOB; i++) {
-      blobItems[i] = new Fr(i + 2);
-    }
-    const blobItemsHash = await poseidon2Hash(blobItems);
-    const blobs = await Blob.getBlobsPerBlock(blobItems);
-    expect(blobs.length).toEqual(1);
-    const ourBlob = blobs[0];
-    expect(blobItemsHash).toEqual(ourBlob.fieldsHash);
+    const { y } = blob.evaluate(challengeZ, true /* verifyProof */);
 
-    expect(blobToKzgCommitment(ourBlob.data)).toEqual(ourBlob.commitment);
+    expect(blob.commitment.toString('hex')).toMatchInlineSnapshot(
+      `"ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3d195faad1967cdf005acf73088b0e8474a"`,
+    );
 
-    const z = await poseidon2Hash([blobItemsHash, ...ourBlob.commitmentToFields()]);
-    expect(z).toEqual(ourBlob.challengeZ);
-
-    const res = computeKzgProof(ourBlob.data, ourBlob.challengeZ.toBuffer());
-    const { y, proof } = ourBlob.evaluate();
-    expect(res[0]).toEqual(proof);
-    expect(res[1]).toEqual(y);
-
-    const isValid = verifyKzgProof(ourBlob.commitment, ourBlob.challengeZ.toBuffer(), y, proof);
-    expect(isValid).toBe(true);
+    // If the snapshot has changed, update the noir test data as well.
+    expect(y.toString()).toMatchInlineSnapshot(`"0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c"`);
   });
 
-  it('should serialise and deserialise a blob', async () => {
-    const blob = await Blob.fromFields([Fr.random(), Fr.random(), Fr.random()]);
+  it('should serialize and deserialize a blob', () => {
+    const blob = makeRandomBlob(5);
     const blobBuffer = blob.toBuffer();
-    const deserialisedBlob = Blob.fromBuffer(blobBuffer);
-    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
+    expect(Blob.fromBuffer(blobBuffer)).toEqual(blob);
   });
 
-  it('should create a blob from a JSON object', async () => {
-    const blobFields = makeEncodedBlobFields(3);
-    const blob = await Blob.fromFields(blobFields);
-    const fieldsHash = await Blob.getFieldsHash(blobFields);
-    const blobJson = blob.toJson(1);
-    const deserialisedBlob = await Blob.fromJson(blobJson, fieldsHash);
-    expect(blob.fieldsHash.equals(deserialisedBlob.fieldsHash)).toBe(true);
-  });
-
-  it('computes correct eth versioned blob hash for an empty blob', async () => {
-    const blob = await Blob.fromFields([]);
-    const versionedHash = blob.getEthVersionedBlobHash();
-    expect(bufferToHex(versionedHash)).toBe(bufferToHex(EMPTY_BLOB_VERSIONED_HASH));
+  it('should create a blob from a JSON object', () => {
+    const blob = makeRandomBlob(7);
+    const blobIndex = 1;
+    const blobJson = blob.toJson(blobIndex);
+    expect(Blob.fromJson(blobJson)).toEqual(blob);
   });
 });

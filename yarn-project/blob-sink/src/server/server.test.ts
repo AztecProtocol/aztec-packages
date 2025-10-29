@@ -1,5 +1,5 @@
 import { Blob } from '@aztec/blob-lib';
-import { makeEncodedBlob } from '@aztec/blob-lib/testing';
+import { makeRandomBlob } from '@aztec/blob-lib/testing';
 
 import request from 'supertest';
 
@@ -37,8 +37,8 @@ describe('BlobSinkService', () => {
     beforeEach(async () => {
       await startServer();
 
-      blob = await makeEncodedBlob(3);
-      blob2 = await makeEncodedBlob(3);
+      blob = makeRandomBlob(3);
+      blob2 = makeRandomBlob(3);
 
       // Post the blobs using new API
       const postResponse = await request(service.getApp())
@@ -71,16 +71,11 @@ describe('BlobSinkService', () => {
       const retrievedBlobs = getResponse.body.data;
       expect(retrievedBlobs).toHaveLength(2);
 
-      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
-      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
+      const retrievedBlob = Blob.fromBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = Blob.fromBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
 
-      expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
-
-      expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob2.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve specific blob by single hash', async () => {
@@ -91,10 +86,8 @@ describe('BlobSinkService', () => {
       expect(getResponse.body.data.length).toBe(1);
 
       const retrievedBlobs = getResponse.body.data;
-      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
-      expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
+      const retrievedBlob = Blob.fromBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
-      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob2.evaluate().proof.toString('hex'));
     });
 
     it('should retrieve first blob by its hash', async () => {
@@ -104,10 +97,8 @@ describe('BlobSinkService', () => {
       expect(getResponse.body.data.length).toBe(1);
 
       const retrievedBlobs = getResponse.body.data;
-      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
-      expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
+      const retrievedBlob = Blob.fromBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
-      expect(retrievedBlob.evaluate().proof.toString('hex')).toBe(blob.evaluate().proof.toString('hex'));
     });
   });
 

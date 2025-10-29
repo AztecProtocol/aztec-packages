@@ -1,5 +1,5 @@
 import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, PAIRING_POINTS_SIZE } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -68,10 +68,10 @@ describe('prover/bb_prover/full-rollup', () => {
         expect(processed.length).toBe(nonEmptyTxs);
         expect(failed.length).toBe(0);
         processedTxs[blockNum] = processed;
-        blobs.push(await Blob.getBlobsPerBlock(processed.flatMap(tx => tx.txEffect.toBlobFields())));
+        blobs.push(getBlobsPerL1Block(processed.flatMap(tx => tx.txEffect.toBlobFields())));
       }
 
-      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs.flat());
+      const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
       context.orchestrator.startNewEpoch(1, 1, totalBlocks, finalBlobChallenges);
 
       for (let blockNum = 1; blockNum <= blockCount; blockNum++) {
@@ -137,8 +137,8 @@ describe('prover/bb_prover/full-rollup', () => {
     expect(processed.length).toBe(numTransactions);
     expect(failed.length).toBe(0);
 
-    const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
-    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+    const blobs = getBlobsPerL1Block(processed.map(tx => tx.txEffect.toBlobFields()).flat());
+    const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
     context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
 

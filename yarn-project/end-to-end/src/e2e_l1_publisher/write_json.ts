@@ -1,5 +1,5 @@
 import { AztecAddress, Fr, type L2Block } from '@aztec/aztec.js';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { writeFile } from 'fs/promises';
@@ -43,7 +43,7 @@ export async function writeJson(
       // The json formatting in forge is a bit brittle, so we convert Fr to a number in the few values below.
       // This should not be a problem for testing as long as the values are not larger than u32.
       archive: asHex(block.archive.root),
-      blobCommitments: Blob.getPrefixedEthBlobCommitments(blobs),
+      blobCommitments: getPrefixedEthBlobCommitments(blobs),
       batchedBlobInputs: batchedBlob.getEthBlobEvaluationInputs(),
       blockNumber: block.number,
       body: `0x${block.body.toBuffer().toString('hex')}`,

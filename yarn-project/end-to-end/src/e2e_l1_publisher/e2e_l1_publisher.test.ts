@@ -1,7 +1,7 @@
 import type { ArchiveSource } from '@aztec/archiver';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, Fr, GlobalVariables, type L2Block, createLogger, retryUntil, sleep } from '@aztec/aztec.js';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -363,7 +363,7 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
-      const allBlobs: Blob[] = [];
+      const allBlobs: Blob[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
       let currentBatch: BatchedBlob | undefined;
@@ -410,7 +410,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+        const blockBlobs = getBlobsPerL1Block(block.body.toBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
@@ -418,7 +418,7 @@ describe('L1Publisher integration', () => {
         let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
 
         blocks.push(block);
-        allBlobs.push(...blockBlobs);
+        allBlobs.push(blockBlobs);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
         currentBatch = await BatchedBlob.batch(allBlobs);
@@ -480,7 +480,7 @@ describe('L1Publisher integration', () => {
             CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
             [],
             Signature.empty().toViemSignature(),
-            Blob.getPrefixedEthBlobCommitments(blockBlobs),
+            getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
         const expectedData = encodeFunctionData({

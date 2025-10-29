@@ -207,7 +207,7 @@ export class BlockProvingState {
     return new MergeRollupInputs([this.#getPreviousRollupData(left), this.#getPreviousRollupData(right)]);
   }
 
-  public async getBlockRootRollupTypeAndInputs() {
+  public getBlockRootRollupTypeAndInputs() {
     if (!this.rootParityProvingOutput) {
       throw new Error('Root parity is not ready.');
     }
@@ -229,7 +229,7 @@ export class BlockProvingState {
         protocolContractTreeRoot,
       });
 
-      this.blobsHash = await getEmptyBlockBlobsHash();
+      this.blobsHash = getEmptyBlockBlobsHash();
 
       return {
         rollupType: 'empty-block-root-rollup' satisfies CircuitName,
@@ -240,8 +240,8 @@ export class BlockProvingState {
       };
     }
 
-    const previousRollupData = await Promise.all(nonEmptyProofs.map(p => this.#getPreviousRollupData(p!)));
-    const blobData = await this.#getBlockRootRollupBlobData();
+    const previousRollupData = nonEmptyProofs.map(p => this.#getPreviousRollupData(p!));
+    const blobData = this.#getBlockRootRollupBlobData();
     this.blobsHash = blobData.blobsHash;
 
     if (previousRollupData.length === 1) {
@@ -362,9 +362,9 @@ export class BlockProvingState {
     });
   }
 
-  async #getBlockRootRollupBlobData() {
+  #getBlockRootRollupBlobData() {
     const txEffects = this.txs.map(txProvingState => txProvingState.processedTx.txEffect);
-    const { blobFields, blobCommitments, blobsHash } = await buildBlobHints(txEffects);
+    const { blobFields, blobCommitments, blobsHash } = buildBlobHints(txEffects);
     return BlockRootRollupBlobData.from({
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
       blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),

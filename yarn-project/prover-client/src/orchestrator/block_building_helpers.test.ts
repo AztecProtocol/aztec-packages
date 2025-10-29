@@ -1,3 +1,4 @@
+import { computeBlobFieldsHash } from '@aztec/blob-lib';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -10,7 +11,7 @@ function fieldArrToStr(arr: Fr[]) {
 
 describe('buildBlobHints', () => {
   it('correctly builds hints for empty blob fields', async () => {
-    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([]);
+    const { blobFields, blobCommitments, blobsHash, blobs } = buildBlobHints([]);
 
     expect(blobFields).toEqual([]);
 
@@ -18,13 +19,15 @@ describe('buildBlobHints', () => {
     const blobCommitmentStr = blobCommitments[0].compress().toString('hex');
     expect(blobCommitmentStr).toEqual(BLS12Point.COMPRESSED_ZERO.toString('hex'));
 
-    expect(await getEmptyBlockBlobsHash()).toEqual(blobsHash);
+    expect(getEmptyBlockBlobsHash()).toEqual(blobsHash);
     const blobsHashStr = blobsHash.toString();
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x001cedbd7ea5309ef9d1d159209835409bf41b6b1802597a52fa70cc82e934d9"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluate().y).toEqual(Buffer.alloc(32));
-    const zStr = blobs[0].challengeZ.toString();
+    const blobFieldsHash = await computeBlobFieldsHash([]);
+    const challengeZ = await blobs[0].computeChallengeZ(blobFieldsHash);
+    expect(blobs[0].evaluate(challengeZ).y.toBuffer()).toEqual(Buffer.alloc(32));
+    const zStr = challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x0ac4f3ee53aedc4865073ae7fb664e7401d10eadbe3bbcc266c35059f14826bb"`);
 
     const blobCommitmentsFields = blobCommitments[0].toBN254Fields();
@@ -55,7 +58,7 @@ describe('buildBlobHints', () => {
     txEffect1.txHash = new TxHash(new Fr(43));
     txEffect1.noteHashes[0] = new Fr(0x6789);
     txEffect1.nullifiers[0] = new Fr(0x45);
-    const { blobFields, blobCommitments, blobsHash, blobs } = await buildBlobHints([txEffect0, txEffect1]);
+    const { blobFields, blobCommitments, blobsHash, blobs } = buildBlobHints([txEffect0, txEffect1]);
 
     const blobFields0Str = fieldArrToStr(blobFields.slice(0, 5));
     const blobFields1Str = fieldArrToStr(blobFields.slice(5));
@@ -71,10 +74,12 @@ describe('buildBlobHints', () => {
     expect(blobsHashStr).toMatchInlineSnapshot(`"0x00a965619c8668b834755678b32d023b9c5e8588ce449f44f7fa9335455b5cc5"`);
 
     expect(blobs.length).toBe(1);
-    expect(blobs[0].evaluate().y.toString('hex')).toMatchInlineSnapshot(
-      `"25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
+    const blobFieldsHash = await computeBlobFieldsHash(blobFields);
+    const challengeZ = await blobs[0].computeChallengeZ(blobFieldsHash);
+    expect(blobs[0].evaluate(challengeZ).y.toString()).toMatchInlineSnapshot(
+      `"0x25fb571bd6a15d4e3a8f6fe199b714c51e1e03ef40366e2e77e5c5733ab9e57d"`,
     );
-    const zStr = blobs[0].challengeZ.toString();
+    const zStr = challengeZ.toString();
     expect(zStr).toMatchInlineSnapshot(`"0x1f92b871671f27a378d23f1cef10fbd8f0d90dd7172da9e3c3fc1aa745a072c3"`);
 
     const blobCommitmentsFields = blobCommitments[0].toBN254Fields();

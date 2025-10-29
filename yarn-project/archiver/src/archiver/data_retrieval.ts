@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError, EMPTY_BLOB_VERSIONED_HASH } from '@aztec/blob-lib';
+import { BlobDeserializationError, EMPTY_BLOB_VERSIONED_HASH, getBlobFieldsInL2Block } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -383,7 +383,7 @@ async function getBlockBodyFromBlobs(
 
   let blockFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+    blockFields = getBlobFieldsInL2Block(blobBodies.map(b => b.blob));
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.error(err.message);

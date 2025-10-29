@@ -1,4 +1,11 @@
-import { Blob, BlobAccumulatorPublicInputs, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import {
+  Blob,
+  BlobAccumulatorPublicInputs,
+  FinalBlobBatchingChallenges,
+  SpongeBlob,
+  computeBlobFieldsHash,
+  getBlobsPerL1Block,
+} from '@aztec/blob-lib';
 import {
   BLOBS_PER_BLOCK,
   BLOB_ACCUMULATOR_PUBLIC_INPUTS,
@@ -74,19 +81,20 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     // const blobsAsFr: Fr[] = args[0].map((field: string) => Fr.fromString(field)).filter(field => !field.isZero());
     // ...but we now have private logs which have a fixed number of fields and may have 0 values.
     // TODO(Miranda): trim 0 fields from private logs
-    const blobs = await Blob.getBlobsPerBlock(blobsAsFr);
+    const blobs = getBlobsPerL1Block(blobsAsFr);
     // Checks on injected values:
     const hash = await spongeBlob.squeeze();
-    blobs.forEach((blob, i) => {
+    const blobFieldsHash = await computeBlobFieldsHash(blobsAsFr);
+    if (!hash.equals(blobFieldsHash)) {
+      throw new Error(
+        `Injected blob fields do not match rolled up fields. Real hash: ${hash}. Hash from injected fields: ${blobFieldsHash}.`,
+      );
+    }
+    blobs.forEach((blob: Blob, i: number) => {
       const injected = kzgCommitments[i];
       const calculated = BLS12Point.decompress(blob.commitment);
       if (!calculated.equals(injected)) {
         throw new Error(`Blob commitment mismatch. Real: ${calculated}, Injected: ${injected}`);
-      }
-      if (!hash.equals(blob.fieldsHash)) {
-        throw new Error(
-          `Injected blob fields do not match rolled up fields. Real hash: ${hash}, Injected hash: ${blob.fieldsHash}`,
-        );
       }
     });
     const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs, finalBlobChallenges);

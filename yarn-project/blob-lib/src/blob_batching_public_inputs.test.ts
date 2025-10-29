@@ -1,30 +1,13 @@
-import { BLOBS_PER_BLOCK, BLOB_ACCUMULATOR_PUBLIC_INPUTS } from '@aztec/constants';
-import { timesParallel } from '@aztec/foundation/collection';
+import { BLOBS_PER_BLOCK, BLOB_ACCUMULATOR_PUBLIC_INPUTS, FIELDS_PER_BLOB } from '@aztec/constants';
 import { randomInt } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
 
-import cKzg from 'c-kzg';
-
-import { Blob } from './blob.js';
 import { BatchedBlob } from './blob_batching.js';
 import {
   BlobAccumulatorPublicInputs,
   BlockBlobPublicInputs,
   FinalBlobAccumulatorPublicInputs,
 } from './blob_batching_public_inputs.js';
-import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs } from './testing.js';
-
-try {
-  cKzg.loadTrustedSetup(8);
-} catch (error: any) {
-  if (error.message.includes('trusted setup is already loaded')) {
-    // NB: The c-kzg lib has no way of checking whether the setup is loaded or not,
-    // and it throws an error if it's already loaded, even though nothing is wrong.
-    // This is a rudimentary way of ensuring we load the trusted setup if we need it.
-  } else {
-    throw new Error(error);
-  }
-}
+import { makeBatchedBlobAccumulator, makeBlockBlobPublicInputs, makeEncodedBlobs } from './testing.js';
 
 describe('BlockBlobPublicInputs', () => {
   let blobPI: BlockBlobPublicInputs;
@@ -75,8 +58,8 @@ describe('FinalBlobAccumulatorPublicInputs', () => {
   });
 
   it('converts correctly from BatchedBlob class', async () => {
-    const blobs = await timesParallel(BLOBS_PER_BLOCK, i => Blob.fromFields(Array(400).fill(new Fr(i + 1))));
-    const batched = await BatchedBlob.batch(blobs);
+    const blobs = makeEncodedBlobs(BLOBS_PER_BLOCK * FIELDS_PER_BLOB);
+    const batched = await BatchedBlob.batch([blobs]);
     const converted = FinalBlobAccumulatorPublicInputs.fromBatchedBlob(batched);
     expect(converted.blobCommitmentsHash).toEqual(batched.blobCommitmentsHash);
     expect(converted.z).toEqual(batched.z);

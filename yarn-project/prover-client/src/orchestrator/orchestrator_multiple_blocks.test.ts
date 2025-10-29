@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { timesAsync } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -30,9 +30,7 @@ describe('prover/orchestrator/multi-block', () => {
       logger.info(`Seeding world state with ${numBlocks} blocks`);
       const txCount = 2;
       const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
-      const blobs = (
-        await Promise.all(blocks.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
-      ).flat();
+      const blobs = blocks.map(block => getBlobsPerL1Block(block.block.body.toBlobFields()));
       const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
       logger.info(`Starting new epoch with ${numBlocks}`);
@@ -59,9 +57,7 @@ describe('prover/orchestrator/multi-block', () => {
         logger.info(`Seeding world state with ${numBlocks} blocks`);
         const txCount = 2;
         const blocks = await timesAsync(numBlocks, i => context.makePendingBlock(txCount, 0, i + 1));
-        const blobs = (
-          await Promise.all(blocks.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
-        ).flat();
+        const blobs = blocks.map(block => getBlobsPerL1Block(block.block.body.toBlobFields()));
         const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
 
         logger.info(`Starting new epoch with ${numBlocks}`);
@@ -98,9 +94,7 @@ describe('prover/orchestrator/multi-block', () => {
         for (let epochIndex = 0; epochIndex < numEpochs; epochIndex++) {
           logger.info(`Starting epoch ${epochIndex + 1} with ${numBlocks} blocks`);
           const blocksInEpoch = blocks.slice(epochIndex * numBlocks, (epochIndex + 1) * numBlocks);
-          const blobs = (
-            await Promise.all(blocksInEpoch.map(block => Blob.getBlobsPerBlock(block.block.body.toBlobFields())))
-          ).flat();
+          const blobs = blocksInEpoch.map(block => getBlobsPerL1Block(block.block.body.toBlobFields()));
           const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
           context.orchestrator.startNewEpoch(
             epochIndex + 1,

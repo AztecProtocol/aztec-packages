@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, Blob, type SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, Blob, type SpongeBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -246,30 +246,26 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
 
-export const buildBlobHints = runInSpan(
-  'BlockBuilderHelpers',
-  'buildBlobHints',
-  async (_span: Span, txEffects: TxEffect[]) => {
-    const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
-    const blobs = await Blob.getBlobsPerBlock(blobFields);
-    // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
-    // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
-    // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
-    //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
-    // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
-    const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
-    const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
-    return { blobFields, blobCommitments, blobs, blobsHash };
-  },
-);
+export const buildBlobHints = (txEffects: TxEffect[]) => {
+  const blobFields = txEffects.flatMap(tx => tx.toBlobFields());
+  const blobs = getBlobsPerL1Block(blobFields);
+  // TODO(#13430): The blobsHash is confusingly similar to blobCommitmentsHash, calculated from below blobCommitments:
+  // - blobsHash := sha256([blobhash_0, ..., blobhash_m]) = a hash of all blob hashes in a block with m+1 blobs inserted into the header, exists so a user can cross check blobs.
+  // - blobCommitmentsHash := sha256( ...sha256(sha256(C_0), C_1) ... C_n) = iteratively calculated hash of all blob commitments in an epoch with n+1 blobs (see calculateBlobCommitmentsHash()),
+  //   exists so we can validate injected commitments to the rollup circuits correspond to the correct real blobs.
+  // We may be able to combine these values e.g. blobCommitmentsHash := sha256( ...sha256(sha256(blobshash_0), blobshash_1) ... blobshash_l) for an epoch with l+1 blocks.
+  const blobCommitments = blobs.map(b => BLS12Point.decompress(b.commitment));
+  const blobsHash = new Fr(getBlobsHashFromBlobs(blobs));
+  return { blobFields, blobCommitments, blobs, blobsHash };
+};
 
 export const accumulateBlobs = runInSpan(
   'BlockBuilderHelpers',
   'accumulateBlobs',
   async (_span: Span, txs: ProcessedTx[], startBlobAccumulator: BatchedBlobAccumulator) => {
     const blobFields = txs.flatMap(tx => tx.txEffect.toBlobFields());
-    const blobs = await Blob.getBlobsPerBlock(blobFields);
-    const endBlobAccumulator = startBlobAccumulator.accumulateBlobs(blobs);
+    const blobs = getBlobsPerL1Block(blobFields);
+    const endBlobAccumulator = await startBlobAccumulator.accumulateBlobs(blobs);
     return endBlobAccumulator;
   },
 );
@@ -340,7 +336,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const outHash = txOutHashes.length === 0 ? Fr.ZERO : new Fr(computeUnbalancedMerkleTreeRoot(txOutHashes));
 
     const parityShaRoot = await computeInHashFromL1ToL2Messages(l1ToL2Messages);
-    const blobsHash = getBlobsHashFromBlobs(await Blob.getBlobsPerBlock(body.toBlobFields()));
+    const blobsHash = getBlobsHashFromBlobs(getBlobsPerL1Block(body.toBlobFields()));
 
     const contentCommitment = new ContentCommitment(blobsHash, parityShaRoot, outHash);
 
@@ -369,10 +365,10 @@ export function getBlobsHashFromBlobs(inputs: Blob[]): Fr {
 
 // Note: tested against the constant values in block_root/empty_block_root_rollup_inputs.nr, set by block_building_helpers.test.ts.
 // Having this separate fn hopefully makes it clear how we treat empty blocks and their blobs, and won't break if we decide to change how
-// getBlobsPerBlock() works on empty input.
-export async function getEmptyBlockBlobsHash(): Promise<Fr> {
-  const blobHash = (await Blob.getBlobsPerBlock([])).map(b => b.getEthVersionedBlobHash());
-  return sha256ToField(blobHash);
+// getBlobsPerL1Block() works on empty input.
+export function getEmptyBlockBlobsHash(): Fr {
+  const blobHash = getBlobsPerL1Block([]).map(b => b.getEthVersionedBlobHash());
+  return sha256ToField([blobHash]);
 }
 
 // Validate that the roots of all local trees match the output of the root circuit simulation

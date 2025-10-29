@@ -1,4 +1,4 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -112,8 +112,8 @@ describe('prover/orchestrator', () => {
 
       it('waits for block to be completed before enqueueing block root proof', async () => {
         const { txs } = await context.makePendingBlock(2);
-        const blobs = await Blob.getBlobsPerBlock(txs.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        const blobs = getBlobsPerL1Block(txs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
         await orchestrator.startNewBlock(globalVariables, [], previousBlockHeader);
         await orchestrator.addTxs(txs);
@@ -131,8 +131,8 @@ describe('prover/orchestrator', () => {
       it('can start tube proofs before adding processed txs', async () => {
         const getTubeSpy = jest.spyOn(prover, 'getTubeProof');
         const { txs: processedTxs } = await context.makePendingBlock(2);
-        const blobs = await Blob.getBlobsPerBlock(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
+        const blobs = getBlobsPerL1Block(processedTxs.map(tx => tx.txEffect.toBlobFields()).flat());
+        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
         orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
 
         processedTxs.forEach((tx, i) => (tx.clientIvcProof = ClientIvcProof.fake(i + 1)));
