@@ -11,8 +11,7 @@ GrumpkinMul::Response GrumpkinMul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
-    auto result = point * scalar;
-    return { result };
+    return { point * scalar };
 }
 
 GrumpkinAdd::Response GrumpkinAdd::execute(BBApiRequest& request) &&
