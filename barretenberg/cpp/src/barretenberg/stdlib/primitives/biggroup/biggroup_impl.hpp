@@ -816,21 +816,15 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
                  scalars.size(),
                  "biggroup batch_mul: points and scalars size mismatch after handling points at infinity");
 
-    // If batch_mul actually performs batch multiplication on the points and scalars, subprocedures can do
-    // operations like addition or subtraction of points, which can trigger OriginTag security mechanisms
-    // even though the final result satisfies the security logic. For example
-    // result = submitted_in_round_0 * challenge_from_round_0 + submitted_in_round_1 * challenge_in_round_1
-    // will trigger it, because the addition of submitted_in_round_0 to submitted_in_round_1 is dangerous by itself.
-    // To avoid this, we remove the tags, merge them separately and set the result appropriately
+    // Compute the combined tag from all input points and scalars.
+    // With the addition of delta * G_offset masking in mask_points, points no longer collide
+    // during ROM table construction, so we can now propagate tags naturally through the computation.
     OriginTag tag{};
-    const auto empty_tag = OriginTag();
     for (size_t i = 0; i < _points.size(); i++) {
         tag = OriginTag(tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
     }
-    for (size_t i = 0; i < scalars.size(); i++) {
-        points[i].set_origin_tag(empty_tag);
-        scalars[i].set_origin_tag(empty_tag);
-    }
+    // Note: We no longer clear tags on working copies (points and scalars).
+    // Tags will propagate naturally through intermediate operations.
 
     // If with_edgecases is false, masking_scalar must be constant and equal to 1 (as it is unused).
     if (!with_edgecases) {

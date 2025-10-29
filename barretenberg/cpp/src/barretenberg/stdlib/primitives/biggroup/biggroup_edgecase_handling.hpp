@@ -51,7 +51,15 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     const typename G::affine_element native_offset_generator = element::compute_table_offset_generator();
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
-    offset_generator_element.set_origin_tag(OriginTag());
+
+    // Compute combined tag from all input points and scalars, plus the masking scalar
+    // The offset generator will be added to all points, so it should carry the combined tag
+    OriginTag combined_tag{};
+    for (size_t i = 0; i < _points.size(); i++) {
+        combined_tag = OriginTag(combined_tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
+    }
+    combined_tag = OriginTag(combined_tag, masking_scalar.get_origin_tag());
+    offset_generator_element.set_origin_tag(combined_tag);
 
     // Compute initial point to be added: (δ)⋅G_offset
     element running_point = offset_generator_element.scalar_mul(masking_scalar, 128);
