@@ -28,21 +28,6 @@
 namespace bb {
 
 /**
- * @brief Helper to determine whether input is bberg::field type
- *
- * @tparam T
- */
-template <typename T> struct is_field_type {
-    static constexpr bool value = false;
-};
-
-template <typename Params> struct is_field_type<bb::field<Params>> {
-    static constexpr bool value = true;
-};
-
-template <typename T> inline constexpr bool is_field_type_v = is_field_type<T>::value;
-
-/**
  * @todo: TODO(https://github.com/AztecProtocol/barretenberg/issues/713) Optimize with lookup tables?
  * @tparam domain_end specifies the given evaluation domain {0,..., domain_end - 1}
  * @tparam num_evals the number of evaluations that are computable with specific barycentric extension formula
@@ -218,35 +203,37 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
             }
         }
     }
-
+    // for each x_k in the big domain, build set of domain size-many denominator inverses
+    // 1/(d_i*(x_k - x_j)). will multiply against each of these (rather than to divide by something)
+    // for each barycentric evaluation
     static void construct_denominator_inverses_span(std::span<Fr> result_span,
                                                     std::span<const Fr> big_domain_span,
                                                     std::span<const Fr> lagrange_denominators_span)
     {
         const size_t domain_sz = lagrange_denominators_span.size();
+        const size_t num_eval_points = result_span.size() / domain_sz;
 
-        if (result_span.size() == domain_sz) {
-            // Single point evaluation: just invert the denominators
-            for (size_t i = 0; i < domain_sz; ++i) {
-                result_span[i] = lagrange_denominators_span[i];
-            }
-            batch_invert_span(result_span, lagrange_denominators_span);
-        } else {
-            // Multiple evaluation points
-            const size_t num_eval_points = result_span.size() / domain_sz;
-            std::vector<Fr> denominators_to_invert(result_span.size(), Fr(0));
+        std::vector<Fr> denominators(result_span.size());
 
-            for (size_t k = domain_sz; k < num_eval_points; ++k) {
-                for (size_t j = 0; j < domain_sz; ++j) {
-                    denominators_to_invert[(k * domain_sz) + j] =
-                        lagrange_denominators_span[j] * (big_domain_span[k] - big_domain_span[j]);
-                }
+        // For evaluation points in the original domain, use lagrange denominators directly
+        for (size_t k = 0; k < std::min(num_eval_points, domain_sz); ++k) {
+            for (size_t j = 0; j < domain_sz; ++j) {
+                denominators[k * domain_sz + j] = lagrange_denominators_span[j];
             }
-            batch_invert_span(result_span, denominators_to_invert);
         }
+
+        // For evaluation points beyond the original domain, compute full barycentric denominators
+        for (size_t k = domain_sz; k < num_eval_points; ++k) {
+            for (size_t j = 0; j < domain_sz; ++j) {
+                denominators[k * domain_sz + j] =
+                    lagrange_denominators_span[j] * (big_domain_span[k] - big_domain_span[j]);
+            }
+        }
+
+        batch_invert_span(result_span, denominators);
     }
 
-    // Array-based wrappers for static initialization (call span methods)
+    // Array-based wrappers calling span methods
     static std::array<Fr, big_domain_size> construct_big_domain()
     {
         std::array<Fr, big_domain_size> result;
@@ -271,19 +258,16 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
     static std::array<Fr, domain_size * num_evals> construct_denominator_inverses(const auto& big_domain,
                                                                                   const auto& lagrange_denominators)
     {
-        std::array<Fr, domain_size * num_evals> result{};
-        if constexpr (num_evals == 1) {
-            result = lagrange_denominators;
-        } else {
-            for (size_t k = domain_size; k < num_evals; ++k) {
-                for (size_t j = 0; j < domain_size; ++j) {
-                    result[(k * domain_size) + j] = lagrange_denominators[j] * (big_domain[k] - big_domain[j]);
-                }
-            }
-        }
-        return batch_invert(result);
+        std::array<Fr, domain_size * num_evals> result;
+        construct_denominator_inverses_span(
+            std::span<Fr>(result), std::span<const Fr>(big_domain), std::span<const Fr>(lagrange_denominators));
+        return result;
     }
 
+    // get full numerator values
+    // full numerator is M(x) = \prod_{i} (x-x_i)
+    // these will be zero for i < domain_size, but that's ok because
+    // at such entries we will already have the evaluations of the polynomial
     static std::array<Fr, num_evals> construct_full_numerator_values(const auto& big_domain)
     {
         std::array<Fr, num_evals> result;
@@ -302,6 +286,21 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
         construct_denominator_inverses(big_domain, lagrange_denominators);
     inline static const auto full_numerator_values = construct_full_numerator_values(big_domain);
 };
+
+/**
+ * @brief Helper to determine whether input is bberg::field type
+ *
+ * @tparam T
+ */
+template <typename T> struct is_field_type {
+    static constexpr bool value = false;
+};
+
+template <typename Params> struct is_field_type<bb::field<Params>> {
+    static constexpr bool value = true;
+};
+
+template <typename T> inline constexpr bool is_field_type_v = is_field_type<T>::value;
 
 /**
  * @brief Exposes BarycentricData with compile time arrays if the type is bberg::field and runtime arrays otherwise
