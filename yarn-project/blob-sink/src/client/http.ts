@@ -226,13 +226,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
             l1ConsensusHostUrl,
             ...ctx,
           });
-          const blobs = await this.getBlobsFromHost(
-            l1ConsensusHostUrl,
-            slotNumber,
-            missingHashes,
-            indices,
-            l1ConsensusHostIndex,
-          );
+          const blobs = await this.getBlobsFromHost(l1ConsensusHostUrl, slotNumber, indices, l1ConsensusHostIndex);
           const result = fillResults(blobs);
           this.log.debug(
             `Got ${blobs.length} blobs from consensus host (total: ${result.length}/${blobHashes.length})`,
@@ -287,7 +281,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       });
 
       if (res.ok) {
-        return (await res.json()).data;
+        return parseBlobJsonsFromResponse(await res.json(), this.log);
       }
 
       this.log.warn(`Failed to get blobs from blob sink: ${res.statusText} (${res.status})`);
@@ -305,21 +299,20 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     indices: number[] = [],
     l1ConsensusHostIndex?: number,
   ): Promise<BlobWithIndex[]> {
-    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, blobHashes, indices, l1ConsensusHostIndex);
+    const blobs = await this.getBlobsFromHost(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
     return processFetchedBlobs(blobs, blobHashes, this.log).filter((b): b is BlobWithIndex => b !== undefined);
   }
 
   public async getBlobsFromHost(
     hostUrl: string,
     blockHashOrSlot: string | number,
-    blobHashes: Buffer[] = [],
     indices: number[] = [],
     l1ConsensusHostIndex?: number,
   ): Promise<BlobJson[]> {
     try {
       let res = await this.fetchBlobSidecars(hostUrl, blockHashOrSlot, indices, l1ConsensusHostIndex);
       if (res.ok) {
-        return (await res.json()).data;
+        return parseBlobJsonsFromResponse(await res.json(), this.log);
       }
 
       if (res.status === 404 && typeof blockHashOrSlot === 'number') {
@@ -333,10 +326,10 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         let maxRetries = 10;
         let currentSlot = blockHashOrSlot + 1;
         while (res.status === 404 && maxRetries > 0 && latestSlot !== undefined && currentSlot <= latestSlot) {
-          this.log.debug(`Trying slot ${currentSlot} for blobs ${blobHashes.map(bufferToHex).join(', ')}`);
+          this.log.debug(`Trying slot ${currentSlot} for blob indices ${indices.join(', ')}`);
           res = await this.fetchBlobSidecars(hostUrl, currentSlot, indices, l1ConsensusHostIndex);
           if (res.ok) {
-            return (await res.json()).data;
+            return parseBlobJsonsFromResponse(await res.json(), this.log);
           }
           currentSlot++;
           maxRetries--;
@@ -468,13 +461,36 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   }
 }
 
+function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
+  try {
+    const blobs = response.data.map(parseBlobJson);
+    return blobs;
+  } catch (err) {
+    logger.error(`Error parsing blob json from response`, err);
+    return [];
+  }
+}
+
+// Blobs will be in this form when requested from the blob sink, or from the beacon chain via `getBlobSidecars`:
+// https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
+// Attempt to parse the response data to Buffer, to avoid throwing an error down the line when calling Blob.fromJson().
+function parseBlobJson(data: any): BlobJson {
+  return {
+    blob: `0x${Buffer.from(data.blob.slice(2), 'hex').toString('hex')}`,
+    index: data.index,
+    // eslint-disable-next-line camelcase
+    kzg_commitment: `0x${Buffer.from(data.kzg_commitment.slice(2), 'hex').toString('hex')}`,
+  };
+}
+
 // Returns an array that maps each blob hash to the corresponding blob with index, or undefined if the blob is not found
 // or the data does not match the commitment.
 function processFetchedBlobs(blobs: BlobJson[], blobHashes: Buffer[], logger: Logger): (BlobWithIndex | undefined)[] {
+  const requestedBlobHashes = new Set<string>(blobHashes.map(bufferToHex));
   const hashToBlob = new Map<string, BlobWithIndex>();
   for (const blob of blobs) {
     const hashHex = bufferToHex(computeEthVersionedBlobHash(hexToBuffer(blob.kzg_commitment)));
-    if (hashToBlob.has(hashHex)) {
+    if (!requestedBlobHashes.has(hashHex) || hashToBlob.has(hashHex)) {
       continue;
     }
 

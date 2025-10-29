@@ -1,7 +1,7 @@
 import { poseidon2Hash, sha256, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, Fr } from '@aztec/foundation/fields';
 
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './zkg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
 
 const VERSIONED_HASH_VERSION_KZG = 0x01;
 

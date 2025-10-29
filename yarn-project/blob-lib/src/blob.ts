@@ -4,7 +4,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { computeBlobCommitment, computeChallengeZ, computeEthVersionedBlobHash } from './hash.js';
 import type { BlobJson } from './interface.js';
-import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './zkg_context.js';
+import { BYTES_PER_BLOB, BYTES_PER_COMMITMENT, kzg } from './kzg_context.js';
 
 /** Versioned blob hash for an empty blob */
 export const EMPTY_BLOB_VERSIONED_HASH = Buffer.from(

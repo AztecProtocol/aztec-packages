@@ -343,7 +343,8 @@ describe('HttpBlobSinkClient', () => {
         testBlobsHashes[1],
       ]);
 
-      // Should return the successfully retrieved blob, discarding the one that failed to deserialize
+      // Should return the successfully retrieved blob, discarding the one that has mismatch data and commitment.
+      expect(retrievedBlobs.length).toEqual(2);
       expect(retrievedBlobs).toEqual([testBlobsWithIndex[0], testBlobsWithIndex[1]]);
     });
 
@@ -396,13 +397,14 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
       blobData.push(blobsWithIndex[1].toJSON());
 
-      // Blob 2 only in archive
       const client = new TestHttpBlobSinkClient({
         blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         archiveApiUrl: `https://api.blobscan.com`,
       });
+
+      // Blob 2 only in archive
       const blob3Json = blobsWithIndex[2].toJSON();
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue([blob3Json]);
 
@@ -560,6 +562,58 @@ describe('HttpBlobSinkClient', () => {
       expect(retrievedBlobs).toHaveLength(1);
       expect(retrievedBlobs[0].blob).toEqual(blob);
       expect(archiveSpy).toHaveBeenCalledWith('0x1234');
+    });
+
+    it('should return empty array from consensus host if it returns blob json with incorrect format', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new TestHttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+      });
+
+      const blob = makeRandomBlob(3);
+      const blobHash = blob.getEthVersionedBlobHash();
+      const blobWithIndex = new BlobWithIndex(blob, 0);
+      const blobJson = blobWithIndex.toJSON();
+
+      const originalBlobData = blobData;
+
+      // Incorrect bytes for the data.
+      blobData = [
+        ...originalBlobData,
+        {
+          ...blobJson,
+          blob: 'abcdefghijk',
+        },
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Incorrect bytes for the commitment.
+      blobData = [
+        ...originalBlobData,
+        {
+          ...blobJson,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: 'abcdefghijk',
+        },
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Commitment does not exist.
+      blobData = [
+        ...originalBlobData,
+        {
+          blob: blobJson.blob,
+          index: blobJson.index,
+        } as BlobJson,
+      ];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([]);
+
+      // Correct blob json.
+      blobData = [...originalBlobData, blobJson];
+      expect(await client.getBlobSidecar('0x1234', [blobHash])).toEqual([blobWithIndex]);
     });
   });
 });

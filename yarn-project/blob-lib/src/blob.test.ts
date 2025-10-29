@@ -6,8 +6,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { readFileSync } from 'fs';
 
 import { Blob } from './blob.js';
+import { BYTES_PER_BLOB, kzg } from './kzg_context.js';
 import { makeRandomBlob } from './testing.js';
-import { BYTES_PER_BLOB, kzg } from './zkg_context.js';
 
 describe('blob', () => {
   it('c-kzg lib should verify a batch of blobs', () => {

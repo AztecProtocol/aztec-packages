@@ -6,7 +6,7 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { Blob } from './blob.js';
 import { computeBlobFieldsHashFromBlobs } from './blob_utils.js';
 import { computeBlobFieldsHash, computeEthVersionedBlobHash } from './hash.js';
-import { kzg } from './zkg_context.js';
+import { kzg } from './kzg_context.js';
 
 /**
  * A class to create, manage, and prove batched EVM blobs.
