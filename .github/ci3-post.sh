@@ -4,26 +4,25 @@ set -euo pipefail
 # Source ci3 framework
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
-echo_header "CI3 Post-Actions"
+save_cache() {
+  local ci_mode="$1"
+  local github_repository="$2"
 
-# Read CI mode from env vars set by ci3.sh
-ci_mode="${CI_MODE:-fast}"
+  local run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
+  echo "${run_url}" > ".ci-success.txt"
+  echo "Saved CI success marker: ${run_url}"
 
-# Get repository from git remote
-github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+  local cache_name="ci-success-${ci_mode}.tar.gz"
+  cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
+}
 
-# Save CI success marker for cache
-run_url="https://github.com/${github_repository}/actions/runs/${GITHUB_RUN_ID}"
-echo "${run_url}" > ".ci-success.txt"
-echo "Saved CI success marker: ${run_url}"
+handle_squash_merge() {
+  local github_repository="$1"
 
-# Upload cache
-cache_name="ci-success-${ci_mode}.tar.gz"
-cache_upload "$cache_name" ".ci-success.txt" 2>&1 | grep -v "^$" || true
+  if [ "${SHOULD_SQUASH_MERGE:-0}" -eq 0 ]; then
+    return
+  fi
 
-# If we have passed CI and labelled with ci-squash-and-merge, squash the PR.
-# This will rerun CI on the squash commit - but is intended to be a no-op due to caching.
-if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   echo "Processing squash and merge..."
 
   : "${GITHUB_TOKEN:?required}"
@@ -32,10 +31,8 @@ if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   : "${PR_BASE_REF:?required}"
   : "${PR_BASE_SHA:?required}"
 
-  # Reauth the git repo with our GITHUB_TOKEN
   git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${github_repository}
 
-  # Get the base commit (merge-base) for the PR
   ./scripts/merge-train/squash-pr.sh \
     "${PR_NUMBER}" \
     "${PR_HEAD_REF}" \
@@ -46,14 +43,30 @@ if [ "${SHOULD_SQUASH_MERGE}" -eq 1 ]; then
   gh pr merge "${PR_NUMBER}" --auto -m || true
 
   echo "Squash and merge completed"
-fi
+}
 
-# Handle benchmarks download (internal only)
-if [ "${SHOULD_UPLOAD_BENCHMARKS}" -eq 1 ] && [ "${CI_INTERNAL}" -eq 1 ]; then
+handle_benchmarks() {
+  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ] || [ "${CI_INTERNAL:-0}" -eq 0 ]; then
+    return
+  fi
+
   echo "Downloading benchmarks..."
   ./ci.sh gh-bench
   echo "Benchmarks download complete - upload will be handled by GitHub Action"
-fi
+}
 
-echo ""
-echo_header "Post-Actions Complete"
+main() {
+  echo_header "CI3 Post-Actions"
+
+  local ci_mode="${CI_MODE:-fast}"
+  local github_repository=$(git remote get-url origin | sed -E 's|.*github\.com[/:]([^/]+/[^/]+)(\.git)?$|\1|')
+
+  save_cache "${ci_mode}" "${github_repository}"
+  handle_squash_merge "${github_repository}"
+  handle_benchmarks
+
+  echo ""
+  echo_header "Post-Actions Complete"
+}
+
+main
