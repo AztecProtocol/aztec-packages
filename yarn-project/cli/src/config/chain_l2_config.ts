@@ -33,6 +33,8 @@ export type L2ChainConfig = L1ContractsConfig &
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+    skipArchiverInitialSync?: boolean;
+    blobAllowEmptySources?: boolean;
 
     // Setting the dbMapSize provides the default for every DB in the node.
     // Then we explicitly override the sizes for the archiver and the larger trees.
@@ -110,6 +112,7 @@ export const stagingIgnitionL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   txPoolDeleteTxsAfterReorg: false,
+  blobAllowEmptySources: true,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,
@@ -246,6 +249,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
   txPoolDeleteTxsAfterReorg: true,
+  skipArchiverInitialSync: true,
+  blobAllowEmptySources: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -414,6 +419,14 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('NOTE_HASH_TREE_MAP_SIZE_KB', config.noteHashTreeMapSizeKb.toString());
   enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
   enrichVar('PUBLIC_DATA_TREE_MAP_SIZE_KB', config.publicDataTreeMapSizeKb.toString());
+
+  if (config.skipArchiverInitialSync !== undefined) {
+    enrichVar('SKIP_ARCHIVER_INITIAL_SYNC', config.skipArchiverInitialSync.toString());
+  }
+
+  if (config.blobAllowEmptySources !== undefined) {
+    enrichVar('BLOB_ALLOW_EMPTY_SOURCES', config.blobAllowEmptySources.toString());
+  }
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());
