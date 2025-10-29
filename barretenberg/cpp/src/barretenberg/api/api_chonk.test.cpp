@@ -5,7 +5,7 @@
 #include "barretenberg/chonk/acir_bincode_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/chonk/private_execution_steps.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"

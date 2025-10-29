@@ -1,4 +1,4 @@
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"

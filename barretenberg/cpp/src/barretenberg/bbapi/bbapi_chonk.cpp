@@ -1,5 +1,5 @@
 #include "barretenberg/bbapi/bbapi_chonk.hpp"
-#include "barretenberg/chonk/sumcheck_mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
