@@ -30,10 +30,10 @@ using namespace bb::stdlib;
  * @param builder
  * @return bb::stdlib::cycle_group<Builder>
  */
-template <typename Builder, typename FF>
-bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& input_x,
-                                                   const WitnessOrConstant<FF>& input_y,
-                                                   const WitnessOrConstant<FF>& input_infinite,
+template <typename Builder>
+bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typename Builder::FF>& input_x,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_y,
+                                                   const WitnessOrConstant<typename Builder::FF>& input_infinite,
                                                    bool has_valid_witness_assignments,
                                                    const bb::stdlib::bool_t<Builder>& predicate,
                                                    Builder& builder)
@@ -47,7 +47,7 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
     auto point_y = to_field_ct(input_y, builder);
     auto infinite = bool_ct(to_field_ct(input_infinite, builder));
 
-    // In a witness is not provided (we are in a write_vk scenario) we ensure the coordinates correspond to a valid
+    // If a witness is not provided (we are in a write_vk scenario) we ensure the coordinates correspond to a valid
     // point to avoid erroneous failures during circuit construction. We only do this if the coordinates are
     // non-constant since otherwise no variable indices exist.
     if (!has_valid_witness_assignments && !constant_coordinates) {
@@ -69,16 +69,17 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<FF>& 
 }
 
 template bb::stdlib::cycle_group<UltraCircuitBuilder> to_grumpkin_point(
-    const WitnessOrConstant<fr>& input_x,
-    const WitnessOrConstant<fr>& input_y,
-    const WitnessOrConstant<fr>& input_infinite,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_x,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_y,
+    const WitnessOrConstant<UltraCircuitBuilder::FF>& input_infinite,
     bool has_valid_witness_assignments,
     const bb::stdlib::bool_t<UltraCircuitBuilder>& predicate,
     UltraCircuitBuilder& builder);
+
 template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(
-    const WitnessOrConstant<fr>& input_x,
-    const WitnessOrConstant<fr>& input_y,
-    const WitnessOrConstant<fr>& input_infinite,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_x,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_y,
+    const WitnessOrConstant<MegaCircuitBuilder::FF>& input_infinite,
     bool has_valid_witness_assignments,
     const bb::stdlib::bool_t<MegaCircuitBuilder>& predicate,
     MegaCircuitBuilder& builder);

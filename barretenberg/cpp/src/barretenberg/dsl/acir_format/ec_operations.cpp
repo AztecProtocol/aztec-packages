@@ -19,9 +19,16 @@ namespace acir_format {
  * @details We proceed in 2 steps:
  * 1. We reconstruct the Grumpkin points input1, input2 and input_result for which we must check input1 + input2 =
  *    input_result. The reconstruction handles all cases: has_valid_witness_assignments equal to false (write_vk
- *    scenario) and a witness predicate. If either has_valid_witness_assignments if false or the predicate is witness
- *    false, we set input1 and input2 to be the generator of Grumpkin.
+ *    scenario) and a witness predicate. If:
+ *      - has_valid_witness_assignments is false, then we set input1 = input2 = input_result equal to the generator of
+ *        Grumpkin
+ *      - the predicate is witness false, we set input1 and input2 to be the generator of Grumpkin.
  * 2. We compute input1 + input2 and check that it agrees with input_result.
+ *
+ * @note We do not need to enforce in-circuit that input_result is on the curve because we check that input_result is
+ * equal to result, which we know is on the curve as it is the sum of two points on the curve. In the case of predicate
+ * equal to witness false, the constraint is supposed to be inactive, so we even if input_result is not checked to be on
+ * the curve in this case, it is OK.
  *
  * @tparam Builder
  * @param builder
@@ -45,7 +52,10 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
         input.input1_x, input.input1_y, input.input1_infinite, has_valid_witness_assignments, predicate, builder);
     cycle_group_ct input2_point = to_grumpkin_point(
         input.input2_x, input.input2_y, input.input2_infinite, has_valid_witness_assignments, predicate, builder);
-    cycle_group_ct input_result(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/true);
+    cycle_group_ct input_result =
+        has_valid_witness_assignments
+            ? cycle_group_ct(input_result_x, input_result_y, input_result_infinite, /*assert_on_curve=*/false)
+            : cycle_group_ct(bb::grumpkin::g1::affine_one);
 
     // Step 2.
     cycle_group_ct result = input1_point + input2_point;
