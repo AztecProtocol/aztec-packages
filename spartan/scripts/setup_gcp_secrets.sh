@@ -95,6 +95,13 @@ JSON_SECRETS=(
 # Replace placeholders with actual secrets
 for env_var in "${!SECRET_MAPPINGS[@]}"; do
     secret_name="${SECRET_MAPPINGS[$env_var]}"
+
+    # Skip if the variable doesn't contain REPLACE_WITH_GCP_SECRET at all
+    if ! grep -q "^${env_var}=.*REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then
+        echo "Skipping $env_var (no placeholder value)"
+        continue
+    fi
+
     echo "Fetching secret: $secret_name for $env_var"
 
     if grep -q "^${env_var}=REPLACE_WITH_GCP_SECRET" "$ENV_FILE"; then

@@ -36,6 +36,9 @@ provider "helm" {
 }
 
 module "web3signer" {
+  # Only deploy web3signer if we have validators or provers that need to publish to L1
+  count = tonumber(var.VALIDATOR_REPLICAS) > 0 || (tonumber(var.PROVER_REPLICAS) > 0 && !var.PROVER_NODE_DISABLE_PROOF_PUBLISH) ? 1 : 0
+
   source                                   = "../modules/web3signer"
   NAMESPACE                                = var.NAMESPACE
   RELEASE_NAME                             = var.RELEASE_PREFIX
@@ -122,7 +125,7 @@ locals {
       wait                 = true
     } : null
 
-    validators = {
+    validators = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
       name  = "${var.RELEASE_PREFIX}-validator"
       chart = "aztec-validator"
       values = [
@@ -152,7 +155,6 @@ locals {
         "validator.slash.offenseExpirationRounds"               = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
         "validator.slash.maxPayloadSize"                        = var.SLASH_MAX_PAYLOAD_SIZE
         "validator.node.env.TRANSACTIONS_DISABLED"              = var.TRANSACTIONS_DISABLED
-        "validator.node.env.NETWORK"                            = var.NETWORK
         "validator.node.env.KEY_INDEX_START"                    = var.VALIDATOR_MNEMONIC_START_INDEX
         "validator.node.env.PUBLISHER_KEY_INDEX_START"          = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
         "validator.node.env.VALIDATORS_PER_NODE"                = var.VALIDATORS_PER_NODE
@@ -166,7 +168,7 @@ locals {
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
       wait                 = true
-    }
+    } : null
 
     prover = {
       name  = "${var.RELEASE_PREFIX}-prover"
@@ -176,27 +178,29 @@ locals {
         "prover.yaml",
         "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
       ]
-      custom_settings = {
-        "node.mnemonic"                                    = var.PROVER_MNEMONIC
-        "node.mnemonicStartIndex"                          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.web3signerUrl"                               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-        "node.node.env.NETWORK"                            = var.NETWORK
-        "node.node.env.PROVER_FAILED_PROOF_STORE"          = var.PROVER_FAILED_PROOF_STORE
-        "node.node.env.KEY_INDEX_START"                    = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHER_KEY_INDEX_START"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-        "node.node.env.PUBLISHERS_PER_PROVER"              = var.PROVER_PUBLISHERS_PER_PROVER
-        "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"  = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
-        "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "broker.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
-        "broker.node.env.NETWORK"                          = var.NETWORK
-        "broker.node.env.BOOTSTRAP_NODES"                  = "asdf"
-        "agent.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-        "agent.node.env.NETWORK"                           = var.NETWORK
-        "agent.replicaCount"                               = var.PROVER_REPLICAS
-        "agent.node.env.BOOTSTRAP_NODES"                   = "asdf"
-        "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
-      }
+      custom_settings = merge(
+        {
+          "node.mnemonic"                                    = var.PROVER_MNEMONIC
+          "node.mnemonicStartIndex"                          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+          "node.node.env.PROVER_FAILED_PROOF_STORE"          = var.PROVER_FAILED_PROOF_STORE
+          "node.node.env.KEY_INDEX_START"                    = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHER_KEY_INDEX_START"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHERS_PER_PROVER"              = var.PROVER_PUBLISHERS_PER_PROVER
+          "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"  = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+          "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+          "broker.node.proverRealProofs"                     = var.PROVER_REAL_PROOFS
+          "broker.node.env.BOOTSTRAP_NODES"                  = "asdf"
+          "agent.node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
+          "agent.replicaCount"                               = var.PROVER_REPLICAS
+          "agent.node.env.BOOTSTRAP_NODES"                   = "asdf"
+          "agent.node.env.AGENT_COUNT"                       = var.PROVER_AGENTS_PER_PROVER
+        },
+        # Only set web3signerUrl if proof publishing is enabled
+        !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
+          "node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        } : {}
+      )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
       wait                 = true
@@ -235,7 +239,6 @@ locals {
       custom_settings = {
         "nodeType"                                    = "rpc"
         "replicaCount"                                = var.RPC_REPLICAS
-        "node.env.NETWORK"                            = var.NETWORK
         "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
         "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
         "ingress.rpc.host"                            = var.RPC_INGRESS_HOST
@@ -258,7 +261,6 @@ locals {
       ]
       custom_settings = {
         "nodeType"                                    = "archive"
-        "node.env.NETWORK"                            = var.NETWORK
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
       }
