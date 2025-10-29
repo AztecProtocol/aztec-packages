@@ -1,1 +1,0 @@
-barretenberg_module(client_ivc dsl libdeflate::libdeflate_static hypernova multilinear_batching)

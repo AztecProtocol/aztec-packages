@@ -44,7 +44,6 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     SubrelationSeparator alpha;
     RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    // The target sum, which is typically nonzero for a ProtogalaxyProver's accmumulator
     FF target_sum{ 0 };
 
     WitnessCommitments witness_commitments;
@@ -105,7 +104,7 @@ template <IsRecursiveFlavor Flavor_> class RecursiveVerifierInstance_ {
     /**
      * @brief Return the underlying native VerifierInstance.
      *
-     * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
+     * @details In the context of Chonk, we will have several iterations of recursive folding verification. The
      * RecursiveVerifierInstance is tied to the builder in whose context it was created so in order to preserve
      * the accumulator values between several iterations we need to retrieve the native VerifierInstance values.
      */

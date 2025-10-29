@@ -1,4 +1,5 @@
-import { Barretenberg, BarretenbergSync, Fr } from '../index.js';
+import { Barretenberg, BarretenbergSync } from '../index.js';
+import { Fr } from '../types/fields.js';
 import { serializeBufferable } from '../serialize/index.js';
 import { BarretenbergWasmMain } from '../barretenberg_wasm/barretenberg_wasm_main/index.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';

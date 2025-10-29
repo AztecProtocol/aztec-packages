@@ -92,7 +92,7 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
     SubrelationSeparator alpha; // single challenge from which powers are computed for batching subrelations
     bb::RelationParameters<FF> relation_parameters;
     std::vector<FF> gate_challenges;
-    FF target_sum{ 0 }; // Sumcheck target sum; typically nonzero for a ProtogalaxyProver's accumulator
+    FF target_sum{ 0 }; // Sumcheck target sum
 
     HonkProof ipa_proof; // utilized only for UltraRollupFlavor
 

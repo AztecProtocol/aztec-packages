@@ -61,8 +61,8 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
  * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
- * @note The prover doesn't commit to t_j because it shares a transcript with the PG instance that folds the present
- * circuit, and therefore t_j has already been added to the transcript by PG.
+ * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds the present
+ * circuit, and therefore t_j has already been added to the transcript by HN.
  *
  * @return MergeProver::MergeProof
  */

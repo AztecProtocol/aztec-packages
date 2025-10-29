@@ -32,7 +32,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - Ideal for production-like testing
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/guides/local_env/sandbox.md).
+If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/tutorials/sandbox.md).
 :::
 
 ## Prerequisites
@@ -240,13 +240,13 @@ const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [sandbox guide](../developers/docs/guides/local_env/sandbox.md) for faster development
+- **New to Aztec?** Start with the [sandbox tutorial](../developers/docs/tutorials/sandbox.md) for faster development
 - **Ready for production testing?** Continue using testnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
 
 ## Additional Resources
 
-- [Fee payment guide](./docs/guides/aztec-js/how_to_pay_fees.md)
+- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
 - [Running a node](../the_aztec_network/index.md)
 - [Block explorers](https://aztecscan.xyz)

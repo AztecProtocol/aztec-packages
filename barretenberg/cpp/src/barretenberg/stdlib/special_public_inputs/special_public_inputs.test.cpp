@@ -31,7 +31,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
     for (auto& commitment : ecc_op_tables_val) {
         commitment = G1Native::random_element();
     }
-    FFNative output_pg_accum_hash_val = FFNative::random_element();
+    FFNative output_hn_accum_hash_val = FFNative::random_element();
 
     // Store the public inputs of the first circuit to be used by the second
     std::vector<FFNative> public_inputs;
@@ -49,7 +49,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
         for (auto [table_commitment, table_val] : zip_view(kernel_output.ecc_op_tables, ecc_op_tables_val)) {
             table_commitment = G1::from_witness(&builder, table_val);
         }
-        kernel_output.output_pg_accum_hash = FF::from_witness(&builder, output_pg_accum_hash_val);
+        kernel_output.output_hn_accum_hash = FF::from_witness(&builder, output_hn_accum_hash_val);
 
         // Propagate the kernel output via the public inputs
         kernel_output.set_public();
@@ -81,7 +81,7 @@ TEST_F(SpecialPublicInputsTests, Basic)
         for (auto [reconstructed_commitment, commitment] : zip_view(kernel_input.ecc_op_tables, ecc_op_tables_val)) {
             EXPECT_EQ(reconstructed_commitment.get_value(), commitment);
         }
-        EXPECT_EQ(kernel_input.output_pg_accum_hash.get_value(), output_pg_accum_hash_val);
+        EXPECT_EQ(kernel_input.output_hn_accum_hash.get_value(), output_hn_accum_hash_val);
     }
 }
 

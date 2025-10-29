@@ -77,7 +77,7 @@ add_subdirectory(barretenberg/bbapi)
 add_subdirectory(barretenberg/benchmark)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
-add_subdirectory(barretenberg/client_ivc)
+add_subdirectory(barretenberg/chonk)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -136,7 +136,7 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:bbapi_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
+    $<TARGET_OBJECTS:chonk_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
@@ -168,7 +168,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
-    $<TARGET_OBJECTS:stdlib_client_ivc_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
     $<TARGET_OBJECTS:stdlib_merge_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>

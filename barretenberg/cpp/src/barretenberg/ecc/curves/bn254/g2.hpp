@@ -37,4 +37,12 @@ struct Bn254G2Params {
 };
 
 using g2 = group<fq2, fr, Bn254G2Params>;
+
+// specialize the name in msgpack schema generation
+// consumed by the typescript schema compiler, helps disambiguate templates
+inline std::string msgpack_schema_name(g2::affine_element const& /*unused*/)
+{
+    return "Bn254G2Point";
+}
+
 } // namespace bb

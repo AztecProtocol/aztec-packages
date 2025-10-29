@@ -1,57 +1,77 @@
 #include "barretenberg/vm2/tracegen/data_copy_trace.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
-#include <memory>
 
-#include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
-#include "barretenberg/vm2/generated/relations/perms_data_copy.hpp"
-#include "barretenberg/vm2/simulation/events/data_copy_events.hpp"
-#include "barretenberg/vm2/simulation/events/ecc_events.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
 
 namespace bb::avm2::tracegen {
 
-constexpr uint32_t MAX_MEM_ADDR = AVM_HIGHEST_MEM_ADDRESS;
-
+/**
+ * @brief Builds the data copy trace.
+ *
+ * This trace handles CALLDATACOPY and RETURNDATACOPY (both enqueued and nested) events.
+ * The enum DataCopyOperation is used to distinguish between the two operations and is set
+ * in the field operation of the DataCopyEvent.
+ *
+ * Memory I/O, this subtrace can potentially read and write across two different memory
+ * space ids (indicated by the context_ids). All memory reads are performed in the src context
+ * (using the src_context_id) and writes are performed in the current executing context (using dst_context_id).
+ * For an enqueued call, we do not read from memory as there is no parent context but read from
+ * the calldata column.
+ *
+ * Error Handling:
+ * There is one class of errors that is checked: memory out of range accesses for reads and writes.
+ * Both are part of the same temporality group and therefore are checked simultaneously.
+ * If an error occurs, we populate a single row with the error flag set.
+ *
+ * Writing Data:
+ * If the copy size is zero, we do not read or write any data.
+ * If the copy size is non-zero, we read and write the data to the current context.
+ * For each read/write, we populate one row in the trace.
+ *
+ * Padding Data:
+ * If we read past the end of the data, we populate a padding row (value = 0).
+ *
+ * Precondition: If there is no error, the field copying_data is a vector of size copy_size.
+ *
+ * @param events The events to process.
+ * @param trace The trace to populate.
+ */
 void DataCopyTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::DataCopyEvent>::Container& events, TraceContainer& trace)
 {
     using C = Column;
-
     uint32_t row = 1;
-    // When processing the events, we need to handle any potential errors and create the respective error columns
     for (const auto& event : events) {
-        // We first set elements of the row that are unconditional, i.e. they are always set regardless of success/error
-        bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
-        bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
-
-        // todo(ilyas): Can optimize this as we only need the inverse if CD_COPY as well
-        bool is_top_level = event.read_context_id == 0;
-        FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id); // Will be inverted in batch later
+        const bool is_cd_copy = event.operation == simulation::DataCopyOperation::CD_COPY;
+        const bool is_rd_copy = event.operation == simulation::DataCopyOperation::RD_COPY;
+        const bool is_top_level = event.read_context_id == 0;
+        const FF parent_id_inv = is_top_level ? 0 : FF(event.read_context_id); // Will be inverted in batch later
 
         // While we know at this point data copy size and data offset are guaranteed to be U32
         // we cast to a wider integer type to detect overflows
-        uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size);
-        uint64_t data_offset = static_cast<uint64_t>(event.data_offset);
-        uint64_t max_read_index = std::min(data_offset + copy_size, static_cast<uint64_t>(event.data_size));
+        const uint64_t copy_size = static_cast<uint64_t>(event.data_copy_size);
+        const uint64_t data_offset = static_cast<uint64_t>(event.data_offset);
+        const uint64_t data_index_upper_bound =
+            std::min(data_offset + copy_size, static_cast<uint64_t>(event.src_data_size));
 
-        uint64_t max_read_addr = static_cast<uint64_t>(event.data_addr) + max_read_index;
-        uint64_t max_write_addr = static_cast<uint64_t>(event.dst_addr) + copy_size;
+        const uint64_t read_addr_upper_bound = static_cast<uint64_t>(event.src_data_addr) + data_index_upper_bound;
+        const uint64_t write_addr_upper_bound = static_cast<uint64_t>(event.dst_addr) + copy_size;
 
         trace.set(row,
                   { {
                       // Unconditional values
+                      { C::data_copy_sel, 1 },
                       { C::data_copy_clk, event.execution_clk },
                       { C::data_copy_sel_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
-                      { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
-                      { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
                       { C::data_copy_src_context_id, event.read_context_id },
                       { C::data_copy_dst_context_id, event.write_context_id },
@@ -59,22 +79,22 @@ void DataCopyTraceBuilder::process(
                       { C::data_copy_copy_size, event.data_copy_size },
                       { C::data_copy_offset, event.data_offset },
 
-                      { C::data_copy_src_addr, event.data_addr },
-                      { C::data_copy_src_data_size, event.data_size },
+                      { C::data_copy_src_addr, event.src_data_addr },
+                      { C::data_copy_src_data_size, event.src_data_size },
                       { C::data_copy_dst_addr, event.dst_addr },
 
                       { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
-                      { C::data_copy_parent_id_inv, parent_id_inv },
+                      { C::data_copy_parent_id_inv, parent_id_inv }, // Will be inverted in batch later
 
-                      // Compute Max Read Index
+                      // Compute Data Index Upper Bound
                       { C::data_copy_offset_plus_size, data_offset + copy_size },
-                      { C::data_copy_offset_plus_size_is_gt, data_offset + copy_size > event.data_size ? 1 : 0 },
-                      { C::data_copy_max_read_index, max_read_index },
+                      { C::data_copy_offset_plus_size_is_gt, data_offset + copy_size > event.src_data_size ? 1 : 0 },
+                      { C::data_copy_data_index_upper_bound, data_index_upper_bound },
 
-                      // Max Addresses
-                      { C::data_copy_max_mem_addr, MAX_MEM_ADDR },
-                      { C::data_copy_max_read_addr, max_read_addr },
-                      { C::data_copy_max_write_addr, max_write_addr },
+                      // Addresses Upper Bounds
+                      { C::data_copy_mem_size, static_cast<uint64_t>(AVM_MEMORY_SIZE) },
+                      { C::data_copy_read_addr_upper_bound, read_addr_upper_bound },
+                      { C::data_copy_write_addr_upper_bound, write_addr_upper_bound },
 
                   } });
 
@@ -84,8 +104,8 @@ void DataCopyTraceBuilder::process(
         // We need to check that the read and write addresses are within the valid memory range.
         // Note: for enqueued calls, there is no out of bound read since we read from a column.
 
-        bool read_address_overflow = max_read_addr > MAX_MEM_ADDR;
-        bool write_address_overflow = max_write_addr > MAX_MEM_ADDR;
+        bool read_address_overflow = read_addr_upper_bound > AVM_MEMORY_SIZE;
+        bool write_address_overflow = write_addr_upper_bound > AVM_MEMORY_SIZE;
         if (read_address_overflow || write_address_overflow) {
             trace.set(row,
                       { {
@@ -99,19 +119,23 @@ void DataCopyTraceBuilder::process(
             continue; // Go to the next event
         }
 
-        auto reads_left = data_offset > max_read_index ? 0 : max_read_index - data_offset;
+        // If there is an error, the copying data is empty. Therefore, we have to perform this
+        // assertion after the error check.
+        assert(event.copying_data.size() == copy_size);
 
         /////////////////////////////
         // Check for Zero Sized Copy
         /////////////////////////////
         // This has to happen outside of the next loop since we will not enter it if the copy size is zero
         if (copy_size == 0) {
-            trace.set(row,
-                      { {
-                          { C::data_copy_sel_start_no_err, 1 },
-                          { C::data_copy_sel_end, 1 },
-                          { C::data_copy_sel_write_count_is_zero, 1 },
-                      } });
+            trace.set(
+                row,
+                { {
+                    { C::data_copy_sel_start_no_err, 1 },
+                    { C::data_copy_sel_end, 1 },
+                    { C::data_copy_sel_write_count_is_zero, 1 },
+                    { C::data_copy_data_index_upper_bound_gt_offset, data_index_upper_bound > data_offset ? 1 : 0 },
+                } });
             row++;
             continue; // Go to the next event
         }
@@ -119,7 +143,10 @@ void DataCopyTraceBuilder::process(
         /////////////////////////////
         // Process Data Copy Rows
         /////////////////////////////
-        for (uint32_t i = 0; i < event.calldata.size(); i++) {
+        uint32_t reads_left =
+            data_offset >= data_index_upper_bound ? 0 : static_cast<uint32_t>(data_index_upper_bound - data_offset);
+
+        for (uint32_t i = 0; i < copy_size; i++) {
             bool start = i == 0;
             auto current_copy_size = copy_size - i;
             bool end = (current_copy_size - 1) == 0;
@@ -127,20 +154,21 @@ void DataCopyTraceBuilder::process(
             bool is_padding_row = reads_left == 0;
 
             // These are guaranteed not to overflow since we checked the read/write addresses above
-            auto read_addr = event.data_addr + data_offset + i;
+            uint64_t read_addr = event.src_data_addr + data_offset + i;
             bool read_cd_col = is_cd_copy && is_top_level && !is_padding_row;
 
             // Read from memory if this is not a padding row and we are either RD_COPY-ing or a nested CD_COPY
-            bool sel_mem_read = !is_padding_row && (is_rd_copy || event.read_context_id != 0);
-            FF value = is_padding_row ? 0 : event.calldata[i];
+            bool sel_mem_read = !is_padding_row && (is_rd_copy || !is_top_level);
+            FF value = is_padding_row ? 0 : event.copying_data[i].as_ff();
+            // Circuit only enforces tag consistency for memory reads.
+            FF tag = sel_mem_read ? static_cast<FF>(static_cast<uint8_t>(event.copying_data[i].get_tag())) : 0;
 
             trace.set(
                 row,
                 { {
+                    { C::data_copy_sel, 1 },
                     { C::data_copy_clk, event.execution_clk },
                     { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
-                    { C::data_copy_sel_rd_copy, is_rd_copy ? 1 : 0 },
-                    { C::data_copy_thirty_two, 32 }, // Need this for range checks
 
                     { C::data_copy_src_context_id, event.read_context_id },
                     { C::data_copy_dst_context_id, event.write_context_id },
@@ -155,7 +183,7 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_sel_mem_write, 1 },
 
                     { C::data_copy_is_top_level, is_top_level ? 1 : 0 },
-                    { C::data_copy_parent_id_inv, parent_id_inv },
+                    { C::data_copy_parent_id_inv, parent_id_inv }, // Will be inverted in batch later
 
                     { C::data_copy_sel_mem_read, sel_mem_read ? 1 : 0 },
                     { C::data_copy_read_addr, read_addr },
@@ -164,18 +192,23 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_reads_left_inv, reads_left }, // Will be inverted in batch later
                     { C::data_copy_padding, is_padding_row ? 1 : 0 },
                     { C::data_copy_value, value },
+                    { C::data_copy_tag, tag },
 
                     { C::data_copy_cd_copy_col_read, read_cd_col ? 1 : 0 },
 
                     // Reads Left
                     { C::data_copy_reads_left, reads_left },
-                    { C::data_copy_offset_gt_max_read_index, (start && data_offset > max_read_index) ? 1 : 0 },
+                    { C::data_copy_data_index_upper_bound_gt_offset,
+                      (start && data_index_upper_bound > data_offset) ? 1 : 0 },
 
                     // Non-zero Copy Size
                     { C::data_copy_write_count_zero_inv, start ? FF(copy_size) : 0 }, // Will be inverted in batch later
                 } });
 
-            reads_left = reads_left == 0 ? 0 : reads_left - 1;
+            if (reads_left > 0) {
+                reads_left--;
+            }
+
             row++;
         }
     }
@@ -192,8 +225,9 @@ const InteractionDefinition DataCopyTraceBuilder::interactions =
         // Enqueued Call Col Read
         .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
         // GT checks
-        .add<lookup_data_copy_max_read_index_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)
+        .add<lookup_data_copy_offset_plus_size_is_gt_data_size_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_offset_gt_max_read_index_settings, InteractionType::LookupGeneric>(Column::gt_sel);
+        .add<lookup_data_copy_data_index_upper_bound_gt_offset_settings, InteractionType::LookupGeneric>(
+            Column::gt_sel);
 } // namespace bb::avm2::tracegen

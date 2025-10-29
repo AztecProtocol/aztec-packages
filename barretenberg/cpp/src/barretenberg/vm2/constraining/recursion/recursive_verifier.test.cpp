@@ -70,6 +70,10 @@ class AvmRecursiveTests : public ::testing::Test {
  */
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
@@ -162,6 +166,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 // This is important as long as we use a fallback mechanism for the AVM proofs.
 TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;
@@ -256,6 +264,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursionWithoutPIValidation)
 // Ensures that the recursive verifier fails with wrong PIs.
 TEST_F(AvmRecursiveTests, GoblinRecursionFailsWithWrongPIs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using OuterBuilder = typename UltraRollupFlavor::CircuitBuilder;

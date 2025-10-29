@@ -1,10 +1,10 @@
-#include "barretenberg/client_ivc/sumcheck_client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #ifndef __wasm__
+#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
-#include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
+#include "barretenberg/dsl/acir_format/hypernova_recursion_constraint.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
 
 #include <filesystem>
@@ -425,7 +425,7 @@ TEST_F(AcirIntegrationTest, DISABLED_DatabusTwoCalldata)
 
 /**
  * @brief Ensure that adding gates post-facto to a circuit generated from acir still results in a valid circuit
- * @details This is a pattern required by e.g. ClientIvc which appends recursive verifiers to acir-generated circuits
+ * @details This is a pattern required by e.g. Chonk which appends recursive verifiers to acir-generated circuits
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_UpdateAcirCircuit)
@@ -478,10 +478,10 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 }
 
 /**
- * @brief Test LegacyClientIVC proof generation and verification given an ivc-inputs msgpack file
+ * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
  *
  */
-TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
+TEST_F(AcirIntegrationTest, DISABLED_ChonkMsgpackInputs)
 {
     // NOTE: to populate the test inputs at this location, run the following commands:
     //      export  AZTEC_CACHE_COMMIT=origin/master~3
@@ -493,14 +493,14 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<SumcheckClientIVC> ivc = steps.accumulate();
-    SumcheckClientIVC::Proof proof = ivc->prove();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    Chonk::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof, ivc->get_vk()));
 }
 
 /**
- * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * @brief Check that for a set of programs to be accumulated via Chonk, the verification keys computed with a dummy
  * witness are identical to those computed with the genuine provided witness.
  */
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
@@ -521,10 +521,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         {
             auto program = program_in;
             program.witness = {}; // erase the witness to mimmic the "dummy witness" case
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
@@ -534,10 +534,10 @@ TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)
         // Compute the verification key using the genuine witness
         {
             auto program = program_in;
-            auto& ivc_constraints = program.constraints.pg_recursion_constraints;
+            auto& ivc_constraints = program.constraints.hn_recursion_constraints;
             const acir_format::ProgramMetadata metadata{
-                .ivc = ivc_constraints.empty() ? nullptr
-                                               : acir_format::create_mock_sumcheck_ivc_from_constraints(ivc_constraints)
+                .ivc =
+                    ivc_constraints.empty() ? nullptr : acir_format::create_mock_chonk_from_constraints(ivc_constraints)
             };
 
             auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);

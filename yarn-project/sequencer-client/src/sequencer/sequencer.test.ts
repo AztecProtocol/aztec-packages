@@ -310,7 +310,7 @@ describe('sequencer', () => {
 
       block = await makeBlock([tx]);
       mockPendingTxs([tx]);
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       expectPublisherProposeL2Block();
     });
@@ -324,7 +324,7 @@ describe('sequencer', () => {
       expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
       const l1TsForL2Slot1 = Number(l1Constants.l1GenesisTime) + slotDuration;
       dateProvider.setTime((l1TsForL2Slot1 + 2) * 1000);
-      await expect(sequencer.doRealWork()).rejects.toThrow(
+      await expect(sequencer.work()).rejects.toThrow(
         expect.objectContaining({
           name: 'SequencerTooSlowError',
           message: expect.stringContaining(`Too far into slot`),
@@ -353,7 +353,7 @@ describe('sequencer', () => {
 
       // we begin immediately after the last L1 block for the previous slot has been mined
       dateProvider.setTime((l1TsForL2Slot1 - ethereumSlotDuration + 0.1) * 1000);
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       expect(blockBuilder.buildBlock).toHaveBeenCalled();
       expect(validatorClient.collectAttestations).toHaveBeenCalled();
@@ -370,7 +370,7 @@ describe('sequencer', () => {
       publisher.canProposeAtNextEthBlock.mockReturnValue(Promise.resolve(undefined));
       publisher.validateBlockHeader.mockRejectedValue(new Error());
 
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
       // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
@@ -380,14 +380,14 @@ describe('sequencer', () => {
         timeOfNextL1Slot: 1000n,
       });
 
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(blockBuilder.buildBlock).not.toHaveBeenCalled();
 
       // Now it is!
       publisher.validateBlockHeader.mockClear();
       publisher.validateBlockHeader.mockResolvedValue();
 
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
         expect.anything(),
         expect.anything(),
@@ -403,13 +403,13 @@ describe('sequencer', () => {
 
       // block is not built with 0 txs
       mockPendingTxs([]);
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
       // block is not built with 3 txs
       mockPendingTxs(txs.slice(0, 3));
 
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(blockBuilder.buildBlock).toHaveBeenCalledTimes(0);
 
       // block is built with 4 txs
@@ -417,7 +417,7 @@ describe('sequencer', () => {
       mockPendingTxs(neededTxs);
       block = await makeBlock(neededTxs);
 
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
         expect.anything(),
@@ -473,7 +473,7 @@ describe('sequencer', () => {
       );
 
       publisher.canProposeAtNextEthBlock.mockResolvedValueOnce(undefined);
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
     });
 
@@ -483,11 +483,11 @@ describe('sequencer', () => {
       block = await makeBlock([tx]);
 
       l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration) - 1n);
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
 
       l2BlockSource.getL1Timestamp.mockResolvedValue(1000n - BigInt(ethereumSlotDuration));
-      await sequencer.doRealWork();
+      await sequencer.work();
       expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
     });
 
@@ -499,7 +499,7 @@ describe('sequencer', () => {
       // This could practically be for any reason, e.g., could also be that we have entered a new slot.
       publisher.validateBlockHeader.mockResolvedValueOnce().mockRejectedValueOnce(new Error('No block for you'));
 
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
     });
@@ -511,7 +511,7 @@ describe('sequencer', () => {
 
       validatorClient.createBlockProposal.mockResolvedValue(undefined);
 
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
     });
@@ -523,7 +523,7 @@ describe('sequencer', () => {
 
       publisher.enqueueProposeL2Block.mockRejectedValueOnce(new Error('Failed to enqueue propose L2 block'));
 
-      await sequencer.doRealWork();
+      await sequencer.work();
       expectPublisherProposeL2Block();
 
       // Even though the block publish was not enqueued, we still send any requests
@@ -532,7 +532,7 @@ describe('sequencer', () => {
 
     it('should proceed with block proposal when there is no proposer yet', async () => {
       // Mock that there is no official proposer yet
-      epochCache.getProposerAttesterAddressInNextSlot.mockResolvedValueOnce(undefined);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValueOnce(undefined);
       epochCache.getCommittee.mockResolvedValueOnce({ committee: [] as EthAddress[] } as EpochCommitteeInfo);
 
       // Mock that we have some pending transactions
@@ -540,7 +540,7 @@ describe('sequencer', () => {
       mockPendingTxs(txs);
       block = await makeBlock(txs);
 
-      await sequencer.doRealWork();
+      await sequencer.work();
 
       // Verify that the sequencer attempted to create and broadcast a block proposal
       expect(publisher.enqueueProposeL2Block).toHaveBeenCalled();
@@ -610,7 +610,7 @@ describe('sequencer', () => {
         mockPendingTxs([tx]);
         block = await makeBlock([tx]);
 
-        await sequencer.doRealWork();
+        await sequencer.work();
         expect(blockBuilder.buildBlock).toHaveBeenCalledWith(
           expect.anything(),
           expect.anything(),
@@ -631,6 +631,132 @@ describe('sequencer', () => {
       }
     });
   });
+
+  describe('voting when sync fails', () => {
+    beforeEach(() => {
+      // Mock that sync fails
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: differentHash, // Different hash causes sync check to fail
+        } as WorldStateSyncStatus,
+      });
+    });
+
+    const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
+
+    it('should vote on slashing and governance when sync fails and past initialize deadline', async () => {
+      // Set time to be past the initializeDeadline (which is 1s based on test config)
+      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
+      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
+      expect(sequencer.getTimeTable().initializeDeadline).toEqual(1);
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2 seconds after build start, past the 1s deadline
+
+      // Mock slashing actions
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Mock governance payload
+      const governancePayload = EthAddress.random();
+      sequencer.updateConfig({ governanceProposerPayload: governancePayload });
+
+      // Mock publisher methods to return true
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      // We're testing the new behavior - that we try to vote even when sync fails
+      // when we're past the time we could build a block
+      expect(slasherClient.getProposerActions).toHaveBeenCalledWith(1n);
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalledWith(
+        governancePayload,
+        1n,
+        1000n,
+        expect.any(EthAddress),
+        expect.any(Function),
+      );
+      expect(publisher.sendRequests).toHaveBeenCalled();
+    });
+
+    it('should not vote when sync fails and within time limit', async () => {
+      // Set time to be within the max allowed time
+      // Build start is: l1GenesisTime + slotNumber * slotDuration - ethereumSlotDuration
+      // For slot 1: l1GenesisTime + 1 * 8 - 4 = l1GenesisTime + 4
+      // initializeDeadline is 1s, so we need to be less than 1s after the build start
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 0.5) * 1000); // 0.5s after build start, within 1s deadline
+
+      // Mock slashing actions
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      await sequencer.work();
+
+      // Should not attempt to enqueue slashing actions when within time limit
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+    });
+
+    it('should not vote when sync fails but not a proposer', async () => {
+      // Set time to be past the max allowed time
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+
+      // Mock slashing actions
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+
+      // Set us as NOT the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([EthAddress.random()]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address); // Different address
+
+      await sequencer.work();
+
+      // Should not vote when not a proposer
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+    });
+
+    it('should not attempt to vote twice in the same slot', async () => {
+      // Set time to be past the max allowed time
+      const buildStartTime = Number(l1Constants.l1GenesisTime) + slotDuration - ethereumSlotDuration;
+      dateProvider.setTime((buildStartTime + 2) * 1000); // 2s after build start, past 1s deadline
+
+      // Mock slashing actions
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Mock publisher methods
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+      // First attempt should succeed
+      await sequencer.work();
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+
+      // Reset mocks
+      publisher.enqueueSlashingActions.mockClear();
+      publisher.sendRequests.mockClear();
+      slasherClient.getProposerActions.mockClear();
+
+      // Second attempt in the same slot should be skipped
+      await sequencer.work();
+      expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
+    });
+  });
 });
 
 class TestSubject extends Sequencer {
@@ -642,9 +768,9 @@ class TestSubject extends Sequencer {
     this.l1Constants.l1GenesisTime = BigInt(l1GenesisTime);
   }
 
-  public override doRealWork() {
+  public override work() {
     this.setState(SequencerState.IDLE, undefined, { force: true });
-    return super.doRealWork();
+    return super.work();
   }
 
   public override getBlockBuilderOptions(slot: number): PublicProcessorLimits {

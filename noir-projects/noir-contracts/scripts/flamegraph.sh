@@ -81,7 +81,7 @@ else
 fi
 
 # At last, generate the flamegraph
-$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates" --output "$OUTPUT_DIR" --scheme client_ivc --include_gates_per_opcode
+$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates" --output "$OUTPUT_DIR" --scheme chonk --include_gates_per_opcode
 
 echo "Flamegraph generated for contract: $CONTRACT"
 # save as $ARTIFACT_NAME-${FUNCTION}-flamegraph.svg
