@@ -116,9 +116,9 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]] && [[ "${CI_ENABLE_DISK_LOGS
   if [[ -f "$benchmark_breakdown_file" ]]; then
     current_sha=$(git rev-parse HEAD)
 
-    # Create cache key: bench/bb-breakdown/<flow_name>/<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench/bb-breakdown/<flow_name>/<sha>
-    cache_key="bench/bb-breakdown/${flow_name}/${current_sha}"
+    # Create cache key: bench-bb-breakdown-<flow_name>-<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<flow_name>-<sha>
+    cache_key="bench-bb-breakdown-${flow_name}-${current_sha}"
 
     # Upload to Redis and disk via cache_persistent (30 day retention)
     cat "$benchmark_breakdown_file" | cache_persistent "$cache_key" 2592000
