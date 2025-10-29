@@ -61,7 +61,7 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
 
     // Case: TAIL kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == hn_tail_type) {
-        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+        mock_chonk_accumulation(i, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
     if (constraints.size() == 2) {
@@ -87,8 +87,8 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
  * necessarily valid
  *
  */
-Chonk::VerifierInputs create_mock_verification_queue_entry_nova(const Chonk::QUEUE_TYPE verification_type,
-                                                                const bool is_kernel)
+Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TYPE verification_type,
+                                                           const bool is_kernel)
 {
     using IvcType = Chonk;
     using FF = IvcType::FF;
@@ -148,7 +148,7 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     ivc->recursive_verifier_native_accum.non_shifted_commitment = Commitment::one();
     ivc->recursive_verifier_native_accum.shifted_commitment = Commitment::one();
 
-    Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry_nova(type, is_kernel);
+    Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
