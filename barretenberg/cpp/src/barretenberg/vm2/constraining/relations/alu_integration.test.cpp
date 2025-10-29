@@ -101,9 +101,7 @@ TEST_F(AluIntegrationTest, addBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U32, UINT32_MAX));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -116,9 +114,7 @@ TEST_F(AluIntegrationTest, addWithTagMismatch)
     EXPECT_THROW(alu_simulator.add(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -133,9 +129,7 @@ TEST_F(AluIntegrationTest, subBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U32, UINT32_MAX));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -148,9 +142,7 @@ TEST_F(AluIntegrationTest, subWithTagMismatch)
     EXPECT_THROW(alu_simulator.sub(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -165,9 +157,7 @@ TEST_F(AluIntegrationTest, mulBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U32, 0));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -180,9 +170,7 @@ TEST_F(AluIntegrationTest, mulWithTagU128Mismatch)
     EXPECT_THROW(alu_simulator.mul(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -197,9 +185,7 @@ TEST_F(AluIntegrationTest, divBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U32, 2));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -212,9 +198,7 @@ TEST_F(AluIntegrationTest, divWithTagU128Mismatch)
     EXPECT_THROW(alu_simulator.div(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -227,9 +211,7 @@ TEST_F(AluIntegrationTest, divWithTagU128MismatchDivByZero)
     EXPECT_THROW(alu_simulator.div(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -242,9 +224,7 @@ TEST_F(AluIntegrationTest, divWithTagFFDivByZero)
     EXPECT_THROW(alu_simulator.div(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -257,9 +237,7 @@ TEST_F(AluIntegrationTest, divWithTagU128DivByZero)
     EXPECT_THROW(alu_simulator.div(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -274,9 +252,7 @@ TEST_F(AluIntegrationTest, fdivBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::FF, 1 << 8));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -289,9 +265,7 @@ TEST_F(AluIntegrationTest, fdivWithTagNotFF)
     EXPECT_THROW(alu_simulator.fdiv(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -304,9 +278,7 @@ TEST_F(AluIntegrationTest, fdivWithTagNotFFDivByZero)
     EXPECT_THROW(alu_simulator.fdiv(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -319,9 +291,7 @@ TEST_F(AluIntegrationTest, fdivDivByZero)
     EXPECT_THROW(alu_simulator.fdiv(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -336,9 +306,7 @@ TEST_F(AluIntegrationTest, eqBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U1, 0));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -351,9 +319,7 @@ TEST_F(AluIntegrationTest, eqWithTagFFMismatch)
     EXPECT_THROW(alu_simulator.eq(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -366,9 +332,7 @@ TEST_F(AluIntegrationTest, eqWithTagU128Mismatch)
     EXPECT_THROW(alu_simulator.eq(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -382,9 +346,7 @@ TEST_F(AluIntegrationTest, ltBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U1, 0));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -397,9 +359,7 @@ TEST_F(AluIntegrationTest, ltWithTagU64Mismatch)
     EXPECT_THROW(alu_simulator.lt(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -412,9 +372,7 @@ TEST_F(AluIntegrationTest, ltWithTagFFMismatch)
     EXPECT_THROW(alu_simulator.lt(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -429,9 +387,7 @@ TEST_F(AluIntegrationTest, lteBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U1, 1));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -444,9 +400,7 @@ TEST_F(AluIntegrationTest, lteWithTagU32Mismatch)
     EXPECT_THROW(alu_simulator.lte(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -459,9 +413,7 @@ TEST_F(AluIntegrationTest, lteWithTagFFMismatch)
     EXPECT_THROW(alu_simulator.lte(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -475,9 +427,7 @@ TEST_F(AluIntegrationTest, opNotBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U16, UINT16_MAX - 15));
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -489,9 +439,7 @@ TEST_F(AluIntegrationTest, opNotWithTagFF)
     EXPECT_THROW(alu_simulator.op_not(a), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -506,9 +454,33 @@ TEST_F(AluIntegrationTest, shlBasicCase)
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U16, 60));
 
     TestTraceContainer trace;
-
     process_events(trace);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
 
+TEST_F(AluIntegrationTest, shlWithOverflowEdgeCase)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U128, 15);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, 128);
+    auto c = alu_simulator.shl(a, b);
+    EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U128, 0));
+
+    TestTraceContainer trace;
+    process_events(trace);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluIntegrationTest, shlWithOverflowLargeShift)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U128, 15);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, (static_cast<uint128_t>(1) << 127) + 8172364);
+    auto c = alu_simulator.shl(a, b);
+    EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U128, 0));
+
+    TestTraceContainer trace;
+    process_events(trace);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -521,9 +493,7 @@ TEST_F(AluIntegrationTest, shlWithTagFF)
     EXPECT_THROW(alu_simulator.shl(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -536,9 +506,7 @@ TEST_F(AluIntegrationTest, shlWithTagFFMismatch)
     EXPECT_THROW(alu_simulator.shl(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -551,9 +519,7 @@ TEST_F(AluIntegrationTest, shlWithTagU16Mismatch)
     EXPECT_THROW(alu_simulator.shl(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -565,12 +531,39 @@ TEST_F(AluIntegrationTest, shrBasicCase)
     auto a = MemoryValue::from_tag(MemoryTag::U16, 15);
     auto b = MemoryValue::from_tag(MemoryTag::U16, 2);
     auto c = alu_simulator.shr(a, b);
+
     EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U16, 3));
 
     TestTraceContainer trace;
-
     process_events(trace);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
 
+TEST_F(AluIntegrationTest, shrWithOverflowEdgeCase)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U128, 15);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, 128);
+    auto c = alu_simulator.shr(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U128, 0));
+
+    TestTraceContainer trace;
+    process_events(trace);
+    check_relation<alu>(trace);
+    check_all_interactions<AluTraceBuilder>(trace);
+}
+
+TEST_F(AluIntegrationTest, shrWithOverflowLargeShift)
+{
+    auto a = MemoryValue::from_tag(MemoryTag::U128, 15);
+    auto b = MemoryValue::from_tag(MemoryTag::U128, (static_cast<uint128_t>(1) << 127) + 8172364);
+    auto c = alu_simulator.shr(a, b);
+
+    EXPECT_EQ(c, MemoryValue::from_tag(MemoryTag::U128, 0));
+
+    TestTraceContainer trace;
+    process_events(trace);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -583,9 +576,7 @@ TEST_F(AluIntegrationTest, shrWithTagFF)
     EXPECT_THROW(alu_simulator.shr(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -598,9 +589,7 @@ TEST_F(AluIntegrationTest, shrWithTagFFMismatch)
     EXPECT_THROW(alu_simulator.shr(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -613,9 +602,7 @@ TEST_F(AluIntegrationTest, shrWithTagU16Mismatch)
     EXPECT_THROW(alu_simulator.shr(a, b), AluException);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }
@@ -628,9 +615,7 @@ TEST_F(AluIntegrationTest, truncateBasicCase)
     alu_simulator.truncate(a, MemoryTag::U1);
 
     TestTraceContainer trace;
-
     process_events(trace);
-
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
 }

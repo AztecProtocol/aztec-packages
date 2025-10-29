@@ -5,6 +5,7 @@
 #include <tuple>
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
@@ -317,8 +318,8 @@ TEST_P(AluMulTraceGenerationTest, TraceGenerationMul)
     bool cf = false;
     if (is_u128) {
         // For u128s, we decompose a and b into 64 bit chunks:
-        auto a_hi = simulation::decompose(static_cast<uint128_t>(a.as_ff())).hi;
-        auto b_hi = simulation::decompose(static_cast<uint128_t>(b.as_ff())).hi;
+        auto a_hi = simulation::decompose_128(static_cast<uint128_t>(a.as_ff())).hi;
+        auto b_hi = simulation::decompose_128(static_cast<uint128_t>(b.as_ff())).hi;
         // c_hi = old_c_hi - a_hi * b_hi % 2^64
         auto hi_operand = static_cast<uint256_t>(a_hi) * static_cast<uint256_t>(b_hi);
         cf = hi_operand != 0;
@@ -1114,15 +1115,15 @@ TEST_P(AluShlTraceGenerationTest, TraceGenerationShl)
 {
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
-    auto tag_bits = get_tag_bits(tag);
-    auto b_num = static_cast<uint128_t>(b.as_ff());
+    uint256_t tag_bits = get_tag_bits(tag);
+    uint256_t b_num = static_cast<uint256_t>(b.as_ff());
 
-    auto overflow = b_num > tag_bits;
-    uint128_t shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
-    uint128_t shift_hi_bits = overflow ? tag_bits : b_num;
-    auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
-    auto a_lo = overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % two_pow_shift_lo_bits;
-    auto a_hi = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits;
+    bool overflow = b_num > tag_bits;
+    uint256_t shift_lo_bits = overflow ? tag_bits : static_cast<uint256_t>(tag_bits) - b_num;
+    uint256_t shift_hi_bits = overflow ? static_cast<uint256_t>(tag_bits) : b_num;
+    uint256_t two_pow_shift_lo_bits = static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
+    uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
     builder.process({ {
                         .operation = AluOperation::SHL,
@@ -1144,7 +1145,7 @@ TEST_P(AluShlTraceGenerationTest, TraceGenerationShl)
                     ROW_FIELD_EQ(alu_a_lo_bits, shift_lo_bits),
                     ROW_FIELD_EQ(alu_ib, b),
                     ROW_FIELD_EQ(alu_ic, c),
-                    ROW_FIELD_EQ(alu_helper1, static_cast<uint128_t>(1) << b_num),
+                    ROW_FIELD_EQ(alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << b_num),
                     ROW_FIELD_EQ(alu_ia_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ib_tag, static_cast<uint8_t>(tag)),
                     ROW_FIELD_EQ(alu_ic_tag, static_cast<uint8_t>(tag)),
@@ -1252,15 +1253,15 @@ TEST_P(AluShrTraceGenerationTest, TraceGenerationShr)
 {
     auto [a, b, c] = GetParam();
     auto tag = a.get_tag();
-    auto tag_bits = get_tag_bits(tag);
-    auto b_num = static_cast<uint128_t>(b.as_ff());
+    uint256_t tag_bits = get_tag_bits(tag);
+    uint256_t b_num = static_cast<uint256_t>(b.as_ff());
 
     auto overflow = b_num > tag_bits;
-    uint128_t shift_lo_bits = overflow ? tag_bits : b_num;
-    uint128_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
-    auto two_pow_shift_lo_bits = static_cast<uint128_t>(1) << shift_lo_bits;
-    auto a_lo = overflow ? b_num - tag_bits : static_cast<uint128_t>(a.as_ff()) % two_pow_shift_lo_bits;
-    auto a_hi = static_cast<uint128_t>(a.as_ff()) >> shift_lo_bits;
+    uint256_t shift_lo_bits = overflow ? tag_bits : b_num;
+    uint256_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
+    uint256_t two_pow_shift_lo_bits = static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
+    uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
     builder.process({ {
                         .operation = AluOperation::SHR,

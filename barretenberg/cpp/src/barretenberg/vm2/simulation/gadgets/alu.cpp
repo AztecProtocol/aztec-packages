@@ -6,6 +6,7 @@
 
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
@@ -69,16 +70,16 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         MemoryTag tag = a.get_tag();
         if (tag == MemoryTag::U128) {
             // For u128, we decompose a and b into 64-bit chunks and discard the highest bits given by the product:
-            auto a_decomp = decompose(static_cast<uint128_t>(a.as_ff()));
-            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
+            auto a_decomp = decompose_128(static_cast<uint128_t>(a.as_ff()));
+            auto b_decomp = decompose_128(static_cast<uint128_t>(b.as_ff()));
             range_check.assert_range(a_decomp.lo, 64);
             range_check.assert_range(a_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
             range_check.assert_range(b_decomp.hi, 64);
-            auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
+            uint256_t hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             // c_hi = (old_c_hi - a_hi * b_hi) % 2^64
             // Make use of x % pow_of_two = x & (pow_of_two - 1)
-            uint256_t c_hi = (((a_int * b_int) >> 128) - hi_operand) & ((uint256_t(1) << 64) - 1);
+            uint256_t c_hi = (((a_int * b_int) >> 128) - hi_operand) & static_cast<uint256_t>(MASK_64);
             range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         }
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
@@ -119,8 +120,8 @@ MemoryValue Alu::div(const MemoryValue& a, const MemoryValue& b)
         greater_than.gt(b, remainder);
         if (tag == MemoryTag::U128) {
             // For u128, we decompose c and b into 64 bit chunks and discard the highest bits given by the product:
-            auto c_decomp = decompose(static_cast<uint128_t>(c.as_ff()));
-            auto b_decomp = decompose(static_cast<uint128_t>(b.as_ff()));
+            auto c_decomp = decompose_128(static_cast<uint128_t>(c.as_ff()));
+            auto b_decomp = decompose_128(static_cast<uint128_t>(b.as_ff()));
             range_check.assert_range(c_decomp.lo, 64);
             range_check.assert_range(c_decomp.hi, 64);
             range_check.assert_range(b_decomp.lo, 64);
@@ -279,13 +280,16 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
 
         bool overflow = b_num > static_cast<uint128_t>(tag_bits);
         uint8_t a_lo_bits = overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num);
+        // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
+        // 1 << 128 is undefined behavior on uint128_t.
+        const uint128_t mask =
+            static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
-        uint128_t a_lo = overflow ? b_num - static_cast<uint128_t>(tag_bits)
-                                  : static_cast<uint128_t>(a.as_ff()) &
-                                        ((static_cast<uint128_t>(1) << static_cast<uint128_t>(a_lo_bits)) - 1);
+        uint128_t a_lo = overflow ? b_num - static_cast<uint128_t>(tag_bits) : static_cast<uint128_t>(a.as_ff()) & mask;
         range_check.assert_range(a_lo, a_lo_bits);
-        range_check.assert_range(static_cast<uint128_t>(a.as_ff()) >> a_lo_bits,
-                                 overflow ? tag_bits : static_cast<uint8_t>(b_num));
+        range_check.assert_range(
+            static_cast<uint128_t>(static_cast<uint256_t>(a.as_ff()) >> static_cast<uint256_t>(a_lo_bits)),
+            overflow ? tag_bits : static_cast<uint8_t>(b_num));
         events.emit({ .operation = AluOperation::SHL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {
@@ -316,13 +320,16 @@ MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
 
         bool overflow = b_num > static_cast<uint128_t>(tag_bits);
         uint8_t a_lo_bits = overflow ? tag_bits : static_cast<uint8_t>(b_num);
+        // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
+        // 1 << 128 is undefined behavior on uint128_t.
+        const uint128_t mask =
+            static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
-        uint128_t a_lo = overflow ? b_num - static_cast<uint128_t>(tag_bits)
-                                  : static_cast<uint128_t>(a.as_ff()) &
-                                        ((static_cast<uint128_t>(1) << static_cast<uint128_t>(a_lo_bits)) - 1);
+        uint128_t a_lo = overflow ? b_num - static_cast<uint128_t>(tag_bits) : static_cast<uint128_t>(a.as_ff()) & mask;
         range_check.assert_range(a_lo, a_lo_bits);
-        range_check.assert_range(static_cast<uint128_t>(a.as_ff()) >> a_lo_bits,
-                                 overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num));
+        range_check.assert_range(
+            static_cast<uint128_t>(static_cast<uint256_t>(a.as_ff()) >> static_cast<uint256_t>(a_lo_bits)),
+            overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num));
         events.emit({ .operation = AluOperation::SHR, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {

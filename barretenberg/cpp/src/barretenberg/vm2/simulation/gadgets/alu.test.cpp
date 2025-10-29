@@ -657,6 +657,28 @@ TEST(AvmSimulationAluTest, ShlOverflow)
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHL, .a = a, .b = b, .c = c }));
 }
 
+// Useful to test bitwise shifts larger than 128 bits.
+TEST(AvmSimulationAluTest, ShlOverflowU128)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint128_t>(177);
+    auto b = MemoryValue::from<uint128_t>(129);
+
+    // a_lo and a_hi range checks:
+    EXPECT_CALL(range_check, assert_range(1, 128)).Times(1);
+    EXPECT_CALL(range_check, assert_range(0, 128)).Times(1);
+
+    auto c = alu.shl(a, b);
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHL, .a = a, .b = b, .c = c }));
+}
+
 TEST(AvmSimulationAluTest, NegativeShlTagMismatch)
 {
     EventEmitter<AluEvent> alu_event_emitter;
@@ -697,6 +719,28 @@ TEST(AvmSimulationAluTest, Shr)
     auto c = alu.shr(a, b);
 
     EXPECT_EQ(c, MemoryValue::from<uint32_t>(16));
+
+    auto events = alu_event_emitter.dump_events();
+    EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHR, .a = a, .b = b, .c = c }));
+}
+
+// Useful to test bitwise shifts larger than 128 bits.
+TEST(AvmSimulationAluTest, ShrOverflowU128)
+{
+    EventEmitter<AluEvent> alu_event_emitter;
+    StrictMock<MockGreaterThan> gt;
+    StrictMock<MockFieldGreaterThan> field_gt;
+    StrictMock<MockRangeCheck> range_check;
+    Alu alu(gt, field_gt, range_check, alu_event_emitter);
+
+    auto a = MemoryValue::from<uint128_t>(177);
+    auto b = MemoryValue::from<uint128_t>(129);
+
+    // a_lo and a_hi range checks:
+    EXPECT_CALL(range_check, assert_range(1, 128)).Times(1);
+    EXPECT_CALL(range_check, assert_range(0, 128)).Times(1);
+
+    auto c = alu.shr(a, b);
 
     auto events = alu_event_emitter.dump_events();
     EXPECT_THAT(events, ElementsAre(AluEvent{ .operation = AluOperation::SHR, .a = a, .b = b, .c = c }));

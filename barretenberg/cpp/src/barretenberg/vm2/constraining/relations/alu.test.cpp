@@ -555,8 +555,8 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         precomputed_builder.process_tag_parameters(trace);
 
         if (is_u128) {
-            auto a_decomp = simulation::decompose(a.as<uint128_t>());
-            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
+            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
             // c_hi = old_c_hi - a_hi * b_hi % 2^64
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
@@ -597,8 +597,8 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         auto c_hi = mem_tag == MemoryTag::FF ? 0 : (a_int * b_int) >> get_tag_bits(mem_tag);
         if (mem_tag == MemoryTag::U128) {
-            auto a_decomp = simulation::decompose(a.as<uint128_t>());
-            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
+            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
             // c_hi = old_c_hi - a_hi * b_hi % 2^64
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
@@ -644,8 +644,8 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
 
     auto tag = static_cast<uint8_t>(MemoryTag::U128);
 
-    auto a_decomp = simulation::decompose(a.as<uint128_t>());
-    auto b_decomp = simulation::decompose(b.as<uint128_t>());
+    auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
+    auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
 
     // c_hi = old_c_hi - a_hi * b_hi % 2^64
     auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
@@ -787,8 +787,8 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                            trace);
 
         if (is_u128) {
-            auto c_decomp = simulation::decompose(c.as<uint128_t>());
-            auto b_decomp = simulation::decompose(b.as<uint128_t>());
+            auto c_decomp = simulation::decompose_128(c.as<uint128_t>());
+            auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
 
             trace.set(0,
                       { { { Column::alu_a_lo, c_decomp.lo },
@@ -827,8 +827,8 @@ class AluDivConstrainingTest : public AluConstrainingTest,
             trace);
 
         if (mem_tag == MemoryTag::U128) {
-            auto c_decomp = simulation::decompose(static_cast<uint128_t>(c.as_ff()));
-            auto b_decomp = simulation::decompose(static_cast<uint128_t>(b.as_ff()));
+            auto c_decomp = simulation::decompose_128(static_cast<uint128_t>(c.as_ff()));
+            auto b_decomp = simulation::decompose_128(static_cast<uint128_t>(b.as_ff()));
 
             range_check_builder.process({ { .value = c_decomp.lo, .num_bits = 64 },
                                           { .value = c_decomp.hi, .num_bits = 64 },
@@ -938,7 +938,7 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
     // ...but we haven't provided a correct decomposition of the new bad c:
     EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "DECOMPOSITION");
 
-    auto c_decomp = simulation::decompose(c.as<uint128_t>());
+    auto c_decomp = simulation::decompose_128(c.as<uint128_t>());
     trace.set(Column::alu_a_lo, 0, c_decomp.lo);
     trace.set(Column::alu_a_hi, 0, c_decomp.hi);
 
@@ -2187,7 +2187,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
         auto is_non_trivial = trace.get(Column::alu_sel_trunc_non_trivial, 0) == 1;
 
         if (is_non_trivial) {
-            auto a_decomp = simulation::decompose(static_cast<uint256_t>(a.as_ff()));
+            auto a_decomp = simulation::decompose_256(static_cast<uint256_t>(a.as_ff()));
             auto dst_tag = c.get_tag();
             uint8_t bits = get_tag_bits(dst_tag);
             range_check_builder.process({ { .value = dst_tag == MemoryTag::U128 ? 0 : a_decomp.lo >> bits,
@@ -2195,7 +2195,7 @@ class AluTruncateConstrainingTest : public AluConstrainingTest,
                                         trace);
             auto is_gte_128 = trace.get(Column::alu_sel_trunc_gte_128, 0) == 1;
             if (is_gte_128) {
-                auto p_limbs = simulation::decompose(FF::modulus);
+                auto p_limbs = simulation::decompose_256(FF::modulus);
                 simulation::LimbsComparisonWitness p_sub_a_witness = { .lo = p_limbs.lo - a_decomp.lo,
                                                                        .hi = p_limbs.hi - a_decomp.hi,
                                                                        .borrow = false };
