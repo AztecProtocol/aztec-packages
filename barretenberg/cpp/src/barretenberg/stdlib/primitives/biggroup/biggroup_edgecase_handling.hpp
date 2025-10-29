@@ -52,14 +52,10 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
 
-    // Compute combined tag from all input points and scalars, plus the masking scalar
-    // The offset generator will be added to all points, so it should carry the combined tag
-    OriginTag combined_tag{};
-    for (size_t i = 0; i < _points.size(); i++) {
-        combined_tag = OriginTag(combined_tag, OriginTag(_points[i].get_origin_tag(), _scalars[i].get_origin_tag()));
-    }
-    combined_tag = OriginTag(combined_tag, masking_scalar.get_origin_tag());
-    offset_generator_element.set_origin_tag(combined_tag);
+    // The offset generator is a public constant, so it gets an empty tag (like other generator points).
+    // When multiplied by the masking_scalar (challenge), it will inherit the challenge's tag.
+    // This is semantically correct: G_offset is neutral, only the challenge contributes security properties.
+    offset_generator_element.set_origin_tag(OriginTag());
 
     // Compute initial point to be added: (δ)⋅G_offset
     element running_point = offset_generator_element.scalar_mul(masking_scalar, 128);
