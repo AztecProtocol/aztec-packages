@@ -128,44 +128,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     size_t get_num_constant_gates() const override { return 0; }
 
     /**
-     * @brief Get the final number of gates in a circuit, which consists of the sum of:
-     * 1) Current number number of actual gates
-     * 2) Number of public inputs, as we'll need to add a gate for each of them
-     * 3) Number of Rom array-associated gates
-     * 4) Number of range-list associated gates
-     * 5) Number of non-native field multiplication gates.
-     *
-     * @return size_t
-     */
-    size_t get_estimated_num_finalized_gates() const override
-    {
-        auto num_ultra_gates = UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_estimated_num_finalized_gates();
-        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
-        return num_ultra_gates + num_goblin_ecc_op_gates;
-    }
-
-    /**x
-     * @brief Print the number and composition of gates in the circuit
-     *
-     */
-    void print_num_estimated_finalized_gates() const override
-    {
-        size_t count = 0;
-        size_t rangecount = 0;
-        size_t romcount = 0;
-        size_t ramcount = 0;
-        size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_num_estimated_gates_split_into_components(
-            count, rangecount, romcount, ramcount, nnfcount);
-        auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
-
-        size_t total = count + romcount + ramcount + rangecount + num_goblin_ecc_op_gates;
-        std::cout << "gates = " << total << " (arith " << count << ", rom " << romcount << ", ram " << ramcount
-                  << ", range " << rangecount << ", non native field gates " << nnfcount << ", goblin ecc op gates "
-                  << num_goblin_ecc_op_gates << "), pubinp = " << this->num_public_inputs() << std::endl;
-    }
-
-    /**
      * @brief Add a witness variable to the public calldata.
      *
      */

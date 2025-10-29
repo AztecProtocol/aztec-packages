@@ -50,7 +50,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     using field_ct = stdlib::field_t<Builder>;
 
     static constexpr auto EXPECT_CIRCUIT_CORRECTNESS = [](Builder& builder, bool expected_result = true) {
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
         EXPECT_EQ(CircuitChecker::check(builder), expected_result);
     };
 
@@ -180,9 +180,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             a.set_origin_tag(submitted_value_origin_tag);
             b.set_origin_tag(challenge_origin_tag);
 
-            uint64_t before = builder.get_estimated_num_finalized_gates();
+            uint64_t before = builder.get_num_finalized_gates_inefficient();
             element_ct c = a + b;
-            uint64_t after = builder.get_estimated_num_finalized_gates();
+            uint64_t after = builder.get_num_finalized_gates_inefficient();
 
             // Check that the resulting tag is the union of inputs' tgs
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
@@ -687,9 +687,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P * x;
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
@@ -731,10 +731,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
@@ -771,10 +771,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             // Multiply using specified scalar length
             element_ct c = P.scalar_mul(x, i);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             affine_element c_expected(element(input) * scalar);
 
             // Check the result of the multiplication has a tag that's the union of inputs' tags
@@ -824,10 +824,10 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x.set_origin_tag(challenge_origin_tag);
             P.set_origin_tag(submitted_value_origin_tag);
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = P.scalar_mul(x, max_num_bits);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
-            num_gates = builder.get_estimated_num_finalized_gates();
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
+            num_gates = builder.get_num_finalized_gates_inefficient();
             // Check the result of the multiplication has a tag that's the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
 
@@ -1553,9 +1553,9 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
                 union_tag = OriginTag(union_tag, element_tags[j], scalar_tags[j]);
             }
 
-            std::cerr << "gates before mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "gates before mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
             element_ct c = element_ct::batch_mul({ P1, P2, P3, P4 }, { x1, x2, x3, x4 }, 128);
-            std::cerr << "builder aftr mul " << builder.get_estimated_num_finalized_gates() << std::endl;
+            std::cerr << "builder aftr mul " << builder.get_num_finalized_gates_inefficient() << std::endl;
 
             // Check that the resulting tag is a union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), union_tag);
