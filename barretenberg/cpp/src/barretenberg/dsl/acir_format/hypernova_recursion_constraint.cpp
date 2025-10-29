@@ -61,7 +61,7 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
 
     // Case: TAIL kernel; single HN recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == hn_tail_type) {
-        mock_chonk_accumulation(i, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
+        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
     if (constraints.size() == 2) {

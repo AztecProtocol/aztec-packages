@@ -288,7 +288,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
-        // ensure the CIVC proof doesn't leak information about the actual content of the op queue
+        // ensure the Chonk proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
 
         HidingKernelIO hiding_output{ pairing_points_aggregator,
@@ -463,7 +463,7 @@ void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * @note The explanation below does not serve as a proof of zero-knowledge but rather as intuition for why the number
  * of random ops and their position in the op queue.
  *
- * @details The LegacyChonk proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies
+ * @details The Chonk proof is sent to the rollup and so it has to be zero-knowledge. In turn, this implies
  * that commitments and evaluations to the op queue, when regarded as 4 polynomials in UltraOp format (op, x_lo_y_hi,
  * x_hi_z_1, y_lo_z_2), should not leak information about the actual content of the op queue with provenance from
  * circuit operations that have been accumulated in CHONK. Since the op queue is used across several provers,
@@ -471,10 +471,10 @@ void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  * coefficients at proving time when populating ProverPolynomials. However, due to the consistency checks present
  * throughout CHONK, to ensure all components use the same op queue data (Merge and Translator on the entire op queue
  * table and Merge and Oink on each subtable), randomness has to be added in a common place, this place naturally
- * being LegacyChonk. ECCVM is not affected by the concerns above, randomness being added to wires at proving time
+ * being Chonk. ECCVM is not affected by the concerns above, randomness being added to wires at proving time
  * as per usual, because the consistency of ECCVMOps processing and UltraOps processing between Translator and ECCVM is
  * achieved via the translation evaluation check and avoiding an information leak there is ensured by
- * `LegacyChonk::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
+ * `Chonk::hide_op_queue_accumulation_result()` and SmallSubgroupIPA in ECCVM.
  *
  * We need each op queue polynomial to have 9 random coefficients (so the op queue needs to contain 5 random ops, every
  * UltraOp adding two coefficients to each of the 4 polynomials).

@@ -596,7 +596,7 @@ TEST_F(HypernovaRecursionConstraintTest, RecursiveVerifierAppCircuitFailure)
     // add the trailing kernels
     construct_and_accumulate_trailing_kernels(ivc);
 
-    // We expect the CIVC proof to fail due to the app with a failed UH recursive verification
+    // We expect the Chonk proof to fail due to the app with a failed UH recursive verification
     auto proof = ivc->prove();
     EXPECT_FALSE(Chonk::verify(proof, ivc->get_vk()));
 }

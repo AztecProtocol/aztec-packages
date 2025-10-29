@@ -42,7 +42,7 @@ impl PrivateKernelData {
     }
     pub fn verify(self, is_last_inner_kernel: bool) {
         let mut proof_type = PROOF_TYPE_HN;
-        // Client IVC public inputs are linked in the backend via the databus
+        // Chonk public inputs are linked in the backend via the databus
         if is_last_inner_kernel {
             proof_type = PROOF_TYPE_HN_TAIL;
         }
