@@ -12,7 +12,7 @@ pub contract CardGame {
 
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
-    use dep::aztec::macros::{functions::{external, internal}, storage::storage};
+    use dep::aztec::macros::{functions::{external, only_self}, storage::storage};
 
     use dep::aztec::protocol_types::traits::{FromField, ToField};
 
@@ -51,7 +51,7 @@ pub contract CardGame {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn on_game_joined(game: u32, player: AztecAddress, deck_strength: u32) {
         let game_storage = self.storage.games.at(game as Field);
 
@@ -86,7 +86,7 @@ pub contract CardGame {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn on_card_played(game: u32, player: AztecAddress, card_as_field: Field) {
         let game_storage = self.storage.games.at(game as Field);
 
@@ -113,7 +113,7 @@ pub contract CardGame {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn on_cards_claimed(game: u32, player: AztecAddress, cards_hash: Field) {
         let game_storage = self.storage.games.at(game as Field);
         let mut game_data = game_storage.read();

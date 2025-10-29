@@ -12,7 +12,7 @@ use dep::aztec::macros::aztec;
 pub contract PrivateVoting {
     use dep::aztec::keys::getters::get_public_keys;
     use dep::aztec::macros::{
-        functions::{external, initializer, internal},
+        functions::{external, initializer, only_self},
         storage::storage,
     };
     use dep::aztec::state_vars::{Map, PublicImmutable, PublicMutable};
@@ -47,7 +47,7 @@ pub contract PrivateVoting {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn add_to_tally_public(candidate: Field) {
         assert(self.storage.vote_ended.read() == false, "Vote has ended"); // assert that vote has not ended
         let new_tally = self.storage.tally.at(candidate).read() + 1;

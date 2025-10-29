@@ -12,7 +12,7 @@ pub contract AuthRegistry {
         authwit::auth::{
             assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
         },
-        macros::{functions::{external, internal, view}, storage::storage},
+        macros::{functions::{external, only_self, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicMutable},
     };
@@ -110,7 +110,7 @@ pub contract AuthRegistry {
      * @param authorize True if the caller is authorized to perform the message hash, false otherwise
      */
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _set_authorized(approver: AztecAddress, message_hash: Field, authorize: bool) {
         self.storage.approved_actions.at(approver).at(message_hash).write(authorize);
     }

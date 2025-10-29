@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract Crowdfunding {
     use crate::config::Config;
     use aztec::{
-        macros::{events::event, functions::{external, initializer, internal}, storage::storage},
+        macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::address::AztecAddress,
         state_vars::{Map, PrivateSet, PublicImmutable, storage::HasStorageSlot},
@@ -88,7 +88,7 @@ pub contract Crowdfunding {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _publish_donation_receipts(amount: u128, to: AztecAddress) {
         self.emit(WithdrawalProcessed { amount, who: to });
     }

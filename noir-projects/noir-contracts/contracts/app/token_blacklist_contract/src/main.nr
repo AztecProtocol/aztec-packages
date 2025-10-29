@@ -20,7 +20,7 @@ pub contract TokenBlacklist {
     use aztec::{
         hash::compute_secret_hash,
         macros::{
-            functions::{authorize_once, external, initializer, internal, view},
+            functions::{authorize_once, external, initializer, only_self, view},
             storage::storage,
         },
         messages::{
@@ -231,16 +231,15 @@ pub contract TokenBlacklist {
         TokenBlacklist::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
     }
 
-    /// Internal ///
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         let new_balance = self.storage.public_balances.at(to).read().add(amount);
         self.storage.public_balances.at(to).write(new_balance);
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
         let new_supply = self.storage.total_supply.read().sub(amount);

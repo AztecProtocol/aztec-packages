@@ -13,7 +13,7 @@ pub contract NFT {
         authwit::auth::compute_authwit_nullifier,
         context::{PrivateContext, PublicContext},
         macros::{
-            functions::{authorize_once, external, initializer, internal, view},
+            functions::{authorize_once, external, initializer, only_self, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
@@ -219,7 +219,7 @@ pub contract NFT {
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
     /// (this has to be done in the calling function).
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finalize_transfer_to_private_unsafe(
         from_and_completer: AztecAddress,
         token_id: Field,
@@ -302,7 +302,7 @@ pub contract NFT {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
         self.storage.public_owners.at(token_id).write(to);
     }

@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract Spam {
 
     use aztec::{
-        macros::{functions::{external, internal}, storage::storage},
+        macros::{functions::{external, only_self}, storage::storage},
         messages::message_delivery::MessageDelivery,
         protocol_types::{
             address::AztecAddress,
@@ -62,7 +62,7 @@ pub contract Spam {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn public_spam(start: u32, end: u32) {
         let one = 1 as u128;
         for i in start..end {

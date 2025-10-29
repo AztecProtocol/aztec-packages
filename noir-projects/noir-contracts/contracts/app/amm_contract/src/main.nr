@@ -40,7 +40,7 @@ pub contract AMM {
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
     };
     use dep::aztec::{
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -146,7 +146,7 @@ pub contract AMM {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _add_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
         refund_token0_partial_note: PartialUintNote,
@@ -283,7 +283,7 @@ pub contract AMM {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _remove_liquidity(
         config: Config, // We could read this in public, but it's cheaper to receive from private
         liquidity: u128,
@@ -357,7 +357,7 @@ pub contract AMM {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _swap_exact_tokens_for_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,
@@ -436,7 +436,7 @@ pub contract AMM {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _swap_tokens_for_exact_tokens(
         token_in: AztecAddress,
         token_out: AztecAddress,

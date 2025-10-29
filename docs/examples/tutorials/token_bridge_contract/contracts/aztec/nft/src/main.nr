@@ -5,7 +5,7 @@ pub mod nft;
 #[aztec]
 pub contract NFTPunk {
     use dep::aztec::{
-        macros::{storage::storage, functions::{external, utility, initializer, internal}},
+        macros::{storage::storage, functions::{external, utility, initializer, only_self}},
         protocol_types::{address::AztecAddress},
         state_vars::{PrivateSet, PublicImmutable, delayed_public_mutable::DelayedPublicMutable, Map}
     };
@@ -38,7 +38,7 @@ pub contract NFTPunk {
 
     // docs:start:mark_nft_exists
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _mark_nft_exists(token_id: Field, exists: bool) {
         self.storage.nfts.at(token_id).schedule_value_change(exists);
     }

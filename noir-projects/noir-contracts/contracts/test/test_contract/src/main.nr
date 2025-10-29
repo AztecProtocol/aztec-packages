@@ -44,7 +44,7 @@ pub contract Test {
         // Macros
         macros::{
             events::event,
-            functions::{initializer, internal, noinitcheck, external},
+            functions::{initializer, only_self, noinitcheck, external},
             storage::storage,
         },
         // Contract instance management
@@ -128,7 +128,7 @@ pub contract Test {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn dummy_public_call() {}
 
     #[external("private")]

@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract FeeJuice {
     use dep::aztec::{
         context::private_context::PrivateContext,
-        macros::{functions::{external, internal, view}, storage::storage},
+        macros::{functions::{external, only_self, view}, storage::storage},
         protocol_types::{
             address::{AztecAddress, EthAddress},
             constants::FEE_JUICE_ADDRESS,
@@ -69,7 +69,7 @@ pub contract FeeJuice {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         let new_balance = self.storage.balances.at(to).read().add(amount);
         self.storage.balances.at(to).write(new_balance);

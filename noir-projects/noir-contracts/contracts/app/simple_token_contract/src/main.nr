@@ -17,7 +17,7 @@ pub contract SimpleToken {
         context::{PrivateCallInterface, PrivateContext, PublicContext},
         macros::{
             events::event,
-            functions::{authorize_once, external, initializer, internal, view},
+            functions::{authorize_once, external, initializer, only_self, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
@@ -207,7 +207,7 @@ pub contract SimpleToken {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finalize_transfer_to_private_unsafe(
         from_and_completer: AztecAddress,
         amount: u128,
@@ -257,7 +257,7 @@ pub contract SimpleToken {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finalize_mint_to_private_unsafe(
         minter_and_completer: AztecAddress,
         amount: u128,
@@ -287,7 +287,7 @@ pub contract SimpleToken {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         _increase_public_balance_inner(to, amount, self.storage);
     }
@@ -303,7 +303,7 @@ pub contract SimpleToken {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _reduce_total_supply(amount: u128) {
         let new_supply = self.storage.total_supply.read().sub(amount);
         self.storage.total_supply.write(new_supply);
@@ -344,7 +344,7 @@ pub contract SimpleToken {
         SimpleToken::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
-    #[internal]
+    #[only_self]
     #[external("private")]
     fn _recurse_subtract_balance(account: AztecAddress, amount: u128) -> u128 {
         subtract_balance(

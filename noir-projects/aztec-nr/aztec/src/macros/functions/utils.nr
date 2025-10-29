@@ -8,7 +8,7 @@ use crate::macros::{
     notes::NOTES,
     utils::{
         fn_has_authorize_once, fn_has_noinitcheck, is_fn_contract_library_method, is_fn_external,
-        is_fn_initializer, is_fn_internal, is_fn_test, is_fn_view, modify_fn_body,
+        is_fn_initializer, is_fn_only_self, is_fn_test, is_fn_view, modify_fn_body,
         module_has_initializer, module_has_storage,
     },
 };
@@ -67,8 +67,8 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
     let function_name = f.name();
 
     // Modifications introduced by the different marker attributes.
-    let internal_check = if is_fn_internal(f) {
-        let assertion_message = f"Function {function_name} can only be called internally";
+    let internal_check = if is_fn_only_self(f) {
+        let assertion_message = f"Function {function_name} can only be called by the same contract";
         quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
@@ -233,19 +233,19 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
         };
     };
 
-    let name = f.name();
+    let function_name = f.name();
+
     // Modifications introduced by the different marker attributes.
-    let internal_check = if is_fn_internal(f) {
-        let assertion_message = f"Function {name} can only be called internally";
+    let internal_check = if is_fn_only_self(f) {
+        let assertion_message = f"Function {function_name} can only be called by the same contract";
         quote { assert(self.msg_sender().unwrap() == self.address, $assertion_message); }
     } else {
         quote {}
     };
 
     let view_check = if is_fn_view(f) {
-        let name = f.name();
         let assertion_message =
-            f"Function {name} can only be called statically".as_ctstring().as_quoted_str();
+            f"Function {function_name} can only be called statically".as_ctstring().as_quoted_str();
         quote { assert(self.context.is_static_call(), $assertion_message); }
     } else {
         quote {}

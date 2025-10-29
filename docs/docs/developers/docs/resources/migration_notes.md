@@ -54,7 +54,7 @@ Because Aztec has native account abstraction, the very first function call of a 
 
 Previously (before this change) we'd been silently setting this first `msg_sender` to be `AztecAddress::from_field(-1);`, and enforcing this value in the protocol's kernel circuits. Now we're passing explicitness to smart contract developers by wrapping `msg_sender` in an `Option` type. We'll explain the syntax shortly.
 
-We've also added a new protocol feature. Previously (before this change) whenever a public function call was enqueued by a private function (a so-called private->public call), the called public function (and hence the whole world) would be able to see `msg_sender`. For some use cases, visibility of `msg_sender` is important, to ensure the caller executed certain checks in private-land. For `#[internal]` public functions, visibility of `msg_sender` is unavoidable (the caller of an internal function must be the same contract address by definition). But for _some_ use cases, a visible `msg_sender` is an unnecessary privacy leakage.
+We've also added a new protocol feature. Previously (before this change) whenever a public function call was enqueued by a private function (a so-called private->public call), the called public function (and hence the whole world) would be able to see `msg_sender`. For some use cases, visibility of `msg_sender` is important, to ensure the caller executed certain checks in private-land. For `#[only_self]` public functions, visibility of `msg_sender` is unavoidable (the caller of an `#[only_self]` function must be the same contract address by definition). But for _some_ use cases, a visible `msg_sender` is an unnecessary privacy leakage.
 We therefore have added a feature where `msg_sender` can be optionally set to `Option<AztecAddress>::none()` for enqueued public function calls (aka private->public calls). We've been colloquially referring to this as "setting msg_sender to null".
 
 #### Aztec.nr diffs
@@ -212,6 +212,7 @@ Aztec contracts now automatically inject a `self` parameter into every contract 
 - `self.emit(...)` - Emit events
 
 And soon to be implemented also:
+
 - `self.call(...)` - Make contract calls
 
 #### How it works
@@ -258,15 +259,15 @@ fn new_transfer(amount: u128, recipient: AztecAddress) {
 
 Storage and context are no longer injected into the function as standalone variables and instead you need to access them via `self`:
 
-   ```diff
-   - let balance = storage.balances.at(owner).read();
-   + let balance = self.storage.balances.at(owner).read();
-   ```
+```diff
+- let balance = storage.balances.at(owner).read();
++ let balance = self.storage.balances.at(owner).read();
+```
 
-   ```diff
-   - context.push_nullifier(nullifier);
-   + self.context.push_nullifier(nullifier);
-   ```
+```diff
+- context.push_nullifier(nullifier);
++ self.context.push_nullifier(nullifier);
+```
 
 Note that `context` is expected to be use only when needing to access a low-level API (like directly emitting a nullifier).
 
@@ -328,6 +329,30 @@ fn withdraw(amount: u128, recipient: AztecAddress) {
     // ... withdrawal logic
 
     self.emit(Withdraw { withdrawer, amount }, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+### Renaming #[internal] as #[only_self]
+
+We want for internal to mean the same as in Solidity where internal function can be called only from the same contract
+and is also inlined (EVM JUMP opcode and not EVM CALL). The original implementation of our `#[internal]` macro also
+results in the function being callable only from the same contract but it results in a different call (hence it doesn't
+map to EVM JUMP). This is very confusing for people that know Solidity hence we are doing the rename. A true
+`#[internal]` will be introduced in the future.
+
+To migrate your contracts simply rename all the occurrences of `#[internal]` with `#[only_self]` and update the imports:
+
+```diff
+- use aztec::macros::functions::internal;
++ use aztec::macros::functions::only_self;
+```
+
+```diff
+#[external("public")]
+- #[internal]
++ #[only_self]
+fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
+    ...
 }
 ```
 

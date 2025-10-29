@@ -23,7 +23,7 @@ pub contract Lending {
     use dep::price_feed::PriceFeed;
     use dep::token::Token;
 
-    use dep::aztec::macros::{functions::{external, initializer, internal, view}, storage::storage};
+    use dep::aztec::macros::{functions::{external, initializer, only_self, view}, storage::storage};
 
     use dep::aztec::protocol_types::traits::{FromField, ToField};
 
@@ -136,7 +136,7 @@ pub contract Lending {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _deposit(owner: AztecAddress, amount: u128, collateral_asset: AztecAddress) {
         let _asset = Lending::at(self.address).update_accumulator().call(self.context);
 
@@ -164,7 +164,7 @@ pub contract Lending {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _withdraw(owner: AztecAddress, recipient: AztecAddress, amount: u128) {
         let asset = Lending::at(self.address).update_accumulator().call(self.context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
@@ -213,7 +213,7 @@ pub contract Lending {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _borrow(owner: AztecAddress, to: AztecAddress, amount: u128) {
         let asset = Lending::at(self.address).update_accumulator().call(self.context);
         let price = PriceFeed::at(asset.oracle).get_price(0).view(self.context).price;
@@ -268,7 +268,7 @@ pub contract Lending {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _repay(owner: AztecAddress, amount: u128, stable_coin: AztecAddress) {
         let asset = Lending::at(self.address).update_accumulator().call(self.context);
 

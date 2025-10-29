@@ -14,7 +14,7 @@ pub contract FPC {
     use crate::{config::Config, utils::safe_cast_to_u128};
     use dep::uint_note::uint_note::PartialUintNote;
     use aztec::{
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::PublicImmutable,
     };
@@ -108,7 +108,7 @@ pub contract FPC {
     /// flow.
     // docs:start:complete_refund
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _complete_refund(
         accepted_asset: AztecAddress,
         partial_note: PartialUintNote,
@@ -175,7 +175,7 @@ pub contract FPC {
     /// between the `max_fee` and the actual fee. `accepted_asset` is the asset in which the refund is paid.
     /// It's passed as an argument to avoid the need for another read from public storage.
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _pay_refund(refund_recipient: AztecAddress, max_fee: u128, accepted_asset: AztecAddress) {
         let actual_fee = safe_cast_to_u128(self.context.transaction_fee());
 

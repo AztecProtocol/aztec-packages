@@ -21,7 +21,7 @@ pub contract Token {
         context::{PrivateCallInterface, PrivateContext, PublicContext},
         macros::{
             events::event,
-            functions::{authorize_once, external, initializer, internal, view},
+            functions::{authorize_once, external, initializer, only_self, view},
             storage::storage,
         },
         messages::message_delivery::MessageDelivery,
@@ -300,7 +300,7 @@ pub contract Token {
         Token::at(context.this_address())._recurse_subtract_balance(account, remaining)
     }
 
-    #[internal]
+    #[only_self]
     #[external("private")]
     fn _recurse_subtract_balance(account: AztecAddress, amount: u128) -> u128 {
         subtract_balance(
@@ -448,7 +448,7 @@ pub contract Token {
     /// to `_finalize_transfer_to_private` can be enqueued. Called unsafe as it does not check `from_and_completer`
     /// (this has to be done in the calling function).
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finalize_transfer_to_private_unsafe(
         from_and_completer: AztecAddress,
         amount: u128,
@@ -526,7 +526,7 @@ pub contract Token {
     /// to `_finalize_mint_to_private` can be enqueued. Called unsafe as it does not check `minter_and_completer` (this
     /// has to be done in the calling function).
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _finalize_mint_to_private_unsafe(
         minter_and_completer: AztecAddress,
         amount: u128,
@@ -563,7 +563,7 @@ pub contract Token {
     /// TODO(#9180): Consider adding macro support for functions callable both as an entrypoint and as an internal
     /// function.
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _increase_public_balance(to: AztecAddress, amount: u128) {
         _increase_public_balance_inner(to, amount, self.storage);
     }
@@ -579,7 +579,7 @@ pub contract Token {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _reduce_total_supply(amount: u128) {
         // Only to be called from burn.
         let new_supply = self.storage.total_supply.read().sub(amount);

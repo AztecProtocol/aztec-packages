@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract BobToken {
     // docs:end:start
     use aztec::{
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol_types::address::AztecAddress, state_vars::Map,
         state_vars::public_mutable::PublicMutable,
     };
@@ -86,7 +86,7 @@ pub contract BobToken {
 
     // docs:start:_deduct_public_balance
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
         let balance = self.storage.public_balances.at(owner).read();
         assert(balance >= amount, "Insufficient public BOB tokens");
@@ -120,7 +120,7 @@ pub contract BobToken {
 
     // docs:start:_assert_is_owner
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _assert_is_owner(address: AztecAddress) {
         assert_eq(address, self.storage.owner.read(), "Only Giggle can mint BOB tokens");
     }
@@ -153,7 +153,7 @@ pub contract BobToken {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _credit_public_balance(owner: AztecAddress, amount: u64) {
         let balance = self.storage.public_balances.at(owner).read();
         self.storage.public_balances.at(owner).write(balance + amount);

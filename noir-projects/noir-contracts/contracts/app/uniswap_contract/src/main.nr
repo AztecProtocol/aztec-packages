@@ -13,7 +13,7 @@ pub contract Uniswap {
             assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
             set_authorized,
         },
-        macros::{functions::{external, initializer, internal}, storage::storage},
+        macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol_types::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
@@ -185,10 +185,10 @@ pub contract Uniswap {
     // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
     // Assumes contract already has funds.
     // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
-    // Note that private can't read public return values so created an internal public that handles everything
+    // Note that private can't read public return values so created an `only_self` public that handles everything
     // this method is used for both private and public swaps.
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _approve_bridge_and_exit_input_asset_to_L1(
         token: AztecAddress,
         token_bridge: AztecAddress,

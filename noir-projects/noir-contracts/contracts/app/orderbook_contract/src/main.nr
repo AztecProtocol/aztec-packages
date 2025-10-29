@@ -34,7 +34,7 @@ use aztec::macros::aztec;
 pub contract Orderbook {
     use crate::{config::Config, order::Order};
     use aztec::{
-        macros::{events::event, functions::{external, initializer, internal}, storage::storage},
+        macros::{events::event, functions::{external, initializer, only_self}, storage::storage},
         oracle::notes::check_nullifier_exists,
         protocol_types::{address::AztecAddress, traits::{FromField, ToField}},
         state_vars::{Map, PublicImmutable},
@@ -105,7 +105,7 @@ pub contract Orderbook {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _create_order(order_id: Field, order: Order) {
         // Note that PublicImmutable can be initialized only once so this is a secondary check that the order is
         // unique.
@@ -156,7 +156,7 @@ pub contract Orderbook {
     }
 
     #[external("public")]
-    #[internal]
+    #[only_self]
     fn _fulfill_order(
         order_id: Field,
         taker_partial_note: PartialUintNote,
