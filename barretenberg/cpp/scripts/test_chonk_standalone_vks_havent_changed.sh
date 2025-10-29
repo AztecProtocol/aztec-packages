@@ -57,9 +57,20 @@ fi
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
 
-echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
-if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
-    echo_stderr "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
+# TODO: Remove the bb-civc fallback URL once all old artifacts have expired
+# Try the new bb-chonk naming first, then fall back to the old bb-civc naming
+pinned_chonk_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-chonk-inputs-${pinned_short_hash}.tar.gz"
+pinned_civc_url="https://aztec-ci-artifacts.s3.us-east-2.amazonaws.com/protocol/bb-civc-inputs-${pinned_short_hash}.tar.gz"
+
+echo "Downloading pinned IVC inputs (trying bb-chonk naming first)..."
+if curl -s -f "$pinned_chonk_url" -o bb-chonk-inputs.tar.gz; then
+    echo "Successfully downloaded from bb-chonk URL"
+elif curl -s -f "$pinned_civc_url" -o bb-chonk-inputs.tar.gz; then
+    echo "Successfully downloaded from bb-civc URL (legacy)"
+else
+    echo_stderr "Error: Failed to download pinned IVC inputs from either URL:"
+    echo_stderr "  - $pinned_chonk_url"
+    echo_stderr "  - $pinned_civc_url"
     echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the file may not exist in S3."
     exit 1
 fi
