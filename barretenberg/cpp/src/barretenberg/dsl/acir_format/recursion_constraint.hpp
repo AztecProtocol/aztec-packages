@@ -48,7 +48,7 @@ inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
     switch (proof_type) {
     // Ultra non-ZK proof - default size 25
     case HONK:
-        return 25;
+        return 28;
     // Ultra ZK proofs - default size 25
     case HONK_ZK:
         return 25;

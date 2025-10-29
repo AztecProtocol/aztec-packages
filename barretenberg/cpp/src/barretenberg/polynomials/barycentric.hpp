@@ -213,20 +213,19 @@ template <class Fr, size_t domain_end = 1, size_t num_evals = 1> class Barycentr
         const size_t domain_sz = lagrange_denominators_span.size();
         const size_t num_eval_points = result_span.size() / domain_sz;
 
-        std::vector<Fr> denominators(result_span.size());
+        // Default init to 0 to match original array version which used result{}
+        std::vector<Fr> denominators(result_span.size(), Fr(0));
 
-        // For evaluation points in the original domain, use lagrange denominators directly
-        for (size_t k = 0; k < std::min(num_eval_points, domain_sz); ++k) {
-            for (size_t j = 0; j < domain_sz; ++j) {
-                denominators[k * domain_sz + j] = lagrange_denominators_span[j];
-            }
-        }
-
-        // For evaluation points beyond the original domain, compute full barycentric denominators
-        for (size_t k = domain_sz; k < num_eval_points; ++k) {
-            for (size_t j = 0; j < domain_sz; ++j) {
-                denominators[k * domain_sz + j] =
-                    lagrange_denominators_span[j] * (big_domain_span[k] - big_domain_span[j]);
+        // Special case: if num_eval_points == 1, just invert lagrange denominators
+        if (num_eval_points == 1) {
+            std::copy(lagrange_denominators_span.begin(), lagrange_denominators_span.end(), denominators.begin());
+        } else {
+            // For evaluation points beyond the original domain, compute full barycentric denominators
+            for (size_t k = domain_sz; k < num_eval_points; ++k) {
+                for (size_t j = 0; j < domain_sz; ++j) {
+                    denominators[k * domain_sz + j] =
+                        lagrange_denominators_span[j] * (big_domain_span[k] - big_domain_span[j]);
+                }
             }
         }
 

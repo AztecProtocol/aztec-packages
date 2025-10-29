@@ -61,7 +61,7 @@ void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
     // Set vkey->circuit_size correctly based on the proof size
-    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
+    BB_ASSERT_EQ(proof_size, NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n));
 
     size_t num_inner_public_inputs = public_inputs_size - IO::PUBLIC_INPUTS_SIZE;
     uint32_t pub_inputs_offset = NativeFlavor::has_zero_row ? 1 : 0;
