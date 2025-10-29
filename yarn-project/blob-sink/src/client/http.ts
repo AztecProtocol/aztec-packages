@@ -1,4 +1,10 @@
-import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
+import {
+  BYTES_PER_BLOB,
+  BYTES_PER_COMMITMENT,
+  Blob,
+  type BlobJson,
+  computeEthVersionedBlobHash,
+} from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
@@ -473,13 +479,22 @@ function parseBlobJsonsFromResponse(response: any, logger: Logger): BlobJson[] {
 
 // Blobs will be in this form when requested from the blob sink, or from the beacon chain via `getBlobSidecars`:
 // https://ethereum.github.io/beacon-APIs/?urls.primaryName=dev#/Beacon/getBlobSidecars
-// Attempt to parse the response data to Buffer, to avoid throwing an error down the line when calling Blob.fromJson().
+// Here we attempt to parse the response data to Buffer, and check the lengths, to avoid throwing an error down the line
+// when calling Blob.fromJson().
 function parseBlobJson(data: any): BlobJson {
+  const blobBuffer = Buffer.from(data.blob.slice(2), 'hex');
+  if (blobBuffer.length !== BYTES_PER_BLOB) {
+    throw new Error(`Blob data must be ${BYTES_PER_BLOB} bytes. Got ${blobBuffer.length}.`);
+  }
+  const commitmentBuffer = Buffer.from(data.kzg_commitment.slice(2), 'hex');
+  if (commitmentBuffer.length !== BYTES_PER_COMMITMENT) {
+    throw new Error(`Blob commitment must be ${BYTES_PER_COMMITMENT} bytes. Got ${commitmentBuffer.length}.`);
+  }
   return {
-    blob: `0x${Buffer.from(data.blob.slice(2), 'hex').toString('hex')}`,
+    blob: `0x${blobBuffer.toString('hex')}`,
     index: data.index,
     // eslint-disable-next-line camelcase
-    kzg_commitment: `0x${Buffer.from(data.kzg_commitment.slice(2), 'hex').toString('hex')}`,
+    kzg_commitment: `0x${commitmentBuffer.toString('hex')}`,
   };
 }
 

@@ -12,7 +12,7 @@ export const EMPTY_BLOB_VERSIONED_HASH = Buffer.from(
   'hex',
 );
 
-export { FIELDS_PER_BLOB };
+export { FIELDS_PER_BLOB, BYTES_PER_BLOB, BYTES_PER_COMMITMENT };
 
 /**
  * A class to create, manage, and prove EVM blobs.
