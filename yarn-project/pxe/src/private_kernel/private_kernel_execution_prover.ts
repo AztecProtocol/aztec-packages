@@ -54,7 +54,7 @@ export interface PrivateKernelExecutionProverConfig {
 /**
  * The PrivateKernelExecutionProver class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
- * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
+ * The result can be a Chonk proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {

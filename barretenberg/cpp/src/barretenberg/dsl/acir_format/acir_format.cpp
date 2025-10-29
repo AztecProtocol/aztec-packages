@@ -303,19 +303,19 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         bool has_pairing_points =
             has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints;
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or CIVC + AVM and
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1523): Only handle either HONK or Chonk + AVM and
         // fail fast otherwise
         BB_ASSERT_EQ(has_pg_recursion_constraints,
                      false,
                      "Invalid circuit: pg recursion constraints are present with UltraBuilder.");
         BB_ASSERT_EQ(!(has_honk_recursion_constraints && has_civc_recursion_constraints),
                      true,
-                     "Invalid circuit: both honk and civc recursion constraints are present.");
+                     "Invalid circuit: both honk and chonk recursion constraints are present.");
         BB_ASSERT_EQ(
             !(has_honk_recursion_constraints || has_civc_recursion_constraints || has_avm_recursion_constraints) ||
                 is_recursive_circuit,
             true,
-            "Invalid circuit: honk, civc, or avm recursion constraints present but the circuit is not recursive.");
+            "Invalid circuit: honk, chonk, or avm recursion constraints present but the circuit is not recursive.");
 
         // Container for data to be propagated
         HonkRecursionConstraintsOutput<Builder> honk_output;
@@ -525,13 +525,13 @@ process_honk_recursion_constraints(Builder& builder,
 
 void process_pg_recursion_constraints(MegaCircuitBuilder& builder,
                                       AcirFormat& constraints,
-                                      std::shared_ptr<ClientIVC> ivc,
+                                      std::shared_ptr<Chonk> ivc,
                                       bool has_valid_witness_assignments,
                                       GateCounter<MegaCircuitBuilder>& gate_counter)
 {
-    using StdlibVerificationKey = ClientIVC::RecursiveVerificationKey;
-    using StdlibVKAndHash = ClientIVC::RecursiveVKAndHash;
-    using StdlibFF = ClientIVC::RecursiveFlavor::FF;
+    using StdlibVerificationKey = Chonk::RecursiveVerificationKey;
+    using StdlibVKAndHash = Chonk::RecursiveVKAndHash;
+    using StdlibFF = Chonk::RecursiveFlavor::FF;
 
     // If an ivc instance is not provided, we mock one with the state required to construct the recursion
     // constraints present in the program. This is for when we write_vk.

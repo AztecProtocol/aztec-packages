@@ -23,7 +23,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
 
   public override async createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
     const timer = new Timer();
-    this.log.info(`Generating ClientIVC proof...`);
+    this.log.info(`Generating Chonk proof...`);
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
       { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
@@ -36,7 +36,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       executionSteps.map(step => step.vk),
     );
     await backend.destroy();
-    this.log.info(`Generated ClientIVC proof`, {
+    this.log.info(`Generated Chonk proof`, {
       eventName: 'client-ivc-proof-generation',
       duration: timer.ms(),
       proofSize: proof.length,

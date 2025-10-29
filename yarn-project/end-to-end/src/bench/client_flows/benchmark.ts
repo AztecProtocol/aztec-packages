@@ -320,7 +320,7 @@ export async function captureProfile(
     const resultsDirectory = join(ivcFolder, label);
     logger.info(`Writing private execution steps to ${resultsDirectory}`);
     await mkdir(resultsDirectory, { recursive: true });
-    // Write the client IVC files read by the prover.
+    // Write the Chonk files read by the prover.
     const ivcInputsPath = join(resultsDirectory, 'ivc-inputs.msgpack');
     await writeFile(ivcInputsPath, serializePrivateExecutionSteps(result.executionSteps));
     await writeFile(join(resultsDirectory, 'logs.json'), JSON.stringify(logs, null, 2));

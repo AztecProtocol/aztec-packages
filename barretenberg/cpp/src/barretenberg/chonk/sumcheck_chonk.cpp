@@ -16,7 +16,7 @@
 namespace bb {
 
 // Constructor
-ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
+Chonk::Chonk(size_t num_circuits, TraceSettings trace_settings)
     : trace_usage_tracker(trace_settings)
     , num_circuits(num_circuits)
     , trace_settings(trace_settings)
@@ -41,7 +41,7 @@ ClientIVC::ClientIVC(size_t num_circuits, TraceSettings trace_settings)
  *
  * @param circuit
  */
-void ClientIVC::instantiate_stdlib_verification_queue(
+void Chonk::instantiate_stdlib_verification_queue(
     ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys)
 {
     bool vkeys_provided = !input_keys.empty();
@@ -73,7 +73,7 @@ void ClientIVC::instantiate_stdlib_verification_queue(
     }
 }
 
-std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_oink_recursive_verification(
+std::shared_ptr<Chonk::RecursiveDeciderVerificationKey> Chonk::perform_oink_recursive_verification(
     ClientCircuit& circuit,
     const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
     const std::shared_ptr<RecursiveTranscript>& transcript,
@@ -90,7 +90,7 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_o
     return verifier_instance;
 }
 
-std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_pg_recursive_verification(
+std::shared_ptr<Chonk::RecursiveDeciderVerificationKey> Chonk::perform_pg_recursive_verification(
     ClientCircuit& circuit,
     const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_accumulator,
     const std::shared_ptr<RecursiveDeciderVerificationKey>& verifier_instance,
@@ -133,13 +133,13 @@ std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> ClientIVC::perform_p
  * @return Triple of output verifier accumulator, PairingPoints for final verification and commitments to the merged
  * tables as read from the proof by the Merge verifier
  */
-std::tuple<std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>,
-           ClientIVC::PairingPoints,
-           ClientIVC::TableCommitments>
-ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
+std::tuple<std::shared_ptr<Chonk::RecursiveDeciderVerificationKey>,
+           Chonk::PairingPoints,
+           Chonk::TableCommitments>
+Chonk::perform_recursive_verification_and_databus_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
-    const std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey>& input_verifier_accumulator,
+    const std::shared_ptr<Chonk::RecursiveDeciderVerificationKey>& input_verifier_accumulator,
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
@@ -154,7 +154,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
     auto verifier_instance =
         std::make_shared<RecursiveDeciderVerificationKey>(&circuit, verifier_inputs.honk_vk_and_hash);
 
-    std::shared_ptr<ClientIVC::RecursiveDeciderVerificationKey> output_verifier_accumulator;
+    std::shared_ptr<Chonk::RecursiveDeciderVerificationKey> output_verifier_accumulator;
     std::optional<StdlibFF> prev_accum_hash = std::nullopt;
     // The decider proof exists if the tail kernel has been accumulated
     bool is_hiding_kernel = !decider_proof.empty();
@@ -281,7 +281,7 @@ ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
  *
  * @param circuit
  */
-void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
+void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
 
     // Transcript to be shared shared across recursive verification of the folding of K_{i-1} (kernel), A_{i,1} (app),
@@ -362,9 +362,9 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 }
 
-HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
-                                          const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                          const std::shared_ptr<Transcript>& transcript)
+HonkProof Chonk::construct_oink_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                      const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                      const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("computing oink proof...");
     MegaOinkProver oink_prover{ proving_key, honk_vk, transcript };
@@ -382,10 +382,10 @@ HonkProof ClientIVC::construct_oink_proof(const std::shared_ptr<DeciderProvingKe
     return oink_proof;
 }
 
-HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
-                                        const std::shared_ptr<MegaVerificationKey>& honk_vk,
-                                        const std::shared_ptr<Transcript>& transcript,
-                                        bool is_kernel)
+HonkProof Chonk::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>& proving_key,
+                                    const std::shared_ptr<MegaVerificationKey>& honk_vk,
+                                    const std::shared_ptr<Transcript>& transcript,
+                                    bool is_kernel)
 {
     vinfo("computing pg proof...");
     // Only fiat shamir if this is a kernel with the assumption that kernels are always the first being recursively
@@ -409,7 +409,7 @@ HonkProof ClientIVC::construct_pg_proof(const std::shared_ptr<DeciderProvingKey>
 /**
  * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
  */
-ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
+Chonk::QUEUE_TYPE Chonk::get_queue_type() const
 {
     // first app
     if (num_circuits_accumulated == 0) {
@@ -444,12 +444,12 @@ ClientIVC::QUEUE_TYPE ClientIVC::get_queue_type() const
  * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
-void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
+void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
     BB_ASSERT_LT(
-        num_circuits_accumulated, num_circuits, "ClientIVC: Attempting to accumulate more circuits than expected.");
+        num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
 
-    ASSERT(precomputed_vk != nullptr, "ClientIVC::accumulate - VK expected for the provided circuit");
+    ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
@@ -525,7 +525,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVer
  * operation is added to the op queue, to ensure the polynomial over Grumpkin, whose evaluation is
  * accumulated_result, has at least one random coefficient.
  */
-void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
+void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
 {
     Point random_point = Point::random_element();
     FF random_scalar = FF::random_element();
@@ -539,7 +539,7 @@ void ClientIVC::hide_op_queue_accumulation_result(ClientCircuit& circuit)
  *
  * @return HonkProof - a ZK Mega proof
  */
-HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
+HonkProof Chonk::construct_mega_proof_for_hiding_kernel(ClientCircuit& circuit)
 {
     // Note: a structured trace is not used for the hiding kernel
     auto hiding_decider_pk = std::make_shared<DeciderZKProvingKey>(circuit, TraceSettings(), bn254_commitment_key);
@@ -557,7 +557,7 @@ HonkProof ClientIVC::construct_mega_proof_for_hiding_kernel(ClientCircuit& circu
  *
  * @return Proof
  */
-ClientIVC::Proof ClientIVC::prove()
+Chonk::Proof Chonk::prove()
 {
     // deallocate the protogalaxy accumulator
     fold_output.accumulator = nullptr;
@@ -575,13 +575,13 @@ ClientIVC::Proof ClientIVC::prove()
     return { mega_proof, goblin.prove(MergeSettings::APPEND) };
 };
 
-bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
+bool Chonk::verify(const Proof& proof, const VerificationKey& vk)
 {
     using TableCommitments = Goblin::TableCommitments;
     // Create a transcript to be shared by MegaZK-, Merge-, ECCVM-, and Translator- Verifiers.
-    std::shared_ptr<Goblin::Transcript> civc_verifier_transcript = std::make_shared<Goblin::Transcript>();
+    std::shared_ptr<Goblin::Transcript> chonk_verifier_transcript = std::make_shared<Goblin::Transcript>();
     // Verify the hiding circuit proof
-    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, civc_verifier_transcript };
+    MegaZKVerifier verifier{ vk.mega, /*ipa_verification_key=*/{}, chonk_verifier_transcript };
     auto [mega_verified, T_prev_commitments] = verifier.template verify_proof<bb::HidingKernelIO>(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Extract the commitments to the subtable corresponding to the incoming circuit
@@ -589,10 +589,10 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 
     // Goblin verification (final merge, eccvm, translator)
     bool goblin_verified = Goblin::verify(
-        proof.goblin_proof, { t_commitments, T_prev_commitments }, civc_verifier_transcript, MergeSettings::APPEND);
+        proof.goblin_proof, { t_commitments, T_prev_commitments }, chonk_verifier_transcript, MergeSettings::APPEND);
     vinfo("Goblin verified: ", goblin_verified);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers.
     return goblin_verified && mega_verified;
 }
 
@@ -602,7 +602,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(const Proof& proof) const
+bool Chonk::verify(const Proof& proof) const
 {
     return verify(proof, get_vk());
 }
@@ -612,7 +612,7 @@ bool ClientIVC::verify(const Proof& proof) const
  *
  * @return HonkProof
  */
-HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
+HonkProof Chonk::construct_decider_proof(const std::shared_ptr<Transcript>& transcript)
 {
     vinfo("prove decider...");
     fold_output.accumulator->commitment_key = bn254_commitment_key;
@@ -627,31 +627,31 @@ HonkProof ClientIVC::construct_decider_proof(const std::shared_ptr<Transcript>& 
  * development/testing.
  *
  */
-bool ClientIVC::prove_and_verify()
+bool Chonk::prove_and_verify()
 {
     auto start = std::chrono::steady_clock::now();
     const auto proof = prove();
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to call ClientIVC::prove: ", diff.count(), " ms.");
+    vinfo("time to call Chonk::prove: ", diff.count(), " ms.");
 
     start = end;
     const bool verified = verify(proof);
     end = std::chrono::steady_clock::now();
 
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    vinfo("time to verify ClientIVC proof: ", diff.count(), " ms.");
+    vinfo("time to verify Chonk proof: ", diff.count(), " ms.");
 
     return verified;
 }
 
 // Proof methods
-size_t ClientIVC::Proof::size() const
+size_t Chonk::Proof::size() const
 {
     return mega_proof.size() + goblin_proof.size();
 }
 
-std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
+std::vector<Chonk::FF> Chonk::Proof::to_field_elements() const
 {
     HonkProof proof;
 
@@ -664,14 +664,14 @@ std::vector<ClientIVC::FF> ClientIVC::Proof::to_field_elements() const
     return proof;
 };
 
-msgpack::sbuffer ClientIVC::Proof::to_msgpack_buffer() const
+msgpack::sbuffer Chonk::Proof::to_msgpack_buffer() const
 {
     msgpack::sbuffer buffer;
     msgpack::pack(buffer, *this);
     return buffer;
 }
 
-uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
+uint8_t* Chonk::Proof::to_msgpack_heap_buffer() const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
 
@@ -679,7 +679,7 @@ uint8_t* ClientIVC::Proof::to_msgpack_heap_buffer() const
     return to_heap_buffer(buf);
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
+Chonk::Proof Chonk::Proof::from_msgpack_buffer(uint8_t const*& buffer)
 {
     auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
 
@@ -689,7 +689,7 @@ ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(uint8_t const*& buffer)
     return from_msgpack_buffer(sbuf);
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
+Chonk::Proof Chonk::Proof::from_msgpack_buffer(const msgpack::sbuffer& buffer)
 {
     msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
     msgpack::object obj = oh.get();
@@ -698,7 +698,7 @@ ClientIVC::Proof ClientIVC::Proof::from_msgpack_buffer(const msgpack::sbuffer& b
     return proof;
 }
 
-void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
+void Chonk::Proof::to_file_msgpack(const std::string& filename) const
 {
     msgpack::sbuffer buffer = to_msgpack_buffer();
     std::ofstream ofs(filename, std::ios::binary);
@@ -709,7 +709,7 @@ void ClientIVC::Proof::to_file_msgpack(const std::string& filename) const
     ofs.close();
 }
 
-ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename)
+Chonk::Proof Chonk::Proof::from_file_msgpack(const std::string& filename)
 {
     std::ifstream ifs(filename, std::ios::binary);
     if (!ifs.is_open()) {
@@ -730,13 +730,13 @@ ClientIVC::Proof ClientIVC::Proof::from_file_msgpack(const std::string& filename
 }
 
 // VerificationKey construction
-ClientIVC::VerificationKey ClientIVC::get_vk() const
+Chonk::VerificationKey Chonk::get_vk() const
 {
     return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
 }
 
-void ClientIVC::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
-                                                   const std::shared_ptr<Transcript>& verifier_transcript)
+void Chonk::update_native_verifier_accumulator(const VerifierInputs& queue_entry,
+                                               const std::shared_ptr<Transcript>& verifier_transcript)
 {
     auto decider_vk = std::make_shared<DeciderVerificationKey>(queue_entry.honk_vk);
     if (queue_entry.type == QUEUE_TYPE::OINK) {

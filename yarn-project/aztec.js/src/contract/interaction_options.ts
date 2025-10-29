@@ -61,7 +61,7 @@ export type SimulateMethodOptions = Pick<
 export type ProfileMethodOptions = SimulateMethodOptions & {
   /** Whether to return gates information or the bytecode/witnesses. */
   profileMode: 'gates' | 'execution-steps' | 'full';
-  /** Whether to generate a ClientIVC proof or not */
+  /** Whether to generate a Chonk proof or not */
   skipProofGeneration?: boolean;
 };
 // docs:end:profile-method-options

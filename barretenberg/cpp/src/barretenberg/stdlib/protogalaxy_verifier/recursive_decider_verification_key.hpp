@@ -99,7 +99,7 @@ template <IsRecursiveFlavor Flavor> class RecursiveDeciderVerificationKey_ {
     /**
      * @brief Return the underlying native DeciderVerificationKey.
      *
-     * @details In the context of client IVC, we will have several iterations of recursive folding verification. The
+     * @details In the context of Chonk, we will have several iterations of recursive folding verification. The
      * RecursiveDeciderVerificationKey is tied to the builder in whose context it was created so in order to preserve
      * the accumulator values between several iterations we need to retrieve the native DeciderVerificationKey values.
      */

@@ -1,4 +1,4 @@
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
@@ -14,22 +14,22 @@ class CivcRecursionConstraintTest : public ::testing::Test {
   public:
     using Builder = UltraCircuitBuilder;
 
-    // Types for ClientIVC recursive verifier
+    // Types for Chonk recursive verifier
     using Flavor = UltraRollupFlavor;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using ClientIVCRecursiveVerifier = stdlib::recursion::honk::ClientIVCRecursiveVerifier;
 
-    // Types for ClientIVC
+    // Types for Chonk
     using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
-    // Public inputs added by bb to a ClientIVC proof
+    // Public inputs added by bb to a Chonk proof
     static constexpr size_t PUBLIC_INPUTS_SIZE = bb::HidingKernelIO::PUBLIC_INPUTS_SIZE;
 
     struct ClientIVCData {
         std::shared_ptr<MegaZKVerificationKey> mega_vk;
-        ClientIVC::Proof proof;
+        Chonk::Proof proof;
     };
 
     static ClientIVCData get_civc_data(TraceSettings trace_settings)
@@ -38,13 +38,13 @@ class CivcRecursionConstraintTest : public ::testing::Test {
 
         PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
 
-        ClientIVC ivc(circuit_producer.total_num_circuits, trace_settings);
+        Chonk ivc(circuit_producer.total_num_circuits, trace_settings);
 
         for (size_t idx = 0; idx < circuit_producer.total_num_circuits; idx++) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc);
         }
 
-        ClientIVC::Proof proof = ivc.prove();
+        Chonk::Proof proof = ivc.prove();
 
         return { ivc.get_vk().mega, proof };
     }
@@ -71,7 +71,7 @@ class CivcRecursionConstraintTest : public ::testing::Test {
                                                .proof = proof_indices,
                                                .public_inputs = public_inputs_indices,
                                                .key_hash = key_hash_index,
-                                               .proof_type = PROOF_TYPE::CIVC };
+                                               .proof_type = PROOF_TYPE::Chonk };
 
         // Construct a constraint system
         program.constraints.varnum = static_cast<uint32_t>(program.witness.size());

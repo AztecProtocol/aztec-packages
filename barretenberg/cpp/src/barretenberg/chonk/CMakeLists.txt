@@ -1,0 +1,1 @@
+barretenberg_module(chonk stdlib_protogalaxy_verifier dsl libdeflate::libdeflate_static)

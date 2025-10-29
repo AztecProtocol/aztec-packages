@@ -25,10 +25,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-chonk-vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme chonk -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-chonk-vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -74,7 +74,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme client_ivc -v --print_bench
+  run_bb_cli_bench "$runtime" "$output" prove -o $output --ivc_inputs_path $flow_folder/ivc-inputs.msgpack --scheme chonk -v --print_bench
 
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))

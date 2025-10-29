@@ -1,8 +1,8 @@
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #ifndef __wasm__
 #include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/client_ivc/private_execution_steps.hpp"
+#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/pg_recursion_constraint.hpp"
@@ -493,7 +493,7 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
 }
 
 /**
- * @brief Test ClientIVC proof generation and verification given an ivc-inputs msgpack file
+ * @brief Test Chonk proof generation and verification given an ivc-inputs msgpack file
  *
  */
 TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
@@ -508,14 +508,14 @@ TEST_F(AcirIntegrationTest, DISABLED_ClientIVCMsgpackInputs)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
-    ClientIVC::Proof proof = ivc->prove();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
+    Chonk::Proof proof = ivc->prove();
 
     EXPECT_TRUE(ivc->verify(proof));
 }
 
 /**
- * @brief Check that for a set of programs to be accumulated via CIVC, the verification keys computed with a dummy
+ * @brief Check that for a set of programs to be accumulated via Chonk, the verification keys computed with a dummy
  * witness are identical to those computed with the genuine provided witness.
  */
 TEST_F(AcirIntegrationTest, DISABLED_DummyWitnessVkConsistency)

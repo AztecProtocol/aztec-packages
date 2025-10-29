@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"

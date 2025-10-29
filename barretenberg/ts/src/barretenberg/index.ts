@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ChonkAccumulate, ChonkComputeIvcVk, ChonkStats, ChonkLoad, ChonkProve, ChonkStart, ChonkVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -84,7 +84,7 @@ export class Barretenberg extends BarretenbergApi {
     await this.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
   }
 
-  async initSRSClientIVC(srsSize = this.getDefaultSrsSize()): Promise<void> {
+  async initSRSChonk(srsSize = this.getDefaultSrsSize()): Promise<void> {
     // crsPath can be undefined
     const crs = await Crs.new(srsSize + 1, this.options.crsPath, this.options.logger);
     const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, this.options.crsPath, this.options.logger);
@@ -119,33 +119,33 @@ export class Barretenberg extends BarretenbergApi {
     return this.wasm;
   }
 
-  // Wrap ClientIVC methods used by AztecClientBackend and UltraHonkBackend
-  async clientIvcStart(command: ClientIvcStart) {
-    return this.bbApi.clientIvcStart(command);
+  // Wrap Chonk methods used by AztecClientBackend and UltraHonkBackend
+  async chonkStart(command: ChonkStart) {
+    return this.bbApi.chonkStart(command);
   }
 
-  async clientIvcLoad(command: ClientIvcLoad) {
-    return this.bbApi.clientIvcLoad(command);
+  async chonkLoad(command: ChonkLoad) {
+    return this.bbApi.chonkLoad(command);
   }
 
-  async clientIvcAccumulate(command: ClientIvcAccumulate) {
-    return this.bbApi.clientIvcAccumulate(command);
+  async chonkAccumulate(command: ChonkAccumulate) {
+    return this.bbApi.chonkAccumulate(command);
   }
 
-  async clientIvcProve(command: ClientIvcProve) {
-    return this.bbApi.clientIvcProve(command);
+  async chonkProve(command: ChonkProve) {
+    return this.bbApi.chonkProve(command);
   }
 
-  async clientIvcVerify(command: ClientIvcVerify) {
-    return this.bbApi.clientIvcVerify(command);
+  async chonkVerify(command: ChonkVerify) {
+    return this.bbApi.chonkVerify(command);
   }
 
-  async clientIvcComputeIvcVk(command: ClientIvcComputeIvcVk) {
-    return this.bbApi.clientIvcComputeIvcVk(command);
+  async chonkComputeIvcVk(command: ChonkComputeIvcVk) {
+    return this.bbApi.chonkComputeIvcVk(command);
   }
 
-  async clientIvcStats(command: ClientIvcStats) {
-    return this.bbApi.clientIvcStats(command);
+  async chonkStats(command: ChonkStats) {
+    return this.bbApi.chonkStats(command);
   }
 
   // Wrap circuit methods used by BbApiUltraHonkBackend

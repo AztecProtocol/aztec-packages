@@ -9,7 +9,7 @@
 
 namespace bb {
 /**
- * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a ClientIVC proof.
+ * @brief Creates a Honk Proof for the Tube circuit responsible for recursively verifying a Chonk proof.
  *
  * @param output_path the working directory from which the proof and verification data are read
  * @param num_unused_public_inputs
@@ -26,8 +26,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     std::string proof_path = output_path + "/proof";
 
     // Read the proof  and verification data from given files
-    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
-    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
+    auto proof = Chonk::Proof::from_file_msgpack(proof_path);
+    auto vk = from_buffer<Chonk::VerificationKey>(read_file(vk_path));
 
     Builder builder;
     ClientIVCRecursiveVerifier verifier{ &builder, vk.mega };

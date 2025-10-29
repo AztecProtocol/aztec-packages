@@ -38,7 +38,7 @@ export class Tx extends Gossipable {
     public readonly data: PrivateKernelTailCircuitPublicInputs,
     /**
      * Proof from the private kernel circuit.
-     * TODO(#7368): This client IVC object currently contains various VKs that will eventually be more like static data.
+     * TODO(#7368): This Chonk object currently contains various VKs that will eventually be more like static data.
      */
     public readonly clientIvcProof: ClientIvcProof,
     /**

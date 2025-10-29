@@ -4,8 +4,8 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -17,7 +17,7 @@ namespace bb {
  * @brief Verify an IVC proof
  *
  */
-bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
+bool verify_ivc(Chonk::Proof& proof, Chonk& ivc)
 {
     bool verified = ivc.verify(proof);
 
@@ -35,13 +35,13 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
  *
  * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
  */
-std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
+std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc_with_precomputed_vks(
     size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    Chonk ivc{ NUM_CIRCUITS, trace_settings };
 
     BB_ASSERT_EQ(precomputed_vks.size(), NUM_CIRCUITS, "There should be a precomputed VK for each circuit");
 
@@ -64,7 +64,7 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
     CircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+    Chonk ivc{ NUM_CIRCUITS, trace_settings };
 
     std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> vkeys;
     for (size_t j = 0; j < NUM_CIRCUITS; ++j) {

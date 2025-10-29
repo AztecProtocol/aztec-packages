@@ -248,7 +248,7 @@ template <typename Builder> HonkProof create_mock_civc_proof(const size_t inner_
     ECCVMProof eccvm_proof{ create_mock_pre_ipa_proof(), create_mock_ipa_proof() };
     HonkProof translator_proof = create_mock_translator_proof();
 
-    ClientIVC::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
+    Chonk::Proof civc_proof{ mega_proof, { merge_proof, eccvm_proof, translator_proof } };
     proof = civc_proof.to_field_elements();
 
     return proof;

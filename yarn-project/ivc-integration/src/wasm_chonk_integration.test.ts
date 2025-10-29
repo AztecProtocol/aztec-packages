@@ -25,12 +25,12 @@ jest.setTimeout(120_000);
 describe('Client IVC Integration', () => {
   beforeEach(async () => {});
 
-  // This test will verify a client IVC proof of a simple tx:
+  // This test will verify a Chonk proof of a simple tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
-  // 3. Run the tail kernel to finish the client IVC chain.
+  // 3. Run the tail kernel to finish the Chonk chain.
   // 4. Run the hiding kernel.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
+  it('Should generate a verifiable Chonk proof from a simple mock tx via bb.js, verified by bb', async () => {
     const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
 
     // We use the bb binary for verification / writing out the VK
@@ -57,7 +57,7 @@ describe('Client IVC Integration', () => {
     expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
   });
 
-  it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
+  it('Should generate an array of gate numbers for the stack of programs being proved by Chonk', async () => {
     // Create ACIR bytecodes
     const bytecodes = [
       MockAppCreatorCircuit.bytecode,
@@ -81,15 +81,15 @@ describe('Client IVC Integration', () => {
     // intended not to change, though for sure there will be some friction, and such test should actually just be located in barretenberg/ts)
   });
 
-  // This test will verify a client IVC proof of a more complex tx:
+  // This test will verify a Chonk proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run a mock app that reads one of those commitments
   // 4. Run the inner kernel to process the second app run
   // 5. Run the reset kernel to process the read request emitted by the reader app
-  // 6. Run the tail kernel to finish the client IVC chain
+  // 6. Run the tail kernel to finish the Chonk chain
   // 7. Run the hiding kernel.
-  it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
+  it('Should generate a verifiable Chonk proof from a complex mock tx', async () => {
     const [bytecodes, witnessStack, _, vks] = await generateTestingIVCStack(1, 1);
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack, vks);
     logger.info(`generated then verified proof. result: ${verifyResult}`);

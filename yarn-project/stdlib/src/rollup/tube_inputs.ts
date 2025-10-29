@@ -6,8 +6,8 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 
 /**
- * Inputs for the tube circuit, which turns a client IVC proof folding stack into an ultrahonk proof.
- * 'usePublicTailVk' signifies if we should prove this with the public or private kernel tail client IVC VKs.
+ * Inputs for the tube circuit, which turns a Chonk proof folding stack into an ultrahonk proof.
+ * 'usePublicTailVk' signifies if we should prove this with the public or private kernel tail Chonk VKs.
  */
 export class TubeInputs {
   constructor(

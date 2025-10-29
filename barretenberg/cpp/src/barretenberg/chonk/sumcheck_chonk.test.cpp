@@ -1,6 +1,6 @@
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
-#include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/test.hpp"
@@ -16,23 +16,23 @@
 using namespace bb;
 
 static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The CIVC class should enforce the minimum number of
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1511): The Chonk class should enforce the minimum number of
 // circuits in a test flow.
 
 class ClientIVCTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using Flavor = ClientIVC::Flavor;
+    using Flavor = Chonk::Flavor;
     using FF = typename Flavor::FF;
     using Commitment = Flavor::Commitment;
     using VerificationKey = Flavor::VerificationKey;
-    using Builder = ClientIVC::ClientCircuit;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using DeciderVerificationKey = ClientIVC::DeciderVerificationKey;
-    using FoldProof = ClientIVC::FoldProof;
-    using DeciderProver = ClientIVC::DeciderProver;
-    using DeciderVerifier = ClientIVC::DeciderVerifier;
+    using Builder = Chonk::ClientCircuit;
+    using DeciderProvingKey = Chonk::DeciderProvingKey;
+    using DeciderVerificationKey = Chonk::DeciderVerificationKey;
+    using FoldProof = Chonk::FoldProof;
+    using DeciderProver = Chonk::DeciderProver;
+    using DeciderVerifier = Chonk::DeciderVerifier;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor>;
     using FoldingProver = ProtogalaxyProver_<Flavor>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
@@ -58,13 +58,13 @@ class ClientIVCTests : public ::testing::Test {
         }
     }
 
-    static std::pair<ClientIVC::Proof, ClientIVC::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
+    static std::pair<Chonk::Proof, Chonk::VerificationKey> accumulate_and_prove_ivc(size_t num_app_circuits,
                                                                                             TestSettings settings = {})
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
         TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-        ClientIVC ivc{ num_circuits, trace_settings };
+        Chonk ivc{ num_circuits, trace_settings };
 
         for (size_t j = 0; j < num_circuits; ++j) {
             // Use default test settings for the mock hiding kernel since it's size must always be consistent
@@ -86,7 +86,7 @@ TEST_F(ClientIVCTests, BasicStructured)
     const size_t NUM_APP_CIRCUITS = 1;
     auto [proof, vk] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    EXPECT_TRUE(ClientIVC::verify(proof, vk));
+    EXPECT_TRUE(Chonk::verify(proof, vk));
 };
 
 /**
@@ -105,7 +105,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk ivc{ NUM_CIRCUITS, trace_settings };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
@@ -119,7 +119,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk ivc{ NUM_CIRCUITS, trace_settings };
 
         size_t num_public_inputs = 0;
 
@@ -146,7 +146,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        ClientIVC ivc{ NUM_CIRCUITS, trace_settings };
+        Chonk ivc{ NUM_CIRCUITS, trace_settings };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -167,7 +167,7 @@ TEST_F(ClientIVCTests, BadProofFailure)
 };
 
 /**
- * @brief Produce 2 valid CIVC proofs. Ensure that replacing a proof component with a component from a different proof
+ * @brief Produce 2 valid Chonk proofs. Ensure that replacing a proof component with a component from a different proof
  * leads to a verification failure.
  *
  */
@@ -176,53 +176,53 @@ TEST_F(ClientIVCTests, WrongProofComponentFailure)
     // Produce two valid proofs
     auto [civc_proof_1, civc_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
     {
-        EXPECT_TRUE(ClientIVC::verify(civc_proof_1, civc_vk_1));
+        EXPECT_TRUE(Chonk::verify(civc_proof_1, civc_vk_1));
     }
 
     auto [civc_proof_2, civc_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/1);
     {
-        EXPECT_TRUE(ClientIVC::verify(civc_proof_2, civc_vk_2));
+        EXPECT_TRUE(Chonk::verify(civc_proof_2, civc_vk_2));
     }
 
     {
         // Replace Merge proof
-        ClientIVC::Proof tampered_proof = civc_proof_1;
+        Chonk::Proof tampered_proof = civc_proof_1;
 
         tampered_proof.goblin_proof.merge_proof = civc_proof_2.goblin_proof.merge_proof;
 
-        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace hiding circuit proof
-        ClientIVC::Proof tampered_proof = civc_proof_1;
+        Chonk::Proof tampered_proof = civc_proof_1;
 
         tampered_proof.mega_proof = civc_proof_2.mega_proof;
 
-        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace ECCVM proof
-        ClientIVC::Proof tampered_proof = civc_proof_1;
+        Chonk::Proof tampered_proof = civc_proof_1;
 
         tampered_proof.goblin_proof.eccvm_proof = civc_proof_2.goblin_proof.eccvm_proof;
 
-        EXPECT_THROW_OR_ABORT(ClientIVC::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
+        EXPECT_THROW_OR_ABORT(Chonk::verify(tampered_proof, civc_vk_1), ".*IPA verification fails.*");
     }
 
     {
         // Replace Translator proof
-        ClientIVC::Proof tampered_proof = civc_proof_1;
+        Chonk::Proof tampered_proof = civc_proof_1;
 
         tampered_proof.goblin_proof.translator_proof = civc_proof_2.goblin_proof.translator_proof;
 
-        EXPECT_FALSE(ClientIVC::verify(tampered_proof, civc_vk_1));
+        EXPECT_FALSE(Chonk::verify(tampered_proof, civc_vk_1));
     }
 };
 
 /**
- * @brief Ensure that the CIVC VK is independent of the number of circuits accumulated
+ * @brief Ensure that the Chonk VK is independent of the number of circuits accumulated
  *
  */
 TEST_F(ClientIVCTests, VKIndependenceTest)
@@ -232,21 +232,21 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
     auto [unused_1, civc_vk_1] = accumulate_and_prove_ivc(/*num_app_circuits=*/1, settings);
     auto [unused_2, civc_vk_2] = accumulate_and_prove_ivc(/*num_app_circuits=*/3, settings);
 
-    // Check the equality of the Mega components of the ClientIVC VKeys.
+    // Check the equality of the Mega components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.mega.get(), *civc_vk_2.mega.get());
 
-    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    // Check the equality of the ECCVM components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.eccvm.get(), *civc_vk_2.eccvm.get());
 
-    // Check the equality of the Translator components of the ClientIVC VKeys.
+    // Check the equality of the Translator components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.translator.get(), *civc_vk_2.translator.get());
 };
 
 /**
- * @brief Ensure that the CIVC VK is independent of whether any of the circuits being accumulated overflows the
+ * @brief Ensure that the Chonk VK is independent of whether any of the circuits being accumulated overflows the
  * structured trace
  * @details If one of the circuits being accumulated overflows the structured trace, the dyadic size of the accumulator
- * may increase. In this case we want to ensure that the CIVC VK (and in particular the hiding circuit VK) is identical
+ * may increase. In this case we want to ensure that the Chonk VK (and in particular the hiding circuit VK) is identical
  * to the non-overflow case. This requires, for example, that the padding_indicator_array logic used in somecheck is
  * functioning properly.
  */
@@ -264,13 +264,13 @@ TEST_F(ClientIVCTests, VKIndependenceWithOverflow)
     auto [unused_1, civc_vk_1] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_1);
     auto [unused_2, civc_vk_2] = accumulate_and_prove_ivc(NUM_APP_CIRCUITS, settings_2);
 
-    // Check the equality of the Mega components of the ClientIVC VKeys.
+    // Check the equality of the Mega components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.mega.get(), *civc_vk_2.mega.get());
 
-    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    // Check the equality of the ECCVM components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.eccvm.get(), *civc_vk_2.eccvm.get());
 
-    // Check the equality of the Translator components of the ClientIVC VKeys.
+    // Check the equality of the Translator components of the Chonk VKeys.
     EXPECT_EQ(*civc_vk_1.translator.get(), *civc_vk_2.translator.get());
 };
 
@@ -285,7 +285,7 @@ HEAVY_TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
     const size_t NUM_APP_CIRCUITS = 14;
     auto [proof, vk] = ClientIVCTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
-    bool verified = ClientIVC::verify(proof, vk);
+    bool verified = Chonk::verify(proof, vk);
     EXPECT_TRUE(verified);
 };
 
@@ -302,7 +302,7 @@ TEST_F(ClientIVCTests, StructuredTraceOverflow)
     size_t NUM_APP_CIRCUITS = 1;
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
+    Chonk ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE, /*overflow_capacity=*/1 << 17 } };
     TestSettings settings;
 
     // Construct and accumulate some circuits of varying size
@@ -340,7 +340,7 @@ TEST_F(ClientIVCTests, DynamicTraceOverflow)
 
         CircuitProducer circuit_producer(/*num_app_circuits=*/1);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        ClientIVC ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
+        Chonk ivc{ NUM_CIRCUITS, { SMALL_TEST_STRUCTURE_FOR_OVERFLOWS } };
 
         // Accumulate
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -366,31 +366,31 @@ TEST_F(ClientIVCTests, MsgpackProofFromFileOrBuffer)
     { // Serialize/deserialize the proof to/from a file, check that it verifies
         const std::string filename = "proof.msgpack";
         proof.to_file_msgpack(filename);
-        auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
+        auto proof_deserialized = Chonk::Proof::from_file_msgpack(filename);
 
-        EXPECT_TRUE(ClientIVC::verify(proof_deserialized, vk));
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
     }
 
     { // Serialize/deserialize proof to/from a heap buffer, check that it verifies
         uint8_t* buffer = proof.to_msgpack_heap_buffer();
         auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
         uint8_t const* uint8_ptr = uint8_buffer.data();
-        auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
+        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(uint8_ptr);
 
-        EXPECT_TRUE(ClientIVC::verify(proof_deserialized, vk));
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
     }
 
     { // Check that attempting to deserialize a proof from a buffer with random bytes fails gracefully
         msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-        auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
-        EXPECT_TRUE(ClientIVC::verify(proof_deserialized, vk));
+        auto proof_deserialized = Chonk::Proof::from_msgpack_buffer(buffer);
+        EXPECT_TRUE(Chonk::verify(proof_deserialized, vk));
 
         std::vector<uint8_t> random_bytes(buffer.size());
         std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
         std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
 
         // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-        EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
+        EXPECT_THROW(Chonk::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
     }
 };
 
@@ -407,7 +407,7 @@ TEST_F(ClientIVCTests, DatabusFailure)
 {
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    Chonk ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {

@@ -59,10 +59,10 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
 
-    // Generate dummy CIVC proof
+    // Generate dummy Chonk proof
     bb::HonkProof civc_proof = create_mock_civc_proof<Builder>(num_inner_public_inputs);
 
-    // Set CIVC proof in builder
+    // Set Chonk proof in builder
     offset = 0;
     for (auto& proof_element : civc_proof) {
         builder.set_variable(proof_fields[offset].witness_index, proof_element);
@@ -73,7 +73,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
 }
 
 /**
- * @brief Add constraints associated with recursive verification of an CIVC proof
+ * @brief Add constraints associated with recursive verification of an Chonk proof
  *
  * @param builder
  * @param input
@@ -91,7 +91,7 @@ create_civc_recursion_constraints(Builder& builder,
     using VerificationKey = ClientIVCRecursiveVerifier::RecursiveVK;
     using IO = stdlib::recursion::honk::HidingKernelIO<Builder>;
 
-    BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::CIVC);
+    BB_ASSERT_EQ(input.proof_type, PROOF_TYPE::Chonk);
 
     // Reconstruct proof indices from proof and public inputs
     std::vector<uint32_t> proof_indices =
@@ -110,7 +110,7 @@ create_civc_recursion_constraints(Builder& builder,
             builder, proof_size_without_pub_inputs, total_pub_inputs_size, key_fields, proof_fields);
     }
 
-    // Recursively verify CIVC proof
+    // Recursively verify Chonk proof
     auto mega_vk = std::make_shared<VerificationKey>(builder, key_fields);
     auto mega_vk_and_hash = std::make_shared<RecursiveVKAndHash>(mega_vk, vk_hash);
     ClientIVCRecursiveVerifier::StdlibProof stdlib_proof(proof_fields);

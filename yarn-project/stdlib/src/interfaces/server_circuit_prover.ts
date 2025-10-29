@@ -69,7 +69,7 @@ export interface ServerCircuitProver {
   >;
 
   /**
-   * Get a recursively verified client IVC proof (making it a compatible honk proof for the rest of the rollup).
+   * Get a recursively verified Chonk proof (making it a compatible honk proof for the rest of the rollup).
    * @param input - Input to the circuit.
    */
   getTubeProof(

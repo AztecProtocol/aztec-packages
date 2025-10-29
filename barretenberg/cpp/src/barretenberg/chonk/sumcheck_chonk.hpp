@@ -36,7 +36,7 @@ namespace bb {
  * of circuits being accumulated is even.
  *
  */
-class ClientIVC {
+class Chonk {
 
   public:
     using Flavor = MegaFlavor;
@@ -98,7 +98,7 @@ class ClientIVC {
         GoblinProof goblin_proof;
 
         /**
-         * @brief The size of a ClientIVC proof without backend-added public inputs
+         * @brief The size of a Chonk proof without backend-added public inputs
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -113,7 +113,7 @@ class ClientIVC {
         }
 
         /**
-         * @brief The size of a ClientIVC proof with backend-added public inputs: HidingKernelIO
+         * @brief The size of a Chonk proof with backend-added public inputs: HidingKernelIO
          *
          * @param virtual_log_n
          * @return constexpr size_t
@@ -145,12 +145,12 @@ class ClientIVC {
          * @return uint8_t* Double size-prefixed msgpack buffer
          */
         uint8_t* to_msgpack_heap_buffer() const;
-        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ClientIVCProof";
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkProof";
 
         class DeserializationError : public std::runtime_error {
           public:
             DeserializationError(const std::string& msg)
-                : std::runtime_error(std::string("Client IVC Proof deserialization error: ") + msg)
+                : std::runtime_error(std::string("Chonk Proof deserialization error: ") + msg)
             {}
         };
 
@@ -257,7 +257,7 @@ class ClientIVC {
   private:
     using ProverFoldOutput = FoldingResult<Flavor>;
 
-    // Transcript for CIVC prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
+    // Transcript for Chonk prover (shared between Hiding circuit, Merge, ECCVM, and Translator)
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 
     // Transcript to be shared across the folding of K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n}
@@ -293,7 +293,7 @@ class ClientIVC {
 
     size_t get_num_circuits() const { return num_circuits; }
 
-    ClientIVC(size_t num_circuits, TraceSettings trace_settings = {});
+    Chonk(size_t num_circuits, TraceSettings trace_settings = {});
 
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
@@ -372,12 +372,12 @@ class ClientIVC {
         bool is_kernel);
 };
 
-// Serialization methods for ClientIVC::VerificationKey
-inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
+// Serialization methods for Chonk::VerificationKey
+inline void read(uint8_t const*& it, Chonk::VerificationKey& vk)
 {
     using serialize::read;
 
-    size_t num_frs = ClientIVC::VerificationKey::calc_num_data_types();
+    size_t num_frs = Chonk::VerificationKey::calc_num_data_types();
 
     // Read exactly num_frs field elements from the buffer
     std::vector<bb::fr> field_elements(num_frs);
@@ -389,7 +389,7 @@ inline void read(uint8_t const*& it, ClientIVC::VerificationKey& vk)
     vk.from_field_elements(field_elements);
 }
 
-inline void write(std::vector<uint8_t>& buf, ClientIVC::VerificationKey const& vk)
+inline void write(std::vector<uint8_t>& buf, Chonk::VerificationKey const& vk)
 {
     using serialize::write;
 

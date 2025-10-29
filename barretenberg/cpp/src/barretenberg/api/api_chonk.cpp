@@ -1,11 +1,11 @@
-#include "api_client_ivc.hpp"
+#include "api_chonk.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/bbapi/bbapi.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
-#include "barretenberg/client_ivc/private_execution_steps.hpp"
+#include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
+#include "barretenberg/chonk/private_execution_steps.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
@@ -31,7 +31,7 @@ namespace { // anonymous namespace
 void write_standalone_vk(const std::filesystem::path& bytecode_path, const std::filesystem::path& output_path)
 {
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ClientIvcComputeStandaloneVk{
+    auto response = bbapi::ChonkComputeStandaloneVk{
         .circuit = { .name = "standalone_circuit", .bytecode = std::move(bytecode) }
     }.execute();
 
@@ -42,12 +42,12 @@ void write_standalone_vk(const std::filesystem::path& bytecode_path, const std::
         write_file(output_path / "vk", response.bytes);
     }
 }
-void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
+void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_dir)
 {
     // compute the hiding kernel's vk
-    info("ClientIVC: computing IVC vk for hiding kernel circuit");
+    info("Chonk: computing IVC vk for hiding kernel circuit");
     auto response =
-        bbapi::ClientIvcComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute({ .trace_settings = {} });
+        bbapi::ChonkComputeIvcVk{ .circuit{ .bytecode = std::move(bytecode) } }.execute({ .trace_settings = {} });
     const bool output_to_stdout = output_dir == "-";
     if (output_to_stdout) {
         write_bytes_to_stdout(response.bytes);
@@ -57,27 +57,27 @@ void write_civc_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& o
 }
 } // anonymous namespace
 
-void ClientIVCAPI::prove(const Flags& flags,
+void ChonkAPI::prove(const Flags& flags,
                          const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
-    BB_BENCH_NAME("ClientIVCAPI::prove");
+    BB_BENCH_NAME("ChonkAPI::prove");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
-    bbapi::ClientIvcStart{ .num_circuits = raw_steps.size() }.execute(request);
-    info("ClientIVC: starting with ", raw_steps.size(), " circuits");
+    bbapi::ChonkStart{ .num_circuits = raw_steps.size() }.execute(request);
+    info("Chonk: starting with ", raw_steps.size(), " circuits");
     for (const auto& step : raw_steps) {
-        bbapi::ClientIvcLoad{
+        bbapi::ChonkLoad{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
-        info("ClientIVC: accumulating " + step.function_name);
-        bbapi::ClientIvcAccumulate{ .witness = step.witness }.execute(request);
+        info("Chonk: accumulating " + step.function_name);
+        bbapi::ChonkAccumulate{ .witness = step.witness }.execute(request);
     }
 
-    auto proof = bbapi::ClientIvcProve{}.execute(request).proof;
+    auto proof = bbapi::ChonkProve{}.execute(request).proof;
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
     // std::string representations of vks that don't feel worth implementing
@@ -86,64 +86,64 @@ void ClientIVCAPI::prove(const Flags& flags,
     const auto write_proof = [&]() {
         const auto buf = to_buffer(proof);
         if (output_to_stdout) {
-            vinfo("writing ClientIVC proof to stdout");
+            vinfo("writing Chonk proof to stdout");
             write_bytes_to_stdout(buf);
         } else {
-            vinfo("writing ClientIVC proof in directory ", output_dir);
+            vinfo("writing Chonk proof in directory ", output_dir);
             proof.to_file_msgpack(output_dir / "proof");
         }
     };
 
     write_proof();
     if (flags.write_vk) {
-        vinfo("writing ClientIVC vk in directory ", output_dir);
-        // write CIVC vk using the bytecode of the hiding circuit (the last step of the execution)
-        write_civc_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
+        vinfo("writing Chonk vk in directory ", output_dir);
+        // write Chonk vk using the bytecode of the hiding circuit (the last step of the execution)
+        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir);
     }
 }
 
-bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
+bool ChonkAPI::verify([[maybe_unused]] const Flags& flags,
                           [[maybe_unused]] const std::filesystem::path& public_inputs_path,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
-    BB_BENCH_NAME("ClientIVCAPI::verify");
-    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    BB_BENCH_NAME("ChonkAPI::verify");
+    auto proof = Chonk::Proof::from_file_msgpack(proof_path);
     auto vk_buffer = read_file(vk_path);
-    auto response = bbapi::ClientIvcVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
+    auto response = bbapi::ChonkVerify{ .proof = std::move(proof), .vk = std::move(vk_buffer) }.execute();
     return response.valid;
 }
 
 // WORKTODO(bbapi) remove this
-bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
+bool ChonkAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
-    std::shared_ptr<ClientIVC> ivc = steps.accumulate();
+    std::shared_ptr<Chonk> ivc = steps.accumulate();
     // Construct the hiding kernel as the final step of the IVC
 
     const bool verified = ivc->prove_and_verify();
     return verified;
 }
 
-void ClientIVCAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
+void ChonkAPI::gates(const Flags& flags, const std::filesystem::path& bytecode_path)
 {
-    BB_BENCH_NAME("ClientIVCAPI::gates");
+    BB_BENCH_NAME("ChonkAPI::gates");
     gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
-void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
+void ChonkAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
                                            [[maybe_unused]] const std::filesystem::path& output_path,
                                            [[maybe_unused]] const std::filesystem::path& vk_path)
 {
-    BB_BENCH_NAME("ClientIVCAPI::write_solidity_verifier");
+    BB_BENCH_NAME("ChonkAPI::write_solidity_verifier");
     throw_or_abort("API function contract not implemented");
 }
 
-bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
+bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::path& input_path)
 {
-    BB_BENCH_NAME("ClientIVCAPI::check_precomputed_vks");
+    BB_BENCH_NAME("ChonkAPI::check_precomputed_vks");
     bbapi::BBApiRequest request;
     std::vector<PrivateExecutionStepRaw> raw_steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
 
@@ -153,7 +153,7 @@ bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesyst
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        auto response = bbapi::ClientIvcCheckPrecomputedVk{
+        auto response = bbapi::ChonkCheckPrecomputedVk{
             .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
         }.execute();
 
@@ -172,13 +172,13 @@ bool ClientIVCAPI::check_precomputed_vks(const Flags& flags, const std::filesyst
     return true;
 }
 
-void ClientIVCAPI::write_vk(const Flags& flags,
+void ChonkAPI::write_vk(const Flags& flags,
                             const std::filesystem::path& bytecode_path,
                             const std::filesystem::path& output_path)
 {
-    BB_BENCH_NAME("ClientIVCAPI::write_vk");
+    BB_BENCH_NAME("ChonkAPI::write_vk");
     if (flags.verifier_type == "ivc") {
-        write_civc_vk(get_bytecode(bytecode_path), output_path);
+        write_chonk_vk(get_bytecode(bytecode_path), output_path);
     } else if (flags.verifier_type == "standalone") {
         write_standalone_vk(bytecode_path, output_path);
     } else {
@@ -187,7 +187,7 @@ void ClientIVCAPI::write_vk(const Flags& flags,
     }
 }
 
-bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
+bool ChonkAPI::check([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path,
                          [[maybe_unused]] const std::filesystem::path& witness_path)
 {
@@ -204,7 +204,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     bbapi::BBApiRequest request{ .trace_settings = { AZTEC_TRACE_STRUCTURE } };
 
     auto bytecode = get_bytecode(bytecode_path);
-    auto response = bbapi::ClientIvcStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
+    auto response = bbapi::ChonkStats{ .circuit = { .name = "ivc_circuit", .bytecode = std::move(bytecode) },
                                            .include_gates_per_opcode = include_gates_per_opcode }
                         .execute(request);
 
@@ -230,22 +230,22 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     std::cout << format(functions_string, "\n]}");
 }
 
-void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
+void write_arbitrary_valid_chonk_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
-    BB_BENCH_NAME("write_arbitrary_valid_client_ivc_proof_and_vk_to_file");
+    BB_BENCH_NAME("write_arbitrary_valid_chonk_proof_and_vk_to_file");
     PrivateFunctionExecutionMockCircuitProducer circuit_producer{ /*num_app_circuits=*/1 };
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-    ClientIVC ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
+    Chonk ivc{ NUM_CIRCUITS, { AZTEC_TRACE_STRUCTURE } };
 
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         circuit_producer.construct_and_accumulate_next_circuit(ivc);
     }
 
-    ClientIVC::Proof proof = ivc.prove();
+    Chonk::Proof proof = ivc.prove();
 
     // Write the proof and verification keys into the working directory in 'binary' format
-    vinfo("writing ClientIVC proof and vk...");
+    vinfo("writing Chonk proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
     write_file(output_dir / "vk", to_buffer(ivc.get_vk()));

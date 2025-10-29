@@ -35,12 +35,12 @@ using namespace bb;
  *
  * @param constraints IVC recursion constraints from a kernel circuit
  * @param trace_settings
- * @return ClientIVC
+ * @return Chonk
  */
-std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
+std::shared_ptr<Chonk> create_mock_ivc_from_constraints(const std::vector<RecursionConstraint>& constraints,
                                                             const TraceSettings& trace_settings)
 {
-    auto ivc = std::make_shared<ClientIVC>(constraints.size(), trace_settings);
+    auto ivc = std::make_shared<Chonk>(constraints.size(), trace_settings);
 
     uint32_t oink_type = static_cast<uint32_t>(PROOF_TYPE::OINK);
     uint32_t pg_type = static_cast<uint32_t>(PROOF_TYPE::PG);
@@ -51,21 +51,21 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
 
     // Case: INIT kernel; single Oink recursive verification of an app
     if (constraints.size() == 1 && constraints[0].proof_type == oink_type) {
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
         return ivc;
     }
 
     // Case: RESET kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<Chonk::Flavor>();
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
         return ivc;
     }
 
     // Case: TAIL kernel; single PG recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_tail_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<Chonk::Flavor>();
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -73,16 +73,16 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
     if (constraints.size() == 2) {
         BB_ASSERT_EQ(constraints[0].proof_type, pg_type);
         BB_ASSERT_EQ(constraints[1].proof_type, pg_type);
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/true);
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG, /*is_kernel=*/false);
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<Chonk::Flavor>();
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/true);
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG, /*is_kernel=*/false);
         return ivc;
     }
 
     // Case: HIDING kernel; single PG_FINAL recursive verification of a kernel
     if (constraints.size() == 1 && constraints[0].proof_type == pg_final_type) {
-        ivc->recursive_verifier_native_accum = create_mock_decider_vk<ClientIVC::Flavor>();
-        mock_ivc_accumulation(ivc, ClientIVC::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
+        ivc->recursive_verifier_native_accum = create_mock_decider_vk<Chonk::Flavor>();
+        mock_ivc_accumulation(ivc, Chonk::QUEUE_TYPE::PG_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
@@ -95,13 +95,13 @@ std::shared_ptr<ClientIVC> create_mock_ivc_from_constraints(const std::vector<Re
  * necessarily valid
  *
  */
-ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::QUEUE_TYPE verification_type,
+Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TYPE verification_type,
                                                                const TraceSettings& trace_settings,
                                                                const bool is_kernel)
 {
-    using FF = ClientIVC::FF;
-    using MegaVerificationKey = ClientIVC::MegaVerificationKey;
-    using Flavor = ClientIVC::Flavor;
+    using FF = Chonk::FF;
+    using MegaVerificationKey = Chonk::MegaVerificationKey;
+    using Flavor = Chonk::Flavor;
 
     // Use the trace settings to determine the correct dyadic size and the public inputs offset
     MegaExecutionTraceBlocks blocks;
@@ -117,12 +117,12 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     if (is_kernel) {
         using KernelIO = stdlib::recursion::honk::KernelIO;
         switch (verification_type) {
-        case ClientIVC::QUEUE_TYPE::OINK:
+        case Chonk::QUEUE_TYPE::OINK:
             proof = create_mock_oink_proof<Flavor, KernelIO>();
             break;
-        case ClientIVC::QUEUE_TYPE::PG:
-        case ClientIVC::QUEUE_TYPE::PG_FINAL:
-        case ClientIVC::QUEUE_TYPE::PG_TAIL:
+        case Chonk::QUEUE_TYPE::PG:
+        case Chonk::QUEUE_TYPE::PG_FINAL:
+        case Chonk::QUEUE_TYPE::PG_TAIL:
             proof = create_mock_pg_proof<Flavor, KernelIO>();
             break;
         default:
@@ -132,10 +132,10 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     } else {
         using AppIO = stdlib::recursion::honk::AppIO;
         switch (verification_type) {
-        case ClientIVC::QUEUE_TYPE::OINK:
+        case Chonk::QUEUE_TYPE::OINK:
             proof = create_mock_oink_proof<Flavor, AppIO>();
             break;
-        case ClientIVC::QUEUE_TYPE::PG:
+        case Chonk::QUEUE_TYPE::PG:
             proof = create_mock_pg_proof<Flavor, AppIO>();
             break;
         default:
@@ -144,7 +144,7 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key = create_mock_honk_vk<Flavor, AppIO>(dyadic_size, pub_inputs_offset);
     }
 
-    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
+    return Chonk::VerifierInputs{ proof, verification_key, verification_type, is_kernel };
 }
 
 /**
@@ -154,17 +154,17 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
  * @param ivc
  * @param num_public_inputs_app num pub inputs in accumulated app, excluding fixed components, e.g. pairing points
  */
-void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUEUE_TYPE type, const bool is_kernel)
+void mock_ivc_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYPE type, const bool is_kernel)
 {
-    ClientIVC::VerifierInputs entry =
+    Chonk::VerifierInputs entry =
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     // If the type is PG_FINAL, we also need to populate the ivc instance with a mock decider proof
-    if (type == ClientIVC::QUEUE_TYPE::PG_FINAL) {
+    if (type == Chonk::QUEUE_TYPE::PG_FINAL) {
         // we have to create a mock honk vk
         ivc->honk_vk = entry.honk_vk;
-        ivc->decider_proof = acir_format::create_mock_decider_proof<ClientIVC::Flavor>();
+        ivc->decider_proof = acir_format::create_mock_decider_proof<Chonk::Flavor>();
     }
     ivc->num_circuits_accumulated++;
 }
@@ -180,7 +180,7 @@ void populate_dummy_vk_in_constraint(MegaCircuitBuilder& builder,
                                      const std::shared_ptr<MegaFlavor::VerificationKey>& mock_verification_key,
                                      std::vector<uint32_t>& key_witness_indices)
 {
-    using FF = ClientIVC::FF;
+    using FF = Chonk::FF;
 
     // Convert the VerificationKey to fields
     std::vector<FF> mock_vk_fields = mock_verification_key->to_field_elements();

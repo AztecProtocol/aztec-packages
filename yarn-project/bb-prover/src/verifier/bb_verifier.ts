@@ -29,8 +29,8 @@ import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Built by yarn generate
-export const PRIVATE_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/private-civc-vk');
-export const PUBLIC_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/public-civc-vk');
+export const PRIVATE_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/private-chonk-vk');
+export const PUBLIC_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/public-chonk-vk');
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(
@@ -103,7 +103,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       const expectedCircuit: ClientProtocolArtifact = tx.data.forPublic
         ? 'PrivateKernelTailToPublicArtifact'
         : 'PrivateKernelTailArtifact';
-      const circuit = 'ClientIVC';
+      const circuit = 'Chonk';
 
       // Block below is almost copy-pasted from verifyProofForCircuit
       const operation = async (bbWorkingDirectory: string) => {
@@ -137,7 +137,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return { valid: true, durationMs: verificationDuration, totalDurationMs: totalTimer.ms() };
     } catch (err) {
-      this.logger.warn(`Failed to verify ClientIVC proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
+      this.logger.warn(`Failed to verify Chonk proof for tx ${tx.getTxHash().toString()}: ${String(err)}`);
       return { valid: false, durationMs: 0, totalDurationMs: 0 };
     }
   }

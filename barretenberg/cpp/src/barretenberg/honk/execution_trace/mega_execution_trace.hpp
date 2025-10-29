@@ -58,7 +58,7 @@ struct TraceSettings {
     // context of VK computation
     uint32_t overflow_capacity = 0;
 
-    // This size is used as a hint to the BN254 Commitment Key needed in the CIVC.
+    // This size is used as a hint to the BN254 Commitment Key needed in the Chonk.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319): This can be removed once the prover knows all
     // the circuit sizes in advance.
     size_t size() const { return (structure ? structure->size() : 0) + static_cast<size_t>(overflow_capacity); }

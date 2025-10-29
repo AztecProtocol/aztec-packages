@@ -1,5 +1,5 @@
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
-#include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -16,7 +16,7 @@ namespace bb::bbapi {
 ClientIvcStart::Response ClientIvcStart::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    request.ivc_in_progress = std::make_shared<ClientIVC>(num_circuits, request.trace_settings);
+    request.ivc_in_progress = std::make_shared<Chonk>(num_circuits, request.trace_settings);
     request.ivc_stack_depth = 0;
     return Response{};
 }
@@ -25,7 +25,7 @@ ClientIvcLoad::Response ClientIvcLoad::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
     }
 
     request.loaded_circuit_name = circuit.name;
@@ -41,7 +41,7 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
     }
 
     if (!request.loaded_circuit_constraints.has_value()) {
@@ -52,12 +52,12 @@ ClientIvcAccumulate::Response ClientIvcAccumulate::execute(BBApiRequest& request
     acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
     const acir_format::ProgramMetadata metadata{ request.ivc_in_progress };
-    auto circuit = acir_format::create_circuit<ClientIVC::ClientCircuit>(program, metadata);
+    auto circuit = acir_format::create_circuit<Chonk::ClientCircuit>(program, metadata);
 
-    std::shared_ptr<ClientIVC::MegaVerificationKey> precomputed_vk;
+    std::shared_ptr<Chonk::MegaVerificationKey> precomputed_vk;
     if (!request.loaded_circuit_vk.empty()) {
         // Deserialize directly from buffer
-        precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(request.loaded_circuit_vk);
+        precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(request.loaded_circuit_vk);
     }
 
     info("ClientIvcAccumulate - accumulating circuit '", request.loaded_circuit_name, "'");
@@ -74,7 +74,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     if (!request.ivc_in_progress) {
-        throw_or_abort("ClientIVC not started. Call ClientIvcStart first.");
+        throw_or_abort("Chonk not started. Call ClientIvcStart first.");
     }
 
     if (request.ivc_stack_depth == 0) {
@@ -82,7 +82,7 @@ ClientIvcProve::Response ClientIvcProve::execute(BBApiRequest& request) &&
     }
 
     info("ClientIvcProve - generating proof for ", request.ivc_stack_depth, " accumulated circuits");
-    ClientIVC::Proof proof = request.ivc_in_progress->prove();
+    Chonk::Proof proof = request.ivc_in_progress->prove();
     // We verify this proof. Another bb call to verify has some overhead of loading VK/proof/SRS,
     // and it is mysterious if this transaction fails later in the lifecycle.
     info("ClientIvcProve - verifying the generated proof as a sanity check");
@@ -102,21 +102,21 @@ ClientIvcVerify::Response ClientIvcVerify::execute(const BBApiRequest& /*request
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     // Deserialize the verification key directly from buffer
-    ClientIVC::VerificationKey verification_key = from_buffer<ClientIVC::VerificationKey>(vk);
+    Chonk::VerificationKey verification_key = from_buffer<Chonk::VerificationKey>(vk);
 
-    // Verify the proof using ClientIVC's static verify method
-    const bool verified = ClientIVC::verify(proof, verification_key);
+    // Verify the proof using Chonk's static verify method
+    const bool verified = Chonk::verify(proof, verification_key);
 
     return { .valid = verified };
 }
 
-static std::shared_ptr<ClientIVC::DeciderProvingKey> get_acir_program_decider_proving_key(
+static std::shared_ptr<Chonk::DeciderProvingKey> get_acir_program_decider_proving_key(
     const BBApiRequest& request, acir_format::AcirProgram& program)
 {
-    ClientIVC::ClientCircuit builder = acir_format::create_circuit<ClientIVC::ClientCircuit>(program);
+    Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<ClientIVC::DeciderProvingKey>(builder, request.trace_settings);
+    return std::make_shared<Chonk::DeciderProvingKey>(builder, request.trace_settings);
 }
 
 ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(const BBApiRequest& request) &&
@@ -127,8 +127,8 @@ ClientIvcComputeStandaloneVk::Response ClientIvcComputeStandaloneVk::execute(con
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto verification_key = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<Chonk::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
+    auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(proving_key->get_precomputed());
 
     return { .bytes = to_buffer(*verification_key), .fields = verification_key->to_field_elements() };
 }
@@ -138,16 +138,16 @@ ClientIvcComputeIvcVk::Response ClientIvcComputeIvcVk::execute(BB_UNUSED const B
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
     info("ClientIvcComputeIvcVk - deriving IVC VK for circuit '", circuit.name, "'");
 
-    auto standalone_vk_response = bbapi::ClientIvcComputeStandaloneVk{
+    auto standalone_vk_response = bbapi::ChonkComputeStandaloneVk{
         .circuit{ .name = "standalone_circuit", .bytecode = std::move(circuit.bytecode) }
     }.execute({ .trace_settings = {} });
 
-    auto mega_vk = from_buffer<ClientIVC::MegaVerificationKey>(standalone_vk_response.bytes);
-    auto eccvm_vk = std::make_shared<ClientIVC::ECCVMVerificationKey>();
-    auto translator_vk = std::make_shared<ClientIVC::TranslatorVerificationKey>();
-    ClientIVC::VerificationKey civc_vk{ .mega = std::make_shared<ClientIVC::MegaVerificationKey>(mega_vk),
-                                        .eccvm = std::make_shared<ClientIVC::ECCVMVerificationKey>(),
-                                        .translator = std::make_shared<ClientIVC::TranslatorVerificationKey>() };
+    auto mega_vk = from_buffer<Chonk::MegaVerificationKey>(standalone_vk_response.bytes);
+    auto eccvm_vk = std::make_shared<Chonk::ECCVMVerificationKey>();
+    auto translator_vk = std::make_shared<Chonk::TranslatorVerificationKey>();
+    Chonk::VerificationKey civc_vk{ .mega = std::make_shared<Chonk::MegaVerificationKey>(mega_vk),
+                                        .eccvm = std::make_shared<Chonk::ECCVMVerificationKey>(),
+                                        .translator = std::make_shared<Chonk::TranslatorVerificationKey>() };
     Response response;
     response.bytes = to_buffer(civc_vk);
 
@@ -162,8 +162,8 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
-    auto computed_vk = std::make_shared<ClientIVC::MegaVerificationKey>(proving_key->get_precomputed());
+    std::shared_ptr<Chonk::DeciderProvingKey> proving_key = get_acir_program_decider_proving_key(request, program);
+    auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(proving_key->get_precomputed());
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
@@ -171,7 +171,7 @@ ClientIvcCheckPrecomputedVk::Response ClientIvcCheckPrecomputedVk::execute(const
     }
 
     // Deserialize directly from buffer
-    auto precomputed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(circuit.verification_key);
+    auto precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(circuit.verification_key);
 
     Response response;
     response.valid = true;

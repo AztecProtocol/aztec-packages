@@ -628,7 +628,7 @@ If two subsystems can contain the same configuration option, only one needs to b
           Whether to skip cleanup of bb temporary files
 
     --proverNode.numConcurrentIVCVerifiers <value>                 (default: 8)                                                  ($BB_NUM_IVC_VERIFIERS)
-          Max number of client IVC verifiers to run concurrently
+          Max number of Chonk verifiers to run concurrently
 
     --proverNode.bbIVCConcurrency <value>                          (default: 1)                                                  ($BB_IVC_CONCURRENCY)
           Number of threads to use for IVC verification

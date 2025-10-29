@@ -65,7 +65,7 @@ for artifact in $artifacts_to_process; do
     # Construct the command:
     # The BB call is wrapped by GNU parallel's memsuspend (active memory-based suspension)
     # This command will generate the verification key, base64 encode it, and save it to vk_cache.
-    job_commands+=("echo \"Generating verification key for function $fn_name\"; $BB write_vk --scheme client_ivc --verifier_type standalone -b \"$fn_artifact_path\" -o - | base64 > \"$vk_cache\"; rm \"$fn_artifact_path\"")
+    job_commands+=("echo \"Generating verification key for function $fn_name\"; $BB write_vk --scheme chonk --verifier_type standalone -b \"$fn_artifact_path\" -o - | base64 > \"$vk_cache\"; rm \"$fn_artifact_path\"")
   done
 
   # Run the commands in parallel, limiting to available cores and using memsuspend to actively suspend jobs if memory usage exceeds 2G.

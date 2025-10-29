@@ -1,6 +1,6 @@
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
-#include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
+#include "barretenberg/chonk/acir_bincode_mocks.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -39,7 +39,7 @@ TEST_F(BBApiClientIvcTest, ClientIvcVkSerialization)
     auto vk_response = ClientIvcComputeIvcVk{ .circuit = { .name = "test_circuit", .bytecode = bytecode } }.execute();
 
     // Create a VK from the field elements
-    ClientIVC::VerificationKey vk = from_buffer<ClientIVC::VerificationKey>(vk_response.bytes);
+    Chonk::VerificationKey vk = from_buffer<Chonk::VerificationKey>(vk_response.bytes);
     EXPECT_EQ(to_buffer(vk.to_field_elements()), vk_response.bytes)
         << "Serialized field elements should match original field elements";
 }

@@ -5,7 +5,7 @@
 
 #include <benchmark/benchmark.h>
 
-#include "barretenberg/client_ivc/test_bench_shared.hpp"
+#include "barretenberg/chonk/test_bench_shared.hpp"
 #include "barretenberg/common/google_bb_bench.hpp"
 
 using namespace benchmark;
@@ -37,7 +37,7 @@ BENCHMARK_DEFINE_F(ClientIVCBench, VerificationOnly)(benchmark::State& state)
     auto [proof, vk] = accumulate_and_prove_ivc_with_precomputed_vks(NUM_APP_CIRCUITS, precomputed_vks);
 
     for (auto _ : state) {
-        benchmark::DoNotOptimize(ClientIVC::verify(proof, vk));
+        benchmark::DoNotOptimize(Chonk::verify(proof, vk));
     }
 }
 

@@ -6,7 +6,7 @@
  * This file contains common data structures used across multiple bbapi modules,
  * including circuit input types and proof system settings.
  */
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include <cstdint>
@@ -17,7 +17,7 @@ namespace bb::bbapi {
 
 /**
  * @struct CircuitInputNoVK
- * @brief A circuit to be used in either ultrahonk or chonk (ClientIVC+honk) verification key derivation.
+ * @brief A circuit to be used in either ultrahonk or chonk (Chonk+honk) verification key derivation.
  */
 struct CircuitInputNoVK {
     /**
@@ -42,7 +42,7 @@ struct CircuitInputNoVK {
 
 /**
  * @struct CircuitInput
- * @brief A circuit to be used in either ultrahonk or ClientIVC-honk proving.
+ * @brief A circuit to be used in either ultrahonk or Chonk-honk proving.
  */
 struct CircuitInput {
     /**
@@ -119,7 +119,7 @@ struct BBApiRequest {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     // Current depth of the IVC stack for this request
     uint32_t ivc_stack_depth = 0;
-    std::shared_ptr<ClientIVC> ivc_in_progress;
+    std::shared_ptr<Chonk> ivc_in_progress;
     // Name of the last loaded circuit
     std::string loaded_circuit_name;
     // Store the parsed constraint system to get ahead of parsing before accumulate

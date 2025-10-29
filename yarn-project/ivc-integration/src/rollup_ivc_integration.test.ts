@@ -54,7 +54,7 @@ describe('Rollup IVC Integration', () => {
   beforeAll(async () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
-    // Create a client IVC proof
+    // Create a Chonk proof
     const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
     const [bytecodes, witnessStack, tailPublicInputs, vks] = await generateTestingIVCStack(1, 0);
     clientIVCPublicInputs = tailPublicInputs;

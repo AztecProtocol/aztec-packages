@@ -255,7 +255,7 @@ class OrderedSideEffect<T> {
 }
 
 /**
- * Generates the final public inputs of the tail kernel circuit, an empty ClientIVC proof
+ * Generates the final public inputs of the tail kernel circuit, an empty Chonk proof
  * and the execution steps for a `PrivateExecutionResult` as if it had been
  * processed by the private kernel prover. This skips many of the checks performed by the kernels
  * (allowing state overrides) and is much faster, while still generating a valid

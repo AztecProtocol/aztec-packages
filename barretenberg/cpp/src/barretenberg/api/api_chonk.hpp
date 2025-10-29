@@ -8,7 +8,7 @@
 
 namespace bb {
 
-class ClientIVCAPI : public API {
+class ChonkAPI : public API {
 
   public:
     void prove(const Flags& flags, const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
@@ -42,7 +42,7 @@ class ClientIVCAPI : public API {
 
 void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode);
 
-void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir);
+void write_arbitrary_valid_chonk_proof_and_vk_to_file(const std::filesystem::path& output_dir);
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size);
 

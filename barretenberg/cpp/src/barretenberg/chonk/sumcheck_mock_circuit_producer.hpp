@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
@@ -24,7 +24,7 @@ namespace {
  */
 class MockDatabusProducer {
   private:
-    using ClientCircuit = ClientIVC::ClientCircuit;
+    using ClientCircuit = Chonk::ClientCircuit;
     using Flavor = MegaFlavor;
     using FF = Flavor::FF;
     using BusDataArray = std::vector<FF>;
@@ -110,7 +110,7 @@ struct TestSettings {
  * testing consecutive kernels. These can be configured via TestSettings.
  */
 class PrivateFunctionExecutionMockCircuitProducer {
-    using ClientCircuit = ClientIVC::ClientCircuit;
+    using ClientCircuit = Chonk::ClientCircuit;
     using Flavor = MegaFlavor;
     using VerificationKey = Flavor::VerificationKey;
 
@@ -150,8 +150,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<ClientIVC::DeciderProvingKey> proving_key =
-            std::make_shared<ClientIVC::DeciderProvingKey>(builder, trace_settings);
+        std::shared_ptr<Chonk::DeciderProvingKey> proving_key =
+            std::make_shared<Chonk::DeciderProvingKey>(builder, trace_settings);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(proving_key->get_precomputed());
         return vk;
     }
@@ -162,7 +162,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
      * large.
      *
      */
-    ClientCircuit create_next_circuit(ClientIVC& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
+    ClientCircuit create_next_circuit(Chonk& ivc, size_t log2_num_gates = 0, size_t num_public_inputs = 0)
     {
         const bool is_kernel = is_kernel_flags[circuit_counter];
 
@@ -199,14 +199,14 @@ class PrivateFunctionExecutionMockCircuitProducer {
     /**
      * @brief Create the next circuit (app/kernel) in a mocked private function execution stack
      */
-    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(ClientIVC& ivc,
+    std::pair<ClientCircuit, std::shared_ptr<VerificationKey>> create_next_circuit_and_vk(Chonk& ivc,
                                                                                           TestSettings settings = {})
     {
         auto circuit = create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs);
         return { circuit, get_verification_key(circuit, ivc.trace_settings) };
     }
 
-    void construct_and_accumulate_next_circuit(ClientIVC& ivc, TestSettings settings = {})
+    void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {})
     {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings);
         ivc.accumulate(circuit, vk);

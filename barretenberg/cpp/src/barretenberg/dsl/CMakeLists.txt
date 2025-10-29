@@ -1,5 +1,5 @@
 set(DSL_DEPENDENCIES
-    client_ivc
+    chonk
     ultra_honk
     stdlib_sha256
     stdlib_aes128

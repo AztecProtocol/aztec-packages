@@ -35,7 +35,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Stdl
     GoblinRecursiveVerifierOutput output =
         goblin_verifier.verify(proof.goblin_proof, merge_commitments, MergeSettings::APPEND);
     output.points_accumulator.aggregate(mega_output.points_accumulator);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in CIVC verifiers
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1396): State tracking in Chonk verifiers
     return { output };
 }
 

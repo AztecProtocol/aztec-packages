@@ -38,13 +38,13 @@ class IVCVerifierMetrics {
 
     this.ivcVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TIME, {
       unit: 'ms',
-      description: 'Duration to verify client IVC proofs',
+      description: 'Duration to verify Chonk proofs',
       valueType: ValueType.INT,
     });
 
     this.ivcTotalVerificationHistogram = meter.createHistogram(Metrics.IVC_VERIFIER_TOTAL_TIME, {
       unit: 'ms',
-      description: 'Total duration to verify client IVC proofs, including serde',
+      description: 'Total duration to verify Chonk proofs, including serde',
       valueType: ValueType.INT,
     });
 
