@@ -2,6 +2,7 @@
 # Performs the chonk private transaction proving benchmarks for our 'realistic apps'.
 # This is called by yarn-project/end-to-end/bootstrap.sh bench, which creates these inputs from end-to-end tests.
 source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_redis
 source $(git rev-parse --show-toplevel)/ci3/source_cache
 
 if [[ $# -ne 2 ]]; then
@@ -116,16 +117,13 @@ if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]] && [[ "${CI_ENABLE_DISK_LOGS
     current_sha=$(git rev-parse HEAD)
 
     # Create cache key: bench/bb-breakdown/<flow_name>/<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench/bb-breakdown/<flow_name>/<sha>
     cache_key="bench/bb-breakdown/${flow_name}/${current_sha}"
 
-    # Upload to disk via cache_disk_transfer (gzips and transfers via SSH in background)
-    {
-      cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer "$cache_key" && \
-        echo "Uploaded benchmark breakdown: $cache_key" || \
-        echo "Warning: Failed to upload benchmark breakdown (SSH not available?)"
-    } &
+    # Upload to Redis and disk via cache_persistent (30 day retention)
+    cat "$benchmark_breakdown_file" | cache_persistent "$cache_key" 2592000
 
-    echo "Benchmark breakdown upload initiated in background"
+    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
   fi
