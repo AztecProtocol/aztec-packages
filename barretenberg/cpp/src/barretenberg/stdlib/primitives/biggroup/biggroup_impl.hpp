@@ -532,7 +532,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     // Let A = (x, y) and P = (x₁, y₁)
     // For the first point P, we want to compute: (2A + P) = (A + P) + A
     // We first need to check if x ≠ x₁.
-    x.assert_is_not_equal(add[0].x3_prev);
+    x().assert_is_not_equal(add[0].x3_prev);
 
     // Compute λ₁ for computing the first addition: (A + P)
     Fq lambda1;
@@ -545,31 +545,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         // NOTE: msub_div computes -(∑ᵢ aᵢ * bᵢ + ∑ⱼcⱼ) / d
         lambda1 = Fq::msub_div({ add[0].lambda_prev },              // numerator left multiplicands: λ₁_ₚᵣₑᵥ
                                { add[0].x1_prev - add[0].x3_prev }, // numerator right multiplicands: (x₁_ₚᵣₑᵥ - x₁)
-                               (x - add[0].x3_prev),                // denominator: (x - x₁)
-                               { -add[0].y1_prev, -y },             // numerator additions: -y₁_ₚᵣₑᵥ - y
+                               (x() - add[0].x3_prev),              // denominator: (x - x₁)
+                               { -add[0].y1_prev, -y() },           // numerator additions: -y₁_ₚᵣₑᵥ - y
                                /*enable_divisor_nz_check*/ false);  // divisor check is not needed as x ≠ x₁ is enforced
     } else {
         // Case 2: P is a full element (i.e., it has a y-coordinate)
         //         λ₁ = (y - y₁) / (x - x₁)
         //
-        lambda1 = Fq::div_without_denominator_check({ y - add[0].y3_prev }, (x - add[0].x3_prev));
+        lambda1 = Fq::div_without_denominator_check({ y() - add[0].y3_prev }, (x() - add[0].x3_prev));
     }
 
     // Using λ₁, compute x₃ for (A + P):
     // x₃ = λ₁.λ₁ - x₁ - x
-    Fq x_3 = lambda1.madd(lambda1, { -add[0].x3_prev, -x });
+    Fq x_3 = lambda1.madd(lambda1, { -add[0].x3_prev, -x() });
 
     // Compute λ₂ for the addition (A + P) + A:
     // λ₂ = (y - y₃) / (x - x₃)
     //    = (y - (λ₁ * (x - x₃) - y)) / (x - x₃)    (substituting y₃)
     //    = (2y) / (x - x₃) - λ₁
     //
-    x.assert_is_not_equal(x_3);
-    Fq lambda2 = Fq::div_without_denominator_check({ y + y }, (x - x_3)) - lambda1;
+    x().assert_is_not_equal(x_3);
+    Fq lambda2 = Fq::div_without_denominator_check({ y() + y() }, (x() - x_3)) - lambda1;
 
     // Using λ₂, compute x₄ for the final result:
     // x₄ = λ₂.λ₂ - x₃ - x
-    Fq x_4 = lambda2.sqradd({ -x_3, -x });
+    Fq x_4 = lambda2.sqradd({ -x_3, -x() });
 
     // Compute y₄ for the final result:
     // y₄ = λ₂ * (x - x₄) - y
@@ -583,9 +583,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
     // -y₄ = λ₂ * (x₄ - x) + y
     const bool num_points_even = ((add.size() & 1ULL) == 0);
     composite_y previous_y;
-    previous_y.add.emplace_back(num_points_even ? y : -y);
+    previous_y.add.emplace_back(num_points_even ? y() : -y());
     previous_y.mul_left.emplace_back(lambda2);
-    previous_y.mul_right.emplace_back(num_points_even ? x_4 - x : x - x_4);
+    previous_y.mul_right.emplace_back(num_points_even ? x_4 - x() : x() - x_4);
     previous_y.is_negative = num_points_even;
 
     // Handle remaining iterations (i > 0) in a loop
