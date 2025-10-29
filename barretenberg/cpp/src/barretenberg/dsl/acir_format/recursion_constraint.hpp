@@ -20,14 +20,14 @@ namespace acir_format {
 enum PROOF_TYPE {
     HONK,
     OINK,
-    PG,
+    HN,
     AVM,
     ROLLUP_HONK,
     ROOT_ROLLUP_HONK,
     HONK_ZK,
-    PG_FINAL,
-    PG_TAIL,
-    CIVC,
+    HN_FINAL,
+    HN_TAIL,
+    CHONK,
     // Ultra ZK proof types with different circuit sizes (virtual_log_n)
     HONK_ZK_23,
     HONK_ZK_21,
@@ -67,10 +67,10 @@ inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
         return 28;
     // IVC-related proof types (keep existing size)
     case OINK:
-    case PG:
-    case PG_FINAL:
-    case PG_TAIL:
-    case CIVC:
+    case HN:
+    case HN_FINAL:
+    case HN_TAIL:
+    case CHONK:
         return 28;
     // AVM proofs (keep existing size)
     case AVM:
