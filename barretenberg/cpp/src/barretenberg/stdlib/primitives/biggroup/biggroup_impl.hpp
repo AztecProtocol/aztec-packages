@@ -383,36 +383,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
     Fq y3 = lambda.madd((acc.x1_prev - x3), { -acc.y1_prev });
     return element(x3, y3);
 }
-/**
- * Compute one round of a Montgomery ladder: i.e. compute 2 * (*this) + other
- * Compute D = A + B + A, where A = `this` and B = `other`
- *
- * We can skip computing the y-coordinate of C = A + B:
- *
- * To compute D = A + C, A=(x_1,y_1), we need the gradient of our two coordinates, specifically:
- *
- *
- *               y_3 - y_1    lambda_1 * (x_1 - x_3) - 2 * y_1                 2 * y_1
- *  lambda_2 =  __________ =  ________________________________ = -\lambda_1 - _________
- *               x_3 - x_1              x_3 - x_1                             x_3 - x_1
- *
- * We don't need y_3 to compute this. We can then compute D.x and D.y as usual:
- *
- *  D.x = lambda_2 * lambda_2 - (C.x + A.x)
- *  D.y = lambda_2 * (A.x - D.x) - A.y
- *
- * Requires 5 non-native field reductions. Doubling and adding would require 6
- **/
 
-// #################################
-// ### SCALAR MULTIPLICATION METHODS
-// #################################
 /**
- * Compute D = A + B + A, where A = `this` and B = `other`
+ * Compute D = 2A + B = (A + B) + A, where A = `this` and B = `other`
  *
  * We can skip computing the y-coordinate of C = A + B:
  *
- * To compute D = A + C, A=(x_1,y_1), we need the gradient of our two coordinates, specifically:
+ * To compute D = C + A, A=(x_1,y_1), we need the gradient of our two coordinates, specifically:
  *
  *
  *               y_3 - y_1    lambda_1 * (x_1 - x_3) - 2 * y_1                 2 * y_1
@@ -423,19 +400,32 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
  *
  *  D.x = lambda_2 * lambda_2 - (C.x + A.x)
  *  D.y = lambda_2 * (A.x - D.x) - A.y
+ *
+ * Requires 5 non-native field reductions. Doubling and adding would require 6.
+ *
+ * @param other
+ * @return element<C, Fq, Fr, G>
+ *
+ * @details Enforces that x-coordinates of `this` and `other` are not equal.
  **/
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& other) const
 {
     other._x.assert_is_not_equal(_x);
+
+    // λ₁ = (y₂ - y₁) / (x₂ - x₁)
     const Fq lambda_1 = Fq::div_without_denominator_check({ other._y - _y }, (other._x - _x));
 
+    // x₃ = λ₁² - x₁ - x₂
     const Fq x_3 = lambda_1.sqradd({ -other._x, -_x });
 
+    // -λ₂ = -(λ₁ + (2y₁) / (x₃ - x₁))
     const Fq minus_lambda_2 = lambda_1 + Fq::div_without_denominator_check({ _y + _y }, (x_3 - _x));
 
+    // Result point D = (x₄, y₄)
+    // x₄ = (-λ₂)² - x₁ - x₃
+    // y₄ = (-λ₂) * (x₄ - x₁) - y₁
     const Fq x_4 = minus_lambda_2.sqradd({ -_x, -x_3 });
-
     const Fq y_4 = minus_lambda_2.madd(x_4 - _x, { -_y });
     return element(x_4, y_4);
 }
