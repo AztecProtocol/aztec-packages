@@ -192,14 +192,14 @@ ClientIvcStats::Response ClientIvcStats::execute(BBApiRequest& request) &&
     acir_format::AcirProgram program{ constraint_system };
 
     // Get IVC constraints if any
-    const auto& ivc_constraints = constraint_system.pg_recursion_constraints;
+    const auto& chonk_constraints = constraint_system.pg_recursion_constraints;
 
-    // Create metadata with appropriate IVC context
-    acir_format::ProgramMetadata metadata{
-        .ivc = ivc_constraints.empty() ? nullptr
-                                       : create_mock_ivc_from_constraints(ivc_constraints, request.trace_settings),
-        .collect_gates_per_opcode = include_gates_per_opcode
-    };
+    // Create metadata with appropriate Chonk context
+    acir_format::ProgramMetadata metadata{ .chonk = chonk_constraints.empty()
+                                                        ? nullptr
+                                                        : create_mock_ivc_from_constraints(chonk_constraints,
+                                                                                           request.trace_settings),
+                                           .collect_gates_per_opcode = include_gates_per_opcode };
 
     // Create and finalize circuit
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
