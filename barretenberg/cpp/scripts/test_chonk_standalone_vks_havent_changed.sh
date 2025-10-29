@@ -57,7 +57,18 @@ fi
 export inputs_tmp_dir=$(mktemp -d)
 trap 'rm -rf "$inputs_tmp_dir" bb-chonk-inputs.tar.gz' EXIT SIGINT
 
-curl -s -f "$pinned_chonk_inputs_url" | tar -xzf - -C "$inputs_tmp_dir" &>/dev/null
+echo "Downloading pinned IVC inputs from: $pinned_chonk_inputs_url"
+if ! curl -s -f "$pinned_chonk_inputs_url" -o bb-chonk-inputs.tar.gz; then
+    echo_stderr "Error: Failed to download pinned IVC inputs from $pinned_chonk_inputs_url"
+    echo_stderr "The pinned short hash '$pinned_short_hash' may be invalid or the file may not exist in S3."
+    exit 1
+fi
+
+echo "Extracting IVC inputs..."
+if ! tar -xzf bb-chonk-inputs.tar.gz -C "$inputs_tmp_dir"; then
+    echo_stderr "Error: Failed to extract IVC inputs archive"
+    exit 1
+fi
 
 function check_circuit_vks {
   set -eu
