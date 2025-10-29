@@ -22,8 +22,8 @@ contract ParityTest is Test {
     assertEq(msgs.length, Constants.NUM_MSGS_PER_BASE_PARITY, "NUM_MSGS_PER_BASE_PARITY changed, update msgs.");
 
     uint256 treeHeight = 8; // log_2(NUM_MSGS_PER_BASE_PARITY)
-    // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
-    // the hardcoded value is not outdated.
+      // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
+      // the hardcoded value is not outdated.
     assertEq(
       2 ** treeHeight,
       Constants.NUM_MSGS_PER_BASE_PARITY,
@@ -60,8 +60,8 @@ contract ParityTest is Test {
     );
 
     uint256 treeHeight = 2; // log_2(NUM_BASE_PARITY_PER_ROOT_PARITY)
-    // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
-    // the hardcoded value is not outdated.
+      // We don't have log_2 directly accessible in solidity so I just do the following check here to ensure
+      // the hardcoded value is not outdated.
     assertEq(
       2 ** treeHeight,
       Constants.NUM_BASE_PARITY_PER_ROOT_PARITY,

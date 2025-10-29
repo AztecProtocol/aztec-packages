@@ -46,7 +46,7 @@ async function main() {
     proxyLogger.createLogger('bb:prover'),
   );
 
-  const userLog = createLogger('client_ivc_flows:data_processor');
+  const userLog = createLogger('chonk_flows:data_processor');
 
   for (const flow of flows) {
     userLog.info(`Processing flow ${flow}`);
@@ -84,10 +84,10 @@ async function main() {
     let provingTime;
     try {
       const provingTimer = new Timer();
-      await prover.createClientIvcProof(privateExecutionSteps);
+      await prover.createChonkProof(privateExecutionSteps);
       provingTime = provingTimer.ms();
     } catch (e) {
-      userLog.error(`Failed to generate client ivc proof for ${flow}`, e);
+      userLog.error(`Failed to generate chonk proof for ${flow}`, e);
       error = (e as Error).message;
     }
     // Extract logs from this run from the proxy and write them to disk unconditionally

@@ -42,8 +42,8 @@ export class ServerEpochProver implements EpochProver {
       headerOfLastBlockInPreviousCheckpoint,
     );
   }
-  startTubeCircuits(txs: Tx[]): Promise<void> {
-    return this.orchestrator.startTubeCircuits(txs);
+  startChonkVerifierCircuits(txs: Tx[]): Promise<void> {
+    return this.orchestrator.startChonkVerifierCircuits(txs);
   }
   setBlockCompleted(blockNumber: number, expectedBlockHeader?: BlockHeader): Promise<BlockHeader> {
     return this.orchestrator.setBlockCompleted(blockNumber, expectedBlockHeader);

@@ -216,9 +216,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -267,9 +265,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -320,9 +316,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -349,9 +343,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -389,9 +381,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -429,9 +419,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];
@@ -516,9 +504,7 @@ contract UniswapPortalTest is Test {
 
     PortalDataStructures.OutboxMessageMetadata[2] memory outboxMessageMetadata = [
       PortalDataStructures.OutboxMessageMetadata({
-        _l2BlockNumber: l2BlockNumber,
-        _leafIndex: 0,
-        _path: withdrawSiblingPath
+        _l2BlockNumber: l2BlockNumber, _leafIndex: 0, _path: withdrawSiblingPath
       }),
       PortalDataStructures.OutboxMessageMetadata({_l2BlockNumber: l2BlockNumber, _leafIndex: 1, _path: swapSiblingPath})
     ];

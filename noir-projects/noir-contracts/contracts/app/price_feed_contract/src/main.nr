@@ -17,13 +17,13 @@ pub contract PriceFeed {
 
     #[external("public")]
     fn set_price(asset_id: Field, price: u128) {
-        let asset = storage.assets.at(asset_id);
+        let asset = self.storage.assets.at(asset_id);
         asset.write(Asset { price });
     }
 
     #[external("public")]
     #[view]
     fn get_price(asset_id: Field) -> Asset {
-        storage.assets.at(asset_id).read()
+        self.storage.assets.at(asset_id).read()
     }
 }

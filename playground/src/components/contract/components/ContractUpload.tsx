@@ -62,7 +62,7 @@ export function ContractUpload() {
         >
           <Box>
             <a
-              href="https://docs.aztec.network/developers/tutorials/codealong/contract_tutorials/counter_contract"
+              href="https://docs.aztec.network/developers/tutorials/contract_tutorials/counter_contract"
               target="_blank"
               rel="noopener noreferrer"
             >

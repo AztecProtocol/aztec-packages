@@ -11,8 +11,8 @@ pub contract SponsoredFPC {
     #[external("private")]
     fn sponsor_unconditionally() {
         // Set the FPC as the fee payer of the tx.
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
         // End the setup phase
-        context.end_setup();
+        self.context.end_setup();
     }
 }

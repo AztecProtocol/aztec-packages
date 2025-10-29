@@ -449,7 +449,7 @@ void Execution::cd_copy(ContextInterface& context,
 
     try {
         data_copy.cd_copy(context, cd_copy_size.as<uint32_t>(), cd_offset_read.as<uint32_t>(), dst_addr);
-    } catch (const std::exception& e) {
+    } catch (const DataCopyException& e) {
         throw OpcodeExecutionException("cd copy failed: " + std::string(e.what()));
     }
 }
@@ -470,7 +470,7 @@ void Execution::rd_copy(ContextInterface& context,
 
     try {
         data_copy.rd_copy(context, rd_copy_size.as<uint32_t>(), rd_offset_read.as<uint32_t>(), dst_addr);
-    } catch (const std::exception& e) {
+    } catch (const DataCopyException& e) {
         throw OpcodeExecutionException("rd copy failed: " + std::string(e.what()));
     }
 }

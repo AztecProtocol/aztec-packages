@@ -11,6 +11,7 @@
 # - You can't export bash arrays or maps to be used by external functions, only strings.
 # - If you want to echo something, send it to stderr e.g. echo_stderr "My debug"
 # - If you call another script, be sure it also doesn't output something you don't want.
+# - Local assignments with sub-shells don't propagate errors e.g. local capture=$(false). Declare locals separately.
 # - Just ask me (charlie) for guidance if you're suffering.
 # - I remain convinced we don't need node for these kinds of things, and we can be more performant/expressive with bash.
 # - We could perhaps make it less tricky to work with by leveraging more tempfiles and less stdin/stdout.
@@ -20,20 +21,17 @@ cmd=${1:-}
 # entrypoint for docs
 if [ -n "${DOCS_WORKING_DIR:-}" ]; then
   cd "$DOCS_WORKING_DIR"
-  export folder_name="examples"
-else
-  export folder_name="contracts"
 fi
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
+export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
 
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
+export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
-# Get BB version for aztec_process cache key
-bb_version=$($BB --version)
 
 export tmp_dir=./target/tmp
 
@@ -45,12 +43,68 @@ mkdir -p $tmp_dir
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
 
-# Compute hash for a given contract.
-# $1 is the contract name
-function get_contract_hash {
-  local contract_path=$(get_contract_path "$1")
+# This computes a vk and adds it to the input function json if it's private, else returns same input.
+# stdin has the function json.
+# stdout receives the function json with the vk added (if private).
+# The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
+# If debugging, a set -x at the start can help.
+function process_function {
+  set -euo pipefail
+  local func name bytecode_b64 hash vk
 
-  if [ "$folder_name" = "examples" ]; then
+  contract_hash=$1
+  # Read the function json.
+  func="$(cat)"
+  name=$(echo "$func" | jq -r '.name')
+  echo_stderr "Processing function: $name..."
+
+  # Check if the function is neither public nor unconstrained.
+  # TODO: Why do we need to gen keys for functions that are not marked private?
+  # We allow the jq call to error (set +e) because it returns an error code if the result is false.
+  # We then differentiate between a real error, and the result being false.
+  set +e
+  make_vk=$(echo "$func" | jq -e '(.custom_attributes | index("public") == null) and (.is_unconstrained == false)')
+  if [ $? -ne 0 ] && [ "$make_vk" != "false" ]; then
+    echo_stderr "Failed to check function $name is neither public nor unconstrained."
+    exit 1
+  fi
+  set -e
+
+  if [ "$make_vk" == "true" ]; then
+    # It's a private function.
+    # Build hash, check if in cache.
+    # If it's in the cache it's extracted to $tmp_dir/$hash
+    bytecode_b64=$(echo "$func" | jq -r '.bytecode')
+    hash=$((echo "$BB_HASH"; echo "$bytecode_b64") | sha256sum | tr -d ' -')
+
+    if ! cache_download vk-$contract_hash-$hash.tar.gz >&2; then
+      # It's not in the cache. Generate the vk file and upload it to the cache.
+      echo_stderr "Generating vk for function: $name..."
+
+      local outdir=$(mktemp -d -p $tmp_dir)
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir -v
+      mv $outdir/vk $tmp_dir/$contract_hash/$hash
+
+      cache_upload vk-$contract_hash-$hash.tar.gz $tmp_dir/$contract_hash/$hash
+    fi
+
+    # Return (echo) json containing the base64 encoded verification key.
+    vk=$(cat $tmp_dir/$contract_hash/$hash | base64 -w 0)
+    echo "$func" | jq -c --arg vk "$vk" '. + {verification_key: $vk}'
+  else
+    echo_stderr "Function $name is neither public nor unconstrained, skipping."
+    # Not a private function. Return the original function json.
+    echo "$func"
+  fi
+}
+export -f process_function
+
+# Compute hash for a given contract.
+# $1 is the contract name, $2 is the folder name (e.g. "contracts" or "examples")
+function get_contract_hash {
+  local contract_path=$(get_contract_path "$1" "$2")
+
+  if [ "$2" = "examples" ]; then
     # Called from docs
     hash_str \
       $NOIR_HASH \
@@ -77,10 +131,11 @@ export -f get_contract_hash
 # E.g. for both "ecdsa_k_account_contract" and "account/ecdsa_k_account_contractor" returns
 # "account/ecdsa_k_account_contractor"
 #
-# $1 is the contract input
+# $1 is the contract input, $2 is the folder name (e.g. "contracts" or "examples")
 # This is done to ensure that both paths can be provided as inputs to the script.
 function get_contract_path {
   local input=$1
+  local folder_name=$2
   local contract_path
   if [[ $input == *"/"* ]]; then
     # Full path provided (e.g. account/ecdsa_k_account_contract)
@@ -98,28 +153,40 @@ function get_contract_path {
 export -f get_contract_path
 
 # This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
-# $1 is the input package name
+# $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
 # On exit it's fully processed json artifact is in the target dir.
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 function compile {
   set -euo pipefail
   local contract_name contract_hash
 
-  local contract_path=$(get_contract_path "$1")
+  local contract_path=$(get_contract_path "$1" "$2")
   local contract=${contract_path##*/}
-
   # Calculate filename because nargo...
-  contract_name=$(cat $folder_name/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat $2/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $1)
-
+  contract_hash=$(get_contract_hash $1 $2)
   if ! cache_download contract-$contract_hash.tar.gz; then
     $NARGO compile --package $contract --inliner-aggressiveness 0 --pedantic-solving --deny-warnings
+    $TRANSPILER $json_path $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
-  # Output the json path for aztec_process batching
-  echo "$json_path"
+
+  # We segregate equivalent vk's created by process_function. This was done to narrow down potential edge cases with identical VKs
+  # reading from cache at the same time. Create this folder up-front.
+  mkdir -p $tmp_dir/$contract_hash
+
+  # Pipe each contract function, one per line (jq -c), into parallel calls of process_function.
+  # The returned jsons from process_function are converted back to a json array in the second jq -s call.
+  # When slurping (-s) in the last jq, we get an array of two elements:
+  # .[0] is the original json (at $json_path)
+  # .[1] is the updated functions on stdin (-)
+  # * merges their fields.
+  jq -c '.functions[]' $json_path | \
+    parallel $PARALLEL_FLAGS --keep-order -N1 --block 8M --pipe process_function $contract_hash | \
+    jq -s '{functions: .}' | jq -s '.[0] * {functions: .[1].functions}' $json_path - > $tmp_dir/$filename
+  mv $tmp_dir/$filename $json_path
 }
 export -f compile
 
@@ -127,19 +194,12 @@ export -f compile
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
-
-  # Download VK cache before building
-  local vk_cache_dir="$HOME/.bb/$bb_version/vk_cache"
-  mkdir -p "$vk_cache_dir"
-  # Create a hash for the vk cache based on all contracts and bb version
-  local all_contracts_hash
-  if [ "$#" -eq 0 ]; then
-    all_contracts_hash=$(hash_str $BB_HASH $NOIR_HASH $(cache_content_hash .))
+  local folder_name
+  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+    folder_name="examples"
   else
-    # If building specific contracts, include them in the hash
-    all_contracts_hash=$(hash_str $BB_HASH $NOIR_HASH "$@")
+    folder_name="contracts"
   fi
-  cache_download vk-cache-$all_contracts_hash.tar.gz || true
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
@@ -149,42 +209,28 @@ function build {
     local contracts="$@"
   fi
   set +e
-  # Compile contracts and collect their json paths
-  local json_paths=$(parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} ::: ${contracts[@]})
+  parallel $PARALLEL_FLAGS --joblog joblog.txt -v --line-buffer --tag compile {} $folder_name ::: ${contracts[@]}
   code=$?
   cat joblog.txt
-
-  if [ $code -eq 0 ]; then
-    # Build the aztec_process command with all -i flags
-    local aztec_process_cmd="$BB aztec_process"
-    while IFS= read -r json_path; do
-      # Skip empty lines and lines from parallel's tag output
-      if [ -n "$json_path" ] && [ -f "$json_path" ]; then
-        aztec_process_cmd="$aztec_process_cmd -i \"$json_path\""
-      fi
-    done <<< "$json_paths"
-
-    # Run aztec_process once with all inputs
-    echo_stderr "Processing artifacts with aztec_process..."
-    eval "$aztec_process_cmd"
-    code=$?
-  fi
-
-  # Upload VK cache after building if it was populated
-  if [ $code -eq 0 ] && [ -d "$vk_cache_dir" ] && [ -n "$(ls -A "$vk_cache_dir" 2>/dev/null)" ]; then
-    cache_upload vk-cache-$all_contracts_hash.tar.gz "$vk_cache_dir"
-  fi
-
   return $code
 }
 
 function test_cmds {
   local -A cache
+  local folder_name
+  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+    folder_name="examples"
+  else
+    folder_name="contracts"
+  fi
+
+  # Test bb aztec_process command
+  echo "$BB_HASH noir-projects/scripts/test_aztec_process.sh"
 
   i=0
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
     port=$((45730 + (i++ % ${NUM_TXES:-1})))
-    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package)
+    [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
     echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
   done
 }
@@ -212,6 +258,13 @@ function format {
 case "$cmd" in
   "clean")
     git clean -fdx
+    ;;
+  "clean-keys")
+    for artifact in target/*.json; do
+      echo_stderr "Scrubbing vk from $artifact..."
+      jq '.functions |= map(del(.verification_key))' "$artifact" > "${artifact}.tmp"
+      mv "${artifact}.tmp" "$artifact"
+    done
     ;;
   ""|"fast"|"full")
     build

@@ -355,7 +355,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: avg by (k8s_namespace_name) (aztec_sequencer_time_to_collect_attestations)
+                expr: avg by (k8s_namespace_name) (aztec_sequencer_attestations_collect_duration_milliseconds)
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -399,7 +399,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 12000
+                            - 20000
                         type: gt
                       operator:
                         type: and

@@ -52,7 +52,10 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -176,12 +179,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
-      MANA_TARGET
-    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
-      initialValidators
-    ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
-      .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+      .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
+      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
+      .setSlashingRoundSize(VOTING_ROUND_SIZE);
 
     if (_slashing == TestSlash.TALLY) {
       // For tally slashing, we need a round size that's a multiple of epoch duration
