@@ -24,10 +24,28 @@ fi
 # Install helm if it is not installed
 if ! command -v helm &> /dev/null; then
   echo "Installing helm..."
-  curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-  chmod +x get_helm.sh
-  sudo ./get_helm.sh
-  rm get_helm.sh
+
+  # Determine the helm artifact name based on OS and architecture
+  helm_artifact="helm-$(os)-$(arch).tar.gz"
+
+  if cache_download "$helm_artifact" >/dev/null; then
+    echo "Using cached Helm binary"
+    sudo mv helm /usr/local/bin/helm
+    sudo chmod +x /usr/local/bin/helm
+  else
+    echo "Downloading Helm from get.helm.sh..."
+    # Download and run the official Helm installer script
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod +x get_helm.sh
+    sudo ./get_helm.sh
+
+    if [ -f /usr/local/bin/helm ]; then
+      ( cd /usr/local/bin && cache_upload "$helm_artifact" /usr/local/bin/helm )
+    fi
+
+    # Clean up installer script
+    rm get_helm.sh
+  fi
 fi
 
 if ! command -v stern &> /dev/null; then
