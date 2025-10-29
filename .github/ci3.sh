@@ -5,12 +5,10 @@ set -euo pipefail
 : "${AWS_SECRET_ACCESS_KEY:?required}"
 : "${GITHUB_TOKEN:?required}"
 
-# Source ci3 framework
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 
 setup_environment() {
   echo_header "Setup"
-
   # Store GCP key
   if [ -n "${GCP_SA_KEY:-}" ] && [ -n "${GOOGLE_APPLICATION_CREDENTIALS:-}" ]; then
     set +x
@@ -19,7 +17,6 @@ setup_environment() {
     jq -e . "$GOOGLE_APPLICATION_CREDENTIALS" >/dev/null
     echo "GCP key stored"
   fi
-
   # Compute target branch
   local target_branch
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ]; then
@@ -32,13 +29,11 @@ setup_environment() {
   target_branch="${target_branch#refs/heads/}"
   echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
   echo "Target branch: ${target_branch}"
-
-  # Set instance postfix for merge-train PRs
+  # To allow full concurrency, we set instance postfix for merge-train PRs
   if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
     echo "INSTANCE_POSTFIX=${PR_COMMITS:-}" >> $GITHUB_ENV
     echo "Instance postfix set to: ${PR_COMMITS:-}"
   fi
-
   # Setup SSH key (internal only)
   if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
     mkdir -p ~/.ssh
@@ -52,9 +47,8 @@ process_labels() {
   local labels="$1"
   echo_header "Label Processing"
   echo "Labels: ${labels}"
-
+  # Parse labels into array
   IFS=',' read -ra label_array <<< "${labels}"
-
   for label in "${label_array[@]}"; do
     case "${label}" in
       ci-merge-queue)
@@ -87,7 +81,7 @@ process_labels() {
 
 determine_ci_mode() {
   echo_header "CI Mode Determination"
-
+  # Determine CI mode
   if [ "${GITHUB_EVENT_NAME:-}" == "merge_group" ] || [ "${ci_merge_queue:-0}" -eq 1 ]; then
     ci_mode="merge-queue"
   elif [ "${ci_full:-0}" -eq 1 ]; then
@@ -103,7 +97,6 @@ determine_ci_mode() {
   else
     ci_mode="fast"
   fi
-
   echo "CI mode: ${ci_mode}"
   echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
 }
@@ -111,7 +104,7 @@ determine_ci_mode() {
 check_cache() {
   local ci_mode="$1"
   echo_header "Cache Check"
-
+  # Check cache (unless disabled)
   local cache_name="ci-success-${ci_mode}.tar.gz"
   if [ "${ci_no_cache:-0}" -eq 0 ]; then
     if cache_download "$cache_name" . 2>/dev/null; then
@@ -121,28 +114,16 @@ check_cache() {
       fi
     fi
   fi
-
   echo "Cache miss, running CI in ${ci_mode} mode..."
 }
 
 main() {
   local labels="${1:-}"
-
   echo_header "CI3 Main Script"
-
-  echo ""
   setup_environment
-
-  echo ""
   process_labels "${labels}"
-
-  echo ""
   determine_ci_mode
-
-  echo ""
   check_cache "${ci_mode}"
-
-  echo ""
   echo_header "Run CI"
   exec ./ci.sh "${ci_mode}"
 }
