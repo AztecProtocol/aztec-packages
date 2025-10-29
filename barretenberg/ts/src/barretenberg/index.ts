@@ -8,7 +8,7 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ChonkAccumulate, ChonkComputeIvcVk, ChonkStats, ChonkLoad, ChonkProve, ChonkStart, ChonkVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ChonkComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ChonkStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -124,28 +124,28 @@ export class Barretenberg extends BarretenbergApi {
     return this.bbApi.chonkStart(command);
   }
 
-  async chonkLoad(command: ChonkLoad) {
-    return this.bbApi.chonkLoad(command);
+  async clientIvcLoad(command: ClientIvcLoad) {
+    return this.bbApi.clientIvcLoad(command);
   }
 
-  async chonkAccumulate(command: ChonkAccumulate) {
-    return this.bbApi.chonkAccumulate(command);
+  async clientIvcAccumulate(command: ClientIvcAccumulate) {
+    return this.bbApi.clientIvcAccumulate(command);
   }
 
-  async chonkProve(command: ChonkProve) {
-    return this.bbApi.chonkProve(command);
+  async clientIvcProve(command: ClientIvcProve) {
+    return this.bbApi.clientIvcProve(command);
   }
 
-  async chonkVerify(command: ChonkVerify) {
-    return this.bbApi.chonkVerify(command);
+  async clientIvcVerify(command: ClientIvcVerify) {
+    return this.bbApi.clientIvcVerify(command);
   }
 
   async chonkComputeIvcVk(command: ChonkComputeIvcVk) {
     return this.bbApi.chonkComputeIvcVk(command);
   }
 
-  async chonkStats(command: ChonkStats) {
-    return this.bbApi.chonkStats(command);
+  async clientIvcStats(command: ClientIvcStats) {
+    return this.bbApi.clientIvcStats(command);
   }
 
   // Wrap circuit methods used by BbApiUltraHonkBackend
