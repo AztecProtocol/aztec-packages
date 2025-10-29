@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <vector>
@@ -13,22 +14,23 @@ namespace bb {
 
 /**
  * @brief Class to manage pairing point tagging
- * @details This class tracks pairing points and their tags, providing functionality
- * to create new tags, merge tags, and query tag properties. Tags are used to track
- * which pairing points can be safely merged together.
+ * @details This class tracks pairing points and their tags, providing functionality to create new tags, merge tags, and
+ * query tag properties. Tags are used to ensure that all the pairing points created in a circuit are aggregated
+ * together and set to public (after aggregation).
  */
 class PairingPointsTagging {
   private:
     std::vector<uint32_t> pairing_points_tags_;
     uint32_t next_pairing_point_tag_ = 0;
     bool has_pairing_points_ = false;
+    bool has_public_pairing_points_ = false;
 
   public:
     PairingPointsTagging() = default;
-    PairingPointsTagging(const PairingPointsTagging& other) = default;
-    PairingPointsTagging(PairingPointsTagging&& other) noexcept = default;
-    PairingPointsTagging& operator=(const PairingPointsTagging& other) = default;
-    PairingPointsTagging& operator=(PairingPointsTagging&& other) noexcept = default;
+    PairingPointsTagging(const PairingPointsTagging& other) = delete;
+    PairingPointsTagging(PairingPointsTagging&& other) noexcept = delete;
+    PairingPointsTagging& operator=(const PairingPointsTagging& other) = delete;
+    PairingPointsTagging& operator=(PairingPointsTagging&& other) noexcept = delete;
     ~PairingPointsTagging() = default;
 
     bool operator==(const PairingPointsTagging& other) const = default;
@@ -50,10 +52,14 @@ class PairingPointsTagging {
      * @brief Merge two pairing point tags
      * @param tag1 First tag
      * @param tag2 Second tag
-     * @details If the tags are different, all instances of tag2 are replaced with tag1
+     * @details If the tags are different, all instances of tag2 are replaced with tag1. We also check that the pairing
+     * points have not been set to public yet.
      */
     void merge_pairing_point_tags(uint32_t tag1_index, uint32_t tag2_index)
     {
+        BB_ASSERT(!has_public_pairing_points_,
+                  "Cannot merge pairing point tags after pairing points have been set to public.");
+
         // If different tags, override tag2 with tag1
         uint32_t tag1 = pairing_points_tags_[tag1_index];
         uint32_t tag2 = pairing_points_tags_[tag2_index];
@@ -104,9 +110,25 @@ class PairingPointsTagging {
     bool has_pairing_points() const { return has_pairing_points_; }
 
     /**
+     * @brief Check if pairings points have been set to public
+     * @return true if pairing points have been set to public
+     */
+    bool has_public_pairing_points() const { return has_public_pairing_points_; }
+
+    /**
      * @brief Get the tag for a specific pairing point index
      */
     uint32_t get_tag(uint32_t tag_index) const { return pairing_points_tags_.at(tag_index); }
+
+    /**
+     * @brief Record that pairing points have been set to public
+     */
+    void set_public_pairing_points()
+    {
+        BB_ASSERT(!has_public_pairing_points_,
+                  "Trying to set pairing points to public for a circuit that already has public pairing points.");
+        has_public_pairing_points_ = true;
+    }
 };
 
 } // namespace bb

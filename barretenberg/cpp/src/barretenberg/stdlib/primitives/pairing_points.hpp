@@ -55,7 +55,7 @@ template <typename Builder_> struct PairingPoints {
         // Get the builder from the group elements and assign a new tag
         Builder* builder = P0.get_context();
         if (builder != nullptr) {
-            tag_index = builder->create_pairing_point_tag();
+            tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
         }
     }
 
@@ -108,7 +108,7 @@ template <typename Builder_> struct PairingPoints {
         Builder* builder = P0.get_context();
         if (builder != nullptr) {
             for (const auto& points : pairing_points) {
-                builder->merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
             }
         }
 
@@ -156,7 +156,7 @@ template <typename Builder_> struct PairingPoints {
         // Merge the tags in the builder
         Builder* builder = P0.get_context();
         if (builder != nullptr) {
-            builder->merge_pairing_point_tags(this->tag_index, other.tag_index);
+            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
     }
 
@@ -252,32 +252,12 @@ template <typename Builder_> struct PairingPoints {
     }
 };
 
-template <typename Builder> void read(uint8_t const*& it, PairingPoints<Builder>& as)
-{
-    using serialize::read;
-
-    read(it, as.P0);
-    read(it, as.P1);
-    read(it, as.has_data);
-    read(it, as.tag);
-};
-
-template <typename Builder> void write(std::vector<uint8_t>& buf, PairingPoints<Builder> const& as)
-{
-    using serialize::write;
-
-    write(buf, as.P0);
-    write(buf, as.P1);
-    write(buf, as.has_data);
-    write(buf, as.tag);
-};
-
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
               << "P1: " << as.P1 << "\n"
               << "has_data: " << as.has_data << "\n"
-              << "tag: " << as.tag << "\n";
+              << "tag_index: " << as.tag_index << "\n";
 }
 
 } // namespace bb::stdlib::recursion

@@ -88,10 +88,13 @@ template <typename FF_> class CircuitBuilderBase {
      */
     std::unordered_map<uint32_t, uint32_t> _tau;
 
-    // Pairing point tag tracking
-    mutable PairingPointsTagging pairing_points_tagging;
-
   public:
+    /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    PairingPointsTagging pairing_points_tagging;
+
     /**
      * @brief Map from witness index to real variable index
      * @details The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib
@@ -240,35 +243,6 @@ template <typename FF_> class CircuitBuilderBase {
     const std::string& err() const;
 
     void failure(std::string msg);
-
-    /**
-     * @brief Create a new unique pairing point tag
-     */
-    uint32_t create_pairing_point_tag() const { return pairing_points_tagging.create_pairing_point_tag(); }
-
-    /**
-     * @brief Merge two pairing point tags
-     */
-    void merge_pairing_point_tags(uint32_t tag1_index, uint32_t tag2_index) const
-    {
-        pairing_points_tagging.merge_pairing_point_tags(tag1_index, tag2_index);
-    }
-
-    /**
-     * @brief Check if all pairing point tags belong to a single equivalence class
-     * @return true if there's only one equivalence class (or no tags at all)
-     */
-    bool has_single_pairing_point_tag() const { return pairing_points_tagging.has_single_pairing_point_tag(); }
-
-    /**
-     * @brief Return the number of unique pairing point tags
-     */
-    uint32_t num_unique_pairing_points() const { return pairing_points_tagging.num_unique_pairing_points(); }
-
-    /**
-     * @brief Get the pairing points tagging object
-     */
-    uint32_t get_tag(uint32_t tag_index) const { return pairing_points_tagging.get_tag(tag_index); }
 };
 
 /**

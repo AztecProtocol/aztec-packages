@@ -66,47 +66,47 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
     Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
 
     // Check that no pairing points exist
-    EXPECT_TRUE(builder.has_single_pairing_point_tag());
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     PairingPoints pp_one = { P0, P1 };
     PairingPoints pp_two = { P0, P1 };
 
     // Check the tags
-    BB_ASSERT_EQ(builder.get_tag(pp_one.tag_index), 0U);
-    BB_ASSERT_EQ(builder.get_tag(pp_two.tag_index), 1U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
 
     // Check that there are two different pairing points in the builder
-    EXPECT_FALSE(builder.has_single_pairing_point_tag());
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Merge the tags
     pp_one.aggregate(pp_two);
 
     // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.get_tag(pp_two.tag_index), 0U);
-    EXPECT_TRUE(builder.has_single_pairing_point_tag());
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 0U);
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Create two new pairing points and aggregate with aggregate_multiple
     PairingPoints pp_three = { P0, P1 };
     PairingPoints pp_four = { P0, P1 };
 
     // Check the tags
-    BB_ASSERT_EQ(builder.get_tag(pp_three.tag_index), 2U);
-    BB_ASSERT_EQ(builder.get_tag(pp_four.tag_index), 3U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 3U);
 
     // Check that there are two different pairing points in the builder
-    EXPECT_FALSE(builder.has_single_pairing_point_tag());
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Merge the tags
     std::vector<PairingPoints> pp_to_be_aggregated = { pp_one, pp_three, pp_four };
     PairingPoints aggregated_pp = PairingPoints::aggregate_multiple(pp_to_be_aggregated);
 
     // Check that the tags have been merged
-    BB_ASSERT_EQ(builder.get_tag(pp_one.tag_index), 4U);
-    BB_ASSERT_EQ(builder.get_tag(pp_two.tag_index), 4U);
-    BB_ASSERT_EQ(builder.get_tag(pp_three.tag_index), 4U);
-    BB_ASSERT_EQ(builder.get_tag(pp_four.tag_index), 4U);
-    BB_ASSERT_EQ(builder.get_tag(aggregated_pp.tag_index), 4U);
-    EXPECT_TRUE(builder.has_single_pairing_point_tag());
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_four.tag_index), 4U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(aggregated_pp.tag_index), 4U);
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 }
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
@@ -133,18 +133,18 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
     PairingPoints pp_three = { P0, P1 };
 
     // Check the tags
-    BB_ASSERT_EQ(builder.get_tag(pp_one.tag_index), 0U);
-    BB_ASSERT_EQ(builder.get_tag(pp_two.tag_index), 1U);
-    BB_ASSERT_EQ(builder.get_tag(pp_three.tag_index), 2U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_one.tag_index), 0U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_two.tag_index), 1U);
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_three.tag_index), 2U);
 
     // Check that there are different pairing points in the builder
-    EXPECT_FALSE(builder.has_single_pairing_point_tag());
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Merge the tags
     pp_one.aggregate(pp_two);
 
     // Check that the tags have not been merged
-    EXPECT_FALSE(builder.has_single_pairing_point_tag());
+    EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
     // Create a ProverInstance, expect failure
     try {
