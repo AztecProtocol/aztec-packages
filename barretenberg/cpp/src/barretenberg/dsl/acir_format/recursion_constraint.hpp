@@ -74,7 +74,7 @@ inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
         return 28;
     // AVM proofs (keep existing size)
     case AVM:
-        return 28;
+        return 21;
     default:
         throw_or_abort("Unknown proof type");
     }
