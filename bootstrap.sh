@@ -476,7 +476,7 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export RELEASE_TEST=1
-    export AZTEC_RELEASE_REPO="${AZTEC_RELEASE_REPO:-aztec-dev}"
+    export AZTEC_RELEASE_REPO="${AZTEC_RELEASE_REPO:-aztecdev}"
     # Use a short fake version to avoid exceeding bb binary placeholder length
     export REF_NAME="v0.0.1-fake"
     echo "Running release test with fake version: $REF_NAME"
