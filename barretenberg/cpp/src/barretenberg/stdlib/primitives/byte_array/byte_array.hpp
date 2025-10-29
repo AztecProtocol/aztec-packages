@@ -69,8 +69,6 @@ template <typename Builder> class byte_array {
         return values[index];
     }
 
-    // Non-const operator[] removed to prevent assigning unconstrained values into the array
-
     // Append another byte_array to this one
     byte_array& write(byte_array const& other);
 
