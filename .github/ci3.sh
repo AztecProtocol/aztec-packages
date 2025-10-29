@@ -27,14 +27,14 @@ function setup_environment {
     target_branch="${GITHUB_REF_NAME:-}"
   fi
   target_branch="${target_branch#refs/heads/}"
-  export TARGET_BRANCH="${target_branch}"
-  echo "TARGET_BRANCH=${target_branch}" >> $GITHUB_ENV
-  echo "Target branch: ${target_branch}"
+  TARGET_BRANCH=$target_branch
+  echo "TARGET_BRANCH=$TARGET_BRANCH" >> $GITHUB_ENV
+  echo "Target branch: $TARGET_BRANCH"
   # To allow full concurrency, we set instance postfix for merge-train PRs
   if [[ "${PR_HEAD_REF:-}" == merge-train/* ]]; then
-    export INSTANCE_POSTFIX="${PR_COMMITS:-}"
-    echo "INSTANCE_POSTFIX=${PR_COMMITS:-}" >> $GITHUB_ENV
-    echo "Instance postfix set to: ${PR_COMMITS:-}"
+    INSTANCE_POSTFIX=${PR_COMMITS:-}
+    echo "INSTANCE_POSTFIX=$INSTANCE_POSTFIX" >> $GITHUB_ENV
+    echo "Instance postfix set to: $INSTANCE_POSTFIX"
   fi
   # Setup SSH key (internal only)
   if [ "${CI_INTERNAL:-0}" -eq 1 ] && [ -n "${BUILD_INSTANCE_SSH_KEY:-}" ]; then
@@ -99,9 +99,9 @@ function determine_ci_mode {
   else
     ci_mode="fast"
   fi
-  export CI_MODE="${ci_mode}"
-  echo "CI_MODE=${ci_mode}" >> $GITHUB_ENV
-  echo "CI mode: ${ci_mode}"
+  CI_MODE=$ci_mode
+  echo "CI_MODE=$CI_MODE" >> $GITHUB_ENV
+  echo "CI mode: $CI_MODE"
 }
 
 function check_cache {
