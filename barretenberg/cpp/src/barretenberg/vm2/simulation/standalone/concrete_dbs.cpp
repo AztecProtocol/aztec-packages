@@ -8,12 +8,12 @@
 namespace bb::avm2::simulation {
 
 // Contracts DB starts.
-std::optional<ContractInstance> PureContractDB::get_contract_instance(const AztecAddress& address) const
+std::optional<ContractInstance> PureContractDB::get_contract_instance(const AztecAddress& address)
 {
     return raw_contract_db.get_contract_instance(address);
 }
 
-std::optional<ContractClass> PureContractDB::get_contract_class(const ContractClassId& class_id) const
+std::optional<ContractClass> PureContractDB::get_contract_class(const ContractClassId& class_id)
 {
     return raw_contract_db.get_contract_class(class_id);
 }

@@ -36,20 +36,11 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     ~MockLowLevelMerkleDB() override;
 
     MOCK_METHOD(TreeSnapshots, get_tree_roots, (), (const, override));
-    MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
-    MOCK_METHOD(GetLowIndexedLeafResponse,
-                get_low_indexed_leaf,
-                (MerkleTreeId tree_id, const FF& value),
-                (const, override));
-    MOCK_METHOD(FF, get_leaf_value, (MerkleTreeId tree_id, index_t leaf_index), (const, override));
-    MOCK_METHOD(IndexedLeaf<PublicDataLeafValue>,
-                get_leaf_preimage_public_data_tree,
-                (index_t leaf_index),
-                (const, override));
-    MOCK_METHOD(IndexedLeaf<NullifierLeafValue>,
-                get_leaf_preimage_nullifier_tree,
-                (index_t leaf_index),
-                (const, override));
+    MOCK_METHOD(SiblingPath, get_sibling_path, (MerkleTreeId tree_id, index_t leaf_index), (override));
+    MOCK_METHOD(GetLowIndexedLeafResponse, get_low_indexed_leaf, (MerkleTreeId tree_id, const FF& value), (override));
+    MOCK_METHOD(FF, get_leaf_value, (MerkleTreeId tree_id, index_t leaf_index), (override));
+    MOCK_METHOD(IndexedLeaf<PublicDataLeafValue>, get_leaf_preimage_public_data_tree, (index_t leaf_index), (override));
+    MOCK_METHOD(IndexedLeaf<NullifierLeafValue>, get_leaf_preimage_nullifier_tree, (index_t leaf_index), (override));
     MOCK_METHOD(SequentialInsertionResult<PublicDataLeafValue>,
                 insert_indexed_leaves_public_data_tree,
                 (const PublicDataLeafValue& leaf_value),

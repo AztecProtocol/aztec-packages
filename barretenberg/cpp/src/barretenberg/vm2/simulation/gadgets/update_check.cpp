@@ -11,7 +11,7 @@ namespace {
 
 using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf_slot)
+FF unconstrained_read(LowLevelMerkleDBInterface& merkle_db, const FF& leaf_slot)
 {
     auto [present, index] = merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
     auto preimage = merkle_db.get_leaf_preimage_public_data_tree(index);

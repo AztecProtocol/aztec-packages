@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
 #include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
@@ -313,6 +314,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                                                       const ProtocolContracts& protocol_contracts)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
+    // TODO(MW): reinstate after checking in simulate_fast_with_hinted_dbs
+    // HintingContractsDB hinting_contracts_db(raw_contract_db);
+    // HintingRawDB hinting_raw_db(raw_merkle_db);
 
     // TODO(fcarreiro): These should come from the simulate call.
     bool user_requested_simulation = false;
@@ -473,7 +477,21 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
 {
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+    HintingContractsDB hinting_contracts_db(raw_contract_db);
+    HintingRawDB hinting_raw_db(raw_merkle_db);
+    auto result =
+        simulate_fast(hinting_contracts_db, hinting_raw_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+
+    // TODO(MW): remove below after checks, move HintingDb instantiation to inside simulate_fast
+    ExecutionHints collected_hints = ExecutionHints{ .globalVariables = hints.globalVariables,
+                                                     .tx = hints.tx,
+                                                     .protocolContracts = hints.protocolContracts,
+                                                     .startingTreeRoots = hints.startingTreeRoots };
+    hinting_contracts_db.dump_hints(collected_hints);
+    hinting_raw_db.dump_hints(collected_hints);
+
+    result.execution_hints = collected_hints;
+    return result;
 }
 
 } // namespace bb::avm2

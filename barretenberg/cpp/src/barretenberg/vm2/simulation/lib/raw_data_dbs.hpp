@@ -12,6 +12,7 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/lib/db_types.hpp"
 #include "barretenberg/vm2/simulation/lib/written_slots_tree.hpp"
 #include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
@@ -64,11 +65,11 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     TreeSnapshots get_tree_roots() const override { return tree_roots; }
 
     // Query methods.
-    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
-    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
-    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
-    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
-    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) override;
 
     // State modification methods.
     SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
@@ -113,7 +114,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
-    // Private helper methods.
+    // Private helper methods. TODO(MW): extract out? Used by hinting dbs
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
     AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
@@ -133,11 +134,11 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
     TreeSnapshots get_tree_roots() const override;
 
     // Query methods.
-    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const override;
-    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const override;
-    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const override;
-    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const override;
-    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
+    SiblingPath get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) override;
+    GetLowIndexedLeafResponse get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) override;
+    FF get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) override;
+    IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) override;
+    IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) override;
 
     // State modification methods.
     SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
@@ -159,17 +160,3 @@ class PureRawMerkleDB final : public LowLevelMerkleDBInterface {
 };
 
 } // namespace bb::avm2::simulation
-
-// Specialization of std::hash for std::vector<FF> to be used as a key in unordered_flat_map.
-namespace std {
-template <> struct hash<std::vector<bb::avm2::FF>> {
-    size_t operator()(const std::vector<bb::avm2::FF>& vec) const
-    {
-        size_t seed = vec.size();
-        for (const auto& item : vec) {
-            seed ^= std::hash<bb::avm2::FF>{}(item) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-        }
-        return seed;
-    }
-};
-} // namespace std
