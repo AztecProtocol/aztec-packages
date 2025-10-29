@@ -1,0 +1,102 @@
+name: Manual Docs Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch or tag to build docs from (e.g., master, v3.0.0, v3.0.0-nightly.20241201)"
+        required: true
+      version:
+        description: "Version tag to use for docs (e.g., v3.0.0-devnet.2, v3.0.0-nightly.20241201)"
+        required: true
+      testnet_tag:
+        description: "Testnet version tag (e.g., 2.0.4). Defaults to 2.0.2 if not specified"
+        required: false
+        default: "2.0.4"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  create-docs:
+    name: Create documentation version
+    runs-on: ubuntu-latest
+    env:
+      BUILD_REF: ${{ github.event.inputs.ref }}
+      VERSION_TAG: ${{ github.event.inputs.version }}
+      TESTNET_TAG: ${{ github.event.inputs.testnet_tag }}
+
+    steps:
+      - name: Checkout at specified ref
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ env.BUILD_REF }}
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Setup dependencies
+        run: |
+          sudo apt install -y --no-install-recommends doxygen
+          corepack enable
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Create Aztec docs version
+        working-directory: ./docs
+        run: |
+          # Install dependencies
+          yarn install
+
+          # Build docs to ensure everything works
+          COMMIT_TAG=${{ env.VERSION_TAG }} TESTNET_TAG=${{ env.TESTNET_TAG }} yarn build
+
+          # Create the versioned docs
+          yarn docusaurus docs:version ${{ env.VERSION_TAG }}
+
+          echo "Created Aztec docs version: ${{ env.VERSION_TAG }}"
+
+      - name: Update Aztec Docs versions.json with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Create Barretenberg docs version
+        working-directory: ./barretenberg/docs
+        run: |
+          # Install dependencies
+          yarn install
+
+          # Build docs to ensure everything works
+          yarn build
+
+          # Create the versioned docs
+          yarn docusaurus docs:version ${{ env.VERSION_TAG }}
+
+          echo "Created Barretenberg docs version: ${{ env.VERSION_TAG }}"
+
+      - name: Update Barretenberg docs versions.json with new version
+        working-directory: ./barretenberg/docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Commit new Aztec and Barretenberg Docs version
+        run: |
+          # Stash the docs changes
+          git add .
+          git stash push --staged -m "docs for ${{ env.VERSION_TAG }}"
+
+          # Checkout the next branch
+          git fetch origin next
+          git checkout next
+
+          # Apply the stashed changes and commit
+          git stash pop
+          git add .
+          git commit -m "chore(docs): cut new aztec and bb docs version for tag ${{ env.VERSION_TAG }} from ref ${{ env.BUILD_REF }}"
+          git push origin next
