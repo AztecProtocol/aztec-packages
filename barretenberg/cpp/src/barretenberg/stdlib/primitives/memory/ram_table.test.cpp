@@ -7,11 +7,14 @@
 #include "ram_table.hpp"
 
 using namespace bb;
-// Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
-using field_ct = stdlib::field_t<Builder>;
-using witness_ct = stdlib::witness_t<Builder>;
-using ram_table_ct = stdlib::ram_table<Builder>;
+
+template <typename Builder> class RamTableTests : public ::testing::Test {
+  public:
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+};
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();
@@ -25,7 +28,10 @@ STANDARD_TESTING_TAGS
  */
 TEST(RamTable, TagCorrectness)
 {
-
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
     Builder builder;
     std::vector<field_ct> table_values;
 
@@ -67,8 +73,15 @@ TEST(RamTable, TagCorrectness)
 #endif
 }
 
-TEST(RamTable, RamTableInitReadConsistency)
+TYPED_TEST_SUITE(RamTableTests, BuilderTypes);
+
+TYPED_TEST(RamTableTests, RamTableInitReadConsistency)
 {
+
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using ram_table_ct = typename TestFixture::ram_table_ct;
     Builder builder;
 
     std::vector<field_ct> table_values;
@@ -101,8 +114,12 @@ TEST(RamTable, RamTableInitReadConsistency)
     EXPECT_EQ(verified, true);
 }
 
-TEST(RamTable, RamTableReadWriteConsistency)
+TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
 {
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using ram_table_ct = typename TestFixture::ram_table_ct;
     Builder builder;
     const size_t table_size = 10;
 

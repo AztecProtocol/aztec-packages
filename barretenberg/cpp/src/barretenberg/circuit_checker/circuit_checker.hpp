@@ -19,9 +19,8 @@ class CircuitChecker {
         static_assert(IsCheckable<Builder>);
         if (IsUltraOrMegaBuilder<Builder>) {
             return UltraCircuitChecker::check(builder);
-        } else {
-            return false;
         }
+        return false;
     }
 };
 
