@@ -74,9 +74,13 @@ function build_native {
 function build_cross {
   set -eu
   target=$1
+  macos_sign=${2:-false}
   if ! cache_download barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target bb --target nodejs_module
     inject_version build-zig-$target/bin/bb
+    if [ "$macos_sign" == "true" ]; then
+      ldid -S build-zig-$target/bin
+    fi
     cache_upload barretenberg-$target-$hash.zst build-zig-$target/{bin,lib}
   fi
 }
@@ -169,35 +173,24 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Version already injected in build_native
-  cp build/bin/bb build-release/bb
-  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
-
-  # Version already injected in build_native
-  cp build/bin/bb-avm build-release/bb-avm
-  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build-release --remove-files bb-avm
+  # Note: Version already injected in build_native
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build/bin bb
+  tar -czf build-release/barretenberg-avm-$arch-linux.tar.gz -C build/bin bb-avm
 
   tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
   tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
-  # Ensure ldid is available for code signing
-  ensure_ldid
+  # Note: version already injected in build_cross
+  # Package arm64-linux
+  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-zig-arm64-linux/bin bb
 
-  # Package arm64-linux (version already injected in build_cross)
-  cp build-zig-arm64-linux/bin/bb build-release/bb
-  tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
+  # Package arm64-macos
+  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-zig-arm64-macos/bin bb
 
-  # Package arm64-macos (version already injected in build_cross, sign after)
-  cp build-zig-arm64-macos/bin/bb build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
-
-  # Package amd64-macos (version already injected in build_cross, sign after)
-  cp build-zig-amd64-macos/bin/bb build-release/bb
-  ldid -S build-release/bb
-  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
+  # Package amd64-macos
+  tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-zig-amd64-macos/bin bb
 }
 
 export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
@@ -214,8 +207,8 @@ function build {
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
+      "build_cross amd64-macos true" \
+      "build_cross arm64-macos true"
     build_release_dir
   else
     builds=(
@@ -227,7 +220,7 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos" build_smt_verification)
+      builds+=("build_cross arm64-macos true" build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
