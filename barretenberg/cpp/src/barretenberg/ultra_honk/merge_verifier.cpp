@@ -114,16 +114,9 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
     std::vector<Claims> opening_claims;
 
     // Field element constants for constructing claims
-    FF one_ff, zero_ff, neg_one_ff;
-    if constexpr (IsRecursive) {
-        one_ff = FF(1);
-        zero_ff = FF(0);
-        neg_one_ff = FF(-1);
-    } else {
-        one_ff = FF::one();
-        zero_ff = FF::zero();
-        neg_one_ff = FF::neg_one();
-    }
+    FF one(1);
+    FF zero(0);
+    FF neg_one(-1);
 
     // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
     commitment_idx = 0;
@@ -131,8 +124,8 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
         Claims claim{ { /*index of [l_j]*/ commitment_idx,
                         /*index of [r_j]*/ commitment_idx + 1,
                         /*index of [m_j]*/ commitment_idx + 2 },
-                      { one_ff, pow_kappa, neg_one_ff },
-                      { kappa, zero_ff } };
+                      { one, pow_kappa, neg_one },
+                      { kappa, zero } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to the index of [l_{j+1}]
@@ -148,7 +141,7 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
         // Opening claim for l_j(1/kappa)
         FF left_table_eval_kappa_inv =
             transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
-        Claims claim = { { commitment_idx }, { one_ff }, { kappa_inv, left_table_eval_kappa_inv } };
+        Claims claim = { { commitment_idx }, { one }, { kappa_inv, left_table_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to index of g_j
@@ -157,7 +150,7 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
         // Opening claim for g_j(kappa)
         FF left_table_reversed_eval =
             transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
-        claim = { { commitment_idx }, { one_ff }, { kappa, left_table_reversed_eval } };
+        claim = { { commitment_idx }, { one }, { kappa, left_table_reversed_eval } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to index of left_table_{j+1}

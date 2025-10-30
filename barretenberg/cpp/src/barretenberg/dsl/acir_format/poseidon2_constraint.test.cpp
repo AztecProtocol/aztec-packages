@@ -1,7 +1,6 @@
 #include "poseidon2_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
 #include <cstdint>
