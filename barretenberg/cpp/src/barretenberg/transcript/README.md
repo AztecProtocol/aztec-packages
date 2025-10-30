@@ -53,31 +53,23 @@ using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<Builder>>, s
 The transcript operates in two fundamentally different modes:
 
 ### Native Mode
-- **Purpose**: Standard proving and verification
-- **DataType**: Native field elements (`bb::fr`, `grumpkin::fr`, `uint256_t`)
+- **Purpose**: Used for proving and verification
+- **DataType**: Native types (`bb::fr`, `grumpkin::fr`, `uint256_t`)
 - **Origin Tags**: Disabled
 
 ### In-Circuit Mode (Recursive Verification)
-- **Purpose**: Verifying proofs inside another circuit (proof of proofs)
+- **Purpose**: Verifying proofs in-circuit (recursive proofs)
 - **DataType**: Circuit field elements (`field_t<Builder>`)
 - **Origin Tags**: **Enabled** to detect Fiat-Shamir violations
 
-The mode is **automatically detected** at compile-time:
+The mode is **automatically detected** at compile-time.
 
-```cpp
-template <typename T>
-concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
-
-static constexpr bool in_circuit = InCircuit<DataType>;
-```
-
----
 
 ## Origin Tag Security Mechanism
 
 ### Why Origin Tags?
 
-In recursive verification, all values are circuit variables (witnesses). Without tracking their provenance, bugs or malicious code could violate Fiat-Shamir protocol structure:
+In recursive verification, all transcript values are circuit variables (witnesses). Without tracking their provenance, bugs or malicious code could violate Fiat-Shamir protocol structure:
 
 1. **Cross-round contamination**: Values from different protocol rounds mixing without proper challenge separation
 2. **Transcript isolation violation**: Values from different transcript instances interacting
@@ -130,11 +122,11 @@ child_tag = (1 << 3);  // Lower 128 bits
 child_tag = (1 << (5 + 128));  // Upper 128 bits
 ```
 
-#### Instant Death - Poisoned Values
+#### Instant Death
 
-Values marked with `instant_death = true` abort on any arithmetic operation. Used to poison values that should never be used (e.g., debugging markers, dummies).
+Values marked with `instant_death = true` abort on any arithmetic operation.
 
-### Tag Merging - The Core Mechanism
+### Tag Merging
 
 When circuit values combine arithmetically (`a + b`, `a * b`, etc.), their origin tags **merge** via the `OriginTag(tag_a, tag_b)` constructor. This is how tags propagate through computations.
 
@@ -613,14 +605,12 @@ transcript->add_to_hash_buffer("vk_hash", vk_hash);
 **Key point**: This is for **computing hashes**, not for Fiat-Shamir. The buffer is independent from challenge generation.
 
 **Use cases**:
-- Computing verification key hashes from components
-- Computing verifier instance hashes (for folding/accumulation schemes)
-- Any time you need to hash multiple items into a single digest
+- Computing verification key/verifier instance hashes
 
 ### Verifier Methods
 
 #### `receive_from_prover<T>(const std::string& label) -> T`
-Deserialize and extract element from proof, update transcript state.
+Deserialize and extract element from proof, update transcript state. In-circuit deserialization for `UltraCircuitBuilder` includes `on_curve` checks and proper constraints for `T` = `bigfield`. We also perform `is_infinity` checks to correctly desereialize points at infinity.
 
 ```cpp
 auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments");
@@ -633,6 +623,11 @@ auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments"
 - Assigns and validates origin tag (in-circuit mode)
 
 ### Challenge Generation
+
+Note that "by default", challenges are `BN254` (`fr`/`field_t`) scalar field elements. However, there are two special cases.
+
+ - When we're verifying proofs where commitments are Grumpkin points (`ECCVMRecursiveVerifier`), the challenges are `fq`/`bigfield` elements.
+ - `KeccakTranscript` uses `uint256_t` challenges.
 
 #### `get_challenge<ChallengeType>(const std::string& label) -> ChallengeType`
 Generate a single challenge by hashing accumulated round data.
@@ -669,7 +664,7 @@ auto gate_challenges = transcript->get_powers_of_challenge<FF>("Sumcheck:gate_ch
 ```
 
 **Why squared powers?**
-The powers-of-2 exponent pattern `[δ, δ², δ⁴, δ⁸, ...]` is used to separate gate contributions in the sumcheck protocol. Each power corresponds to a different variable dimension in the multivariate polynomial evaluation.
+The powers-of-2 exponent pattern `[δ, δ², δ⁴, δ⁸, ...]` is used in `pow`-polynomial to separate gate contributions in the sumcheck protocol.
 
 ### Proof Management
 
@@ -837,13 +832,6 @@ VerifierCommitments commitments(vk);  // ✅ Commitments have origin tags
 - **Native verification**: Tagging is a no-op, just computes hash normally
 - **Recursive verification**: Critical for origin tag correctness
 
-**Alternative design** (not implemented):
-```cpp
-// Hypothetical simpler API (would require VK refactoring)
-auto tagged_vk = vk->tag_commitments(transcript);  // Explicit tagging
-FF vk_hash = vk->hash();  // Separate hash computation
-transcript->add_to_hash_buffer("vk_hash", vk_hash);
-```
 
 **Note on ECCVM and Translator**:
 
@@ -1011,8 +999,6 @@ To determine how many field elements a type serializes to:
 size_t size = Transcript::Codec::template calc_num_fields<T>();
 ```
 
-**Removed**: `calc_num_data_types()` wrapper (redundant and confusingly named).
-
 ### Challenge Buffer Size
 
 Challenges are generated in **pairs** with sizes `[128-bit, 126-bit]`:
@@ -1036,53 +1022,3 @@ transcript->print();  // Shows all transcript interactions
 **Note**: Only used in tests, disabled in production for performance.
 
 ---
-
-## Security Considerations
-
-### Fiat-Shamir Transform
-The transcript implements a secure Fiat-Shamir transform **if and only if**:
-1. Hash function is collision-resistant (Poseidon2, Keccak)
-2. Prover and verifier follow identical sequences
-3. All prover messages are hashed before challenges are derived
-
-### Origin Tags (Recursive Verification)
-- **Enabled in DEBUG builds only** (via `AZTEC_NO_ORIGIN_TAGS` flag)
-- Production builds: Tags are no-ops for performance
-- Security relies on correct protocol implementation (tags detect bugs, not attacks)
-
-### Free Witness Security
-Values marked as `FREE_WITNESS` may violate protocol soundness:
-
-```cpp
-// This can be dangerous in recursive verification
-commitment.set_origin_tag(OriginTag(FREE_WITNESS, 0));
-```
-
-**Only use** for trusted values (VK commitments, public constants).
-
----
-
-## References
-
-- **Fiat-Shamir Transform**: [Wikipedia](https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic)
-- **Sumcheck Protocol**: Powers-of-2 challenge generation for multivariate polynomials
-- **Origin Tags**: See `origin_tag.hpp` for detailed implementation
-
----
-
-## Appendix: Type Aliases
-
-```cpp
-// Native transcripts
-using NativeTranscript = BaseTranscript<FrCodec, crypto::Poseidon2<...>>;
-using KeccakTranscript = BaseTranscript<U256Codec, crypto::Keccak>;
-
-// In-circuit transcripts (recursive verification)
-template <typename Builder>
-using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<Builder>>,
-                                        stdlib::poseidon2<Builder>>;
-
-// Specific builder types
-using UltraStdlibTranscript = StdlibTranscript<UltraCircuitBuilder>;
-using MegaStdlibTranscript = StdlibTranscript<MegaCircuitBuilder>;
-```
