@@ -13,7 +13,7 @@ import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
-import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {
   CommitteeAttestation,

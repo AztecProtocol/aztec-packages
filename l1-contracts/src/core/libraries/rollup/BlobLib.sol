@@ -5,7 +5,6 @@ pragma solidity >=0.8.27;
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Vm} from "forge-std/Vm.sol";
 
 /**
  * @title BlobLib - Blob Management and Validation Library
@@ -35,44 +34,24 @@ import {Vm} from "forge-std/Vm.sol";
  *      4. calculateBlobHash() computes versioned hashes from commitments following EIP-4844 specification
  */
 library BlobLib {
-  address public constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
   uint256 internal constant VERSIONED_HASH_VERSION_KZG =
     0x0100000000000000000000000000000000000000000000000000000000000000; // 0x01 << 248 to be used in blobHashCheck
 
   /**
    * @notice  Get the blob base fee
    *
-   * @dev     If we are in a foundry test, we use the cheatcode to get the blob base fee.
-   *          Otherwise, we use the `block.blobbasefee`
-   *
    * @return uint256 - The blob base fee
    */
   function getBlobBaseFee() internal view returns (uint256) {
-    if (block.chainid == 31_337 && VM_ADDRESS.code.length > 0) {
-      return Vm(VM_ADDRESS).getBlobBaseFee();
-    }
     return block.blobbasefee;
   }
 
   /**
    * @notice  Get the blob hash
    *
-   * @dev     If we are in a foundry test, we use the cheatcode to get the blob hashes
-   *          Otherwise, we use the `blobhash` function in assembly
-   *
    * @return blobHash - The blob hash
    */
   function getBlobHash(uint256 _index) internal view returns (bytes32 blobHash) {
-    if (block.chainid == 31_337 && VM_ADDRESS.code.length > 0) {
-      // We know that this one is ABHORRENT. But it should not exists, and only will
-      // be hit in testing.
-      bytes32[] memory blobHashes = Vm(VM_ADDRESS).getBlobhashes();
-      if (_index < blobHashes.length) {
-        return blobHashes[_index];
-      }
-      return bytes32(0);
-    }
-
     assembly {
       blobHash := blobhash(_index)
     }
