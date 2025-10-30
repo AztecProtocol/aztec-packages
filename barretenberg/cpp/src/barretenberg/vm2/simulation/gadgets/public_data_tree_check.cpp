@@ -151,8 +151,14 @@ void PublicDataTreeCheck::on_checkpoint_reverted()
     events.emit(CheckPointEventType::REVERT_CHECKPOINT);
 }
 
+/**
+ * @brief Generates ff_gt events for squashing.
+ *
+ * @param written_leaf_slots The leaf slots that were written (unique).
+ */
 void PublicDataTreeCheck::generate_ff_gt_events_for_squashing(const std::vector<FF>& written_leaf_slots)
 {
+    // We need the sorted leaf slots to generate the ff_gt events in order.
     std::vector<FF> sorted_written_leaf_slots = written_leaf_slots;
     // Leaf slot needs to be casted as uint256_t to compare.
     // Sorting over pointers instead of structs would be faster but probably negligible for such a small vector.

@@ -115,7 +115,6 @@ void SideEffectTrackingDB::revert_checkpoint()
 
 void SideEffectTrackingDB::pad_trees()
 {
-    // TODO(fcarreiro): do something with the tracked side effects?
     merkle_db.pad_trees();
 }
 

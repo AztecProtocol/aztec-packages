@@ -14,6 +14,7 @@ struct TrackedSideEffects {
     std::vector<ScopedL2ToL1Message> l2_to_l1_messages;
     PublicLogs public_logs;
     // These two are required for on-the-fly squashing.
+    // The slots are tracked in the order that they were written.
     std::vector<FF> storage_writes_slots_by_insertion;
     std::unordered_map<FF, FF> storage_writes_slot_to_value;
 

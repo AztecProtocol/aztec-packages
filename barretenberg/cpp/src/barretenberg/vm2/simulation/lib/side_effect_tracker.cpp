@@ -37,6 +37,7 @@ void SideEffectTracker::add_storage_write(const FF& slot, const FF& value)
 {
     auto& top = tracked_tree_side_effects.top();
 
+    // Track the slots in the order that they were written.
     if (!top.storage_writes_slot_to_value.contains(slot)) {
         top.storage_writes_slots_by_insertion.push_back(slot);
     }
@@ -51,6 +52,7 @@ void SideEffectTracker::create_checkpoint()
 
 void SideEffectTracker::commit_checkpoint()
 {
+    // This creates a deep copy of the top of the stack.
     TrackedSideEffects top = tracked_tree_side_effects.top();
     tracked_tree_side_effects.pop();
     tracked_tree_side_effects.top() = std::move(top);

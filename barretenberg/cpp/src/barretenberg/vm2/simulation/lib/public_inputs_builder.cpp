@@ -27,13 +27,16 @@ PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
         .appLogicCalls = static_cast<uint32_t>(tx.appLogicEnqueuedCalls.size()),
         .teardownCall = tx.teardownEnqueuedCall.has_value(),
     };
-
+    // The protocol does not allow this, but from the TX object PoV the size could be larger.
+    // Therefore we keep this check. We also keep it as an exception because it's not
+    // expensive to check and it allows for a more informative error message.
     if (tx.setupEnqueuedCalls.size() > MAX_ENQUEUED_CALLS_PER_TX ||
         tx.appLogicEnqueuedCalls.size() > MAX_ENQUEUED_CALLS_PER_TX) {
         throw std::runtime_error(
             "Too many enqueued calls. Setup calls: " + std::to_string(tx.setupEnqueuedCalls.size()) +
             ", App logic calls: " + std::to_string(tx.appLogicEnqueuedCalls.size()));
     }
+
     std::ranges::transform(tx.setupEnqueuedCalls.begin(),
                            tx.setupEnqueuedCalls.end(),
                            public_inputs_.publicSetupCallRequests.begin(),
@@ -50,12 +53,20 @@ PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
     ///////////////////////////////////////////////////////////
     // Side effects from private.
     ///////////////////////////////////////////////////////////
+
+    // Note that the side effects that come from private, both revertible and non-revertible,
+    // need to be in the `**previous**(Non)RevertibleAccumulatedData` part of the public inputs.
+    // This is irrespective of whether they end up inserted, or reverted in the actual execution.
+
+    // Non-revertible.
     public_inputs_.previousNonRevertibleAccumulatedDataArrayLengths = {
         .noteHashes = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.noteHashes.size()),
         .nullifiers = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.nullifiers.size()),
         .l2ToL1Msgs = static_cast<uint32_t>(tx.nonRevertibleAccumulatedData.l2ToL1Messages.size()),
     };
-    // TODO/QUESTION: can this ever happen?
+    // The protocol does not allow this, but from the TX object PoV the size could be larger.
+    // Therefore we keep this check. We also keep it as an exception because it's not
+    // expensive to check and it allows for a more informative error message.
     if (tx.nonRevertibleAccumulatedData.noteHashes.size() > MAX_NOTE_HASHES_PER_TX ||
         tx.nonRevertibleAccumulatedData.nullifiers.size() > MAX_NULLIFIERS_PER_TX ||
         tx.nonRevertibleAccumulatedData.l2ToL1Messages.size() > MAX_L2_TO_L1_MSGS_PER_TX) {
@@ -65,6 +76,7 @@ PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
             ", Nullifiers: " + std::to_string(tx.nonRevertibleAccumulatedData.nullifiers.size()) +
             ", L2 to L1 messages: " + std::to_string(tx.nonRevertibleAccumulatedData.l2ToL1Messages.size()));
     }
+
     std::ranges::copy(tx.nonRevertibleAccumulatedData.noteHashes,
                       public_inputs_.previousNonRevertibleAccumulatedData.noteHashes.begin());
     std::ranges::copy(tx.nonRevertibleAccumulatedData.nullifiers,
@@ -72,13 +84,15 @@ PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
     std::ranges::copy(tx.nonRevertibleAccumulatedData.l2ToL1Messages,
                       public_inputs_.previousNonRevertibleAccumulatedData.l2ToL1Msgs.begin());
 
-    // FIXME: Could it be that we do not insert these because of a clash with the above, or too many?
-    // REVIEWER DO NOT LET ME MERGE WITHOUT FIXING THIS!
+    // Revertible.
     public_inputs_.previousRevertibleAccumulatedDataArrayLengths = {
         .noteHashes = static_cast<uint32_t>(tx.revertibleAccumulatedData.noteHashes.size()),
         .nullifiers = static_cast<uint32_t>(tx.revertibleAccumulatedData.nullifiers.size()),
         .l2ToL1Msgs = static_cast<uint32_t>(tx.revertibleAccumulatedData.l2ToL1Messages.size()),
     };
+    // The protocol does not allow this, but from the TX object PoV the size could be larger.
+    // Therefore we keep this check. We also keep it as an exception because it's not
+    // expensive to check and it allows for a more informative error message.
     if (tx.revertibleAccumulatedData.noteHashes.size() > MAX_NOTE_HASHES_PER_TX ||
         tx.revertibleAccumulatedData.nullifiers.size() > MAX_NULLIFIERS_PER_TX ||
         tx.revertibleAccumulatedData.l2ToL1Messages.size() > MAX_L2_TO_L1_MSGS_PER_TX) {
@@ -88,6 +102,7 @@ PublicInputsBuilder& PublicInputsBuilder::extract_inputs(const Tx& tx,
             ", Nullifiers: " + std::to_string(tx.revertibleAccumulatedData.nullifiers.size()) +
             ", L2 to L1 messages: " + std::to_string(tx.revertibleAccumulatedData.l2ToL1Messages.size()));
     }
+
     std::ranges::copy(tx.revertibleAccumulatedData.noteHashes,
                       public_inputs_.previousRevertibleAccumulatedData.noteHashes.begin());
     std::ranges::copy(tx.revertibleAccumulatedData.nullifiers,
@@ -118,7 +133,8 @@ PublicInputsBuilder& PublicInputsBuilder::extract_outputs(const LowLevelMerkleDB
         .l2ToL1Msgs = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
         .publicDataWrites = static_cast<uint32_t>(side_effects.storage_writes_slot_to_value.size()),
     };
-    // TODO/QUESTION: should we make this just an assert? should never happen right?
+    // If this happens, it's a bug in our code. We keep it as an exception because it's not
+    // expensive to check and it allows for a more informative error message.
     if (side_effects.note_hashes.size() > MAX_NOTE_HASHES_PER_TX ||
         side_effects.nullifiers.size() > MAX_NULLIFIERS_PER_TX ||
         side_effects.l2_to_l1_messages.size() > MAX_L2_TO_L1_MSGS_PER_TX ||
