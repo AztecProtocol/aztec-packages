@@ -14,15 +14,18 @@
 namespace bb {
 
 /**
- * @brief Helper method to compute quantities like total number of gates and dyadic circuit size
+ * @brief Compute the minimum dyadic (power-of-2) circuit size
+ * @details The dyadic circuit size is the smallest power of two which can accommodate all polynomials required for the
+ * proving system. This size must account for the execution trace itself, i.e. the wires/selectors, but also any
+ * auxiliary polynomials like those that store the table data for lookup arguments.
  *
  * @tparam Flavor
  * @param circuit
  */
 template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(Circuit& circuit)
 {
-    // for the lookup argument the circuit size must be at least as large as the sum of all tables used
-    const size_t min_size_due_to_lookups = circuit.get_tables_size();
+    // For the lookup argument the circuit size must be at least as large as the sum of all tables used
+    const size_t tables_size = circuit.get_tables_size();
 
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
@@ -30,7 +33,7 @@ template <IsUltraOrMegaHonk Flavor> size_t ProverInstance_<Flavor>::compute_dyad
     // The number of gates is the maximum required by the lookup argument or everything else, plus an optional zero row
     // to allow for shifts.
     size_t total_num_gates =
-        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(min_size_due_to_lookups, min_size_of_execution_trace);
+        NUM_DISABLED_ROWS_IN_SUMCHECK + num_zero_rows + std::max(tables_size, min_size_of_execution_trace);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -97,29 +100,26 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables
-    const size_t lookup_block_offset = circuit.blocks.lookup.trace_offset();
-    const size_t lookup_block_size = circuit.blocks.lookup.size();
 
     // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
-    BB_ASSERT_GT(dyadic_size(), lookup_block_offset + tables_size);
+    BB_ASSERT_GT(dyadic_size(), tables_size);
     for (auto& table_poly : polynomials.get_tables()) {
-        table_poly = Polynomial(tables_size, dyadic_size(), lookup_block_offset);
+        table_poly = Polynomial(tables_size, dyadic_size());
     }
 
     // Read counts and tags: track which table entries have been read
-    // For non-ZK, allocate just the table size; for ZK: allocate from lookup_block_offset to dyadic_size
-    const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() - lookup_block_offset : tables_size;
-    polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size(), lookup_block_offset);
-    polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size(), lookup_block_offset);
+    // For non-ZK, allocate just the table size; for ZK: allocate fulll dyadic_size
+    const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() : tables_size;
+    polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size());
+    polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size());
 
     // Lookup inverses: used in the log-derivative lookup argument
     // Must cover both the lookup gate block (where reads occur) and the table data itself
-    const size_t lookup_block_end = lookup_block_offset + lookup_block_size;
-    const size_t tables_end = lookup_block_offset + tables_size;
-    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
+    const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
+    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_size);
 
-    const size_t lookup_inverses_size = (Flavor::HasZK ? dyadic_size() : lookup_inverses_end) - lookup_block_offset;
-    polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size(), lookup_block_offset);
+    const size_t lookup_inverses_size = (Flavor::HasZK ? dyadic_size() : lookup_inverses_end);
+    polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size());
 }
 
 template <IsUltraOrMegaHonk Flavor>

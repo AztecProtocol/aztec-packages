@@ -215,15 +215,13 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         {
             BB_BENCH_NAME("constructing lookup table polynomials");
 
-            construct_lookup_table_polynomials<Flavor>(
-                polynomials.get_tables(), circuit, dyadic_size(), NUM_DISABLED_ROWS_IN_SUMCHECK);
+            construct_lookup_table_polynomials<Flavor>(polynomials.get_tables(), circuit);
         }
 
         {
             BB_BENCH_NAME("constructing lookup read counts");
 
-            construct_lookup_read_counts<Flavor>(
-                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());
+            construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
         }
         { // Public inputs handling
             metadata.num_public_inputs = circuit.blocks.pub_inputs.size();
