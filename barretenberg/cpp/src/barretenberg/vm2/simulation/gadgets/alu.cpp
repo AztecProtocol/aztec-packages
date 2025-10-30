@@ -68,6 +68,7 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
         uint256_t a_int = static_cast<uint256_t>(a.as_ff());
         uint256_t b_int = static_cast<uint256_t>(b.as_ff());
         MemoryTag tag = a.get_tag();
+        uint256_t c_hi = 0;
         if (tag == MemoryTag::U128) {
             // For u128, we decompose a and b into 64-bit chunks and discard the highest bits given by the product:
             auto a_decomp = decompose_128(static_cast<uint128_t>(a.as_ff()));
@@ -79,9 +80,12 @@ MemoryValue Alu::mul(const MemoryValue& a, const MemoryValue& b)
             uint256_t hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
             // c_hi = (old_c_hi - a_hi * b_hi) % 2^64
             // Make use of x % pow_of_two = x & (pow_of_two - 1)
-            uint256_t c_hi = (((a_int * b_int) >> 128) - hi_operand) & static_cast<uint256_t>(MASK_64);
-            range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
+            c_hi = (((a_int * b_int) >> 128) - hi_operand) & static_cast<uint256_t>(MASK_64);
+        } else if (tag != MemoryTag::FF) {
+            c_hi = (a_int * b_int) >> static_cast<uint256_t>(get_tag_bits(tag));
         }
+
+        range_check.assert_range(static_cast<uint128_t>(c_hi), 64);
         events.emit({ .operation = AluOperation::MUL, .a = a, .b = b, .c = c });
         return c;
     } catch (const TagMismatchException& e) {

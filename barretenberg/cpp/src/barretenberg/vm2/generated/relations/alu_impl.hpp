@@ -34,10 +34,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto alu_IS_NOT_U128 = (FF(1) - in.get(C::alu_sel_is_u128));
     const auto alu_SHIFT_OPS = in.get(C::alu_sel_op_shl) + in.get(C::alu_sel_op_shr);
     const auto alu_DIV_OPS = in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_fdiv);
-    const auto alu_CHECK_TAG_FF = in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_fdiv) + in.get(C::alu_sel_op_lt) +
-                                  in.get(C::alu_sel_op_lte) + in.get(C::alu_sel_op_not) + alu_SHIFT_OPS;
     const auto alu_TAG_FF_DIFF = (in.get(C::alu_ia_tag) - constants_MEM_TAG_FF);
-    const auto alu_CHECK_TAG_U128 = in.get(C::alu_sel_op_mul) + in.get(C::alu_sel_op_div);
     const auto alu_TAG_U128_DIFF = (in.get(C::alu_ia_tag) - constants_MEM_TAG_U128);
     const auto alu_FF_TAG_ERR =
         (in.get(C::alu_sel_op_div) + in.get(C::alu_sel_op_not) + alu_SHIFT_OPS) * in.get(C::alu_sel_is_ff) +
@@ -50,16 +47,20 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
             in.get(C::alu_ia_tag) +
         (in.get(C::alu_sel_op_eq) + in.get(C::alu_sel_op_lt) + in.get(C::alu_sel_op_lte)) * constants_MEM_TAG_U1 +
         in.get(C::alu_sel_op_fdiv) * constants_MEM_TAG_FF;
+    const auto alu_SEL_MUL_U128 =
+        in.get(C::alu_sel_op_mul) * in.get(C::alu_sel_is_u128) * (FF(1) - in.get(C::alu_sel_err));
+    const auto alu_SEL_DIV_U128 = in.get(C::alu_sel_div_no_err) * in.get(C::alu_sel_is_u128);
     const auto alu_TWO_POW_64 = FF(uint256_t{ 0UL, 1UL, 0UL, 0UL });
     const auto alu_DECOMPOSED_A =
-        (in.get(C::alu_sel_mul_u128) + in.get(C::alu_sel_shift_ops_no_overflow)) * in.get(C::alu_ia) +
+        (in.get(C::alu_sel_op_mul) * in.get(C::alu_sel_is_u128) + in.get(C::alu_sel_shift_ops_no_overflow)) *
+            in.get(C::alu_ia) +
         (alu_SHIFT_OPS - in.get(C::alu_sel_shift_ops_no_overflow)) * (in.get(C::alu_ib) - in.get(C::alu_max_bits)) +
-        in.get(C::alu_sel_is_u128) * in.get(C::alu_sel_op_div) * in.get(C::alu_ic);
+        in.get(C::alu_sel_op_div) * in.get(C::alu_sel_is_u128) * in.get(C::alu_ic);
     const auto alu_DECOMPOSED_B = in.get(C::alu_ib);
     const auto alu_LIMB_SIZE =
         in.get(C::alu_sel_mul_div_u128) * alu_TWO_POW_64 + alu_SHIFT_OPS * in.get(C::alu_two_pow_shift_lo_bits);
     const auto alu_DIV_OPS_NON_U128 =
-        (FF(1) - in.get(C::alu_sel_err)) * (in.get(C::alu_sel_op_fdiv) + in.get(C::alu_sel_op_div) * alu_IS_NOT_U128);
+        (FF(1) - in.get(C::alu_sel_err)) * in.get(C::alu_sel_op_fdiv) + in.get(C::alu_sel_div_no_err) * alu_IS_NOT_U128;
     const auto alu_DIFF = (in.get(C::alu_ia) - in.get(C::alu_ib));
     const auto alu_SHIFT_OVERFLOW = alu_SHIFT_OPS * (FF(1) - in.get(C::alu_sel_shift_ops_no_overflow));
     const auto alu_SHIFT_HI_BITS =
@@ -171,7 +172,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TAG_IS_FF
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = CView(alu_CHECK_TAG_FF) *
+        auto tmp = static_cast<View>(in.get(C::alu_sel)) *
                    ((CView(alu_TAG_FF_DIFF) * (static_cast<View>(in.get(C::alu_sel_is_ff)) *
                                                    (FF(1) - static_cast<View>(in.get(C::alu_tag_ff_diff_inv))) +
                                                static_cast<View>(in.get(C::alu_tag_ff_diff_inv))) +
@@ -181,7 +182,7 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TAG_IS_U128
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = CView(alu_CHECK_TAG_U128) *
+        auto tmp = static_cast<View>(in.get(C::alu_sel)) *
                    ((CView(alu_TAG_U128_DIFF) * (static_cast<View>(in.get(C::alu_sel_is_u128)) *
                                                      (FF(1) - static_cast<View>(in.get(C::alu_tag_u128_diff_inv))) +
                                                  static_cast<View>(in.get(C::alu_tag_u128_diff_inv))) +
@@ -317,23 +318,22 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     (static_cast<View>(in.get(C::alu_max_value)) + FF(1)) * static_cast<View>(in.get(C::alu_c_hi)));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // ALU_MUL_U128
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::alu_sel_mul_u128)) -
-                    (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) *
-                        static_cast<View>(in.get(C::alu_sel_is_u128)) * static_cast<View>(in.get(C::alu_sel_op_mul)));
+        auto tmp =
+            CView(alu_SEL_MUL_U128) * (((static_cast<View>(in.get(C::alu_ia)) * static_cast<View>(in.get(C::alu_b_lo)) +
+                                         static_cast<View>(in.get(C::alu_a_lo)) *
+                                             static_cast<View>(in.get(C::alu_b_hi)) * CView(alu_TWO_POW_64)) -
+                                        static_cast<View>(in.get(C::alu_ic))) -
+                                       (static_cast<View>(in.get(C::alu_max_value)) + FF(1)) *
+                                           (static_cast<View>(in.get(C::alu_cf)) * CView(alu_TWO_POW_64) +
+                                            static_cast<View>(in.get(C::alu_c_hi))));
         std::get<36>(evals) += (tmp * scaling_factor);
     }
-    { // ALU_MUL_U128
+    {
         using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::alu_sel_mul_u128)) *
-                   (((static_cast<View>(in.get(C::alu_ia)) * static_cast<View>(in.get(C::alu_b_lo)) +
-                      static_cast<View>(in.get(C::alu_a_lo)) * static_cast<View>(in.get(C::alu_b_hi)) *
-                          CView(alu_TWO_POW_64)) -
-                     static_cast<View>(in.get(C::alu_ic))) -
-                    (static_cast<View>(in.get(C::alu_max_value)) + FF(1)) *
-                        (static_cast<View>(in.get(C::alu_cf)) * CView(alu_TWO_POW_64) +
-                         static_cast<View>(in.get(C::alu_c_hi))));
+        auto tmp = (static_cast<View>(in.get(C::alu_sel_mul_no_err)) -
+                    (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) * static_cast<View>(in.get(C::alu_sel_op_mul)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {
@@ -344,24 +344,20 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::alu_sel_mul_div_u128)) -
-                    (static_cast<View>(in.get(C::alu_sel_mul_u128)) +
-                     (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) *
-                         static_cast<View>(in.get(C::alu_sel_is_u128)) * static_cast<View>(in.get(C::alu_sel_op_div))));
+        auto tmp =
+            (static_cast<View>(in.get(C::alu_sel_mul_div_u128)) - (CView(alu_SEL_MUL_U128) + CView(alu_SEL_DIV_U128)));
         std::get<39>(evals) += (tmp * scaling_factor);
     }
     { // ALU_DIV_U128_CHECK
         using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::alu_sel_is_u128)) * static_cast<View>(in.get(C::alu_sel_op_div)) *
-                   (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) * static_cast<View>(in.get(C::alu_a_hi)) *
-                   static_cast<View>(in.get(C::alu_b_hi));
+        auto tmp =
+            CView(alu_SEL_DIV_U128) * static_cast<View>(in.get(C::alu_a_hi)) * static_cast<View>(in.get(C::alu_b_hi));
         std::get<40>(evals) += (tmp * scaling_factor);
     }
     { // ALU_DIV_U128
         using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::alu_sel_is_u128)) * static_cast<View>(in.get(C::alu_sel_op_div)) *
-            (FF(1) - static_cast<View>(in.get(C::alu_sel_err))) *
+            CView(alu_SEL_DIV_U128) *
             ((static_cast<View>(in.get(C::alu_ic)) * static_cast<View>(in.get(C::alu_b_lo)) +
               static_cast<View>(in.get(C::alu_a_lo)) * static_cast<View>(in.get(C::alu_b_hi)) * CView(alu_TWO_POW_64)) -
              (static_cast<View>(in.get(C::alu_ia)) - static_cast<View>(in.get(C::alu_helper1))));
@@ -370,9 +366,9 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // ALU_FDIV_DIV_NON_U128
         using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
         auto tmp = CView(alu_DIV_OPS_NON_U128) *
-                   (static_cast<View>(in.get(C::alu_ib)) * static_cast<View>(in.get(C::alu_ic)) -
-                    (static_cast<View>(in.get(C::alu_ia)) -
-                     static_cast<View>(in.get(C::alu_sel_op_div)) * static_cast<View>(in.get(C::alu_helper1))));
+                   ((static_cast<View>(in.get(C::alu_ib)) * static_cast<View>(in.get(C::alu_ic)) -
+                     static_cast<View>(in.get(C::alu_ia))) +
+                    static_cast<View>(in.get(C::alu_sel_op_div)) * static_cast<View>(in.get(C::alu_helper1)));
         std::get<42>(evals) += (tmp * scaling_factor);
     }
     { // EQ_OP_MAIN

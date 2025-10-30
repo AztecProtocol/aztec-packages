@@ -127,16 +127,16 @@ template <typename FF_>
 using lookup_alu_range_check_decomposition_b_hi_relation =
     lookup_relation_base<FF_, lookup_alu_range_check_decomposition_b_hi_settings>;
 
-/////////////////// lookup_alu_range_check_mul_u128_c_hi ///////////////////
+/////////////////// lookup_alu_range_check_mul_c_hi ///////////////////
 
-struct lookup_alu_range_check_mul_u128_c_hi_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_U128_C_HI";
+struct lookup_alu_range_check_mul_c_hi_settings_ {
+    static constexpr std::string_view NAME = "LOOKUP_ALU_RANGE_CHECK_MUL_C_HI";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_u128;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_mul_no_err;
     static constexpr Column DST_SELECTOR = Column::range_check_sel_alu;
-    static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_u128_c_hi_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_u128_c_hi_inv;
+    static constexpr Column COUNTS = Column::lookup_alu_range_check_mul_c_hi_counts;
+    static constexpr Column INVERSES = Column::lookup_alu_range_check_mul_c_hi_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_c_hi,
                                                                                     ColumnAndShifts::alu_constant_64 };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -144,10 +144,9 @@ struct lookup_alu_range_check_mul_u128_c_hi_settings_ {
     };
 };
 
-using lookup_alu_range_check_mul_u128_c_hi_settings = lookup_settings<lookup_alu_range_check_mul_u128_c_hi_settings_>;
+using lookup_alu_range_check_mul_c_hi_settings = lookup_settings<lookup_alu_range_check_mul_c_hi_settings_>;
 template <typename FF_>
-using lookup_alu_range_check_mul_u128_c_hi_relation =
-    lookup_relation_base<FF_, lookup_alu_range_check_mul_u128_c_hi_settings>;
+using lookup_alu_range_check_mul_c_hi_relation = lookup_relation_base<FF_, lookup_alu_range_check_mul_c_hi_settings>;
 
 /////////////////// lookup_alu_gt_div_remainder ///////////////////
 

@@ -65,7 +65,7 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
       + sel_op_truncate * constants.AVM_EXEC_OP_ID_ALU_TRUNCATE;
 
 /******************************************************************************
-* Inputs and outputs and helper selectors.
+* Inputs and outputs and common helper selectors.
 ******************************************************************************/
 // Inputs and outputs. Output is in ic except for NOT, where it is in ib.
 pol commit ia;
@@ -77,11 +77,9 @@ pol commit ia_tag;
 pol commit ib_tag;
 pol commit ic_tag;
 
-// Helper selectors
-// Needed to conditionally lookup ff_gt when inputs a, b are fields:
-pol commit sel_is_ff; // @boolean
-// Needed to conditionally perform u128 multiplication:
-pol commit sel_is_u128; // @boolean
+// Common helper selectors
+pol commit sel_is_ff; // @boolean (whether input a is a field)
+pol commit sel_is_u128; // @boolean (whether input a is a u128)
 pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
 pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
 pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition.
@@ -96,21 +94,19 @@ sel_is_u128 * (1 - sel_is_u128) = 0;
 
 // IS_FF CHECKING
 
-pol CHECK_TAG_FF = sel_op_div + sel_op_fdiv + sel_op_lt + sel_op_lte + sel_op_not + SHIFT_OPS;
 // We prove that sel_is_ff == 1 <==> ia_tag == MEM_TAG_FF
 pol TAG_FF_DIFF = ia_tag - constants.MEM_TAG_FF;
 pol commit tag_ff_diff_inv;
 #[TAG_IS_FF]
-CHECK_TAG_FF * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_inv) + sel_is_ff - 1) = 0;
+sel * (TAG_FF_DIFF * (sel_is_ff * (1 - tag_ff_diff_inv) + tag_ff_diff_inv) + sel_is_ff - 1) = 0;
 
 // IS_U128 CHECKING
 
-pol CHECK_TAG_U128 = sel_op_mul + sel_op_div;
 // We prove that sel_is_u128 == 1 <==> ia_tag == MEM_TAG_U128
 pol TAG_U128_DIFF = ia_tag - constants.MEM_TAG_U128;
 pol commit tag_u128_diff_inv;
 #[TAG_IS_U128]
-CHECK_TAG_U128 * (TAG_U128_DIFF * (sel_is_u128 * (1 - tag_u128_diff_inv) + tag_u128_diff_inv) + sel_is_u128 - 1) = 0;
+sel * (TAG_U128_DIFF * (sel_is_u128 * (1 - tag_u128_diff_inv) + tag_u128_diff_inv) + sel_is_u128 - 1) = 0;
 
 /******************************************************************************
 * Error Handling
@@ -200,9 +196,6 @@ pol commit max_value;
 #[TAG_MAX_BITS_VALUE]
 sel { ia_tag, max_bits, max_value } in precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits, precomputed.tag_max_value };
 
-// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
-// Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
-
 // OUTPUT TAG CHECKING
 
 // NOT opccode does not mandate a specific tag for ic because the output is in ib.
@@ -214,6 +207,14 @@ pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op
 // which might not be equal to EXPECTED_C_TAG.
 #[C_TAG_CHECK]
 (1 - sel_err) * (EXPECTED_C_TAG - ic_tag) = 0;
+
+// ALIASES FOR MUL AND DIV
+
+// sel_op_mul & sel_is_u128 & sel_err == 0:
+pol SEL_MUL_U128 = sel_op_mul * sel_is_u128 * (1 - sel_err);
+
+// sel_op_div & sel_is_u128 & sel_err == 0:
+pol SEL_DIV_U128 = sel_div_no_err * sel_is_u128;
 
 /******************************************************************************
 * BIT DECOMPOSITION
@@ -227,7 +228,7 @@ pol commit a_lo, a_hi, b_lo, b_hi;
 pol TWO_POW_64 = 2 ** 64;
 
 // Reusing columns for decomposition (#[OP_ID_CHECK] ensures selectors are mutually exclusive):
-pol DECOMPOSED_A = ((sel_mul_u128 + sel_shift_ops_no_overflow) * ia) + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + (sel_is_u128 * sel_op_div * ic);
+pol DECOMPOSED_A = (sel_op_mul * sel_is_u128 + sel_shift_ops_no_overflow) * ia + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + sel_op_div * sel_is_u128 * ic;
 pol DECOMPOSED_B = ib;
 // For MUL and DIV, we decompose into 64 bit limbs. For shifts, we have one limb of b bits and one limb of max_bits - b bits.
 pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + SHIFT_OPS * two_pow_shift_lo_bits;
@@ -266,11 +267,22 @@ sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.valu
 /******************************************************************************
 * Opcode Computations
 ******************************************************************************/
+// Preconditions: a, b, c are in the range [0, 2^(max_bits) - 1] for non-FF values.
+// They are enforced through the range check on every MemoryValue during memory write.
+// See #[RANGE_CHECK_WRITE_TAGGED_VALUE] in memory.pil for more details.
+// When there is no error, the output c (resp. b for NOT) is written to memory and
+// is therefore guaranteed to be in the range [0, 2^(max_bits) - 1].
+// If an error occurs, the output value and tags are set to 0 (FF(0))
+// to satisfy the permutation between execution and alu, but the output
+// is not written to memory.
+
 // ------------------------------------------------------------
 // ADD & SUB
 // ------------------------------------------------------------
 // For add, sel_op_add - sel_op_sub = 1 => check a + b - cf * 2^(max_bits) = c
 // For sub, sel_op_add - sel_op_sub = -1 => check a - b + cf * 2^(max_bits) = c
+// Though in this circuit we could incorrectly set cf = 0 when we would overflow
+// the memory range check would catch that c is too large (see preconditions).
 #[ALU_ADD_SUB]
 (sel_op_add + sel_op_sub) * (1 - sel_err) * (ia - ic + (sel_op_add - sel_op_sub) * (ib - cf * (max_value + 1))) = 0;
 
@@ -281,14 +293,17 @@ pol commit c_hi;
 
 // MUL - non u128
 
+// For non-u128 and non-ff values, we have a*b < 2^128 and
+// c = a * b - c_hi * 2^max_bits for a unique c_hi < 2^max_bits <= 2^64.
+// It is fine to range check c_hi < 2^64 for smaller tags because c_hi * 2^max_bits
+// cannot overflow the field (product < 2^128).
+// Range check for c_hi is performed below in #[RANGE_CHECK_MUL_C_HI].
+// For FF values, max_values + 1 = 0 and the relation is trivially satisfied no matter
+// which c_hi we choose. Our tracegen sets c_hi to 0 for FF values.
 #[ALU_MUL_NON_U128]
 sel_op_mul * IS_NOT_U128 * (1 - sel_err) * (ia * ib - ic - (max_value + 1) * c_hi) = 0;
 
 // MUL - u128
-
-pol commit sel_mul_u128;
-// sel_op_mul & sel_is_u128 & sel_err == 0:
-sel_mul_u128 = (1 - sel_err) * sel_is_u128 * sel_op_mul;
 
 // We express a, b in 64-bit slices: a = a_l + a_h * 2^64
 //                                   b = b_l + b_h * 2^64
@@ -301,25 +316,24 @@ sel_mul_u128 = (1 - sel_err) * sel_is_u128 * sel_op_mul;
 // cf == 1 iff c_hi_full - (a_h * b_h) >= 2^64 equivalently cf == (c_hi_full - (a_h * b_h)) / 2^64.
 
 #[ALU_MUL_U128]
-sel_mul_u128 * (
+SEL_MUL_U128 * (
         ia * b_lo + a_lo * b_hi * TWO_POW_64            // a * b without the hi bits
         - ic                                            // c_lo
         - (max_value + 1) * (cf * TWO_POW_64 + c_hi)    // c_hi * 2^128 + (cf ? 2^192 : 0)
     ) = 0;
 
-// No need to range_check c_hi for cases other than u128 because we know a and b's size from the tags and have looked
-// up max_value. i.e. we cannot provide a malicious c, c_hi such that a + b - c_hi * 2^n = c passes for n < 128.
-// No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
-#[RANGE_CHECK_MUL_U128_C_HI]
-sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
+// For FF values, this range check would not be required but it makes code simpler.
+pol commit sel_mul_no_err; // @boolean
+sel_mul_no_err = (1 - sel_err) * sel_op_mul;
+#[RANGE_CHECK_MUL_C_HI]
+sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 // ------------------------------------------------------------
 // DIV & FDIV
 // ------------------------------------------------------------
 // We need to show that remainder < b (remainder stored in helper1)
 // TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1 (gated by div_0_err).
-// The below only exists to gate this lookup for now:
-pol commit sel_div_no_err;
+pol commit sel_div_no_err; // @boolean
 sel_div_no_err = sel_op_div * (1 - sel_err);
 #[GT_DIV_REMAINDER]
 sel_div_no_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
@@ -328,8 +342,8 @@ sel_div_no_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_
 
 // Using this to switch on the range checks for decomposed u128 integers (#[OP_ID_CHECK] ensures selectors are mutually exclusive)
 pol commit sel_mul_div_u128;
-// sel_mul_u128 || sel_is_u128 & sel_op_div & sel_err == 0
-sel_mul_div_u128 = sel_mul_u128 + (1 - sel_err) * sel_is_u128 * sel_op_div;
+// SEL_MUL_U128 || SEL_DIV_U128
+sel_mul_div_u128 = SEL_MUL_U128 + SEL_DIV_U128;
 
 // We share the logic from MUL, since here we also must show a product evaluates to a result:
 //  c * b = a - remainder
@@ -351,10 +365,10 @@ sel_mul_div_u128 = sel_mul_u128 + (1 - sel_err) * sel_is_u128 * sel_op_div;
 // Reuse columns a_lo, a_hi from MUL above to represent c (see A_DECOMPOSITION)
 
 #[ALU_DIV_U128_CHECK]
-sel_is_u128 * sel_op_div * (1 - sel_err) * a_hi * b_hi = 0;
+SEL_DIV_U128 * a_hi * b_hi = 0;
 
 #[ALU_DIV_U128]
-sel_is_u128 * sel_op_div * (1 - sel_err) * (ic * b_lo + a_lo * b_hi * TWO_POW_64 - (ia - helper1)) = 0;
+SEL_DIV_U128 * (ic * b_lo + a_lo * b_hi * TWO_POW_64 - (ia - helper1)) = 0;
 
 // FDIV
 
@@ -365,13 +379,13 @@ sel_is_u128 * sel_op_div * (1 - sel_err) * (ic * b_lo + a_lo * b_hi * TWO_POW_64
 
 // DIV & FDIV - non u128
 
-pol DIV_OPS_NON_U128 = (1 - sel_err) * (sel_op_fdiv + sel_op_div * IS_NOT_U128);
+pol DIV_OPS_NON_U128 = (1 - sel_err) * sel_op_fdiv + sel_div_no_err * IS_NOT_U128;
 
 // Show a - remainder = b * c
 // Note: Since a, b, c, and remainder are under 64 bits (or remainder == 0 for FF), we are protected against a - remainder underflowing,
 // i.e. b * c (< 128bits) cannot equal underflowed a - remainder (> 253 bits)
 #[ALU_FDIV_DIV_NON_U128]
-DIV_OPS_NON_U128 * (ib * ic - (ia - sel_op_div * helper1)) = 0;
+DIV_OPS_NON_U128 * (ib * ic - ia + sel_op_div * helper1) = 0;
 
 // ------------------------------------------------------------
 // EQ

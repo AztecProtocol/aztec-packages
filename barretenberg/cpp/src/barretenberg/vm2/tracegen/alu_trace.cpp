@@ -11,7 +11,6 @@
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
-#include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -67,22 +66,17 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     bool is_u128 = a_tag == MemoryTag::U128;
     bool has_error = event.error;
 
-    // We rely on the following assert in computing C::alu_tag_ff_diff_inv value
-    // below. Namely: (tag - MemoryTag::FF).invert() == tag.invert().
-    // We also rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
-    static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
-
     switch (event.operation) {
     case simulation::AluOperation::ADD:
         return { { Column::alu_sel_op_add, 1 },
-                 { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::ADD).subtrace_operation_id },
+                 { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                  // a + b = cf * 2^(max_bits) + c so cf == 1 iff a + b != c over the integers.
                  // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
                  // than 128 bits.
                  { Column::alu_cf, !has_error && (event.a.as_ff() + event.b.as_ff() != event.c.as_ff()) ? 1 : 0 } };
     case simulation::AluOperation::SUB:
         return { { Column::alu_sel_op_sub, 1 },
-                 { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SUB).subtrace_operation_id },
+                 { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
                  // a - b + cf * 2^(max_bits) = c so cf == 1 iff a - b != c over the integers.
                  // For FF, cf is always 0, therefore we can make the comparison over FF as this field is much larger
                  // than 128 bits.
@@ -94,10 +88,9 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         // Columns shared for all tags in a MUL:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_mul, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::MUL).subtrace_operation_id },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
             { Column::alu_constant_64, 64 },
-            { Column::alu_sel_is_u128, is_u128 },
-            { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
+            { Column::alu_sel_mul_no_err, has_error ? 0 : 1 },
         };
 
         if (!has_error) {
@@ -111,7 +104,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                                         static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi));
                 res.insert(res.end(),
                            {
-                               { Column::alu_sel_mul_u128, 1 },
                                { Column::alu_sel_mul_div_u128, 1 },
                                { Column::alu_sel_decompose_a, 1 },
                                { Column::alu_a_lo_bits, 64 },
@@ -139,14 +131,9 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         // Columns shared for all tags in a DIV:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_div, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::DIV).subtrace_operation_id },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_DIV },
             { Column::alu_helper1, remainder },
             { Column::alu_constant_64, 64 },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
-            { Column::alu_sel_is_u128, is_u128 },
-            { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
             { Column::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
             { Column::alu_sel_div_no_err, has_error ? 0 : 1 },
         };
@@ -171,18 +158,15 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     case simulation::AluOperation::FDIV: {
         return {
             { Column::alu_sel_op_fdiv, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::FDIV).subtrace_operation_id },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
-            { Column::alu_b_inv, event.b.as_ff() },           // Will be inverted in batch later
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_FDIV },
+            { Column::alu_b_inv, event.b.as_ff() }, // Will be inverted in batch later
         };
     }
     case simulation::AluOperation::EQ: {
         const FF diff = event.a.as_ff() - event.b.as_ff();
         return {
             { Column::alu_sel_op_eq, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::EQ).subtrace_operation_id },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_EQ },
             { Column::alu_ab_diff_inv, has_error ? 0 : diff }, // Will be inverted in batch later
         };
     }
@@ -190,13 +174,9 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         // Unconditional columns:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_lt, 1 },
-            { Column::alu_op_id,
-              static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LT).subtrace_operation_id) },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
             { Column::alu_lt_ops_input_a, event.b },
             { Column::alu_lt_ops_input_b, event.a },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
 
         // Columns when there is no error:
@@ -215,13 +195,9 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         // Unconditional columns:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_lte, 1 },
-            { Column::alu_op_id,
-              static_cast<uint8_t>(SUBTRACE_INFO_MAP.at(ExecutionOpCode::LTE).subtrace_operation_id) },
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
             { Column::alu_lt_ops_input_a, event.a },
             { Column::alu_lt_ops_input_b, event.b },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
         };
 
         // Columns when there is no error:
@@ -239,20 +215,14 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     case simulation::AluOperation::NOT: {
         return {
             { Column::alu_sel_op_not, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::NOT).subtrace_operation_id },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_NOT },
         };
     }
     case simulation::AluOperation::SHL: {
         // Unconditional columns:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_shl, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHL).subtrace_operation_id },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SHL },
         };
 
         if (!has_error) {
@@ -291,10 +261,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         // Unconditional columns:
         std::vector<std::pair<Column, FF>> res = {
             { Column::alu_sel_op_shr, 1 },
-            { Column::alu_op_id, SUBTRACE_INFO_MAP.at(ExecutionOpCode::SHR).subtrace_operation_id },
-            { Column::alu_sel_is_ff, is_ff },
-            { Column::alu_tag_ff_diff_inv,
-              get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+            { Column::alu_op_id, AVM_EXEC_OP_ID_ALU_SHR },
         };
 
         if (!has_error) {
@@ -362,7 +329,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
  * @brief Get the error columns for a given ALU event. This is used to populate error specific values in the trace.
  *        We consider the following errors simultaneously:
  *        Tag errors:
- *          1. Input tagged as a field for NOT or DIV operations
+ *          1. Input tagged as a field for NOT, SHL, SHR, DIV operations or non-field for FDIV.
  *          2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
  *        Division by zero errors:
  *          3. DIV or FDIV operation with b = 0
@@ -428,15 +395,20 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
                               TraceContainer& trace)
 {
+    // We rely on the following assert in computing C::alu_tag_ff_diff_inv value
+    // below. Namely: (tag - MemoryTag::FF).invert() == tag.invert().
+    // We also rely on this for NOT opcode, where b's tag is set to 0 (FF) when a is of FF type.
+    static_assert(static_cast<uint8_t>(MemoryTag::FF) == 0);
+
     using C = Column;
 
     uint32_t row = 0;
     for (const auto& event : events) {
         // For TRUNCATE, the destination tag is passed through b in the event, but will be
         // set to ia_tag in the ALU subtrace. (See alu.pil for more details.).
-        const uint8_t a_tag_u8 = event.operation == simulation::AluOperation::TRUNCATE
-                                     ? static_cast<uint8_t>(event.b.as_ff())
-                                     : static_cast<uint8_t>(event.a.get_tag());
+        const MemoryTag a_tag = event.operation == simulation::AluOperation::TRUNCATE
+                                    ? static_cast<MemoryTag>(static_cast<uint8_t>(event.b.as_ff()))
+                                    : event.a.get_tag();
         const FF b_tag = static_cast<FF>(static_cast<uint8_t>(event.b.get_tag()));
         const FF c_tag = static_cast<FF>(static_cast<uint8_t>(event.c.get_tag()));
 
@@ -453,11 +425,16 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
                       { C::alu_ia, event.a },
                       { C::alu_ib, event.b },
                       { C::alu_ic, event.c },
-                      { C::alu_ia_tag, a_tag_u8 },
+                      { C::alu_ia_tag, static_cast<uint8_t>(a_tag) },
                       { C::alu_ib_tag, b_tag },
                       { C::alu_ic_tag, c_tag },
-                      { C::alu_max_bits, get_tag_bits(static_cast<MemoryTag>(a_tag_u8)) },
-                      { C::alu_max_value, get_tag_max_value(static_cast<MemoryTag>(a_tag_u8)) },
+                      { C::alu_max_bits, get_tag_bits(a_tag) },
+                      { C::alu_max_value, get_tag_max_value(a_tag) },
+                      { Column::alu_sel_is_ff, a_tag == MemoryTag::FF ? 1 : 0 },
+                      { Column::alu_tag_ff_diff_inv,
+                        get_tag_inverse(static_cast<uint8_t>(a_tag)) }, // Relies on MemoryTag::FF is 0
+                      { Column::alu_sel_is_u128, a_tag == MemoryTag::U128 ? 1 : 0 },
+                      { Column::alu_tag_u128_diff_inv, get_tag_diff_inverse(a_tag, MemoryTag::U128) },
                   } });
 
         row++;
@@ -478,7 +455,7 @@ const InteractionDefinition AluTraceBuilder::interactions =
             Column::range_check_sel)
         .add<lookup_alu_range_check_decomposition_b_hi_settings, InteractionType::LookupGeneric>(
             Column::range_check_sel)
-        .add<lookup_alu_range_check_mul_u128_c_hi_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
+        .add<lookup_alu_range_check_mul_c_hi_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
         .add<lookup_alu_gt_div_remainder_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         .add<lookup_alu_ff_gt_settings, InteractionType::LookupGeneric>()
         .add<lookup_alu_int_gt_settings, InteractionType::LookupGeneric>(Column::gt_sel)

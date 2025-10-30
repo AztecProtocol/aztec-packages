@@ -245,7 +245,7 @@ struct AvmFlavorVariables {
         lookup_alu_range_check_decomposition_a_lo_relation<FF_>,
         lookup_alu_range_check_decomposition_b_hi_relation<FF_>,
         lookup_alu_range_check_decomposition_b_lo_relation<FF_>,
-        lookup_alu_range_check_mul_u128_c_hi_relation<FF_>,
+        lookup_alu_range_check_mul_c_hi_relation<FF_>,
         lookup_alu_range_check_trunc_mid_relation<FF_>,
         lookup_alu_shifts_two_pow_relation<FF_>,
         lookup_alu_tag_max_bits_value_relation<FF_>,

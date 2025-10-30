@@ -38,6 +38,7 @@ using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using alu = bb::avm2::alu<FF>;
+using simulation::RangeCheckEvent;
 using tracegen::AluTraceBuilder;
 using tracegen::ExecutionTraceBuilder;
 using tracegen::FieldGreaterThanTraceBuilder;
@@ -174,6 +175,13 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_add, 1 },
+                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
+                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -227,6 +235,13 @@ class AluAddConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_ADD },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_add, 1 },
+                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
+                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -417,6 +432,13 @@ class AluSubConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_SUB },
                 { C::alu_sel, 1 },
                 { C::alu_sel_op_sub, 1 },
+                { C::alu_sel_is_ff, tag == 0 ? 1 : 0 },
+                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -518,7 +540,11 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         auto is_u128 = mem_tag == MemoryTag::U128;
 
         auto c_int = static_cast<uint256_t>(a.as_ff()) * static_cast<uint256_t>(b.as_ff());
-        auto c_hi = mem_tag == MemoryTag::FF ? 0 : c_int >> get_tag_bits(mem_tag);
+
+        uint256_t c_hi = 0;
+        if (mem_tag != MemoryTag::FF && mem_tag != MemoryTag::U128) {
+            c_hi = c_int >> static_cast<uint256_t>(get_tag_bits(mem_tag));
+        }
 
         auto trace = TestTraceContainer({
             {
@@ -535,10 +561,12 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_MUL },
                 { C::alu_sel, 1 },
                 { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
+                { C::alu_sel_is_ff, mem_tag == MemoryTag::FF ? 1 : 0 },
+                { C::alu_tag_ff_diff_inv, tag == 0 ? 0 : FF(tag).invert() },
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
-                { C::alu_sel_mul_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_op_mul, 1 },
+                { C::alu_sel_mul_no_err, 1 },
                 { C::alu_tag_u128_diff_inv, is_u128 ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -554,12 +582,14 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         precomputed_builder.process_misc(trace, NUM_OF_TAGS);
         precomputed_builder.process_tag_parameters(trace);
 
+        std::vector<RangeCheckEvent> range_check_events;
+
         if (is_u128) {
             auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
             auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
-            // c_hi = old_c_hi - a_hi * b_hi % 2^64
+            // c_hi = (c_hi_full - a_hi * b_hi) % 2^64
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
+            c_hi = ((c_int >> 128) - hi_operand) % (uint256_t(1) << 64);
             trace.set(0,
                       { { { Column::alu_a_lo, a_decomp.lo },
                           { Column::alu_a_lo_bits, 64 },
@@ -568,15 +598,17 @@ class AluMulConstrainingTest : public AluConstrainingTest,
                           { Column::alu_b_lo, b_decomp.lo },
                           { Column::alu_b_hi, b_decomp.hi },
                           { Column::alu_c_hi, c_hi },
-                          { Column::alu_cf, hi_operand == 0 ? 0 : 1 } } });
+                          { Column::alu_cf, hi_operand > (uint256_t(1) << 64) ? 1 : 0 } } });
 
-            range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
-                                          { .value = a_decomp.hi, .num_bits = 64 },
-                                          { .value = b_decomp.lo, .num_bits = 64 },
-                                          { .value = b_decomp.hi, .num_bits = 64 },
-                                          { .value = static_cast<uint128_t>(c_hi), .num_bits = 64 } },
-                                        trace);
+            range_check_events.insert(range_check_events.end(),
+                                      { { .value = a_decomp.lo, .num_bits = 64 },
+                                        { .value = a_decomp.hi, .num_bits = 64 },
+                                        { .value = b_decomp.lo, .num_bits = 64 },
+                                        { .value = b_decomp.hi, .num_bits = 64 } });
         }
+
+        range_check_events.push_back({ .value = static_cast<uint128_t>(c_hi), .num_bits = 64 });
+        range_check_builder.process(range_check_events, trace);
 
         return trace;
     }
@@ -599,9 +631,10 @@ class AluMulConstrainingTest : public AluConstrainingTest,
         if (mem_tag == MemoryTag::U128) {
             auto a_decomp = simulation::decompose_128(a.as<uint128_t>());
             auto b_decomp = simulation::decompose_128(b.as<uint128_t>());
-            // c_hi = old_c_hi - a_hi * b_hi % 2^64
+            // c_hi = (c_hi_full - a_hi * b_hi) % 2^64
+            auto c_hi_full = (a_int * b_int) >> 128;
             auto hi_operand = static_cast<uint256_t>(a_decomp.hi) * static_cast<uint256_t>(b_decomp.hi);
-            c_hi = (c_hi - hi_operand) % (uint256_t(1) << 64);
+            c_hi = (c_hi_full - hi_operand) % (uint256_t(1) << 64);
             range_check_builder.process({ { .value = a_decomp.lo, .num_bits = 64 },
                                           { .value = a_decomp.hi, .num_bits = 64 },
                                           { .value = b_decomp.lo, .num_bits = 64 },
@@ -676,9 +709,10 @@ TEST_F(AluConstrainingTest, AluMulU128Carry)
             { C::alu_sel_decompose_a, 1 },
             { C::alu_sel_is_u128, 1 },
             { C::alu_sel_mul_div_u128, 1 },
-            { C::alu_sel_mul_u128, 1 },
             { C::alu_sel_op_mul, 1 },
+            { C::alu_sel_mul_no_err, 1 },
             { C::alu_tag_u128_diff_inv, 0 },
+            { C::alu_tag_ff_diff_inv, FF(tag).invert() },
             { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
             { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
             { C::execution_mem_tag_reg_2_, tag },                           // = ic_tag
@@ -1105,6 +1139,7 @@ class AluFDivConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_is_ff, 1 },
                 { C::alu_sel_op_fdiv, 1 },
+                { C::alu_tag_u128_diff_inv, FF(-static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                            // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                            // = ib_tag
                 { C::execution_mem_tag_reg_2_, tag },                            // = ic_tag
@@ -1244,6 +1279,7 @@ TEST_F(AluFDivConstrainingTest, NegativeAluFDivByZeroNonFFTagMismatch)
             { C::alu_sel_tag_err, 1 },
             { C::alu_sel_err, 1 },
             { C::alu_tag_ff_diff_inv, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::FF))).invert() },
+            { C::alu_tag_u128_diff_inv, (FF(tag) - FF(static_cast<uint8_t>(MemoryTag::U128))).invert() },
             { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
             { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
             { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::FF) }, // = ic_tag
@@ -1413,6 +1449,11 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
                 { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lt, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
@@ -1542,6 +1583,11 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lte, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::execution_mem_tag_reg_0_, tag },                                 // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                                 // = ib_tag
                 { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U1) }, // = ic_tag
@@ -1819,6 +1865,11 @@ class AluShlConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag
@@ -1991,6 +2042,11 @@ class AluShrConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
                 { C::alu_shift_lo_bits, shift_lo_bits },
                 { C::alu_tag_ff_diff_inv, FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
+                { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
+                { C::alu_tag_u128_diff_inv,
+                  tag == static_cast<uint8_t>(MemoryTag::U128)
+                      ? 0
+                      : FF(tag - static_cast<uint8_t>(MemoryTag::U128)).invert() },
                 { C::alu_two_pow_shift_lo_bits, two_pow_shift_lo_bits },
                 { C::execution_mem_tag_reg_0_, tag },                           // = ia_tag
                 { C::execution_mem_tag_reg_1_, tag },                           // = ib_tag

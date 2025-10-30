@@ -16,7 +16,7 @@ template <typename FF_> class aluImpl {
 
     static constexpr std::array<size_t, 66> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 5, 5, 3, 3,
-        5, 6, 6, 4, 4, 3, 4, 6, 6, 6, 6, 3, 3, 3, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
+        5, 6, 6, 6, 3, 3, 4, 5, 5, 5, 6, 3, 3, 3, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -54,7 +54,7 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_A_HI_BITS = 33;
     static constexpr size_t SR_ALU_ADD_SUB = 34;
     static constexpr size_t SR_ALU_MUL_NON_U128 = 35;
-    static constexpr size_t SR_ALU_MUL_U128 = 37;
+    static constexpr size_t SR_ALU_MUL_U128 = 36;
     static constexpr size_t SR_ALU_DIV_U128_CHECK = 40;
     static constexpr size_t SR_ALU_DIV_U128 = 41;
     static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 42;
