@@ -96,7 +96,6 @@ EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> en
         .success = result.success,
         .gas_used = result.gas_used,
         .output = std::move(enqueued_call_output),
-        .side_effect_states = result.side_effect_states,
     };
 }
 

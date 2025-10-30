@@ -184,7 +184,6 @@ class Execution : public ExecutionInterface {
         MemoryAddress rd_offset;
         MemoryAddress rd_size;
         Gas gas_used;
-        SideEffectStates side_effect_states;
         bool success;
     };
 
