@@ -18,43 +18,8 @@ else
   export hash="$hash-singlearch"
 fi
 
-function ensure_zig {
-  if command -v zig &>/dev/null; then
-    return
-  fi
-  local arch=$(uname -m)
-  local zig_version=0.15.1
-  local bin_path=/opt/zig-${arch}-linux-${zig_version}
-  export PATH="$bin_path:$PATH"
-  if [ -f $bin_path/zig ]; then
-    return
-  fi
-  echo "Installing zig $zig_version..."
-  curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
-}
-export -f ensure_zig
-
-function ensure_ldid {
-  if command -v ldid &>/dev/null; then
-    return
-  fi
-  local arch=$(uname -m)
-  local version=v2.1.5-procursus7
-  local bin_path=/opt/ldid-${version}
-  export PATH="$bin_path:$PATH"
-  if [ -f $bin_path/ldid ]; then
-    return
-  fi
-  echo "Installing ldid $version..."
-  sudo mkdir -p $bin_path
-  sudo curl -sL https://github.com/ProcursusTeam/ldid/releases/download/${version}/ldid_linux_${arch} -o $bin_path/ldid
-  sudo chmod +x $bin_path/ldid
-}
-export -f ensure_ldid
-
 # Injects version number into a given bb binary.
-# The version is either taken from REF_NAME (if it is a valid semver, with leading 'v' stripped),
-# or from the current commit hash.
+# Means we don't actually need to rebuild bb to release a new version if code hasn't changed.
 function inject_version {
   local binary=$1
   if semver check "$REF_NAME"; then
@@ -75,17 +40,37 @@ function inject_version {
   fi
   printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
 }
-export -f inject_version
+
+function ensure_ldid {
+  if command -v ldid &>/dev/null; then
+    return
+  fi
+  local arch=$(uname -m)
+  local version=v2.1.5-procursus7
+  local bin_path=/opt/ldid-${version}
+  export PATH="$bin_path:$PATH"
+  if [ -f $bin_path/ldid ]; then
+    return
+  fi
+  echo "Installing ldid $version..."
+  sudo mkdir -p $bin_path
+  sudo curl -sL https://github.com/ProcursusTeam/ldid/releases/download/${version}/ldid_linux_${arch} -o $bin_path/ldid
+  sudo chmod +x $bin_path/ldid
+}
 
 # Define build commands for each preset
 function build_preset() {
   local preset=$1
   shift
-  local avm_transpiler_flag=""
+  local cmake_args=()
   if [ "${AVM_TRANSPILER:-1}" -eq 0 ]; then
-    avm_transpiler_flag="-DAVM_TRANSPILER_LIB="
+    cmake_args+=(-DAVM_TRANSPILER_LIB=)
   fi
-  cmake --fresh --preset "$preset" $avm_transpiler_flag
+  # Auto-enable ENABLE_WASM_BENCH for wasm-threads preset on non-semver builds
+  if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
+    cmake_args+=(-DENABLE_WASM_BENCH=ON)
+  fi
+  cmake --fresh --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -96,46 +81,8 @@ function build_native {
     ./format.sh check
     build_preset $native_preset
     inject_version build/bin/bb
-    # Inject version into bb-avm if it exists (only when AVM is enabled)
     [ -f build/bin/bb-avm ] && inject_version build/bin/bb-avm
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
-  fi
-}
-
-# Build nodejs module for all platforms
-function build_nodejs_module {
-  set -eu
-  ensure_zig
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
-    parallel --line-buffered --tag --halt now,fail=1 build_preset ::: \
-      zig-node-amd64-linux \
-      zig-node-arm64-linux \
-      zig-node-amd64-macos \
-      zig-node-arm64-macos
-    cache_upload barretenberg-native-nodejs-module-$hash.zst build-zig-*-*/lib/nodejs_module.node
-  fi
-}
-
-# Build Darwin arm64 binary
-function build_darwin_arm64 {
-  set -eu
-  ensure_zig
-  if ! cache_download barretenberg-arm64-macos-$hash.zst; then
-    build_preset zig-arm64-macos --target bb
-    inject_version build-zig-arm64-macos/bin/bb
-    cache_upload barretenberg-arm64-macos-$hash.zst build-zig-arm64-macos/bin
-  fi
-}
-
-# Build Darwin amd64 binary
-function build_darwin_amd64 {
-  set -eu
-  ensure_zig
-  if ! cache_download barretenberg-amd64-macos-$hash.zst; then
-    build_preset zig-amd64-macos --target bb
-    inject_version build-zig-amd64-macos/bin/bb
-    cache_upload barretenberg-amd64-macos-$hash.zst build-zig-amd64-macos/bin
   fi
 }
 
@@ -156,7 +103,7 @@ function build_asan_fast {
   set -eu
   if ! cache_download barretenberg-asan-fast-$hash.zst; then
     # Pass the keys from asan_tests to the build_preset function.
-    local bins="commitment_schemes_recursion_tests client_ivc_tests ultra_honk_tests dsl_tests"
+    local bins="commitment_schemes_recursion_tests chonk_tests ultra_honk_tests dsl_tests"
     build_preset asan-fast --target $bins
     # We upload only the binaries specified in --target in build-asan-fast/bin
     cache_upload barretenberg-asan-fast-$hash.zst $(printf "build-asan-fast/bin/%s " $bins)
@@ -239,7 +186,7 @@ function build_release_dir {
   rm -rf build-release
   mkdir build-release
 
-  # Version already injected in build_native, just copy and tar
+  # Version already injected in build_native
   cp build/bin/bb build-release/bb
   tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
@@ -252,128 +199,44 @@ function build_release_dir {
   tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
   tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
 
+  # Ensure ldid is available for code signing
+  ensure_ldid
+
   # Package arm64-linux (version already injected in build_cross)
   cp build-zig-arm64-linux/bin/bb build-release/bb
   tar -czf build-release/barretenberg-arm64-linux.tar.gz -C build-release --remove-files bb
 
-  # Package arm64-macos (version injected and signed in build())
+  # Package arm64-macos (version already injected in build_cross, sign after)
   cp build-zig-arm64-macos/bin/bb build-release/bb
+  ldid -S build-release/bb
   tar -czf build-release/barretenberg-arm64-darwin.tar.gz -C build-release --remove-files bb
 
-  # Package amd64-macos (version injected and signed in build())
+  # Package amd64-macos (version already injected in build_cross, sign after)
   cp build-zig-amd64-macos/bin/bb build-release/bb
+  ldid -S build-release/bb
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-# Granular caching for VK cache: download individual VK files based on artifact cache keys
-# Usage: cache_download_vks <artifact_path>
-# Returns: 0 if all found or downloaded, 1 if some missing (caller should regenerate those)
-function cache_download_vks {
-  local artifact_path=$1
-
-  if [ ! -f "$artifact_path" ]; then
-    echo "Artifact not found: $artifact_path" >&2
-    return 1
-  fi
-
-  # Get cache paths from bb (format: hash:path:function_name)
-  local cache_paths=$(build/bin/bb aztec_process cache_paths "$artifact_path" 2>/dev/null)
-
-  if [ -z "$cache_paths" ]; then
-    # No functions to cache
-    return 0
-  fi
-
-  local missing_keys=()
-  local total_keys=0
-  local found_keys=0
-
-  while IFS=: read -r hash cache_path function_name; do
-    total_keys=$((total_keys + 1))
-
-    # Check if file already exists
-    if [ -f "$cache_path" ]; then
-      found_keys=$((found_keys + 1))
-      continue
-    fi
-
-    # Try to download from cache using the hash as cache key
-    local cache_key="bb-vk-$hash"
-    if cache_download "$cache_key.zst"; then
-      # Cache hit - the file should now exist
-      if [ -f "$cache_path" ]; then
-        found_keys=$((found_keys + 1))
-      else
-        missing_keys+=("$hash:$function_name")
-      fi
-    else
-      # Cache miss - track for later upload
-      missing_keys+=("$hash:$function_name")
-    fi
-  done <<< "$cache_paths"
-
-  if [ ${#missing_keys[@]} -gt 0 ]; then
-    echo "VK cache: $found_keys/$total_keys found, ${#missing_keys[@]} need generation" >&2
-    return 1
-  else
-    echo "VK cache: $found_keys/$total_keys found" >&2
-    return 0
-  fi
-}
-
-# Upload individual VK files to cache
-# Usage: cache_upload_vks <artifact_path>
-function cache_upload_vks {
-  local artifact_path=$1
-
-  if [ ! -f "$artifact_path" ]; then
-    echo "Artifact not found: $artifact_path" >&2
-    return 1
-  fi
-
-  # Get cache paths from bb
-  local cache_paths=$(build/bin/bb aztec_process cache_paths "$artifact_path" 2>/dev/null)
-
-  if [ -z "$cache_paths" ]; then
-    return 0
-  fi
-
-  while IFS=: read -r hash cache_path function_name; do
-    if [ -f "$cache_path" ]; then
-      local cache_key="bb-vk-$hash"
-      # Upload just this VK file
-      cache_upload "$cache_key.zst" "$cache_path"
-    fi
-  done <<< "$cache_paths"
-}
-
-export -f build_preset build_native build_nodejs_module build_darwin_arm64 build_darwin_amd64 build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification cache_download_vks cache_upload_vks
+export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
-  ensure_zig
+
+  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
 
   if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
     # Perform release builds of bb and napi module, for all architectures.
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
       "build_native" \
-      "build_nodejs_module" \
       "build_wasm" \
       "build_wasm_threads" \
       "build_cross arm64-linux" \
-      "build_darwin_amd64" \
-      "build_darwin_arm64"
-
-    # Re-sign macOS builds. Necessary due to injecting the version through binary rewriting.
-    ensure_ldid
-    ldid -S build-zig-arm64-macos/bin/bb
-    ldid -S build-zig-amd64-macos/bin/bb
-
+      "build_cross amd64-macos" \
+      "build_cross arm64-macos"
     build_release_dir
   else
     builds=(
       build_native
-      build_nodejs_module
       build_wasm
       build_wasm_threads
     )
@@ -381,7 +244,7 @@ function build {
       builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
     fi
     if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=(build_darwin_arm64 build_smt_verification)
+      builds+=("build_cross arm64-macos" build_smt_verification)
     fi
     parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
   fi
@@ -403,7 +266,7 @@ function test_cmds {
         local prefix=$hash
         # A little extra resource for these tests.
         # IPARecursiveTests and AcirHonkRecursionConstraint fail with 2 threads.
-        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ClientIVCKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
+        if [[ "$test" =~ ^(AcirAvmRecursionConstraint|ChonkKernelCapacity|AvmRecursiveTests|IPARecursiveTests|AcirHonkRecursionConstraint) ]]; then
           prefix="$prefix:CPUS=4:MEM=8g"
         fi
         echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
@@ -413,19 +276,23 @@ function test_cmds {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
-    # Mostly arbitrary set that touches lots of the code.
-    declare -A asan_tests=(
-      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["client_ivc_tests"]="ClientIVCTests.Basic"
-      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-    )
-    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
-    for bin_name in "${!asan_tests[@]}"; do
-      local filter=${asan_tests[$bin_name]}
-      local prefix="$hash:CPUS=4:MEM=8g"
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-    done
+
+    # only run ASAN tests if not building a release
+    if ! semver check "$REF_NAME"; then
+      # Mostly arbitrary set that touches lots of the code.
+      declare -A asan_tests=(
+        ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+        ["chonk_tests"]="ChonkTests.Basic"
+        ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+        ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+      )
+      # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
+      for bin_name in "${!asan_tests[@]}"; do
+        local filter=${asan_tests[$bin_name]}
+        local prefix="$hash:CPUS=4:MEM=8g"
+        echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+      done
+    fi
   fi
 
   # Run the SMT compatibility tests
@@ -434,7 +301,7 @@ function test_cmds {
     echo -e "$prefix barretenberg/cpp/build-smt/bin/smt_verification_tests"
   fi
 
-  echo "$hash barretenberg/cpp/scripts/test_civc_standalone_vks_havent_changed.sh"
+  echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
 }
 
 # This is not called in ci. It is just for a developer to run the tests.
@@ -448,21 +315,21 @@ function build_bench {
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
     parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench --target bb"
+      "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
+      "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
     cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,client_ivc_bench,bb}
+      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
 function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc build/bin/client_ivc_bench ClientIVCBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/client_ivc build-wasm-threads/bin/client_ivc_bench ClientIVCBench/Full/5$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/client_ivc_verify build/bin/client_ivc_bench VerificationOnly$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.
@@ -474,8 +341,13 @@ function bench {
 
 # Upload assets to release.
 function release {
-  echo_header "bb cpp release"
-  do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+  # ARM64 doesn't contribute to the build at all anymore.
+  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
+    echo_header "bb cpp release"
+    do_or_dryrun gh release upload $REF_NAME build-release/* --clobber
+  else
+    echo "bb/cpp/bootstraps.sh release - WARNING: Doing nothing. we only build on amd64, and if tagged as a release."
+  fi
 }
 
 case "$cmd" in
