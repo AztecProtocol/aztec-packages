@@ -74,7 +74,8 @@ TEST(BoomerangAcirCircuitBuilder, FibCase) {
     test_acir(vector_bytecode);
 }
 
-TEST(BoomerangAcirCircuitBuilder, FirstCase) {
+TEST(BoomerangAcirCircuitBuilder, FirstCase)
+{
     std::string init_bytecode_path = "first/target/first.json";
     std::string bytecode_file = common_preffix + init_bytecode_path;
     std::vector<uint8_t> vector_bytecode = get_bytecode_from_json(bytecode_file);
