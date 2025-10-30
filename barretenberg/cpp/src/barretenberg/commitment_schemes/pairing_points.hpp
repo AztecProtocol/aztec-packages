@@ -21,7 +21,7 @@ namespace bb {
  * @note This class is unified with the stdlib::recursion::PairingPoints class via the Curve template parameter.
  * @tparam Curve_ The curve type (defaults to curve::BN254 for native, or use stdlib::bn254<Builder> for recursive)
  */
-template <typename Curve_ = curve::BN254> class PairingPoints {
+template <typename Curve_> class PairingPoints {
   public:
     using Curve = Curve_;
     using CK = CommitmentKey<Curve>;

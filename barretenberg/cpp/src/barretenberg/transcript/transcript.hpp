@@ -525,4 +525,18 @@ using UltraStdlibTranscript =
 using MegaStdlibTranscript =
     BaseTranscript<stdlib::StdlibCodec<stdlib::field_t<MegaCircuitBuilder>>, stdlib::poseidon2<MegaCircuitBuilder>>;
 
+/**
+ * @brief Helper to get the appropriate Transcript type for a given Curve
+ * @details Maps native curves to NativeTranscript and stdlib curves to StdlibTranscript<Builder>
+ */
+template <typename Curve, bool = Curve::is_stdlib_type> struct TranscriptFor {
+    using type = NativeTranscript;
+};
+
+template <typename Curve> struct TranscriptFor<Curve, true> {
+    using type = StdlibTranscript<typename Curve::Builder>;
+};
+
+template <typename Curve> using TranscriptFor_t = typename TranscriptFor<Curve>::type;
+
 } // namespace bb

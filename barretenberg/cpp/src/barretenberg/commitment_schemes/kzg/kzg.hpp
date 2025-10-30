@@ -28,8 +28,6 @@ template <typename Curve_> class KZG {
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
-
-    // Unified PairingPoints type - both native and stdlib are now templated on Curve
     using PairingPointsType =
         std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 

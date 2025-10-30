@@ -15,15 +15,6 @@
 
 namespace bb {
 
-// Helper to extract Builder type from Curve (for stdlib curves only)
-template <typename Curve, bool = Curve::is_stdlib_type> struct CurveBuilderExtractor {
-    using type = void; // Native curves don't have Builder
-};
-
-template <typename Curve> struct CurveBuilderExtractor<Curve, true> {
-    using type = typename Curve::Builder;
-};
-
 /**
  * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
  * @details Works for both native verification and recursive (in-circuit) verification
@@ -38,9 +29,7 @@ template <typename Curve> class MergeVerifier_ {
     using PairingPoints =
         std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
     using Proof = std::vector<FF>; // Native: std::vector<bb::fr>, Recursive: stdlib::Proof<Builder>
-    using Transcript = std::conditional_t<Curve::is_stdlib_type,
-                                          StdlibTranscript<typename CurveBuilderExtractor<Curve>::type>,
-                                          NativeTranscript>;
+    using Transcript = TranscriptFor_t<Curve>;
 
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder

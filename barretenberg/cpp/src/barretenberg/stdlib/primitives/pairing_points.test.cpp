@@ -47,7 +47,7 @@ TYPED_TEST(PairingPointsTests, TestDefault)
 
     // Validate default PairingPoints
     CommitmentKey commitment_key;
-    bb::PairingPoints<> native_pp(P0.get_value(), P1.get_value());
+    bb::PairingPoints<curve::BN254> native_pp(P0.get_value(), P1.get_value());
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
