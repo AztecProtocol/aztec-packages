@@ -6,5 +6,4 @@ stdlib_ecdsa_tests
 stdlib_pedersen_commitment_tests
 stdlib_pedersen_hash_tests
 stdlib_poseidon2_tests
-stdlib_schnorr_tests
 stdlib_sha256_tests
