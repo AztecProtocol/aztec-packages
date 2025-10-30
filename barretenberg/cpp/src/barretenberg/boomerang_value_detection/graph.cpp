@@ -58,15 +58,17 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
         return;
     }
     for (auto& var_idx : gate_variables) {
-        variable_gates[{var_idx, block_idx}].emplace_back(gate_index);
+        variable_gates[{ var_idx, block_idx }].emplace_back(gate_index);
     }
     for (const auto& variable_index : gate_variables) {
         variable_gate_count[variable_index] += 1;
     }
 }
 
-template<typename FF, typename CircuitBuilder>
-std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(uint32_t var_idx) const {
+template <typename FF, typename CircuitBuilder>
+std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuilder>::get_variable_gates(
+    uint32_t var_idx) const
+{
     std::unordered_map<size_t, std::vector<size_t>> result;
     auto search = variable_gate_count.find(var_idx);
     if (search != variable_gate_count.end() && search->second != 0) {
@@ -75,8 +77,8 @@ std::unordered_map<size_t, std::vector<size_t>> StaticAnalyzer_<FF, CircuitBuild
             if (blk_idx == pub_inputs_block_idx) {
                 continue;
             }
-            if (auto search = variable_gates.find({var_idx, blk_idx}); search != variable_gates.end()) {
-                result.insert({blk_idx, search->second});
+            if (auto search = variable_gates.find({ var_idx, blk_idx }); search != variable_gates.end()) {
+                result.emplace( blk_idx, search->second );
             }
         }
     }
@@ -765,10 +767,10 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
     // We have to determine pub_inputs block index based on circuit builder type, because we have to skip it.
     // If type of CircuitBuilder is UltraCircuitBuilder, the pub_inputs block is the first block so we can set
     // pub_inputs_block_idx
-    if constexpr(IsUltraBuilder<CircuitBuilder>) {
+    if constexpr (IsUltraBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 0;
     }
-    if constexpr(IsMegaBuilder<CircuitBuilder>) {
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
         pub_inputs_block_idx = 3;
     }
     variable_gate_count = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
@@ -776,9 +778,9 @@ StaticAnalyzer_<FF, CircuitBuilder>::StaticAnalyzer_(CircuitBuilder& circuit_bui
         std::unordered_map<uint32_t, std::vector<uint32_t>>(circuit_builder.real_variable_index.size());
     variables_degree = std::unordered_map<uint32_t, size_t>(circuit_builder.real_variable_index.size());
     for (const auto& variable_index : circuit_builder.real_variable_index) {
-        variable_gate_count[variable_index] = 0;
-        variables_degree[variable_index] = 0;
-        variable_adjacency_lists[variable_index] = {};
+        variable_gate_count.emplace(variable_index, 0);
+        variables_degree.emplace(variable_index, 0);
+        variable_adjacency_lists.emplace(variable_index, std::vector<uint32_t>());
     }
     save_constant_variable_indices();
     process_execution_trace();
@@ -962,7 +964,7 @@ template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_sorted_rom_gates(uint32_t var_idx, size_t blk_idx) const
 {
     bool result = false;
-    auto it = variable_gates.find({var_idx, blk_idx});
+    auto it = variable_gates.find({ var_idx, blk_idx });
     if (it != variable_gates.end()) {
         const auto& gates = it->second;
         result = std::all_of(gates.begin(), gates.end(), [this, blk_idx](size_t gate_idx) {
@@ -1370,7 +1372,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables
         std::vector<uint32_t> to_remove;
         for (const auto& var_idx : variables_in_one_gate) {
             KeyPair key = { var_idx, *blk_idx };
-            if (auto search = variable_gates.find({var_idx, *blk_idx}); search != variable_gates.end()) {
+            if (auto search = variable_gates.find({ var_idx, *blk_idx }); search != variable_gates.end()) {
                 std::vector<size_t> gate_indexes = variable_gates[key];
                 BB_ASSERT_EQ(gate_indexes.size(), 1U);
                 size_t gate_idx = gate_indexes[0];
@@ -1711,7 +1713,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t rea
 {
     auto var_gates = get_variable_gates(real_idx);
     if (!var_gates.empty()) {
-        for (const auto& [blk_idx, gates]: var_gates) {
+        for (const auto& [blk_idx, gates] : var_gates) {
             auto& block = circuit_builder.blocks.get()[blk_idx];
             for (size_t gate_index : gates) {
                 info("---- printing variables in this gate");
@@ -1740,8 +1742,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t rea
                 info("---- finished printing ----");
             }
         }
-    }
-    else {
+    } else {
         info("variable with index", real_idx, " is unconstrained!");
     }
 }
