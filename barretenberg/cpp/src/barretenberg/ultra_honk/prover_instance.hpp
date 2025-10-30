@@ -122,6 +122,11 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                   "final_active_wire_idx has not been initialized");
         return final_active_wire_idx;
     }
+    /** @brief Get the size of the active trace range (0 to the final active wire index) */
+    size_t trace_active_range_size() const
+    {
+        return get_final_active_wire_idx() + 1; // +1 because index is inclusive
+    }
 
     Flavor::PrecomputedData get_precomputed()
     {

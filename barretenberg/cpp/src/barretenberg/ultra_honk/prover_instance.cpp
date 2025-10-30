@@ -41,10 +41,10 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_wires
     BB_BENCH_NAME("allocate_wires");
 
     // If no ZK, allocate only the active range of the trace; else allocate full dyadic size to allow for blinding
-    const size_t active_size = Flavor::HasZK ? dyadic_size() : final_active_wire_idx + 1;
+    const size_t wire_size = Flavor::HasZK ? dyadic_size() : trace_active_range_size();
 
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(active_size, dyadic_size());
+        wire = Polynomial::shiftable(wire_size, dyadic_size());
     }
 }
 
@@ -52,19 +52,17 @@ template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_permu
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    size_t active_size = final_active_wire_idx + 1;
-
-    // Allocate only enough memory for the active range; permutation polynomials are zero outside this range
+    // Sigma and ID polynomials are zero outside the active trace range
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial::shiftable(active_size, dyadic_size());
+        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial::shiftable(active_size, dyadic_size());
+        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
     }
 
     // If no ZK, allocate only the active range of the trace; else allocate full dyadic size to allow for blinding
-    active_size = Flavor::HasZK ? dyadic_size() : active_size;
-    polynomials.z_perm = Polynomial::shiftable(active_size, dyadic_size());
+    const size_t z_perm_size = Flavor::HasZK ? dyadic_size() : trace_active_range_size();
+    polynomials.z_perm = Polynomial::shiftable(z_perm_size, dyadic_size());
 }
 
 template <IsUltraOrMegaHonk Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
@@ -98,33 +96,30 @@ void ProverInstance_<Flavor>::allocate_table_lookup_polynomials(const Circuit& c
 {
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
-    size_t table_offset = circuit.blocks.lookup.trace_offset();
-    const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables used in the circuit
-    BB_ASSERT_GT(dyadic_size(), tables_size);
+    const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables
+    const size_t lookup_block_offset = circuit.blocks.lookup.trace_offset();
+    const size_t lookup_block_size = circuit.blocks.lookup.size();
 
-    // Allocate the polynomials containing the actual table data
-    for (auto& poly : polynomials.get_tables()) {
-        poly = Polynomial(tables_size, dyadic_size(), table_offset);
+    // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
+    BB_ASSERT_GT(dyadic_size(), lookup_block_offset + tables_size);
+    for (auto& table_poly : polynomials.get_tables()) {
+        table_poly = Polynomial(tables_size, dyadic_size(), lookup_block_offset);
     }
 
-    // Allocate the read counts and tags polynomials
-    const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() - table_offset : tables_size;
-    polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size(), table_offset);
-    polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size(), table_offset);
+    // Read counts and tags: track which table entries have been read
+    // For non-ZK, allocate just the table size; for ZK: allocate from lookup_block_offset to dyadic_size
+    const size_t counts_and_tags_size = Flavor::HasZK ? dyadic_size() - lookup_block_offset : tables_size;
+    polynomials.lookup_read_counts = Polynomial(counts_and_tags_size, dyadic_size(), lookup_block_offset);
+    polynomials.lookup_read_tags = Polynomial(counts_and_tags_size, dyadic_size(), lookup_block_offset);
 
-    // Determine end index for the lookup block and the tables themselves
-    // Note that the start of the tables is aligned with the start of the lookup block in the trace
-    const size_t lookup_block_end =
-        static_cast<size_t>(circuit.blocks.lookup.trace_offset()) + circuit.blocks.lookup.size();
-    const auto tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
-
-    // Allocate the lookup_inverses polynomial
-    const size_t lookup_inverses_start = table_offset;
+    // Lookup inverses: used in the log-derivative lookup argument
+    // Must cover both the lookup gate block (where reads occur) and the table data itself
+    const size_t lookup_block_end = lookup_block_offset + lookup_block_size;
+    const size_t tables_end = lookup_block_offset + tables_size;
     const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
-    const size_t lookup_inverses_size = (Flavor::HasZK ? dyadic_size() : lookup_inverses_end) - lookup_inverses_start;
-
-    polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size(), lookup_inverses_start);
+    const size_t lookup_inverses_size = (Flavor::HasZK ? dyadic_size() : lookup_inverses_end) - lookup_block_offset;
+    polynomials.lookup_inverses = Polynomial(lookup_inverses_size, dyadic_size(), lookup_block_offset);
 }
 
 template <IsUltraOrMegaHonk Flavor>
@@ -149,41 +144,41 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
     const size_t calldata_size = circuit.get_calldata().size();
-    const size_t secondary_calldata_size = circuit.get_secondary_calldata().size();
+    const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
     const size_t return_data_size = circuit.get_return_data().size();
 
+    // Allocate only enough space for the databus data; for ZK, allocate full dyadic size
     const size_t calldata_poly_size = Flavor::HasZK ? dyadic_size() : calldata_size;
+    const size_t sec_calldata_poly_size = Flavor::HasZK ? dyadic_size() : sec_calldata_size;
+    const size_t return_data_poly_size = Flavor::HasZK ? dyadic_size() : return_data_size;
+
     polynomials.calldata = Polynomial(calldata_poly_size, dyadic_size());
     polynomials.calldata_read_counts = Polynomial(calldata_poly_size, dyadic_size());
     polynomials.calldata_read_tags = Polynomial(calldata_poly_size, dyadic_size());
 
-    const size_t secondary_calldata_poly_size = Flavor::HasZK ? dyadic_size() : secondary_calldata_size;
-    polynomials.secondary_calldata = Polynomial(secondary_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(secondary_calldata_poly_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(secondary_calldata_poly_size, dyadic_size());
+    polynomials.secondary_calldata = Polynomial(sec_calldata_poly_size, dyadic_size());
+    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_poly_size, dyadic_size());
+    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_poly_size, dyadic_size());
 
-    const size_t return_data_poly_size = Flavor::HasZK ? dyadic_size() : return_data_size;
     polynomials.return_data = Polynomial(return_data_poly_size, dyadic_size());
     polynomials.return_data_read_counts = Polynomial(return_data_poly_size, dyadic_size());
     polynomials.return_data_read_tags = Polynomial(return_data_poly_size, dyadic_size());
 
-    // Allocate log derivative lookup argument inverse polynomials
+    // Databus lookup inverses: used in the log-derivative lookup argument
+    // Must cover both the databus gate block (where reads occur) and the databus data itself
     const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
+    size_t calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(calldata_size, q_busread_end);
+    size_t sec_calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(sec_calldata_size, q_busread_end);
+    size_t return_data_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(return_data_size, q_busread_end);
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Size of databus_id can always be set to max size
-    // between the three databus columns. It currently uses dyadic_size because its values are later set based on its
-    // size(). This means when we naively construct all ProverPolynomials with dyadic size (e.g. for ZK), we get a
-    // different databus_id polynomial and therefore a different VK.
-    const size_t max_databus_column_size = std::max({ calldata_size, secondary_calldata_size, return_data_size, 2UL });
-    polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
-
-    const size_t calldata_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(calldata_size, q_busread_end);
     polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
-    const size_t secondary_calldata_inverses_size =
-        Flavor::HasZK ? dyadic_size() : std::max(secondary_calldata_size, q_busread_end);
-    polynomials.secondary_calldata_inverses = Polynomial(secondary_calldata_inverses_size, dyadic_size());
-    const size_t return_data_inverses_size = Flavor::HasZK ? dyadic_size() : std::max(return_data_size, q_busread_end);
+    polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());
     polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
+    // infinity commitment.
+    const size_t max_databus_column_size = std::max({ calldata_size, sec_calldata_size, return_data_size, 2UL });
+    polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
 }
 
 /**
