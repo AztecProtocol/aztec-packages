@@ -49,7 +49,8 @@ template <typename Builder> class ram_table {
         for (auto idx_init : index_initialized) {
             all_initialized = all_initialized && idx_init;
         }
-        return all_initialized;
+        all_entries_written_to_with_constant_index = all_initialized;
+        return all_entries_written_to_with_constant_index;
     }
 
   private:

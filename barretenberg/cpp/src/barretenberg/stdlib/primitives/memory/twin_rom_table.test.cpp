@@ -29,7 +29,6 @@ STANDARD_TESTING_TAGS
  */
 TEST(TwinRomTable, TagCorrectness)
 {
-
     using Builder = UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
@@ -48,11 +47,7 @@ TEST(TwinRomTable, TagCorrectness)
     entry_1.set_origin_tag(submitted_value_origin_tag);
     entry_2.set_origin_tag(challenge_origin_tag);
     entry_3.set_origin_tag(next_challenge_tag);
-
-    // Assign the instant death tag to one of the
-    // entries
-    // It causes an error in Debug if it is being merged with another tag (when arithmetic actions are being performed
-    // on it)
+    // The last one is "poisoned" (calculating with this element should result in runtime error)
     entry_4.set_origin_tag(instant_death_tag);
 
     // Form entries in the twin table
@@ -101,7 +96,7 @@ TYPED_TEST(TwinRomTableTests, ReadWriteConsistency)
     field_pair_ct result{ field_ct(0), field_ct(0) };
     std::array<fr, 2> expected{ 0, 0 };
 
-    // Go throught the cycle of accessing all entries
+    // Go through the cycle of accessing all entries
     for (size_t i = 0; i < table_size; ++i) {
 
         if (i % 2 == 0) {

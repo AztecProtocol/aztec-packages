@@ -89,7 +89,7 @@ TYPED_TEST(RomTableTests, RomTableReadWriteConsistency)
     Builder builder;
 
     const size_t table_size = 10;
-    std::vector<field_ct> table_values(table_size);
+    std::vector<field_ct> table_values;
     for (size_t i = 0; i < table_size; ++i) {
         table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
     }
@@ -100,6 +100,8 @@ TYPED_TEST(RomTableTests, RomTableReadWriteConsistency)
     fr expected(0);
 
     for (size_t i = 0; i < table_size; ++i) {
+        // if `i` is even, do a variable lookup (i.e., the index witness is _not constant_), if `i` is odd, do a
+        // constant lookup.
         if (i % 2 == 0) {
             field_ct index(witness_ct(&builder, static_cast<uint64_t>(i)));
             const auto before_n = builder.num_gates();
@@ -124,9 +126,7 @@ TYPED_TEST(RomTableTests, RomTableReadWriteConsistency)
     }
 
     EXPECT_EQ(result.get_value(), expected);
-
-    bool verified = CircuitChecker::check(builder);
-    EXPECT_EQ(verified, true);
+    EXPECT_EQ(CircuitChecker::check(builder), true);
 }
 // tests that copying the ROM table works as expected.
 TYPED_TEST(RomTableTests, RomCopy)
@@ -153,10 +153,9 @@ TYPED_TEST(RomTableTests, RomCopy)
 
         field_ct index(witness_ct(&builder, static_cast<uint64_t>(i)));
         const auto to_add = (i % 2 == 0) ? copied_rom_table[index] : table[index];
-        result += to_add; // variable lookup
+        result += to_add;
         expected += table_values[i].get_value();
     }
-
     EXPECT_EQ(result.get_value(), expected);
 
     bool verified = CircuitChecker::check(builder);
