@@ -16,9 +16,9 @@ using namespace bb::stdlib;
  * @brief Convert inputs representing a Grumpkin point into a cycle_group element.
  * @details Inputs x, y, and is_infinite are used to construct the point. We handle two cases:
  *  1. has_valid_witness_assignments is false:  we are in a write_vk scenario. In this case, we set the point to be the
- * generator of Grumpkin.
+ *     generator of Grumpkin.
  *  2. predicate is a witness: we conditionally assign the point depending on the predicate; if it is witness true, we
- * use the witnesses provided, otherwise, we set the point to be the generator of Grumpkin.
+ *     use the witnesses provided, otherwise, we set the point to be the generator of Grumpkin.
  *
  * @tparam Builder
  * @tparam FF
@@ -49,7 +49,9 @@ bb::stdlib::cycle_group<Builder> to_grumpkin_point(const WitnessOrConstant<typen
 
     // If a witness is not provided (we are in a write_vk scenario) we ensure the coordinates correspond to a valid
     // point to avoid erroneous failures during circuit construction. We only do this if the coordinates are
-    // non-constant since otherwise no variable indices exist.
+    // non-constant since otherwise no variable indices exist. Note that there is no need to assign the infinite flag
+    // because native on-curve checks will always pass as long x and y coordinates correspond to a valid point on
+    // Grumpkin.
     if (!has_valid_witness_assignments && !constant_coordinates) {
         builder.set_variable(input_x.index, bb::grumpkin::g1::affine_one.x);
         builder.set_variable(input_y.index, bb::grumpkin::g1::affine_one.y);

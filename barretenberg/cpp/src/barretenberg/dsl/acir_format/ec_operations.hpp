@@ -60,10 +60,4 @@ struct EcAdd {
 
 template <typename Builder>
 void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_valid_witness_assignments);
-
-template <typename Builder>
-void create_dummy_ec_add_constraint(Builder& builder,
-                                    const bb::stdlib::cycle_group<Builder>& input1,
-                                    const bb::stdlib::cycle_group<Builder>& input2,
-                                    const bb::stdlib::cycle_group<Builder>& input_result);
 } // namespace acir_format
