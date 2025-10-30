@@ -32,22 +32,55 @@ bool circuit_should_fail = false;
 // #define DISABLE_BATCH_MUL
 
 #ifdef FUZZING_SHOW_INFORMATION
-#define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
-    std::string out = rhs;                                                                                             \
-    rhs += std::to_string(first_index);                                                                                \
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
-    out = (output_index >= stack.size() ? "auto " : "") + out;
+/**
+ * @brief Formatted strings for debugging output
+ * Used to generate readable C++ code showing operation being performed
+ */
+struct FormattedArgs {
+    std::string lhs;
+    std::string rhs;
+    std::string out;
+};
 
-#define PREP_TWO_ARG(stack, first_index, second_index, output_index)                                                   \
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";                                       \
-    std::string out =                                                                                                  \
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";   \
-    lhs += std::to_string(first_index);                                                                                \
-    rhs += std::to_string(second_index);                                                                               \
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);                                 \
+/**
+ * @brief Format a single-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the input argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with rhs (input) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
+{
+    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out = rhs;
+    rhs += std::to_string(first_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
+}
+
+/**
+ * @brief Format a two-argument operation for debug output
+ * @param stack The execution stack
+ * @param first_index Index of the first argument
+ * @param second_index Index of the second argument
+ * @param output_index Index where result will be written
+ * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
+ */
+template <typename Stack>
+inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
+{
+    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
+    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
+    std::string out =
+        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
+    lhs += std::to_string(first_index);
+    rhs += std::to_string(second_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
+}
 #endif
 
 FastRandom VarianceRNG(0);
@@ -1227,8 +1260,8 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.twoArgs.out;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << ".dbl();" << std::endl;
+            auto args = format_single_arg(stack, first_index, output_index);
+            std::cout << args.out << " = " << args.rhs << ".dbl();" << std::endl;
 #endif
             ExecutionHandler result;
             result = stack[first_index].dbl();
@@ -1261,8 +1294,8 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.twoArgs.out;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = -" << rhs << ";" << std::endl;
+            auto args = format_single_arg(stack, first_index, output_index);
+            std::cout << args.out << " = -" << args.rhs << ";" << std::endl;
 #endif
             ExecutionHandler result;
             result = -stack[first_index];
@@ -1294,8 +1327,8 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, 0)
-            std::cout << "assert_equal(" << lhs << ", " << rhs << ", builder);" << std::endl;
+            auto args = format_two_arg(stack, first_index, second_index, 0);
+            std::cout << "assert_equal(" << args.lhs << ", " << args.rhs << ", builder);" << std::endl;
 #endif
             stack[first_index].assert_equal(builder, stack[second_index]);
             return 0;
@@ -1322,12 +1355,12 @@ template <typename Builder> class CycleGroupBase {
             ExecutionHandler result;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = ";
+            auto args = format_single_arg(stack, first_index, output_index);
+            std::cout << args.out << " = ";
 #endif
             result = stack[first_index].set(builder);
 #ifdef FUZZING_SHOW_INFORMATION
-            std::cout << rhs << ");" << std::endl;
+            std::cout << args.rhs << ");" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
@@ -1359,8 +1392,8 @@ template <typename Builder> class CycleGroupBase {
             ExecutionHandler result;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << std::endl;
+            auto args = format_single_arg(stack, first_index, output_index);
+            std::cout << args.out << " = " << args.rhs << std::endl;
 #endif
             result = stack[first_index].set_inf(builder);
             // If the output index is larger than the number of elements in stack, append
@@ -1393,8 +1426,8 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.threeArgs.out;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = " << lhs << " + " << rhs << ";" << std::endl;
+            auto args = format_two_arg(stack, first_index, second_index, output_index);
+            std::cout << args.out << " = " << args.lhs << " + " << args.rhs << ";" << std::endl;
 #endif
             ExecutionHandler result;
             result = stack[first_index].operator_add(builder, stack[second_index]);
@@ -1428,8 +1461,8 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.threeArgs.out;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = " << lhs << " - " << rhs << ";" << std::endl;
+            auto args = format_two_arg(stack, first_index, second_index, output_index);
+            std::cout << args.out << " = " << args.lhs << " - " << args.rhs << ";" << std::endl;
 #endif
             ExecutionHandler result;
             result = stack[first_index].operator_sub(builder, stack[second_index]);
@@ -1466,12 +1499,12 @@ template <typename Builder> class CycleGroupBase {
             ExecutionHandler result;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_TWO_ARG(stack, first_index, second_index, output_index)
-            std::cout << out << " = cycle_group_t::conditional_assign(";
+            auto args = format_two_arg(stack, first_index, second_index, output_index);
+            std::cout << args.out << " = cycle_group_t::conditional_assign(";
 #endif
             result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
 #ifdef FUZZING_SHOW_INFORMATION
-            std::cout << rhs << ", " << lhs << ");" << std::endl;
+            std::cout << args.rhs << ", " << args.lhs << ");" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
@@ -1503,8 +1536,8 @@ template <typename Builder> class CycleGroupBase {
             ScalarField scalar = instruction.arguments.mulArgs.scalar;
 
 #ifdef FUZZING_SHOW_INFORMATION
-            PREP_SINGLE_ARG(stack, first_index, output_index)
-            std::cout << out << " = " << rhs << std::endl;
+            auto args = format_single_arg(stack, first_index, output_index);
+            std::cout << args.out << " = " << args.rhs << std::endl;
 #endif
             ExecutionHandler result;
             result = stack[first_index].mul(builder, scalar);
