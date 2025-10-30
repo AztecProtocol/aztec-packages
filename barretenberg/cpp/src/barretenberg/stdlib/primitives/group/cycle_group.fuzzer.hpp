@@ -4,6 +4,34 @@
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
 
+/**
+ * @file cycle_group.fuzzer.hpp
+ * @brief Differential fuzzer for cycle_group elliptic curve operations
+ * @details Implements an instruction-based differential fuzzer that validates the cycle_group implementation by
+ * executing random sequences of operations both in-circuit (using cycle_group) and natively, then comparing the
+ * results. The architecture is as follows:
+ *
+ * ┌─────────────┐
+ * │ Fuzzer Input│
+ * │ (raw bytes) │
+ * └──────┬──────┘
+ *        │
+ *        ├──> Parser ──> Instruction Sequence
+ *        │
+ *        v
+ *   ExecutionHandler (maintains parallel state):
+ *   ┌──────────────────────────────────────────────────┐
+ *   │ Native:     GroupElement + ScalarField           │  (ground truth)
+ *   │ Circuit:    cycle_group + cycle_scalar           │
+ *   └──────────────────────────────────────────────────┘
+ *        │
+ *        ├──> Execute each instruction in both representations
+ *        │
+ *        v
+ *   Verify: cycle_group.get_value() == native_result
+ *   CircuitChecker::check(circuit)
+ */
+
 #pragma once
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
