@@ -173,13 +173,6 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If ZK, allocate full size polys
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
-            // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
-            // if (Flavor::HasZK) {
-            //     // Allocate full size polynomials
-            //     polynomials = ProverPolynomials(dyadic_size());
-            // } else { // Allocate only a correct amount of memory for each polynomial
             allocate_wires();
 
             allocate_permutation_argument_polynomials();
@@ -196,10 +189,9 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
             if constexpr (HasDataBus<Flavor>) {
                 allocate_databus_polynomials(circuit);
             }
-            // }
-            // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
-            // defined.
-            polynomials.set_shifted(); // Ensure shifted wires are set correctly
+
+            // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
+            polynomials.set_shifted();
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
