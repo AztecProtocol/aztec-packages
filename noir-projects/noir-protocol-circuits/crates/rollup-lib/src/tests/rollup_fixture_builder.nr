@@ -1,6 +1,7 @@
 use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
+use bigcurve::BigCurve;
 use bignum::BigNum;
-use blob::abis::{BatchingBlobCommitment, BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -371,9 +372,8 @@ impl RollupFixtureBuilder {
     pub fn get_blob_commitments(self, slot_number: Field) -> [BLSPoint; BLOBS_PER_BLOCK] {
         let mut commitments: [BLSPoint; BLOBS_PER_BLOCK] = std::mem::zeroed();
         for i in 0..BLOBS_PER_BLOCK {
-            let x: [u128; 4] = self.make_fixture(slot_number, i, 58);
-            let y: [u128; 4] = self.make_fixture(slot_number, i, 49);
-            commitments[i] = BatchingBlobCommitment::from_limbs(x, y).point
+            let seed: Field = self.make_fixture(slot_number, i, 58);
+            commitments[i] = BLSPoint::hash_to_curve(seed.to_be_bytes::<32>());
         }
         commitments
     }
