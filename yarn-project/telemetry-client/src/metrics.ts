@@ -204,8 +204,9 @@ export const VALIDATOR_RE_EXECUTION_MANA = 'aztec.validator.re_execution_mana';
 export const VALIDATOR_RE_EXECUTION_TX_COUNT = 'aztec.validator.re_execution_tx_count';
 
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
-export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
-export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
+export const VALIDATOR_ATTESTATION_SUCCESS_COUNT = 'aztec.validator.attestation_success_count';
+export const VALIDATOR_ATTESTATION_FAILED_BAD_PROPOSAL_COUNT = 'aztec.validator.attestation_failed_bad_proposal_count';
+export const VALIDATOR_ATTESTATION_FAILED_NODE_ISSUE_COUNT = 'aztec.validator.attestation_failed_node_issue_count';
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
 export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';

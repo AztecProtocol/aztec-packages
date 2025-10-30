@@ -152,6 +152,9 @@ export class ArchiverInstrumentation {
   }
 
   public processNewMessages(count: number, syncPerMessageMs: number) {
+    if (count === 0) {
+      return;
+    }
     this.syncMessageCount.add(count);
     this.syncDurationPerMessage.record(Math.ceil(syncPerMessageMs));
   }
