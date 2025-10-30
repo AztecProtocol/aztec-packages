@@ -7,6 +7,7 @@
 #pragma once
 #include "aes128_constraint.hpp"
 #include "avm2_recursion_constraint.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 
 #include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/common/slab_allocator.hpp"

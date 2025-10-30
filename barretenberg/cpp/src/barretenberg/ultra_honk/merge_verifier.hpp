@@ -15,6 +15,15 @@
 
 namespace bb {
 
+// Helper template to get the correct Transcript type
+template <typename Curve, bool IsStdlib = Curve::is_stdlib_type> struct TranscriptTypeHelper {
+    using type = NativeTranscript;
+};
+
+template <typename Curve> struct TranscriptTypeHelper<Curve, true> {
+    using type = StdlibTranscript<typename Curve::Builder>;
+};
+
 /**
  * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
  * @details Works for both native verification and recursive (in-circuit) verification
@@ -25,8 +34,10 @@ template <typename Curve> class MergeVerifier_ {
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
-    using PCS = KZG<Curve>;
-    using PairingPoints = typename PairingPointsTypeHelper<Curve>::type;
+    using PCS = bb::KZG<Curve>;
+    using PairingPoints = typename bb::PairingPointsTypeHelper<Curve>::type;
+    using Proof = std::vector<FF>; // Native: std::vector<bb::fr>, Recursive: stdlib::Proof<Builder>
+    using Transcript = typename TranscriptTypeHelper<Curve>::type;
 
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
@@ -47,31 +58,16 @@ template <typename Curve> class MergeVerifier_ {
     };
 
     // For recursive case, we need a builder pointer (store as void* to avoid template instantiation issues)
-    void* builder_raw = nullptr;
 
     MergeSettings settings;
+    std::shared_ptr<Transcript> transcript;
 
-    // Constructor for native case - takes only settings
-    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND)
+    // Constructor for native case
+    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND,
+                            std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
         : settings(settings)
+        , transcript(std::move(transcript))
     {}
-
-    // Constructor for recursive case - takes builder pointer and settings
-    // Overload resolution distinguishes this from native constructor
-    template <typename BuilderType>
-    explicit MergeVerifier_(BuilderType* builder_ptr, const MergeSettings settings = MergeSettings::PREPEND)
-        : builder_raw(static_cast<void*>(builder_ptr))
-        , settings(settings)
-    {
-        static_assert(IsRecursive, "Builder constructor can only be used for recursive (stdlib) curves");
-    }
-
-    // Accessor for builder (only used in recursive case)
-    template <typename BuilderType> BuilderType* get_builder() const
-    {
-        static_assert(IsRecursive, "get_builder() can only be called for recursive verifiers");
-        return static_cast<BuilderType*>(builder_raw);
-    }
 
     /**
      * @brief Verify the merge proof
@@ -81,9 +77,8 @@ template <typename Curve> class MergeVerifier_ {
      * @param transcript Shared transcript for Fiat-Shamir
      * @return Pair of pairing points and merged table commitments
      */
-    template <typename Transcript, typename Proof>
     [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments> verify_proof(
-        const Proof& proof, const InputCommitments& input_commitments, const std::shared_ptr<Transcript>& transcript);
+        const Proof& proof, const InputCommitments& input_commitments);
 };
 
 // Type aliases for convenience

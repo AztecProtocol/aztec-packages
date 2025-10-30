@@ -81,7 +81,7 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ &builder, merge_settings, transcript };
+    MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
     auto [pairing_points, merged_table_commitments] =
         merge_verifier.verify_proof(stdlib_merge_proof, merge_commitments);
 
@@ -95,9 +95,9 @@ bool Goblin::verify(const GoblinProof& proof,
                     const std::shared_ptr<Transcript>& transcript,
                     const MergeSettings merge_settings)
 {
-    MergeVerifier merge_verifier(merge_settings);
+    MergeVerifier merge_verifier(merge_settings, transcript);
     auto [merge_pairing_points, merged_table_commitments] =
-        merge_verifier.verify_proof(proof.merge_proof, merge_commitments, transcript);
+        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     bool merge_verified = merge_pairing_points.check();
 
     ECCVMVerifier eccvm_verifier(transcript);

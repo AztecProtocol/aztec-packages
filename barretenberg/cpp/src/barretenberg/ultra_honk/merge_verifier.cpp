@@ -57,11 +57,8 @@ namespace bb {
  * to the merged tables as read from the proof
  */
 template <typename Curve>
-template <typename Transcript, typename Proof>
 std::pair<typename MergeVerifier_<Curve>::PairingPoints, typename MergeVerifier_<Curve>::TableCommitments>
-MergeVerifier_<Curve>::verify_proof(const Proof& proof,
-                                    const InputCommitments& input_commitments,
-                                    const std::shared_ptr<Transcript>& transcript)
+MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -78,6 +75,7 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof,
         BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
     } else {
         shift_size_value = transcript->template receive_from_prover<uint32_t>("shift_size");
+        shift_size_ff = FF(shift_size_value);
         BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
     }
 
@@ -109,15 +107,8 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof,
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    FF pow_kappa;
-    FF pow_kappa_minus_one;
-    if constexpr (IsRecursive) {
-        pow_kappa = kappa.pow(shift_size_ff);
-        pow_kappa_minus_one = pow_kappa * kappa_inv;
-    } else {
-        pow_kappa = kappa.pow(shift_size_value);
-        pow_kappa_minus_one = kappa.pow(shift_size_value - 1);
-    }
+    FF pow_kappa = kappa.pow(shift_size_ff);
+    FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
@@ -213,33 +204,9 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof,
     return { pairing_points, merged_table_commitments };
 }
 
-// Explicit template instantiations for the class
+// Explicit template instantiations
 template class MergeVerifier_<curve::BN254>;
 template class MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>;
 template class MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>;
-
-// Explicit template instantiations for verify_proof method
-// Native instantiation
-template std::pair<bb::PairingPoints, MergeVerifier_<curve::BN254>::TableCommitments> MergeVerifier_<
-    curve::BN254>::verify_proof<NativeTranscript, HonkProof>(const HonkProof&,
-                                                             const InputCommitments&,
-                                                             const std::shared_ptr<NativeTranscript>&);
-
-// Recursive instantiations
-template std::pair<stdlib::recursion::PairingPoints<MegaCircuitBuilder>,
-                   MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>::TableCommitments>
-MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>::verify_proof<StdlibTranscript<MegaCircuitBuilder>,
-                                                                stdlib::Proof<MegaCircuitBuilder>>(
-    const stdlib::Proof<MegaCircuitBuilder>&,
-    const InputCommitments&,
-    const std::shared_ptr<StdlibTranscript<MegaCircuitBuilder>>&);
-
-template std::pair<stdlib::recursion::PairingPoints<UltraCircuitBuilder>,
-                   MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>::TableCommitments>
-MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>::verify_proof<StdlibTranscript<UltraCircuitBuilder>,
-                                                                 stdlib::Proof<UltraCircuitBuilder>>(
-    const stdlib::Proof<UltraCircuitBuilder>&,
-    const InputCommitments&,
-    const std::shared_ptr<StdlibTranscript<UltraCircuitBuilder>>&);
 
 } // namespace bb
