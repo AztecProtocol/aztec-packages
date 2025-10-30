@@ -73,6 +73,45 @@ TEST(RamTable, TagCorrectness)
 #endif
 }
 
+TEST(RamTable, OutOfBoundsReadFailure)
+{
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+    Builder builder;
+
+    const size_t table_size = 10;
+    std::vector<field_ct> table_values;
+    for (size_t i = 0; i < table_size; ++i) {
+        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
+    }
+    // initialize directly from circuit values
+    ram_table_ct table(table_values);
+    // Attempt to read at an out-of-bounds index
+    EXPECT_THROW_OR_ABORT({ [[maybe_unused]] auto _value = table.read(field_ct(table_size)); }, "*");
+    // Check that the builder has registered a failure
+    EXPECT_TRUE(builder.failed());
+}
+
+TEST(RamTable, OutOfBoundsWriteFailure)
+{
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using ram_table_ct = stdlib::ram_table<Builder>;
+
+    Builder builder;
+    const size_t table_size = 10;
+    ram_table_ct table(&builder, table_size);
+
+    for (size_t i = 0; i < table_size; ++i) {
+        table.write(i, 0);
+    }
+
+    // Attempt to write at an out-of-bounds index
+    EXPECT_THROW_OR_ABORT({ table.write(field_ct(table_size), field_ct(42)); }, "*");
+    EXPECT_TRUE(builder.failed());
+}
 TYPED_TEST_SUITE(RamTableTests, BuilderTypes);
 
 TYPED_TEST(RamTableTests, RamTableInitReadConsistency)
@@ -96,7 +135,7 @@ TYPED_TEST(RamTableTests, RamTableInitReadConsistency)
     fr expected(0);
 
     for (size_t i = 0; i < 10; ++i) {
-        field_ct index(witness_ct(&builder, (uint64_t)i));
+        field_ct index(witness_ct(&builder, static_cast<uint64_t>(i)));
 
         if (i % 2 == 0) {
             const auto to_add = table.read(index);
@@ -122,6 +161,7 @@ TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
     using ram_table_ct = typename TestFixture::ram_table_ct;
     Builder builder;
     const size_t table_size = 10;
+    const size_t num_reads = 2 * table_size;
 
     std::vector<fr> table_values(table_size);
 
@@ -130,29 +170,30 @@ TYPED_TEST(RamTableTests, RamTableReadWriteConsistency)
     for (size_t i = 0; i < table_size; ++i) {
         table.write(i, 0);
     }
-    field_ct result(0);
-    fr expected(0);
-
+    field_ct result(0); // tracks a running sum of circuit values to verify correctness of RAM operations
+    fr expected(0);     // tracks a running sum of native values to verify correctness of RAM operations
+    // lambda that both initializes and updates our table.
     const auto update = [&]() {
         for (size_t i = 0; i < table_size / 2; ++i) {
             table_values[2 * i] = fr::random_element();
             table_values[2 * i + 1] = fr::random_element();
 
-            // init with both constant and variable values
+            // init with both constant and variable index values
             table.write(2 * i, table_values[2 * i]);
             table.write(2 * i + 1, witness_ct(&builder, table_values[2 * i + 1]));
         }
     };
-
+    // lambda that reads from our table
     const auto read = [&]() {
-        for (size_t i = 0; i < table_size / 2; ++i) {
-            const size_t index = table_size - 2 - (i * 2); // access in something other than basic incremental order
+        for (size_t i = 0; i < num_reads / 2; ++i) {
+            const size_t index_1 = static_cast<size_t>(engine.get_random_uint32() % table_size);
+            const size_t index_2 = static_cast<size_t>(engine.get_random_uint32() % table_size);
+            // both constant and variable reads
+            result += table.read(witness_ct(&builder, index_1));
+            result += table.read(index_2);
 
-            result += table.read(witness_ct(&builder, index));
-            result += table.read(index + 1);
-
-            expected += table_values[index];
-            expected += table_values[index + 1];
+            expected += table_values[index_1];
+            expected += table_values[index_2];
         }
     };
 

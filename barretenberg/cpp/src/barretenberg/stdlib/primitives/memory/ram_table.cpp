@@ -26,7 +26,6 @@ ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
     , context(builder)
 {
     static_assert(IsUltraOrMegaBuilder<Builder>);
-
     index_initialized.resize(table_size);
     for (auto&& idx : index_initialized) {
         idx = false;
@@ -217,6 +216,8 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
  * @tparam Builder
  * @param index
  * @param value
+ *
+ * @note This is used to write an already-existing RAM entry and also to initialize a not-yet-written RAM entry.
  */
 template <typename Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
 {
@@ -250,7 +251,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     }
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
-    if (index.is_constant() && index_initialized[cast_index] == false) {
+    if (index.is_constant() && !index_initialized[cast_index]) {
         context->init_RAM_element(ram_id, cast_index, value_wire.get_witness_index());
 
         index_initialized[cast_index] = true;

@@ -24,8 +24,6 @@ STANDARD_TESTING_TAGS
  */
 TEST(RomTable, TagCorrectness)
 {
-
-    // Defining ultra-specific types for local testing.
     using Builder = UltraCircuitBuilder;
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
@@ -59,6 +57,25 @@ TEST(RomTable, TagCorrectness)
     EXPECT_THROW(table[0] + table[2], std::runtime_error);
 #endif
 }
+TEST(RomTable, OutOfBoundsReadFailure)
+{
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using rom_table_ct = stdlib::rom_table<Builder>;
+    Builder builder;
+    const size_t table_size = 10;
+    std::vector<field_ct> table_values(table_size);
+    for (size_t i = 0; i < table_size; ++i) {
+        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
+    }
+    rom_table_ct table(table_values);
+
+    EXPECT_THROW_OR_ABORT({ [[maybe_unused]] auto _value = table[(field_ct(table_size))]; }, "*");
+    // Check that the builder has registered a failure
+    EXPECT_TRUE(builder.failed());
+}
+
 TYPED_TEST_SUITE(RomTableTests, BuilderTypes);
 // tests basic functionality, as well as the number of gates added per ROM read (not including the
 // finalization/processing): one gate per variable lookup, zero gates per constant lookup.
