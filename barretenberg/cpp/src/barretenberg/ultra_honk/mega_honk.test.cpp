@@ -68,9 +68,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto [verified, _] = merge_verifier.verify_proof(merge_proof, merge_commitments);
+        auto transcript = std::make_shared<NativeTranscript>();
+        auto [pairing_points, _] = merge_verifier.verify_proof(merge_proof, merge_commitments, transcript);
 
-        return verified;
+        return pairing_points.check();
     }
 };
 

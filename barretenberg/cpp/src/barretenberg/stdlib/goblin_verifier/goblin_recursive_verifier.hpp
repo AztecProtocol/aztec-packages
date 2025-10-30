@@ -7,8 +7,8 @@
 #pragma once
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_verifier.hpp"
-#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_verifier.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 
@@ -25,7 +25,7 @@ class GoblinRecursiveVerifier {
   public:
     // Goblin Recursive Verifier circuit is using Ultra arithmetisation
     using Builder = UltraCircuitBuilder;
-    using MergeVerifier = goblin::MergeRecursiveVerifier_<Builder>;
+    using MergeVerifier = bb::stdlib::recursion::goblin::MergeRecursiveVerifier<Builder>;
     using Transcript = UltraStdlibTranscript;
 
     using TranslatorFlavor = TranslatorRecursiveFlavor;

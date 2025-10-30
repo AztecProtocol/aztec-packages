@@ -95,8 +95,10 @@ bool Goblin::verify(const GoblinProof& proof,
                     const std::shared_ptr<Transcript>& transcript,
                     const MergeSettings merge_settings)
 {
-    MergeVerifier merge_verifier(merge_settings, transcript);
-    auto [merge_verified, merged_table_commitments] = merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
+    MergeVerifier merge_verifier(merge_settings);
+    auto [merge_pairing_points, merged_table_commitments] =
+        merge_verifier.verify_proof(proof.merge_proof, merge_commitments, transcript);
+    bool merge_verified = merge_pairing_points.check();
 
     ECCVMVerifier eccvm_verifier(transcript);
     bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);

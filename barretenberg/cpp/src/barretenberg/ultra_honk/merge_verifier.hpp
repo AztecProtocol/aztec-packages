@@ -7,7 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -16,22 +16,23 @@
 namespace bb {
 
 /**
- * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
- *
+ * @brief Unified verifier class for the Goblin ECC op queue transcript merge protocol
+ * @details Works for both native verification and recursive (in-circuit) verification
+ * @tparam Curve The curve type (native curve::BN254 or stdlib bn254<Builder>)
  */
-class MergeVerifier {
-    using Curve = curve::BN254;
+template <typename Curve> class MergeVerifier_ {
+  public:
     using FF = typename Curve::ScalarField;
-    using PCS = bb::KZG<Curve>;
-    using VerifierCommitmentKey = bb::VerifierCommitmentKey<Curve>;
-    using Transcript = NativeTranscript;
+    using Commitment = typename Curve::AffineElement;
+    using GroupElement = typename Curve::Element;
+    using PCS = KZG<Curve>;
+    using PairingPoints = typename PairingPointsTypeHelper<Curve>::type;
 
     // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
     // MegaCircuitBuilder
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
+    static constexpr bool IsRecursive = Curve::is_stdlib_type;
 
-  public:
-    using Commitment = typename Curve::AffineElement;
     using TableCommitments = std::array<Commitment, NUM_WIRES>; // Commitments to the subtables and the merged table
 
     /**
@@ -45,12 +46,51 @@ class MergeVerifier {
         TableCommitments T_prev_commitments;
     };
 
-    std::shared_ptr<Transcript> transcript;
+    // For recursive case, we need a builder pointer (store as void* to avoid template instantiation issues)
+    void* builder_raw = nullptr;
+
     MergeSettings settings;
 
-    explicit MergeVerifier(const MergeSettings settings = MergeSettings::PREPEND,
-                           const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
-    std::pair<bool, TableCommitments> verify_proof(const HonkProof& proof, const InputCommitments& input_commitments);
+    // Constructor for native case - takes only settings
+    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND)
+        : settings(settings)
+    {}
+
+    // Constructor for recursive case - takes builder pointer and settings
+    // Overload resolution distinguishes this from native constructor
+    template <typename BuilderType>
+    explicit MergeVerifier_(BuilderType* builder_ptr, const MergeSettings settings = MergeSettings::PREPEND)
+        : builder_raw(static_cast<void*>(builder_ptr))
+        , settings(settings)
+    {
+        static_assert(IsRecursive, "Builder constructor can only be used for recursive (stdlib) curves");
+    }
+
+    // Accessor for builder (only used in recursive case)
+    template <typename BuilderType> BuilderType* get_builder() const
+    {
+        static_assert(IsRecursive, "get_builder() can only be called for recursive verifiers");
+        return static_cast<BuilderType*>(builder_raw);
+    }
+
+    /**
+     * @brief Verify the merge proof
+     * @tparam Transcript The transcript type (NativeTranscript or StdlibTranscript<Builder>)
+     * @param proof The proof to verify (HonkProof for native, stdlib::Proof<Builder> for recursive)
+     * @param input_commitments The input commitments for the merge
+     * @param transcript Shared transcript for Fiat-Shamir
+     * @return Pair of pairing points and merged table commitments
+     */
+    template <typename Transcript, typename Proof>
+    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments> verify_proof(
+        const Proof& proof, const InputCommitments& input_commitments, const std::shared_ptr<Transcript>& transcript);
 };
+
+// Type aliases for convenience
+using MergeVerifier = MergeVerifier_<curve::BN254>;
+
+namespace stdlib::recursion::goblin {
+template <typename Builder> using MergeRecursiveVerifier = MergeVerifier_<bn254<Builder>>;
+} // namespace stdlib::recursion::goblin
 
 } // namespace bb

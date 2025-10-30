@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
@@ -39,6 +40,22 @@ class PairingPoints {
         : P0(P0)
         , P1(P1)
     {}
+
+    PairingPoints(std::array<Point, 2> const& points)
+        : PairingPoints(points[0], points[1])
+    {}
+
+    Point& operator[](size_t idx)
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
+
+    const Point& operator[](size_t idx) const
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
 
     /**
      * @brief Reconstruct the pairing points from limbs stored on the public inputs.

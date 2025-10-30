@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"

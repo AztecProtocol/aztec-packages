@@ -35,9 +35,9 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
                                                               const MergeSettings merge_settings)
 {
     // Verify the final merge step
-    MergeVerifier merge_verifier{ builder, merge_settings, transcript };
+    MergeVerifier merge_verifier{ builder, merge_settings };
     auto [merge_pairing_points, merged_table_commitments] =
-        merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
+        merge_verifier.verify_proof(proof.merge_proof, merge_commitments, transcript);
 
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };

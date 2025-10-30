@@ -6,14 +6,10 @@
 
 #include "merge_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
-#include "barretenberg/flavor/mega_zk_flavor.hpp"
-#include "barretenberg/flavor/ultra_flavor.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/proof/proof.hpp"
 
 namespace bb {
-
-MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr<Transcript>& transcript)
-    : transcript(transcript)
-    , settings(settings) {};
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -54,20 +50,36 @@ MergeVerifier::MergeVerifier(const MergeSettings settings, const std::shared_ptr
  * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
  * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
  *
+ * @tparam Curve_
  * @param proof
  * @param inputs_commitments The commitments used by the Merge verifier
- * @return std::pair<bool, TableCommitments> Pair of verification result and the commitments to the merged tables as
- * read from the proof
+ * @return std::pair<PairingPoints, TableCommitments> Pair of the pairing points for verification and the commitments
+ * to the merged tables as read from the proof
  */
-std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_proof(
-    const HonkProof& proof, const InputCommitments& input_commitments)
+template <typename Curve>
+template <typename Transcript, typename Proof>
+std::pair<typename MergeVerifier_<Curve>::PairingPoints, typename MergeVerifier_<Curve>::TableCommitments>
+MergeVerifier_<Curve>::verify_proof(const Proof& proof,
+                                    const InputCommitments& input_commitments,
+                                    const std::shared_ptr<Transcript>& transcript)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
     transcript->load_proof(proof);
 
-    const uint32_t shift_size = transcript->template receive_from_prover<uint32_t>("shift_size");
-    BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
+    // Receive shift size from prover
+    // For native: shift_size is uint32_t
+    // For stdlib: shift_size is FF (we'll get the value later)
+    uint32_t shift_size_value;
+    FF shift_size_ff;
+    if constexpr (IsRecursive) {
+        shift_size_ff = transcript->template receive_from_prover<FF>("shift_size");
+        shift_size_value = uint32_t(shift_size_ff.get_value());
+        BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
+    } else {
+        shift_size_value = transcript->template receive_from_prover<uint32_t>("shift_size");
+        BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
+    }
 
     // Vector of commitments to be passed to the Shplonk verifier
     // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
@@ -97,10 +109,30 @@ std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    const FF pow_kappa = kappa.pow(shift_size);
+    FF pow_kappa;
+    FF pow_kappa_minus_one;
+    if constexpr (IsRecursive) {
+        pow_kappa = kappa.pow(shift_size_ff);
+        pow_kappa_minus_one = pow_kappa * kappa_inv;
+    } else {
+        pow_kappa = kappa.pow(shift_size_value);
+        pow_kappa_minus_one = kappa.pow(shift_size_value - 1);
+    }
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
+
+    // Field element constants for constructing claims
+    FF one_ff, zero_ff, neg_one_ff;
+    if constexpr (IsRecursive) {
+        one_ff = FF(1);
+        zero_ff = FF(0);
+        neg_one_ff = FF(-1);
+    } else {
+        one_ff = FF::one();
+        zero_ff = FF::zero();
+        neg_one_ff = FF::neg_one();
+    }
 
     // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
     commitment_idx = 0;
@@ -108,26 +140,24 @@ std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_
         Claims claim{ { /*index of [l_j]*/ commitment_idx,
                         /*index of [r_j]*/ commitment_idx + 1,
                         /*index of [m_j]*/ commitment_idx + 2 },
-                      { FF::one(), pow_kappa, FF::neg_one() },
-                      { kappa, FF::zero() } };
+                      { one_ff, pow_kappa, neg_one_ff },
+                      { kappa, zero_ff } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to the index of [l_{j+1}]
         commitment_idx += NUM_WIRES;
     }
 
-    // Boolean keeping track of the degree identities
+    // Boolean keeping track of the degree identities (only used in native case)
     bool degree_check_verified = true;
 
     // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
     commitment_idx = 0;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Claims claim;
-
         // Opening claim for l_j(1/kappa)
         FF left_table_eval_kappa_inv =
             transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa_inv, left_table_eval_kappa_inv } };
+        Claims claim = { { commitment_idx }, { one_ff }, { kappa_inv, left_table_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to index of g_j
@@ -136,28 +166,80 @@ std::pair<bool, typename MergeVerifier::TableCommitments> MergeVerifier::verify_
         // Opening claim for g_j(kappa)
         FF left_table_reversed_eval =
             transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
-        claim = { { commitment_idx }, { FF::one() }, { kappa, left_table_reversed_eval } };
+        claim = { { commitment_idx }, { one_ff }, { kappa, left_table_reversed_eval } };
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to index of left_table_{j+1}
         commitment_idx += 1;
 
-        // Degree identity
-        degree_check_verified &= (left_table_eval_kappa_inv * kappa.pow(shift_size - 1) == left_table_reversed_eval);
+        // Degree identity check
+        if constexpr (IsRecursive) {
+            // In recursive case, constrain the equality in-circuit
+            left_table_reversed_eval.assert_equal(left_table_eval_kappa_inv * pow_kappa_minus_one);
+        } else {
+            // In native case, track as a boolean
+            FF expected = left_table_eval_kappa_inv * pow_kappa_minus_one;
+            degree_check_verified &= (expected == left_table_reversed_eval);
+        }
     }
 
     // Initialize Shplonk verifier
-    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
+    ShplonkVerifier_<Curve> verifier(
+        table_commitments, const_cast<std::shared_ptr<Transcript>&>(transcript), opening_claims.size());
     verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
 
     // Export batched claim
-    auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one());
+    Commitment one_commitment;
+    if constexpr (IsRecursive) {
+        one_commitment = Commitment::one(kappa.get_context());
+    } else {
+        one_commitment = Commitment::one();
+    }
+    auto batch_opening_claim = verifier.export_batch_opening_claim(one_commitment);
 
-    // KZG verifier
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
-    VerifierCommitmentKey pcs_vkey{};
-    bool claims_verified = pcs_vkey.pairing_check(pairing_points[0], pairing_points[1]);
+    // KZG verifier - returns PairingPoints directly
+    PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 
-    return { degree_check_verified && claims_verified, merged_table_commitments };
+    // Verify degree check as part of the pairing points validity (native case only)
+    // Note: The pairing check itself is deferred to allow for accumulation
+    if constexpr (!IsRecursive) {
+        if (!degree_check_verified) {
+            // If degree check fails, negate P0 to make the pairing equation fail
+            // This ensures that e(P0, [1]_2) * e(P1, [x]_2) != 1
+            pairing_points.P0 = -pairing_points.P0;
+        }
+    }
+
+    return { pairing_points, merged_table_commitments };
 }
+
+// Explicit template instantiations for the class
+template class MergeVerifier_<curve::BN254>;
+template class MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>;
+template class MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>;
+
+// Explicit template instantiations for verify_proof method
+// Native instantiation
+template std::pair<bb::PairingPoints, MergeVerifier_<curve::BN254>::TableCommitments> MergeVerifier_<
+    curve::BN254>::verify_proof<NativeTranscript, HonkProof>(const HonkProof&,
+                                                             const InputCommitments&,
+                                                             const std::shared_ptr<NativeTranscript>&);
+
+// Recursive instantiations
+template std::pair<stdlib::recursion::PairingPoints<MegaCircuitBuilder>,
+                   MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>::TableCommitments>
+MergeVerifier_<stdlib::bn254<MegaCircuitBuilder>>::verify_proof<StdlibTranscript<MegaCircuitBuilder>,
+                                                                stdlib::Proof<MegaCircuitBuilder>>(
+    const stdlib::Proof<MegaCircuitBuilder>&,
+    const InputCommitments&,
+    const std::shared_ptr<StdlibTranscript<MegaCircuitBuilder>>&);
+
+template std::pair<stdlib::recursion::PairingPoints<UltraCircuitBuilder>,
+                   MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>::TableCommitments>
+MergeVerifier_<stdlib::bn254<UltraCircuitBuilder>>::verify_proof<StdlibTranscript<UltraCircuitBuilder>,
+                                                                 stdlib::Proof<UltraCircuitBuilder>>(
+    const stdlib::Proof<UltraCircuitBuilder>&,
+    const InputCommitments&,
+    const std::shared_ptr<StdlibTranscript<UltraCircuitBuilder>>&);
+
 } // namespace bb

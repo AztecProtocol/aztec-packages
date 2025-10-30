@@ -5,10 +5,10 @@
 // =====================
 
 #pragma once
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -62,6 +62,18 @@ template <typename Builder_> struct PairingPoints {
     PairingPoints(std::array<Group, 2> const& points)
         : PairingPoints(points[0], points[1])
     {}
+
+    Group& operator[](size_t idx)
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
+
+    const Group& operator[](size_t idx) const
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
 
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
