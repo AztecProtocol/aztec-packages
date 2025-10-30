@@ -57,6 +57,16 @@ template <typename Curve> class MergeVerifier_ {
         TableCommitments T_prev_commitments;
     };
 
+    /**
+     * @brief Result of merge verification
+     * @details Contains pairing points for KZG verification, merged table commitments, and degree check status
+     */
+    struct VerificationResult {
+        PairingPoints pairing_points;
+        TableCommitments merged_commitments;
+        bool degree_check_passed;
+    };
+
     // For recursive case, we need a builder pointer (store as void* to avoid template instantiation issues)
 
     MergeSettings settings;
@@ -75,9 +85,9 @@ template <typename Curve> class MergeVerifier_ {
      * @param proof The proof to verify (HonkProof for native, stdlib::Proof<Builder> for recursive)
      * @param input_commitments The input commitments for the merge
      * @param transcript Shared transcript for Fiat-Shamir
-     * @return Pair of pairing points and merged table commitments
+     * @return VerificationResult containing pairing points, merged commitments, and degree check status
      */
-    [[nodiscard("Pairing points should be accumulated")]] std::pair<PairingPoints, TableCommitments> verify_proof(
+    [[nodiscard("Verification result should be checked")]] VerificationResult verify_proof(
         const Proof& proof, const InputCommitments& input_commitments);
 };
 

@@ -57,8 +57,8 @@ namespace bb {
  * to the merged tables as read from the proof
  */
 template <typename Curve>
-std::pair<typename MergeVerifier_<Curve>::PairingPoints, typename MergeVerifier_<Curve>::TableCommitments>
-MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& input_commitments)
+typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify_proof(
+    const Proof& proof, const InputCommitments& input_commitments)
 {
     using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
 
@@ -114,9 +114,9 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
     std::vector<Claims> opening_claims;
 
     // Field element constants for constructing claims
-    FF one(1);
-    FF zero(0);
-    FF neg_one(-1);
+    const FF one(1);
+    const FF zero(0);
+    const FF neg_one(-1);
 
     // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
     commitment_idx = 0;
@@ -184,17 +184,7 @@ MergeVerifier_<Curve>::verify_proof(const Proof& proof, const InputCommitments& 
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 
-    // Verify degree check as part of the pairing points validity (native case only)
-    // Note: The pairing check itself is deferred to allow for accumulation
-    if constexpr (!IsRecursive) {
-        if (!degree_check_verified) {
-            // If degree check fails, negate P0 to make the pairing equation fail
-            // This ensures that e(P0, [1]_2) * e(P1, [x]_2) != 1
-            pairing_points.P0 = -pairing_points.P0;
-        }
-    }
-
-    return { pairing_points, merged_table_commitments };
+    return { pairing_points, merged_table_commitments, degree_check_verified };
 }
 
 // Explicit template instantiations
