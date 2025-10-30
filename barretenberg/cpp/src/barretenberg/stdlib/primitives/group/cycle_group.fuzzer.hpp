@@ -366,6 +366,28 @@ template <typename Builder> class CycleGroupBase {
         }
 
         /**
+         * @brief Convert a scalar field element to uint256_t, optionally using Montgomery form
+         */
+        template <typename FF> inline static uint256_t to_uint256_montgomery(const FF& value, bool as_montgomery)
+        {
+            if (as_montgomery) {
+                return uint256_t(value.to_montgomery_form());
+            }
+            return uint256_t(value);
+        }
+
+        /**
+         * @brief Convert uint256_t back to scalar field element, optionally from Montgomery form
+         */
+        template <typename FF> inline static FF from_uint256_montgomery(const uint256_t& data, bool from_montgomery)
+        {
+            if (from_montgomery) {
+                return FF(data).from_montgomery_form();
+            }
+            return FF(data);
+        }
+
+        /**
          * @brief Mutate the value of a group element
          *
          * @tparam T PRNG class
@@ -392,20 +414,6 @@ template <typename Builder> class CycleGroupBase {
                                             havoc_config.VAL_MUT_NON_MONTGOMERY_PROBABILITY)) <
                              havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
-            // Conversion at the start
-#define MONT_CONVERSION                                                                                                \
-    if (convert_to_montgomery) {                                                                                       \
-        value_data = uint256_t(e.scalar.to_montgomery_form());                                                         \
-    } else {                                                                                                           \
-        value_data = uint256_t(e.scalar);                                                                              \
-    }
-            // Inverse conversion at the end
-#define INV_MONT_CONVERSION                                                                                            \
-    if (convert_to_montgomery) {                                                                                       \
-        e.scalar = ScalarField(value_data).from_montgomery_form();                                                     \
-    } else {                                                                                                           \
-        e.scalar = ScalarField(value_data);                                                                            \
-    }
 
             // Pick the last value from the mutation distrivution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
@@ -413,9 +421,9 @@ template <typename Builder> class CycleGroupBase {
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
             if (choice < havoc_config.value_mutation_distribution[0]) {
                 // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
-                MONT_CONVERSION
+                value_data = to_uint256_montgomery(e.scalar, convert_to_montgomery);
                 LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
-                INV_MONT_CONVERSION
+                e.scalar = from_uint256_montgomery<ScalarField>(value_data, convert_to_montgomery);
                 e.value = GroupElement::one() * e.scalar;
             } else if (choice < havoc_config.value_mutation_distribution[1]) {
                 // Small addition/subtraction
@@ -481,20 +489,6 @@ template <typename Builder> class CycleGroupBase {
                                                         havoc_config.VAL_MUT_NON_MONTGOMERY_PROBABILITY)) <
                                          havoc_config.VAL_MUT_MONTGOMERY_PROBABILITY;
             uint256_t value_data;
-            // Conversion at the start
-#define MONT_CONVERSION_SCALAR                                                                                         \
-    if (convert_to_montgomery) {                                                                                       \
-        value_data = uint256_t(e.to_montgomery_form());                                                                \
-    } else {                                                                                                           \
-        value_data = uint256_t(e);                                                                                     \
-    }
-            // Inverse conversion at the end
-#define INV_MONT_CONVERSION_SCALAR                                                                                     \
-    if (convert_to_montgomery) {                                                                                       \
-        e = ScalarField(value_data).from_montgomery_form();                                                            \
-    } else {                                                                                                           \
-        e = ScalarField(value_data);                                                                                   \
-    }
 
             // Pick the last value from the mutation distrivution vector
             const size_t mutation_type_count = havoc_config.value_mutation_distribution.size();
@@ -502,9 +496,9 @@ template <typename Builder> class CycleGroupBase {
             const size_t choice = rng.next() % havoc_config.value_mutation_distribution[mutation_type_count - 1];
             if (choice < havoc_config.value_mutation_distribution[0]) {
                 // Delegate mutation to libfuzzer (bit/byte mutations, autodictionary, etc)
-                MONT_CONVERSION_SCALAR
+                value_data = to_uint256_montgomery(e, convert_to_montgomery);
                 LLVMFuzzerMutate((uint8_t*)&value_data, sizeof(uint256_t), sizeof(uint256_t));
-                INV_MONT_CONVERSION_SCALAR
+                e = from_uint256_montgomery<ScalarField>(value_data, convert_to_montgomery);
             } else if (choice < havoc_config.value_mutation_distribution[1]) {
                 // Small addition/subtraction
                 if (convert_to_montgomery) {
