@@ -179,6 +179,7 @@ export async function createProverNode(
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
+      'proverNodeDisableProofPublish',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',
