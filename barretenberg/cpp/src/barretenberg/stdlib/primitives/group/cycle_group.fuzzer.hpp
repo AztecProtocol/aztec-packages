@@ -92,6 +92,63 @@ constexpr size_t MAXIMUM_MUL_ELEMENTS = 8;
 extern "C" size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 
 /**
+ * @brief Special scalar field values used for mutation testing
+ *
+ * @note: Zero is placed LAST to allow easy exclusion:
+ * - Use `rng.next() % SPECIAL_VALUE_COUNT` for all values
+ * - Use `rng.next() % SPECIAL_VALUE_COUNT_NO_ZERO` for values excluding Zero (One through HalfModulus)
+ */
+enum class SpecialScalarValue : uint8_t {
+    One = 0,
+    MinusOne,
+    SquareRootOfOne,
+    InverseSquareRootOfOne,
+    RootOfUnity13, // 13th root of unity (arbitrary small root)
+    Two,           // Small even number
+    HalfModulus,   // (p-1)/2
+    Zero,
+    COUNT // Sentinel value for total count
+};
+
+// Number of special values excluding Zero
+constexpr uint8_t SPECIAL_VALUE_COUNT_NO_ZERO = static_cast<uint8_t>(SpecialScalarValue::Zero);
+
+// Number of special values including Zero
+constexpr uint8_t SPECIAL_VALUE_COUNT = static_cast<uint8_t>(SpecialScalarValue::COUNT);
+
+/**
+ * @brief Generate a special scalar field value for testing
+ * @tparam FF Field type (e.g., ScalarField)
+ * @param type Which special value to generate
+ * @return The special field element
+ */
+template <typename FF> inline FF get_special_scalar_value(SpecialScalarValue type)
+{
+    switch (type) {
+    case SpecialScalarValue::One:
+        return FF::one();
+    case SpecialScalarValue::MinusOne:
+        return -FF::one();
+    case SpecialScalarValue::SquareRootOfOne:
+        return FF::one().sqrt().second;
+    case SpecialScalarValue::InverseSquareRootOfOne:
+        return FF::one().sqrt().second.invert();
+    case SpecialScalarValue::RootOfUnity13:
+        return FF::get_root_of_unity(13);
+    case SpecialScalarValue::Two:
+        return FF(2);
+    case SpecialScalarValue::HalfModulus:
+        return FF((FF::modulus - 1) / 2);
+    case SpecialScalarValue::Zero:
+        return FF::zero();
+    case SpecialScalarValue::COUNT:
+        // Fallthrough to abort - COUNT should never be used as a value
+    default:
+        abort(); // Invalid enum value
+    }
+}
+
+/**
  * @brief The class parametrizing CycleGroup fuzzing instructions, execution, etc
  */
 template <typename Builder> class CycleGroupBase {
@@ -365,35 +422,8 @@ template <typename Builder> class CycleGroupBase {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
                 // Substitute scalar element with a special value
-                switch (rng.next() % 8) {
-                case 0:
-                    e.scalar = ScalarField::zero();
-                    break;
-                case 1:
-                    e.scalar = ScalarField::one();
-                    break;
-                case 2:
-                    e.scalar = -ScalarField::one();
-                    break;
-                case 3:
-                    e.scalar = ScalarField::one().sqrt().second;
-                    break;
-                case 4:
-                    e.scalar = ScalarField::one().sqrt().second.invert();
-                    break;
-                case 5:
-                    e.scalar = ScalarField::get_root_of_unity(13);
-                    break;
-                case 6:
-                    e.scalar = ScalarField(2);
-                    break;
-                case 7:
-                    e.scalar = ScalarField((ScalarField::modulus - 1) / 2);
-                    break;
-                default:
-                    abort();
-                    break;
-                }
+                auto special_value = static_cast<SpecialScalarValue>(rng.next() % SPECIAL_VALUE_COUNT);
+                e.scalar = get_special_scalar_value<ScalarField>(special_value);
                 if (convert_to_montgomery) {
                     e.scalar = e.scalar.to_montgomery_form();
                 }
@@ -475,32 +505,8 @@ template <typename Builder> class CycleGroupBase {
                 }
                 // Substitute scalar element with a special value
                 // I think that zeros from mutateGroupElement are enough zeros produced
-                switch (rng.next() % 7) {
-                case 0:
-                    e = ScalarField::one();
-                    break;
-                case 1:
-                    e = -ScalarField::one();
-                    break;
-                case 2:
-                    e = ScalarField::one().sqrt().second;
-                    break;
-                case 3:
-                    e = ScalarField::one().sqrt().second.invert();
-                    break;
-                case 4:
-                    e = ScalarField::get_root_of_unity(13);
-                    break;
-                case 5:
-                    e = ScalarField(2);
-                    break;
-                case 6:
-                    e = ScalarField((ScalarField::modulus - 1) / 2);
-                    break;
-                default:
-                    abort();
-                    break;
-                }
+                auto special_value = static_cast<SpecialScalarValue>(rng.next() % SPECIAL_VALUE_COUNT_NO_ZERO);
+                e = get_special_scalar_value<ScalarField>(special_value);
                 if (convert_to_montgomery) {
                     e = e.to_montgomery_form();
                 }
