@@ -280,9 +280,9 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         const auto read_counts_m = CoefficientAccumulator(in.lookup_read_counts); // Degree 1
         const auto read_selector_m = CoefficientAccumulator(in.q_lookup);         // Degree 1
 
-        const auto inverse_exists = compute_inverse_exists<Accumulator>(in);    // Degree 2
-        const auto read_term = compute_read_term<Accumulator, 0>(in, params);   // Degree 2
-        const auto write_term = compute_write_term<Accumulator, 0>(in, params); // Degree 1
+        const auto inverse_exists = compute_inverse_exists<Accumulator>(in); // Degree 2
+        const auto read_term = compute_read_term<Accumulator>(in, params);   // Degree 2
+        const auto write_term = compute_write_term<Accumulator>(in, params); // Degree 1
 
         // Establish the correctness of the polynomial of inverses I. Note: inverses is computed so that the value is 0
         // if !inverse_exists.
