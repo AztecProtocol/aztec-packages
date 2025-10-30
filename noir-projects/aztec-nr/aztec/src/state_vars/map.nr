@@ -67,7 +67,7 @@ use dep::protocol_types::{storage::map::derive_storage_slot_in_map, traits::ToFi
 ///
 /// docs:start:map
 pub struct Map<K, V, Context> {
-    context: Context,
+    pub context: Context,
     storage_slot: Field,
     state_var_constructor: fn(Context, Field) -> V,
 }
@@ -139,7 +139,7 @@ impl<K, V, Context> Map<K, V, Context> {
     ///
     /// ```noir
     /// // Get a user's balance (assuming PrivateMutable<ValueNote>)
-    /// let user_balance = storage.balances.at(user_address);
+    /// let user_balance = self.storage.balances.at(user_address);
     /// let current_note = user_balance.get_note();
     ///
     /// // Update the balance

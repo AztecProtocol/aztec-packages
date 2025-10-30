@@ -7,8 +7,12 @@ const sidebar = {
   sidebar: [
     {
       type: "html",
-      value: '<span class="sidebar-title">Getting Started</span>',
+      value: '<span class="sidebar-title">Overview</span>',
       className: "sidebar-title",
+    },
+    {
+      type: "doc",
+      id: "developers/overview",
     },
     {
       type: "doc",
@@ -33,19 +37,10 @@ const sidebar = {
       dirName: "developers/docs",
     },
     {
-      type: "html",
-      value: '<span class="sidebar-title">Misc</span>',
-      className: "sidebar-title",
-    },
-    {
       type: "link",
       label: "Get Inspired",
       href: "https://github.com/AztecProtocol/horizon",
-    },
-    {
-      type: "doc",
-      id: "developers/migration_notes",
-    },
+    }
   ],
 
   "nodesSidebar": [

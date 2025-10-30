@@ -102,7 +102,7 @@ impl PublicContext {
     /// # Arguments
     /// * `log` - The data to log, must implement Serialize trait
     ///
-    pub fn emit_public_log<T>(_self: &mut Self, log: T)
+    pub fn emit_public_log<T>(_self: Self, log: T)
     where
         T: Serialize,
     {
@@ -214,7 +214,7 @@ impl PublicContext {
     /// * Will revert if message doesn't exist or was already consumed
     ///
     pub fn consume_l1_to_l2_message(
-        &mut self,
+        self: Self,
         content: Field,
         secret: Field,
         sender: EthAddress,
@@ -269,7 +269,7 @@ impl PublicContext {
     /// * `recipient` - Ethereum address that will receive the message
     /// * `content` - Message content (32 bytes as a Field element)
     ///
-    pub fn message_portal(_self: &mut Self, recipient: EthAddress, content: Field) {
+    pub fn message_portal(_self: Self, recipient: EthAddress, content: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { send_l2_to_l1_msg(recipient, content) };
     }
@@ -288,7 +288,7 @@ impl PublicContext {
     /// * `[Field]` - Return data from the called function
     ///
     pub unconstrained fn call_public_function(
-        _self: &mut Self,
+        _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
@@ -333,7 +333,7 @@ impl PublicContext {
     /// * `[Field]` - Return data from the called function
     ///
     pub unconstrained fn static_call_public_function(
-        _self: &mut Self,
+        _self: Self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field],
@@ -381,7 +381,7 @@ impl PublicContext {
     /// # Advanced
     /// * The note hash will be siloed with the contract address by the protocol
     ///
-    pub fn push_note_hash(_self: &mut Self, note_hash: Field) {
+    pub fn push_note_hash(_self: Self, note_hash: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { emit_note_hash(note_hash) };
     }
@@ -406,7 +406,7 @@ impl PublicContext {
     /// * Automatically siloed with the contract address by the protocol
     /// * Used for preventing double-spending and ensuring one-time actions
     ///
-    pub fn push_nullifier(_self: &mut Self, nullifier: Field) {
+    pub fn push_nullifier(_self: Self, nullifier: Field) {
         // Safety: AVM opcodes are constrained by the AVM itself
         unsafe { emit_nullifier(nullifier) };
     }

@@ -26,38 +26,43 @@ use crate::{
 #[derive(Deserialize, Eq, Serialize)]
 pub struct SpongeBlob {
     pub sponge: Poseidon2Sponge,
-    pub fields: u32, // The number of fields absorbed so far. TODO: rename to `num_absorbed_fields`.
-    pub expected_fields: u32, // The hinted number of fields this sponge will absorb. TODO: rename to `num_expected_fields`.
+    // The number of fields absorbed so far.
+    pub num_absorbed_fields: u32,
+    // The hinted number of fields this sponge will absorb.
+    pub num_expected_fields: u32,
 }
 
 impl SpongeBlob {
-    pub fn new(expected_fields: u32) -> Self {
-        // New sponge is initialized with `expected_fields` * 2^64.
+    pub fn new(num_expected_fields: u32) -> Self {
+        // New sponge is initialized with `num_expected_fields` * 2^64.
         // (see noir/noir-repo/noir_stdlib/src/hash/poseidon2.nr -> hash_internal)
         Self {
-            sponge: Poseidon2Sponge::new((expected_fields as Field) * TWO_POW_64),
-            fields: 0,
-            expected_fields,
+            sponge: Poseidon2Sponge::new((num_expected_fields as Field) * TWO_POW_64),
+            num_absorbed_fields: 0,
+            num_expected_fields,
         }
     }
 
-    /// Add `in_len` fields to the sponge.
+    /// Initialize the sponge with the number of expected fields in the checkpoint and absorb it as the first field.
+    /// With the number of fields as the prefix, it allows the components outside the circuits to gather the right
+    /// amount of blobs and restore the correct amount of fields to reconstruct the protocol data.
+    pub fn init_for_checkpoint(num_expected_fields: u32) -> Self {
+        let mut sponge = Self::new(num_expected_fields);
+        sponge.absorb([num_expected_fields as Field], 1);
+        sponge
+    }
+
+    /// Absorb the first `in_len` fields of the `input` to the sponge. Fields beyond `in_len` are ignored.
     pub fn absorb<let N: u32>(&mut self, input: [Field; N], in_len: u32) {
-        // We omit the zero check here since for all use cases of this, we don't care about extra values being present in the input after the length.
-        // Even if non zero values are present in the input after the length, we only absorb up to in_len items.
-        self.sponge = crate::hash::poseidon2_absorb_in_chunks_existing_sponge(
-            self.sponge,
-            input,
-            in_len,
-            true,
-        );
-        self.fields += in_len;
+        self.sponge =
+            crate::hash::poseidon2_absorb_in_chunks_existing_sponge(self.sponge, input, in_len);
+        self.num_absorbed_fields += in_len;
     }
 
     /// Finalize the sponge and output poseidon2 hash of all fields absorbed.
     pub fn squeeze(&mut self) -> Field {
         // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
-        if self.fields != self.expected_fields {
+        if self.num_absorbed_fields != self.num_expected_fields {
             self.sponge.absorb(1);
         }
         self.sponge.squeeze()
@@ -66,13 +71,17 @@ impl SpongeBlob {
 
 impl Empty for SpongeBlob {
     fn empty() -> Self {
-        Self { sponge: Poseidon2Sponge::new(0), fields: 0, expected_fields: 0 }
+        Self { sponge: Poseidon2Sponge::new(0), num_absorbed_fields: 0, num_expected_fields: 0 }
     }
 }
 
 #[test]
 fn test_sponge_blob_serialization() {
-    let item = SpongeBlob { sponge: Poseidon2Sponge::new(123), fields: 456, expected_fields: 789 };
+    let item = SpongeBlob {
+        sponge: Poseidon2Sponge::new(123),
+        num_absorbed_fields: 456,
+        num_expected_fields: 789,
+    };
 
     // We use the SPONGE_BLOB_LENGTH constant to ensure that there is a match
     // between the derived trait implementation and the constant
@@ -89,7 +98,7 @@ unconstrained fn absorb() {
     spongeblob.absorb(input_3, input_3.len());
     // Assert that we have correctly absorbed the first 3 inputs
     assert(spongeblob.sponge.cache.eq(input_3));
-    assert(spongeblob.fields == input_3.len());
+    assert(spongeblob.num_absorbed_fields == input_3.len());
     // Absorb the next 4 in a new call...
     let input_4 = [4, 5, 6, 7];
     spongeblob.absorb(input_4, input_4.len());

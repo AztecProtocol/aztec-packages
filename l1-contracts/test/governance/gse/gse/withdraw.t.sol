@@ -247,7 +247,11 @@ contract WithdrawTest is WithGSE {
     _;
   }
 
-  function test_GivenBalanceMinusAmountLessThanejectionThreshold2(address _instance, address _attester, uint256 _amount)
+  function test_GivenBalanceMinusAmountLessThanejectionThreshold2(
+    address _instance,
+    address _attester,
+    uint256 _amount
+  )
     external
     whenCallerIsRegisteredRollup(_instance)
     givenAttesterFoundInCallerInstance(_instance, _attester)

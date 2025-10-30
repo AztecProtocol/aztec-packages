@@ -12,7 +12,7 @@ bb.js supports multiple proof systems:
 
 - **UltraHonk**: The current recommended proof system with various hash function options
 - **MegaHonk**: Alternative Honk implementation
-- **ClientIVC**: For Aztec-specific client-side proving
+- **Chonk**: For Aztec-specific client-side proving
 
 ## Installation
 

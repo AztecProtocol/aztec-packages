@@ -101,7 +101,8 @@ async function main() {
 
       const bbBinaryPath =
         prover === 'native'
-          ? resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb')
+          ? (process.env.BB_BINARY_PATH ??
+            resolve(dirname(fileURLToPath(import.meta.url)), '../../../../barretenberg/cpp/build/bin/bb'))
           : undefined;
       const bbWorkingDirectory = dataDir + '/bb';
       mkdirSync(bbWorkingDirectory, { recursive: true });

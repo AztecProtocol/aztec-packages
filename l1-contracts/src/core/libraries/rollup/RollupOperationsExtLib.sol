@@ -7,11 +7,15 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {BlobLib} from "./BlobLib.sol";
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
-  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
+  ProposeLib,
+  ProposeArgs,
+  CommitteeAttestations,
+  ValidateHeaderArgs,
+  ValidatorSelectionLib
 } from "./ProposeLib.sol";
 import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 

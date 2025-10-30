@@ -112,13 +112,13 @@ pub fn compute_public_bytecode_commitment(
     // Packed_bytecode's 0th entry is the length. Replace it with separator before hashing.
     let separator = GENERATOR_INDEX__PUBLIC_BYTECODE.to_field();
     packed_public_bytecode[0] = separator;
-    // +1 to length to account for the separator
-    let nonzero_length = bytecode_length_in_fields + 1;
 
-    poseidon2_hash_subarray(packed_public_bytecode, nonzero_length)
-    // NOTE: we use poseidon2_hash_subarray here because we want to hash the bytecode only up to
-    // its nonzero length. We do NOT want to include a `1` at the end to indicate "variable length",
-    // and we want to enforce that all trailing elements are zero.
+    // `fields_to_hash` is the number of fields from the start of `packed_public_bytecode` that should be included in
+    // the hash. Fields after this length are ignored.
+    // +1 to account for the separator.
+    let num_fields_to_hash = bytecode_length_in_fields + 1;
+
+    poseidon2_hash_subarray(packed_public_bytecode, num_fields_to_hash)
 }
 
 #[test]

@@ -586,7 +586,11 @@ library ValidatorSelectionLib {
    * @param _size The size of the committee
    * @return The index (0 to _size-1) of the committee member who should propose for this slot
    */
-  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size) internal pure returns (uint256) {
+  function computeProposerIndex(Epoch _epoch, Slot _slot, uint256 _seed, uint256 _size)
+    internal
+    pure
+    returns (uint256)
+  {
     return uint256(keccak256(abi.encode(_epoch, _slot, _seed))) % _size;
   }
 

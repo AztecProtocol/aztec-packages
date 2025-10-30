@@ -110,7 +110,8 @@ template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_wire_commit
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             {
                 BB_BENCH_NAME("COMMIT::databus");
-                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK);
+                bool is_unmasked_databus_commitment = label == "CALLDATA";
+                batch.add_to_batch(polynomial, label, /*mask?*/ Flavor::HasZK && !is_unmasked_databus_commitment);
             }
         }
     }

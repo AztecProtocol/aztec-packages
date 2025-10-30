@@ -45,23 +45,23 @@ contract StakingAssetHandlerBase is ZKPassportBase, TestBase {
     ACTIVATION_THRESHOLD = builder.getConfig().rollup.getActivationThreshold();
     staking = IStaking(address(builder.getConfig().rollup));
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: address(this),
-      stakingAsset: address(stakingAsset),
-      registry: registry,
-      withdrawer: WITHDRAWER,
-      mintInterval: mintInterval,
-      depositsPerMint: depositsPerMint,
-      depositMerkleRoot: depositMerkleRoot,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: new address[](0),
-      domain: CORRECT_DOMAIN,
-      scope: CORRECT_SCOPE,
-      skipBindCheck: true,
-      skipMerkleCheck: true,
-      validatorsToFlush: 48
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: address(this),
+        stakingAsset: address(stakingAsset),
+        registry: registry,
+        withdrawer: WITHDRAWER,
+        mintInterval: mintInterval,
+        depositsPerMint: depositsPerMint,
+        depositMerkleRoot: depositMerkleRoot,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: new address[](0),
+        domain: CORRECT_DOMAIN,
+        scope: CORRECT_SCOPE,
+        skipBindCheck: true,
+        skipMerkleCheck: true,
+        validatorsToFlush: 48
+      });
 
     stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
     vm.prank(stakingAsset.owner());

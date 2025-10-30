@@ -1,1 +1,0 @@
-barretenberg_module(client_ivc_bench client_ivc stdlib_honk_verifier stdlib_sha256 stdlib_primitives)

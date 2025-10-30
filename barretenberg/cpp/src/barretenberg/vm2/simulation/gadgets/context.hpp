@@ -123,7 +123,7 @@ class BaseContext : public ContextInterface {
     uint32_t get_checkpoint_id_at_creation() const override { return checkpoint_id_at_creation; }
 
     // Input / Output
-    std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
+    std::vector<MemoryValue> get_returndata(uint32_t rd_offset, uint32_t rd_copy_size) override;
 
   protected:
     HighLevelMerkleDBInterface& merkle_db;
@@ -197,8 +197,13 @@ class EnqueuedCallContext : public BaseContext {
                       retrieved_bytecodes_tree,
                       side_effect_states,
                       phase)
-        , calldata(calldata.begin(), calldata.end())
-    {}
+    {
+        this->calldata.resize(calldata.size());
+        std::ranges::transform(calldata.begin(),
+                               calldata.end(),
+                               this->calldata.begin(),
+                               [](const FF& value) -> MemoryValue { return MemoryValue::from<FF>(value); });
+    }
 
     uint32_t get_parent_id() const override { return 0; } // No parent context for the top-level context.
     bool has_parent() const override { return false; }
@@ -206,7 +211,7 @@ class EnqueuedCallContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
+    std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     Gas get_parent_gas_used() const override { return Gas{}; }
     Gas get_parent_gas_limit() const override { return Gas{}; }
@@ -215,7 +220,7 @@ class EnqueuedCallContext : public BaseContext {
     uint32_t get_parent_cd_size() const override { return static_cast<uint32_t>(calldata.size()); }
 
   private:
-    std::vector<FF> calldata;
+    std::vector<MemoryValue> calldata;
 };
 
 // Parameters for a nested call need to be changed
@@ -270,7 +275,7 @@ class NestedContext : public BaseContext {
     ContextEvent serialize_context_event() override;
 
     // Input / Output
-    std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
+    std::vector<MemoryValue> get_calldata(uint32_t cd_offset, uint32_t cd_copy_size) const override;
 
     MemoryAddress get_parent_cd_addr() const override { return parent_cd_addr; }
     uint32_t get_parent_cd_size() const override { return parent_cd_size; }

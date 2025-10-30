@@ -38,7 +38,13 @@ include "calldata_hashing.pil";
 // -----------+-----------+----------+------------+----------+----------+----------+-------------+-------+-------+------------+---------+---------------+
 //     0      |     1     |     2    |      1     |    sep   |   0x111  |   0x222  |  cd_hash_0  |   0   |   1   |     2      |    0    |       4       |
 //     3      |     4     |     5    |      1     |   0x333  |   0x444  |     0    |  cd_hash_0  |   1   |   0   |     1      |    1    |       4       |
-
+//
+// Usage:
+// sel {
+//     index /*starts at 1 (see NOTE below)*/, context_id, value
+// } in calldata.sel {
+//     calldata.index, calldata.context_id, calldata.value
+// };
 namespace calldata;
 
     #[skippable_if]

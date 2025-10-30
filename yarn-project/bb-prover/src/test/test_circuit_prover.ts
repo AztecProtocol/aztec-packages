@@ -73,8 +73,8 @@ import {
   type CheckpointRootRollupPrivateInputs,
   type CheckpointRootSingleBlockRollupPrivateInputs,
   type PrivateTxBaseRollupPrivateInputs,
-  type PublicTubePrivateInputs,
-  PublicTubePublicInputs,
+  type PublicChonkVerifierPrivateInputs,
+  PublicChonkVerifierPublicInputs,
   type PublicTxBaseRollupPrivateInputs,
   type RootRollupPrivateInputs,
   type RootRollupPublicInputs,
@@ -158,14 +158,16 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getPublicTubeProof(
-    inputs: PublicTubePrivateInputs,
-  ): Promise<PublicInputsAndRecursiveProof<PublicTubePublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
-    return this.applyDelay(ProvingRequestType.PUBLIC_TUBE, () =>
+  public getPublicChonkVerifierProof(
+    inputs: PublicChonkVerifierPrivateInputs,
+  ): Promise<
+    PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    return this.applyDelay(ProvingRequestType.PUBLIC_CHONK_VERIFIER, () =>
       makePublicInputsAndRecursiveProof(
-        new PublicTubePublicInputs(inputs.hidingKernelProofData.publicInputs, inputs.proverId),
+        new PublicChonkVerifierPublicInputs(inputs.hidingKernelProofData.publicInputs, inputs.proverId),
         makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
-        ProtocolCircuitVks.PublicTube,
+        ProtocolCircuitVks.PublicChonkVerifier,
       ),
     );
   }

@@ -247,7 +247,7 @@ In this case, all that the network sees (including Giggle) is just "something ha
 
 ### Updating Storage for Privacy
 
-For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../concepts/storage/notes.md). For now, let's just import the library in `Nargo.toml`:
+For something like balances, you can use a simple library called `easy_private_state` which abstracts away a custom private Note. A Note is at the core of how private state works in Aztec and you can read about it [here](../../foundational-topics/state_management.md). For now, let's just import the library in `Nargo.toml`:
 
 ```toml
 [dependencies]
@@ -420,5 +420,5 @@ The BOB token shows how blockchain can enable new models of corporate benefits t
 
 ### Continue Your Journey
 
-- Explore [cross-chain communication](../../concepts/communication/cross_chain_calls.md) to integrate with existing health systems
-- Learn about [account abstraction](../../concepts/accounts/index.md) for recovery mechanisms
+- Explore [cross-chain communication](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md) to integrate with existing health systems
+- Learn about [account abstraction](../../foundational-topics/accounts/index.md) for recovery mechanisms

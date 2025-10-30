@@ -4,7 +4,7 @@ use std::mem::zeroed;
 
 global storage_slot: Field = 7;
 
-fn in_public(context: &mut PublicContext) -> PublicMutable<MockStruct, &mut PublicContext> {
+fn in_public(context: PublicContext) -> PublicMutable<MockStruct, PublicContext> {
     PublicMutable::new(context, storage_slot)
 }
 

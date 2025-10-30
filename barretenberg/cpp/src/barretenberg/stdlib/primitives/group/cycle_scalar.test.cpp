@@ -244,7 +244,7 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     // Test case 1: BigScalarField with zero value
     {
         TypeParam builder;
-        BigScalarField zero_scalar = BigScalarField::from_witness(&builder, uint256_t(0));
+        BigScalarField zero_scalar = BigScalarField::from_witness(&builder, typename BigScalarField::native(0));
         cycle_scalar scalar(zero_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(0));
@@ -258,7 +258,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t small_value = uint256_t(0x12345678);
-        BigScalarField small_scalar = BigScalarField::from_witness(&builder, small_value);
+        BigScalarField small_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(small_value));
         cycle_scalar scalar(small_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(small_value));
@@ -272,7 +273,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t limb_boundary = uint256_t(1) << 68;
-        BigScalarField boundary_scalar = BigScalarField::from_witness(&builder, limb_boundary);
+        BigScalarField boundary_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(limb_boundary));
         cycle_scalar scalar(boundary_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb_boundary));
@@ -285,7 +287,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t limb0_full = (uint256_t(1) << 68) - 1; // Max value for limb0
-        BigScalarField limb0_full_scalar = BigScalarField::from_witness(&builder, limb0_full);
+        BigScalarField limb0_full_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(limb0_full));
         cycle_scalar scalar(limb0_full_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(limb0_full));
@@ -297,7 +300,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t val_136 = uint256_t(1) << 136; // limb0=0, limb1=0, limb2=1
-        BigScalarField val_136_scalar = BigScalarField::from_witness(&builder, val_136);
+        BigScalarField val_136_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(val_136));
         cycle_scalar scalar(val_136_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(val_136));
@@ -310,7 +314,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
     {
         TypeParam builder;
         uint256_t special_value = (uint256_t(1) << 136) + 0x42;
-        BigScalarField special_scalar = BigScalarField::from_witness(&builder, special_value);
+        BigScalarField special_scalar =
+            BigScalarField::from_witness(&builder, typename BigScalarField::native(special_value));
         cycle_scalar scalar(special_scalar);
 
         EXPECT_EQ(scalar.get_value(), ScalarField(special_value));
@@ -326,8 +331,8 @@ TYPED_TEST(CycleScalarTest, TestBigScalarFieldConstructorEdgeCases)
         uint256_t val1 = (uint256_t(1) << 67) - 1; // Almost full first limb
         uint256_t val2 = (uint256_t(1) << 67) - 1; // Another almost full first limb
 
-        BigScalarField scalar1 = BigScalarField::from_witness(&builder, val1);
-        BigScalarField scalar2 = BigScalarField::from_witness(&builder, val2);
+        BigScalarField scalar1 = BigScalarField::from_witness(&builder, typename BigScalarField::native(val1));
+        BigScalarField scalar2 = BigScalarField::from_witness(&builder, typename BigScalarField::native(val2));
 
         // Add them together - this will make limb0.maximum_value = 2 * ((2^67) - 1) > 2^68 - 1
         BigScalarField sum = scalar1 + scalar2;

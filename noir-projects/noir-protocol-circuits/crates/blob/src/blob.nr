@@ -319,7 +319,7 @@ mod tests {
     // Note: the kzg_commitment is technically a BLS12-381 point in (Fq, Fq), but
     // we don't actually need to operate on it so we've simply encoded it as fitting inside a
     // [Field; 2], since two 254-bit fields more-than covers 381+1=382 bits.
-    // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields() for encoding
+    // See yarn-project/blob-lib/src/blob.ts -> commitmentToFields() for encoding
     #[derive(Eq)]
     pub struct TestBlobEvaluationOutputs {
         pub z: Field,
@@ -384,58 +384,52 @@ mod tests {
         assert_eq(lhs, rhs);
     }
 
-    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate a blob of 400 items'
     #[test]
     unconstrained fn test_400() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let mut blob_fields = [0; FIELDS_PER_BLOB];
         for i in 0..400 {
-            blob[i] = 3;
+            blob_fields[i] = 3;
         }
         let mut sponge_blob = SpongeBlob::new(400);
-        sponge_blob.absorb(blob, 400);
+        sponge_blob.absorb(blob_fields, 400);
 
-        let kzg_commitment_in = [
+        let hashed_blob = sponge_blob.squeeze();
+
+        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob.test.ts
+        let kzg_commitment_blob_400_from_ts = [
             0x00b2803d5fe972914ba3616033e2748bbaa6dbcddefc3721a54895a7a45e7750,
             0x0000000000000000000000000000004dd1a971c7e8d8292be943d05bccebcfea,
         ];
+        let y_limbs_blob_400_from_ts =
+            [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c];
 
-        let hashed_blob = sponge_blob.squeeze();
-        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let output = evaluate_blob(blob_fields, kzg_commitment_blob_400_from_ts, hashed_blob);
 
-        // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y = BLS12_381_Fr::from_limbs([
-            0xdde7b57ab99b51e4b06e7d827b6c4c,
-            0x4f0c0ee5e7dd037110686a4639d191,
-            0x212c,
-        ]);
-        assert(expected_y == output.y);
+        assert_eq(output.y, BLS12_381_Fr::from_limbs(y_limbs_blob_400_from_ts));
     }
 
-    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob.test.ts -> 'should evaluate full blob'
     #[test]
     unconstrained fn test_full_blob() {
-        let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
+        let mut blob_fields = [0; FIELDS_PER_BLOB];
         for i in 0..FIELDS_PER_BLOB {
-            blob[i] = i as Field + 2;
+            blob_fields[i] = i as Field + 2;
         }
         let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB);
-        sponge_blob.absorb(blob, FIELDS_PER_BLOB);
+        sponge_blob.absorb(blob_fields, FIELDS_PER_BLOB);
 
-        let kzg_commitment_in = [
+        let hashed_blob = sponge_blob.squeeze();
+
+        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob.test.ts
+        let kzg_commitment_blob_full_from_ts = [
             0x00ac771dea41e29fc2b7016c32731602c0812548ba0f491864a4e03fdb94b8d3,
             0x000000000000000000000000000000d195faad1967cdf005acf73088b0e8474a,
         ];
+        let y_limbs_blob_full_from_ts =
+            [0xecc38f478ced014b6ae860502a1b1c, 0x494e66a289c4509ecf97af4ff92aa7, 0x0365];
 
-        let hashed_blob = sponge_blob.squeeze();
-        let output = evaluate_blob(blob, kzg_commitment_in, hashed_blob);
+        let output = evaluate_blob(blob_fields, kzg_commitment_blob_full_from_ts, hashed_blob);
 
-        // y is a BLS field with value 0x0365494e66a289c4509ecf97af4ff92aa7ecc38f478ced014b6ae860502a1b1c
-        let expected_y = BLS12_381_Fr::from_limbs([
-            0xecc38f478ced014b6ae860502a1b1c,
-            0x494e66a289c4509ecf97af4ff92aa7,
-            0x0365,
-        ]);
-        assert(expected_y == output.y);
+        assert_eq(output.y, BLS12_381_Fr::from_limbs(y_limbs_blob_full_from_ts));
     }
 
     #[test]

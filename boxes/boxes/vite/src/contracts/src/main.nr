@@ -18,11 +18,10 @@ contract BoxReact {
     #[external("private")]
     #[initializer]
     fn constructor(number: Field, owner: AztecAddress) {
-        let numbers = storage.numbers;
+        let numbers = self.storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
         numbers.at(owner).initialize(new_number).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -30,14 +29,13 @@ contract BoxReact {
 
     #[external("private")]
     fn setNumber(number: Field, owner: AztecAddress) {
-        let numbers = storage.numbers;
+        let numbers = self.storage.numbers;
 
 
     numbers.at(owner)
         .replace(|_old| {
             ValueNote::new(number, owner)
         }).emit(
-            &mut context,
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -45,7 +43,7 @@ contract BoxReact {
 
     #[external("utility")]
     unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
-        let numbers = storage.numbers;
+        let numbers = self.storage.numbers;
         numbers.at(owner).view_note()
     }
 }

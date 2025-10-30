@@ -27,6 +27,7 @@ static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
  * multiple sets of pairing points.
  *
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1421): Proper tests for `PairingPoints`
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
 template <typename Builder_> struct PairingPoints {
@@ -39,6 +40,7 @@ template <typename Builder_> struct PairingPoints {
     Group P1;
 
     bool has_data = false;
+    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
@@ -49,7 +51,13 @@ template <typename Builder_> struct PairingPoints {
         : P0(P0)
         , P1(P1)
         , has_data(true)
-    {}
+    {
+        // Get the builder from the group elements and assign a new tag
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
+        }
+    }
 
     PairingPoints(std::array<Group, 2> const& points)
         : PairingPoints(points[0], points[1])
@@ -58,14 +66,62 @@ template <typename Builder_> struct PairingPoints {
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
     /**
+     * @brief Aggregate multiple PairingPoints
+     *
+     * @details The pairing points are aggregated using challenges generated as the consecutive hashes of the pairing
+     * points being aggregated.
+     */
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
+    {
+        size_t num_points = pairing_points.size();
+        BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
+
+        std::vector<Group> first_components;
+        first_components.reserve(num_points);
+        std::vector<Group> second_components;
+        second_components.reserve(num_points);
+        for (const auto& points : pairing_points) {
+            first_components.emplace_back(points.P0);
+            second_components.emplace_back(points.P1);
+        }
+
+        // Fiat-Shamir
+        StdlibTranscript<Builder> transcript{};
+        std::vector<std::string> labels;
+        labels.reserve(num_points);
+        for (size_t idx = 0; auto [first, second] : zip_view(first_components, second_components)) {
+            transcript.add_to_hash_buffer("first_component_" + std::to_string(idx), first);
+            transcript.add_to_hash_buffer("second_component_" + std::to_string(idx), second);
+            labels.emplace_back("pp_aggregation_challenge_" + std::to_string(idx));
+            idx++;
+        }
+
+        std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
+
+        // Batch mul
+        auto P0 = Group::batch_mul(first_components, challenges);
+        auto P1 = Group::batch_mul(second_components, challenges);
+
+        PairingPoints aggregated_points(P0, P1);
+
+        // Merge tags
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+            }
+        }
+
+        return aggregated_points;
+    }
+
+    /**
      * @brief Compute a linear combination of the present pairing points with an input set of pairing points
      * @details The linear combination is done with a recursion separator that is the hash of the two sets of pairing
      * points.
      * @param other
      * @param recursion_separator
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1376): Potentially switch a batch_mul approach to
-    // aggregation rather than individually aggregating 1 object at a time.
     void aggregate(PairingPoints const& other)
     {
         BB_ASSERT(other.has_data, "Cannot aggregate null pairing points.");
@@ -78,7 +134,6 @@ template <typename Builder_> struct PairingPoints {
         // We use a Transcript because it provides us an easy way to hash to get a "random" separator.
         StdlibTranscript<Builder> transcript{};
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1375): Sometimes unnecesarily hashing constants
-
         transcript.add_to_hash_buffer("Accumulator_P0", P0);
         transcript.add_to_hash_buffer("Accumulator_P1", P1);
         transcript.add_to_hash_buffer("Aggregated_P0", other.P0);
@@ -96,6 +151,12 @@ template <typename Builder_> struct PairingPoints {
             P0 += point_to_aggregate;
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
             P1 += point_to_aggregate;
+        }
+
+        // Merge the tags in the builder
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
     }
 
@@ -191,29 +252,12 @@ template <typename Builder_> struct PairingPoints {
     }
 };
 
-template <typename Builder> void read(uint8_t const*& it, PairingPoints<Builder>& as)
-{
-    using serialize::read;
-
-    read(it, as.P0);
-    read(it, as.P1);
-    read(it, as.has_data);
-};
-
-template <typename Builder> void write(std::vector<uint8_t>& buf, PairingPoints<Builder> const& as)
-{
-    using serialize::write;
-
-    write(buf, as.P0);
-    write(buf, as.P1);
-    write(buf, as.has_data);
-};
-
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
               << "P1: " << as.P1 << "\n"
-              << "has_data: " << as.has_data << "\n";
+              << "has_data: " << as.has_data << "\n"
+              << "tag_index: " << as.tag_index << "\n";
 }
 
 } // namespace bb::stdlib::recursion

@@ -222,7 +222,7 @@ global NOTE_COMPLETION_LOG_LENGTH: u32 = 2;
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
-    pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, value: u128) {
+    pub fn complete(self, context: PublicContext, completer: AztecAddress, value: u128) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
