@@ -159,8 +159,18 @@ spec:
               value: "{{ .Values.proverNode.failedEpochStore }}"
             - name: L1_CHAIN_ID
               value: "{{ .Values.ethereum.chainId }}"
+            {{- if .Values.proverNode.l1FixedPriorityFeePerGas }}
             - name: L1_FIXED_PRIORITY_FEE_PER_GAS
               value: {{ .Values.proverNode.l1FixedPriorityFeePerGas | quote }}
+            {{- end }}
+            {{- if .Values.proverNode.l1PriorityFeeBumpPercentage }}
+            - name: L1_PRIORITY_FEE_BUMP_PERCENTAGE
+              value: {{ .Values.proverNode.l1PriorityFeeBumpPercentage | quote }}
+            {{- end }}
+            {{- if .Values.proverNode.l1PriorityFeeRetryBumpPercentage }}
+            - name: L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
+              value: {{ .Values.proverNode.l1PriorityFeeRetryBumpPercentage | quote }}
+            {{- end }}
             - name: L1_GAS_LIMIT_BUFFER_PERCENTAGE
               value: {{ .Values.proverNode.l1GasLimitBufferPercentage | quote }}
             - name: L1_GAS_PRICE_MAX
