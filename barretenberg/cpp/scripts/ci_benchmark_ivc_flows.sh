@@ -54,9 +54,9 @@ function run_bb_cli_bench {
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
-    # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" || {
-      echo "bb wasm failed with args: $@"
+    # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   fi
@@ -106,19 +106,20 @@ export -f verify_ivc_flow run_bb_cli_bench
 
 chonk_flow $1 $2
 
-# Upload benchmark breakdown (op counts and timings) to disk if running in CI and it's a native build
-if [[ "${CI:-}" == "1" ]] && [[ "$1" == "native" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+# Upload benchmark breakdown (op counts and timings) to disk if running in CI
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
   echo_header "Uploading Barretenberg benchmark breakdowns"
 
+  runtime="$1"
   flow_name="$(basename $2)"
-  benchmark_breakdown_file="bench-out/app-proving/$flow_name/native/benchmark_breakdown.json"
+  benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
 
   if [[ -f "$benchmark_breakdown_file" ]]; then
     current_sha=$(git rev-parse HEAD)
 
-    # Create cache key: bench-bb-breakdown-<flow_name>-<sha>
-    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<flow_name>-<sha>
-    cache_key="bench-bb-breakdown-${flow_name}-${current_sha}"
+    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
 
     # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
     {
