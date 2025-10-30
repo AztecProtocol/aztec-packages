@@ -67,16 +67,13 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     // Receive shift size from prover
     // For native: shift_size is uint32_t
     // For stdlib: shift_size is FF (we'll get the value later)
-    uint32_t shift_size_value;
-    FF shift_size_ff;
+    const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
+    ;
     if constexpr (IsRecursive) {
-        shift_size_ff = transcript->template receive_from_prover<FF>("shift_size");
-        shift_size_value = uint32_t(shift_size_ff.get_value());
-        BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
+        BB_ASSERT_GT(uint32_t(shift_size.get_value()), 0U, "Shift size should always be bigger than 0");
     } else {
-        shift_size_value = transcript->template receive_from_prover<uint32_t>("shift_size");
-        shift_size_ff = FF(shift_size_value);
-        BB_ASSERT_GT(shift_size_value, 0U, "Shift size should always be bigger than 0");
+
+        BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
     }
 
     // Vector of commitments to be passed to the Shplonk verifier
@@ -107,7 +104,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    FF pow_kappa = kappa.pow(shift_size_ff);
+    FF pow_kappa = kappa.pow(shift_size);
     FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
@@ -158,8 +155,14 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
 
         // Degree identity check
         if constexpr (IsRecursive) {
-            // In recursive case, constrain the equality in-circuit
-            left_table_reversed_eval.assert_equal(left_table_eval_kappa_inv * pow_kappa_minus_one);
+            // For debugging purposes
+            degree_check_verified &= (left_table_reversed_eval.get_value() ==
+                                      (left_table_eval_kappa_inv.get_value() * pow_kappa_minus_one.get_value()));
+
+            // Constrain the equality in-circuit
+            left_table_reversed_eval.assert_equal(left_table_eval_kappa_inv * pow_kappa_minus_one,
+                                                  "Merge Verifier: degree check identity failed");
+
         } else {
             // In native case, track as a boolean
             FF expected = left_table_eval_kappa_inv * pow_kappa_minus_one;
