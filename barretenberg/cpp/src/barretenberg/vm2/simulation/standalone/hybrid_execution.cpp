@@ -6,10 +6,11 @@ namespace bb::avm2::simulation {
 
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
-ExecutionResult HybridExecution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
+EnqueuedCallResult HybridExecution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("HybridExecution::execute");
     external_call_stack.push(std::move(enqueued_call_context));
+    std::vector<FF> enqueued_call_output;
 
     while (!external_call_stack.empty()) {
         // We fix the context at this point. Even if the opcode changes the stack
@@ -80,11 +81,43 @@ ExecutionResult HybridExecution::execute(std::unique_ptr<ContextInterface> enque
         // If the context has halted, we need to exit the external call.
         // The external call stack is expected to be popped.
         if (context.halted()) {
+            // If this is the top-level enqueued call (only one context left), capture the return data
+            // before the context and its memory are destroyed by handle_exit_call.
+            // NOTE: Simulation for witgen does not attempt to do this.
+            if (external_call_stack.size() == 1) {
+                enqueued_call_output = extract_return_data(context);
+            }
             handle_exit_call();
         }
     }
 
-    return get_execution_result();
+    ExecutionResult result = get_execution_result();
+    return {
+        .success = result.success,
+        .gas_used = result.gas_used,
+        .output = std::move(enqueued_call_output),
+        .side_effect_states = result.side_effect_states,
+    };
+}
+
+// TODO: this is a DOS vector if the return data is large. This is also a problem in TS.
+std::vector<FF> HybridExecution::extract_return_data(ContextInterface& context)
+{
+    auto& memory = context.get_memory();
+    const auto& result = get_execution_result();
+    std::vector<FF> output;
+
+    try {
+        output.reserve(result.rd_size);
+        // TODO: perform checks.
+        for (uint32_t addr = result.rd_offset; addr < result.rd_offset + result.rd_size; addr++) {
+            output.push_back(memory.get(addr).as_ff());
+        }
+        return output;
+    } catch (const std::exception& e) {
+        vinfo("HybridExecution::extract_return_data: error extracting return data: ", e.what());
+        return {};
+    }
 }
 
 } // namespace bb::avm2::simulation
