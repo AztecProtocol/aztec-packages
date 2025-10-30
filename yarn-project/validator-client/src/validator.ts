@@ -295,24 +295,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     if (!validationResult.isValid) {
       this.log.warn(`Proposal validation failed: ${validationResult.reason}`, proposalInfo);
 
-      // Only track attestation failure metrics if we're actually in the committee
-      if (partOfCommittee) {
-        const reason = validationResult.reason || 'unknown';
-        // Classify failure reason: bad proposal vs node issue
-        const badProposalReasons: BlockProposalValidationFailureReason[] = [
-          'invalid_proposal',
-          'state_mismatch',
-          'failed_txs',
-          'in_hash_mismatch',
-          'parent_block_wrong_slot',
-        ];
+      const reason = validationResult.reason || 'unknown';
+      // Classify failure reason: bad proposal vs node issue
+      const badProposalReasons: BlockProposalValidationFailureReason[] = [
+        'invalid_proposal',
+        'state_mismatch',
+        'failed_txs',
+        'in_hash_mismatch',
+        'parent_block_wrong_slot',
+      ];
 
-        if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
-          this.metrics.incFailedAttestationsBadProposal(1, reason);
-        } else {
-          // Node issues: parent_block_not_found, block_number_already_exists, txs_not_available, timeout, unknown_error
-          this.metrics.incFailedAttestationsNodeIssue(1, reason);
-        }
+      if (badProposalReasons.includes(reason as BlockProposalValidationFailureReason)) {
+        this.metrics.incFailedAttestationsBadProposal(1, reason, partOfCommittee);
+      } else {
+        // Node issues so we can't attest
+        this.metrics.incFailedAttestationsNodeIssue(1, reason, partOfCommittee);
       }
 
       // Slash invalid block proposals (can happen even when not in committee)
