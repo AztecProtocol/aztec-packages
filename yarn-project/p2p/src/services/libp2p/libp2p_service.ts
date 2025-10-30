@@ -107,6 +107,11 @@ interface ValidationResult {
 
 type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 
+// REFACTOR: Unify with the type above
+type ReceivedMessageValidationResult<T> =
+  | { obj: T; result: Exclude<TopicValidatorResult, TopicValidatorResult.Reject> }
+  | { obj?: undefined; result: TopicValidatorResult.Reject };
+
 /**
  * Lib P2P implementation of the P2PService interface.
  */
@@ -615,6 +620,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     return result.recipients.length;
   }
 
+  /**
+   * Checks if this message has already been seen, based on its msgId computed from hashing the message data.
+   * Note that we do not rely on the seenCache from gossipsub since we want to keep a longer history of seen
+   * messages to avoid tx echoes across the network.
+   */
   protected preValidateReceivedMessage(
     msg: Message,
     msgId: string,
@@ -678,42 +688,57 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
   }
 
   protected async validateReceivedMessage<T>(
-    validationFunc: () => Promise<{ result: boolean; obj: T }>,
+    validationFunc: () => Promise<ReceivedMessageValidationResult<T>>,
     msgId: string,
     source: PeerId,
     topicType: TopicType,
-  ): Promise<{ result: boolean; obj: T | undefined }> {
-    let resultAndObj: { result: boolean; obj: T | undefined } = { result: false, obj: undefined };
+  ): Promise<ReceivedMessageValidationResult<T>> {
+    let resultAndObj: ReceivedMessageValidationResult<T> = { result: TopicValidatorResult.Reject };
     const timer = new Timer();
     try {
       resultAndObj = await validationFunc();
     } catch (err) {
-      this.logger.error(`Error deserializing and validating message `, err);
+      this.logger.error(`Error deserializing and validating gossipsub message`, err, {
+        msgId,
+        source: source.toString(),
+        topicType,
+      });
     }
 
-    if (resultAndObj.result) {
+    if (resultAndObj.result === TopicValidatorResult.Accept) {
       this.instrumentation.recordMessageValidation(topicType, timer);
     }
 
-    this.node.services.pubsub.reportMessageValidationResult(
-      msgId,
-      source.toString(),
-      resultAndObj.result && resultAndObj.obj ? TopicValidatorResult.Accept : TopicValidatorResult.Reject,
-    );
+    this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), resultAndObj.result);
     return resultAndObj;
   }
 
   protected async handleGossipedTx(payloadData: Buffer, msgId: string, source: PeerId) {
-    const validationFunc = async () => {
+    const validationFunc: () => Promise<ReceivedMessageValidationResult<Tx>> = async () => {
       const tx = Tx.fromBuffer(payloadData);
-      const result = await this.validatePropagatedTx(tx, source);
-      return { result, obj: tx };
+      const isValid = await this.validatePropagatedTx(tx, source);
+      const exists = isValid && (await this.mempools.txPool.hasTx(tx.getTxHash()));
+
+      this.logger.trace(`Validate propagated tx`, {
+        isValid,
+        exists,
+        [Attributes.P2P_ID]: source.toString(),
+      });
+
+      if (!isValid) {
+        return { result: TopicValidatorResult.Reject };
+      } else if (exists) {
+        return { result: TopicValidatorResult.Ignore, obj: tx };
+      } else {
+        return { result: TopicValidatorResult.Accept, obj: tx };
+      }
     };
 
     const { result, obj: tx } = await this.validateReceivedMessage<Tx>(validationFunc, msgId, source, TopicType.tx);
-    if (!result || !tx) {
+    if (result !== TopicValidatorResult.Accept || !tx) {
       return;
     }
+
     const txHash = tx.getTxHash();
     const txHashString = txHash.toString();
     this.logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()} via gossip`, {
@@ -722,7 +747,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     });
 
     if (this.config.dropTransactions && randomInt(1000) < this.config.dropTransactionsProbability * 1000) {
-      this.logger.debug(`Intentionally dropping tx ${txHashString} (probability rule)`);
+      this.logger.warn(`Intentionally dropping tx ${txHashString} (probability rule)`);
       return;
     }
 
@@ -736,14 +761,25 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
    * @param attestation - The attestation to process.
    */
   private async processAttestationFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
-    const validationFunc = async () => {
+    const validationFunc: () => Promise<ReceivedMessageValidationResult<BlockAttestation>> = async () => {
       const attestation = BlockAttestation.fromBuffer(payloadData);
-      const result = await this.validateAttestation(source, attestation);
-      this.logger.trace(`validatePropagatedAttestation: ${result}`, {
+      const isValid = await this.validateAttestation(source, attestation);
+      const exists = isValid && (await this.mempools.attestationPool!.hasAttestation(attestation));
+
+      this.logger.trace(`Validate propagated block attestation`, {
+        isValid,
+        exists,
         [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
-      return { result, obj: attestation };
+
+      if (!isValid) {
+        return { result: TopicValidatorResult.Reject };
+      } else if (exists) {
+        return { result: TopicValidatorResult.Ignore, obj: attestation };
+      } else {
+        return { result: TopicValidatorResult.Accept, obj: attestation };
+      }
     };
 
     const { result, obj: attestation } = await this.validateReceivedMessage<BlockAttestation>(
@@ -752,9 +788,11 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       source,
       TopicType.block_attestation,
     );
-    if (!result || !attestation) {
+
+    if (result !== TopicValidatorResult.Accept || !attestation) {
       return;
     }
+
     this.logger.debug(
       `Received attestation for slot ${attestation.slotNumber.toNumber()} from external peer ${source.toString()}`,
       {
@@ -764,18 +802,30 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
         source: source.toString(),
       },
     );
+
     await this.mempools.attestationPool!.addAttestations([attestation]);
   }
 
   private async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
-    const validationFunc = async () => {
+    const validationFunc: () => Promise<ReceivedMessageValidationResult<BlockProposal>> = async () => {
       const block = BlockProposal.fromBuffer(payloadData);
-      const result = await this.validateBlockProposal(source, block);
-      this.logger.trace(`validatePropagatedBlock: ${result}`, {
+      const isValid = await this.validateBlockProposal(source, block);
+      const exists = isValid && (await this.mempools.attestationPool!.hasBlockProposal(block));
+
+      this.logger.trace(`Validate propagated block proposal`, {
+        isValid,
+        exists,
         [Attributes.SLOT_NUMBER]: block.payload.header.slotNumber.toString(),
         [Attributes.P2P_ID]: source.toString(),
       });
-      return { result, obj: block };
+
+      if (!isValid) {
+        return { result: TopicValidatorResult.Reject };
+      } else if (exists) {
+        return { result: TopicValidatorResult.Ignore, obj: block };
+      } else {
+        return { result: TopicValidatorResult.Accept, obj: block };
+      }
     };
 
     const { result, obj: block } = await this.validateReceivedMessage<BlockProposal>(
@@ -784,6 +834,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
       source,
       TopicType.block_proposal,
     );
+
     if (!result || !block) {
       return;
     }

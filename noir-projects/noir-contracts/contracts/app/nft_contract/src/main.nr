@@ -241,8 +241,8 @@ pub contract NFT {
         from_and_completer: AztecAddress,
         token_id: Field,
         partial_note: PartialNFTNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         let public_owners_storage = storage.public_owners.at(token_id);
         assert(public_owners_storage.read().eq(from_and_completer), "invalid NFT owner");

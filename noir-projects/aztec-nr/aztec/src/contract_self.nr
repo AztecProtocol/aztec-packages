@@ -40,7 +40,7 @@ use protocol_types::{
 ///
 /// # Type Parameters
 ///
-/// - `Context`: The execution context type - either `&mut PrivateContext`, `&mut PublicContext`, or `UtilityContext`
+/// - `Context`: The execution context type - either `&mut PrivateContext`, `PublicContext`, or `UtilityContext`
 /// - `Storage`: The contract's storage struct (defined with `#[storage]`), or `()` if the contract has no storage
 pub struct ContractSelf<Context, Storage> {
     /// The address of this contract
@@ -133,7 +133,7 @@ impl<Storage> ContractSelf<&mut PrivateContext, Storage> {
 /// This implementation is used when a contract function is marked with `#[external("public")]`.
 /// Public functions are executed by the sequencer in the Aztec Virtual Machine (AVM) and can work only with public
 /// state.
-impl<Storage> ContractSelf<&mut PublicContext, Storage> {
+impl<Storage> ContractSelf<PublicContext, Storage> {
     /// Creates a new `ContractSelf` instance for a public function.
     ///
     /// This constructor is called automatically by the macro system and should not be called directly.
@@ -141,7 +141,7 @@ impl<Storage> ContractSelf<&mut PublicContext, Storage> {
     /// # Parameters
     /// - `context`: A mutable reference to the public execution context
     /// - `storage`: The contract's storage instance
-    pub fn new_public(context: &mut PublicContext, storage: Storage) -> Self {
+    pub fn new_public(context: PublicContext, storage: Storage) -> Self {
         Self { context, storage, address: context.this_address() }
     }
 

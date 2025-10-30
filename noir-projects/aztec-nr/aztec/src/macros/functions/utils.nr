@@ -208,7 +208,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
 
     let storage_init = if module_has_storage {
         quote {
-            let storage = Storage::init(&mut context);
+            let storage = Storage::init(context);
         }
     } else {
         // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelf requires a
@@ -223,13 +223,13 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = {
-            let mut context = dep::aztec::context::public_context::PublicContext::new(|| {
+            let context = dep::aztec::context::public_context::PublicContext::new(|| {
             // We start from 1 because we skip the selector for the dispatch function.
             let serialized_args : [Field; $args_len_quote] = dep::aztec::context::public_context::calldata_copy(1, $args_len_quote);
             dep::aztec::hash::hash_args_array(serialized_args)
             });
             $storage_init
-            aztec::contract_self::ContractSelf::new_public(&mut context, storage)
+            aztec::contract_self::ContractSelf::new_public(context, storage)
         };
     };
 
@@ -253,7 +253,7 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
 
     let (assert_initializer, mark_as_initialized) = if is_fn_initializer(f) {
         (
-            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(*self.context); },
+            quote { aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(self.context); },
             quote { aztec::macros::functions::initialization_utils::mark_as_initialized_public(self.context); },
         )
     } else {
