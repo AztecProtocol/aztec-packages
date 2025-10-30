@@ -41,23 +41,6 @@ function inject_version {
   printf "$version\0" | dd of=$binary bs=1 seek=$offset conv=notrunc 2>/dev/null
 }
 
-function ensure_ldid {
-  if command -v ldid &>/dev/null; then
-    return
-  fi
-  local arch=$(uname -m)
-  local version=v2.1.5-procursus7
-  local bin_path=/opt/ldid-${version}
-  export PATH="$bin_path:$PATH"
-  if [ -f $bin_path/ldid ]; then
-    return
-  fi
-  echo "Installing ldid $version..."
-  sudo mkdir -p $bin_path
-  sudo curl -sL https://github.com/ProcursusTeam/ldid/releases/download/${version}/ldid_linux_${arch} -o $bin_path/ldid
-  sudo chmod +x $bin_path/ldid
-}
-
 # Define build commands for each preset
 function build_preset() {
   local preset=$1
@@ -217,7 +200,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification inject_version
 
 function build {
   echo_header "bb cpp build"
