@@ -284,15 +284,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       isPendingChainValid: pick(syncedTo.pendingChainValidationStatus, 'valid', 'reason', 'invalidIndex'),
     };
 
-    // Check that the slot is not taken by a block already (should never happen, since only us can propose for this slot)
-    if (syncedTo.block && syncedTo.block.header.getSlot() >= slot) {
-      this.log.warn(
-        `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
-        { ...syncLogData, block: syncedTo.block.header.toInspect() },
-      );
-      return;
-    }
-
     // Check that we are a proposer for the next slot
     this.setState(SequencerState.PROPOSER_CHECK, slot);
     const [canPropose, proposer] = await this.checkCanPropose(slot);
@@ -300,6 +291,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // If we are not a proposer, check if we should invalidate a invalid block, and bail
     if (!canPropose) {
       await this.considerInvalidatingBlock(syncedTo, slot);
+      return;
+    }
+
+    // Check that the slot is not taken by a block already (should never happen, since only us can propose for this slot)
+    if (syncedTo.block && syncedTo.block.header.getSlot() >= slot) {
+      this.log.warn(
+        `Cannot propose block at next L2 slot ${slot} since that slot was taken by block ${syncedTo.blockNumber}`,
+        { ...syncLogData, block: syncedTo.block.header.toInspect() },
+      );
       return;
     }
 

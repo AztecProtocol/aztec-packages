@@ -113,7 +113,7 @@ impl<T, Context> PublicImmutable<T, Context> {
     }
 }
 
-impl<T> PublicImmutable<T, &mut PublicContext> {
+impl<T> PublicImmutable<T, PublicContext> {
     /// Initializes a PublicImmutable state variable instance with a permanent value.
     ///
     /// This function sets the immutable value for this state variable. It can only
@@ -171,7 +171,7 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
         T: Packable + Eq,
     {
         assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
-        WithHash::public_storage_read(*self.context, self.storage_slot)
+        WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
     /// Reads the value stored in this PublicImmutable without checking if the value
@@ -193,7 +193,7 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     where
         T: Packable + Eq,
     {
-        WithHash::public_storage_read(*self.context, self.storage_slot)
+        WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
     fn is_initialized(self) -> bool {

@@ -24,46 +24,49 @@ contract Updatable {
     #[initializer]
     #[external("private")]
     fn initialize(initial_value: Field) {
-        let owner = context.msg_sender().unwrap();
+        let owner = self.msg_sender().unwrap();
         let new_value = ValueNote::new(initial_value, owner);
-        storage.private_value.initialize(new_value).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
-        Updatable::at(context.this_address()).set_public_value(initial_value).enqueue(&mut context);
+        self.storage.private_value.initialize(new_value).emit(
+            owner,
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
+        Updatable::at(self.address).set_public_value(initial_value).enqueue(self.context);
     }
 
     #[external("public")]
     fn set_public_value(new_value: Field) {
-        storage.public_value.write(new_value);
+        self.storage.public_value.write(new_value);
     }
 
     #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .update(new_class_id)
-            .enqueue(&mut context);
+            .enqueue(self.context);
     }
 
     #[external("private")]
     fn set_update_delay(new_delay: u64) {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .set_update_delay(new_delay)
-            .enqueue(&mut context);
+            .enqueue(self.context);
     }
 
     #[external("public")]
     fn get_update_delay() -> u64 {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
-            .view(&mut context)
+            .view(self.context)
     }
 
     #[external("utility")]
     unconstrained fn get_private_value() -> Field {
-        storage.private_value.view_note().value()
+        self.storage.private_value.view_note().value()
     }
 
     #[external("utility")]
     unconstrained fn get_public_value() -> Field {
-        storage.public_value.read()
+        self.storage.public_value.read()
     }
 
 }

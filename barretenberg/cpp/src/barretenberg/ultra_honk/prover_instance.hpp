@@ -134,6 +134,19 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         BB_BENCH_NAME("ProverInstance(Circuit&)");
         vinfo("Constructing ProverInstance");
         auto start = std::chrono::steady_clock::now();
+
+        // Check pairing point tagging: either no pairing points were created,
+        // or all pairing points have been aggregated into a single equivalence class
+        BB_ASSERT(circuit.pairing_points_tagging.has_single_pairing_point_tag(),
+                  "Pairing points must all be aggregated together. Either no pairing points should be created, or "
+                  "all created pairing points must be aggregated into a single pairing point. Found ",
+                  circuit.pairing_points_tagging.num_unique_pairing_points(),
+                  " different pairing points.");
+        // Check pairing point tagging: check that the pairing points have been set to public
+        BB_ASSERT(circuit.pairing_points_tagging.has_public_pairing_points() ||
+                      !circuit.pairing_points_tagging.has_pairing_points(),
+                  "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
+
         // Decider proving keys can be constructed multiple times, hence, we check whether the circuit has been
         // finalized
         if (!circuit.circuit_finalized) {

@@ -224,7 +224,7 @@ template <typename Builder> class GateCounter {
         if (!collect_gates_per_opcode) {
             return 0;
         }
-        size_t new_gate_count = builder->get_estimated_num_finalized_gates();
+        size_t new_gate_count = builder->get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false);
         size_t diff = new_gate_count - prev_gate_count;
         prev_gate_count = new_gate_count;
         return diff;

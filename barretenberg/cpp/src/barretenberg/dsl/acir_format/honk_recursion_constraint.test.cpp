@@ -276,7 +276,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
 
-    info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("estimate finalized circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
@@ -298,7 +298,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     auto layer_2_circuit =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits, false, false);
 
-    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
@@ -364,7 +364,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
+    info("number of gates in layer 3 = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
@@ -421,7 +421,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =

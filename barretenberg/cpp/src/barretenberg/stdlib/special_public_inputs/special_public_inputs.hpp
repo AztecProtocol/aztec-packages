@@ -115,6 +115,8 @@ class KernelIO {
         }
         output_hn_accum_hash.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -180,6 +182,8 @@ template <typename Builder_> class DefaultIO {
 
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -239,11 +243,14 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+
         mega_hash.set_public();
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 };
@@ -308,6 +315,8 @@ template <class Builder_> class HidingKernelIO {
             commitment.set_public();
         }
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -380,6 +389,8 @@ class RollupIO {
         }
         ipa_claim.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }

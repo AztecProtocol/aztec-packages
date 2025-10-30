@@ -30,7 +30,7 @@ gas_reports = [
   "RollupWithPreheating",
   "EmpireSlashingProposer",
   "TallySlashingProposer",
-  "MultiAdder"
+  "MultiAdder",
 ]
 
 remappings = [
@@ -39,6 +39,7 @@ remappings = [
   "@test/=test",
   "@zkpassport/=lib/circuits/src/solidity/src/",
   "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/mock/libraries",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
@@ -73,7 +74,7 @@ override_spacing = false
 [lint]
 ignore = ["./lib/**"]
 exclude_lints = [
-  "unused-import", # Mostly in test code
+  "unused-import",   # Mostly in test code
   "incorrect-shift", # Throws warnings on construction of bitmasks
 
   "asm-keccak256", # https://github.com/AztecProtocol/aztec-packages/issues/16808
@@ -87,3 +88,14 @@ exclude_lints = [
 
 [rpc_endpoints]
 mainnet_fork = "https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
+
+
+[profile.production]
+remappings = [
+  "@oz/=lib/openzeppelin-contracts/contracts/",
+  "@aztec/=src",
+  "@test/=test",
+  "@zkpassport/=lib/circuits/src/solidity/src/",
+  "@zkpassport-test/=lib/circuits/src/solidity/test",
+  "@aztec-blob-lib/=src/core/libraries/rollup/",
+]

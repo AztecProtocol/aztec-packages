@@ -63,7 +63,7 @@ This pattern is commonly used in bridge contracts (like the [uniswap example con
 
 ```rust
 #[external("public")]
-#[internal]
+#[only_self]
 fn _approve_and_execute_action(
     target_contract: AztecAddress,
     bridge_contract: AztecAddress,
