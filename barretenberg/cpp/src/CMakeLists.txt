@@ -178,7 +178,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
     $<TARGET_OBJECTS:sumcheck_objects>
