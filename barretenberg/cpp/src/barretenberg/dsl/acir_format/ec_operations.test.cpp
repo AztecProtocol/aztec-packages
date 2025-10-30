@@ -165,8 +165,8 @@ template <typename Builder_, uint8_t WitnessOrConstants> class EcOperationsTesti
         case Tampering::Mode::Result: {
             // Tamper with the result by setting it to the generator point
             witness_values[constraint.result_x] = GrumpkinPoint::one().x;
-            // witness_values[constraint.result_y] = GrumpkinPoint::one().y;
-            // witness_values[constraint.result_infinite] = FF::zero();
+            witness_values[constraint.result_y] = GrumpkinPoint::one().y;
+            witness_values[constraint.result_infinite] = FF::zero();
             break;
         }
         case Tampering::Mode::None:
@@ -177,8 +177,8 @@ template <typename Builder_, uint8_t WitnessOrConstants> class EcOperationsTesti
 };
 
 template <typename Builder>
-class EcOperationsTestsNoneConstants : public ::testing::Test,
-                                       public TestClassWithPredicate<EcOperationsTestingFunctions<Builder, 0>> {
+class EcOperationsTestsNoneConstant : public ::testing::Test,
+                                      public TestClassWithPredicate<EcOperationsTestingFunctions<Builder, 0>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
@@ -198,38 +198,62 @@ class EcOperationsTestsInput2Constant : public ::testing::Test,
 };
 
 template <typename Builder>
-class EcOperationsTestsBothConstants : public ::testing::Test,
-                                       public TestClassWithPredicate<EcOperationsTestingFunctions<Builder, 3>> {
+class EcOperationsTestsBothConstant : public ::testing::Test,
+                                      public TestClassWithPredicate<EcOperationsTestingFunctions<Builder, 3>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 
-TYPED_TEST_SUITE(EcOperationsTestsNoneConstants, BuilderTypes);
+TYPED_TEST_SUITE(EcOperationsTestsNoneConstant, BuilderTypes);
 TYPED_TEST_SUITE(EcOperationsTestsInput1Constant, BuilderTypes);
 TYPED_TEST_SUITE(EcOperationsTestsInput2Constant, BuilderTypes);
-TYPED_TEST_SUITE(EcOperationsTestsBothConstants, BuilderTypes);
+TYPED_TEST_SUITE(EcOperationsTestsBothConstant, BuilderTypes);
 
-TYPED_TEST(EcOperationsTestsNoneConstants, GenerateVKFromConstraints)
+TYPED_TEST(EcOperationsTestsNoneConstant, GenerateVKFromConstraints)
 {
     using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
     TestFixture::template test_vk_independence<Flavor>();
 }
 
-TYPED_TEST(EcOperationsTestsNoneConstants, ConstantTrue)
+TYPED_TEST(EcOperationsTestsNoneConstant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
 }
 
-TYPED_TEST(EcOperationsTestsNoneConstants, WitnessTrue)
+TYPED_TEST(EcOperationsTestsNoneConstant, WitnessTrue)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+}
+
+TYPED_TEST(EcOperationsTestsNoneConstant, WitnessFalse)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_false(TestFixture::TamperingMode::Result);
+}
+
+TYPED_TEST(EcOperationsTestsInput1Constant, GenerateVKFromConstraints)
+{
+    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
+
+TYPED_TEST(EcOperationsTestsInput1Constant, ConstantTrue)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
 }
 
-TYPED_TEST(EcOperationsTestsNoneConstants, WitnessFalse)
+TYPED_TEST(EcOperationsTestsInput1Constant, WitnessTrue)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+}
+
+TYPED_TEST(EcOperationsTestsInput1Constant, WitnessFalse)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false(TestFixture::TamperingMode::Result);
