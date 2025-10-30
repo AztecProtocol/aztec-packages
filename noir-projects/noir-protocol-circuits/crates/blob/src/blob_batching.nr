@@ -143,44 +143,59 @@ mod tests {
     unconstrained fn test_400_batched() {
         // We evaluate 1 blob of 400 items using the batch methods.
         // This ensures a block with a single blob will work:
+        let num_fields = 400;
         let mut blob: [Field; FIELDS_PER_BLOB] = [0; FIELDS_PER_BLOB];
-        for i in 0..400 {
-            blob[i] = 3;
+        // Fill blobs with different values (to avoid a constant polynomial). This must match the values in blob_batching.test.ts
+        for i in 1..num_fields {
+            blob[i] = 123 + i as Field;
         }
-        let mut sponge_blob = SpongeBlob::new(400);
-        sponge_blob.absorb(blob, 400);
-        let kzg_commitment_in = BatchingBlobCommitment::from_limbs(
-            [
-                0xa971c7e8d8292be943d05bccebcfea,
-                0xcddefc3721a54895a7a45e77504dd1,
-                0x5fe972914ba3616033e2748bbaa6db,
-                0x12803d,
-            ],
-            [
-                0x71bde5210b6cae1530202c8a928127,
-                0x5e7d987fb4afc5bcee960c6fc0628c,
-                0x64801e9aff2901eb6916e65c51f280,
-                0x1996ca,
-            ],
+
+        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+        let tx_marker_blob_400_from_ts =
+            0x000000000000000000000000000000000074785f737461727400019000010000;
+        blob[0] = tx_marker_blob_400_from_ts;
+
+        let kzg_commitment_x_limbs_blob_400_from_ts = [
+            0x02c8f0f9f4b98a0cf58b33aeeb7738,
+            0x6c112370be8600ad4264e2b06c98f8,
+            0x6da6d505c70f652cbde547b77c315c,
+            0x0b3fe5,
+        ];
+        let kzg_commitment_y_limbs_blob_400_from_ts = [
+            0x7fda90b2323383f94c86af4f9a5bce,
+            0x9f17a63a14971e230943e3381eb931,
+            0xa1ccb20d8f7a60d001e50593836395,
+            0x1241d1,
+        ];
+        let z_blob_400_from_ts = 0x0d760a84f939ae1235145fcd7630b50c76452658b1db7572a9ba75328e38f36c;
+        let gamma_limbs_blob_400_from_ts =
+            [0x1afcc9fe33376cb022b7bb53b2ecd2, 0x7911504ab249599d5f3b2cc544e327, 0x1b19];
+        let y_limbs_blob_400_from_ts =
+            [0xbd0e5e50b95cb84d49b49acb40c185, 0x96c04c7b39323e7c9b06e01ae14fa6, 0x68e3];
+
+        let kzg_commitment = BatchingBlobCommitment::from_limbs(
+            kzg_commitment_x_limbs_blob_400_from_ts,
+            kzg_commitment_y_limbs_blob_400_from_ts,
         )
             .point;
-        let kzg_commitments_in =
-            [kzg_commitment_in, BLSPoint::point_at_infinity(), BLSPoint::point_at_infinity()];
+
+        let mut sponge_blob = SpongeBlob::new(num_fields);
+        sponge_blob.absorb(blob, num_fields);
+
+        let kzg_commitments =
+            [kzg_commitment, BLSPoint::point_at_infinity(), BLSPoint::point_at_infinity()];
 
         let final_challenges = FinalBlobBatchingChallenges {
             // = z_0
-            z: 0x135d767e8b86b949d264be7a6b71d257c538893f3cef60c95d76ba420df18c3c,
+            z: z_blob_400_from_ts,
             // = H(y_0, z_0)
-            gamma: F::from_limbs([
-                0xda0ebb0c577c62d5954852cf7a8863,
-                0xaac05db8dabf148f011d29f2d308e4,
-                0x0b28,
-            ]),
+            gamma: F::from_limbs(gamma_limbs_blob_400_from_ts),
         };
+
         // Evaluation
         let res = evaluate_blobs_and_batch(
             pad_end(blob, 0),
-            kzg_commitments_in,
+            kzg_commitments,
             sponge_blob,
             final_challenges,
             BlobAccumulatorPublicInputs::empty(),
@@ -191,15 +206,10 @@ mod tests {
         // Since i = 1, gamma_pow = gamma^1 = gamma:
         assert_eq(res.gamma_pow_acc, final_challenges.gamma);
 
-        // y is a BLS field with value 0x212c4f0c0ee5e7dd037110686a4639d191dde7b57ab99b51e4b06e7d827b6c4c
-        let expected_y: F = F::from_limbs([
-            0xdde7b57ab99b51e4b06e7d827b6c4c,
-            0x4f0c0ee5e7dd037110686a4639d191,
-            0x212c,
-        ]);
+        let expected_y: F = F::from_limbs(y_limbs_blob_400_from_ts);
         assert_eq(final_acc.y, expected_y);
 
-        let blob_commitment = compress_to_blob_commitment(kzg_commitments_in[0]);
+        let blob_commitment = compress_to_blob_commitment(kzg_commitment);
 
         // Since i = 1, blob_commitments_hash is just the sha256 hash of the single (compressed) commitment
         let expected_blob_commitments_hash = sha256_to_field(blob_commitment.compressed);
@@ -211,84 +221,114 @@ mod tests {
 
     // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
     #[test]
-    unconstrained fn test_full_blobs_batched() {
-        // Fill three blobs completely with different values (to avoid a constant polynomial)
-        let mut blob: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
+    unconstrained fn test_3_blobs_batched() {
+        // Create 2 full blobs and 1 blob with 123 fields.
+        let num_fields = FIELDS_PER_BLOB * 2 + 123;
+        let mut blob_fields: [Field; FIELDS_PER_BLOB * BLOBS_PER_BLOCK] =
             [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
-        for j in 0..BLOBS_PER_BLOCK {
-            for i in 0..FIELDS_PER_BLOB {
-                blob[j * FIELDS_PER_BLOB + i] = ((j + 3) * (i + 1)) as Field;
-            }
+        let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
+        // Fill blobs with different values (to avoid a constant polynomial). This must match the values in blob_batching.test.ts
+        for i in 1..num_fields {
+            blob_fields[i] = 456 + i as Field;
         }
+
+        // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
+        let tx_marker_3_blobs_from_ts =
+            0x000000000000000000000000000000000074785f737461727400207b00010000;
+        blob_fields[0] = tx_marker_3_blobs_from_ts;
+        let kzg_commitment_x_limbs_blob_0_from_ts = [
+            0x6af636f420e4f7efe323c240d36ada,
+            0x2b03bbc502baa6584c578435bb416c,
+            0x6bbcbfc674534a8749a78da030f174,
+            0x13689f,
+        ];
+        let kzg_commitment_y_limbs_blob_0_from_ts = [
+            0x35c16ae03958ccb00658f2140c9152,
+            0x21f6914defa64348be8ec70dcafc3c,
+            0x6de3430c5e1280f5fcc76ac44787df,
+            0x0233e4,
+        ];
+        let kzg_commitment_x_limbs_blob_1_from_ts = [
+            0xab3ed5948aa3d00fe77b1b2876ecd7,
+            0x9d649e59ee9920f46f5f586bc9f6cb,
+            0x001f300677e564710b67c3ef2b1f46,
+            0x0ac039,
+        ];
+        let kzg_commitment_y_limbs_blob_1_from_ts = [
+            0xaa5703192a3733107a7f7ba1fa98ce,
+            0xc67513549bde2e39d6b6607670cd6b,
+            0x0727a2b1e640aec8dbc7709a0c38be,
+            0x13ed3a,
+        ];
+        let kzg_commitment_x_limbs_blob_2_from_ts = [
+            0x2d936449435dd85db10daa4a93572a,
+            0xba75b7a0c3065ee47dd17fa801cbcb,
+            0x308ba7a7145cd3d90a7801a23f0f6b,
+            0x0d4847,
+        ];
+        let kzg_commitment_y_limbs_blob_2_from_ts = [
+            0x5a51aa53fad565ecb91d04288a3a1b,
+            0xbd1bfcd6b075c4749ddf4251b4028c,
+            0x59dcc1d2a509604b557950b349a9f5,
+            0x0c6b4d,
+        ];
+        let z_3_blobs_from_ts = 0x04d90375c388a90065878ce2aa4003d0b869416ad19e281a1c8ee59fc6516bef;
+        let gamma_limbs_3_blobs_from_ts =
+            [0x24c9e1dbc8270f78891d70a8a71202, 0x157bbc960565c6fd55b3fa028b0772, 0x0942];
+        let y_limbs_3_blobs_from_ts =
+            [0x78b28ffe4d2a7faf4aa59355e916bf, 0xc8848eb4e434c9377105a725272f3e, 0x2b7a];
+        let batched_c_x_limbs_3_blobs_from_ts = [
+            0x153285774a8403f59eeab2ac5faa39,
+            0x772c7892616666b464136bccdd0139,
+            0xd26eb970d533fc352e37dc3d62d953,
+            0x02a88c,
+        ];
+        let batched_c_y_limbs_3_blobs_from_ts = [
+            0xe60fea69963e13083153cd23a776e1,
+            0xd1d52166c5329d5d51b91720884c7e,
+            0x75b15a752f07c05efcdf521fafdd4a,
+            0x11a2ba,
+        ];
+        let blob_commitments_hash_3_blobs_from_ts =
+            0x00d1fb172bdfa02958149277fa1d598376ec22c1ad594820aaba65a21710e541;
+
         // Absorb the values into a sponge
-        let mut sponge_blob = SpongeBlob::new(FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
-        sponge_blob.absorb(blob, FIELDS_PER_BLOB * BLOBS_PER_BLOCK);
+        let mut sponge_blob = SpongeBlob::new(num_fields);
+        sponge_blob.absorb(blob_fields, num_fields);
+
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
-        let kzg_commitments_in = [
+        let kzg_commitments = [
             BatchingBlobCommitment::from_limbs(
-                [
-                    0x2627fc88755984d7f002e5ef0e6b3e,
-                    0x0ea98f6a26672e17f919eb020b00ee,
-                    0xea6e5173f2ef1bedbb07bfa9ac6ed8,
-                    0x01c6e6,
-                ],
-                [
-                    0xaa96f04ba1d419683f218cc4f15a3f,
-                    0x8887c5e719583b765309e4b3d18752,
-                    0x9ff512de37b8582f7167fdfbb29539,
-                    0x18f531,
-                ],
+                kzg_commitment_x_limbs_blob_0_from_ts,
+                kzg_commitment_y_limbs_blob_0_from_ts,
             )
                 .point,
             BatchingBlobCommitment::from_limbs(
-                [
-                    0x71556bb7217816fbb3f822fc873740,
-                    0x9c57d93d7fd33a388e13e95cfdba95,
-                    0x4f0ddbdc9d6a3653cd825ebd9f5730,
-                    0x12324e,
-                ],
-                [
-                    0xabf9f60fc773ef1802a706d6b170a4,
-                    0x788f9000166d54151ac05df44e63be,
-                    0x0a8b45ead129885bb12837fb59033b,
-                    0x12aadd,
-                ],
+                kzg_commitment_x_limbs_blob_1_from_ts,
+                kzg_commitment_y_limbs_blob_1_from_ts,
             )
                 .point,
             BatchingBlobCommitment::from_limbs(
-                [
-                    0x69afb94a09e713e7fb94e26f33c3ed,
-                    0x8161293f65480c3b7bad57aaef1984,
-                    0xc34d68dc32d1ecd46f46ec4c969bb1,
-                    0x0d97ef,
-                ],
-                [
-                    0x9837a79d9fa4d0370198419b273360,
-                    0x9e7340f07732e2cb3d51db22b1dcb3,
-                    0x8285e8cad42f634bb51ad7d2c68a12,
-                    0x07db3c,
-                ],
+                kzg_commitment_x_limbs_blob_2_from_ts,
+                kzg_commitment_y_limbs_blob_2_from_ts,
             )
                 .point,
         ];
 
         let final_challenges = FinalBlobBatchingChallenges {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
-            z: 0x02d6a54e591ada73e5eea35188a02ac87779f4293ea3e7d675fa50ae7ff332ce,
+            z: z_3_blobs_from_ts,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: F::from_limbs([
-                0x281287a8d44071d216177e06a02327,
-                0x16571aa3dcfef75c2447c705c6c68a,
-                0x16f2,
-            ]),
+            gamma: F::from_limbs(gamma_limbs_3_blobs_from_ts),
         };
+
         // Init. the accumulator
         let start_acc = BlobAccumulatorPublicInputs::empty();
         // Evaluate all three blobs and iteratively accumulate the results
         let output = evaluate_blobs_and_batch(
-            blob,
-            kzg_commitments_in,
+            blob_fields,
+            kzg_commitments,
             sponge_blob,
             final_challenges,
             start_acc,
@@ -302,38 +342,17 @@ mod tests {
             final_challenges.gamma.__pow(F::from(BLOBS_PER_BLOCK as Field)),
         );
 
-        // y is a BLS Fr field with value 0x0cd2fd9a46ba70fd7f212d08ec7283024b0b1ff9446b1f78a482fb7443e49b57
-        let expected_y = F::from_limbs([
-            0x0b1ff9446b1f78a482fb7443e49b57,
-            0xfd9a46ba70fd7f212d08ec7283024b,
-            0x0cd2,
-        ]);
+        let expected_y = F::from_limbs(y_limbs_3_blobs_from_ts);
 
-        // C is a BLS point with value:
-        // x: 0x0f2f5f62cc6c3ab4c1ac1abcb9da9677e12796a76064f68c0d4f659f25a046a6d42616100269935afcb1b98c85d5e93e,
-        // y: 0x0af1e4abfa449daf65201c2b24507b1058d8ea9bf82ff948a1d01912615c4a8e507160da282e6c41bab917c868923254,
         let expected_c = BatchingBlobCommitment::from_limbs(
-            [
-                0x2616100269935afcb1b98c85d5e93e,
-                0x96a76064f68c0d4f659f25a046a6d4,
-                0x62cc6c3ab4c1ac1abcb9da9677e127,
-                0x0f2f5f,
-            ],
-            [
-                0x7160da282e6c41bab917c868923254,
-                0xea9bf82ff948a1d01912615c4a8e50,
-                0xabfa449daf65201c2b24507b1058d8,
-                0x0af1e4,
-            ],
-        );
-
-        // blob_commitments_hash is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
-        let expected_blob_commitments_hash =
-            0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
+            batched_c_x_limbs_3_blobs_from_ts,
+            batched_c_y_limbs_3_blobs_from_ts,
+        )
+            .to_compressed_fields();
 
         assert_eq(final_acc.y, expected_y);
-        assert_eq(final_acc.c, expected_c.to_compressed_fields());
-        assert_eq(final_acc.blob_commitments_hash, expected_blob_commitments_hash);
+        assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_3_blobs_from_ts);
     }
 
     #[test(should_fail_with = "Found non-zero field after breakpoint")]

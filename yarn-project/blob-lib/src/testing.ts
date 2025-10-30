@@ -64,7 +64,7 @@ export function makeBlockBlobPublicInputs(seed = 1): BlockBlobPublicInputs {
 }
 
 // TODO: copied form stdlib tx effect
-function encodeFirstField(length: number): Fr {
+export function encodeFirstField(length: number): Fr {
   const lengthBuf = Buffer.alloc(2);
   lengthBuf.writeUInt16BE(length, 0);
   return new Fr(

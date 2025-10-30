@@ -2,6 +2,8 @@ import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
 import { fromHex } from '@aztec/foundation/bigint-buffer';
 import { poseidon2Hash, sha256ToField } from '@aztec/foundation/crypto';
 import { BLS12Fr, BLS12Point, Fr } from '@aztec/foundation/fields';
+import { toInlineStrArray } from '@aztec/foundation/testing';
+import { updateInlineTestData } from '@aztec/foundation/testing/files';
 import { fileURLToPath } from '@aztec/foundation/url';
 
 import { readFileSync } from 'fs';
@@ -9,7 +11,7 @@ import { dirname, resolve } from 'path';
 
 import { getBlobsPerL1Block } from './blob_utils.js';
 import { BatchedBlob, Blob, computeBlobFieldsHash } from './index.js';
-import { makeEncodedBlobFields } from './testing.js';
+import { encodeFirstField, makeEncodedBlobFields } from './testing.js';
 
 // TODO(MW): Remove below file and test? Only required to ensure commiting and compression are correct.
 const trustedSetup = JSON.parse(
@@ -18,7 +20,7 @@ const trustedSetup = JSON.parse(
 
 describe('Blob Batching', () => {
   it.each([10, 100, 400])('our BLS library should correctly commit to a blob of %p items', size => {
-    const blobFields = Array(size).fill(new Fr(size + 1));
+    const blobFields = Array.from({ length: size }).map((_, i) => new Fr(size + i));
     const ourBlob = Blob.fromFields(blobFields);
 
     const point = BLS12Point.decompress(ourBlob.commitment);
@@ -41,8 +43,8 @@ describe('Blob Batching', () => {
 
   it('should construct and verify 1 blob', async () => {
     // Initialize 400 fields. This test shows that a single blob works with batching methods.
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_400_batched
-    const blobFields = makeEncodedBlobFields(400);
+    const blobFields = Array.from({ length: 400 }, (_, i) => new Fr(i + 123));
+    blobFields[0] = encodeFirstField(400); // Change the first field to indicate the total number of fields.
     const blobs = getBlobsPerL1Block(blobFields);
     expect(blobs.length).toBe(1);
     const onlyBlob = blobs[0];
@@ -77,12 +79,48 @@ describe('Blob Batching', () => {
     expect(batchedBlob.blobCommitmentsHash).toEqual(finalBlobCommitmentsHash);
 
     expect(batchedBlob.verify()).toBe(true);
+
+    // If the snapshot has changed, update the noir test data as well.
+    expect(y.toString()).toMatchInlineSnapshot(`"0x68e396c04c7b39323e7c9b06e01ae14fa6bd0e5e50b95cb84d49b49acb40c185"`);
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'tx_marker_blob_400_from_ts',
+      blobFields[0].toString(),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'kzg_commitment_x_limbs_blob_400_from_ts',
+      toInlineStrArray(commitment.x.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'kzg_commitment_y_limbs_blob_400_from_ts',
+      toInlineStrArray(commitment.y.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'z_blob_400_from_ts',
+      finalZ.toString(),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'gamma_limbs_blob_400_from_ts',
+      toInlineStrArray(finalGamma.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'y_limbs_blob_400_from_ts',
+      toInlineStrArray(y.toNoirBigNum().limbs),
+    );
   });
 
-  it('should construct and verify a batch of 3 full blobs', async () => {
-    // The values here are used to test Noir's blob evaluation in noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr -> test_full_blobs_batched
+  it('should construct and verify a batch of 3 blobs in a single block', async () => {
     // Initialize enough fields to require 3 blobs
-    const blobFields = makeEncodedBlobFields(3 * FIELDS_PER_BLOB);
+    const numFields = FIELDS_PER_BLOB * 2 + 123;
+    const blobFields = Array.from({ length: numFields }, (_, i) => new Fr(456 + i));
+    blobFields[0] = encodeFirstField(numFields); // Change the first field to indicate the total number of fields.
     const blobs = getBlobsPerL1Block(blobFields);
     expect(blobs.length).toBe(3);
 
@@ -138,6 +176,60 @@ describe('Blob Batching', () => {
     expect(batchedBlob.blobCommitmentsHash.toBuffer()).toEqual(finalBlobCommitmentsHash);
 
     expect(batchedBlob.verify()).toBe(true);
+
+    // If the snapshot has changed, update the noir test data as well.
+    expect(finalY.toString()).toMatchInlineSnapshot(
+      `"0x2b7ac8848eb4e434c9377105a725272f3e78b28ffe4d2a7faf4aa59355e916bf"`,
+    );
+
+    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'tx_marker_3_blobs_from_ts',
+      blobFields[0].toString(),
+    );
+    for (let i = 0; i < 3; i++) {
+      updateInlineTestData(
+        'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+        `kzg_commitment_x_limbs_blob_${i}_from_ts`,
+        toInlineStrArray(commitments[i].x.toNoirBigNum().limbs),
+      );
+      updateInlineTestData(
+        'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+        `kzg_commitment_y_limbs_blob_${i}_from_ts`,
+        toInlineStrArray(commitments[i].y.toNoirBigNum().limbs),
+      );
+    }
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'z_3_blobs_from_ts',
+      finalZ.toString(),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'gamma_limbs_3_blobs_from_ts',
+      toInlineStrArray(finalGamma.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'y_limbs_3_blobs_from_ts',
+      toInlineStrArray(finalY.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'batched_c_x_limbs_3_blobs_from_ts',
+      toInlineStrArray(batchedC.x.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'batched_c_y_limbs_3_blobs_from_ts',
+      toInlineStrArray(batchedC.y.toNoirBigNum().limbs),
+    );
+    updateInlineTestData(
+      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
+      'blob_commitments_hash_3_blobs_from_ts',
+      batchedBlob.blobCommitmentsHash.toString(),
+    );
   });
 
   it.each([
