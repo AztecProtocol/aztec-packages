@@ -5,7 +5,7 @@ import { serializeWitness } from '@aztec/noir-noirc_abi';
 import type { ArtifactProvider } from '@aztec/noir-protocol-circuits-types/types';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
-import { ClientIvcProofWithPublicInputs } from '@aztec/stdlib/proofs';
+import { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 
 import { ungzip } from 'pako';
 
@@ -21,11 +21,9 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     super(artifactProvider, simulator, log);
   }
 
-  public override async createClientIvcProof(
-    executionSteps: PrivateExecutionStep[],
-  ): Promise<ClientIvcProofWithPublicInputs> {
+  public override async createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
     const timer = new Timer();
-    this.log.info(`Generating ClientIVC proof...`);
+    this.log.info(`Generating Chonk proof...`);
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
       { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
@@ -36,12 +34,12 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
       executionSteps.map(step => step.vk),
     );
     await backend.destroy();
-    this.log.info(`Generated ClientIVC proof`, {
-      eventName: 'client-ivc-proof-generation',
+    this.log.info(`Generated Chonk proof`, {
+      eventName: 'chonk-proof-generation',
       duration: timer.ms(),
       proofSize: proof.length,
     });
-    return ClientIvcProofWithPublicInputs.fromBufferArray(proof);
+    return ChonkProofWithPublicInputs.fromBufferArray(proof);
   }
 
   public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {

@@ -12,17 +12,17 @@ contract PublicImmutableContract {
 
     #[external("public")]
     fn initialize_value(value: Field) {
-        storage.immutable_value.initialize(value);
+        self.storage.immutable_value.initialize(value);
     }
 
     #[external("public")]
     fn read_value() -> pub Field {
-        storage.immutable_value.read()
+        self.storage.immutable_value.read()
     }
 
     #[external("public")]
     fn read_value_unsafe() -> pub Field {
-        storage.immutable_value.read_unsafe()
+        self.storage.immutable_value.read_unsafe()
     }
 }
 

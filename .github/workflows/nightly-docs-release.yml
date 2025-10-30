@@ -32,6 +32,8 @@ jobs:
 
       - name: Get latest nightly tag
         id: get_tag
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           if [ -n "${{ github.event.inputs.tag }}" ]; then
             # Manual trigger with specific tag
@@ -50,6 +52,23 @@ jobs:
               exit 0
             fi
           fi
+
+          # Check if the GitHub release exists and is published
+          if ! gh release view "$NIGHTLY_TAG" --json isDraft,name 2>/dev/null; then
+            echo "GitHub release for $NIGHTLY_TAG does not exist. Skipping docs release."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check if the release is a draft (not published)
+          IS_DRAFT=$(gh release view "$NIGHTLY_TAG" --json isDraft --jq '.isDraft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "GitHub release for $NIGHTLY_TAG is a draft (not published). Skipping docs release."
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "GitHub release for $NIGHTLY_TAG is published."
 
           # Check if we already have docs for this nightly version
           DOCS_VERSION_DIR="docs/versioned_docs/version-$NIGHTLY_TAG"

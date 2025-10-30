@@ -140,7 +140,7 @@ export class EpochProvingJob implements Traceable {
       const totalNumCheckpoints = epochSizeBlocks;
 
       this.prover.startNewEpoch(epochNumber, totalNumCheckpoints, finalBlobBatchingChallenges);
-      await this.prover.startTubeCircuits(Array.from(this.txs.values()));
+      await this.prover.startChonkVerifierCircuits(Array.from(this.txs.values()));
 
       await asyncPool(this.config.parallelBlockLimit ?? 32, this.blocks, async block => {
         this.checkState();

@@ -39,14 +39,14 @@ pub contract StateVars {
 
     #[external("public")]
     fn initialize_public_immutable(value: u8) {
-        let mut new_mock_struct = MockStruct { account: context.msg_sender().unwrap(), value };
-        storage.public_immutable.initialize(new_mock_struct);
+        let mut new_mock_struct = MockStruct { account: self.msg_sender().unwrap(), value };
+        self.storage.public_immutable.initialize(new_mock_struct);
     }
 
     #[external("private")]
     fn match_public_immutable(account: AztecAddress, value: u8) {
         let expected = MockStruct { account, value };
-        let read = storage.public_immutable.read();
+        let read = self.storage.public_immutable.read();
 
         assert(read.account == expected.account, "Invalid account");
         assert(read.value == expected.value, "Invalid value");
@@ -54,9 +54,9 @@ pub contract StateVars {
 
     #[external("private")]
     fn get_public_immutable_constrained_private_indirect() -> MockStruct {
-        let mut mock_struct = StateVars::at(context.this_address())
+        let mut mock_struct = StateVars::at(self.address)
             .get_public_immutable_constrained_private()
-            .view(&mut context);
+            .view(self.context);
         mock_struct.value += 1;
         mock_struct
     }
@@ -67,9 +67,9 @@ pub contract StateVars {
         // and returns the response.
         // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
-        let mut mock_struct = StateVars::at(context.this_address())
+        let mut mock_struct = StateVars::at(self.address)
             .get_public_immutable_constrained_public()
-            .view(&mut context);
+            .view(self.context);
         mock_struct.value += 1;
         mock_struct
     }
@@ -77,83 +77,85 @@ pub contract StateVars {
     #[external("public")]
     #[view]
     fn get_public_immutable_constrained_public() -> MockStruct {
-        storage.public_immutable.read()
+        self.storage.public_immutable.read()
     }
 
     #[external("public")]
     fn get_public_immutable_constrained_public_multiple() -> [MockStruct; 5] {
-        let a = storage.public_immutable.read();
+        let a = self.storage.public_immutable.read();
         [a, a, a, a, a]
     }
 
     #[external("private")]
     #[view]
     fn get_public_immutable_constrained_private() -> MockStruct {
-        storage.public_immutable.read()
+        self.storage.public_immutable.read()
     }
 
     #[external("utility")]
     unconstrained fn get_public_immutable() -> MockStruct {
-        storage.public_immutable.read()
+        self.storage.public_immutable.read()
     }
 
     #[external("private")]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let new_note = ValueNote::new(value, context.msg_sender().unwrap());
+        let new_note = ValueNote::new(value, self.msg_sender().unwrap());
 
-        storage.private_immutable.initialize(new_note).emit(
-            context.msg_sender().unwrap(),
+        self.storage.private_immutable.initialize(new_note).emit(
+            self.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[external("private")]
     fn initialize_private(randomness: Field, value: Field) {
-        let private_mutable = ValueNote::new(value, context.msg_sender().unwrap());
+        let private_mutable = ValueNote::new(value, self.msg_sender().unwrap());
 
-        storage.private_mutable.initialize(private_mutable).emit(
-            context.msg_sender().unwrap(),
+        self.storage.private_mutable.initialize(private_mutable).emit(
+            self.msg_sender().unwrap(),
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
     }
 
     #[external("private")]
     fn update_private_mutable(randomness: Field, value: Field) {
-        storage
+        self
+            .storage
             .private_mutable
-            .replace(|_old_note| ValueNote::new(value, context.msg_sender().unwrap()))
-            .emit(context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .replace(|_old_note| ValueNote::new(value, self.msg_sender().unwrap()))
+            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
     fn increase_private_value() {
         // Replace existing note with new note containing incremented value
-        storage
+        self
+            .storage
             .private_mutable
             .replace(|old_note| {
                 let new_value = old_note.value() + 1;
-                ValueNote::new(new_value, context.msg_sender().unwrap())
+                ValueNote::new(new_value, self.msg_sender().unwrap())
             })
-            .emit(context.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
+            .emit(self.msg_sender().unwrap(), MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
     #[external("utility")]
     unconstrained fn get_private_mutable() -> ValueNote {
-        storage.private_mutable.view_note()
+        self.storage.private_mutable.view_note()
     }
 
     #[external("utility")]
     unconstrained fn is_private_mutable_initialized() -> bool {
-        storage.private_mutable.is_initialized()
+        self.storage.private_mutable.is_initialized()
     }
 
     #[external("utility")]
     unconstrained fn view_private_immutable() -> ValueNote {
-        storage.private_immutable.view_note()
+        self.storage.private_immutable.view_note()
     }
 
     #[external("utility")]
     unconstrained fn is_priv_imm_initialized() -> bool {
-        storage.private_immutable.is_initialized()
+        self.storage.private_immutable.is_initialized()
     }
 }

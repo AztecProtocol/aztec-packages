@@ -706,13 +706,13 @@ sel_exec_dispatch_calldata_copy {
         parent_id, context_id,
         register[0], register[1], rop[2],
         parent_calldata_addr, parent_calldata_size,
-        sel_exec_dispatch_calldata_copy/*=1*/, sel_opcode_error
+        sel_opcode_error
 } is data_copy.sel_cd_copy_start {
         data_copy.clk,
         data_copy.src_context_id, data_copy.dst_context_id,
         data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
         data_copy.src_addr, data_copy.src_data_size,
-        data_copy.sel_cd_copy, data_copy.err
+        data_copy.err
 };
 
 #[DISPATCH_TO_RD_COPY]
@@ -721,13 +721,13 @@ sel_exec_dispatch_returndata_copy {
         last_child_id, context_id,
         register[0], register[1], rop[2],
         last_child_returndata_addr, last_child_returndata_size,
-        sel_exec_dispatch_returndata_copy/*=1*/, sel_opcode_error
+        sel_opcode_error
 } is data_copy.sel_rd_copy_start {
         data_copy.clk,
         data_copy.src_context_id, data_copy.dst_context_id,
         data_copy.copy_size, data_copy.offset, data_copy.dst_addr,
         data_copy.src_addr, data_copy.src_data_size,
-        data_copy.sel_rd_copy, data_copy.err
+        data_copy.err
 };
 
 // SET DISPATCHING

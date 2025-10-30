@@ -10,7 +10,7 @@ import type {
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '../kernel/index.js';
-import type { ClientIvcProofWithPublicInputs } from '../proofs/client_ivc_proof.js';
+import type { ChonkProofWithPublicInputs } from '../proofs/chonk_proof.js';
 
 /**
  * PrivateKernelProver provides functionality to simulate and validate circuits, and retrieve
@@ -110,7 +110,7 @@ export interface PrivateKernelProver {
    * @param acirs The program bytecode.
    * @param witnessStack The witnessses for each program bytecode.
    */
-  createClientIvcProof(executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProofWithPublicInputs>;
+  createChonkProof(executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs>;
 
   /**
    * Compute the gate count for a given circuit.

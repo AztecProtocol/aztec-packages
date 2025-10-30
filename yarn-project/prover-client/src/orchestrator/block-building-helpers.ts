@@ -8,7 +8,7 @@ import {
 } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
@@ -43,7 +43,7 @@ import {
   BlockRollupPublicInputs,
   PrivateBaseRollupHints,
   PublicBaseRollupHints,
-  PublicTubePrivateInputs,
+  PublicChonkVerifierPrivateInputs,
   TreeSnapshotDiffHints,
 } from '@aztec/stdlib/rollup';
 import {
@@ -217,25 +217,23 @@ export const insertSideEffectsAndBuildBaseRollupHints = runInSpan(
   },
 );
 
-export function getCivcProofFromTx(tx: Tx | ProcessedTx) {
+export function getChonkProofFromTx(tx: Tx | ProcessedTx) {
   const publicInputs = tx.data.publicInputs().toFields();
 
   const binaryProof = new Proof(
-    Buffer.concat(
-      tx.clientIvcProof.attachPublicInputs(publicInputs).fieldsWithPublicInputs.map(field => field.toBuffer()),
-    ),
+    Buffer.concat(tx.chonkProof.attachPublicInputs(publicInputs).fieldsWithPublicInputs.map(field => field.toBuffer())),
     publicInputs.length,
   );
-  return new RecursiveProof(tx.clientIvcProof.fields, binaryProof, true, CIVC_PROOF_LENGTH);
+  return new RecursiveProof(tx.chonkProof.fields, binaryProof, true, CHONK_PROOF_LENGTH);
 }
 
-export function getPublicTubePrivateInputsFromTx(tx: Tx | ProcessedTx, proverId: Fr) {
+export function getPublicChonkVerifierPrivateInputsFromTx(tx: Tx | ProcessedTx, proverId: Fr) {
   const proofData = new ProofData(
     tx.data.toPrivateToPublicKernelCircuitPublicInputs(),
-    getCivcProofFromTx(tx),
+    getChonkProofFromTx(tx),
     getVkData('HidingKernelToPublic'),
   );
-  return new PublicTubePrivateInputs(proofData, proverId);
+  return new PublicChonkVerifierPrivateInputs(proofData, proverId);
 }
 
 // Build "hints" as the private inputs for the checkpoint root rollup circuit.

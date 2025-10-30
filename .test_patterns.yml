@@ -291,3 +291,8 @@ tests:
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
+
+  - regex: "bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *alex

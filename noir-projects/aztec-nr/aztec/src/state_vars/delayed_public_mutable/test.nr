@@ -16,8 +16,8 @@ global storage_slot: Field = 47;
 global TEST_INITIAL_DELAY: u64 = 60 * 60 * 24;
 
 unconstrained fn in_public(
-    context: &mut PublicContext,
-) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, &mut PublicContext> {
+    context: PublicContext,
+) -> DelayedPublicMutable<MockStruct, TEST_INITIAL_DELAY, PublicContext> {
     DelayedPublicMutable::new(context, storage_slot)
 }
 

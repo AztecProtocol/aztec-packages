@@ -307,7 +307,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     /**
      * @brief Given δ, compute the vector [δ, δ^2,..., δ^2^num_powers].
-     * @details This is Step 2 of the protocol as written in the Protogalaxy paper.
      */
     template <typename ChallengeType>
     std::vector<ChallengeType> compute_round_challenge_pows(const size_t num_powers,

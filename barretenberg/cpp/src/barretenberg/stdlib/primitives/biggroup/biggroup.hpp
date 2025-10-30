@@ -66,10 +66,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         element val(native_val);
         size_t idx = 0;
         std::array<fr, PUBLIC_INPUTS_SIZE> limb_vals;
-        for (auto& limb : val.x.binary_basis_limbs) {
+        for (auto& limb : val._x.binary_basis_limbs) {
             limb_vals[idx++] = limb.element.get_value();
         }
-        for (auto& limb : val.y.binary_basis_limbs) {
+        for (auto& limb : val._y.binary_basis_limbs) {
             limb_vals[idx++] = limb.element.get_value();
         }
         BB_ASSERT_EQ(idx, PUBLIC_INPUTS_SIZE);
@@ -83,8 +83,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     uint32_t set_public() const
     {
-        const uint32_t start_idx = x.set_public();
-        y.set_public();
+        const uint32_t start_idx = _x.set_public();
+        _y.set_public();
 
         return start_idx;
     }
@@ -118,13 +118,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         if (input.is_point_at_infinity()) {
             Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
             Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         } else {
             Fq x = Fq::from_witness(ctx, input.x);
             Fq y = Fq::from_witness(ctx, input.y);
-            out.x = x;
-            out.y = y;
+            out._x = x;
+            out._y = y;
         }
         out.set_point_at_infinity(witness_ct(ctx, input.is_point_at_infinity()));
 
@@ -142,17 +142,20 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         bool has_circuit_failed = get_context()->failed();
 
         Fq b(get_context(), uint256_t(NativeGroup::curve_b));
-        Fq _b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
-        Fq _x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), x);
-        Fq _y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), y);
+        Fq adjusted_b = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), b);
+        Fq adjusted_x = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _x);
+        Fq adjusted_y = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), _y);
         if constexpr (!NativeGroup::has_a) {
             // we validate y^2 = x^3 + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ _x.sqr(), _y }, { _x, -_y }, { _b }, true);
+            Fq::mult_madd({ adjusted_x.sqr(), adjusted_y }, { adjusted_x, -adjusted_y }, { adjusted_b }, true);
         } else {
             Fq a(get_context(), uint256_t(NativeGroup::curve_a));
-            Fq _a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
+            Fq adjusted_a = Fq::conditional_assign(is_point_at_infinity(), Fq::zero(), a);
             // we validate y^2 = x^3 + ax + b by setting "fix_remainder_zero = true" when calling mult_madd
-            Fq::mult_madd({ _x.sqr(), _x, _y }, { _x, _a, -_y }, { _b }, true);
+            Fq::mult_madd({ adjusted_x.sqr(), adjusted_x, adjusted_y },
+                          { adjusted_x, adjusted_a, -adjusted_y },
+                          { adjusted_b },
+                          true);
         }
 
         if ((!has_circuit_failed) && (get_context()->failed())) {
@@ -166,8 +169,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      **/
     void convert_constant_to_fixed_witness(Builder* builder)
     {
-        this->x.convert_constant_to_fixed_witness(builder);
-        this->y.convert_constant_to_fixed_witness(builder);
+        this->_x.convert_constant_to_fixed_witness(builder);
+        this->_y.convert_constant_to_fixed_witness(builder);
         // Origin tags should be unset after fixing the witness
         unset_free_witness_tag();
     }
@@ -178,8 +181,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     void fix_witness()
     {
         // Origin tags should be updated within
-        this->x.fix_witness();
-        this->y.fix_witness();
+        this->_x.fix_witness();
+        this->_y.fix_witness();
 
         // This is now effectively a constant
         unset_free_witness_tag();
@@ -219,8 +222,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     byte_array<Builder> to_byte_array() const
     {
         byte_array<Builder> result(get_context());
-        result.write(y.to_byte_array());
-        result.write(x.to_byte_array());
+        result.write(_y.to_byte_array());
+        result.write(_x.to_byte_array());
         return result;
     }
 
@@ -232,7 +235,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element operator-() const
     {
         element result(*this);
-        result.y = -result.y;
+        result._y = -result._y;
         return result;
     }
     element operator+=(const element& other)
@@ -252,7 +255,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element conditional_negate(const bool_ct& predicate) const
     {
         element result(*this);
-        result.y = result.y.conditional_negate(predicate);
+        result._y = result._y.conditional_negate(predicate);
         return result;
     }
 
@@ -278,8 +281,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         BB_ASSERT_NEQ(ctx, nullptr, "biggroup::conditional_select must have a context");
 
         element result(*this);
-        result.x = result.x.conditional_select(other.x, predicate);
-        result.y = result.y.conditional_select(other.y, predicate);
+        result._x = result._x.conditional_select(other._x, predicate);
+        result._y = result._y.conditional_select(other._y, predicate);
         result._is_infinity =
             bool_ct::conditional_assign(predicate, other.is_point_at_infinity(), result.is_point_at_infinity());
         return result;
@@ -299,15 +302,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                                  const std::string msg = "biggroup::incomplete_assert_equal") const
     {
         is_point_at_infinity().assert_equal(other.is_point_at_infinity(), msg + " (infinity flag)");
-        x.assert_equal(other.x, msg + " (x coordinate)");
-        y.assert_equal(other.y, msg + " (y coordinate)");
+        _x.assert_equal(other._x, msg + " (x coordinate)");
+        _y.assert_equal(other._y, msg + " (y coordinate)");
     }
 
     element normalize() const
     {
         element result(*this);
-        result.x.reduce_mod_target_modulus();
-        result.y.reduce_mod_target_modulus();
+        result._x.reduce_mod_target_modulus();
+        result._y.reduce_mod_target_modulus();
         return result;
     }
     element scalar_mul(const Fr& scalar, const size_t max_num_bits = 0) const;
@@ -315,9 +318,15 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     element reduce() const
     {
         element result(*this);
-        result.x.self_reduce();
-        result.y.self_reduce();
+        result._x.self_reduce();
+        result._y.self_reduce();
         return result;
+    }
+
+    void assert_coordinates_in_field(const std::string& msg = "biggroup::assert_coordinates_in_field") const
+    {
+        _x.assert_is_in_field(msg + " (x coordinate)");
+        _y.assert_is_in_field(msg + " (y coordinate)");
     }
 
     element dbl() const;
@@ -335,8 +344,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
         chain_add_accumulator() = default;
         explicit chain_add_accumulator(const element& input)
-            : x3_prev(input.x)
-            , y3_prev(input.y)
+            : x3_prev(input._x)
+            , y3_prev(input._y)
             , is_element(true)
         {}
         chain_add_accumulator(const chain_add_accumulator& other) = default;
@@ -359,8 +368,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     typename NativeGroup::affine_element get_value() const
     {
-        uint512_t x_val = x.get_value() % Fq::modulus_u512;
-        uint512_t y_val = y.get_value() % Fq::modulus_u512;
+        uint512_t x_val = _x.get_value() % Fq::modulus_u512;
+        uint512_t y_val = _y.get_value() % Fq::modulus_u512;
         auto result = typename NativeGroup::affine_element(x_val.lo, y_val.lo);
         if (is_point_at_infinity().get_value()) {
             result.self_set_infinity();
@@ -389,31 +398,38 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     Builder* get_context() const
     {
-        if (x.context != nullptr) {
-            return x.context;
+        if (_x.context != nullptr) {
+            return _x.context;
         }
-        if (y.context != nullptr) {
-            return y.context;
+        if (_y.context != nullptr) {
+            return _y.context;
         }
         return nullptr;
     }
 
     Builder* get_context(const element& other) const
     {
-        if (x.context != nullptr) {
-            return x.context;
+        if (_x.context != nullptr) {
+            return _x.context;
         }
-        if (y.context != nullptr) {
-            return y.context;
+        if (_y.context != nullptr) {
+            return _y.context;
         }
-        if (other.x.context != nullptr) {
-            return other.x.context;
+        if (other._x.context != nullptr) {
+            return other._x.context;
         }
-        if (other.y.context != nullptr) {
-            return other.y.context;
+        if (other._y.context != nullptr) {
+            return other._y.context;
         }
         return nullptr;
     }
+
+    // Coordinate accessors (non-owning, const reference)
+    const Fq& x() const { return _x; }
+    const Fq& y() const { return _y; }
+    // BIGGROUP_AUDITTODO: Remove these non-const accessors by adding explicit methods for mutation where required.
+    Fq& x() { return _x; }
+    Fq& y() { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
@@ -427,14 +443,14 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     void set_origin_tag(OriginTag tag) const
     {
-        x.set_origin_tag(tag);
-        y.set_origin_tag(tag);
+        _x.set_origin_tag(tag);
+        _y.set_origin_tag(tag);
         _is_infinity.set_origin_tag(tag);
     }
 
     OriginTag get_origin_tag() const
     {
-        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+        return OriginTag(_x.get_origin_tag(), _y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
     /**
@@ -442,8 +458,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void unset_free_witness_tag()
     {
-        x.unset_free_witness_tag();
-        y.unset_free_witness_tag();
+        _x.unset_free_witness_tag();
+        _y.unset_free_witness_tag();
         _is_infinity.unset_free_witness_tag();
     }
 
@@ -452,18 +468,17 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     void set_free_witness_tag()
     {
-        x.set_free_witness_tag();
-        y.set_free_witness_tag();
+        _x.set_free_witness_tag();
+        _y.set_free_witness_tag();
         _is_infinity.set_free_witness_tag();
     }
-
-    Fq x;
-    Fq y;
 
     // For testing purposes only
     friend class element_test_accessor;
 
   private:
+    Fq _x;
+    Fq _y;
     bool_ct _is_infinity;
 
     /**
@@ -969,7 +984,7 @@ class element_test_accessor {
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, element<C, Fq, Fr, G> const& v)
 {
-    return os << "{ " << v.x << " , " << v.y << " }";
+    return os << "{ " << v._x << " , " << v._y << " }";
 }
 } // namespace bb::stdlib::element_default
 

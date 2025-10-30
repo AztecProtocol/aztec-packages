@@ -1,4 +1,4 @@
-barretenberg_module(api client_ivc bbapi dsl libdeflate::libdeflate_static nlohmann_json::nlohmann_json)
+barretenberg_module(api chonk bbapi dsl libdeflate::libdeflate_static nlohmann_json::nlohmann_json)
 
 # Link avm_transpiler when library is provided
 if(AVM_TRANSPILER_LIB)

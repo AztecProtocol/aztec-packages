@@ -139,6 +139,7 @@ echo "Cherry-picking commits..."
 CHERRY_PICK_SUCCESS=true
 
 for commit in $COMMITS; do
+  git fetch --depth=1 origin "$commit"
   COMMIT_MSG=$(git log -1 --format='%h %s' "$commit" 2>/dev/null || echo "$commit")
   echo "Cherry-picking: $COMMIT_MSG"
 

@@ -14,14 +14,11 @@ use crate::macros::{
     },
     utils::{is_fn_external, module_has_initializer},
 };
-use super::utils::{fn_has_noinitcheck, is_fn_initializer, is_fn_internal, is_fn_view};
+use super::utils::{fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 
-// Note: The internal naming below is deprecated and will soon be renamed. For this reason it's so weird (having
-// external and internal applicable to one function).
-//
 // Functions can have multiple attributes applied to them, e.g. a single function can have #[external("public")],
-// #[view] and #[internal]. However. the order in which this will be evaluated is unknown, which makes combining them
+// #[view] and #[only_self]. However. the order in which this will be evaluated is unknown, which makes combining them
 // tricky.
 //
 // Our strategy is to have functions accept at most one #[external(...)] attribute that takes a parameter ("private",
@@ -29,10 +26,10 @@ use auth_registry::AUTHORIZE_ONCE_REGISTRY;
 // the arg of #[external(...)] attribute contains the code for all other attributes, but they only run if
 // the corresponding marker attribute has been applied to the function.
 //
-// For example, the "private" handler of #[external(...)] knows about #[internal] and what it should do, but it only
-// does it if it sees that the private function in question also has the `internal` attribute applied. `#[internal]`
+// For example, the "private" handler of #[external(...)] knows about #[only_self] and what it should do, but it only
+// does it if it sees that the private function in question also has the `only_self` attribute applied. `#[only_self]`
 // itself does nothing - it is what we call a 'marker' attribute, that only exists for `#[external("private")]`
-// and `#[external(public)]` to check if it's been applied. Therefore, the execution order of `#[internal]` and
+// and `#[external(public)]` to check if it's been applied. Therefore, the execution order of `#[only_self]` and
 // `#[external(...)]` is irrelevant.
 
 /// An initializer function is similar to a constructor:
@@ -74,8 +71,14 @@ pub comptime fn noinitcheck(f: FunctionDefinition) {
     }
 }
 
-/// Internal functions can only be called by the contract itself, typically from private into public.
-pub comptime fn internal(f: FunctionDefinition) {
+/// Functions marked with #[only_self] attribute can only be called by the contract itself.
+///
+/// # Usage
+/// This attribute is commonly used when an action starts in private but needs to be completed in public. The public
+/// function must be marked with #[only_self] to restrict access to only the contract itself. A typical example is a
+/// private token mint operation that needs to enqueue a call to a public function to update the publicly tracked total
+/// token supply.
+pub comptime fn only_self(f: FunctionDefinition) {
     // Marker attribute - see the comment above
 
     if !is_fn_external(f) {
@@ -84,7 +87,7 @@ pub comptime fn internal(f: FunctionDefinition) {
         // function is run.
         let name = f.name();
         panic(
-            f"The #[internal] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
+            f"The #[only_self] attribute can only be applied to #[external(\"private\")] or #[external(\"public\")] functions - {name} is neither",
         );
     }
 }
@@ -244,7 +247,7 @@ comptime fn utility(f: FunctionDefinition) -> Quoted {
     fn_abi_export
 }
 
-/// Utility functions cannot be used with the following modifiers: #[authorize_once], #[internal], #[view],
+/// Utility functions cannot be used with the following modifiers: #[authorize_once], #[only_self], #[view],
 /// #[initializer], and #[noinitcheck]. Since we cannot enforce a specific ordering between these modifiers and
 /// #[external(...)], and we cannot access the #[external(...)] argument from within these modifiers' implementations
 /// (as accessing EXTERNAL_REGISTRY would require enforcing ordering), we perform these compatibility checks here in
@@ -257,10 +260,10 @@ comptime fn post_external_utility_checks(f: FunctionDefinition) {
         );
     }
 
-    if is_fn_internal(f) {
+    if is_fn_only_self(f) {
         let name = f.name();
         panic(
-            f"The #[internal] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
+            f"The #[only_self] attribute cannot be applied to #[external(\"utility\")] functions - {name}",
         );
     }
 

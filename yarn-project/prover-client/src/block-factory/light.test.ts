@@ -2,7 +2,7 @@ import { TestCircuitProver } from '@aztec/bb-prover';
 import { SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
-  CIVC_PROOF_LENGTH,
+  CHONK_PROOF_LENGTH,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -70,7 +70,7 @@ describe('LightBlockBuilder', () => {
 
   let emptyProof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>;
   let emptyRollupProof: RecursiveProof<typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>;
-  let emptyCivcProof: RecursiveProof<typeof CIVC_PROOF_LENGTH>;
+  let emptyChonkProof: RecursiveProof<typeof CHONK_PROOF_LENGTH>;
 
   let feePayer: AztecAddress;
   let feePayerSlot: Fr;
@@ -84,7 +84,7 @@ describe('LightBlockBuilder', () => {
     vkTreeRoot = getVKTreeRoot();
     emptyProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_PROOF_LENGTH);
     emptyRollupProof = makeEmptyRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH);
-    emptyCivcProof = makeEmptyRecursiveProof(CIVC_PROOF_LENGTH);
+    emptyChonkProof = makeEmptyRecursiveProof(CHONK_PROOF_LENGTH);
   });
 
   beforeEach(async () => {
@@ -292,7 +292,7 @@ describe('LightBlockBuilder', () => {
       const vkData = getVkData('HidingKernelToRollup');
       const hidingKernelProofData = new ProofData(
         tx.data.toPrivateToRollupKernelCircuitPublicInputs(),
-        emptyCivcProof,
+        emptyChonkProof,
         vkData,
       );
       const hints = await insertSideEffectsAndBuildBaseRollupHints(

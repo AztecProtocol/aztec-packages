@@ -1,5 +1,5 @@
 set(DSL_DEPENDENCIES
-    client_ivc
+    chonk
     ultra_honk
     stdlib_sha256
     stdlib_aes128
@@ -8,7 +8,7 @@ set(DSL_DEPENDENCIES
     stdlib_poseidon2
     stdlib_schnorr
     stdlib_honk_verifier
-    stdlib_client_ivc_verifier)
+    stdlib_chonk_verifier)
 
 barretenberg_module(
     dsl

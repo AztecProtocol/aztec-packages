@@ -106,12 +106,12 @@ pub contract ContractInstanceRegistry {
         // contract class must be published in order to publish an instance
         ContractClassRegistry::at(CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS)
             .assert_class_id_is_published(contract_class_id)
-            .call(&mut context);
+            .call(self.context);
 
         let deployer = if universal_deploy {
             AztecAddress::zero()
         } else {
-            context.msg_sender().unwrap()
+            self.msg_sender().unwrap()
         };
 
         let partial_address =
@@ -122,7 +122,7 @@ pub contract ContractInstanceRegistry {
         // Emit the address as a nullifier:
         // - to demonstrate that this contract instance hasn't been published before
         // - to enable apps to read that this contract instance has been published.
-        context.push_nullifier(address.to_field());
+        self.context.push_nullifier(address.to_field());
 
         // Broadcast the event
         let event = ContractInstancePublished {
@@ -143,27 +143,28 @@ pub contract ContractInstanceRegistry {
         // Only the payload needs to be emitted. Since the siloed tag of this event log is publicly known, it's
         // acceptable to pad the log with 0s and reveal the actual payload length.
         let length = payload.len();
-        context.emit_private_log(padded_log, length);
+        self.context.emit_private_log(padded_log, length);
     }
 
     #[external("public")]
     fn update(new_contract_class_id: ContractClassId) {
-        let address = context.msg_sender().unwrap();
+        let address = self.msg_sender().unwrap();
 
         assert(
-            context.nullifier_exists(address.to_field(), context.this_address()),
+            self.context.nullifier_exists(address.to_field(), self.address),
             "msg.sender is not deployed",
         );
 
         assert(
-            context.nullifier_exists(
+            self.context.nullifier_exists(
                 new_contract_class_id.to_field(),
                 CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
             ),
             "New contract class is not registered",
         );
 
-        let scheduled_value_update = storage
+        let scheduled_value_update = self
+            .storage
             .updated_class_ids
             .at(address)
             .schedule_and_return_value_change(new_contract_class_id);
@@ -177,26 +178,26 @@ pub contract ContractInstanceRegistry {
             timestamp_of_change,
         };
 
-        context.emit_public_log(event);
+        self.context.emit_public_log(event);
     }
 
     #[external("public")]
     fn set_update_delay(new_update_delay: u64) {
-        let address = context.msg_sender().unwrap();
+        let msg_sender = self.msg_sender().unwrap();
 
         assert(
-            context.nullifier_exists(address.to_field(), context.this_address()),
+            self.context.nullifier_exists(msg_sender.to_field(), self.address),
             "msg.sender is not deployed",
         );
 
         assert(new_update_delay >= MINIMUM_UPDATE_DELAY, "New update delay is too low");
 
-        storage.updated_class_ids.at(address).schedule_delay_change(new_update_delay);
+        self.storage.updated_class_ids.at(msg_sender).schedule_delay_change(new_update_delay);
     }
 
     #[external("public")]
     #[view]
     fn get_update_delay() -> u64 {
-        storage.updated_class_ids.at(context.msg_sender().unwrap()).get_current_delay()
+        self.storage.updated_class_ids.at(self.msg_sender().unwrap()).get_current_delay()
     }
 }

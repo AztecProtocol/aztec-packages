@@ -111,7 +111,7 @@ You now have a note that represents the owner of a particular NFT. Next, move on
 
 :::tip Custom Notes
 
-Notes are powerful concepts. Learn more about how to use them in the [notes guide](../../concepts/storage/notes.md).
+Notes are powerful concepts. Learn more about how to use them in the [state management guide](../../foundational-topics/state_management.md).
 
 :::
 
@@ -124,16 +124,16 @@ Back in `main.nr`, you can now build the contract storage. You need:
 - **nfts**: Track which NFTs exist (public, needed for bridging)
 - **owners**: Private ownership using the NFTNote
 
-One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../guides/smart_contracts/how_to_define_storage.md).
+One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../aztec-nr/framework-description/how_to_define_storage.md).
 
-Write the storage struct and a simple [initializer](../../concepts/smart_contracts/contract_creation.md#initialization) to set the admin in the `main.nr` file:
+Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
 #include_code contract_setup /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
 
 ### Utility Functions
 
-Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and internal with [specific macros](../../reference/smart_contract_reference/macros.md):
+Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and internal with [specific macros](../../aztec-nr/framework-description/macros.md):
 
 #include_code mark_nft_exists /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
@@ -149,7 +149,7 @@ Before anything else, you need to set the minter. This will be the bridge contra
 
 #include_code set_minter /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
-Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, emit a new [constrained event](../../guides/smart_contracts/how_to_emit_event.md) (best practice when "sending someone a note"), and then [enqueue a public call](../../guides/smart_contracts/how_to_call_contracts.md) to the `_mark_nft_exists` function:
+Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, emit a new [constrained event](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a note"), and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
 
 #include_code mint /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft/src/main.nr rust
 
@@ -171,7 +171,7 @@ aztec-nargo compile
 
 We have built the L2 NFT contract. This is the L2 representation of an NFT that is locked on the L1 bridge.
 
-The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/concepts/communication/cross_chain_calls.md).
+The L2 bridge is the contract that talks to the L1 bridge through cross-chain messaging. You can read more about this protocol [here](../../../docs/aztec-nr/framework-description/ethereum-aztec-messaging/index.md).
 
 ```mermaid
 graph LR
@@ -254,7 +254,7 @@ Similarly, exiting to L1 means burning the NFT on the L2 side and pushing a mess
 
 #include_code exit /docs/examples/tutorials/token_bridge_contract/contracts/aztec/nft_bridge/src/main.nr rust
 
-Cross-chain messaging on Aztec is powerful because it doesn't conform to any specific format—you can structure messages however you want. Learn more about cross-chain messaging in the [portal reference](../../reference/smart_contract_reference/portals/inbox.md).
+Cross-chain messaging on Aztec is powerful because it doesn't conform to any specific format—you can structure messages however you want.
 
 :::tip Private Functions
 
@@ -359,8 +359,8 @@ This script will implement the user flow.
 This section assumes you're working locally using Sandbox. For the testnet, you need to account for some things:
 
 - Your clients need to point to some Sepolia Node and to the public Aztec Full Node
-- You need to [deploy your own Aztec accounts](../../guides/aztec-js/how_to_create_account.md)
-- You need to pay fees in some other way. Learn how in the [fees guide](../../guides/aztec-js/how_to_pay_fees.md)
+- You need to [deploy your own Aztec accounts](../../aztec-js/how_to_create_account.md)
+- You need to pay fees in some other way. Learn how in the [fees guide](../../aztec-js/how_to_pay_fees.md)
 
 :::
 
@@ -405,7 +405,7 @@ To bridge, first approve the portal address to transfer the NFT, then transfer i
 
 #include_code deposit_to_aztec /docs/examples/tutorials/token_bridge_contract/scripts/index.ts typescript
 
-The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../concepts/communication/cross_chain_calls.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
+The `Inbox` contract will emit an important log: `MessageSent(inProgress, index, leaf, updatedRollingHash);`. This log provides the **leaf index** of the message in the [L1-L2 Message Tree](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)—the location of the message in the tree that will appear on L2. You need this index, plus the secret, to correctly claim and decrypt the message.
 
 Use viem to extract this information:
 
@@ -469,7 +469,6 @@ A complete private NFT bridge with:
 - Add proper access controls
 
 :::tip Learn More
-- [Portal reference](../../reference/smart_contract_reference/portals/inbox.md)
-- [Notes concepts page](../../concepts/storage/notes.md)
-- [Cross-chain messaging](../../concepts/communication/cross_chain_calls.md)
+- [State management page](../../foundational-topics/state_management.md)
+- [Cross-chain messaging](../../aztec-nr/framework-description/ethereum-aztec-messaging/index.md)
 :::

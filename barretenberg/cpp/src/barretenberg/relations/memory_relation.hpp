@@ -136,7 +136,7 @@ template <typename FF_> class MemoryRelationImpl {
          */
 
         // memory_record_check and partial_record_check_m have either deg 1 or 2 (the latter refers to the
-        // functional univariate degree when we use PG as opposed to sumcheck.)
+        // functional univariate degree when we use HN as opposed to sumcheck.)
         auto memory_record_check_m = w_3_m * eta_three_m;
         memory_record_check_m += w_2_m * eta_two_m;
         memory_record_check_m += w_1_m * eta_m;
