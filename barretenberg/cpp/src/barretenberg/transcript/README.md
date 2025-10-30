@@ -551,7 +551,7 @@ transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 ## API Reference
 
-### Prover Methods
+### Core Methods
 
 #### `send_to_verifier<T>(const std::string& label, const T& element)`
 Serialize element, add to proof, and update transcript state.
@@ -606,8 +606,6 @@ transcript->add_to_hash_buffer("vk_hash", vk_hash);
 
 **Use cases**:
 - Computing verification key/verifier instance hashes
-
-### Verifier Methods
 
 #### `receive_from_prover<T>(const std::string& label) -> T`
 Deserialize and extract element from proof, update transcript state. In-circuit deserialization for `UltraCircuitBuilder` includes `on_curve` checks and proper constraints for `T` = `bigfield`. We also perform `is_infinity` checks to correctly desereialize points at infinity.
