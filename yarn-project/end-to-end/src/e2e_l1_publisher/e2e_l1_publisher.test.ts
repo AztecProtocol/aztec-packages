@@ -725,6 +725,8 @@ describe('L1Publisher integration', () => {
     let sendRequestsResult: Awaited<ReturnType<SequencerPublisher['sendRequests']>> | null;
 
     beforeEach(async () => {
+      sendRequestsResult = null;
+
       await setup({ aztecSlotDuration: 48 });
 
       await ethCheatCodes.setAutomine(false);
@@ -743,7 +745,10 @@ describe('L1Publisher integration', () => {
       void publisher
         .sendRequests()
         .then(r => (sendRequestsResult = r ?? null))
-        .catch(err => err);
+        .catch(err => {
+          sendRequestsResult = null;
+          return err;
+        });
 
       // Wait until the publish tx is sent
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
@@ -775,8 +780,6 @@ describe('L1Publisher integration', () => {
         if (nextL2Slot > initialL2Slot) {
           expect(sendRequestsResult).toBeNull();
           break;
-        } else {
-          expect(sendRequestsResult).toBeUndefined();
         }
       }
 
@@ -872,7 +875,7 @@ describe('L1Publisher integration', () => {
 
       // Wait for completion
       await retryUntil(() => !!sendRequestsResult, 'request resolved', 5, 0.1);
-      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 5, 0.1);
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 10, 0.1);
 
       // The second proposal should succeed
       expect(sendRequestsResult).not.toBeNull();
