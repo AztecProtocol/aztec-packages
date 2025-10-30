@@ -114,6 +114,11 @@ class HighLevelMerkleDBInterface {
     virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
+/**
+ * @brief Interface for a checkpoint notifiable.
+ *
+ * This interface is used to notify listeners when a checkpoint is created, committed, or reverted.
+ */
 class CheckpointNotifiable {
   public:
     virtual ~CheckpointNotifiable() = default;

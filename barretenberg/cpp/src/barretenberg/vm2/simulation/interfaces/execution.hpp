@@ -20,8 +20,6 @@ struct EnqueuedCallResult {
     Gas gas_used;
     // Optional: if set, contains the actual return data.
     std::optional<std::vector<FF>> output;
-    // TODO(fcarreiro): remove this from here. I think it will be done in the PIs work.
-    SideEffectStates side_effect_states;
 };
 
 class ExecutionInterface {
