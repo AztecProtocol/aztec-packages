@@ -281,7 +281,7 @@
       "binaryDir": "build-fuzzing-avm",
       "cacheVariables": {
         "FUZZING": "ON",
-        "DISABLE_ASM": "ON",
+        "DISABLE_ASM": "OFF",
         "AVM_TRANSPILER_LIB": "",
         "CMAKE_BUILD_TYPE": "RelWithAssert",
         "MULTITHREADING": "ON"
