@@ -908,3 +908,35 @@ export function getGitProjectRoot(): string {
     throw new Error(`Failed to determine git project root: ${error}`);
   }
 }
+
+/** Returns a client to the RPC of the given sequencer (defaults to first) */
+export async function getNodeClient(
+  env: TestConfig,
+  index: number = 0,
+): Promise<{ node: ReturnType<typeof createAztecNodeClient>; port: number; process: ChildProcess }> {
+  const namespace = env.NAMESPACE;
+  const containerPort = 8080;
+  const sequencers = await getSequencers(namespace);
+  const sequencer = sequencers[index];
+  if (!sequencer) {
+    throw new Error(`No sequencer found at index ${index} in namespace ${namespace}`);
+  }
+
+  const { process, port } = await startPortForward({
+    resource: `pod/${sequencer}`,
+    namespace,
+    containerPort,
+  });
+
+  const url = `http://localhost:${port}`;
+  await retry(
+    () => fetch(`${url}/status`).then(res => res.status === 200),
+    'forward port',
+    makeBackoff([1, 1, 2, 6]),
+    logger,
+    true,
+  );
+
+  const client = createAztecNodeClient(url);
+  return { node: client, port, process };
+}
