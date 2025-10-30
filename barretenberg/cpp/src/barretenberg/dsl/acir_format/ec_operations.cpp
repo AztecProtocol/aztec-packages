@@ -43,8 +43,7 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     using bool_ct = bb::stdlib::bool_t<Builder>;
 
     // Step 1.
-    // bool_ct predicate = bool_ct(to_field_ct(input.predicate, builder));
-    bool_ct predicate = bool_ct::from_witness_index_unsafe(&builder, input.predicate.index);
+    bool_ct predicate = bool_ct(to_field_ct(input.predicate, builder));
 
     field_ct input_result_x = field_ct::from_witness_index(&builder, input.result_x);
     field_ct input_result_y = field_ct::from_witness_index(&builder, input.result_y);
