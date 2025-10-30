@@ -888,59 +888,95 @@ template <typename Builder> class CycleGroupBase {
             , cycle_group(w_g)
         {}
 
-        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
+      private:
+        /**
+         * @brief Handle addition when points are equal (requires doubling)
+         * @param builder Circuit builder
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with doubled point via various code paths
+         */
+        ExecutionHandler handle_add_doubling_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
         {
-            ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
-            GroupElement base_res = this->base + other.base;
-
-            if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 4;
-                switch (dbl_path) {
-                case 0:
+            uint8_t dbl_path = VarianceRNG.next() % 4;
+            switch (dbl_path) {
+            case 0:
 #ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.dbl" << std::endl;
+                std::cout << "left.dbl" << std::endl;
 #endif
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
-                case 1:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+            case 1:
 #ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.dbl" << std::endl;
+                std::cout << "right.dbl" << std::endl;
 #endif
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-                case 3:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
-                }
-            } else if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 4;
-                cycle_group_t res;
-                switch (inf_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.set_point_at_infinity(";
-#endif
-                    res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.set_point_at_infinity(";
-#endif
-                    res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
-                case 3:
-                    return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
-                }
+                return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
+            return {};
+        }
+
+        /**
+         * @brief Handle addition when points are negations (result is point at infinity)
+         * @param builder Circuit builder
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with point at infinity via various code paths
+         */
+        ExecutionHandler handle_add_infinity_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t inf_path = VarianceRNG.next() % 4;
+            cycle_group_t res;
+            switch (inf_path) {
+            case 0:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "left.set_point_at_infinity(";
+#endif
+                res = this->cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << ");" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 1:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "right.set_point_at_infinity(";
+#endif
+                res = other.cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << ");" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
+            case 3:
+                return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle normal addition (no special edge cases)
+         * @param other The other execution handler
+         * @param base_scalar_res Result scalar for native computation
+         * @param base_res Result point for native computation
+         * @return ExecutionHandler with addition via various code paths
+         */
+        ExecutionHandler handle_add_normal_case(const ExecutionHandler& other,
+                                                const ScalarField& base_scalar_res,
+                                                const GroupElement& base_res)
+        {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
@@ -974,57 +1010,99 @@ template <typename Builder> class CycleGroupBase {
             return {};
         }
 
-        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
+      public:
+        ExecutionHandler operator_add(Builder* builder, const ExecutionHandler& other)
         {
-            ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
-            GroupElement base_res = this->base - other.base;
+            ScalarField base_scalar_res = this->base_scalar + other.base_scalar;
+            GroupElement base_res = this->base + other.base;
 
-            if (other.cg().get_value() == -this->cg().get_value()) {
-                uint8_t dbl_path = VarianceRNG.next() % 3;
-
-                switch (dbl_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.dbl();" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "-right.dbl();" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
-                }
-            } else if (other.cg().get_value() == this->cg().get_value()) {
-                uint8_t inf_path = VarianceRNG.next() % 3;
-                cycle_group_t res;
-
-                switch (inf_path) {
-                case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "left.set_point_at_infinity(";
-#endif
-                    res = this->cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "right.set_point_at_infinity(";
-#endif
-                    res = other.cg();
-                    res.set_point_at_infinity(this->construct_predicate(builder, true));
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << ");" << std::endl;
-#endif
-                    return ExecutionHandler(base_scalar_res, base_res, res);
-                case 2:
-                    return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
-                }
+            // Test doubling path when points are equal
+            if (other.cg().get_value() == this->cg().get_value()) {
+                return handle_add_doubling_case(builder, other, base_scalar_res, base_res);
             }
+
+            // Test infinity path when points are negations
+            if (other.cg().get_value() == -this->cg().get_value()) {
+                return handle_add_infinity_case(builder, other, base_scalar_res, base_res);
+            }
+
+            // Test normal addition paths
+            return handle_add_normal_case(other, base_scalar_res, base_res);
+        }
+
+      private:
+        /**
+         * @brief Handle subtraction when points are negations: x - (-x) = 2x (doubling case)
+         */
+        ExecutionHandler handle_sub_doubling_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t dbl_path = VarianceRNG.next() % 3;
+
+            switch (dbl_path) {
+            case 0:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "left.dbl();" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
+            case 1:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "-right.dbl();" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle subtraction when points are equal: x - x = 0 (point at infinity)
+         */
+        ExecutionHandler handle_sub_infinity_case(Builder* builder,
+                                                  const ExecutionHandler& other,
+                                                  const ScalarField& base_scalar_res,
+                                                  const GroupElement& base_res)
+        {
+            uint8_t inf_path = VarianceRNG.next() % 3;
+            cycle_group_t res;
+
+            switch (inf_path) {
+            case 0:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "left.set_point_at_infinity(";
+#endif
+                res = this->cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << ");" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 1:
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << "right.set_point_at_infinity(";
+#endif
+                res = other.cg();
+                res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef FUZZING_SHOW_INFORMATION
+                std::cout << ");" << std::endl;
+#endif
+                return ExecutionHandler(base_scalar_res, base_res, res);
+            case 2:
+                return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
+            }
+            return {};
+        }
+
+        /**
+         * @brief Handle normal subtraction case (no special edge cases)
+         */
+        ExecutionHandler handle_sub_normal_case(const ExecutionHandler& other,
+                                                const ScalarField& base_scalar_res,
+                                                const GroupElement& base_res)
+        {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 2 : VarianceRNG.next() % 3;
@@ -1045,6 +1123,24 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
             return {};
+        }
+
+      public:
+        /**
+         * @brief Subtract two ExecutionHandlers, exploring different code paths for edge cases
+         */
+        ExecutionHandler operator_sub(Builder* builder, const ExecutionHandler& other)
+        {
+            ScalarField base_scalar_res = this->base_scalar - other.base_scalar;
+            GroupElement base_res = this->base - other.base;
+
+            if (other.cg().get_value() == -this->cg().get_value()) {
+                return handle_sub_doubling_case(builder, other, base_scalar_res, base_res);
+            }
+            if (other.cg().get_value() == this->cg().get_value()) {
+                return handle_sub_infinity_case(builder, other, base_scalar_res, base_res);
+            }
+            return handle_sub_normal_case(other, base_scalar_res, base_res);
         }
 
         ExecutionHandler mul(Builder* builder, const ScalarField& multiplier)
