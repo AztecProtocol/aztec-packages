@@ -410,6 +410,9 @@ struct TxSimulationResult {
     // The rest.
     Gas gas_used;
     std::vector<DebugLog> debug_logs;
+    // TODO(fcarreiro): To enable the fuzzer. The format might change.
+    std::optional<std::vector<FF>> app_logic_output;
+    bool reverted;
 
     bool operator==(const TxSimulationResult& other) const = default;
     MSGPACK_FIELDS(public_inputs, execution_hints, gas_used, debug_logs);

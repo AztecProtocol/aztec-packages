@@ -15,7 +15,10 @@ struct TxContext {
     RetrievedBytecodesTreeCheckInterface& retrieved_bytecodes_tree;
     ContextProviderInterface& context_provider;
     SideEffectTrackerInterface& side_effect_tracker;
+
     Gas gas_used = { 0, 0 };
+    bool reverted = false;                           // if any revertible phase reverted
+    std::optional<std::vector<FF>> app_logic_output; // last app logic returndata
 
     TxContextEvent serialize_tx_context_event() const
     {

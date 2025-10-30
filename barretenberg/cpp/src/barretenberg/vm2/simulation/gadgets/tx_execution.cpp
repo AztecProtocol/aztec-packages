@@ -58,7 +58,7 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
 // (3) Revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
 // (4) App logic phase, where the app logic enqueued calls are executed.
 // (5) Collec Gas fee
-void TxExecution::simulate(const Tx& tx)
+TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
     Gas gas_limit = tx.gasSettings.gasLimits;
     Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
@@ -146,6 +146,7 @@ void TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
+                tx_context.app_logic_output = std::move(result.output);
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),
@@ -163,6 +164,7 @@ void TxExecution::simulate(const Tx& tx)
         }
     } catch (const TxExecutionException& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
+        tx_context.reverted = true;
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
@@ -217,6 +219,7 @@ void TxExecution::simulate(const Tx& tx)
         merkle_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+        tx_context.reverted = true;
         // We rollback to the post-setup state.
         merkle_db.revert_checkpoint();
     }
@@ -227,6 +230,12 @@ void TxExecution::simulate(const Tx& tx)
     pad_trees();
 
     cleanup();
+
+    return {
+        .gas_used = tx_context.gas_used,
+        .reverted = tx_context.reverted,
+        .app_logic_output = std::move(tx_context.app_logic_output),
+    };
 }
 
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)

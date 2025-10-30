@@ -431,20 +431,24 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     PublicInputsBuilder public_inputs_builder;
     public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, prover_id, raw_merkle_db);
 
-    tx_execution.simulate(tx);
+    // This triggers all the work.
+    TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
 
     // TODO(fcarreiro): get these values from somewhere.
-    bool reverted = false;
-    Gas end_gas_used = tx_execution.get_tx_context().gas_used;
     FF transaction_fee = 0;
-    public_inputs_builder.extract_outputs(
-        raw_merkle_db, end_gas_used, transaction_fee, reverted, side_effect_tracker.get_side_effects());
+    public_inputs_builder.extract_outputs(raw_merkle_db,
+                                          tx_execution_result.gas_used,
+                                          transaction_fee,
+                                          tx_execution_result.reverted,
+                                          side_effect_tracker.get_side_effects());
 
     return {
         .public_inputs = public_inputs_builder.build(),
         .execution_hints = std::nullopt, // TODO: add execution hints, optionally.
-        .gas_used = end_gas_used,
+        .gas_used = tx_execution_result.gas_used,
         .debug_logs = debug_log_component->dump_logs(),
+        .app_logic_output = tx_execution_result.app_logic_output,
+        .reverted = tx_execution_result.reverted,
     };
 }
 
@@ -510,9 +514,11 @@ EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& ad
     PureContractDB contract_db(raw_contract_db);
 
     const FF first_nullifier = 42000; // just choose some arbitrary first nullifier
-    PureMerkleDB merkle_db(
+    SideEffectTracker side_effect_tracker;
+    PureMerkleDB base_merkle_db(
         /*first_nullifier=*/first_nullifier, raw_merkle_db, written_public_data_slots_tree_check);
-    merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+    SideEffectTrackingDB merkle_db(first_nullifier, base_merkle_db, side_effect_tracker);
+    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
 
     NoopUpdateCheck update_check;
 
@@ -537,6 +543,7 @@ EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& ad
                                      merkle_db,
                                      written_public_data_slots_tree_check,
                                      retrieved_bytecodes_tree_check,
+                                     side_effect_tracker,
                                      globals);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
@@ -601,7 +608,7 @@ EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& ad
         merkle_db,
         written_public_data_slots_tree_check,
         retrieved_bytecodes_tree_check,
-        /*side_effect_states=*/SideEffectStates{ 0, 0 },
+        side_effect_tracker,
         /*phase=*/TransactionPhase::APP_LOGIC,
         calldata);
 

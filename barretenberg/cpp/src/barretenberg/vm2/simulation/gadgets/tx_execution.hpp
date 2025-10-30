@@ -15,6 +15,13 @@
 
 namespace bb::avm2::simulation {
 
+// TODO(fcarreiro): Create interface and move there.
+struct TxExecutionResult {
+    Gas gas_used;
+    bool reverted;
+    std::optional<std::vector<FF>> app_logic_output;
+};
+
 // In charge of executing a transaction.
 class TxExecution final {
   public:
@@ -40,7 +47,7 @@ class TxExecution final {
                      side_effect_tracker)
     {}
 
-    void simulate(const Tx& tx);
+    TxExecutionResult simulate(const Tx& tx);
 
     const TxContext& get_tx_context() const { return tx_context; }
 
