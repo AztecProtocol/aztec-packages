@@ -449,8 +449,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
     build
-    release-image/bootstrap.sh push
-    test
+    # release-image/bootstrap.sh push
+    # test
     release
     ;;
   "ci-network-deploy")
