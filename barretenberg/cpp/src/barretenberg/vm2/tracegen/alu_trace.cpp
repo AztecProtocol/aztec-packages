@@ -1,15 +1,14 @@
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <ranges>
 #include <stdexcept>
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_alu.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/instruction_spec.hpp"
@@ -456,4 +455,5 @@ const InteractionDefinition AluTraceBuilder::interactions =
         .add<lookup_alu_shifts_two_pow_settings, InteractionType::LookupIntoIndexedByClk>()
         .add<lookup_alu_range_check_trunc_mid_settings, InteractionType::LookupGeneric>(Column::range_check_sel)
         .add<lookup_alu_large_trunc_canonical_dec_settings, InteractionType::LookupGeneric>();
+
 } // namespace bb::avm2::tracegen

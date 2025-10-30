@@ -218,7 +218,7 @@ pol EXPECTED_C_TAG = (sel_op_add + sel_op_sub + sel_op_mul + sel_op_div + sel_op
 /******************************************************************************
 * BIT DECOMPOSITION
 ******************************************************************************/
-// We use the below to prove correct decomposition of limbs. Currently used by MUL, DIV, SHL, and SHR.
+// We use the below to prove correct decomposition of some values into limbs. Currently used by MUL, DIV, SHL, and SHR.
 pol commit sel_decompose_a;
 // #[OP_ID_CHECK] ensures selectors are mutually exclusive:
 sel_decompose_a = (1 - sel_err) * (sel_mul_div_u128 + SHIFT_OPS);

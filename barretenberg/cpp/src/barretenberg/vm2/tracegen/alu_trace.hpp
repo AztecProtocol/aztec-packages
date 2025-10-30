@@ -1,5 +1,10 @@
 #pragma once
 
+#include <utility>
+#include <vector>
+
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
