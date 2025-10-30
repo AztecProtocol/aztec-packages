@@ -17,7 +17,12 @@ namespace bb::avm2::tracegen {
 
 namespace {
 
-// Get tag inverse for a given index using static precomputed inverses.
+/**
+ * @brief Get the tag inverse value from a precomputed array where the index is the tag value.
+ *
+ * @param index The index of the tag in the precomputed array. Range is 0 to NUM_TAGS - 1.
+ * @return The inverse of the tag.
+ */
 const FF& get_tag_inverse(size_t index)
 {
     constexpr size_t NUM_TAGS = static_cast<size_t>(MemoryTag::MAX) + 1;
@@ -33,6 +38,13 @@ const FF& get_tag_inverse(size_t index)
     return tag_inverses.at(index);
 }
 
+/**
+ * @brief Get the inverse of the difference between two tags.
+ *
+ * @param a_tag The first tag.
+ * @param b_tag The second tag.
+ * @return The inverse of the difference between the two tags. (a_tag - b_tag^(-1).
+ */
 FF get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag)
 {
     if (static_cast<uint8_t>(a_tag) >= static_cast<uint8_t>(b_tag)) {
@@ -42,6 +54,12 @@ FF get_tag_diff_inverse(const MemoryTag a_tag, const MemoryTag b_tag)
     return -get_tag_inverse(static_cast<uint8_t>(b_tag) - static_cast<uint8_t>(a_tag));
 }
 
+/**
+ * @brief Get the columns for a given ALU operation. This is used to populate operation specific values in the trace.
+ *
+ * @param event The ALU event.
+ * @return A vector of column-value pairs for the given ALU operation.
+ */
 std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
@@ -340,12 +358,18 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
     }
 }
 
-// We consider the following errors simultaneously:
-// Tag errors:
-//    1. Input tagged as a field for NOT or DIV operations
-//    2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
-// Division by zero errors:
-//    3. DIV or FDIV operation with b = 0
+/**
+ * @brief Get the error columns for a given ALU event. This is used to populate error specific values in the trace.
+ *        We consider the following errors simultaneously:
+ *        Tag errors:
+ *          1. Input tagged as a field for NOT or DIV operations
+ *          2. Mismatched tags for inputs a and b for all opcodes apart from TRUNC
+ *        Division by zero errors:
+ *          3. DIV or FDIV operation with b = 0
+ *
+ * @param event The ALU event.
+ * @return A vector of column-value pairs for the error columns.
+ */
 std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent& event)
 {
     const MemoryTag a_tag = event.a.get_tag();
@@ -395,6 +419,12 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
 
 } // namespace
 
+/**
+ * @brief Process the ALU events and populate the ALU relevant columns in the trace.
+ *
+ * @param events The container of ALU events to process.
+ * @param trace The trace container.
+ */
 void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation::AluEvent>::Container& events,
                               TraceContainer& trace)
 {
