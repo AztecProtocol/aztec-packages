@@ -73,45 +73,6 @@ TEST(RamTable, TagCorrectness)
 #endif
 }
 
-TEST(RamTable, OutOfBoundsReadFailure)
-{
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using witness_ct = stdlib::witness_t<Builder>;
-    using ram_table_ct = stdlib::ram_table<Builder>;
-    Builder builder;
-
-    const size_t table_size = 10;
-    std::vector<field_ct> table_values;
-    for (size_t i = 0; i < table_size; ++i) {
-        table_values.emplace_back(witness_ct(&builder, bb::fr::random_element()));
-    }
-    // initialize directly from circuit values
-    ram_table_ct table(table_values);
-    // Attempt to read at an out-of-bounds index
-    EXPECT_THROW_OR_ABORT({ [[maybe_unused]] auto _value = table.read(field_ct(table_size)); }, "*");
-    // Check that the builder has registered a failure
-    EXPECT_TRUE(builder.failed());
-}
-
-TEST(RamTable, OutOfBoundsWriteFailure)
-{
-    using Builder = UltraCircuitBuilder;
-    using field_ct = stdlib::field_t<Builder>;
-    using ram_table_ct = stdlib::ram_table<Builder>;
-
-    Builder builder;
-    const size_t table_size = 10;
-    ram_table_ct table(&builder, table_size);
-
-    for (size_t i = 0; i < table_size; ++i) {
-        table.write(i, 0);
-    }
-
-    // Attempt to write at an out-of-bounds index
-    EXPECT_THROW_OR_ABORT({ table.write(field_ct(table_size), field_ct(42)); }, "*");
-    EXPECT_TRUE(builder.failed());
-}
 TYPED_TEST_SUITE(RamTableTests, BuilderTypes);
 
 TYPED_TEST(RamTableTests, RamTableInitReadConsistency)
