@@ -22,7 +22,8 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using Curve = typename Flavor::Curve;
+    using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
     using RecursiveVerifierInstance = RecursiveVerifierInstance_<Flavor>;
     using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
     using Transcript = StdlibTranscript<Builder>;

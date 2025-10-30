@@ -19,15 +19,6 @@
 
 namespace bb {
 
-// Helper template to select the appropriate PairingPoints type
-template <typename Curve, bool IsStdlib = Curve::is_stdlib_type> struct PairingPointsTypeHelper {
-    using type = bb::PairingPoints;
-};
-
-template <typename Curve> struct PairingPointsTypeHelper<Curve, true> {
-    using type = stdlib::recursion::PairingPoints<typename Curve::Builder>;
-};
-
 template <typename Curve_> class KZG {
   public:
     using Curve = Curve_;
@@ -38,8 +29,9 @@ template <typename Curve_> class KZG {
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
 
-    // Conditional type for PairingPoints based on whether we're in stdlib or native context
-    using PairingPointsType = typename PairingPointsTypeHelper<Curve>::type;
+    // Unified PairingPoints type - both native and stdlib are now templated on Curve
+    using PairingPointsType =
+        std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point

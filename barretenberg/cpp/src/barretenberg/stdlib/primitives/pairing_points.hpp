@@ -30,9 +30,8 @@ static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
-template <typename Builder_> struct PairingPoints {
-    using Builder = Builder_;
-    using Curve = bn254<Builder>;
+template <typename Curve> struct PairingPoints {
+    using Builder = typename Curve::Builder;
     using Group = Curve::Group;
     using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
@@ -212,9 +211,9 @@ template <typename Builder_> struct PairingPoints {
      * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
      *
      * @param limbs The limbs of the pairing points
-     * @return PairingPoints<Builder>
+     * @return PairingPoints<Curve>
      */
-    static PairingPoints<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };

@@ -45,7 +45,7 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
 
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
-    PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
+    PairingPoints<bn254<Builder>> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations

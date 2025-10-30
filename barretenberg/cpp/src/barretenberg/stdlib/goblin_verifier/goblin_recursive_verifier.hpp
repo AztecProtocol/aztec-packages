@@ -15,7 +15,8 @@ namespace bb::stdlib::recursion::honk {
 struct GoblinRecursiveVerifierOutput {
     using Builder = UltraCircuitBuilder;
     using Curve = grumpkin<Builder>;
-    using PairingAccumulator = PairingPoints<Builder>;
+    using BN254Curve = bn254<Builder>;
+    using PairingAccumulator = PairingPoints<BN254Curve>;
     PairingAccumulator points_accumulator;
     OpeningClaim<Curve> opening_claim;
     stdlib::Proof<Builder> ipa_proof;
