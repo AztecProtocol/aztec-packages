@@ -220,10 +220,10 @@ mod tests {
     }
 
     #[test]
-    unconstrained fn test_3_blobs_batched() {
-        // Create 2 full blobs and 1 blob with 123 fields.
-        let num_fields = FIELDS_PER_BLOB * 2 + 123;
-        // Fill three blobs completely with different values (to avoid a constant polynomial)
+    unconstrained fn test_max_blobs_batched() {
+        // Create BLOBS_PER_BLOCK-1 full blobs and 1 blob with 123 fields.
+        let num_fields = FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123;
+        // Fill BLOBS_PER_BLOCK blobs completely with different values (to avoid a constant polynomial)
         let mut blob_fields = [0; FIELDS_PER_BLOB * BLOBS_PER_BLOCK];
         blob_fields[0] = num_fields as Field;
         for i in 1..num_fields {
@@ -236,16 +236,16 @@ mod tests {
 
         // The following hardcoded values are generated from yarn-project/blob-lib/src/blob_batching.test.ts
         let kzg_commitment_x_limbs_blob_0_from_ts = [
-            0xd7ecb979c36d078b55d1b1fb1108b8,
-            0xa823d630d8b78759e51625dcd1fb47,
-            0x35c925ae7c0b8af74322de059db6c1,
-            0x08c410,
+            0xd98821307463f0f2453a6596b611d7,
+            0x3553efff4ebfa752f0c2a7e37ae201,
+            0x5656fb0ec77fc885c126e2d7222567,
+            0x0ada2f,
         ];
         let kzg_commitment_y_limbs_blob_0_from_ts = [
-            0x00c8fd5a60c016790b5a214b70ee1d,
-            0x7ef5cf4f65e3ddf97165baa7cf4ffc,
-            0xb929ae54ab3a8c9da6dc90d02b8d9c,
-            0x0ad6b4,
+            0x4b40f6074b53e460406a04e2897cf4,
+            0xb6354d81981823c4620865243f3a07,
+            0x3fe19618b6a81b4dbe28782c7ff05f,
+            0x0e99c2,
         ];
         let kzg_commitment_x_limbs_blob_1_from_ts = [
             0xab3ed5948aa3d00fe77b1b2876ecd7,
@@ -260,36 +260,72 @@ mod tests {
             0x13ed3a,
         ];
         let kzg_commitment_x_limbs_blob_2_from_ts = [
-            0x2d936449435dd85db10daa4a93572a,
-            0xba75b7a0c3065ee47dd17fa801cbcb,
-            0x308ba7a7145cd3d90a7801a23f0f6b,
-            0x0d4847,
+            0x95ff2f2e3fbbdd8f3c5cbaf7041f86,
+            0x73dd9cb0866ddc65ad243d800de218,
+            0xeb16d48b698a6f46d9b30ff5aa9235,
+            0x0af690,
         ];
         let kzg_commitment_y_limbs_blob_2_from_ts = [
-            0x5a51aa53fad565ecb91d04288a3a1b,
-            0xbd1bfcd6b075c4749ddf4251b4028c,
-            0x59dcc1d2a509604b557950b349a9f5,
-            0x0c6b4d,
+            0x15d6a22755e87c70bb17c376d284a1,
+            0x08973528e0edd0d9d9abc33df1409a,
+            0x465d9a4c63043f1610de902590fc05,
+            0x179a7d,
         ];
-        let z_3_blobs_from_ts = 0x171ded8c78a90f027b2f851f7632201ae43c2e1a53736e28f5d250a2f960c244;
-        let gamma_limbs_3_blobs_from_ts =
-            [0x9a8371b452f23e2cfd836b3c52d376, 0x4b53051d9cb9000535d20db7a60654, 0x2208];
-        let y_limbs_3_blobs_from_ts =
-            [0x837f44d9eea6c580f48caff8e9d367, 0x43d4808e38ca8eb79c7e45b86112d1, 0x6675];
-        let batched_c_x_limbs_3_blobs_from_ts = [
-            0xb2289cba95de61292f5b1fb469f3ce,
-            0xf3d2b50a15cf1dc5955ada6e1a0afe,
-            0x8dd78590d3c6f9afbabbe2aee9767e,
-            0x19ce65,
+        let kzg_commitment_x_limbs_blob_3_from_ts = [
+            0x8abcc04672921555d249013c6a2dff,
+            0xe6f4bdf1519b96a9587ef925a61c3f,
+            0x1eefebbf752d447ca03143ce29c14c,
+            0x01f9a4,
         ];
-        let batched_c_y_limbs_3_blobs_from_ts = [
-            0x79a6292da504c2b3dd6bf7969cfebe,
-            0x6b5ae4f128144e5f7c56ec6dd3549e,
-            0x013e3ce081b1ba8ef61665cf285526,
-            0x092cac,
+        let kzg_commitment_y_limbs_blob_3_from_ts = [
+            0xe815f4764674c8cefb92fc66427c4e,
+            0x5bb9509e9456bfa6b96d181e98790f,
+            0xa4c15ad388331ecaf1db719518d990,
+            0x096fca,
         ];
-        let blob_commitments_hash_3_blobs_from_ts =
-            0x00f607a4f19d7226c80b3ea468e0323f8d1a713c9ee64813d7518243013acf15;
+        let kzg_commitment_x_limbs_blob_4_from_ts = [
+            0x2e538340c1895070cd8c48ee520eea,
+            0xe676c25dc822620f0d717f5271350c,
+            0x7e4fc5215cac39163be65ecb56b08c,
+            0x046ebd,
+        ];
+        let kzg_commitment_y_limbs_blob_4_from_ts = [
+            0x6dbae28f6da17be4e2b4ae84b9a004,
+            0x4962c2dd58e9b267461571cb9df1d8,
+            0x4ac580cc6619ab9c5cacef1d2e45e4,
+            0x080795,
+        ];
+        let kzg_commitment_x_limbs_blob_5_from_ts = [
+            0x4180193fcc19faef8b549feed11bd9,
+            0xfea2e4d547d062520dc1f07c46ec36,
+            0x6759dee549e2cac51898e1015dab52,
+            0x02c558,
+        ];
+        let kzg_commitment_y_limbs_blob_5_from_ts = [
+            0x915c85bd0a86e17554a61e2a78ab90,
+            0xb8d17f1a895b20bed80d82831829b6,
+            0xa2ed663b09d9b137725c89ceb05570,
+            0x12faab,
+        ];
+        let z_6_blobs_from_ts = 0x290028c04e1c668964107b6c7bd0d788e34ba66774e19d535d4e0001ad50425f;
+        let gamma_limbs_6_blobs_from_ts =
+            [0x9727d3cd1ba9a0c112cf261ab67d8a, 0xf275e92ed252cb59189a91bdb04851, 0x2c0d];
+        let y_limbs_6_blobs_from_ts =
+            [0x0b6956714bd922f3f75bb37bc1ad7b, 0x3d3ed3ccecbc6dbf093e8e7dabcc5a, 0x1116];
+        let batched_c_x_limbs_6_blobs_from_ts = [
+            0x5590379c09358bc9d4cfaacce118bf,
+            0x576ec13daa7bcd9002dbc0e7a1bb20,
+            0x2911a2aad64c7b41120f18efd47dfe,
+            0x04ac80,
+        ];
+        let batched_c_y_limbs_6_blobs_from_ts = [
+            0x0cc496dec19c9b69212cb819d6f409,
+            0x15243e2ecd073f6075e047365309d8,
+            0x65b1a913e7af6c2b9520c957c3a21e,
+            0x0f974a,
+        ];
+        let blob_commitments_hash_6_blobs_from_ts =
+            0x00b474d73f8677cb2eb1b2e5278ee12e8611c35bf86326db8b2cd5c6e102e482;
 
         // Init. injected values:
         // - Commitments are injected and checked for correctness on L1 via acc.v
@@ -309,17 +345,32 @@ mod tests {
                 kzg_commitment_y_limbs_blob_2_from_ts,
             )
                 .point,
+            BatchingBlobCommitment::from_limbs(
+                kzg_commitment_x_limbs_blob_3_from_ts,
+                kzg_commitment_y_limbs_blob_3_from_ts,
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                kzg_commitment_x_limbs_blob_4_from_ts,
+                kzg_commitment_y_limbs_blob_4_from_ts,
+            )
+                .point,
+            BatchingBlobCommitment::from_limbs(
+                kzg_commitment_x_limbs_blob_5_from_ts,
+                kzg_commitment_y_limbs_blob_5_from_ts,
+            )
+                .point,
         ];
 
         let final_challenges = FinalBlobBatchingChallenges {
             // - The final z value is injected and checked for correctness in root (see below final_acc)
-            z: z_3_blobs_from_ts,
+            z: z_6_blobs_from_ts,
             // - The final gamma value is injected and checked for correctness in root (see below final_acc)
-            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_3_blobs_from_ts),
+            gamma: BLS12_381_Fr::from_limbs(gamma_limbs_6_blobs_from_ts),
         };
         // Init. the accumulator
         let start_acc = BlobAccumulator::empty();
-        // Evaluate all three blobs and iteratively accumulate the results
+        // Evaluate all BLOBS_PER_BLOCK blobs and iteratively accumulate the results
         let (output, hashed_blobs_fields) = evaluate_blobs_and_batch(
             blob_fields,
             num_fields,
@@ -341,17 +392,17 @@ mod tests {
             final_challenges.gamma.__pow(BLS12_381_Fr::from(BLOBS_PER_BLOCK as Field)),
         );
 
-        let expected_y = BLS12_381_Fr::from_limbs(y_limbs_3_blobs_from_ts);
+        let expected_y = BLS12_381_Fr::from_limbs(y_limbs_6_blobs_from_ts);
 
         let expected_c = BatchingBlobCommitment::from_limbs(
-            batched_c_x_limbs_3_blobs_from_ts,
-            batched_c_y_limbs_3_blobs_from_ts,
+            batched_c_x_limbs_6_blobs_from_ts,
+            batched_c_y_limbs_6_blobs_from_ts,
         )
             .to_compressed_fields();
 
         assert_eq(final_acc.y, expected_y);
         assert_eq(final_acc.c, expected_c);
-        assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_3_blobs_from_ts);
+        assert_eq(final_acc.blob_commitments_hash, blob_commitments_hash_6_blobs_from_ts);
     }
 
     #[test(should_fail_with = "Found non-zero field after breakpoint")]

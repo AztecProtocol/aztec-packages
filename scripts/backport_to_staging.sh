@@ -140,8 +140,12 @@ fi
 
 # Commit changes - base the commit details off of the PR title and body
 echo "Diff applied successfully! Committing changes..."
+
+git config user.name "$PR_AUTHOR"
+git config user.email "$PR_AUTHOR_EMAIL"
+
 git add -A
-git commit --author="$PR_AUTHOR <$PR_AUTHOR_EMAIL>" -m "$PR_TITLE
+git commit -m "$PR_TITLE
 
 $PR_BODY"
 
