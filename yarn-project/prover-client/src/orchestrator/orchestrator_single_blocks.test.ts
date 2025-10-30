@@ -1,6 +1,6 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { createBlockEndMarker } from '@aztec/stdlib/block';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 
 import { TestContext } from '../mocks/test_context.js';
 import { buildBlobDataFromTxs, buildFinalBlobChallenges } from './block-building-helpers.js';
@@ -20,7 +20,7 @@ describe('prover/orchestrator/blocks', () => {
 
   describe('blocks', () => {
     it('builds an empty L2 block', async () => {
-      const blobFields = [createBlockEndMarker(0)];
+      const blobFields = getCheckpointBlobFields([[]]);
       const finalBlobChallenges = await buildFinalBlobChallenges([blobFields]);
       context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
       await context.orchestrator.startNewCheckpoint(

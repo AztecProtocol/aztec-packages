@@ -7,6 +7,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -114,14 +115,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    a_idx = builder.read_RAM_array(ram_id, builder.add_variable(5));
+    a_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    b_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
-    c_idx = builder.read_RAM_array(ram_id, builder.add_variable(1));
+    b_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(4)));
+    c_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(1)));
 
-    builder.write_RAM_array(ram_id, builder.add_variable(4), builder.add_variable(500));
-    d_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
+    builder.write_RAM_array(ram_id, builder.add_variable(FF(4)), builder.add_variable(FF(500)));
+    d_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(4)));
 
     EXPECT_EQ(builder.get_variable(d_idx), 500);
 
@@ -145,7 +146,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         },
         false);
 
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
     // Create a prover (it will compute proving key and witness)
     auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 

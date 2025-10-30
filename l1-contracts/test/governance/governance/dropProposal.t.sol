@@ -67,11 +67,12 @@ contract DropProposalTest is GovernanceBase {
     assertEq(governance.getProposalState(proposalId), ProposalState.Queued);
   }
 
-  function test_WhenGetProposalStateIsExecutable(address _voter, uint256 _totalPower, uint256 _votesCast, uint256 _yeas)
-    external
-    givenProposalIsUnstable
-    whenGetProposalStateIsNotDropped
-  {
+  function test_WhenGetProposalStateIsExecutable(
+    address _voter,
+    uint256 _totalPower,
+    uint256 _votesCast,
+    uint256 _yeas
+  ) external givenProposalIsUnstable whenGetProposalStateIsNotDropped {
     // it revert
     _stateExecutable("empty", _voter, _totalPower, _votesCast, _yeas);
     assertEq(governance.getProposalState(proposalId), ProposalState.Executable);

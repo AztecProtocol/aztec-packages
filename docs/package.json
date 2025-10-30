@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "HOST=0.0.0.0 ENV=dev yarn preprocess && ENV=dev docusaurus start --host ${HOST:-localhost}",
+    "start": "yarn preprocess && docusaurus start --host ${HOST:-localhost}",
     "dev:netlify": "yarn netlify dev",
     "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
-    "clean": "./scripts/clean.sh",
     "serve": "docusaurus serve",
+    "clean": "./scripts/clean.sh",
     "preprocess": "yarn node -r dotenv/config ./src/preprocess/index.js",
     "preprocess:move": "sh scripts/move_processed.sh",
     "spellcheck": "yarn cspell",

@@ -1,6 +1,7 @@
 use crate::abis::{BlockRollupPublicInputs, CheckpointRollupPublicInputs, TxRollupPublicInputs};
+use bigcurve::BigCurve;
 use bignum::BigNum;
-use blob::abis::{BatchingBlobCommitment, BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
+use blob::abis::{BlobAccumulator, BLSPoint, FinalBlobBatchingChallenges};
 use parity_lib::ParityPublicInputs;
 use types::{
     abis::{
@@ -353,7 +354,7 @@ impl RollupFixtureBuilder {
     }
 
     pub fn get_sponge_blob(self, block_number: u32) -> SpongeBlob {
-        let mut sponge: SpongeBlob = self.make_fixture(1, block_number, 661);
+        let mut sponge: SpongeBlob = self.make_fixture(self.start_slot_number, block_number, 661);
         sponge.sponge.cache_size = 0;
         sponge.sponge.squeeze_mode = false;
         sponge
@@ -371,9 +372,8 @@ impl RollupFixtureBuilder {
     pub fn get_blob_commitments(self, slot_number: Field) -> [BLSPoint; BLOBS_PER_BLOCK] {
         let mut commitments: [BLSPoint; BLOBS_PER_BLOCK] = std::mem::zeroed();
         for i in 0..BLOBS_PER_BLOCK {
-            let x: [u128; 4] = self.make_fixture(slot_number, i, 58);
-            let y: [u128; 4] = self.make_fixture(slot_number, i, 49);
-            commitments[i] = BatchingBlobCommitment::from_limbs(x, y).point
+            let seed: Field = self.make_fixture(slot_number, i, 58);
+            commitments[i] = BLSPoint::hash_to_curve(seed.to_be_bytes::<32>());
         }
         commitments
     }

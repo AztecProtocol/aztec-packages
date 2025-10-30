@@ -1,4 +1,4 @@
-import { BatchedBlobAccumulator, BlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
+import { BatchedBlobAccumulator, type FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   BLOBS_PER_BLOCK,
@@ -11,6 +11,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
+import { getCheckpointBlobFields } from '@aztec/stdlib/checkpoint';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 import {
@@ -41,6 +42,7 @@ export class CheckpointProvingState {
   private blocks: (BlockProvingState | undefined)[] = [];
   private startBlobAccumulator: BatchedBlobAccumulator | undefined;
   private endBlobAccumulator: BatchedBlobAccumulator | undefined;
+  private blobFields: Fr[] | undefined;
   private error: string | undefined;
   public readonly firstBlockNumber: number;
 
@@ -76,13 +78,13 @@ export class CheckpointProvingState {
     return this.parentEpoch.epochNumber;
   }
 
-  public startNewBlock(
+  public async startNewBlock(
     blockNumber: number,
     timestamp: UInt64,
     totalNumTxs: number,
     lastArchiveTreeSnapshot: AppendOnlyTreeSnapshot,
     lastArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
-  ): BlockProvingState {
+  ): Promise<BlockProvingState> {
     const index = blockNumber - this.firstBlockNumber;
     if (index >= this.totalNumBlocks) {
       throw new Error(`Unable to start a new block at index ${index}. Expected at most ${this.totalNumBlocks} blocks.`);
@@ -97,7 +99,7 @@ export class CheckpointProvingState {
       index === 0 ? this.lastL1ToL2MessageSubtreeRootSiblingPath : this.newL1ToL2MessageSubtreeRootSiblingPath;
 
     const startSpongeBlob =
-      index === 0 ? SpongeBlob.init(this.totalNumBlobFields) : this.blocks[index - 1]?.getEndSpongeBlob();
+      index === 0 ? await SpongeBlob.init(this.totalNumBlobFields) : this.blocks[index - 1]?.getEndSpongeBlob();
     if (!startSpongeBlob) {
       throw new Error(
         'Cannot start a new block before the trees have progressed from the tx effects in the previous block.',
@@ -194,8 +196,8 @@ export class CheckpointProvingState {
       return;
     }
 
-    const blobFields = this.blocks.flatMap(b => b!.getBlockBlobFields());
-    this.endBlobAccumulator = await accumulateBlobs(blobFields, startBlobAccumulator);
+    this.blobFields = getCheckpointBlobFields(this.blocks.map(b => b!.getTxEffects()));
+    this.endBlobAccumulator = await accumulateBlobs(this.blobFields, startBlobAccumulator);
     this.startBlobAccumulator = startBlobAccumulator;
 
     this.onBlobAccumulatorSet(this);
@@ -224,7 +226,7 @@ export class CheckpointProvingState {
     return this.totalNumBlocks === 1 ? 'rollup-checkpoint-root-single-block' : 'rollup-checkpoint-root';
   }
 
-  public async getCheckpointRootRollupInputs() {
+  public getCheckpointRootRollupInputs() {
     const proofs = this.#getChildProofsForRoot();
     const nonEmptyProofs = proofs.filter(p => !!p);
     if (proofs.length !== nonEmptyProofs.length) {
@@ -234,13 +236,15 @@ export class CheckpointProvingState {
       throw new Error('Start blob accumulator is not set.');
     }
 
-    const blobFields = this.blocks.flatMap(b => b!.getBlockBlobFields());
-    const { blobCommitments, blobsHash } = await buildBlobHints(blobFields);
+    // `blobFields` must've been set if `startBlobAccumulator` is set (in `accumulateBlobs`).
+    const blobFields = this.blobFields!;
+
+    const { blobCommitments, blobsHash } = buildBlobHints(blobFields);
 
     const hints = CheckpointRootRollupHints.from({
       previousBlockHeader: this.headerOfLastBlockInPreviousCheckpoint,
       previousArchiveSiblingPath: this.lastArchiveSiblingPath,
-      startBlobAccumulator: BlobAccumulator.fromBatchedBlobAccumulator(this.startBlobAccumulator),
+      startBlobAccumulator: this.startBlobAccumulator.toBlobAccumulator(),
       finalBlobChallenges: this.finalBlobBatchingChallenges,
       blobFields: padArrayEnd(blobFields, Fr.ZERO, FIELDS_PER_BLOB * BLOBS_PER_BLOCK),
       blobCommitments: padArrayEnd(blobCommitments, BLS12Point.ZERO, BLOBS_PER_BLOCK),

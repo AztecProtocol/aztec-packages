@@ -142,7 +142,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   }
 
   /**
-   * @notice	Signal support for a payload
+   * @notice Signal support for a payload
    *
    * @dev this only works if msg.sender is the current signaler
    *
@@ -155,7 +155,7 @@ abstract contract EmpireBase is EIP712, IEmpire {
   }
 
   /**
-   * @notice	Signal support for a payload with a signature from the current signaler
+   * @notice Signal support for a payload with a signature from the current signaler
    *
    * @param _payload - The payload to signal support for
    * @param _sig - A signature from the signaler

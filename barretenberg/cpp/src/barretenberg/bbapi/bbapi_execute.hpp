@@ -1,6 +1,6 @@
 #pragma once
 
-#include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_chonk.hpp"
 #include "barretenberg/bbapi/bbapi_crypto.hpp"
 #include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_ecdsa.hpp"
@@ -17,18 +17,18 @@ using Command = NamedUnion<CircuitProve,
                            CircuitComputeVk,
                            CircuitStats,
                            CircuitVerify,
-                           ClientIvcComputeStandaloneVk,
-                           ClientIvcComputeIvcVk,
-                           ClientIvcStart,
-                           ClientIvcLoad,
-                           ClientIvcAccumulate,
-                           ClientIvcProve,
-                           ClientIvcVerify,
+                           ChonkComputeStandaloneVk,
+                           ChonkComputeIvcVk,
+                           ChonkStart,
+                           ChonkLoad,
+                           ChonkAccumulate,
+                           ChonkProve,
+                           ChonkVerify,
                            VkAsFields,
                            MegaVkAsFields,
                            CircuitWriteSolidityVerifier,
-                           ClientIvcCheckPrecomputedVk,
-                           ClientIvcStats,
+                           ChonkCheckPrecomputedVk,
+                           ChonkStats,
                            Poseidon2Hash,
                            Poseidon2Permutation,
                            Poseidon2HashAccumulate,
@@ -48,6 +48,11 @@ using Command = NamedUnion<CircuitProve,
                            Secp256k1GetRandomFr,
                            Secp256k1Reduce512,
                            Bn254FrSqrt,
+                           Bn254FqSqrt,
+                           Bn254G1Mul,
+                           Bn254G2Mul,
+                           Bn254G1IsOnCurve,
+                           Bn254G1FromCompressed,
                            SchnorrComputePublicKey,
                            SchnorrConstructSignature,
                            SchnorrVerifySignature,
@@ -63,22 +68,23 @@ using Command = NamedUnion<CircuitProve,
                            SrsInitGrumpkinSrs,
                            Shutdown>;
 
-using CommandResponse = NamedUnion<CircuitProve::Response,
+using CommandResponse = NamedUnion<ErrorResponse,
+                                   CircuitProve::Response,
                                    CircuitComputeVk::Response,
                                    CircuitStats::Response,
                                    CircuitVerify::Response,
-                                   ClientIvcComputeStandaloneVk::Response,
-                                   ClientIvcComputeIvcVk::Response,
-                                   ClientIvcStart::Response,
-                                   ClientIvcLoad::Response,
-                                   ClientIvcAccumulate::Response,
-                                   ClientIvcProve::Response,
-                                   ClientIvcVerify::Response,
+                                   ChonkComputeStandaloneVk::Response,
+                                   ChonkComputeIvcVk::Response,
+                                   ChonkStart::Response,
+                                   ChonkLoad::Response,
+                                   ChonkAccumulate::Response,
+                                   ChonkProve::Response,
+                                   ChonkVerify::Response,
                                    VkAsFields::Response,
                                    MegaVkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
-                                   ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcStats::Response,
+                                   ChonkCheckPrecomputedVk::Response,
+                                   ChonkStats::Response,
                                    Poseidon2Hash::Response,
                                    Poseidon2Permutation::Response,
                                    Poseidon2HashAccumulate::Response,
@@ -98,6 +104,11 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    Secp256k1GetRandomFr::Response,
                                    Secp256k1Reduce512::Response,
                                    Bn254FrSqrt::Response,
+                                   Bn254FqSqrt::Response,
+                                   Bn254G1Mul::Response,
+                                   Bn254G2Mul::Response,
+                                   Bn254G1IsOnCurve::Response,
+                                   Bn254G1FromCompressed::Response,
                                    SchnorrComputePublicKey::Response,
                                    SchnorrConstructSignature::Response,
                                    SchnorrVerifySignature::Response,
@@ -122,10 +133,20 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
  */
 inline CommandResponse execute(BBApiRequest& request, Command&& command)
 {
-    return std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
+    // Reset error state before execution
+    request.error_message.clear();
+
+    CommandResponse response = std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
         using CmdType = std::decay_t<decltype(cmd)>;
         return std::forward<CmdType>(cmd).execute(request);
     });
+
+    // Check if an error occurred during execution
+    if (!request.error_message.empty()) {
+        return ErrorResponse{ .message = std::move(request.error_message) };
+    }
+
+    return response;
 }
 
 // The msgpack scheme is an ad-hoc format that allows for cbind/compiler.ts to

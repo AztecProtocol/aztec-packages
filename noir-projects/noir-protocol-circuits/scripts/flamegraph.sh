@@ -123,7 +123,7 @@ fi
 DEST="$SCRIPT_DIR/../dest"
 mkdir -p $DEST
 
-MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../client_ivc_circuits.json")
+MEGA_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../chonk_circuits.json")
 ROLLUP_HONK_CIRCUIT_PATTERNS=$(jq -r '.[]' "$SCRIPT_DIR/../../rollup_honk_circuits.json")
 
 # Process each CIRCUIT_NAME.
@@ -159,7 +159,7 @@ for CIRCUIT_NAME in "${CIRCUIT_NAMES[@]}"; do
 
         # Generate the flamegraph.
         if [ "$IS_MEGA_HONK_CIRCUIT" = "true" ]; then
-            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme client_ivc --include_gates_per_opcode
+            $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme chonk --include_gates_per_opcode
         elif [ "$IS_ROLLUP_HONK_CIRCUIT" = "true" ]; then
             $PROFILER gates --artifact-path "${ARTIFACT}" --backend-path "$SCRIPT_DIR/../../../barretenberg/cpp/build/bin/bb" --output "$DEST" --output-filename "$CIRCUIT_NAME" --backend-gates-command "gates" --scheme ultra_honk --ipa_accumulation --include_gates_per_opcode
         else

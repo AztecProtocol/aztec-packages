@@ -15,7 +15,7 @@ pub contract ImportTest {
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[external("private")]
     fn call_no_args(target: AztecAddress) -> AztecAddress {
-        Test::at(target).get_this_address().call(&mut context)
+        Test::at(target).get_this_address().call(self.context)
     }
 
     // Calls the emit_nullifier_public on the Test contract at the target address
@@ -23,7 +23,7 @@ pub contract ImportTest {
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[external("private")]
     fn call_public_fn(target: AztecAddress) {
-        Test::at(target).emit_nullifier_public(1).enqueue(&mut context);
+        Test::at(target).emit_nullifier_public(1).enqueue(self.context);
     }
 
     // Calls the emit_nullifier_public on the Test contract at the target address
@@ -31,6 +31,6 @@ pub contract ImportTest {
     // See yarn-project/end-to-end/src/e2e_nested_contract.test.ts
     #[external("public")]
     fn pub_call_public_fn(target: AztecAddress) {
-        Test::at(target).emit_nullifier_public(1).call(&mut context);
+        Test::at(target).emit_nullifier_public(1).call(self.context);
     }
 }

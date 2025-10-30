@@ -117,13 +117,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         WitnessVector witness{
             5, 10, 15, 5, inverse_of_five, 1,
         };
-        uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
-            honk_recursion = 1;
-        } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
-            honk_recursion = 2;
-        }
-        ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+        bool has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
+
+        ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
         AcirProgram program{ constraint_system, witness };
         auto builder = create_circuit(program, metadata);
         return builder;
@@ -200,13 +196,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<InnerFlavor, UltraFlavor, UltraZKFlavor>) {
-            honk_recursion = 1;
-        } else if constexpr (IsAnyOf<InnerFlavor, UltraRollupFlavor>) {
-            honk_recursion = 2;
-        }
-        ProgramMetadata metadata{ .honk_recursion = honk_recursion };
+        bool constexpr has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
+
+        ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
         if (dummy_witnesses) {
             witness = {}; // set it all to 0
         }
@@ -284,7 +276,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
 
-    info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("estimate finalized circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
@@ -306,7 +298,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
     auto layer_2_circuit =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits, false, false);
 
-    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
@@ -372,7 +364,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
+    info("number of gates in layer 3 = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =
@@ -429,7 +421,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
     info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
+    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_3_circuit);
     auto verification_key =

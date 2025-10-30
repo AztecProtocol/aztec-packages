@@ -1,6 +1,5 @@
 use crate::abis::{batching_blob_commitment::BatchingBlobCommitment, BLSPoint};
 use bignum::{BigNum, BLS12_381_Fq};
-use types::utils::field::byte_to_bits_be;
 
 // TODO(MW): get_flags() and compress_to_bytes() will eventually be part of BigCurve.
 /**
@@ -16,7 +15,7 @@ use types::utils::field::byte_to_bits_be;
 pub fn compress_to_blob_commitment(point: BLSPoint) -> (BatchingBlobCommitment) {
     let (flags, x) = get_flags(point);
     let mut compressed = x.to_be_bytes();
-    let most_sig_bits = byte_to_bits_be(compressed[0]);
+    let most_sig_bits: [u1; 8] = (compressed[0] as Field).to_be_bits();
     for i in 0..3 {
         assert_eq(most_sig_bits[i], 0, "Invalid BLS12-381 x coordinate given to compress().");
     }
@@ -55,10 +54,11 @@ fn set_flags(flags: [bool; 3], byte: u8) -> u8 {
 
 mod tests {
     use crate::abis::BLSPoint;
-    use super::{compress_to_blob_commitment, get_flags};
+    use super::{compress_to_blob_commitment, get_flags, set_flags};
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381_PARAMS};
     use bignum::{BigNum, BLS12_381_Fq};
     use std::ops::{Add, Mul};
+    use types::constants::BLS12_POINT_COMPRESSED_BYTES;
 
     #[test]
     unconstrained fn point_compression() {
@@ -88,6 +88,25 @@ mod tests {
             reconstructed_y
         };
         assert_eq(reconstructed_y, point.y);
+    }
+
+    #[test]
+    unconstrained fn infinity_point_compression() {
+        let point = BLSPoint::point_at_infinity();
+        let (flags, x) = get_flags(point);
+        // is_compressed = true
+        assert_eq(flags[0], true);
+        // is_infinity = true
+        assert_eq(flags[1], true);
+        // is_greater = false (is infinity)
+        assert_eq(flags[2], false);
+
+        assert_eq(x, BLS12_381_Fq::zero());
+
+        // check compression
+        let mut expected_bytes = [0; BLS12_POINT_COMPRESSED_BYTES];
+        expected_bytes[0] = 0xc0; // 0b11000000
+        assert_eq(expected_bytes, compress_to_blob_commitment(point).compressed);
     }
 
     #[test]

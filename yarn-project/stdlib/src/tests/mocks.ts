@@ -30,7 +30,7 @@ import { BlockAttestation } from '../p2p/block_attestation.js';
 import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
-import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
+import { ChonkProof } from '../proofs/chonk_proof.js';
 import { HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, StateReference, Tx } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
@@ -67,7 +67,7 @@ export const mockTx = async (
     hasPublicTeardownCallRequest = false,
     publicCalldataSize = 2,
     feePayer,
-    clientIvcProof = ClientIvcProof.random(),
+    chonkProof = ChonkProof.random(),
     maxPriorityFeesPerGas,
     gasUsed = Gas.empty(),
     chainId = Fr.ZERO,
@@ -81,7 +81,7 @@ export const mockTx = async (
     hasPublicTeardownCallRequest?: boolean;
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
-    clientIvcProof?: ClientIvcProof;
+    chonkProof?: ChonkProof;
     maxPriorityFeesPerGas?: GasFees;
     gasUsed?: Gas;
     chainId?: Fr;
@@ -150,7 +150,7 @@ export const mockTx = async (
 
   return await Tx.create({
     data,
-    clientIvcProof,
+    chonkProof,
     contractClassLogFields: [],
     publicFunctionCalldata,
   });

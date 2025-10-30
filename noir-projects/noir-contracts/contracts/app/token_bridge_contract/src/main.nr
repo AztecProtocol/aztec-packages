@@ -35,19 +35,19 @@ pub contract TokenBridge {
     #[external("public")]
     #[initializer]
     fn constructor(token: AztecAddress, portal: EthAddress) {
-        storage.config.initialize(Config { token, portal });
+        self.storage.config.initialize(Config { token, portal });
     }
 
     #[external("private")]
     #[view]
     fn get_config() -> Config {
-        storage.config.read()
+        self.storage.config.read()
     }
 
     #[external("public")]
     #[view]
     fn get_config_public() -> Config {
-        storage.config.read()
+        self.storage.config.read()
     }
 
     // docs:start:claim_public
@@ -56,13 +56,18 @@ pub contract TokenBridge {
     fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_mint_to_public_content_hash(to, amount);
 
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
+        self.context.consume_l1_to_l2_message(
+            content_hash,
+            secret,
+            config.portal,
+            message_leaf_index,
+        );
 
         // Mint tokens
-        Token::at(config.token).mint_to_public(to, amount).call(&mut context);
+        Token::at(config.token).mint_to_public(to, amount).call(self.context);
     }
     // docs:end:claim_public
 
@@ -76,16 +81,16 @@ pub contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         authwit_nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
-        context.message_portal(config.portal, content);
+        self.context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(config.token)
-            .burn_public(context.msg_sender().unwrap(), amount, authwit_nonce)
-            .call(&mut context);
+        Token::at(config.token).burn_public(self.msg_sender().unwrap(), amount, authwit_nonce).call(
+            self.context,
+        );
     }
     // docs:end:exit_to_l1_public
 
@@ -99,11 +104,11 @@ pub contract TokenBridge {
         secret_for_L1_to_L2_message_consumption: Field, // secret used to consume the L1 to L2 message
         message_leaf_index: Field,
     ) {
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // Consume L1 to L2 message and emit nullifier
         let content_hash = get_mint_to_private_content_hash(amount);
-        context.consume_l1_to_l2_message(
+        self.context.consume_l1_to_l2_message(
             content_hash,
             secret_for_L1_to_L2_message_consumption,
             config.portal,
@@ -111,7 +116,7 @@ pub contract TokenBridge {
         );
 
         // At last we mint the tokens
-        Token::at(config.token).mint_to_private(recipient, amount).call(&mut context);
+        Token::at(config.token).mint_to_private(recipient, amount).call(self.context);
     }
 
     // docs:start:exit_to_l1_private
@@ -125,18 +130,18 @@ pub contract TokenBridge {
         caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
         authwit_nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
     ) {
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // Assert that user provided token address is same as seen in storage.
         assert_eq(config.token, token, "Token address is not the same as seen in storage");
 
         // Send an L2 to L1 message
         let content = get_withdraw_content_hash(recipient, amount, caller_on_l1);
-        context.message_portal(config.portal, content);
+        self.context.message_portal(config.portal, content);
 
         // Burn tokens
-        Token::at(token).burn_private(context.msg_sender().unwrap(), amount, authwit_nonce).call(
-            &mut context,
+        Token::at(token).burn_private(self.msg_sender().unwrap(), amount, authwit_nonce).call(
+            self.context,
         );
     }
     // docs:end:exit_to_l1_private

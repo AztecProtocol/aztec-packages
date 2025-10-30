@@ -25,7 +25,9 @@ void validate_split_in_field(const field_t<Builder>& lo,
     // Check if we need to borrow
     bool need_borrow = uint256_t(lo.get_value()) > r_lo;
     field_t<Builder> borrow =
-        lo.is_constant() ? need_borrow : field_t<Builder>::from_witness(lo.get_context(), need_borrow);
+        lo.is_constant()
+            ? need_borrow
+            : field_t<Builder>::from_witness(lo.get_context(), typename field_t<Builder>::native(need_borrow));
 
     // directly call `create_new_range_constraint` to avoid creating an arithmetic gate
     if (!lo.is_constant()) {
@@ -64,8 +66,8 @@ std::pair<field_t<Builder>, field_t<Builder>> split_unique(const field_t<Builder
     }
 
     // Create hi/lo witnesses
-    auto lo = field_t<Builder>::from_witness(ctx, lo_val);
-    auto hi = field_t<Builder>::from_witness(ctx, hi_val);
+    auto lo = field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(lo_val));
+    auto hi = field_t<Builder>::from_witness(ctx, typename field_t<Builder>::native(hi_val));
 
     // Component 1: Reconstruction constraint lo + hi * 2^lo_bits - field == 0
     const uint256_t shift = uint256_t(1) << lo_bits;

@@ -1,3 +1,4 @@
+import { TWO_POW_64 } from '@aztec/constants';
 import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { poseidon2Permutation } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,17 +11,17 @@ import {
 } from '@aztec/foundation/serialize';
 
 /**
- * A Poseidon2 sponge used to accumulate data that will be added to a blob.
+ * A Poseidon2 sponge used to accumulate data that will be added to blobs.
  * See noir-projects/noir-protocol-circuits/crates/types/src/abis/sponge_blob.nr.
  */
 export class SpongeBlob {
   constructor(
-    /** Sponge with absorbed tx effects that will go into a blob. */
+    /** Sponge with absorbed fields that will go into one or more blobs. */
     public readonly sponge: Poseidon2Sponge,
     /** Number of effects absorbed so far. */
-    public fields: number,
+    public numAbsorbedFields: number,
     /** Number of effects that will be absorbed. */
-    public readonly expectedFields: number,
+    public readonly numExpectedFields: number,
   ) {}
 
   static fromBuffer(buffer: Buffer | BufferReader): SpongeBlob {
@@ -29,11 +30,11 @@ export class SpongeBlob {
   }
 
   toBuffer() {
-    return serializeToBuffer(this.sponge, this.fields, this.expectedFields);
+    return serializeToBuffer(...SpongeBlob.getFields(this));
   }
 
   static getFields(fields: FieldsOf<SpongeBlob>) {
-    return [fields.sponge, fields.fields, fields.expectedFields];
+    return [fields.sponge, fields.numAbsorbedFields, fields.numExpectedFields];
   }
 
   toFields(): Fr[] {
@@ -54,19 +55,19 @@ export class SpongeBlob {
   }
 
   async absorb(fields: Fr[]) {
-    if (this.fields + fields.length > this.expectedFields) {
+    if (this.numAbsorbedFields + fields.length > this.numExpectedFields) {
       throw new Error(
-        `Attempted to fill spongeblob with ${this.fields + fields.length}, but it has a max of ${this.expectedFields}`,
+        `Attempted to fill spongeBlob with ${this.numAbsorbedFields + fields.length}, but it has a max of ${this.numExpectedFields}`,
       );
     }
     await this.sponge.absorb(fields);
-    this.fields += fields.length;
+    this.numAbsorbedFields += fields.length;
   }
 
   async squeeze(): Promise<Fr> {
     // If the blob sponge is not 'full', we append 1 to match Poseidon2::hash_internal()
     // NB: There is currently no use case in which we don't 'fill' a blob sponge, but adding for completeness
-    if (this.fields != this.expectedFields) {
+    if (this.numAbsorbedFields != this.numExpectedFields) {
       await this.sponge.absorb([Fr.ONE]);
     }
     return this.sponge.squeeze();
@@ -76,8 +77,17 @@ export class SpongeBlob {
     return new SpongeBlob(Poseidon2Sponge.empty(), 0, 0);
   }
 
-  static init(expectedFields: number): SpongeBlob {
-    return new SpongeBlob(Poseidon2Sponge.init(expectedFields), 0, expectedFields);
+  /**
+   * Initialize the sponge blob with the number of expected fields in the checkpoint and absorb it as the first field.
+   * Note: `numExpectedFields` includes the first field absorbed in this method.
+   */
+  static async init(numExpectedFields: number): Promise<SpongeBlob> {
+    // This must match what the checkpoint root rollup circuit expects.
+    // See noir-projects/noir-protocol-circuits/types/src/abis/sponge_blob.nr -> init_for_checkpoint.
+    const sponge = Poseidon2Sponge.init(numExpectedFields);
+    await sponge.absorb([new Fr(numExpectedFields)]);
+    const numAbsorbedFields = 1;
+    return new SpongeBlob(sponge, numAbsorbedFields, numExpectedFields);
   }
 }
 
@@ -131,8 +141,8 @@ export class Poseidon2Sponge {
     );
   }
 
-  static init(expectedFields: number): Poseidon2Sponge {
-    const iv = new Fr(expectedFields).mul(new Fr(BigInt('18446744073709551616')));
+  static init(numExpectedFields: number): Poseidon2Sponge {
+    const iv = new Fr(numExpectedFields).mul(new Fr(TWO_POW_64));
     const sponge = Poseidon2Sponge.empty();
     sponge.state[3] = iv;
     return sponge;

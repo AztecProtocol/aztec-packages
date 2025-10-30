@@ -26,6 +26,8 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     using field_ct = stdlib::field_t<Builder>;
     using bool_ct = stdlib::bool_t<Builder>;
 
+    bool_ct predicate = bool_ct(to_field_ct(input.predicate, builder));
+
     std::vector<cycle_group_ct> points;
     std::vector<cycle_scalar_ct> scalars;
 
@@ -35,7 +37,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
                                                        input.points[i + 1],
                                                        input.points[i + 2],
                                                        has_valid_witness_assignments,
-                                                       input.predicate,
+                                                       predicate,
                                                        builder);
 
         //  Reconstruct the scalar from the low and high limbs

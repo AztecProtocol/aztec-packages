@@ -214,7 +214,7 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
-    pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, token_id: Field) {
+    pub fn complete(self, context: PublicContext, completer: AztecAddress, token_id: Field) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its

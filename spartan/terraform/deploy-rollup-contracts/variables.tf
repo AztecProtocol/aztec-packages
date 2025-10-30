@@ -103,6 +103,12 @@ variable "AZTEC_EJECTION_THRESHOLD" {
   nullable    = true
 }
 
+variable "AZTEC_LOCAL_EJECTION_THRESHOLD" {
+  description = "Aztec local ejection threshold"
+  type        = string
+  nullable    = true
+}
+
 variable "AZTEC_SLASHING_QUORUM" {
   description = "Aztec slashing quorum"
   type        = string

@@ -101,7 +101,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "ENABLE_ASAN": "OFF",
-        "DISABLE_ASM": "ON",
+        "DISABLE_ASM": "OFF",
         "ENABLE_STACKTRACES": "ON"
       }
     },
@@ -172,22 +172,6 @@
       },
       "cacheVariables": {
         "ENABLE_STACKTRACES": "ON"
-      }
-    },
-    {
-      "name": "debug-fast-notraces",
-      "displayName": "Optimized debug build with Clang-20",
-      "description": "Build with globally installed Clang-20 in optimized debug mode (no stack traces)",
-      "inherits": "debug",
-      "binaryDir": "build-debug-fast",
-      "environment": {
-        "CFLAGS": "-O2 -gdwarf",
-        "CXXFLAGS": "-O2 -gdwarf-4",
-        "LDFLAGS": "-O2 -gdwarf-4"
-      },
-      "cacheVariables": {
-        "DISABLE_ASM": "OFF",
-        "ENABLE_STACKTRACES": "OFF"
       }
     },
     {
@@ -560,11 +544,6 @@
       "name": "debug-fast",
       "inherits": "default",
       "configurePreset": "debug-fast"
-    },
-    {
-      "name": "debug-fast-notraces",
-      "inherits": "default",
-      "configurePreset": "debug-fast-notraces"
     },
     {
       "name": "asan",

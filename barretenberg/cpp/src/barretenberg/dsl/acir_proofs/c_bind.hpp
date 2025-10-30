@@ -13,8 +13,7 @@
 using namespace bb;
 
 WASM_EXPORT void acir_get_circuit_sizes(uint8_t const* constraint_system_buf,
-                                        bool const* recursive,
-                                        bool const* honk_recursion,
+                                        bool const* has_ipa_claim,
                                         uint32_t* total,
                                         uint32_t* subgroup);
 
@@ -27,7 +26,7 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_syst
                                                   bool* result);
 
 /**
- * @brief Construct and verify a LegacyClientIVC proof
+ * @brief Construct and verify a Chonk proof
  * @deprecated
  */
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_system_buf,

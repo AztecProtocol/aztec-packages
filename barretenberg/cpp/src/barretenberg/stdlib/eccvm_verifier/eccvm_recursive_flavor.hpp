@@ -97,8 +97,8 @@ class ECCVMRecursiveFlavor {
             // and the verification key.
             this->log_circuit_size = BF{ static_cast<uint64_t>(CONST_ECCVM_LOG_N) };
             this->log_circuit_size.convert_constant_to_fixed_witness(builder);
-            this->num_public_inputs = BF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = BF::from_witness(builder, native_key->pub_inputs_offset);
+            this->num_public_inputs = BF::from_witness(builder, typename BF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = BF::from_witness(builder, typename BF::native(native_key->pub_inputs_offset));
 
             for (auto [native_commitment, commitment] : zip_view(native_key->get_all(), this->get_all())) {
                 commitment = Commitment::from_witness(builder, native_commitment);
