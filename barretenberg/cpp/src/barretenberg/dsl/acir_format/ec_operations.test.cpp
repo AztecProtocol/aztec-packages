@@ -246,6 +246,12 @@ TYPED_TEST(EcOperationsTestsNoneConstant, WitnessFalseSlow)
     TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
 }
 
+TYPED_TEST(EcOperationsTestsNoneConstant, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}
+
 TYPED_TEST(EcOperationsTestsInput1Constant, GenerateVKFromConstraints)
 {
     using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
@@ -268,6 +274,12 @@ TYPED_TEST(EcOperationsTestsInput1Constant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+}
+
+TYPED_TEST(EcOperationsTestsInput1Constant, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
 
 TYPED_TEST(EcOperationsTestsInput2Constant, GenerateVKFromConstraints)
@@ -294,6 +306,12 @@ TYPED_TEST(EcOperationsTestsInput2Constant, WitnessFalseSlow)
     TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
 }
 
+TYPED_TEST(EcOperationsTestsInput2Constant, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+}
+
 TYPED_TEST(EcOperationsTestsBothConstant, GenerateVKFromConstraints)
 {
     using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
@@ -316,4 +334,10 @@ TYPED_TEST(EcOperationsTestsBothConstant, WitnessFalseSlow)
 {
     BB_DISABLE_ASSERTS();
     TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+}
+
+TYPED_TEST(EcOperationsTestsBothConstant, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }
