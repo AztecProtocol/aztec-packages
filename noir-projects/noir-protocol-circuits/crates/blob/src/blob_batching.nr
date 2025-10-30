@@ -4,8 +4,9 @@ use crate::{
         FinalBlobBatchingChallenges,
     },
     blob::barycentric_evaluate_blob_at_z,
-    utils::compress_to_blob_commitment,
+    utils::{compress_to_blob_commitment, validate_canonical_point_at_infinity},
 };
+use bigcurve::BigCurve;
 use bignum::BLS12_381_Fr;
 use types::{
     constants::FIELDS_PER_BLOB,
@@ -57,6 +58,13 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     final_blob_challenges: FinalBlobBatchingChallenges,
     start_accumulator: BlobAccumulator,
 ) -> (BlobAccumulator, Field) {
+    // The rationale behind this is that the start accumulator is hinted, and in merge we just assert that left.end.eq(right.start)
+    // And on root we check that left.start.eq(empty()).
+    // However, currently the equals method of big curve points doesn't check for equality of the limbs on infinity points.
+    // This means that infinity points can be swapped with non canonical versions without the eq realizing it.
+    // I don't think there is a way to take advantage of that, since we should never have infinity points in c_acc,
+    // but as good measure we'll validate that it's canonical here.
+    validate_canonical_point_at_infinity(start_accumulator.c_acc);
     // Note that with multiple blobs per block, each blob uses the same hashed_blobs_fields in:
     // z_i = H(hashed_blobs_fields, kzg_commitment[0], kzg_commitment[1])
     // This is ok, because each commitment is unique to the blob, and we need hashed_blobs_fields to encompass
@@ -69,7 +77,11 @@ pub fn evaluate_blobs_and_batch<let NumBlobs: u32>(
     let mut end_accumulator = start_accumulator;
     for i in 0..NumBlobs {
         let single_blob_fields = subarray(blobs_as_fields, i * FIELDS_PER_BLOB);
-        let c_i = compress_to_blob_commitment(kzg_commitments_points[i]);
+        let commitment_point = kzg_commitments_points[i];
+        // We need to validate that the point is on the curve and canonical (0,0 if infinity), since it's hinted in this verification scheme
+        commitment_point.validate_on_curve();
+        validate_canonical_point_at_infinity(commitment_point);
+        let c_i = compress_to_blob_commitment(commitment_point);
         let (z_i, y_i) = evaluate_blob_for_batching(
             single_blob_fields,
             c_i,
@@ -122,6 +134,7 @@ mod tests {
     use super::evaluate_blobs_and_batch;
     use bigcurve::{BigCurve, curves::bls12_381::BLS12_381 as BLSPoint};
     use bignum::{BigNum, BLS12_381_Fr};
+    use bignum::fields::bls12_381Fq::BLS12_381_Fq;
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
@@ -373,4 +386,37 @@ mod tests {
             BlobAccumulator::empty(),
         );
     }
+
+    #[test(should_fail_with = "Non canonical x coordinate at infinity")]
+    unconstrained fn test_non_canonical_point_at_infinity_fails() {
+        let mut blob = [0; FIELDS_PER_BLOB];
+        let point = BLSPoint { x: BLS12_381_Fq::one(), y: BLS12_381_Fq::zero(), is_infinity: true };
+
+        let _ = evaluate_blobs_and_batch(
+            blob,
+            FIELDS_PER_BLOB,
+            [point],
+            FinalBlobBatchingChallenges::empty(),
+            BlobAccumulator::empty(),
+        );
+    }
+
+    #[test(should_fail)]
+    unconstrained fn test_point_not_on_curve_fails() {
+        let mut blob = [0; FIELDS_PER_BLOB];
+        let point = BLSPoint {
+            x: BLS12_381_Fq::from_limbs([0, 0, 0, 42]),
+            y: BLS12_381_Fq::from_limbs([0, 0, 0, 27]),
+            is_infinity: false,
+        };
+
+        let _ = evaluate_blobs_and_batch(
+            blob,
+            FIELDS_PER_BLOB,
+            [point],
+            FinalBlobBatchingChallenges::empty(),
+            BlobAccumulator::empty(),
+        );
+    }
+
 }
