@@ -1262,7 +1262,7 @@ export const addMultipleValidators = async (
           data: encodeFunctionData({
             abi: MultiAdderArtifact.contractAbi,
             functionName: 'addValidators',
-            args: [c, BigInt(chunkSize)],
+            args: [c, BigInt(0)],
           }),
         },
         {
@@ -1281,15 +1281,18 @@ export const addMultipleValidators = async (
     while (true) {
       // If the queue is empty, we can break
       if ((await rollup.getEntryQueueLength()) == 0n) {
+        logger.debug('Entry queue is empty, stopping flush attempts');
         break;
       }
 
       // If there are no available validator flushes, no need to even try
       if ((await rollup.getAvailableValidatorFlushes()) == 0n) {
+        logger.debug('No available validator flushes, stopping flush attempts');
         break;
       }
 
       // Note that we are flushing at most `chunkSize` at each call
+      logger.debug(`Flushing entry queue for ${chunkSize} validators`);
       await deployer.l1TxUtils.sendAndMonitorTransaction(
         {
           to: rollup.address,
