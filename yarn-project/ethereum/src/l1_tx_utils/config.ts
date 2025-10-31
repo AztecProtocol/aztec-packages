@@ -69,14 +69,14 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     ...numberConfigHelper(20),
   },
   maxGwei: {
-    description: 'Maximum gas price in gwei',
+    description: 'Maximum gas price in gwei to be used for transactions.',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(500n),
+    ...bigintConfigHelper(2000n),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
     env: 'L1_BLOB_FEE_PER_GAS_MAX',
-    ...bigintConfigHelper(1_500n),
+    ...bigintConfigHelper(3000n),
   },
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
@@ -106,7 +106,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   stallTimeMs: {
     description: 'How long before considering tx stalled',
     env: 'L1_TX_MONITOR_STALL_TIME_MS',
-    ...numberConfigHelper(24_000), // 24s, 2 ethereum slots
+    ...numberConfigHelper(12_000), // 12s, 1 ethereum slot
   },
   txTimeoutMs: {
     description: 'How long to wait for a tx to be mined before giving up. Set to 0 to disable.',
