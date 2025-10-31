@@ -114,7 +114,6 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 {
-    BB_DISABLE_ASSERTS();
 
     using Curve = TypeParam;
     using Builder = typename Curve::Builder;
