@@ -80,9 +80,9 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
 }
 
 template <typename Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
-template <typename Builder> rom_table<Builder>::rom_table(rom_table&& other) noexcept = default;
+template <typename Builder> rom_table<Builder>::rom_table(rom_table&& other) = default;
 template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
-template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) noexcept = default;
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) = default;
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {

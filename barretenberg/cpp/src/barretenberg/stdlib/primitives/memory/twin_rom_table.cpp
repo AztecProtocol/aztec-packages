@@ -88,11 +88,11 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
 }
 
 template <typename Builder> twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other) = default;
-template <typename Builder> twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) noexcept = default;
+template <typename Builder> twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other) = default;
 template <typename Builder>
 twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(const twin_rom_table& other) = default;
 template <typename Builder>
-twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) noexcept = default;
+twin_rom_table<Builder>& twin_rom_table<Builder>::operator=(twin_rom_table&& other) = default;
 
 template <typename Builder>
 std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t index) const

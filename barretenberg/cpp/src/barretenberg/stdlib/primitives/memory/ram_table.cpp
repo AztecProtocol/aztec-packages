@@ -114,9 +114,9 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
 }
 // constructors and move operators
 template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
-template <typename Builder> ram_table<Builder>::ram_table(ram_table&& other) noexcept = default;
+template <typename Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
 template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept = default;
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
 
 /**
  * @brief Read a field element from the RAM table at an index value
