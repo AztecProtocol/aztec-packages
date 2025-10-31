@@ -10,7 +10,7 @@ class AvmSimAPI {
 
     AvmSimAPI() = default;
 
-    void simulate_with_hinted_dbs(const AvmProvingInputs& inputs);
+    TxSimulationResult simulate_with_hinted_dbs(const AvmProvingInputs& inputs);
 };
 
 } // namespace bb::avm2

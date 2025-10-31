@@ -122,6 +122,11 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
                   "final_active_wire_idx has not been initialized");
         return final_active_wire_idx;
     }
+    /** @brief Get the size of the active trace range (0 to the final active wire index) */
+    size_t trace_active_range_size() const
+    {
+        return get_final_active_wire_idx() + 1; // +1 because index is inclusive
+    }
 
     Flavor::PrecomputedData get_precomputed()
     {
@@ -168,33 +173,25 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
 
             populate_memory_records(circuit);
 
-            // If ZK, allocate full size polys
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): for ZK, all thats really needed is to
-            // allocate full size for witness polynomials to accommodate blinding. Avoid this blunt allocation.
-            if (Flavor::HasZK) {
-                // Allocate full size polynomials
-                polynomials = ProverPolynomials(dyadic_size());
-            } else { // Allocate only a correct amount of memory for each polynomial
-                allocate_wires();
+            allocate_wires();
 
-                allocate_permutation_argument_polynomials();
+            allocate_permutation_argument_polynomials();
 
-                allocate_selectors(circuit);
+            allocate_selectors(circuit);
 
-                allocate_table_lookup_polynomials(circuit);
+            allocate_table_lookup_polynomials(circuit);
 
-                allocate_lagrange_polynomials();
+            allocate_lagrange_polynomials();
 
-                if constexpr (IsMegaFlavor<Flavor>) {
-                    allocate_ecc_op_polynomials(circuit);
-                }
-                if constexpr (HasDataBus<Flavor>) {
-                    allocate_databus_polynomials(circuit);
-                }
+            if constexpr (IsMegaFlavor<Flavor>) {
+                allocate_ecc_op_polynomials(circuit);
             }
-            // We can finally set the shifted polynomials now that all of the to_be_shifted polynomials are
-            // defined.
-            polynomials.set_shifted(); // Ensure shifted wires are set correctly
+            if constexpr (HasDataBus<Flavor>) {
+                allocate_databus_polynomials(circuit);
+            }
+
+            // Set the shifted polynomials now that all of the to_be_shifted polynomials are defined.
+            polynomials.set_shifted();
         }
 
         // Construct and add to proving key the wire, selector and copy constraint polynomials
@@ -218,15 +215,13 @@ template <IsUltraOrMegaHonk Flavor_> class ProverInstance_ {
         {
             BB_BENCH_NAME("constructing lookup table polynomials");
 
-            construct_lookup_table_polynomials<Flavor>(
-                polynomials.get_tables(), circuit, dyadic_size(), NUM_DISABLED_ROWS_IN_SUMCHECK);
+            construct_lookup_table_polynomials<Flavor>(polynomials.get_tables(), circuit);
         }
 
         {
             BB_BENCH_NAME("constructing lookup read counts");
 
-            construct_lookup_read_counts<Flavor>(
-                polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit, dyadic_size());
+            construct_lookup_read_counts<Flavor>(polynomials.lookup_read_counts, polynomials.lookup_read_tags, circuit);
         }
         { // Public inputs handling
             metadata.num_public_inputs = circuit.blocks.pub_inputs.size();

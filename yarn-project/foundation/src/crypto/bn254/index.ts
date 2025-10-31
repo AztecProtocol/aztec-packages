@@ -165,3 +165,6 @@ export class Bn254G2Point {
     return `Bn254G2Point(x: (${this.x[0].toString()}, ${this.x[1].toString()}), y: (${this.y[0].toString()}, ${this.y[1].toString()}))`;
   }
 }
+
+// Re-export BN254 point utility functions
+export { computeBn254G1PublicKeyCompressed, computeBn254G1PublicKey, computeBn254G2PublicKey } from './bn254_utils.js';

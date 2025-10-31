@@ -386,7 +386,6 @@ void Execution::call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/context.get_is_static(),
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states(),
                                                                /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
@@ -426,7 +425,6 @@ void Execution::static_call(ContextInterface& context,
                                                                /*cd_size=*/cd_size.as<uint32_t>(),
                                                                /*is_static=*/true,
                                                                /*gas_limit=*/gas_limit,
-                                                               /*side_effect_states=*/context.get_side_effect_states(),
                                                                /*phase=*/context.get_phase());
 
     // We do not recurse. This context will be use on the next cycle of execution.
@@ -502,7 +500,6 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
     set_execution_result({ .rd_offset = ret_offset,
                            .rd_size = rd_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .side_effect_states = context.get_side_effect_states(),
                            .success = true });
 
     context.halt();
@@ -521,7 +518,6 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
     set_execution_result({ .rd_offset = rev_offset,
                            .rd_size = rev_size.as<uint32_t>(),
                            .gas_used = context.get_gas_used(),
-                           .side_effect_states = context.get_side_effect_states(),
                            .success = false });
 
     context.halt();
@@ -1036,21 +1032,18 @@ void Execution::send_l2_to_l1_msg(ContextInterface& context, MemoryAddress recip
 
     get_gas_tracker().consume_gas();
 
-    auto side_effects_states_before = context.get_side_effect_states();
-
     if (context.get_is_static()) {
         throw OpcodeExecutionException("SENDL2TOL1MSG: Cannot send L2 to L1 message in static context");
     }
 
-    if (side_effects_states_before.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+    auto& side_effect_tracker = context.get_side_effect_tracker();
+    const auto& side_effects = side_effect_tracker.get_side_effects();
+
+    if (side_effects.l2_to_l1_messages.size() == MAX_L2_TO_L1_MSGS_PER_TX) {
         throw OpcodeExecutionException("SENDL2TOL1MSG: Maximum number of L2 to L1 messages reached");
     }
 
-    // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
-    // public inputs.
-
-    side_effects_states_before.numL2ToL1Messages++;
-    context.set_side_effect_states(side_effects_states_before);
+    side_effect_tracker.add_l2_to_l1_message(context.get_address(), EthAddress(recipient.as_ff()), content.as_ff());
 }
 
 void Execution::sha256_compression(ContextInterface& context,
@@ -1070,7 +1063,7 @@ void Execution::sha256_compression(ContextInterface& context,
 
 // This context interface is a top-level enqueued one.
 // NOTE: For the moment this trace is not returning the context back.
-ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
+EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_call_context)
 {
     BB_BENCH_NAME("Execution::execute");
     external_call_stack.push(std::move(enqueued_call_context));
@@ -1172,29 +1165,39 @@ ExecutionResult Execution::execute(std::unique_ptr<ContextInterface> enqueued_ca
         }
     }
 
-    return get_execution_result();
+    const ExecutionResult& result = get_execution_result();
+    return {
+        .success = result.success,
+        .gas_used = result.gas_used,
+        .output = std::nullopt, // The gadgets do not need to return data.
+    };
 }
 
 void Execution::handle_enter_call(ContextInterface& parent_context, std::unique_ptr<ContextInterface> child_context)
 {
-    ctx_stack_events.emit(
-        { .id = parent_context.get_context_id(),
-          .parent_id = parent_context.get_parent_id(),
-          .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
-          .next_pc = parent_context.get_next_pc(),
-          .msg_sender = parent_context.get_msg_sender(),
-          .contract_addr = parent_context.get_address(),
-          .bytecode_id = parent_context.get_bytecode_manager()
-                             .get_retrieved_bytecode_id()
-                             .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
-          .is_static = parent_context.get_is_static(),
-          .parent_cd_addr = parent_context.get_parent_cd_addr(),
-          .parent_cd_size = parent_context.get_parent_cd_size(),
-          .parent_gas_used = parent_context.get_parent_gas_used(),
-          .parent_gas_limit = parent_context.get_parent_gas_limit(),
-          .tree_states = merkle_db.get_tree_state(),
-          .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
-          .side_effect_states = parent_context.get_side_effect_states() });
+    const auto& side_effects = parent_context.get_side_effect_tracker().get_side_effects();
+
+    ctx_stack_events.emit({
+        .id = parent_context.get_context_id(),
+        .parent_id = parent_context.get_parent_id(),
+        .entered_context_id = child_context->get_context_id(), // gets the context id of the child!
+        .next_pc = parent_context.get_next_pc(),
+        .msg_sender = parent_context.get_msg_sender(),
+        .contract_addr = parent_context.get_address(),
+        .bytecode_id = parent_context.get_bytecode_manager()
+                           .get_retrieved_bytecode_id()
+                           .value(), // Bytecode should have been retrieved in the parent context if it issued a call.
+        .is_static = parent_context.get_is_static(),
+        .parent_cd_addr = parent_context.get_parent_cd_addr(),
+        .parent_cd_size = parent_context.get_parent_cd_size(),
+        .parent_gas_used = parent_context.get_parent_gas_used(),
+        .parent_gas_limit = parent_context.get_parent_gas_limit(),
+        .tree_states = merkle_db.get_tree_state(),
+        .written_public_data_slots_tree_snapshot = parent_context.get_written_public_data_slots_tree_snapshot(),
+        // Non-tree-tracked side effects
+        .numUnencryptedLogFields = side_effects.get_num_unencrypted_log_fields(),
+        .numL2ToL1Messages = static_cast<uint32_t>(side_effects.l2_to_l1_messages.size()),
+    });
 
     external_call_stack.push(std::move(child_context));
 }
@@ -1206,7 +1209,7 @@ void Execution::handle_exit_call()
     // NOTE: the current (child) context should not be modified here, since it was already emitted.
     std::unique_ptr<ContextInterface> child_context = std::move(external_call_stack.top());
     external_call_stack.pop();
-    ExecutionResult result = get_execution_result();
+    const ExecutionResult& result = get_execution_result();
 
     // We only handle reverting/committing of nested calls. Enqueued calls are handled by TX execution.
     if (!external_call_stack.empty()) {
@@ -1226,9 +1229,6 @@ void Execution::handle_exit_call()
         parent_context.set_last_success(result.success);
         // Safe since the nested context gas limit should be clamped to the available gas.
         parent_context.set_gas_used(result.gas_used + parent_context.get_gas_used());
-        if (result.success) {
-            parent_context.set_side_effect_states(result.side_effect_states);
-        }
         parent_context.set_child_context(std::move(child_context));
 
         // TODO(fcarreiro): move somewhere else.
@@ -1251,7 +1251,6 @@ void Execution::handle_exceptional_halt(ContextInterface& context)
         .rd_offset = 0,
         .rd_size = 0,
         .gas_used = context.get_gas_used(),
-        .side_effect_states = context.get_side_effect_states(),
         .success = false,
     });
 }

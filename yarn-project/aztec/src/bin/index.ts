@@ -7,6 +7,7 @@ import { injectCommands as injectContractCommands } from '@aztec/cli/contracts';
 import { injectCommands as injectInfrastructureCommands } from '@aztec/cli/infrastructure';
 import { injectCommands as injectL1Commands } from '@aztec/cli/l1';
 import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
+import { injectCommands as injectValidatorKeysCommands } from '@aztec/cli/validator_keys';
 import { getActiveNetworkName } from '@aztec/foundation/config';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
@@ -51,6 +52,7 @@ async function main() {
   program = injectL1Commands(program, userLog, debugLogger);
   program = injectAztecNodeCommands(program, userLog, debugLogger);
   program = injectMiscCommands(program, userLog);
+  program = injectValidatorKeysCommands(program, userLog);
 
   await program.parseAsync(process.argv);
 }

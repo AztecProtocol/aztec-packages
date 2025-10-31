@@ -7,6 +7,7 @@
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_retrieved_bytecodes_tree_check.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_written_public_data_slots_tree_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
@@ -33,11 +34,13 @@ class TxExecutionTest : public ::testing::Test {
     NiceMock<MockPoseidon2> poseidon2;
     NiceMock<MockWrittenPublicDataSlotsTreeCheck> written_public_data_slots_tree_check;
     NiceMock<MockRetrievedBytecodesTreeCheck> retrieved_bytecodes_tree_check;
+    SideEffectTracker side_effect_tracker; // Using the real thing.
     TxExecution tx_execution = TxExecution(execution,
                                            context_provider,
                                            merkle_db,
                                            written_public_data_slots_tree_check,
                                            retrieved_bytecodes_tree_check,
+                                           side_effect_tracker,
                                            field_gt,
                                            poseidon2,
                                            tx_event_emitter);
@@ -89,13 +92,12 @@ TEST_F(TxExecutionTest, simulateTx)
     ON_CALL(*teardown_context, halted()).WillByDefault(Return(true));
 
     // Configure mock execution to return successful results
-    ExecutionResult successful_result = {
-        .rd_offset = 0,
-        .rd_size = 0,
+    EnqueuedCallResult successful_result = {
+        .success = true, // This is the key - mark execution as successful
         .gas_used = Gas{ 100, 100 },
-        .side_effect_states = SideEffectStates{},
-        .success = true // This is the key - mark execution as successful
+        .output = std::nullopt, // The gadgets do not need to return data.
     };
+
     ON_CALL(execution, execute(_)).WillByDefault(Return(successful_result));
 
     EXPECT_CALL(context_provider, make_enqueued_context)

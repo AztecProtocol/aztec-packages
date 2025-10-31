@@ -25,29 +25,29 @@
     "l2ToL1Messages": []
   },
   "block": {
-    "archive": "0x162f4b4e3bbbf06f4ae0b303718395565b67adf328b3884a2a2fc12484917d45",
-    "blobCommitments": "0x0183d27470dde07f76d48b7a2649d0e0470ece5b4bb789ead0018d75beee43d49b5494aadce0bd97af25e130ea8e2e34b7",
-    "batchedBlobInputs": "0x0105787dfe45dce92e1fa720a458d3e14bee6fce9b73f6e8196825f49142d9cb2a8ea087412e4a8b29357d9e9c5b85edcf540f827eb75b397bf75b663480c94249681d0955dffa2b281bb84cd78926144d1ff9d995b9f4330fadcc097a1796b683d27470dde07f76d48b7a2649d0e0470ece5b4bb789ead0018d75beee43d49b5494aadce0bd97af25e130ea8e2e34b79514697b082a83078bb4369c0c43922a0c2aaeafab7ab0d97032581c552ab0110488a4505354d2a804e210da9010515b",
+    "archive": "0x281d898df1cfa46a8e1aef0d8b7a97cb459ad19323ca84ad76709a31622985fa",
+    "blobCommitments": "0x01af6d0dfff63f67b5e7129fcdac8635cdb149960eefd640ef9008436595d9c2c3ef760011ddb4098547c156fb677ba0b4",
+    "batchedBlobInputs": "0x01a478458bba9dbea960dc83c7ca5dd180fbc354dbd31f3f3d4c9a03721bb5ef21a0a34648f9df58ec9ff52356eeefa8eecd4cf70568238c87b422a1786e3cc316b5878d9e0c5465f00c3af467d00af69edc4076b390060b04cb775d0bc48b19af6d0dfff63f67b5e7129fcdac8635cdb149960eefd640ef9008436595d9c2c3ef760011ddb4098547c156fb677ba0b492f68096312f4d76a0fddb39c9f0bd03f52335476660a171484a45c7945f17db090d8b39864baff094ae35ef88e9acb6",
     "blockNumber": 1,
     "body": "0x00000000",
     "header": {
       "lastArchiveRoot": "0x1f8c805403d88ee809d3cb3e52eeba0a104f69968cdb844a9cbdf1e9e00b3a95",
       "contentCommitment": {
-        "blobsHash": "0x00037077d6b94ce99fcfe346182c4bb458a304f075a4f09c8df75f7ce1caadbb",
+        "blobsHash": "0x0080e6984c53f3fba69650f989d6c5e1c515391c4818c4a5445e2a912c945636",
         "inHash": "0x00de7b349d2306334734e4f58b1302a6ed5a6c796a706f6597a5641b6d468223",
         "outHash": "0x0000000000000000000000000000000000000000000000000000000000000000"
       },
       "slotNumber": 102,
-      "timestamp": 1761133430,
-      "coinbase": "0x725ed886e5aa78d5802b4a069b8747a4e3360c43",
-      "feeRecipient": "0x211e21c97f3c1eb74f1b111e953d45b75128cff1cf50d362f3a3a828c8aeb1f5",
+      "timestamp": 1761836379,
+      "coinbase": "0x78f66d74eeca096351a9b8e59e3c22a04dde5734",
+      "feeRecipient": "0x2148354b093ec84ba3bfb5b9dddb2d3f77bd6c3e9d53f0c492210f058e5db775",
       "gasFees": {
         "feePerDaGas": 0,
-        "feePerL2Gas": 22470
+        "feePerL2Gas": 22560
       },
       "totalManaUsed": 0
     },
-    "headerHash": "0x000622e2c913e46d1ac41bf6a070aeeb5b499689417513d3853d81a8aaec97de",
+    "headerHash": "0x00bc612dda9ad55258e627c2728a9284fbc861fafce6de904e185efde303bcef",
     "numTxs": 0
   }
 }
