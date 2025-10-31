@@ -1469,7 +1469,6 @@ struct TruncateNonTrivialTestParams {
     MemoryTag dst_tag;
     FF expected_result;
     FF expected_lo_128;
-    FF expected_hi_128;
     FF expected_mid;
 };
 
@@ -1479,7 +1478,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U64,
         .expected_result = 123456789987654321ULL,
         .expected_lo_128 = (uint256_t(98263) << 64) + 123456789987654321ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263,
     },
     {
@@ -1487,7 +1485,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U32,
         .expected_result = 1234567,
         .expected_lo_128 = (98263ULL << 32) + 1234567ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263,
     },
     {
@@ -1495,7 +1492,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U16,
         .expected_result = 1234,
         .expected_lo_128 = (98263ULL << 32) + 1234ULL,
-        .expected_hi_128 = 0,
         .expected_mid = 98263ULL << 16,
     },
     {
@@ -1503,7 +1499,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U8,
         .expected_result = 7,
         .expected_lo_128 = 263,
-        .expected_hi_128 = 0,
         .expected_mid = 1,
     },
     {
@@ -1511,7 +1506,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_LESS_THAN_128_TEST_PARA
         .dst_tag = MemoryTag::U1,
         .expected_result = 1,
         .expected_lo_128 = 999,
-        .expected_hi_128 = 0,
         .expected_mid = 499,
     }
 };
@@ -1526,7 +1520,7 @@ INSTANTIATE_TEST_SUITE_P(AluTraceGenerationTest,
 
 TEST_P(AluTruncateNonTrivialLT128TraceGenerationTest, TraceGenerationTruncateNonTrivialLT128)
 {
-    auto [a, dst_tag, expected_result, expected_lo_128, expected_hi_128, expected_mid] = GetParam();
+    auto [a, dst_tag, expected_result, expected_lo_128, expected_mid] = GetParam();
     auto b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag));
     auto c = MemoryValue::from_tag(dst_tag, expected_result);
 
@@ -1553,7 +1547,6 @@ TEST_P(AluTruncateNonTrivialLT128TraceGenerationTest, TraceGenerationTruncateNon
                                   ROW_FIELD_EQ(alu_sel_is_ff, dst_tag == MemoryTag::FF ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_is_u128, dst_tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_a_lo, expected_lo_128),
-                                  ROW_FIELD_EQ(alu_a_hi, expected_hi_128),
                                   ROW_FIELD_EQ(alu_mid, expected_mid),
                                   ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(dst_tag)))));
 }
@@ -1564,7 +1557,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U64,
         .expected_result = 123456789987654321ULL,
         .expected_lo_128 = (uint256_t(1111) << 64) + 123456789987654321ULL,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111,
     },
     {
@@ -1572,7 +1564,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U32,
         .expected_result = 123456789,
         .expected_lo_128 = (uint256_t(1111) << 64) + 123456789,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111ULL << 32,
     },
     {
@@ -1580,7 +1571,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U16,
         .expected_result = 1234,
         .expected_lo_128 = (uint256_t(1111) << 64) + 1234,
-        .expected_hi_128 = 98263,
         .expected_mid = 1111ULL << 48,
     },
     {
@@ -1588,7 +1578,6 @@ const std::vector<TruncateNonTrivialTestParams> TRUNCATE_GREATER_THAN_128_TEST_P
         .dst_tag = MemoryTag::U8,
         .expected_result = 234,
         .expected_lo_128 = (uint256_t(123456789987654321ULL) << 8) + 234,
-        .expected_hi_128 = 98263ULL << 22,
         .expected_mid = 123456789987654321ULL,
     }
 };
@@ -1603,7 +1592,7 @@ INSTANTIATE_TEST_SUITE_P(AluTraceGenerationTest,
 
 TEST_P(AluTruncateNonTrivialGT128TraceGenerationTest, TraceGenerationTruncateNonTrivialGT128)
 {
-    auto [a, dst_tag, expected_result, expected_lo_128, expected_hi_128, expected_mid] = GetParam();
+    auto [a, dst_tag, expected_result, expected_lo_128, expected_mid] = GetParam();
     auto b = MemoryValue::from_tag(MemoryTag::FF, static_cast<uint8_t>(dst_tag));
     auto c = MemoryValue::from_tag(dst_tag, expected_result);
 
@@ -1630,7 +1619,6 @@ TEST_P(AluTruncateNonTrivialGT128TraceGenerationTest, TraceGenerationTruncateNon
                                   ROW_FIELD_EQ(alu_sel_is_u128, dst_tag == MemoryTag::U128 ? 1 : 0),
                                   ROW_FIELD_EQ(alu_sel_tag_err, 0),
                                   ROW_FIELD_EQ(alu_a_lo, expected_lo_128),
-                                  ROW_FIELD_EQ(alu_a_hi, expected_hi_128),
                                   ROW_FIELD_EQ(alu_mid, expected_mid),
                                   ROW_FIELD_EQ(alu_mid_bits, 128 - get_tag_bits(dst_tag)))));
 }

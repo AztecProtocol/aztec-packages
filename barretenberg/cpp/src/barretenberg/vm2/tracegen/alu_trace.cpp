@@ -314,7 +314,6 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             { Column::alu_sel_trunc_gte_128, is_gte_128 },
             { Column::alu_sel_trunc_non_trivial, !is_trivial },
             { Column::alu_a_lo, lo_128 },
-            { Column::alu_a_hi, is_gte_128 ? value >> 128 : 0 },
             { Column::alu_mid, mid },
             { Column::alu_mid_bits, is_trivial ? 0 : 128 - dst_bits },
         };

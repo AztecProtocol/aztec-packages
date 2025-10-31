@@ -589,14 +589,17 @@ sel_op_truncate = sel_trunc_non_trivial + sel_trunc_trivial;
 #[TRUNC_TRIVIAL_CASE]
 sel_trunc_trivial * (ia - ic) = 0;
 
-// NOTE: reusing a_lo and a_hi columns from MUL in TRUNC:
-// For truncate, a_lo = 128-bit low limb of ia and a_hi = 128-bit high limb of ia.
+// NOTE: reusing a_lo column from MUL in TRUNC:
+// For truncate, a_lo = 128-bit low limb of ia.
 pol commit mid;
 
+// Note that we do not need to fetch the 128-bit high limb of ia. We invoke
+// ff_gt.sel_dec to ensure that a_lo is correct. (Inside of ff_gt gadget, the
+// high limb will be computed and proven to be correct.)
 #[LARGE_TRUNC_CANONICAL_DEC]
-sel_trunc_gte_128 { ia, a_lo, a_hi }
+sel_trunc_gte_128 { ia, a_lo}
 in
-ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo, ff_gt.a_hi };
+ff_gt.sel_dec { ff_gt.a, ff_gt.a_lo };
 
 #[SMALL_TRUNC_VAL_IS_LO]
 sel_trunc_lt_128 * (a_lo - ia) = 0;
