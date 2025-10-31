@@ -1,7 +1,10 @@
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/stdlib/primitives/test_utils.hpp"
 #include <gtest/gtest.h>
+
+using bb::stdlib::test_utils::check_circuit_and_gate_count;
 
 namespace bb::stdlib::field_conversion_tests {
 
@@ -13,6 +16,37 @@ template <typename Builder> using grumpkin_element = cycle_group<Builder>;
 template <typename Builder> class stdlib_field_conversion : public ::testing::Test {
   public:
     using Codec = StdlibCodec<field_t<Builder>>;
+
+    /**
+     * @brief Helper to test gate counts for deserialization
+     * @param create_native Function that creates a native value to serialize
+     * @param expected_gates Expected gate count (excluding base gates)
+     * @param num_elements Number of elements to deserialize (defaults to 1)
+     */
+    template <typename T, typename CreateFn>
+    void check_deserialization_gate_count(CreateFn create_native, uint32_t expected_gates, size_t num_elements = 1)
+    {
+        using NativeCodec = FrCodec;
+        Builder builder;
+
+        for (size_t i = 0; i < num_elements; ++i) {
+            // Create native value and serialize
+            auto native_value = create_native();
+            auto native_fields = NativeCodec::serialize_to_fields(native_value);
+
+            // Create witnesses from "proof data"
+            std::vector<field_t<Builder>> witness_fields;
+            for (const auto& f : native_fields) {
+                witness_fields.push_back(field_t<Builder>::from_witness(&builder, f));
+            }
+
+            // Deserialize in circuit
+            [[maybe_unused]] auto deserialized = Codec::template deserialize_from_fields<T>(witness_fields);
+        }
+
+        check_circuit_and_gate_count(builder, expected_gates);
+    }
+
     // Serialize and deserialize
     template <typename T> void check_conversion(T in, bool valid_circuit = true, bool point_at_infinity = false)
     {
@@ -302,6 +336,110 @@ TYPED_TEST(stdlib_field_conversion, FieldConversionUnivariateGrumpkinFr)
               static_cast<bb::fq>(std::string("2bf1eaf87f7d27e8dc4056e9af975985bccc89077a21891d6c7b6ccce0631f95"))) }
     };
     this->check_conversion_iterable(univariate);
+}
+
+// ============================================================================
+// Gate Count Tests for Deserialization Operations
+// ============================================================================
+
+/**
+ * @brief Measure gate counts for scalar (fr) deserialization
+ * @details Must be zero gates, as it's the "native" field type of our circuits.
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountScalarDeserialization)
+{
+    // Scalar deserialization adds no gates (just witness creation)
+    this->template check_deserialization_gate_count<fr<TypeParam>>([] { return bb::fr::random_element(); }, 0);
+}
+
+/**
+ * @brief Measure gate counts for bigfield deserialization
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountBigfieldDeserialization)
+{
+    // Deserializing a single bigfield element is expensive due to creating new ranges for range constraints
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3483);
+}
+
+/**
+ * @brief Measure gate counts for multiple bigfield deserializations
+ * @details Range constraints are batched, making subsequent bigfields much cheaper
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountMultipleBigfieldDeserialization)
+{
+    this->template check_deserialization_gate_count<fq<TypeParam>>([] { return bb::fq::random_element(); }, 3608, 10);
+}
+
+/**
+ * @brief Measure gate counts for BN254 point deserialization
+ * @details Includes bigfield reconstruction + point-at-infinity check + on-curve validation
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountBN254PointDeserialization)
+{
+    using Builder = TypeParam;
+    // Ultra: full bigfield construction + on-curve validation
+    // Mega: only is_infinity check, range constraint and on_curve validation deferred to ECCVM and Translator
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 3789 : 5;
+    this->template check_deserialization_gate_count<bn254_element<Builder>>(
+        [] { return curve::BN254::AffineElement::random_element(); }, expected);
+}
+
+/**
+ * @brief Measure gate counts for multiple BN254 point deserializations
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountMultipleBN254PointDeserialization)
+{
+    using Builder = TypeParam;
+
+    constexpr uint32_t expected = std::is_same_v<Builder, bb::UltraCircuitBuilder> ? 4986 : 50;
+    this->template check_deserialization_gate_count<bn254_element<Builder>>(
+        [] { return curve::BN254::AffineElement::random_element(); }, expected, 10);
+}
+
+/**
+ * @brief Measure gate counts for Grumpkin point deserialization
+ * @details Includes point-at-infinity check + on-curve validation
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountGrumpkinPointDeserialization)
+{
+    this->template check_deserialization_gate_count<grumpkin_element<TypeParam>>(
+        [] { return curve::Grumpkin::AffineElement::random_element(); }, 10);
+}
+
+/**
+ * @brief Measure gate counts for array deserialization
+ * @details Arrays of scalars add no gates
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountArrayDeserialization)
+{
+    constexpr size_t SIZE = 8;
+    this->template check_deserialization_gate_count<std::array<fr<TypeParam>, SIZE>>(
+        [] {
+            std::array<bb::fr, SIZE> arr;
+            for (size_t i = 0; i < SIZE; ++i) {
+                arr[i] = bb::fr::random_element();
+            }
+            return arr;
+        },
+        0);
+}
+
+/**
+ * @brief Measure gate counts for univariate deserialization
+ * @details Same as array - no gates added
+ */
+TYPED_TEST(stdlib_field_conversion, GateCountUnivariateDeserialization)
+{
+    constexpr size_t LENGTH = 8;
+    this->template check_deserialization_gate_count<Univariate<fr<TypeParam>, LENGTH>>(
+        [] {
+            std::array<bb::fr, LENGTH> evals;
+            for (size_t i = 0; i < LENGTH; ++i) {
+                evals[i] = bb::fr::random_element();
+            }
+            return Univariate<bb::fr, LENGTH>(evals);
+        },
+        0);
 }
 
 } // namespace bb::stdlib::field_conversion_tests

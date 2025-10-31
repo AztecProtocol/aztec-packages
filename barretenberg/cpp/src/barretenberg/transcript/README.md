@@ -5,9 +5,10 @@ An implementation of the Fiat-Shamir transform for interactive proofs, supportin
 ## Table of Contents
 - [Overview](#overview)
 - [Native vs In-Circuit Modes](#native-vs-in-circuit-modes)
-- [Origin Tag Security Mechanism](#origin-tag-security-mechanism)
 - [Core Concepts](#core-concepts)
 - [API Reference](#api-reference)
+- [Origin Tag Security Mechanism](#origin-tag-security-mechanism)
+- [In-circuit Transcript Flow](#in-circuit-transcript-flow-recursive-verification)
 - [Usage Examples](#usage-examples)
 - [Best Practices](#best-practices)
 
@@ -29,7 +30,7 @@ template <typename Codec_, typename HashFunction>
 class BaseTranscript
 ```
 
-- **Codec**: Serialization/deserialization strategy (`FrCodec`, `U256Codec`, `StdlibCodec`)
+- **Codec**: Serialization/deserialization strategy (`FrCodec`, `U256Codec`, `StdlibCodec`).
 - **HashFunction**: Hash function for challenge generation (Poseidon2, Keccak)
 
 ### Common Instantiations
@@ -38,7 +39,7 @@ class BaseTranscript
 // Native transcript using Poseidon2 hash
 using NativeTranscript = BaseTranscript<FrCodec, crypto::Poseidon2<...>>;
 
-// Native transcript using Keccak hash (for Solidity verification)
+// Native transcript using Keccak hash (to be verified by Solidity verifiers)
 using KeccakTranscript = BaseTranscript<U256Codec, crypto::Keccak>;
 
 // In-circuit transcript for recursive verification
@@ -48,21 +49,245 @@ using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<Builder>>, s
 
 ---
 
-## Native vs In-Circuit Modes
+### Native vs In-Circuit Modes
 
 The transcript operates in two fundamentally different modes:
 
-### Native Mode
+#### Native Mode
 - **Purpose**: Used for proving and verification
 - **DataType**: Native types (`bb::fr`, `grumpkin::fr`, `uint256_t`)
 - **Origin Tags**: Disabled
 
-### In-Circuit Mode (Recursive Verification)
+#### In-Circuit Mode (Recursive Verification)
 - **Purpose**: Verifying proofs in-circuit (recursive proofs)
 - **DataType**: Circuit field elements (`field_t<Builder>`)
 - **Origin Tags**: **Enabled** to detect Fiat-Shamir violations
 
-The mode is **automatically detected** at compile-time.
+The mode is set at compile-time.
+
+
+
+### Phase and Round Tracking
+
+The transcript maintains state for correct tag assignment:
+
+```cpp
+size_t round_index = 0;       // Current protocol round (for origin tags)
+bool reception_phase = true;  // Currently receiving data (true) or generating challenges (false)
+```
+
+#### Phase Transitions
+
+**When adding/receiving data** (`send_to_verifier`, `receive_from_prover`, `add_to_hash_buffer`):
+```cpp
+if (!reception_phase) {
+    reception_phase = true;  // Switch back to reception
+    round_index++;           // Move to next round
+}
+// Tag assigned: OriginTag(transcript_index, round_index, is_submitted=true)
+```
+
+**When generating challenges** (`get_challenge`, `get_challenges`):
+```cpp
+if (reception_phase) {
+    reception_phase = false;  // Switch to challenge generation
+    // round_index stays the same - challenges belong to the current round
+}
+// Tag assigned: OriginTag(transcript_index, round_index, is_submitted=false)
+```
+
+**Key insight**: `round_index` increments when returning FROM challenge generation TO data reception, not when generating challenges. This ensures challenges and the round's data share the same round number.
+
+---
+
+## Core Concepts
+
+### Duplex Sponge Construction
+
+Challenge generation uses a duplex construction:
+
+```
+c_next = H(c_prev || round_data)
+```
+
+- First challenge: `c_0 = H(round_0_data)`
+- Subsequent: `c_i = H(c_{i-1} || round_i_data)`
+- Generates pairs: `[128-bit, 126-bit, 128-bit, 126-bit, ...]`
+
+### Two Hash Buffers
+
+The transcript maintains two **separate** hash buffers for different purposes:
+
+#### `current_round_data` - Fiat-Shamir Transcript
+- **Purpose**: Accumulates data for Fiat-Shamir challenge generation
+- **How to add**: `send_to_verifier()`, `receive_from_prover()`, `add_to_hash_buffer()`
+- **When cleared**: After `get_challenge()` or `get_challenges()` is called
+- **Effect**: All data here influences subsequent challenges
+
+**Usage pattern**:
+```cpp
+transcript->add_to_hash_buffer("vk_hash", vk_hash);     // Add to Fiat-Shamir
+transcript->receive_from_prover<Commitment>("comm");    // Add to Fiat-Shamir
+auto alpha = transcript->get_challenge<FF>("alpha");    // Depends on above data, clears buffer
+```
+
+#### `independent_hash_buffer` - Hash Computation
+- **Purpose**: Compute a hash digest from multiple components
+- **How to add**: `add_to_independent_hash_buffer()`
+- **When cleared**: After `hash_independent_buffer()` is called
+- **Effect**: Does NOT affect Fiat-Shamir challenges at all
+
+**Usage pattern**:
+```cpp
+// Step 1: Accumulate components
+for (auto& comm : vk->get_all()) {
+    transcript->add_to_independent_hash_buffer("vk_comm", comm);
+}
+
+// Step 2: Compute the hash digest
+FF vk_hash = transcript->hash_independent_buffer();  // Clears independent buffer
+
+// Step 3: Optionally add the hash to Fiat-Shamir
+transcript->add_to_hash_buffer("vk_hash", vk_hash);
+```
+
+**Key difference**: Independent buffer is for **computing hashes**, main buffer is for **Fiat-Shamir protocol**.
+
+---
+
+## API Reference
+
+### Core Methods
+
+#### `send_to_verifier<T>(const std::string& label, const T& element)`
+Serialize element, add to proof, and update transcript state.
+
+```cpp
+transcript->send_to_verifier("wire_commitments", commitments);
+```
+
+**Effects**:
+- Serializes `element` to field elements
+- Appends to `proof_data`
+- Adds to `current_round_data` for next challenge
+- Assigns origin tag (in-circuit mode)
+
+#### `add_to_hash_buffer<T>(const std::string& label, const T& element)`
+Add element to the main Fiat-Shamir transcript (affects challenge generation).
+
+```cpp
+// Add VK hash to the Fiat-Shamir transcript
+FF vk_hash = vk->hash();
+transcript->add_to_hash_buffer("vk_hash", vk_hash);
+
+// Now challenges will depend on the VK hash
+auto alpha = transcript->get_challenge<FF>("alpha");
+```
+
+**Key point**: Data added here becomes part of the transcript state and **affects all subsequent challenge generation**.
+
+**Use cases**:
+- Public inputs (verifier reconstructs, must hash for Fiat-Shamir)
+- VK hashes (to bind challenges to the verification key)
+- Metadata that should influence challenges
+
+#### `add_to_independent_hash_buffer<T>(const std::string& label, const T& element)`
+Add to a separate buffer to **compute** a hash digest (does NOT affect Fiat-Shamir challenges).
+
+```cpp
+// Compute VK hash by accumulating VK components
+for (auto& comm : vk->get_all()) {
+    transcript->add_to_independent_hash_buffer("vk_comm", comm);
+}
+transcript->add_to_independent_hash_buffer("circuit_size", vk->circuit_size);
+
+// Extract the hash digest
+FF vk_hash = transcript->hash_independent_buffer();
+
+// NOW add it to the main transcript for Fiat-Shamir
+transcript->add_to_hash_buffer("vk_hash", vk_hash);
+```
+
+**Key point**: This is for **computing hashes**, not for Fiat-Shamir. The buffer is independent from challenge generation.
+
+**Use cases**:
+- Computing verification key/verifier instance hashes
+
+#### `receive_from_prover<T>(const std::string& label) -> T`
+Deserialize and extract element from proof, update transcript state. In-circuit deserialization for `UltraCircuitBuilder` includes `on_curve` checks and proper constraints for `T` = `bigfield`. We also perform `is_infinity` checks to correctly desereialize points at infinity.
+
+```cpp
+auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments");
+```
+
+**Effects**:
+- Reads `calc_num_fields<T>()` field elements from proof
+- Advances read position
+- Adds to `current_round_data`
+- Assigns and validates origin tag (in-circuit mode)
+
+### Challenge Generation
+
+Note that "by default", challenges are `BN254` (`fr`/`field_t`) scalar field elements. However, there are two special cases.
+
+ - When we're verifying proofs where commitments are Grumpkin points (`ECCVMRecursiveVerifier`), the challenges are `fq`/`bigfield` elements.
+ - `KeccakTranscript` uses `uint256_t` challenges.
+
+#### `get_challenge<ChallengeType>(const std::string& label) -> ChallengeType`
+Generate a single challenge by hashing accumulated round data.
+
+```cpp
+auto alpha = transcript->get_challenge<FF>("alpha");
+```
+
+**Behavior**:
+- Hashes `previous_challenge || current_round_data`
+- Clears `current_round_data`
+- Increments `round_number`
+- Assigns origin tag with `is_submitted=false`
+
+#### `get_challenges<ChallengeType>(std::span<const std::string> labels) -> std::vector<ChallengeType>`
+Generate multiple challenges efficiently.
+
+```cpp
+auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
+```
+
+**Behavior**:
+- Generates challenges in pairs `[128-bit, 126-bit]`
+- Uses iterative duplex hashing for subsequent pairs
+- All challenges from same round get the same origin tag
+
+#### `get_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_powers) -> std::vector<ChallengeType>`
+Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^num_powers)]`.
+
+```cpp
+// Used for gate separators in Sumcheck
+auto gate_challenges = transcript->get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
+// Returns [δ, δ², δ⁴, δ⁸, ...]
+```
+
+**Why squared powers?**
+The powers-of-2 exponent pattern `[δ, δ², δ⁴, δ⁸, ...]` is used in `pow`-polynomial to separate gate contributions in the sumcheck protocol.
+
+### Proof Management
+
+#### `export_proof() -> std::vector<DataType>`
+Extract proof slice written since last export.
+
+```cpp
+auto proof = transcript->export_proof();
+// Moves proof_start forward, resets num_frs_written
+```
+
+**Use case**: Multiple provers sharing a transcript (e.g., OINK → Decider)
+
+#### `load_proof(const std::vector<DataType>& proof)`
+Load proof data for verification.
+
+```cpp
+transcript->load_proof(proof);
+```
 
 
 ## Origin Tag Security Mechanism
@@ -263,42 +488,9 @@ auto mixed = a * beta;   // ✅ OK - has challenge bit set
 auto result = mixed + b; // ✅ OK - mixed has challenge bit, prevents violation
 ```
 
-### Phase and Round Tracking
 
-The transcript maintains state for correct tag assignment:
 
-```cpp
-size_t round_index = 0;       // Current protocol round (for origin tags)
-bool reception_phase = true;  // Currently receiving data (true) or generating challenges (false)
-```
-
-#### Phase Transitions
-
-**When adding/receiving data** (`send_to_verifier`, `receive_from_prover`, `add_to_hash_buffer`):
-```cpp
-if (!reception_phase) {
-    reception_phase = true;  // Switch back to reception
-    round_index++;           // Move to next round
-}
-// Tag assigned: OriginTag(transcript_index, round_index, is_submitted=true)
-```
-
-**When generating challenges** (`get_challenge`, `get_challenges`):
-```cpp
-if (reception_phase) {
-    reception_phase = false;  // Switch to challenge generation
-    // round_index stays the same - challenges belong to the current round
-}
-// Tag assigned: OriginTag(transcript_index, round_index, is_submitted=false)
-```
-
-**Key insight**: `round_index` increments when returning FROM challenge generation TO data reception, not when generating challenges. This ensures challenges and the round's data share the same round number.
-
----
-
-## Core Concepts
-
-### In-Circuit Transcript Flow (Recursive Verification)
+## In-Circuit Transcript Flow (Recursive Verification)
 
 The following diagram illustrates the complete flow of the Poseidon2 in-circuit transcript with origin tag tracking:
 
@@ -496,193 +688,6 @@ TRANSCRIPT STATE TRACKING
     previous_challenge:            // For duplex sponge c_next = H(c_prev || data)
 ```
 
-### Duplex Sponge Construction
-
-Challenge generation uses a duplex construction:
-
-```
-c_next = H(c_prev || round_data)
-```
-
-- First challenge: `c_0 = H(round_0_data)`
-- Subsequent: `c_i = H(c_{i-1} || round_i_data)`
-- Generates pairs: `[128-bit, 126-bit, 128-bit, 126-bit, ...]`
-
-### Two Hash Buffers
-
-The transcript maintains two **separate** hash buffers for different purposes:
-
-#### `current_round_data` - Fiat-Shamir Transcript
-- **Purpose**: Accumulates data for Fiat-Shamir challenge generation
-- **How to add**: `send_to_verifier()`, `receive_from_prover()`, `add_to_hash_buffer()`
-- **When cleared**: After `get_challenge()` or `get_challenges()` is called
-- **Effect**: All data here influences subsequent challenges
-
-**Usage pattern**:
-```cpp
-transcript->add_to_hash_buffer("vk_hash", vk_hash);     // Add to Fiat-Shamir
-transcript->receive_from_prover<Commitment>("comm");    // Add to Fiat-Shamir
-auto alpha = transcript->get_challenge<FF>("alpha");    // Depends on above data, clears buffer
-```
-
-#### `independent_hash_buffer` - Hash Computation
-- **Purpose**: Compute a hash digest from multiple components
-- **How to add**: `add_to_independent_hash_buffer()`
-- **When cleared**: After `hash_independent_buffer()` is called
-- **Effect**: Does NOT affect Fiat-Shamir challenges at all
-
-**Usage pattern**:
-```cpp
-// Step 1: Accumulate components
-for (auto& comm : vk->get_all()) {
-    transcript->add_to_independent_hash_buffer("vk_comm", comm);
-}
-
-// Step 2: Compute the hash digest
-FF vk_hash = transcript->hash_independent_buffer();  // Clears independent buffer
-
-// Step 3: Optionally add the hash to Fiat-Shamir
-transcript->add_to_hash_buffer("vk_hash", vk_hash);
-```
-
-**Key difference**: Independent buffer is for **computing hashes**, main buffer is for **Fiat-Shamir protocol**.
-
----
-
-## API Reference
-
-### Core Methods
-
-#### `send_to_verifier<T>(const std::string& label, const T& element)`
-Serialize element, add to proof, and update transcript state.
-
-```cpp
-transcript->send_to_verifier("wire_commitments", commitments);
-```
-
-**Effects**:
-- Serializes `element` to field elements
-- Appends to `proof_data`
-- Adds to `current_round_data` for next challenge
-- Assigns origin tag (in-circuit mode)
-
-#### `add_to_hash_buffer<T>(const std::string& label, const T& element)`
-Add element to the main Fiat-Shamir transcript (affects challenge generation).
-
-```cpp
-// Add VK hash to the Fiat-Shamir transcript
-FF vk_hash = vk->hash();
-transcript->add_to_hash_buffer("vk_hash", vk_hash);
-
-// Now challenges will depend on the VK hash
-auto alpha = transcript->get_challenge<FF>("alpha");
-```
-
-**Key point**: Data added here becomes part of the transcript state and **affects all subsequent challenge generation**.
-
-**Use cases**:
-- Public inputs (verifier reconstructs, must hash for Fiat-Shamir)
-- VK hashes (to bind challenges to the verification key)
-- Metadata that should influence challenges
-
-#### `add_to_independent_hash_buffer<T>(const std::string& label, const T& element)`
-Add to a separate buffer to **compute** a hash digest (does NOT affect Fiat-Shamir challenges).
-
-```cpp
-// Compute VK hash by accumulating VK components
-for (auto& comm : vk->get_all()) {
-    transcript->add_to_independent_hash_buffer("vk_comm", comm);
-}
-transcript->add_to_independent_hash_buffer("circuit_size", vk->circuit_size);
-
-// Extract the hash digest
-FF vk_hash = transcript->hash_independent_buffer();
-
-// NOW add it to the main transcript for Fiat-Shamir
-transcript->add_to_hash_buffer("vk_hash", vk_hash);
-```
-
-**Key point**: This is for **computing hashes**, not for Fiat-Shamir. The buffer is independent from challenge generation.
-
-**Use cases**:
-- Computing verification key/verifier instance hashes
-
-#### `receive_from_prover<T>(const std::string& label) -> T`
-Deserialize and extract element from proof, update transcript state. In-circuit deserialization for `UltraCircuitBuilder` includes `on_curve` checks and proper constraints for `T` = `bigfield`. We also perform `is_infinity` checks to correctly desereialize points at infinity.
-
-```cpp
-auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments");
-```
-
-**Effects**:
-- Reads `calc_num_fields<T>()` field elements from proof
-- Advances read position
-- Adds to `current_round_data`
-- Assigns and validates origin tag (in-circuit mode)
-
-### Challenge Generation
-
-Note that "by default", challenges are `BN254` (`fr`/`field_t`) scalar field elements. However, there are two special cases.
-
- - When we're verifying proofs where commitments are Grumpkin points (`ECCVMRecursiveVerifier`), the challenges are `fq`/`bigfield` elements.
- - `KeccakTranscript` uses `uint256_t` challenges.
-
-#### `get_challenge<ChallengeType>(const std::string& label) -> ChallengeType`
-Generate a single challenge by hashing accumulated round data.
-
-```cpp
-auto alpha = transcript->get_challenge<FF>("alpha");
-```
-
-**Behavior**:
-- Hashes `previous_challenge || current_round_data`
-- Clears `current_round_data`
-- Increments `round_number`
-- Assigns origin tag with `is_submitted=false`
-
-#### `get_challenges<ChallengeType>(std::span<const std::string> labels) -> std::vector<ChallengeType>`
-Generate multiple challenges efficiently.
-
-```cpp
-auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
-```
-
-**Behavior**:
-- Generates challenges in pairs `[128-bit, 126-bit]`
-- Uses iterative duplex hashing for subsequent pairs
-- All challenges from same round get the same origin tag
-
-#### `get_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_powers) -> std::vector<ChallengeType>`
-Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^num_powers)]`.
-
-```cpp
-// Used for gate separators in Sumcheck
-auto gate_challenges = transcript->get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
-// Returns [δ, δ², δ⁴, δ⁸, ...]
-```
-
-**Why squared powers?**
-The powers-of-2 exponent pattern `[δ, δ², δ⁴, δ⁸, ...]` is used in `pow`-polynomial to separate gate contributions in the sumcheck protocol.
-
-### Proof Management
-
-#### `export_proof() -> std::vector<DataType>`
-Extract proof slice written since last export.
-
-```cpp
-auto proof = transcript->export_proof();
-// Moves proof_start forward, resets num_frs_written
-```
-
-**Use case**: Multiple provers sharing a transcript (e.g., OINK → Decider)
-
-#### `load_proof(const std::vector<DataType>& proof)`
-Load proof data for verification.
-
-```cpp
-transcript->load_proof(proof);
-```
-
 ---
 
 ## Usage Examples
@@ -722,31 +727,6 @@ auto [beta, gamma] = verifier_transcript->get_challenges<FF>({"beta", "gamma"});
 for (size_t i = 0; i < num_relations; i++) {
     auto z_comm = verifier_transcript->receive_from_prover<Commitment>("z_comm");
     // Verifier stores z commitments...
-}
-```
-
-### In-Circuit Recursive Verification
-
-```cpp
-// Recursive verifier running inside a circuit
-template <typename Flavor>
-void RecursiveVerifier::verify_proof(const stdlib::Proof<Builder>& proof) {
-    using Transcript = StdlibTranscript<Builder>;
-    auto transcript = std::make_shared<Transcript>();
-
-    transcript->load_proof(proof);
-
-    // Each transcript instance gets a unique ID
-    // All values are tagged with (transcript_id, round_index, is_submitted)
-
-    auto comm = transcript->receive_from_prover<Commitment>("wire_comm");
-    // comm.get_origin_tag() == OriginTag(this_transcript_id, round=0, is_submitted=true)
-
-    auto alpha = transcript->get_challenge<FF>("alpha");
-    // alpha.get_origin_tag() == OriginTag(this_transcript_id, round=0, is_submitted=false)
-
-    auto combined = comm * alpha;  // Tags automatically merge
-    // combined.get_origin_tag() tracks both round 0 submission and challenge
 }
 ```
 
@@ -890,42 +870,7 @@ auto decider_proof = transcript->export_proof();  // Extract Decider portion
 
 ## Best Practices
 
-### 1. **Maintain Prover/Verifier Symmetry**
-The verifier must **exactly mirror** the prover's transcript operations:
-
-```cpp
-// ✅ CORRECT
-// Prover
-transcript->send_to_verifier("A", a);
-transcript->send_to_verifier("B", b);
-auto alpha = transcript->get_challenge<FF>("alpha");
-
-// Verifier
-auto a = transcript->receive_from_prover<FF>("A");
-auto b = transcript->receive_from_prover<FF>("B");
-auto alpha = transcript->get_challenge<FF>("alpha");
-
-// ❌ WRONG - verifier gets challenges in different order
-// Verifier
-auto alpha = transcript->get_challenge<FF>("alpha");  // TOO EARLY!
-auto a = transcript->receive_from_prover<FF>("A");
-```
-
-### 2. **Use Consistent Labels**
-Labels should match between prover/verifier (helps with debugging):
-
-```cpp
-// ✅ CORRECT
-const std::string LABEL_WIRE_COMM = "wire_commitments";
-prover_transcript->send_to_verifier(LABEL_WIRE_COMM, comm);
-verifier_transcript->receive_from_prover<Commitment>(LABEL_WIRE_COMM);
-
-// ⚠️ WORKS BUT ERROR-PRONE
-prover_transcript->send_to_verifier("wire_comm", comm);
-verifier_transcript->receive_from_prover<Commitment>("w_comm");  // Typo!
-```
-
-### 3. **In-Circuit: Unset Free Witness Tags Carefully**
+### 1. **In-Circuit: Unset Free Witness Tags Carefully**
 
 In recursive verification, you may need to bypass free witness checks:
 
@@ -942,7 +887,7 @@ auto commitment = transcript->receive_from_prover<Commitment>("comm");
 - VK commitments (trusted setup, not from proof)
 - Fixed constants reconstructed in-circuit
 
-### 4. **Public Inputs Should Not Be in Proof**
+### 2. **Public Inputs Should Not Be in Proof**
 
 Public inputs are publicly known and don't need to be in the proof:
 
@@ -954,7 +899,7 @@ transcript->add_to_hash_buffer("public_input", input);  // Hash only
 transcript->send_to_verifier("public_input", input);
 ```
 
-### 5. **Use Independent Buffer for VK Hashing**
+### 3. **Use Independent Buffer for VK Hashing**
 
 ```cpp
 // ✅ CORRECT - doesn't pollute challenge generation
@@ -978,24 +923,14 @@ BB_ASSERT(elem.get_origin_tag() == expected_tag)
 ```
 
 **Common causes**:
-1. Using a challenge before it's generated
-2. Mixing values from different transcripts
-3. Using free witnesses without proper tagging
+1. Mixing values from different transcripts
+2. Using free witnesses without proper tagging
 
 **Solution**: Trace the value's origin and ensure it follows Fiat-Shamir causality.
 
 ---
 
 ## Implementation Notes
-
-### Serialization Size Calculation
-
-To determine how many field elements a type serializes to:
-
-```cpp
-// Use the Codec directly
-size_t size = Transcript::Codec::template calc_num_fields<T>();
-```
 
 ### Challenge Buffer Size
 

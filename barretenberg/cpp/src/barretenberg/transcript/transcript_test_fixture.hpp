@@ -315,7 +315,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
 
         // Round 0
-        auto data_recv = verifier.template receive_from_prover<FF>("data");
+        [[maybe_unused]] auto data_recv = verifier.template receive_from_prover<FF>("data");
         auto verifier_alpha = verifier.template get_challenge<FF>("alpha");
 
         // Round 1
@@ -351,7 +351,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.template receive_from_prover<bn254_commitment>("commitment");
         verifier.template get_challenges<FF>(challenge_labels);
 
-        BB_ASSERT_EQ(prover.get_manifest(), verifier.get_manifest());
+        EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
 
         check_circuit();
     }
@@ -488,8 +488,9 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
             verifier.template receive_from_prover<bb::fr>("random_field");
             auto verifier_challenge = verifier.template get_challenge<bb::fr>("alpha");
 
-            BB_ASSERT_NEQ(prover_challenge, verifier_challenge)
-                << "Tampering should cause challenge mismatch in round " << round;
+            BB_ASSERT_NEQ(prover_challenge,
+                          verifier_challenge,
+                          "Tampering should cause challenge mismatch in round " + std::to_string(round));
         }
     }
 
