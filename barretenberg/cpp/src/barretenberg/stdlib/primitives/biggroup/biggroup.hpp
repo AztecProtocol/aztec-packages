@@ -384,9 +384,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Coordinate accessors (non-owning, const reference)
     const Fq& x() const { return _x; }
     const Fq& y() const { return _y; }
-    // BIGGROUP_AUDITTODO: Remove these non-const accessors by adding explicit methods for mutation where required.
-    Fq& x() { return _x; }
-    Fq& y() { return _y; }
 
     bool_ct is_point_at_infinity() const { return _is_infinity; }
     void set_point_at_infinity(const bool_ct& is_infinity, const bool& add_to_used_witnesses = false)
