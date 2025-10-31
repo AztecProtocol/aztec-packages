@@ -643,8 +643,7 @@ class ArithmeticFuzzHelper {
                 if constexpr (InstructionWeightsEnabled<T>) {                                                          \
                     if (!((total_instruction_weight + T::InstructionWeights::name) > T::InstructionWeights::_LIMIT)) { \
                         total_instruction_weight += T::InstructionWeights::name;                                       \
-                        if (T::ExecutionHandler::execute_##name(&composer, state, instruction) ==                      \
-                            T::ExecutionHandler::ExecutionStatus::Stop) {                                              \
+                        if (T::ExecutionHandler::execute_##name(&composer, state, instruction)) {                      \
                             return;                                                                                    \
                         }                                                                                              \
                     } else {                                                                                           \
@@ -652,8 +651,7 @@ class ArithmeticFuzzHelper {
                     }                                                                                                  \
                 } else {                                                                                               \
                                                                                                                        \
-                    if (T::ExecutionHandler::execute_##name(&composer, state, instruction) ==                          \
-                        T::ExecutionHandler::ExecutionStatus::Stop) {                                                  \
+                    if (T::ExecutionHandler::execute_##name(&composer, state, instruction)) {                          \
                         return;                                                                                        \
                     }                                                                                                  \
                 }                                                                                                      \

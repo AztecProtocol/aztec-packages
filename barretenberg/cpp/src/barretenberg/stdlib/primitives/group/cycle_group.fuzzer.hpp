@@ -1253,23 +1253,16 @@ template <typename Builder> class CycleGroupBase {
         }
 
         /**
-         * @brief Execution status for instruction execution
-         * @details Used by execute_* functions to indicate whether to continue processing instructions or stop
-         * execution (e.g., due to insufficient stack size).
-         */
-        enum class ExecutionStatus : uint8_t { Continue = 0, Stop = 1 };
-
-        /**
          * @brief Execute the constant instruction (push constant cycle group to the stack)
          *
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_CONSTANT(Builder* builder,
-                                                       std::vector<ExecutionHandler>& stack,
-                                                       Instruction& instruction)
+        static inline size_t execute_CONSTANT(Builder* builder,
+                                              std::vector<ExecutionHandler>& stack,
+                                              Instruction& instruction)
         {
             (void)builder;
             stack.push_back(
@@ -1278,7 +1271,7 @@ template <typename Builder> class CycleGroupBase {
                                  cycle_group_t(static_cast<AffineElement>(instruction.arguments.element.value))));
             debug_log(
                 "auto c", stack.size() - 1, " = cycle_group_t(ae(\"", instruction.arguments.element.scalar, "\"));\n");
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1287,11 +1280,11 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_WITNESS(Builder* builder,
-                                                      std::vector<ExecutionHandler>& stack,
-                                                      Instruction& instruction)
+        static inline size_t execute_WITNESS(Builder* builder,
+                                             std::vector<ExecutionHandler>& stack,
+                                             Instruction& instruction)
         {
             stack.push_back(ExecutionHandler(
                 instruction.arguments.element.scalar,
@@ -1302,7 +1295,7 @@ template <typename Builder> class CycleGroupBase {
                       " = cycle_group_t::from_witness(&builder, ae(\"",
                       instruction.arguments.element.scalar,
                       "\"));\n");
-            return ExecutionStatus::Continue;
+            return 0;
         }
 
         /**
@@ -1312,11 +1305,11 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_CONSTANT_WITNESS(Builder* builder,
-                                                               std::vector<ExecutionHandler>& stack,
-                                                               Instruction& instruction)
+        static inline size_t execute_CONSTANT_WITNESS(Builder* builder,
+                                                      std::vector<ExecutionHandler>& stack,
+                                                      Instruction& instruction)
         {
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element.scalar,
@@ -1328,7 +1321,7 @@ template <typename Builder> class CycleGroupBase {
                       " = cycle_group_t::from_constant_witness(&builder, ae(\"",
                       instruction.arguments.element.scalar,
                       "\"));\n");
-            return ExecutionStatus::Continue;
+            return 0;
         }
 
         /**
@@ -1337,15 +1330,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_DBL(Builder* builder,
-                                                  std::vector<ExecutionHandler>& stack,
-                                                  Instruction& instruction)
+        static inline size_t execute_DBL(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
@@ -1361,7 +1354,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1370,15 +1363,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_NEG(Builder* builder,
-                                                  std::vector<ExecutionHandler>& stack,
-                                                  Instruction& instruction)
+        static inline size_t execute_NEG(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
@@ -1394,7 +1387,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1403,14 +1396,14 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_ASSERT_EQUAL(Builder* builder,
-                                                           std::vector<ExecutionHandler>& stack,
-                                                           Instruction& instruction)
+        static inline size_t execute_ASSERT_EQUAL(Builder* builder,
+                                                  std::vector<ExecutionHandler>& stack,
+                                                  Instruction& instruction)
         {
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
@@ -1420,7 +1413,7 @@ template <typename Builder> class CycleGroupBase {
                 debug_log("assert_equal(", args.lhs, ", ", args.rhs, ", builder);", "\n");
             }
             stack[first_index].assert_equal(builder, stack[second_index]);
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1429,15 +1422,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_SET(Builder* builder,
-                                                  std::vector<ExecutionHandler>& stack,
-                                                  Instruction& instruction)
+        static inline size_t execute_SET(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
@@ -1452,7 +1445,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1461,15 +1454,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_SET_INF(Builder* builder,
-                                                      std::vector<ExecutionHandler>& stack,
-                                                      Instruction& instruction)
+        static inline size_t execute_SET_INF(Builder* builder,
+                                             std::vector<ExecutionHandler>& stack,
+                                             Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
@@ -1485,7 +1478,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1494,15 +1487,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_ADD(Builder* builder,
-                                                  std::vector<ExecutionHandler>& stack,
-                                                  Instruction& instruction)
+        static inline size_t execute_ADD(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
@@ -1519,7 +1512,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1528,15 +1521,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_SUBTRACT(Builder* builder,
-                                                       std::vector<ExecutionHandler>& stack,
-                                                       Instruction& instruction)
+        static inline size_t execute_SUBTRACT(Builder* builder,
+                                              std::vector<ExecutionHandler>& stack,
+                                              Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
@@ -1553,7 +1546,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1562,15 +1555,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_COND_ASSIGN(Builder* builder,
-                                                          std::vector<ExecutionHandler>& stack,
-                                                          Instruction& instruction)
+        static inline size_t execute_COND_ASSIGN(Builder* builder,
+                                                 std::vector<ExecutionHandler>& stack,
+                                                 Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.fourArgs.in1 % stack.size();
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
@@ -1589,7 +1582,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1598,15 +1591,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_MULTIPLY(Builder* builder,
-                                                       std::vector<ExecutionHandler>& stack,
-                                                       Instruction& instruction)
+        static inline size_t execute_MULTIPLY(Builder* builder,
+                                              std::vector<ExecutionHandler>& stack,
+                                              Instruction& instruction)
         {
 
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             size_t first_index = instruction.arguments.mulArgs.in % stack.size();
             size_t output_index = instruction.arguments.mulArgs.out;
@@ -1623,7 +1616,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1632,15 +1625,15 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_BATCH_MUL(Builder* builder,
-                                                        std::vector<ExecutionHandler>& stack,
-                                                        Instruction& instruction)
+        static inline size_t execute_BATCH_MUL(Builder* builder,
+                                               std::vector<ExecutionHandler>& stack,
+                                               Instruction& instruction)
         {
             (void)builder;
             if (stack.size() == 0) {
-                return ExecutionStatus::Stop;
+                return 1;
             }
             std::vector<ExecutionHandler> to_add;
             std::vector<ScalarField> to_mul;
@@ -1672,7 +1665,7 @@ template <typename Builder> class CycleGroupBase {
             } else {
                 stack[output_index] = result;
             }
-            return ExecutionStatus::Continue;
+            return 0;
         };
 
         /**
@@ -1681,17 +1674,17 @@ template <typename Builder> class CycleGroupBase {
          * @param builder
          * @param stack
          * @param instruction
-         * @return ExecutionStatus::Continue/Stop
+         * @return 0 to continue, 1 to stop
          */
-        static inline ExecutionStatus execute_RANDOMSEED(Builder* builder,
-                                                         std::vector<ExecutionHandler>& stack,
-                                                         Instruction& instruction)
+        static inline size_t execute_RANDOMSEED(Builder* builder,
+                                                std::vector<ExecutionHandler>& stack,
+                                                Instruction& instruction)
         {
             (void)builder;
             (void)stack;
 
             VarianceRNG.reseed(instruction.arguments.randomseed);
-            return ExecutionStatus::Continue;
+            return 0;
         };
     };
 
