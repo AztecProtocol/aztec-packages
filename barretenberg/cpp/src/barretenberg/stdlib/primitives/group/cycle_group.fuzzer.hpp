@@ -20,10 +20,10 @@
  *        │
  *        v
  *   ExecutionHandler (maintains parallel state):
- *   ┌──────────────────────────────────────────────────┐
- *   │ Native:     GroupElement + ScalarField           │  (ground truth)
- *   │ Circuit:    cycle_group + cycle_scalar           │
- *   └──────────────────────────────────────────────────┘
+ *   ┌─────────────────────────────────────────┐
+ *   │ Native:     GroupElement + ScalarField  │ (ground truth)
+ *   │ Circuit:    cycle_group + cycle_scalar  │
+ *   └─────────────────────────────────────────┘
  *        │
  *        ├──> Execute each instruction in both representations
  *        │
