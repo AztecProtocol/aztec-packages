@@ -177,11 +177,13 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 
 TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
 {
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = Curve::ScalarField;
+    using NativeFr = Curve::ScalarFieldNative;
 
     Builder builder;
 
