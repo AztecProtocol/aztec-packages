@@ -49,16 +49,16 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
         limb_max[6] = std::max(limb_max[6], rom_data[i]._y.binary_basis_limbs[2].maximum_value);
         limb_max[7] = std::max(limb_max[7], rom_data[i]._y.binary_basis_limbs[3].maximum_value);
 
-        x_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i].x.binary_basis_limbs[0].element,
-                                                         rom_data[i].x.binary_basis_limbs[1].element });
-        x_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i].x.binary_basis_limbs[2].element,
-                                                         rom_data[i].x.binary_basis_limbs[3].element });
-        y_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i].y.binary_basis_limbs[0].element,
-                                                         rom_data[i].y.binary_basis_limbs[1].element });
-        y_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i].y.binary_basis_limbs[2].element,
-                                                         rom_data[i].y.binary_basis_limbs[3].element });
+        x_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[0].element,
+                                                         rom_data[i]._x.binary_basis_limbs[1].element });
+        x_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[2].element,
+                                                         rom_data[i]._x.binary_basis_limbs[3].element });
+        y_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[0].element,
+                                                         rom_data[i]._y.binary_basis_limbs[1].element });
+        y_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[2].element,
+                                                         rom_data[i]._y.binary_basis_limbs[3].element });
         prime_limbs.emplace_back(
-            std::array<field_ct, 2>{ rom_data[i].x.prime_basis_limb, rom_data[i].y.prime_basis_limb });
+            std::array<field_ct, 2>{ rom_data[i]._x.prime_basis_limb, rom_data[i]._y.prime_basis_limb });
     }
     std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> output_tables;
     output_tables[0] = twin_rom_table<C>(x_lo_limbs);
