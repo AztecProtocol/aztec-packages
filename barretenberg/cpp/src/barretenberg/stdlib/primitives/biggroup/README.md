@@ -272,13 +272,13 @@ Notice that the terms $e'_{i, \textsf{negative}}$ and $c'_{\textsf{negative}}$ a
 
 ### MSM for ECDSA Verification
 
-In ECDSA verification, we need to compute a multi-scalar multiplication (MSM) of the form:
+In ECDSA verification over the secp256k1 curve, we need to compute a multi-scalar multiplication (MSM) of the form:
 
 $$
 A = u_1 \cdot G + u_2 \cdot Q
 $$
 
-where $G \in \mathbb{G}$ is the generator point of the elliptic curve, $Q \in \mathbb{G}$ is the public key point, and $u_1, u_2 \in \mathbb{F}_r$ are scalars derived from the message hash and signature. Both $G$ and $Q$ are known points on the curve, and we can use fixed-base lookup tables for $G$ and variable-base lookup tables for $Q$. Specifically for $G$, we use 8-bit (fixed) lookup tables of the form:
+where $G \in \mathbb{G}$ is the generator point of the secp256k1 curve, $Q \in \mathbb{G}$ is the public key point, and $u_1, u_2 \in \mathbb{F}_r$ are scalars derived from the message hash and signature. Both $G$ and $Q$ are known points on the curve, and we can use fixed-base lookup tables for $G$ and variable-base lookup tables for $Q$. Specifically for $G$, we use 8-bit (fixed) lookup tables of the form:
 
 $$
 \begin{aligned}
@@ -346,7 +346,7 @@ w\textsf{NAF} & & \textcolor{yellow}{\lfloor} & & \textcolor{yellow}{v_4} & \tex
 \end{array}
 $$
 
-Since we have 8-bit tables for the generator $G$, we use a wNAF window size of $w = 8$ for the fixed-base scalars $f, f'$. For the variable-base scalars $v, v'$, we use a wNAF window size of $w = 4$ since we have 4-bit ROM tables for $Q$. The number of stagger bits are 0 and 1 for $v$ and $v'$ respectively, and 2 and 3 for $f$ and $f'$ respectively. We will explain the reason for this choice of the number of stagger bits soon. Notice an extra wNAF term in $v$ (shown in yellow) which will also explain later. The final MSM expression combining all the terms should look like this:
+Since we have 8-bit tables for the generator $G$, we use a wNAF window size of $w = 8$ for the fixed-base scalars $f, f'$. For the variable-base scalars $v, v'$, we use a wNAF window size of $w = 4$ since we have 4-bit ROM tables for $Q$. The number of stagger bits are 0 and 1 for $v$ and $v'$ respectively, and 2 and 3 for $f$ and $f'$ respectively. We will explain the reason for this choice of the number of stagger bits soon. Notice an extra wNAF term in $v$ (shown in yellow) which we will also explain later. The final MSM expression combining all the terms should look like this:
 
 $$
 \begin{aligned}
@@ -396,7 +396,7 @@ S_1 =&\ \windex{2^0} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{viol
 \end{aligned}
 $$
 
-We can see a pattern here that the wNAF slices can be grouped based on their bit positions and use Montgomery ladder steps of size 6 to compute the MSM efficiently. This pattern is the reason for our choice of stagger bits for the scalars. We can compute the MSM using the following sequence of operations.
+We can see a pattern here that the wNAF slices can be grouped based on their bit positions and use Montgomery ladder steps of size 6 to compute the MSM efficiently. This pattern is the reason for our choice of stagger bits for the scalars. If we did not use this particular choice of stagger bits, we would not be able to group the wNAF slices in a montgomery ladder pattern as shown above. The reason montgomery ladder is efficient because it uses lesser field reductions compared to a naive double-and-add approach, resulting in fewer constrains. We can compute the MSM using the following sequence of operations.
 
 $$
 \begin{aligned}
