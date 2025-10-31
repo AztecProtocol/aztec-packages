@@ -11,8 +11,8 @@
 
 namespace bb::stdlib {
 
-// A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
-// N.B. Only works with the UltraBuilder at the moment!
+// A runtime-defined read-write memory table. Table entries must be initialized in the constructor.
+// Works with UltraBuilder and MegaBuilder.
 template <typename Builder> class ram_table {
   private:
     typedef field_t<Builder> field_pt;
@@ -33,35 +33,35 @@ template <typename Builder> class ram_table {
 
     void write(const field_pt& index, const field_pt& value);
 
-    size_t size() const { return _length; }
+    size_t size() const { return length; }
 
-    Builder* get_context() const { return _context; }
+    Builder* get_context() const { return context; }
 
     bool check_indices_initialized() const
     {
-        if (_all_entries_written_to_with_constant_index) {
+        if (all_entries_written_to_with_constant_index) {
             return true;
         }
-        if (_length == 0) {
+        if (length == 0) {
             return false;
         }
-        bool init = true;
-        for (auto i : _index_initialized) {
-            init = init && i;
+        bool all_initialized = true;
+        for (auto idx_init : index_initialized) {
+            all_initialized = all_initialized && idx_init;
         }
-        _all_entries_written_to_with_constant_index = init;
-        return _all_entries_written_to_with_constant_index;
+        all_entries_written_to_with_constant_index = all_initialized;
+        return all_entries_written_to_with_constant_index;
     }
 
   private:
-    std::vector<field_pt> _raw_entries;
+    std::vector<field_pt> raw_entries;
     // Origin Tags for detection of dangerous interactions within stdlib primitives
     mutable std::vector<OriginTag> _tags;
-    mutable std::vector<bool> _index_initialized;
-    size_t _length = 0;
-    mutable size_t _ram_id = 0; // Builder identifier for this ROM table
-    mutable bool _ram_table_generated_in_builder = false;
-    mutable bool _all_entries_written_to_with_constant_index = false;
-    mutable Builder* _context = nullptr;
+    mutable std::vector<bool> index_initialized; // Keeps track if the indicies of the RAM table have been initialized
+    size_t length = 0;
+    mutable size_t ram_id = 0; // Identifier of this ROM table for the builder
+    mutable bool ram_table_generated_in_builder = false;
+    mutable bool all_entries_written_to_with_constant_index = false;
+    mutable Builder* context = nullptr;
 };
 } // namespace bb::stdlib

@@ -6,39 +6,39 @@ on:
   workflow_call:
     inputs:
       network:
-        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)'
+        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
         required: true
         type: string
       semver:
-        description: 'Semver version (e.g., 2.3.4)'
+        description: "Semver version (e.g., 2.3.4)"
         required: true
         type: string
       docker_image_tag:
-        description: 'Full docker image tag (optional, defaults to semver)'
+        description: "Full docker image tag (optional, defaults to semver)"
         required: false
         type: string
       ref:
-        description: 'Git ref to checkout'
+        description: "Git ref to checkout"
         required: false
         type: string
   workflow_dispatch:
     inputs:
       network:
-        description: 'Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)'
+        description: "Network to deploy (e.g., staging-public, staging-ignition, testnet, next-net)"
         required: true
         type: choice
         options:
-        - staging-public
-        - staging-ignition
-        - testnet
-        - next-net
-        - devnet
+          - staging-public
+          - staging-ignition
+          - testnet
+          - next-net
+          - devnet
       semver:
-        description: 'Semver version (e.g., 2.3.4)'
+        description: "Semver version (e.g., 2.3.4)"
         required: true
         type: string
       docker_image_tag:
-        description: 'Full docker image tag (optional, defaults to semver)'
+        description: "Full docker image tag (optional, defaults to semver)"
         required: false
         type: string
 
@@ -68,7 +68,7 @@ jobs:
           ref: ${{ steps.checkout-ref.outputs.ref }}
           fetch-depth: 0
           persist-credentials: false
-          submodules: recursive  # Initialize git submodules for l1-contracts dependencies
+          submodules: recursive # Initialize git submodules for l1-contracts dependencies
 
       - name: Validate inputs
         run: |
@@ -107,13 +107,13 @@ jobs:
       - name: Setup gcloud and install GKE auth plugin
         uses: google-github-actions/setup-gcloud@v2
         with:
-          install_components: 'gke-gcloud-auth-plugin'
+          install_components: "gke-gcloud-auth-plugin"
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
         with:
           terraform_version: "1.7.5"
-          terraform_wrapper: false  # Disable the wrapper that adds debug output, this messes with reading terraform output
+          terraform_wrapper: false # Disable the wrapper that adds debug output, this messes with reading terraform output
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -138,15 +138,6 @@ jobs:
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh "${{ inputs.network }}"
 
-      - name: Update testnet monitoring (testnet only)
-        if: inputs.network == 'testnet' && !contains(inputs.semver, '-')
-        env:
-          MONITORING_NAMESPACE: testnet-block-height-monitor
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-        run: |
-          echo "Updating monitoring app for testnet deployment..."
-          ./spartan/metrics/testnet-monitor/scripts/update-monitoring.sh testnet ${{ env.MONITORING_NAMESPACE }}
-
       - name: Notify Slack on failure
         if: failure()
         env:
@@ -164,3 +155,12 @@ jobs:
               -H "Content-type: application/json" \
               --data "$data"
           fi
+
+  update-irm:
+    needs: deploy-network
+    if: inputs.network == 'testnet' && !contains(inputs.semver, '-')
+    uses: ./.github/workflows/deploy-irm.yml
+    secrets: inherit
+    with:
+      network: testnet
+      l1_network: sepolia

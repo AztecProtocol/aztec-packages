@@ -15,48 +15,47 @@
 namespace bb::stdlib {
 
 /**
- * @brief Construct a new ram table<Builder>::ram table object. It's dynamic memory!
+ * @brief Construct a new RAM table, i.e., dynamic memory with a fixed length.
  *
  * @tparam Builder
- * @param table_entries vector of field elements that will initialize the RAM table
+ * @param table_size size of the table we are constructing
  */
-template <typename Builder> ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
+template <typename Builder>
+ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
+    : length(table_size)
+    , context(builder)
 {
-    static_assert(HasPlookup<Builder>);
-    _context = builder;
-    _length = table_size;
-    _index_initialized.resize(table_size);
-    for (size_t i = 0; i < _index_initialized.size(); ++i) {
-        _index_initialized[i] = false;
-    }
+    static_assert(IsUltraOrMegaBuilder<Builder>);
+    index_initialized.resize(table_size, false);
 
-    // do not initialize the table yet. The input entries might all be constant,
-    // if this is the case we might not have a valid pointer to a Builder
-    // We get around this, by initializing the table when `read` or `write` operator is called
+    // do not initialize the table yet. The input entries might all be constant;
+    // if this is the case we might not have a valid pointer to a Builder.
+    // We get around this by initializing the table when `read` or `write` operator is called
     // with a non-const field element.
 }
 
 /**
- * @brief Construct a new ram table<Builder>::ram table object. It's dynamic memory!
+ * @brief Construct a new RAM table, i.e., dynamic memory with a fixed length.
  *
  * @tparam Builder
  * @param table_entries vector of field elements that will initialize the RAM table
  */
-template <typename Builder> ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
+template <typename Builder>
+ram_table<Builder>::ram_table(const std::vector<field_pt>& table_entries)
+    : raw_entries(table_entries)
+    , length(raw_entries.size())
 {
-    static_assert(HasPlookup<Builder>);
-    // get the builder _context
+    static_assert(IsUltraOrMegaBuilder<Builder>);
     for (const auto& entry : table_entries) {
         if (entry.get_context() != nullptr) {
-            _context = entry.get_context();
+            context = entry.get_context();
             break;
         }
     }
-    _raw_entries = table_entries;
-    _length = _raw_entries.size();
-    _index_initialized.resize(_length);
-    for (size_t i = 0; i < _index_initialized.size(); ++i) {
-        _index_initialized[i] = false;
+
+    index_initialized.resize(length);
+    for (auto&& idx : index_initialized) {
+        idx = false;
     }
     // do not initialize the table yet. The input entries might all be constant,
     // if this is the case we might not have a valid pointer to a Builder
@@ -64,8 +63,8 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
     // with a non-const field element.
 
     // Store tags
-    _tags.resize(_length);
-    for (size_t i = 0; i < _length; i++) {
+    _tags.resize(length);
+    for (size_t i = 0; i < length; i++) {
         _tags[i] = table_entries[i].get_origin_tag();
     }
 }
@@ -75,120 +74,49 @@ template <typename Builder> ram_table<Builder>::ram_table(const std::vector<fiel
  *
  * @details initialize the table once we perform a read. This ensures we always have a pointer to a Builder.
  * (if both the table entries and the index are constant, we don't need a builder as we
- * can directly extract the desired value fram `_raw_entries`)
+ * can directly extract the desired value fram `raw_entries`)
  *
  * @tparam Builder
  */
 template <typename Builder> void ram_table<Builder>::initialize_table() const
 {
-    if (_ram_table_generated_in_builder) {
+    if (ram_table_generated_in_builder) {
         return;
     }
-    BB_ASSERT(_context != nullptr);
-    _ram_id = _context->create_RAM_array(_length);
+    // only call this when there is a context
+    BB_ASSERT(context != nullptr);
+    ram_id = context->create_RAM_array(length);
 
-    if (_raw_entries.size() > 0) {
-        for (size_t i = 0; i < _length; ++i) {
-            if (!_index_initialized[i]) {
+    if (raw_entries.size() > 0) {
+        for (size_t i = 0; i < length; ++i) {
+            if (!index_initialized[i]) {
                 field_pt entry;
-                if (_raw_entries[i].is_constant()) {
-                    entry = field_pt::from_witness_index(_context,
-                                                         _context->put_constant_variable(_raw_entries[i].get_value()));
+                if (raw_entries[i].is_constant()) {
+                    entry = field_pt::from_witness_index(context,
+                                                         context->put_constant_variable(raw_entries[i].get_value()));
                 } else {
-                    entry = _raw_entries[i];
+                    entry = raw_entries[i];
                 }
-                _context->init_RAM_element(_ram_id, i, entry.get_witness_index());
-                _index_initialized[i] = true;
+                context->init_RAM_element(ram_id, i, entry.get_witness_index());
+                index_initialized[i] = true;
             }
         }
     }
 
     // Store the tags of the original entries
-    _tags.resize(_length);
-    if (_raw_entries.size() > 0) {
-        for (size_t i = 0; i < _length; i++) {
-            _tags[i] = _raw_entries[i].get_origin_tag();
+    _tags.resize(length);
+    if (raw_entries.size() > 0) {
+        for (size_t i = 0; i < length; i++) {
+            _tags[i] = raw_entries[i].get_origin_tag();
         }
     }
-    _ram_table_generated_in_builder = true;
+    ram_table_generated_in_builder = true;
 }
-
-/**
- * @brief Construct a new ram table<Builder>::ram table object
- *
- * @tparam Builder
- * @param other
- */
-template <typename Builder>
-ram_table<Builder>::ram_table(const ram_table& other)
-    : _raw_entries(other._raw_entries)
-    , _tags(other._tags)
-    , _index_initialized(other._index_initialized)
-    , _length(other._length)
-    , _ram_id(other._ram_id)
-    , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
-    , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
-    , _context(other._context)
-{}
-
-/**
- * @brief Construct a new ram table<Builder>::ram table object
- *
- * @tparam Builder
- * @param other
- */
-template <typename Builder>
-ram_table<Builder>::ram_table(ram_table&& other)
-    : _raw_entries(other._raw_entries)
-    , _tags(other._tags)
-    , _index_initialized(other._index_initialized)
-    , _length(other._length)
-    , _ram_id(other._ram_id)
-    , _ram_table_generated_in_builder(other._ram_table_generated_in_builder)
-    , _all_entries_written_to_with_constant_index(other._all_entries_written_to_with_constant_index)
-    , _context(other._context)
-{}
-
-/**
- * @brief Copy assignment operator
- *
- * @tparam Builder
- * @param other
- * @return ram_table<Builder>&
- */
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other)
-{
-    _raw_entries = other._raw_entries;
-    _tags = other._tags;
-    _length = other._length;
-    _ram_id = other._ram_id;
-    _index_initialized = other._index_initialized;
-    _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
-    _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
-
-    _context = other._context;
-    return *this;
-}
-
-/**
- * @brief Move assignment operator
- *
- * @tparam Builder
- * @param other
- * @return ram_table<Builder>&
- */
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other)
-{
-    _raw_entries = other._raw_entries;
-    _length = other._length;
-    _ram_id = other._ram_id;
-    _index_initialized = other._index_initialized;
-    _ram_table_generated_in_builder = other._ram_table_generated_in_builder;
-    _all_entries_written_to_with_constant_index = other._all_entries_written_to_with_constant_index;
-    _context = other._context;
-    _tags = other._tags;
-    return *this;
-}
+// constructors and move operators
+template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
+template <typename Builder> ram_table<Builder>::ram_table(ram_table&& other) = default;
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) = default;
 
 /**
  * @brief Read a field element from the RAM table at an index value
@@ -199,36 +127,33 @@ template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ra
  */
 template <typename Builder> field_t<Builder> ram_table<Builder>::read(const field_pt& index) const
 {
-    if (_context == nullptr) {
-        _context = index.get_context();
+    if (context == nullptr) {
+        context = index.get_context();
     }
     const auto native_index = uint256_t(index.get_value());
-    if (native_index >= _length) {
-        // TODO: what's best practise here? We are assuming that this action will generate failing constraints,
-        // and we set failure message here so that it better describes the point of failure.
-        // However, we are not *ensuring* that failing constraints are generated at the point that `failure()` is
-        // called. Is this ok?
-        _context->failure("ram_table: RAM array access out of bounds");
+    if (native_index >= length) {
+        // set a failure when the index is out of bounds. another error will be thrown when we try to call
+        // `read_RAM_array`.
+        context->failure("ram_table: RAM array access out of bounds");
     }
 
     initialize_table();
 
     if (!check_indices_initialized()) {
-        _context->failure("ram_table: must write to every RAM entry at least once (with constant index value) before "
-                          "table can be read");
+        context->failure("ram_table must have initialized every RAM entry before the table can be read");
     }
 
     field_pt index_wire = index;
     if (index.is_constant()) {
-        index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(index.get_value()));
+        index_wire = field_pt::from_witness_index(context, context->put_constant_variable(index.get_value()));
     }
 
-    uint32_t output_idx = _context->read_RAM_array(_ram_id, index_wire.get_witness_index());
-    auto element = field_pt::from_witness_index(_context, output_idx);
+    uint32_t output_idx = context->read_RAM_array(ram_id, index_wire.get_witness_index());
+    auto element = field_pt::from_witness_index(context, output_idx);
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // If the index is legitimate, restore the tag
-    if (native_index < _length) {
+    if (native_index < length) {
         element.set_origin_tag(_tags[cast_index]);
     }
     return element;
@@ -240,51 +165,51 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
  * @tparam Builder
  * @param index
  * @param value
+ *
+ * @note This is used to write an already-existing RAM entry and also to initialize a not-yet-written RAM entry.
  */
 template <typename Builder> void ram_table<Builder>::write(const field_pt& index, const field_pt& value)
 {
-    if (_context == nullptr) {
-        _context = index.get_context();
+    if (context == nullptr) {
+        context = index.get_context();
     }
 
-    if (uint256_t(index.get_value()) >= _length) {
-        // TODO: what's best practise here? We are assuming that this action will generate failing constraints,
-        // and we set failure message here so that it better describes the point of failure.
-        // However, we are not *ensuring* that failing constraints are generated at the point that `failure()` is
-        // called. Is this ok?
-        _context->failure("ram_table: RAM array access out of bounds");
+    if (uint256_t(index.get_value()) >= length) {
+        // set a failure when the index is out of bounds. an error will be thrown when we try to call either
+        // `init_RAM_element` or `write_RAM_array`.
+        context->failure("ram_table: RAM array access out of bounds");
     }
 
     initialize_table();
     field_pt index_wire = index;
     const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {
-        // need to write every array element at a constant index before doing reads/writes at prover-defined indices
-        index_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(native_index));
+        // need to write/process every array element at constant indicies before doing reads/writes at prover-defined
+        // indices
+        index_wire.convert_constant_to_fixed_witness(context);
     } else {
         if (!check_indices_initialized()) {
-            _context->failure("ram_table: must write to every RAM entry at least once (with constant index value) "
-                              "before table can be written to at an unknown index");
+            context->failure("ram_table must have initialized every RAM entry before a write can be performed");
         }
     }
 
     field_pt value_wire = value;
     auto native_value = value.get_value();
     if (value.is_constant()) {
-        value_wire = field_pt::from_witness_index(_context, _context->put_constant_variable(native_value));
+        value_wire = field_pt::from_witness_index(context, context->put_constant_variable(native_value));
     }
 
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
-    if (index.is_constant() && _index_initialized[cast_index] == false) {
-        _context->init_RAM_element(_ram_id, cast_index, value_wire.get_witness_index());
+    if (index.is_constant() && !index_initialized[cast_index]) {
+        context->init_RAM_element(ram_id, cast_index, value_wire.get_witness_index());
 
-        _index_initialized[cast_index] = true;
+        index_initialized[cast_index] = true;
     } else {
-        _context->write_RAM_array(_ram_id, index_wire.get_witness_index(), value_wire.get_witness_index());
+        context->write_RAM_array(ram_id, index_wire.get_witness_index(), value_wire.get_witness_index());
     }
     // Update the value of the stored tag, if index is legitimate
 
-    if (native_index < _length) {
+    if (native_index < length) {
         _tags[cast_index] = value.get_origin_tag();
     }
 }
