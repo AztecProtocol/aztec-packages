@@ -442,4 +442,32 @@ TYPED_TEST(stdlib_field_conversion, GateCountUnivariateDeserialization)
         0);
 }
 
+/**
+ * @brief Failure test for deserializing a pair of limbs as a bigfield, where one of the limbs exceeds the strict 2^136
+ * upper bound.
+ */
+TYPED_TEST(stdlib_field_conversion, BigfieldDeserializationFails)
+{
+    // Need to bypass an out-of-circuit range check
+    BB_DISABLE_ASSERTS();
+    using Builder = TypeParam;
+    using Codec = StdlibCodec<field_t<Builder>>;
+
+    Builder builder;
+
+    bb::fr low_limb = bb::fr(0);
+    // Create a limb from the value 2^136,  that does not satisfy the condition < 2^136.
+    bb::fr high_limb = bb::fr(uint256_t(1) << (2 * fq<Builder>::NUM_LIMB_BITS));
+    info(high_limb);
+
+    std::vector<field_t<Builder>> circuit_fields = { field_t<Builder>::from_witness(&builder, low_limb),
+                                                     field_t<Builder>::from_witness(&builder, high_limb) };
+
+    // Deserialize as bigfield - this creates the bigfield from the two limbs
+    [[maybe_unused]] auto bigfield_val = Codec::template deserialize_from_fields<fq<Builder>>(circuit_fields);
+
+    // Circuit should fail validation
+    EXPECT_FALSE(CircuitChecker::check(builder));
+}
+
 } // namespace bb::stdlib::field_conversion_tests
