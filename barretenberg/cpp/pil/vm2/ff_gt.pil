@@ -223,7 +223,7 @@ namespace ff_gt;
 
     // sel_shift_rng = 1 when cmp_rng_ctr != 0 and sel_shift_rng = 0 when cmp_rng_ctr = 0;
     #[RNG_CTR_NON_ZERO]
-    cmp_rng_ctr * ((1 - sel_shift_rng) * (1 -  cmp_rng_ctr_inv) +  cmp_rng_ctr_inv) - sel_shift_rng = 0;
+    cmp_rng_ctr * ((1 - sel_shift_rng) * (1 - cmp_rng_ctr_inv) +  cmp_rng_ctr_inv) - sel_shift_rng = 0;
 
     // We shift the stuff that we have to range check to the left, so a_lo and a_hi (which are doing the range checks)
     // receive the shifted values, two on every row.

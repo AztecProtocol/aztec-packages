@@ -228,17 +228,17 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         if (!has_error) {
             uint128_t a_num = static_cast<uint128_t>(event.a.as_ff());
             uint128_t b_num = static_cast<uint128_t>(event.b.as_ff());
-            uint8_t tag_bits = get_tag_bits(a_tag);
+            uint128_t tag_bits = static_cast<uint128_t>(get_tag_bits(a_tag));
             // Whether we shift by more than the bit size (=> result is 0):
             bool overflow = b_num > tag_bits;
             // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
             // b - max_bits):
-            uint8_t shift_lo_bits = overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num);
+            uint128_t shift_lo_bits = overflow ? tag_bits : tag_bits - b_num;
             // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
             // prove b > max_bits):
             // Cast to uint256_t to be sure that the shift 1 << shift_lo_bits is cpp defined behaviour.
             const uint128_t mask =
-                static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(shift_lo_bits)) - 1);
+                static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(shift_lo_bits)) - 1);
             uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
             res.insert(
                 res.end(),
@@ -247,11 +247,11 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                     { Column::alu_sel_decompose_a, 1 },
                     { Column::alu_a_lo, a_lo },
                     { Column::alu_a_lo_bits, shift_lo_bits },
-                    { Column::alu_a_hi, uint256_t::from_uint128(a_num) >> static_cast<uint256_t>(shift_lo_bits) },
+                    { Column::alu_a_hi, uint256_t::from_uint128(a_num) >> uint256_t::from_uint128(shift_lo_bits) },
                     { Column::alu_a_hi_bits, overflow ? tag_bits : static_cast<uint8_t>(b_num) },
                     { Column::alu_shift_lo_bits, shift_lo_bits },
                     { Column::alu_two_pow_shift_lo_bits,
-                      static_cast<uint256_t>(1) << static_cast<uint256_t>(shift_lo_bits) },
+                      overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(shift_lo_bits) },
                     { Column::alu_helper1, overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(b_num) },
                 });
         }
@@ -290,7 +290,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
                     { Column::alu_a_hi_bits, overflow ? tag_bits : tag_bits - static_cast<uint8_t>(b_num) },
                     { Column::alu_shift_lo_bits, shift_lo_bits },
                     { Column::alu_two_pow_shift_lo_bits,
-                      static_cast<uint256_t>(1) << static_cast<uint256_t>(shift_lo_bits) },
+                      overflow ? 0 : static_cast<uint256_t>(1) << uint256_t::from_uint128(shift_lo_bits) },
                 });
         }
         return res;

@@ -58,7 +58,8 @@ void aluImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         in.get(C::alu_sel_op_div) * in.get(C::alu_sel_is_u128) * in.get(C::alu_ic);
     const auto alu_DECOMPOSED_B = in.get(C::alu_ib);
     const auto alu_LIMB_SIZE =
-        in.get(C::alu_sel_mul_div_u128) * alu_TWO_POW_64 + alu_SHIFT_OPS * in.get(C::alu_two_pow_shift_lo_bits);
+        in.get(C::alu_sel_mul_div_u128) * alu_TWO_POW_64 +
+        alu_SHIFT_OPS * in.get(C::alu_sel_shift_ops_no_overflow) * in.get(C::alu_two_pow_shift_lo_bits);
     const auto alu_DIV_OPS_NON_U128 =
         (FF(1) - in.get(C::alu_sel_err)) * in.get(C::alu_sel_op_fdiv) + in.get(C::alu_sel_div_no_err) * alu_IS_NOT_U128;
     const auto alu_DIFF = (in.get(C::alu_ia) - in.get(C::alu_ib));

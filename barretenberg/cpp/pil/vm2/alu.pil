@@ -231,7 +231,7 @@ pol TWO_POW_64 = 2 ** 64;
 pol DECOMPOSED_A = (sel_op_mul * sel_is_u128 + sel_shift_ops_no_overflow) * ia + (SHIFT_OPS - sel_shift_ops_no_overflow) * (ib - max_bits) + sel_op_div * sel_is_u128 * ic;
 pol DECOMPOSED_B = ib;
 // For MUL and DIV, we decompose into 64 bit limbs. For shifts, we have one limb of b bits and one limb of max_bits - b bits.
-pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + SHIFT_OPS * two_pow_shift_lo_bits;
+pol LIMB_SIZE = sel_mul_div_u128 * TWO_POW_64 + SHIFT_OPS * sel_shift_ops_no_overflow * two_pow_shift_lo_bits;
 
 #[A_DECOMPOSITION]
 sel_decompose_a * (DECOMPOSED_A - (a_lo + LIMB_SIZE * a_hi)) = 0;
@@ -358,7 +358,7 @@ sel_mul_div_u128 = SEL_MUL_U128 + SEL_DIV_U128;
 // c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 = a - r
 // c * b_l + c_l * b_h * 2^64 = a - r
 
-// We shouldn't need to decompose a - r because the LHS is constrained to be < 192 bits, protecting against
+// We do not need to decompose a - r because the LHS is constrained to be < 192 bits, protecting against
 // field underflows.
 
 // Reuse columns b_lo, b_hi from MUL above to represent b (see B_DECOMPOSITION)
@@ -419,7 +419,9 @@ sel_int_lt_ops = IS_NOT_FF * sel_lt_ops;
 //      LT: lt_ops_input_a = ib, lt_ops_input_b = ia, lt_ops_result_c = ic
 //  For LTE, we want to show that: a <= b ? c, so we use GT with values as they are input and negate the result: a > b ? !c
 //      LTE: lt_ops_input_a = ia, lt_ops_input_b = ib, lt_ops_result_c = !ic
-pol commit lt_ops_input_a, lt_ops_input_b, lt_ops_result_c;
+pol commit lt_ops_input_a, lt_ops_input_b;
+pol commit lt_ops_result_c; // @boolean (guaranteed by gt and ff_gt gadget return value)
+                            // Unconstrained if sel_lt_ops == 0.
 
 #[LT_SWAP_INPUTS_A]
 sel_op_lt * (lt_ops_input_a - ib) + sel_op_lte * (lt_ops_input_a - ia) = 0;
@@ -470,7 +472,7 @@ sel_op_not * (1 - sel_err) * (ia + ib - max_value) = 0;
 //
 //  <-- s bits -->   | <-- (t-s) bits -->
 // ------------------|-------------------
-// |      a_hi       |      a_lo        | --> a
+// |      a_hi       |      a_lo        | --> output = a_lo * 2**s
 // --------------------------------------
 //
 // Use of helper1 for SHL:
@@ -492,7 +494,7 @@ sel_op_shl * (1 - sel_err) * (ic - sel_shift_ops_no_overflow * a_lo * helper1) =
 //
 //  <--(t-s) bits --> |   <-- s bits -->
 // -------------------|-------------------
-// |      a_hi        |       a_lo       | --> a
+// |      a_hi        |       a_lo       | --> output = a_hi
 // ---------------------------------------
 
 #[ALU_SHR]
@@ -530,6 +532,19 @@ pol SHIFT_HI_BITS = (1 - sel_err) * (max_bits - sel_shift_ops_no_overflow * shif
 #[SHIFTS_TWO_POW]
 sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
 
+// Note on why sel_shift_ops_no_overflow is correctly constrained:
+// 1) If ib < max_bits and we maliciously set sel_shift_ops_no_overflow == 0,
+// then a_lo == ib - max_bits, (DECOMPOSED_A == ib - max_bits, LIMB_SIZE == 0)
+// and the range check on a_lo_bits = max_bits will fail as a_lo > 128 bits.
+// 2) If ib > max_bits and we maliciously set sel_shift_ops_no_overflow == 1,
+// then shift_lo_bits == max_bits - ib for SHL and the lookup #[SHIFTS_TWO_POW]
+// cannot be satisified. For SHR, a_hi_bits == SHIFT_HI_BITS == max_bits - ib
+// and the range check #[RANGE_CHECK_DECOMPOSITION_A_HI] with a huge rng_chk_bits
+// cannnot be satisfied.
+// Note that for the edge case ib == max_bits, we can either set sel_shift_ops_no_overflow == 0 or 1,
+// as both cases can satisfy the relations. Note that our tracegen will handle this case
+// as not an overflow; i.e., sel_shift_ops_no_overflow == 1.
+
 // ------------------------------------------------------------
 // TRUNCATE
 // ------------------------------------------------------------
@@ -544,9 +559,9 @@ sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precompute
 // - No truncation required (ia <= max_value)
 // - truncation for ia >= 2^128
 // - truncation for ia < 2^128
-pol commit sel_trunc_trivial;
-pol commit sel_trunc_gte_128;
-pol commit sel_trunc_lt_128;
+pol commit sel_trunc_trivial; // @boolean
+pol commit sel_trunc_gte_128; // @boolean
+pol commit sel_trunc_lt_128; // @boolean
 
 // If ia >= 2^128 and dst_tag != FF, and a malicious sequencer toggled sel_trunc_trivial, this would
 // fail in the range check pertaining to the memory write. If the sequencer toggled sel_trunc_lt_128,

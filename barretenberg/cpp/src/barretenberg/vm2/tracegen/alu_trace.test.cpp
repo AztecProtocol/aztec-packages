@@ -1137,7 +1137,7 @@ TEST_P(AluShlTraceGenerationTest, TraceGenerationShl)
     bool overflow = b_num > tag_bits;
     uint256_t shift_lo_bits = overflow ? tag_bits : static_cast<uint256_t>(tag_bits) - b_num;
     uint256_t shift_hi_bits = overflow ? static_cast<uint256_t>(tag_bits) : b_num;
-    uint256_t two_pow_shift_lo_bits = static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t two_pow_shift_lo_bits = overflow ? 0 : static_cast<uint256_t>(1) << shift_lo_bits;
     uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
     uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
@@ -1278,7 +1278,7 @@ TEST_P(AluShrTraceGenerationTest, TraceGenerationShr)
     auto overflow = b_num > tag_bits;
     uint256_t shift_lo_bits = overflow ? tag_bits : b_num;
     uint256_t shift_hi_bits = overflow ? tag_bits : tag_bits - b_num;
-    uint256_t two_pow_shift_lo_bits = static_cast<uint256_t>(1) << shift_lo_bits;
+    uint256_t two_pow_shift_lo_bits = overflow ? 0 : static_cast<uint256_t>(1) << shift_lo_bits;
     uint256_t a_lo = overflow ? b_num - tag_bits : static_cast<uint256_t>(a.as_ff()) % two_pow_shift_lo_bits;
     uint256_t a_hi = static_cast<uint256_t>(a.as_ff()) >> shift_lo_bits;
 
