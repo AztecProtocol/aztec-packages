@@ -481,7 +481,6 @@ case "$cmd" in
   "ci-barretenberg")
     export CI=1
     export USE_TEST_CACHE=1
-    export AVM=0
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
