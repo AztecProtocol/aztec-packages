@@ -57,7 +57,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
-          ./scripts/backport_to_staging.sh \
+          # Kludge. We should write this in Python or not checkout history.
+          # Bash has an ugly footgun with changing history while running the script.
+          buffer_script=$(cat ./scripts/backport_to_staging.sh)
+          bash -c "$buffer_script" \
             ${{ github.event.pull_request.number }} \
             ${{ steps.extract-branch.outputs.target_branch }}
 
