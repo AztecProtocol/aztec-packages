@@ -920,8 +920,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_c = (element(input_a) * scalar_a);
             element input_d = (element(input_b) * scalar_b);
             affine_element expected(input_c + input_d);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
@@ -1000,8 +1000,8 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             element input_g = (element(input_P_c) * scalar_c);
 
             affine_element expected(input_e + input_f + input_g);
-            fq c_x_result(c.x.get_value().lo);
-            fq c_y_result(c.y.get_value().lo);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
 
             EXPECT_EQ(c_x_result, expected.x);
             EXPECT_EQ(c_y_result, expected.y);
