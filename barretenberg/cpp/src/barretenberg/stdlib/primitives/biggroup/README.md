@@ -270,6 +270,213 @@ $$
 
 Notice that the terms $e'_{i, \textsf{negative}}$ and $c'_{\textsf{negative}}$ are similar to $e'_i$ and $c'$ respectively, except that the sign bits are flipped. Thus, we can use the same circuit logic to reconstruct both $a$ and $-a_{\textsf{negative}}$ from their wNAF representations with appropriate sign bit handling.
 
+### MSM for ECDSA Verification
+
+In ECDSA verification over the secp256k1 curve, we need to compute a multi-scalar multiplication (MSM) of the form:
+
+$$
+A = u_1 \cdot G + u_2 \cdot Q
+$$
+
+where $G \in \mathbb{G}$ is the generator point of the secp256k1 curve, $Q \in \mathbb{G}$ is the public key point, and $u_1, u_2 \in \mathbb{F}_r$ are scalars derived from the message hash and signature. Both $G$ and $Q$ are known points on the curve, and we can use fixed-base lookup tables for $G$ and variable-base lookup tables for $Q$. Specifically for $G$, we use 8-bit (fixed) lookup tables of the form:
+
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\def\arraycolsep{40pt}
+\begin{array}{|c|c|c|}
+\hline
+\textsf{Index} & \textsf{Element} & \textsf{Endomorphism} \\
+\hline
+0 & -255 \cdot G & -255 \endogroup \cdot G \\
+\hline
+1 & -253 \cdot G & -253 \endogroup \cdot G \\
+\hline
+\vdots & \vdots & \vdots \\
+\hline
+126 & -3 \cdot G & -3 \endogroup \cdot G \\
+\hline
+127 & -1 \cdot G & -1 \endogroup \cdot G \\
+\hline
+128 & 1 \cdot G & 1 \endogroup \cdot G \\
+\hline
+129 & 3 \cdot G & 3 \endogroup \cdot G \\
+\hline
+\vdots & \vdots & \vdots \\
+\hline
+254 & 253 \cdot G & 253 \endogroup \cdot G \\
+\hline
+255 & 255 \cdot G & 255 \endogroup \cdot G \\
+\hline
+\end{array}
+\end{aligned}
+$$
+
+and for $Q$, we use 4-bit ROM tables as described earlier. The scalars $u_1$ and $u_2$ are first split into 128-bit scalars using the endomorphism:
+
+$$
+\begin{aligned}
+u_1 \cdot G &= f' \cdot \lambda G + f \cdot G, \\
+u_2 \cdot Q &= v' \cdot \lambda Q + v \cdot Q.
+\end{aligned}
+$$
+
+where $f, f'$ denote fixed-base scalars and $v, v'$ denote variable-base scalars. Each of these scalars are at most 128 bits long and can be represented in wNAF form with stagger and skew factors as described earlier. To illustrate, consider the following example wNAF representations for 16-bit scalars:
+
+$$
+\def\arraystretch{1.4}
+\begin{array}{|r|c|ccccccccccccccccccccc|}
+\hline
+\textsf{scalar} & \textsf{point} & \windex{2^{19}} & \windex{2^{18}} & \windex{2^{17}} & \windex{2^{16}} & \windex{2^{15}} & \windex{2^{14}} & \windex{2^{13}} & \windex{2^{12}} & \windex{2^{11}} & \windex{2^{10}} & \windex{2^9} & \windex{2^8} & \windex{2^7} & \windex{2^6} & \windex{2^5} & \windex{2^4} & \windex{2^3} & \windex{2^2} & \windex{2^1} & \windex{2^0} \\ \hline
+f' & \lambda G & & \windex{0} & \windex{0} & \windex{0} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{0} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{red}{1} & \textcolor{red}{1} & \textcolor{red}{0}
+\\
+w\textsf{NAF} & & & \textcolor{orange}{\lfloor} & & & & \textcolor{orange}{f'_1} & & & \textcolor{orange}{\rfloor} & \textcolor{orange}{\lfloor} &  & & & \textcolor{orange}{f'_0} & & & \textcolor{orange}{\rfloor} & \textcolor{red}{\lfloor} & \textcolor{red}{c_{f'}} & \textcolor{red}{\rfloor}
+\\ \hline
+f & G & & & \windex{0} & \windex{0} & \textcolor{orange}{1} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{0} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{orange}{0} & \textcolor{orange}{1} & \textcolor{orange}{1} & \textcolor{orange}{1} & \textcolor{orange}{0} & \textcolor{red}{0} & \textcolor{red}{1}
+\\
+w\textsf{NAF} & & & & \textcolor{orange}{\lfloor} & & & & \textcolor{orange}{f_1} & & & \textcolor{orange}{\rfloor} & \textcolor{orange}{\lfloor} &  & & & \textcolor{orange}{f_0} & & & \textcolor{orange}{\rfloor} & \textcolor{red}{\lfloor} & \textcolor{red}{c_{f}} \textcolor{red}{\rfloor}
+\\ \hline
+v' & \lambda Q & & & & \windex{0} & \textcolor{skyblue}{1} & \textcolor{skyblue}{1} & \textcolor{skyblue}{0} & \textcolor{violet}{1} & \textcolor{violet}{1} & \textcolor{violet}{1} & \textcolor{violet}{0} & \textcolor{skyblue}{0} & \textcolor{skyblue}{1} & \textcolor{skyblue}{1} & \textcolor{skyblue}{0} & \textcolor{violet}{0} & \textcolor{violet}{0} & \textcolor{violet}{1} & \textcolor{violet}{1} & \textcolor{red}{1}
+\\
+w\textsf{NAF} & & & & & \textcolor{skyblue}{\lfloor} & & \textcolor{skyblue}{v'_3} & \textcolor{skyblue}{\rfloor} & \textcolor{violet}{\lfloor} & & \textcolor{violet}{v'_2} & \textcolor{violet}{\rfloor} & \textcolor{skyblue}{\lfloor} & & \textcolor{skyblue}{v'_1} & \textcolor{skyblue}{\rfloor} & \textcolor{violet}{\lfloor} & & \textcolor{violet}{v'_0} & \textcolor{violet}{\rfloor} & \textcolor{red}{c_{v'}}
+\\ \hline
+v & Q & \textcolor{yellow}{1} & \textcolor{yellow}{0} & \textcolor{yellow}{0} & \textcolor{yellow}{0} & \textcolor{skyblue}{1} & \textcolor{skyblue}{1} & \textcolor{skyblue}{0} & \textcolor{skyblue}{1} & \textcolor{violet}{0} & \textcolor{violet}{1} & \textcolor{violet}{0} & \textcolor{violet}{1} & \textcolor{skyblue}{1} & \textcolor{skyblue}{0} & \textcolor{skyblue}{1} & \textcolor{skyblue}{1} & \textcolor{violet}{1} & \textcolor{violet}{0} & \textcolor{violet}{0} & \textcolor{violet}{1}
+\\
+w\textsf{NAF} & & \textcolor{yellow}{\lfloor} & & \textcolor{yellow}{v_4} & \textcolor{yellow}{\rfloor} & \textcolor{skyblue}{\lfloor} & & \textcolor{skyblue}{v_3} & \textcolor{skyblue}{\rfloor} & \textcolor{violet}{\lfloor} & & \textcolor{violet}{v_2} & \textcolor{violet}{\rfloor} & \textcolor{skyblue}{\lfloor} & & \textcolor{skyblue}{v_1} &   \textcolor{skyblue}{\rfloor} & \textcolor{violet}{\lfloor} & & \textcolor{violet}{v_0} & \textcolor{violet}{\rfloor} \\ \hline
+\end{array}
+$$
+
+Since we have 8-bit tables for the generator $G$, we use a wNAF window size of $w = 8$ for the fixed-base scalars $f, f'$. For the variable-base scalars $v, v'$, we use a wNAF window size of $w = 4$ since we have 4-bit ROM tables for $Q$. The number of stagger bits are 0 and 1 for $v$ and $v'$ respectively, and 2 and 3 for $f$ and $f'$ respectively. We will explain the reason for this choice of the number of stagger bits soon. Notice an extra wNAF term in $v$ (shown in yellow) which we will also explain later. The final MSM expression combining all the terms should look like this:
+
+$$
+\begin{aligned}
+A =&\ \windex{2^0} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v_0} \cdot Q}} +
+\windex{2^1} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v'_0} \cdot (\lambda Q)}} +
+\windex{2^2} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f_0} \cdot G}} +
+\windex{2^{3}} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f'_0} \cdot (\lambda G)}} +
+\windex{2^{4}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v_1} \cdot Q}} +
+\windex{2^{5}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v'_1} \cdot (\lambda Q)}}
++ \\[10pt]
+&\  \windex{2^8} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v_2} \cdot Q}} +
+\windex{2^9} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v'_2} \cdot (\lambda Q)}} +
+\windex{2^{10}} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f_1} \cdot G}} +
+\windex{2^{11}} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f'_1} \cdot (\lambda G)}} +
+\windex{2^{12}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v_3} \cdot Q}} +
+\windex{2^{13}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v'_3} \cdot (\lambda Q)}} + \windex{2^{16}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{yellow}{v_4} \cdot Q}}
+\\[10pt]
+&\ + \ \underbrace{\underset{\textsf{regular lookup}}{\boxed{\textcolor{red}{c_f} \cdot G}} + \underset{\textsf{regular lookup}}{\boxed{\textcolor{red}{c_{f'}} \cdot (\lambda G)}} + \underset{\textsf{ROM lookup}}{\boxed{\textcolor{red}{c_{v'}} \cdot (\lambda Q)}}}_{\textsf{stagger fragments}}
+\\[10pt]
+&\ + \
+\underbrace{\textcolor{orange}{\mathfrak{s}_{f}} \cdot G +
+\textcolor{orange}{\mathfrak{s}_{f'}} \cdot (\lambda G) +
+\textcolor{skyblue}{\mathfrak{s}_{v}} \cdot Q +
+\textcolor{skyblue}{\mathfrak{s}_{v'}} \cdot (\lambda Q)}_{\textsf{skew terms}},
+\\[20pt]
+=&\ S_0 + \windex{2^6} \cdot \left(\windex{2^2} \cdot S_1\right) + \windex{2^{12}} \cdot \left(\windex{2^4} \cdot \boxed{\textcolor{yellow}{v_4} \cdot Q} \ \right) + \textsf{stagger} + \textsf{skew}
+\end{aligned}
+$$
+
+where
+
+$$
+\begin{aligned}
+S_0 =&\ \windex{2^0} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v_0} \cdot Q}} +
+\windex{2^1} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v'_0} \cdot (\lambda Q)}} +
+\windex{2^2} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f_0} \cdot G}} +
+\windex{2^{3}} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f'_0} \cdot (\lambda G)}} +
+\windex{2^{4}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v_1} \cdot Q}} +
+\windex{2^{5}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v'_1} \cdot (\lambda Q)}},
+\\[10pt]
+S_1 =&\ \windex{2^0} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v_2} \cdot Q}} +
+\windex{2^1} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{violet}{v'_2} \cdot (\lambda Q)}} +
+\windex{2^2} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f_1} \cdot G}} +
+\windex{2^{3}} \cdot \underset{\textsf{regular lookup}}{\boxed{\textcolor{orange}{f'_1} \cdot (\lambda G)}} +
+\windex{2^{4}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v_3} \cdot Q}} +
+\windex{2^{5}} \cdot \underset{\textsf{ROM lookup}}{\boxed{\textcolor{skyblue}{v'_3} \cdot (\lambda Q)}}.
+\end{aligned}
+$$
+
+We can see a pattern here that the wNAF slices can be grouped based on their bit positions and use Montgomery ladder steps of size 6 to compute the MSM efficiently. This pattern is the reason for our choice of stagger bits for the scalars. If we did not use this particular choice of stagger bits, we would not be able to group the wNAF slices in a montgomery ladder pattern as shown above. The reason montgomery ladder is efficient because it uses lesser field reductions compared to a naive double-and-add approach, resulting in fewer constrains. We can compute the MSM using the following sequence of operations.
+
+$$
+\begin{aligned}
+\textsf{step 0:} & & \textsf{acc} \leftarrow&\ \boxed{\textcolor{yellow}{v_4} \cdot Q} \\
+\textsf{step 1:} & & \textsf{acc} \leftarrow&\ \windex{2} \cdot (\windex{2} \cdot \textsf{acc}) \\
+\textsf{step 2:} & & \textsf{acc} \leftarrow&\
+\windex{2} \cdot
+\Bigg(
+\windex{2} \cdot
+\bigg(
+\windex{2} \cdot
+\Big(
+   \windex{2} \cdot
+   \big(
+      \windex{2} \cdot
+      (
+         \windex{2} \cdot \textsf{acc} +
+         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_3}]
+      ) +
+      \mathcal{Q}[\textcolor{skyblue}{v_3}]
+   \big) +
+   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_1}]
+\Big) +
+\mathcal{G}[\textcolor{orange}{f_1}]
+\bigg) +
+\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_2}]
+\Bigg) +
+\mathcal{Q}[\textcolor{violet}{v_2}]
+\\
+\textsf{step 3:} & & \textsf{acc} \leftarrow&\ \windex{2} \cdot (\windex{2} \cdot \textsf{acc}) \\
+\textsf{step 4:} & & \textsf{acc} \leftarrow&\
+\windex{2} \cdot
+\Bigg(
+\windex{2} \cdot
+\Bigg(
+\windex{2} \cdot
+\Big(
+   \windex{2} \cdot
+   \bigg(
+      \windex{2} \cdot
+      \Big(
+         \windex{2} \cdot \textsf{acc} +
+         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_1}]
+      ) +
+      \mathcal{Q}[\textcolor{skyblue}{v_1}]
+   \bigg) +
+   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_0}]
+\Big) +
+\mathcal{G}[\textcolor{orange}{f_0}]
+\Bigg) +
+\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_0}]
+\Bigg) +
+\mathcal{Q}[\textcolor{violet}{v_0}]
+\end{aligned}
+$$
+
+where $\mathcal{Q}, \ \mathcal{Q}_{\lambda}$ and $\mathcal{G}, \ \mathcal{G}_{\lambda}$ are the lookup tables for the ROM and regular lookups, respectively. Next, we add the stagger fragments to the accumulator to get the MSM result:
+
+$$
+\begin{aligned}
+A = \textsf{acc} +
+\mathcal{Q}[\textcolor{red}{c_f}] +
+\mathcal{Q}_{\lambda}[\textcolor{red}{c_{f'}}] +
+\mathcal{G}_{\lambda}[\textcolor{red}{c_{v'}}].
+\end{aligned}
+$$
+
+Finally, we need to adjust the skew factors for each scalar multiplication. Thus, the final MSM output with skew adjustments is:
+
+$$
+\begin{aligned}
+A \leftarrow&\ A + \textcolor{orange}{\mathfrak{s}_{f}} \cdot G +
+\textcolor{orange}{\mathfrak{s}_{f'}} \cdot (\lambda G) +
+\textcolor{skyblue}{\mathfrak{s}_{v}} \cdot Q +
+\textcolor{skyblue}{\mathfrak{s}_{v'}} \cdot (\lambda Q).
+\end{aligned}
+$$
+
+Since our scalars are at most 128 bits long after endomorphism, we can represent the fixed-base scalars using at most 16 wNAF slices (as the window size is $w = 8$) and the variable-base scalars using at most 32 wNAF slices (as the window size is $w = 4$). We choose to represent the scalar $v \in \mathbb{F}_r$ using 33 wNAF slices instead of 32 to because we initialise the accumulator with the extra slice $\textcolor{yellow}{v_4}$ at the start of the MSM computation. This allows us to use a uniform pattern of Montgomery ladder steps of size 6 throughout the MSM computation. In total, we perform 16 rounds each consisting of 2 Montgomery ladder steps of size 6, resulting in a total of 32 ladder steps to compute the MSM.
+
 ### Signed Digit Representation
 
 We can write the bit representation of an $n$-bit scalar $a$ with bits $a_0, a_1 \dots, a_{n - 1} \in \{0, 1\}$ as follows:
