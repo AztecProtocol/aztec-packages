@@ -13,7 +13,7 @@ namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
 // Each entry contains a pair of values
-// N.B. Only works with the UltraBuilder at the moment!
+// Works with UltraBuilder and MegaBuilder.
 template <typename Builder> class twin_rom_table {
   private:
     typedef field_t<Builder> field_pt;
@@ -23,12 +23,12 @@ template <typename Builder> class twin_rom_table {
     twin_rom_table() {};
     twin_rom_table(const std::vector<field_pair_pt>& table_entries);
     twin_rom_table(const twin_rom_table& other);
-    twin_rom_table(twin_rom_table&& other);
+    twin_rom_table(twin_rom_table&& other) noexcept;
 
     void initialize_table() const;
 
     twin_rom_table& operator=(const twin_rom_table& other);
-    twin_rom_table& operator=(twin_rom_table&& other);
+    twin_rom_table& operator=(twin_rom_table&& other) noexcept;
 
     // read from table with a constant index value. Does not add any gates
     field_pair_pt operator[](const size_t index) const;

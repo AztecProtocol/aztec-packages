@@ -26,14 +26,11 @@ ram_table<Builder>::ram_table(Builder* builder, const size_t table_size)
     , context(builder)
 {
     static_assert(IsUltraOrMegaBuilder<Builder>);
-    index_initialized.resize(table_size);
-    for (auto&& idx : index_initialized) {
-        idx = false;
-    }
+    index_initialized.resize(table_size, false);
 
-    // do not initialize the table yet. The input entries might all be constant,
-    // if this is the case we might not have a valid pointer to a Builder
-    // We get around this, by initializing the table when `read` or `write` operator is called
+    // do not initialize the table yet. The input entries might all be constant;
+    // if this is the case we might not have a valid pointer to a Builder.
+    // We get around this by initializing the table when `read` or `write` operator is called
     // with a non-const field element.
 }
 
@@ -115,59 +112,11 @@ template <typename Builder> void ram_table<Builder>::initialize_table() const
     }
     ram_table_generated_in_builder = true;
 }
-
-template <typename Builder>
-ram_table<Builder>::ram_table(const ram_table& other)
-    : raw_entries(other.raw_entries)
-    , _tags(other._tags)
-    , index_initialized(other.index_initialized)
-    , length(other.length)
-    , ram_id(other.ram_id)
-    , ram_table_generated_in_builder(other.ram_table_generated_in_builder)
-    , all_entries_written_to_with_constant_index(other.all_entries_written_to_with_constant_index)
-    , context(other.context)
-{}
-
-template <typename Builder>
-ram_table<Builder>::ram_table(ram_table&& other)
-    : raw_entries(std::move(other.raw_entries))
-    , _tags(std::move(other._tags))
-    , index_initialized(std::move(other.index_initialized))
-    , length(other.length)
-    , ram_id(other.ram_id)
-    , ram_table_generated_in_builder(other.ram_table_generated_in_builder)
-    , all_entries_written_to_with_constant_index(other.all_entries_written_to_with_constant_index)
-    , context(other.context)
-{}
-
-/**
- * @brief Copy assignment operator
- *
- * @tparam Builder
- * @param other
- * @return ram_table<Builder>&
- */
+// constructors and move operators
+template <typename Builder> ram_table<Builder>::ram_table(const ram_table& other) = default;
+template <typename Builder> ram_table<Builder>::ram_table(ram_table&& other) noexcept = default;
 template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(const ram_table& other) = default;
-
-/**
- * @brief Move assignment operator
- *
- * @tparam Builder
- * @param other
- * @return ram_table<Builder>&
- */
-template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other)
-{
-    raw_entries = other.raw_entries;
-    length = other.length;
-    ram_id = other.ram_id;
-    index_initialized = other.index_initialized;
-    ram_table_generated_in_builder = other.ram_table_generated_in_builder;
-    all_entries_written_to_with_constant_index = other.all_entries_written_to_with_constant_index;
-    context = other.context;
-    _tags = other._tags;
-    return *this;
-}
+template <typename Builder> ram_table<Builder>& ram_table<Builder>::operator=(ram_table&& other) noexcept = default;
 
 /**
  * @brief Read a field element from the RAM table at an index value
@@ -237,7 +186,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     if (index.is_constant()) {
         // need to write/process every array element at constant indicies before doing reads/writes at prover-defined
         // indices
-        index_wire = field_pt::from_witness_index(context, context->put_constant_variable(native_index));
+        index_wire.convert_constant_to_fixed_witness(context);
     } else {
         if (!check_indices_initialized()) {
             context->failure("ram_table must have initialized every RAM entry before a write can be performed");

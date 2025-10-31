@@ -45,7 +45,7 @@ rom_table<Builder>::rom_table(const std::vector<field_pt>& table_entries)
  *
  * @note if both the table entries and the index are constant, we don't need a builder as we can directly extract the
  * desired value from `raw_entries`. in particular, we simply _don't use_ the ROM table mechanism under the hood.
- * @note using this API, ROM tables area always fully initialized.
+ * @note using this API, ROM tables are always fully initialized.
  */
 template <typename Builder> void rom_table<Builder>::initialize_table() const
 {
@@ -79,41 +79,10 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     initialized = true;
 }
 
-template <typename Builder>
-rom_table<Builder>::rom_table(const rom_table& other)
-    : raw_entries(other.raw_entries)
-    , entries(other.entries)
-    , _tags(other._tags)
-    , length(other.length)
-    , rom_id(other.rom_id)
-    , initialized(other.initialized)
-    , context(other.context)
-{}
-
-template <typename Builder>
-rom_table<Builder>::rom_table(rom_table&& other)
-    : raw_entries(other.raw_entries)
-    , entries(other.entries)
-    , _tags(other._tags)
-    , length(other.length)
-    , rom_id(other.rom_id)
-    , initialized(other.initialized)
-    , context(other.context)
-{}
-
+template <typename Builder> rom_table<Builder>::rom_table(const rom_table& other) = default;
+template <typename Builder> rom_table<Builder>::rom_table(rom_table&& other) noexcept = default;
 template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(const rom_table& other) = default;
-
-template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other)
-{
-    raw_entries = other.raw_entries;
-    entries = other.entries;
-    _tags = other._tags;
-    length = other.length;
-    rom_id = other.rom_id;
-    initialized = other.initialized;
-    context = other.context;
-    return *this;
-}
+template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(rom_table&& other) noexcept = default;
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {

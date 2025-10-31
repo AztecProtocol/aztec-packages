@@ -12,7 +12,7 @@
 namespace bb::stdlib {
 
 // A runtime-defined read-write memory table. Table entries must be initialized in the constructor.
-// N.B. Only works with the UltraBuilder at the moment!
+// Works with UltraBuilder and MegaBuilder.
 template <typename Builder> class ram_table {
   private:
     typedef field_t<Builder> field_pt;
@@ -22,12 +22,12 @@ template <typename Builder> class ram_table {
     ram_table(Builder* builder, const size_t table_size);
     ram_table(const std::vector<field_pt>& table_entries);
     ram_table(const ram_table& other);
-    ram_table(ram_table&& other);
+    ram_table(ram_table&& other) noexcept;
 
     void initialize_table() const;
 
     ram_table& operator=(const ram_table& other);
-    ram_table& operator=(ram_table&& other);
+    ram_table& operator=(ram_table&& other) noexcept;
 
     field_pt read(const field_pt& index) const;
 
