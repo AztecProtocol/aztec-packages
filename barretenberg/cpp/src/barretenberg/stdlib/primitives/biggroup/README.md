@@ -312,7 +312,7 @@ $$
 \end{aligned}
 $$
 
-and for $Q$, we use 4-bit ROM tables as described earlier. The scalars $u_1$ and $u_2$ are first split into 128-bit scalars using endomorphism:
+and for $Q$, we use 4-bit ROM tables as described earlier. The scalars $u_1$ and $u_2$ are first split into 128-bit scalars using the endomorphism:
 
 $$
 \begin{aligned}
@@ -321,7 +321,7 @@ u_2 \cdot Q &= v' \cdot \lambda Q + v \cdot Q.
 \end{aligned}
 $$
 
-where $f, f'$ denote fixed-base scalars and $v, v'$ denote variable-base scalars. Each of these scalars are at most 128 bits long and can be represented in wNAF form with stagger and skew factors as shown in the example below:
+where $f, f'$ denote fixed-base scalars and $v, v'$ denote variable-base scalars. Each of these scalars are at most 128 bits long and can be represented in wNAF form with stagger and skew factors as described earlier. To illustrate, consider the following example wNAF representations for 16-bit scalars:
 
 $$
 \def\arraystretch{1.4}
@@ -346,7 +346,7 @@ w\textsf{NAF} & & \textcolor{yellow}{\lfloor} & & \textcolor{yellow}{v_4} & \tex
 \end{array}
 $$
 
-Since we have 8-bit tables for the generator $G$, we use a wNAF window size of $w = 8$ for the fixed-base scalars $f, f'$. For the variable-base scalars $v, v'$, we use a wNAF window size of $w = 4$ since we have 4-bit ROM tables for $Q$. The stagger bits are 0 and 1 for $v$ and $v'$ respectively, and 2 and 3 for $f$ and $f'$ respectively. We will explain the reason for this choice of stagger bits soon. Notice an extra wNAF term in $v$ (shown in yellow). The final MSM expression combining all the terms should look like this:
+Since we have 8-bit tables for the generator $G$, we use a wNAF window size of $w = 8$ for the fixed-base scalars $f, f'$. For the variable-base scalars $v, v'$, we use a wNAF window size of $w = 4$ since we have 4-bit ROM tables for $Q$. The number of stagger bits are 0 and 1 for $v$ and $v'$ respectively, and 2 and 3 for $f$ and $f'$ respectively. We will explain the reason for this choice of the number of stagger bits soon. Notice an extra wNAF term in $v$ (shown in yellow) which will also explain later. The final MSM expression combining all the terms should look like this:
 
 $$
 \begin{aligned}
@@ -414,17 +414,17 @@ $$
       \windex{2} \cdot
       (
          \windex{2} \cdot \textsf{acc} +
-         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_1}]
+         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_3}]
       ) +
-      \mathcal{Q}[\textcolor{skyblue}{v_1}]
+      \mathcal{Q}[\textcolor{skyblue}{v_3}]
    \big) +
-   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_0}]
+   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_1}]
 \Big) +
-\mathcal{G}[\textcolor{orange}{f_0}]
+\mathcal{G}[\textcolor{orange}{f_1}]
 \bigg) +
-\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_0}]
+\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_2}]
 \Bigg) +
-\mathcal{Q}[\textcolor{violet}{v_0}]
+\mathcal{Q}[\textcolor{violet}{v_2}]
 \\
 \textsf{step 3:} & & \textsf{acc} \leftarrow&\ \windex{2} \cdot (\windex{2} \cdot \textsf{acc}) \\
 \textsf{step 4:} & & \textsf{acc} \leftarrow&\
@@ -439,21 +439,21 @@ $$
       \windex{2} \cdot
       \Big(
          \windex{2} \cdot \textsf{acc} +
-         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_3}]
+         \mathcal{Q}_{\lambda}[\textcolor{skyblue}{v'_1}]
       ) +
-      \mathcal{Q}[\textcolor{skyblue}{v_3}]
+      \mathcal{Q}[\textcolor{skyblue}{v_1}]
    \bigg) +
-   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_1}]
+   \mathcal{G}_{\lambda}[\textcolor{orange}{f'_0}]
 \Big) +
-\mathcal{G}[\textcolor{orange}{f_1}]
+\mathcal{G}[\textcolor{orange}{f_0}]
 \Bigg) +
-\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_2}]
+\mathcal{Q}_{\lambda}[\textcolor{violet}{v'_0}]
 \Bigg) +
-\mathcal{Q}[\textcolor{violet}{v_2}]
+\mathcal{Q}[\textcolor{violet}{v_0}]
 \end{aligned}
 $$
 
-where $\mathcal{Q}, \ \mathcal{Q}_{\lambda}$ and $\mathcal{G}, \ \mathcal{G}_{\lambda}$ are the lookup tables for the ROM and regular lookups, respectively. Next, we add the stagger fragments to the accumulator to get the final MSM result:
+where $\mathcal{Q}, \ \mathcal{Q}_{\lambda}$ and $\mathcal{G}, \ \mathcal{G}_{\lambda}$ are the lookup tables for the ROM and regular lookups, respectively. Next, we add the stagger fragments to the accumulator to get the MSM result:
 
 $$
 \begin{aligned}
