@@ -113,7 +113,8 @@ add_subdirectory(barretenberg/wasi)
 add_subdirectory(barretenberg/world_state)
 add_subdirectory(barretenberg/lmdblib)
 
-if(AVM)
+# NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
+if(NOT WASM)
     add_subdirectory(barretenberg/vm2)
     if(FUZZING)
         add_subdirectory(barretenberg/avm_fuzzer)
