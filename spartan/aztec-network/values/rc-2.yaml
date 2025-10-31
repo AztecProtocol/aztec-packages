@@ -24,7 +24,8 @@ ethereum:
     apiKeyHeader: ""
 
 validator:
-  l1FixedPriorityFeePerGas: 2
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
   l1GasLimitBufferPercentage: 15
   replicas: 48
   l1GasPriceMax: 500
@@ -63,4 +64,3 @@ bot:
       memory: "8Gi"
       cpu: "7"
       ephemeral-storage: "8Gi"
-

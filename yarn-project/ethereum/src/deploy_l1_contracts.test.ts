@@ -84,11 +84,10 @@ describe('deploy_l1_contracts', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot,
-        l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,
         ...args,
       },
-      undefined,
+      { checkIntervalMs: 100, priorityFeeBumpPercentage: 0 },
       false,
     );
 
@@ -293,9 +292,9 @@ describe('deploy_l1_contracts', () => {
         vkTreeRoot,
         protocolContractTreeRoot,
         genesisArchiveRoot,
-        l1TxConfig: { checkIntervalMs: 100 },
         realVerifier: false,
       },
+      { checkIntervalMs: 100, priorityFeeBumpPercentage: 0 },
     );
 
     const governance = new GovernanceContract(deployment.l1ContractAddresses.governanceAddress, client);
