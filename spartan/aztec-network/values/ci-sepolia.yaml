@@ -9,7 +9,8 @@ aztec:
 ethereum:
   chainId: "11155111"
   l1GasPriceMax: 500
-  l1FixedPriorityFeePerGas: 3
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
   execution:
     externalHosts: ""
   beacon:
@@ -21,7 +22,8 @@ telemetry:
   enabled: false
 
 validator:
-  l1FixedPriorityFeePerGas: 3
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
   l1GasLimitBufferPercentage: 15
   replicas: 8
   resources:
