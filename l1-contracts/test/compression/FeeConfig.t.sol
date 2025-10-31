@@ -14,10 +14,11 @@ contract FeeConfigTest is Test {
   using FeeConfigLib for FeeConfig;
   using FeeConfigLib for CompressedFeeConfig;
 
-  function test_compressAndDecompress(uint64 _manaTarget, uint128 _congestionUpdateFraction, uint64 _provingCostPerMana)
-    public
-    pure
-  {
+  function test_compressAndDecompress(
+    uint64 _manaTarget,
+    uint128 _congestionUpdateFraction,
+    uint64 _provingCostPerMana
+  ) public pure {
     FeeConfig memory a = FeeConfig({
       manaTarget: _manaTarget,
       congestionUpdateFraction: _congestionUpdateFraction,

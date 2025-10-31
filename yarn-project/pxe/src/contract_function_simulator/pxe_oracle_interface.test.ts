@@ -3,8 +3,9 @@ import { randomInt } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { randomInBlock } from '@aztec/stdlib/block';
+import { L2BlockHash, randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier, siloPrivateLog } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -12,7 +13,14 @@ import { computeAddress, deriveKeys } from '@aztec/stdlib/keys';
 import { DirectionalAppTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, TxEffect, TxHash, randomIndexedTxEffect } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  GlobalVariables,
+  type IndexedTxEffect,
+  TxEffect,
+  TxHash,
+  randomIndexedTxEffect,
+} from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -492,6 +500,119 @@ describe('PXEOracleInterface', () => {
       expect(capsule!.length).toBe(1);
       expect(capsule![0].toNumber()).toBe(expectedLength);
     };
+  });
+
+  describe('deliverEvent', () => {
+    let blockNumber: number;
+    let eventSelector: EventSelector;
+    let eventContent: Fr[];
+    let eventCommitment: Fr;
+    let eventNullifier: Fr;
+    let txEffect: TxEffect;
+    let indexedTxEffect: IndexedTxEffect;
+
+    // beforeEach sets up the happy path case, so error modes are tested
+    // by minimally failing happy path conditions
+    beforeEach(async () => {
+      blockNumber = 42;
+      eventSelector = EventSelector.random();
+      eventContent = [Fr.random(), Fr.random()];
+
+      eventCommitment = Fr.random();
+      eventNullifier = await siloNullifier(contractAddress, eventCommitment);
+
+      txEffect = TxEffect.from({
+        ...(await TxEffect.random()),
+        nullifiers: [eventNullifier],
+      });
+
+      indexedTxEffect = {
+        l2BlockNumber: blockNumber,
+        l2BlockHash: L2BlockHash.random(),
+        data: txEffect,
+        txIndexInBlock: 0,
+      };
+
+      /* Happy path context conditions:
+       ** - PXE is sync'd to _at least_ block including tx
+       ** - Node knows tx effect
+       ** - Node knows siloed event commitment
+       */
+      const header = BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber }),
+      });
+      await syncDataProvider.setHeader(header);
+
+      aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
+
+      aztecNode.findLeavesIndexes.mockImplementation(() =>
+        Promise.resolve([
+          {
+            data: BigInt(0),
+            l2BlockNumber: indexedTxEffect.l2BlockNumber,
+            l2BlockHash: indexedTxEffect.l2BlockHash,
+          },
+        ]),
+      );
+    });
+
+    function deliverEvent(
+      overrides: {
+        eventCommitment?: Fr;
+      } = {},
+    ) {
+      return pxeOracleInterface.deliverEvent(
+        contractAddress,
+        eventSelector,
+        eventContent,
+        overrides.eventCommitment || eventCommitment,
+        txEffect.txHash,
+        recipient.address,
+      );
+    }
+
+    it('should throw when tx does not exist or has no effects', async () => {
+      aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(undefined));
+      await expect(deliverEvent).rejects.toThrow(/Could not find tx effect for tx hash/);
+    });
+
+    it('should throw when tx block has not yet been synchronized', async () => {
+      indexedTxEffect = {
+        ...indexedTxEffect,
+        l2BlockNumber: blockNumber + 1,
+      };
+      aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
+
+      await expect(deliverEvent).rejects.toThrow(/Could not find tx effect for tx hash .* as of block number/);
+    });
+
+    it('should throw if event is not in tx effects', async () => {
+      await expect(deliverEvent({ eventCommitment: Fr.random() })).rejects.toThrow(
+        /Event commitment .* is not present in tx/,
+      );
+    });
+
+    it('should throw if event is not in nullifiers', async () => {
+      aztecNode.findLeavesIndexes.mockImplementation(() => Promise.resolve([]));
+
+      await expect(deliverEvent).rejects.toThrow(/Event commitment .* is not present on the nullifier tree/);
+    });
+
+    it('should store event for later retrieval', async () => {
+      await deliverEvent();
+
+      // I should be able to retrieve the private event I just saved using getPrivateEvents
+      const result = await privateEventDataProvider.getPrivateEvents(
+        contractAddress,
+        blockNumber,
+        1,
+        [recipient.address],
+        eventSelector,
+      );
+
+      expect(result.length).toEqual(1);
+      expect(result[0]).toEqual(eventContent);
+    });
   });
 
   describe('deliverNote', () => {

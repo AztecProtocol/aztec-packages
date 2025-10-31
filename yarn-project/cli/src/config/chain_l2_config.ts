@@ -31,6 +31,8 @@ export type L2ChainConfig = L1ContractsConfig &
     publicIncludeMetrics?: string[];
     publicMetricsCollectorUrl?: string;
     publicMetricsCollectFrom?: string[];
+    skipArchiverInitialSync?: boolean;
+    blobAllowEmptySources?: boolean;
 
     // Setting the dbMapSize provides the default for every DB in the node.
     // Then we explicitly override the sizes for the archiver and the larger trees.
@@ -294,6 +296,8 @@ export const testnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
+  skipArchiverInitialSync: true,
+  blobAllowEmptySources: true,
 
   // Deployment stuff
   /** How many seconds an L1 slot lasts. */
@@ -443,7 +447,7 @@ export const devnetL2ChainConfig: L2ChainConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 1,
   /** The number of epochs to lag behind the current epoch for validator selection. */
-  lagInEpochs: 0,
+  lagInEpochs: 1,
   /** The local ejection threshold for a validator. Stricter than ejectionThreshold but local to a specific rollup */
   localEjectionThreshold: DefaultL1ContractsConfig.localEjectionThreshold,
   /** The number of epochs after an epoch ends that proofs are still accepted. */
@@ -519,6 +523,14 @@ export function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   enrichVar('NOTE_HASH_TREE_MAP_SIZE_KB', config.noteHashTreeMapSizeKb.toString());
   enrichVar('NULLIFIER_TREE_MAP_SIZE_KB', config.nullifierTreeMapSizeKb.toString());
   enrichVar('PUBLIC_DATA_TREE_MAP_SIZE_KB', config.publicDataTreeMapSizeKb.toString());
+
+  if (config.skipArchiverInitialSync !== undefined) {
+    enrichVar('SKIP_ARCHIVER_INITIAL_SYNC', config.skipArchiverInitialSync.toString());
+  }
+
+  if (config.blobAllowEmptySources !== undefined) {
+    enrichVar('BLOB_ALLOW_EMPTY_SOURCES', config.blobAllowEmptySources.toString());
+  }
 
   if (config.autoUpdate) {
     enrichVar('AUTO_UPDATE', config.autoUpdate?.toString());

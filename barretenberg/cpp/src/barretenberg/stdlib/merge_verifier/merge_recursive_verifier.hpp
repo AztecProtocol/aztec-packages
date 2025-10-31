@@ -35,7 +35,7 @@ template <typename CircuitBuilder> class MergeRecursiveVerifier_ {
     /**
      * Commitments used by the verifier to run the verification algorithm. They contain:
      *  - `t_commitments`: the subtable commitments data, containing the commitments to t_j read from the transcript by
-     *     the PG verifier with which the Merge verifier shares a transcript
+     *     the HN verifier with which the Merge verifier shares a transcript
      *  - `T_prev_commitments`: the commitments to the full op_queue table after the previous iteration of merge
      */
     struct InputCommitments {

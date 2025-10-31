@@ -12,13 +12,13 @@ use dep::types::{
     },
     constants::{ARCHIVE_HEIGHT, CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_CONTRACT_CLASS_LOGS_PER_TX},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    proof::proof_data::CivcProofData,
+    proof::proof_data::ChonkProofData,
 };
 
 pub struct PrivateTxBaseRollupPrivateInputs {
     // The public inputs of `private_kernel_tail` are propagated to `hiding_kernel_to_rollup`, whose public inputs are
     // identical to those inputs, and are validated in this circuit.
-    pub(crate) hiding_kernel_proof_data: CivcProofData<PrivateToRollupKernelCircuitPublicInputs>,
+    pub(crate) hiding_kernel_proof_data: ChonkProofData<PrivateToRollupKernelCircuitPublicInputs>,
 
     // Constants shared by all txs in the same block.
     pub(crate) constants: BlockConstantData,

@@ -58,7 +58,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 bool_ct a = create_bool_ct(lhs, &builder);
                 bool_ct b = create_bool_ct(rhs, &builder);
 
-                size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+                size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
                 if (!a.is_constant() && !b.is_constant()) {
                     a.set_origin_tag(submitted_value_origin_tag);
@@ -84,7 +84,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
                 }
 
-                size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+                size_t diff = builder.get_num_finalized_gates_inefficient() - num_gates_start;
                 // An extra gate is created iff both operands are witnesses
                 EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && !b.is_constant()));
             }
@@ -96,7 +96,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
     void test_construct_from_const_bool()
     {
         Builder builder = Builder();
-        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
         bool_ct a_true(true);
         bool_ct a_false(false);
         EXPECT_TRUE(a_true.get_value());
@@ -104,13 +104,13 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_TRUE(a_true.is_constant() && a_false.is_constant());
         EXPECT_TRUE(!a_true.is_inverted() && !a_false.is_inverted());
         // No gates have been added
-        EXPECT_TRUE(num_gates_start == builder.get_estimated_num_finalized_gates());
+        EXPECT_TRUE(num_gates_start == builder.get_num_finalized_gates_inefficient());
     }
 
     void test_construct_from_witness_index()
     {
         Builder builder = Builder();
-        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
         const size_t witness_idx_zero = builder.add_variable(bb::fr(0));
         const size_t witness_idx_one = builder.add_variable(bb::fr(1));
         const size_t non_bool_witness_idx = builder.add_variable(bb::fr(15));
@@ -121,7 +121,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         bool_witness = bool_ct::from_witness_index_unsafe(&builder, witness_idx_one);
         EXPECT_EQ(bool_witness.get_value(), true);
         // No gates are added.
-        EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, 0);
+        EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - num_gates_start, 0);
 
         // Out-of-circuit failure when witness points to a non-bool value.
         EXPECT_THROW_OR_ABORT(bool_witness = bool_ct::from_witness_index_unsafe(&builder, non_bool_witness_idx),
@@ -130,7 +130,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
     void test_construct_from_witness()
     {
         Builder builder = Builder();
-        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
         bool_ct a_true = witness_ct(&builder, 1);
         bool_ct a_false = witness_ct(&builder, 0);
@@ -139,7 +139,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         EXPECT_TRUE(!a_true.is_constant() && !a_false.is_constant());
         EXPECT_TRUE(!a_true.is_inverted() && !a_false.is_inverted());
         // Each witness bool must be constrained => expect 2 gates being added
-        EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 2);
+        EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_start == 2);
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         // Test failure
@@ -158,21 +158,25 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
         for (size_t num_inputs = 1; num_inputs < 50; num_inputs++) {
             Builder builder = Builder();
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
             std::vector<uint32_t> indices;
             for (size_t idx = 0; idx < num_inputs; idx++) {
                 indices.push_back(bool_ct(witness_ct(&builder, idx % 2), use_range_constraint).get_witness_index());
             }
 
-            const size_t sorted_list_size = num_inputs + 2;
+            // Note: +2 comes from entries added in create_range_list for target_range == 1
+            size_t sorted_list_size = num_inputs + 2;
+            // sorted list is padded to minimum size of 8
+            sorted_list_size = std::max(sorted_list_size, 8UL);
+            // +4 for combination of unconstrained gates and add gates for fixing endpoints
+            size_t fixed_additional_gates = 4;
+            // Delta-range mechanism packs 4 values per gate
+            size_t expected = numeric::ceil_div(sorted_list_size, 4UL) + fixed_additional_gates;
 
-            // Pin down the gate numbers. The point is that it is more efficient to use this constructor to constrain a
-            // batch of bool_t elements. 4 is a special case, otherwise the number of gates is just
-            // ceil(sorted_list_size) + 2.
-            size_t expected = (sorted_list_size == 4) ? 4 : ((sorted_list_size + 3) / 4) + 2;
+            size_t actual = builder.get_num_finalized_gates_inefficient() - num_gates_start;
 
-            EXPECT_EQ(builder.get_estimated_num_finalized_gates() - num_gates_start, expected);
+            EXPECT_EQ(actual, expected);
 
             builder.create_unconstrained_gates(indices);
 
@@ -245,7 +249,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 } else {
                     bool result_is_constant = (!a || b).is_constant();
 
-                    size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+                    size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
                     if (!a.is_constant() && !b.is_constant()) {
                         a.set_origin_tag(submitted_value_origin_tag);
@@ -256,10 +260,10 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     // b = 1 =>
                     bool expected = !(lhs.value ^ lhs.is_inverted) || rhs.value ^ rhs.is_inverted;
 
-                    size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+                    size_t diff = builder.get_num_finalized_gates_inefficient() - num_gates_start;
 
                     if (!a.is_constant() && !b.is_constant()) {
-                        EXPECT_EQ(diff, 2);
+                        EXPECT_EQ(diff, 1);
                     }
                     // Due to optimizations, the result of a => b can be a constant, in this case, the the assert_equal
                     // reduces to an out-of-circuit ASSERT
@@ -267,16 +271,13 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                         EXPECT_EQ(diff, 0);
                     }
 
+                    // No gates are added when one operand is constant
                     if (!result_is_constant && a.is_constant() && !b.is_constant()) {
-                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
-                        // constant == 1, which happens iff `b` is not inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(!b.is_inverted()));
+                        EXPECT_EQ(diff, 0);
                     }
 
                     if (!result_is_constant && !a.is_constant() && b.is_constant()) {
-                        // we only add gates if the value `true` is not flipped to `false` and we need to add a new
-                        // constant == 1, which happens iff `a` is inverted.
-                        EXPECT_EQ(diff, static_cast<size_t>(a.is_inverted()));
+                        EXPECT_EQ(diff, 0);
                     }
                     EXPECT_EQ(CircuitChecker::check(builder), expected);
                 }
@@ -361,7 +362,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     bool_ct b = create_bool_ct(rhs, &builder);
                     bool_ct condition = create_bool_ct(predicate, &builder);
 
-                    size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+                    size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
                     if (!a.is_constant() && !b.is_constant()) {
                         condition.set_origin_tag(submitted_value_origin_tag);
                         a.set_origin_tag(challenge_origin_tag);
@@ -369,9 +370,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                     }
 
                     bool_ct result = bool_ct::conditional_assign(condition, a, b);
-                    size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
-
-                    // Verify origin tags are propagated correctly
+                    size_t diff = builder.get_num_finalized_gates_inefficient() - num_gates_start;
                     if (!a.is_constant() && !b.is_constant()) {
                         EXPECT_EQ(result.get_origin_tag(), first_second_third_merged_tag);
                     }
@@ -409,7 +408,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
 
             bool_ct a = create_bool_ct(a_raw, &builder);
 
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
             if (!a.is_constant()) {
                 a.set_origin_tag(submitted_value_origin_tag);
             }
@@ -419,7 +418,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
                 EXPECT_EQ(c.get_origin_tag(), submitted_value_origin_tag);
             }
             EXPECT_EQ(c.is_inverted(), false);
-            size_t diff = builder.get_estimated_num_finalized_gates() - num_gates_start;
+            size_t diff = builder.get_num_finalized_gates_inefficient() - num_gates_start;
             // Note that although `normalize()` returns value, it flips the `is_inverted()` flag of `a` if it was
             // `true`.
             EXPECT_EQ(diff, static_cast<size_t>(!a.is_constant() && a_raw.is_inverted));
@@ -460,7 +459,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
     {
         auto builder = Builder();
 
-        auto gates_before = builder.get_estimated_num_finalized_gates();
+        auto gates_before = builder.get_num_finalized_gates_inefficient();
 
         bool_ct a = witness_ct(&builder, bb::fr::one());
         bool_ct b = witness_ct(&builder, bb::fr::zero());
@@ -511,7 +510,7 @@ template <class Builder_> class BoolTest : public ::testing::Test {
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
 
-        auto gates_after = builder.get_estimated_num_finalized_gates();
+        auto gates_after = builder.get_num_finalized_gates_inefficient();
         EXPECT_EQ(gates_after - gates_before, 6UL);
     }
 

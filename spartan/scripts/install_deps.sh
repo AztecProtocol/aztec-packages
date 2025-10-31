@@ -3,12 +3,10 @@ echo "Installing dependencies..."
 source $(git rev-parse --show-toplevel)/ci3/source
 echo "Source loaded"
 
-os=$(uname | awk '{print tolower($0)}')
-
 # if kubectl is not installed, install it
 if ! command -v kubectl &> /dev/null; then
   echo "Installing kubectl..."
-  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/${os}/$(arch)/kubectl"
+  curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/$(os)/$(arch)/kubectl"
   chmod +x kubectl
   sudo mv kubectl /usr/local/bin/kubectl
 fi
@@ -16,7 +14,7 @@ fi
 # Install kind if it is not installed
 if ! command -v kind &> /dev/null; then
   echo "Installing kind..."
-  curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-${os}-$(arch)
+  curl -Lo ./kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-$(os)-$(arch)
   chmod +x ./kind
   sudo mv ./kind /usr/local/bin/kind
 fi
@@ -24,16 +22,35 @@ fi
 # Install helm if it is not installed
 if ! command -v helm &> /dev/null; then
   echo "Installing helm..."
-  curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-  chmod +x get_helm.sh
-  sudo ./get_helm.sh
-  rm get_helm.sh
+
+  # Determine the helm artifact name based on OS and architecture
+  helm_artifact="helm-$(os)-$(arch).tar.gz"
+  helm_release_url="https://github.com/helm/helm/releases/tag/v3.19.0"
+
+  if cache_download "$helm_artifact" >/dev/null; then
+    echo "Using cached Helm binary"
+    sudo mv helm /usr/local/bin/helm
+    sudo chmod +x /usr/local/bin/helm
+  else
+    echo "Downloading Helm from get.helm.sh..."
+    # Download and run the official Helm installer script
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    chmod +x get_helm.sh
+    sudo ./get_helm.sh
+
+    if [ -f /usr/local/bin/helm ]; then
+      ( cd /usr/local/bin && cache_upload "$helm_artifact" helm )
+    fi
+
+    # Clean up installer script
+    rm get_helm.sh
+  fi
 fi
 
 if ! command -v stern &> /dev/null; then
   echo "Installing stern..."
   # Download Stern
-  curl -Lo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_${os}_$(arch).tar.gz
+  curl -Lo stern.tar.gz https://github.com/stern/stern/releases/download/v1.31.0/stern_1.31.0_$(os)_$(arch).tar.gz
 
   # Extract the binary
   tar -xzf stern.tar.gz

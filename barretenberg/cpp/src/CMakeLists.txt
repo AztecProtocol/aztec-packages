@@ -49,7 +49,7 @@ if(WASM)
     add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
 
 # Add avm-transpiler include path when library is provided
 if(AVM_TRANSPILER_LIB)
@@ -77,7 +77,7 @@ add_subdirectory(barretenberg/bbapi)
 add_subdirectory(barretenberg/benchmark)
 add_subdirectory(barretenberg/boomerang_value_detection)
 add_subdirectory(barretenberg/circuit_checker)
-add_subdirectory(barretenberg/client_ivc)
+add_subdirectory(barretenberg/chonk)
 add_subdirectory(barretenberg/commitment_schemes)
 add_subdirectory(barretenberg/commitment_schemes_recursion)
 add_subdirectory(barretenberg/common)
@@ -110,13 +110,19 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
+add_subdirectory(barretenberg/world_state)
+add_subdirectory(barretenberg/lmdblib)
+
+if(AVM)
+    add_subdirectory(barretenberg/vm2)
+    if(FUZZING)
+        add_subdirectory(barretenberg/avm_fuzzer)
+    endif()
+endif()
 
 if(NOT FUZZING AND NOT WASM)
     add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/lmdblib)
     add_subdirectory(barretenberg/nodejs_module)
-    add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
 endif()
 
 if(SMT)
@@ -136,7 +142,7 @@ message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:bbapi_objects>
-    $<TARGET_OBJECTS:client_ivc_objects>
+    $<TARGET_OBJECTS:chonk_objects>
     $<TARGET_OBJECTS:commitment_schemes_objects>
     $<TARGET_OBJECTS:common_objects>
     $<TARGET_OBJECTS:crypto_aes128_objects>
@@ -168,7 +174,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_blake2s_objects>
     $<TARGET_OBJECTS:stdlib_blake3s_objects>
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
-    $<TARGET_OBJECTS:stdlib_client_ivc_verifier_objects>
+    $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
     $<TARGET_OBJECTS:stdlib_merge_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
@@ -178,7 +184,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

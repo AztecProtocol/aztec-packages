@@ -46,8 +46,9 @@ struct ContextEvent {
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
     AppendOnlyTreeSnapshot retrieved_bytecodes_tree_snapshot;
 
-    // Side Effects
-    SideEffectStates side_effect_states;
+    // Non-tree-tracked side effects
+    uint32_t numUnencryptedLogFields;
+    uint32_t numL2ToL1Messages;
 
     // Phase
     TransactionPhase phase;
@@ -77,8 +78,9 @@ struct ContextStackEvent {
     TreeStates tree_states;
     AppendOnlyTreeSnapshot written_public_data_slots_tree_snapshot;
 
-    // Side Effect States
-    SideEffectStates side_effect_states;
+    // Non-tree-tracked side effects
+    uint32_t numUnencryptedLogFields;
+    uint32_t numL2ToL1Messages;
 };
 
 } // namespace bb::avm2::simulation

@@ -81,7 +81,7 @@ class UltraFlavor {
     // List of relations reflecting the Ultra arithmetisation. WARNING: As UltraKeccak flavor inherits from
     // Ultra flavor any change of ordering in this tuple needs to be reflected in the smart contract, otherwise
     // relation accumulation will not match.
-    using Relations_ = std::tuple<bb::UltraArithmeticRelation<FF>,
+    using Relations_ = std::tuple<bb::ArithmeticRelation<FF>,
                                   bb::UltraPermutationRelation<FF>,
                                   bb::LogDerivLookupRelation<FF>,
                                   bb::DeltaRangeConstraintRelation<FF>,

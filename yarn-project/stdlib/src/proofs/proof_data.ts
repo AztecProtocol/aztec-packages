@@ -1,4 +1,4 @@
-import type { CIVC_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
+import type { CHONK_PROOF_LENGTH, RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
 import { BufferReader, type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { RecursiveProof } from '../proofs/recursive_proof.js';
@@ -29,7 +29,7 @@ export class ProofData<T extends Bufferable, PROOF_LENGTH extends number> {
   }
 }
 
-export type CivcProofData<T extends Bufferable> = ProofData<T, typeof CIVC_PROOF_LENGTH>;
+export type ChonkProofData<T extends Bufferable> = ProofData<T, typeof CHONK_PROOF_LENGTH>;
 
 export type UltraHonkProofData<T extends Bufferable> = ProofData<T, typeof RECURSIVE_PROOF_LENGTH>;
 

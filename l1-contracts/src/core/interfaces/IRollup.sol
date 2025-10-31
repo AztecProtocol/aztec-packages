@@ -85,7 +85,6 @@ struct RollupConfig {
   uint32 version;
   IERC20 feeAsset;
   IFeeJuicePortal feeAssetPortal;
-  IRewardDistributor rewardDistributor;
   IVerifier epochProofVerifier;
   IInbox inbox;
   IOutbox outbox;

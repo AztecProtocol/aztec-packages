@@ -183,9 +183,9 @@ TranslatorRecursiveVerifier::PairingPoints TranslatorRecursiveVerifier::verify_p
                                                libra_commitments,
                                                sumcheck_output.claimed_libra_evaluation);
 
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
-    return { pairing_points[0], pairing_points[1] };
+    return pairing_points;
 }
 
 void TranslatorRecursiveVerifier::verify_translation(const TranslationEvaluations_<BF>& translation_evaluations,
@@ -220,8 +220,8 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
         // These are witness commitments sent as part of the proof, so their coordinates are already in reduced form.
         // This approach is preferred over implementing assert_equal for biggroup, as it avoids the need to handle
         // constants within biggroup logic.
-        bool consistency_check_failed = (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
-                                        (merge_commitment.y.get_value() != translator_commitment.y.get_value()) ||
+        bool consistency_check_failed = (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
+                                        (merge_commitment.y().get_value() != translator_commitment.y().get_value()) ||
                                         (merge_commitment.is_point_at_infinity().get_value() !=
                                          translator_commitment.is_point_at_infinity().get_value());
 
@@ -229,8 +229,8 @@ void TranslatorRecursiveVerifier::verify_consistency_with_final_merge(
             vinfo("translator commitments are inconsistent with the final merge commitments");
         }
 
-        merge_commitment.x.assert_equal(translator_commitment.x);
-        merge_commitment.y.assert_equal(translator_commitment.y);
+        merge_commitment.x().assert_equal(translator_commitment.x());
+        merge_commitment.y().assert_equal(translator_commitment.y());
         merge_commitment.is_point_at_infinity().assert_equal(translator_commitment.is_point_at_infinity());
     }
 }

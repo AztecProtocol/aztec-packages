@@ -6,6 +6,7 @@ compiler_version = ">=0.18.0"
 
 [dependencies]
 bignum = { tag = "v0.8.0", git = "https://github.com/noir-lang/noir-bignum" }
+bigcurve = { tag = "v0.11.0", git = "https://github.com/noir-lang/noir_bigcurve" }
 types = { path = "../types" }
 parity_lib = { path = "../parity-lib" }
 blob = { path = "../blob" }

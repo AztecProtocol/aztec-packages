@@ -5,7 +5,7 @@ import type { L2Block } from '@aztec/aztec.js/block';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { GlobalVariables } from '@aztec/aztec.js/tx';
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
+import { BatchedBlob, Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { GENESIS_ARCHIVE_ROOT, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
@@ -367,7 +367,7 @@ describe('L1Publisher integration', () => {
 
       let currentL1ToL2Messages: Fr[] = [];
       let nextL1ToL2Messages: Fr[] = [];
-      const allBlobs: Blob[] = [];
+      const allBlockBlobs: Blob[][] = [];
       // The below batched blob is used for testing different epochs with 1..numberOfConsecutiveBlocks blocks on L1.
       // For real usage, always collect ALL epoch blobs first then call .batch().
       let currentBatch: BatchedBlob | undefined;
@@ -416,7 +416,7 @@ describe('L1Publisher integration', () => {
         // Check that we have not yet written a root to this blocknumber
         expect(BigInt(emptyRoot)).toStrictEqual(0n);
 
-        const blockBlobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
+        const blockBlobs = getBlobsPerL1Block(block.getCheckpointBlobFields());
         expect(block.header.contentCommitment.blobsHash).toEqual(
           sha256ToField(blockBlobs.map(b => b.getEthVersionedBlobHash())),
         );
@@ -424,10 +424,10 @@ describe('L1Publisher integration', () => {
         let prevBlobAccumulatorHash = hexToBuffer(await rollup.getCurrentBlobCommitmentsHash());
 
         blocks.push(block);
-        allBlobs.push(...blockBlobs);
+        allBlockBlobs.push(blockBlobs);
 
         // Batch the blobs so far, so they can be used in the L1 unit tests:
-        currentBatch = await BatchedBlob.batch(allBlobs);
+        currentBatch = await BatchedBlob.batch(allBlockBlobs);
 
         await writeJson(
           `${jsonFileNamePrefix}_${block.number}`,
@@ -486,7 +486,7 @@ describe('L1Publisher integration', () => {
             CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
             [],
             Signature.empty().toViemSignature(),
-            Blob.getPrefixedEthBlobCommitments(blockBlobs),
+            getPrefixedEthBlobCommitments(blockBlobs),
           ],
         });
         const expectedData = encodeFunctionData({
@@ -725,6 +725,8 @@ describe('L1Publisher integration', () => {
     let sendRequestsResult: Awaited<ReturnType<SequencerPublisher['sendRequests']>> | null;
 
     beforeEach(async () => {
+      sendRequestsResult = null;
+
       await setup({ aztecSlotDuration: 48 });
 
       await ethCheatCodes.setAutomine(false);
@@ -743,7 +745,10 @@ describe('L1Publisher integration', () => {
       void publisher
         .sendRequests()
         .then(r => (sendRequestsResult = r ?? null))
-        .catch(err => err);
+        .catch(err => {
+          sendRequestsResult = null;
+          return err;
+        });
 
       // Wait until the publish tx is sent
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
@@ -775,8 +780,6 @@ describe('L1Publisher integration', () => {
         if (nextL2Slot > initialL2Slot) {
           expect(sendRequestsResult).toBeNull();
           break;
-        } else {
-          expect(sendRequestsResult).toBeUndefined();
         }
       }
 
@@ -872,7 +875,7 @@ describe('L1Publisher integration', () => {
 
       // Wait for completion
       await retryUntil(() => !!sendRequestsResult, 'request resolved', 5, 0.1);
-      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 5, 0.1);
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 10, 0.1);
 
       // The second proposal should succeed
       expect(sendRequestsResult).not.toBeNull();

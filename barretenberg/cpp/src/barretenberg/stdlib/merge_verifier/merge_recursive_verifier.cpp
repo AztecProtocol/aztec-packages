@@ -154,7 +154,7 @@ MergeRecursiveVerifier_<CircuitBuilder>::verify_proof(const stdlib::Proof<Circui
     auto batch_opening_claim = verifier.export_batch_opening_claim(Commitment::one(kappa.get_context()));
 
     // KZG verifier
-    auto pairing_points = KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+    PairingPoints pairing_points(KZG::reduce_verify_batch_opening_claim(batch_opening_claim, transcript));
 
     return { pairing_points, merged_table_commitments };
 }

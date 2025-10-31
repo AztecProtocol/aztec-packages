@@ -40,6 +40,7 @@ template <typename Builder_> struct PairingPoints {
     Group P1;
 
     bool has_data = false;
+    uint32_t tag_index = 0; // Index of the tag for tracking pairing point aggregation
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
@@ -50,7 +51,13 @@ template <typename Builder_> struct PairingPoints {
         : P0(P0)
         , P1(P1)
         , has_data(true)
-    {}
+    {
+        // Get the builder from the group elements and assign a new tag
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            tag_index = builder->pairing_points_tagging.create_pairing_point_tag();
+        }
+    }
 
     PairingPoints(std::array<Group, 2> const& points)
         : PairingPoints(points[0], points[1])
@@ -95,7 +102,17 @@ template <typename Builder_> struct PairingPoints {
         auto P0 = Group::batch_mul(first_components, challenges);
         auto P1 = Group::batch_mul(second_components, challenges);
 
-        return { P0, P1 };
+        PairingPoints aggregated_points(P0, P1);
+
+        // Merge tags
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            for (const auto& points : pairing_points) {
+                builder->pairing_points_tagging.merge_pairing_point_tags(aggregated_points.tag_index, points.tag_index);
+            }
+        }
+
+        return aggregated_points;
     }
 
     /**
@@ -134,6 +151,12 @@ template <typename Builder_> struct PairingPoints {
             P0 += point_to_aggregate;
             point_to_aggregate = other.P1.scalar_mul(recursion_separator, 128);
             P1 += point_to_aggregate;
+        }
+
+        // Merge the tags in the builder
+        Builder* builder = P0.get_context();
+        if (builder != nullptr) {
+            builder->pairing_points_tagging.merge_pairing_point_tags(this->tag_index, other.tag_index);
         }
     }
 
@@ -229,29 +252,12 @@ template <typename Builder_> struct PairingPoints {
     }
 };
 
-template <typename Builder> void read(uint8_t const*& it, PairingPoints<Builder>& as)
-{
-    using serialize::read;
-
-    read(it, as.P0);
-    read(it, as.P1);
-    read(it, as.has_data);
-};
-
-template <typename Builder> void write(std::vector<uint8_t>& buf, PairingPoints<Builder> const& as)
-{
-    using serialize::write;
-
-    write(buf, as.P0);
-    write(buf, as.P1);
-    write(buf, as.has_data);
-};
-
 template <typename NCT> std::ostream& operator<<(std::ostream& os, PairingPoints<NCT> const& as)
 {
     return os << "P0: " << as.P0 << "\n"
               << "P1: " << as.P1 << "\n"
-              << "has_data: " << as.has_data << "\n";
+              << "has_data: " << as.has_data << "\n"
+              << "tag_index: " << as.tag_index << "\n";
 }
 
 } // namespace bb::stdlib::recursion

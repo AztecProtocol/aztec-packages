@@ -96,7 +96,7 @@ where
     ///     - Padding the lengths of note & nullifier arrays
     ///     - Padding private logs with random fields, up to some standardised
     ///       size.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Advanced
     /// * The call is added to the private call stack and executed by kernel
@@ -309,7 +309,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn call(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn call(self, context: PublicContext) -> T {
         let returns = context.call_public_function(
             self.target_contract,
             self.selector,
@@ -337,7 +337,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
@@ -371,7 +371,7 @@ where
     /// calls sparingly, and carefully.
     /// _Internal_ public function calls are especially leaky, because they
     /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `context` - The PrivateContext -- made magically available to the body
@@ -610,7 +610,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,

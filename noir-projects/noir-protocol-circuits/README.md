@@ -13,7 +13,7 @@ To recompile a single circuit:
 `./bootstrap.sh compile private_kernel_inner`
 
 To get the constraints of that recompiled circuit:
-`../../barretenberg/cpp/build/bin/bb gates -b target/private_kernel_inner.json --scheme client_ivc`
+`../../barretenberg/cpp/build/bin/bb gates -b target/private_kernel_inner.json --scheme chonk`
 
 To get a flamegraph for all circuits:
 `./scripts/flamegraph.sh -a -s -p 3000` (-a=all circuits, -s=server, -p=port)

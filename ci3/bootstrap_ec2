@@ -135,6 +135,7 @@ container_script=$(
   source ci3/source
   source ci3/source_refname
   source ci3/source_redis
+  source ci3/source_cache
   ci_log_id=\$(log_ci_run)
   export PARENT_LOG_URL=${PARENT_LOG_URL:-http://ci.aztec-labs.com/\$ci_log_id}
 
@@ -210,6 +211,17 @@ function run {
   if [ -f ${NETWORK_ENV_FILE} ]; then
     export NETWORK_ENV_FILE_B64=$(cat ${NETWORK_ENV_FILE} | base64 -w 0)
   fi
+  # Only pass SSH keys if disk logging is enabled (internal CI only)
+  if [ "${CI_ENABLE_DISK_LOGS:-0}" -eq 1 ]; then
+    # if the build instance key exists, load it into a base64 encoded string
+    if [ -f ~/.ssh/build_instance_key ]; then
+      export BUILD_INSTANCE_KEY_B64=$(cat ~/.ssh/build_instance_key | base64 -w 0)
+    fi
+    # if the build instance ssh config exists, load it into a base64 encoded string
+    if [ -f $ci3/aws/build_instance_ssh_config ]; then
+      export BUILD_INSTANCE_SSH_CONFIG_B64=$(cat $ci3/aws/build_instance_ssh_config | base64 -w 0)
+    fi
+  fi
 
   ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     # TODO: This should *not* be needed in a CI run. Remove watching code, e.g. in boxes.
@@ -237,6 +249,21 @@ function run {
       echo "NETWORK_ENV_FILE decoded and saved to ${NETWORK_ENV_FILE}"
     fi
 
+    # Save BUILD_INSTANCE_KEY to a file if set
+    if [ -n "${BUILD_INSTANCE_KEY_B64:-}" ]; then
+      mkdir -p \$HOME/.ssh
+      echo "${BUILD_INSTANCE_KEY_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_key
+      chmod 600 \$HOME/.ssh/build_instance_key
+      echo "BUILD_INSTANCE_KEY decoded and saved to \$HOME/.ssh/build_instance_key"
+    fi
+
+    # Save BUILD_INSTANCE_SSH_CONFIG to a file if set
+    if [ -n "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" ]; then
+      mkdir -p \$HOME/.ssh
+      echo "${BUILD_INSTANCE_SSH_CONFIG_B64:-}" | base64 -d > \$HOME/.ssh/build_instance_ssh_config
+      echo "BUILD_INSTANCE_SSH_CONFIG decoded and saved to \$HOME/.ssh/build_instance_ssh_config"
+    fi
+
     start_build() {
       echo Starting devbox...
       docker run --privileged --rm \${docker_args:-} \
@@ -245,6 +272,7 @@ function run {
         -v bootstrap_ci_local_docker:/var/lib/docker \
         -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
         -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
+        -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
         -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
         -v /dev/kmsg:/dev/kmsg \
         -v /tmp:/tmp \
@@ -260,6 +288,7 @@ function run {
         -e PARENT_LOG_URL=${PARENT_LOG_URL:-} \
         -e NO_CACHE=${NO_CACHE:-} \
         -e NO_FAIL_FAST=${NO_FAIL_FAST:-} \
+        -e CI_ENABLE_DISK_LOGS=${CI_ENABLE_DISK_LOGS:-} \
         -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
         -e SSH_CONNECTION=' ' \
         -e LOCAL_USER_ID=\$(id -u) \

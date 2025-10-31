@@ -11,7 +11,7 @@ fi
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 export PLATFORM_TAG=any
-export BB=${BB:-../../barretenberg/cpp/build/bin/bb-avm}
+export BB=${BB:-$(../../barretenberg/cpp/scripts/find-bb)}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(../../barretenberg/cpp/bootstrap.sh hash)
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
@@ -26,8 +26,8 @@ project_name=$(basename "$PWD")
 # Means if anything within the dir changes, the tests will rerun.
 export circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/" "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
 
-# Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
-readarray -t ivc_patterns < <(jq -r '.[]' "../client_ivc_circuits.json")
+# Circuits matching these patterns we have chonk keys computed, rather than ultra-honk.
+readarray -t ivc_patterns < <(jq -r '.[]' "../chonk_circuits.json")
 ivc_hiding_pattern=("hiding")
 readarray -t rollup_honk_patterns < <(jq -r '.[]' "../rollup_honk_circuits.json")
 # Convert to regex string here and export for use in exported functions.
@@ -92,9 +92,9 @@ function compile {
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone_hiding -b - -o $outdir"
+        denoise "$BB write_vk --scheme chonk --verifier_type standalone_hiding -b - -o $outdir"
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        denoise "$BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir"
+        denoise "$BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir"
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
         denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
       elif echo "$name" | grep -qE "rollup_root"; then
@@ -103,6 +103,7 @@ function compile {
         denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
       fi
     }
+
     echo_stderr "Generating vk for function: $name..."
     jq -r '.bytecode' $json_path | base64 -d | gunzip | write_vk
     vk_bytes=$(cat $outdir/vk | xxd -p -c 0)
@@ -110,7 +111,7 @@ function compile {
     # This used to be done by barretenberg itself, but with serialization now always being in field elements we can do it outside of bb.
     vk_fields=$(echo "$vk_bytes" | hex_to_fields_json)
     if [ -f $outdir/vk_hash ]; then
-      # not created in civc
+      # not created in chonk
       vk_hash=$(cat $outdir/vk_hash | xxd -p -c 0)
     else
       vk_hash=""
@@ -135,7 +136,7 @@ function compile {
       SECONDS=0
       local ivc_vk_path="$key_dir/${name}.ivc.vk"
       echo_stderr "Generating ivc vk for function: $name..."
-      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type ivc -b - -o $outdir
+      jq -r '.bytecode' $json_path | base64 -d | gunzip | $BB write_vk --scheme chonk --verifier_type ivc -b - -o $outdir
       mv $outdir/vk $ivc_vk_path
       echo_stderr "IVC tail key output at: $ivc_vk_path (${SECONDS}s)"
       cache_upload vk-$hash.tar.gz $key_path $ivc_vk_path &> /dev/null
@@ -185,7 +186,7 @@ function build {
 
 function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    echo "$circuits_hash:TIMEOUT=15m noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="
@@ -228,7 +229,7 @@ function bench_cmds {
   for artifact in ./target/*.json; do
     [[ "$artifact" =~ _simulated ]] && continue
     if echo "$artifact" | grep -qEf <(printf '%s\n' "${ivc_patterns[@]}"); then
-      echo "$prefix $artifact --scheme client_ivc"
+      echo "$prefix $artifact --scheme chonk"
     elif echo "$artifact" | grep -qEf <(printf '%s\n' "${rollup_honk_patterns[@]}"); then
       echo "$prefix $artifact --scheme ultra_honk --ipa_accumulation"
     else

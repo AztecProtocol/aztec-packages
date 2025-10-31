@@ -34,7 +34,6 @@ library BN254Lib {
    * Using structs would be more readable, but it would be more expensive to use them, particularly
    * when aggregating the public keys, since we need to convert to uint256[2] and uint256[4] anyway.
    */
-
   // See bn254_registration.test.ts and BLSKey.t.sol for tests which validate these constants.
   uint256 public constant BASE_FIELD_ORDER =
     21_888_242_871_839_275_222_246_405_745_257_275_088_696_311_157_297_823_662_689_037_894_645_226_208_583;
@@ -108,7 +107,7 @@ library BN254Lib {
     return hashToPoint(STAKING_DOMAIN_SEPARATOR, pk1Bytes);
   }
 
-  /// @dev Add two points on BN254 G1 (affine coords).
+  /// @dev Add two points on BN254 G1 (affine coords).
   ///      Reverts if the inputs are not on‐curve.
   function g1Add(G1Point memory p1, G1Point memory p2) internal view returns (G1Point memory output) {
     uint256[4] memory input;
@@ -120,16 +119,15 @@ library BN254Lib {
     bool success;
     assembly {
       // call(gas, to, value, in, insize, out, outsize)
-      // STATICCALL is 40 gas vs 700 gas for CALL
-      success :=
-        staticcall(
-          sub(gas(), 2000),
-          0x06, // precompile address
-          input,
-          0x80, // input size = 4 × 32 bytes
-          output,
-          0x40 // output size = 2 × 32 bytes
-        )
+      // STATICCALL is 40 gas vs 700 gas for CALL
+      success := staticcall(
+        sub(gas(), 2000),
+        0x06, // precompile address
+        input,
+        0x80, // input size = 4 × 32 bytes
+        output,
+        0x40 // output size = 2 × 32 bytes
+      )
     }
 
     if (!success) revert AddPointFail();
@@ -137,7 +135,7 @@ library BN254Lib {
   }
 
   /// @dev Multiply a point by a scalar (little‑endian 256‑bit integer).
-  ///      Reverts if the point is not on‐curve or the scalar ≥ p.
+  ///      Reverts if the point is not on‐curve or the scalar ≥ p.
   function g1Mul(G1Point memory p, uint256 s) internal view returns (G1Point memory output) {
     uint256[3] memory input;
     input[0] = p.x;
@@ -146,15 +144,14 @@ library BN254Lib {
 
     bool success;
     assembly {
-      success :=
-        staticcall(
-          sub(gas(), 2000),
-          0x07, // precompile address
-          input,
-          0x60, // input size = 3 × 32 bytes
-          output,
-          0x40 // output size = 2 × 32 bytes
-        )
+      success := staticcall(
+        sub(gas(), 2000),
+        0x07, // precompile address
+        input,
+        0x60, // input size = 3 × 32 bytes
+        output,
+        0x40 // output size = 2 × 32 bytes
+      )
     }
     if (!success) revert MulPointFail();
     return output;
@@ -184,15 +181,14 @@ library BN254Lib {
     uint256[1] memory result;
     bool didCallSucceed;
     assembly {
-      didCallSucceed :=
-        staticcall(
-          sub(gas(), 2000),
-          8,
-          input,
-          0x180, // input size = 12 * 32 bytes
-          result,
-          0x20 // output size = 32 bytes
-        )
+      didCallSucceed := staticcall(
+        sub(gas(), 2000),
+        8,
+        input,
+        0x180, // input size = 12 * 32 bytes
+        result,
+        0x20 // output size = 32 bytes
+      )
     }
     require(didCallSucceed, PairingFail());
     return result[0] == 1;

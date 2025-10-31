@@ -5,7 +5,10 @@ pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
-  IRollupCore, RollupStore, SubmitEpochRootProofArgs, RollupConfigInput
+  IRollupCore,
+  RollupStore,
+  SubmitEpochRootProofArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";

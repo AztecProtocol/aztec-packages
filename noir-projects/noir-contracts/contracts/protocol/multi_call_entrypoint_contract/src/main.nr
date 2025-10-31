@@ -8,6 +8,6 @@ pub contract MultiCallEntrypoint {
 
     #[external("private")]
     fn entrypoint(app_payload: AppPayload) {
-        app_payload.execute_calls(&mut context);
+        app_payload.execute_calls(self.context);
     }
 }

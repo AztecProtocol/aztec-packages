@@ -9,7 +9,6 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
-import { getBlockBlobFields } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import { type ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
@@ -239,8 +238,8 @@ export class BlockProvingState {
     return this.endSpongeBlob;
   }
 
-  public getBlockBlobFields() {
-    return getBlockBlobFields(this.txs.map(t => t.processedTx.txEffect));
+  public getTxEffects() {
+    return this.txs.map(t => t.processedTx.txEffect);
   }
 
   public getParentLocation(location: TreeNodeLocation) {

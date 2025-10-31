@@ -404,10 +404,10 @@ void TranslatorCircuitBuilder::populate_wires_from_ultra_op(const UltraOp& ultra
 {
     auto& op_wire = std::get<WireIds::OP>(wires);
     if (ultra_op.op_code.is_random_op) {
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_1));
-        op_wire.push_back(add_variable(ultra_op.op_code.random_value_2));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_1)));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.random_value_2)));
     } else {
-        op_wire.push_back(add_variable(ultra_op.op_code.value()));
+        op_wire.push_back(add_variable(fr(ultra_op.op_code.value())));
         // Similarly to the ColumnPolynomials in the merge protocol, the op_wire is 0 at every second index for a
         // genuine op
         op_wire.push_back(zero_idx());
@@ -551,8 +551,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
     // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
     // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in LegacyClientIVC::hide_op_queue_content_tail_kernel
-    // and LegacyClientIVC::hide_op_queue_content_hiding_kernel
+    // The position and number of these random ops are explained in Chonk::hide_op_queue_content_tail_kernel
+    // and Chonk::hide_op_queue_content_hiding_kernel
     for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
@@ -565,9 +565,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
     // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
     // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
-    // result is sent as part of the CIVC proof, and so we add a genuine operation with randomly generated values during
-    // CIVC execution to ensure no information about the rest of the ops is leaked.
-    // Acccumulator pre-computation is achieved by processing the queue in reverse order.
+    // result is sent as part of the Chonk proof, and so we add a genuine operation with randomly generated values
+    // during Chonk execution to ensure no information about the rest of the ops is leaked. Acccumulator pre-computation
+    // is achieved by processing the queue in reverse order.
     for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator
