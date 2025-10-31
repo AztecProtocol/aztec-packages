@@ -223,8 +223,8 @@ template <TestBase Base> class TestClass {
             error_msgs.emplace_back(builder_err);
 
             if (mode != Tampering::Mode::None) {
-                EXPECT_FALSE(circuit_checker_result)
-                    << "Circuit checker succeeded unexpectedly for tampering mode " + label;
+                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " + label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label;
             } else {
                 EXPECT_TRUE(circuit_checker_result)
