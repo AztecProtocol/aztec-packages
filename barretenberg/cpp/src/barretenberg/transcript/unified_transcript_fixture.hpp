@@ -18,29 +18,13 @@ namespace bb::test {
 // Unified Test Fixture - Templates on Codec and HashFn like BaseTranscript
 // ============================================================================
 
-template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public ::testing::Test {
+template <typename Codec, typename HashFn> class TranscriptTest : public ::testing::Test {
   public:
     using Transcript = BaseTranscript<Codec, HashFn>;
     using FF = typename Codec::fr;
     using BF = typename Codec::fq;
-
-    // FrCodec uses bn254_point/grumpkin_point, StdlibCodec uses bn254_element/grumpkin_element
-    template <typename C, typename = void> struct GetBN254Type {
-        using type = typename C::bn254_point;
-    };
-    template <typename C> struct GetBN254Type<C, std::void_t<typename C::bn254_element>> {
-        using type = typename C::bn254_element;
-    };
-
-    template <typename C, typename = void> struct GetGrumpkinType {
-        using type = typename C::grumpkin_point;
-    };
-    template <typename C> struct GetGrumpkinType<C, std::void_t<typename C::grumpkin_element>> {
-        using type = typename C::grumpkin_element;
-    };
-
-    using BN254Commitment = typename GetBN254Type<Codec>::type;
-    using GrumpkinCommitment = typename GetGrumpkinType<Codec>::type;
+    using bn254_commitment = typename Codec::bn254_commitment;
+    using grumpkin_commitment = typename Codec::grumpkin_commitment;
 
     static constexpr bool IsStdlib = Transcript::in_circuit;
 
@@ -115,10 +99,6 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
         }
     }
 
-    // ========================================================================
-    // Reusable Test Methods
-    // ========================================================================
-
     void test_scalar_send_receive()
     {
         NativeTranscript prover;
@@ -135,17 +115,16 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
     void test_basefield_send_receive()
     {
-        skip_if_stdlib("Native-only - stdlib bigfield tested via grumpkin arrays");
 
         NativeTranscript prover;
         bb::fq basefield_value = bb::fq::random_element();
         prover.send_to_verifier("basefield", basefield_value);
 
-        NativeTranscript verifier;
-        verifier.load_proof(prover.export_proof());
-        auto received = verifier.template receive_from_prover<bb::fq>("basefield");
+        Transcript verifier;
+        verifier.load_proof(export_proof(prover));
+        auto received = verifier.template receive_from_prover<BF>("basefield");
 
-        EXPECT_EQ(basefield_value, received);
+        EXPECT_EQ(basefield_value, to_native(received));
     }
 
     void test_bn254_commitment_send_receive()
@@ -156,7 +135,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
-        auto received = verifier.template receive_from_prover<BN254Commitment>("commitment");
+        auto received = verifier.template receive_from_prover<bn254_commitment>("commitment");
 
         EXPECT_EQ(commitment, to_native(received));
         check_circuit();
@@ -170,7 +149,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
-        auto received = verifier.template receive_from_prover<GrumpkinCommitment>("commitment");
+        auto received = verifier.template receive_from_prover<grumpkin_commitment>("commitment");
 
         EXPECT_EQ(commitment, to_native(received));
         check_circuit();
@@ -209,19 +188,12 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
 
-        if constexpr (IsStdlib) {
-            // For stdlib, grumpkin::fr is serialized as bigfield
-            auto received = verifier.template receive_from_prover<std::array<BF, SIZE>>("grumpkin_array");
-            for (size_t i = 0; i < SIZE; ++i) {
-                // Convert bigfield back to grumpkin::fr via uint256_t
-                grumpkin::fr received_value(received[i].get_value());
-                EXPECT_EQ(array_value[i], received_value);
-            }
-        } else {
-            auto received = verifier.template receive_from_prover<std::array<grumpkin::fr, SIZE>>("grumpkin_array");
-            for (size_t i = 0; i < SIZE; ++i) {
-                EXPECT_EQ(array_value[i], received[i]);
-            }
+        // For stdlib, grumpkin::fr is serialized as bigfield
+        auto received = verifier.template receive_from_prover<std::array<fq, SIZE>>("grumpkin_array");
+        for (size_t i = 0; i < SIZE; ++i) {
+            // Convert bigfield back to grumpkin::fr via uint256_t
+            grumpkin::fr received_value(received[i].get_value());
+            EXPECT_EQ(array_value[i], received_value);
         }
         check_circuit();
     }
@@ -283,7 +255,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
-        auto received = verifier.template receive_from_prover<BN254Commitment>("infinity");
+        auto received = verifier.template receive_from_prover<bn254_commitment>("infinity");
 
         if constexpr (IsStdlib) {
             EXPECT_TRUE(received.is_point_at_infinity().get_value());
@@ -302,7 +274,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
-        auto received = verifier.template receive_from_prover<GrumpkinCommitment>("infinity");
+        auto received = verifier.template receive_from_prover<grumpkin_commitment>("infinity");
 
         if constexpr (IsStdlib) {
             EXPECT_TRUE(received.is_point_at_infinity().get_value());
@@ -340,7 +312,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
 
         // Round 1
         auto recv_scalar = verifier.template receive_from_prover<FF>("scalar");
-        auto recv_commitment = verifier.template receive_from_prover<BN254Commitment>("commitment");
+        auto recv_commitment = verifier.template receive_from_prover<bn254_commitment>("commitment");
         auto [verifier_beta, verifier_gamma] = verifier.template get_challenges<FF>(challenge_labels);
 
         // Verify values match
@@ -369,7 +341,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
         verifier.load_proof(export_proof(prover));
         verifier.template receive_from_prover<FF>("scalar");
         verifier.template get_challenge<FF>("alpha");
-        verifier.template receive_from_prover<BN254Commitment>("commitment");
+        verifier.template receive_from_prover<bn254_commitment>("commitment");
         verifier.template get_challenges<FF>(challenge_labels);
 
         EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
@@ -431,7 +403,7 @@ template <typename Codec, typename HashFn> class UnifiedTranscriptTest : public 
         Transcript verifier;
         verifier.load_proof(export_proof(prover));
         verifier.template receive_from_prover<FF>("scalar");
-        verifier.template receive_from_prover<BN254Commitment>("commitment");
+        verifier.template receive_from_prover<bn254_commitment>("commitment");
         verifier.template get_challenge<FF>("alpha");
 
         check_circuit();

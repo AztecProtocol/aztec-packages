@@ -48,16 +48,11 @@ template <typename Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     auto vk = verifier_instance->get_vk();
 
-    // Compute VK hash through transcript's independent buffer.
-    // CRITICAL: For recursive verification, this has a crucial side effect - it tags all VK commitment witnesses
-    // with origin tags during serialization. Later, VerifierCommitments will copy these commitments for use in
-    // Sumcheck/PCS. If we used vk->hash() instead, only the hash would be tagged, and using the untagged VK
-    // commitments would cause origin tag violations. See flavor.hpp:hash_through_transcript() for details.
     FF vk_hash = vk->hash_through_transcript(domain_separator, *transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink verifier: ", vk_hash);
 
-    // For recursive flavors, assert that the VK hash matches the expected hash provided with the VK
+    // For recursive flavors, assert that the VK hash matches the expected hash provided in the VK
     if constexpr (IsRecursiveFlavor<Flavor>) {
         vinfo("expected vk hash: ", verifier_instance->vk_and_hash->hash);
         verifier_instance->vk_and_hash->hash.assert_equal(vk_hash);

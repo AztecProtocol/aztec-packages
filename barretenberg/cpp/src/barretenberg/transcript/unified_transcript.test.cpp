@@ -6,70 +6,70 @@
 namespace bb::test {
 
 // Helper to extract Codec and HashFn from std::pair
-template <typename T> struct UnifiedTranscriptTestWrapper;
+template <typename T> struct TranscriptTests;
 template <typename Codec, typename HashFn>
-struct UnifiedTranscriptTestWrapper<std::pair<Codec, HashFn>> : UnifiedTranscriptTest<Codec, HashFn> {};
+struct TranscriptTests<std::pair<Codec, HashFn>> : TranscriptTest<Codec, HashFn> {};
 
-TYPED_TEST_SUITE(UnifiedTranscriptTestWrapper, TranscriptTypes);
+TYPED_TEST_SUITE(TranscriptTests, TranscriptTypes);
 
 // ============================================================================
 // Basic Type Send/Receive Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ScalarSendReceive)
+TYPED_TEST(TranscriptTests, ScalarSendReceive)
 {
     this->test_scalar_send_receive();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, BasefieldSendReceive)
+TYPED_TEST(TranscriptTests, BasefieldSendReceive)
 {
     this->test_basefield_send_receive();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, BN254CommitmentSendReceive)
+TYPED_TEST(TranscriptTests, BN254CommitmentSendReceive)
 {
     this->test_bn254_commitment_send_receive();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinCommitmentSendReceive)
+TYPED_TEST(TranscriptTests, GrumpkinCommitmentSendReceive)
 {
     this->test_grumpkin_commitment_send_receive();
 }
 
 // Skipped - uint32_t not needed for transcript tests
-TYPED_TEST(UnifiedTranscriptTestWrapper, Uint32SendReceive)
+TYPED_TEST(TranscriptTests, Uint32SendReceive)
 {
     this->test_uint32_send_receive();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ArraySendReceive)
+TYPED_TEST(TranscriptTests, ArraySendReceive)
 {
     this->template test_array_send_receive<5>();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, LargeArraySendReceive)
+TYPED_TEST(TranscriptTests, LargeArraySendReceive)
 {
     this->template test_array_send_receive<10>();
 }
 
 // Temporarily disabled - bigfield template issues
-TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinFieldArraySendReceive)
+TYPED_TEST(TranscriptTests, GrumpkinFieldArraySendReceive)
 {
     this->template test_grumpkin_field_array_send_receive<7>();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, UnivariateSendReceive)
+TYPED_TEST(TranscriptTests, UnivariateSendReceive)
 {
     this->template test_univariate_send_receive<8>();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, LargeUnivariateSendReceive)
+TYPED_TEST(TranscriptTests, LargeUnivariateSendReceive)
 {
     this->template test_univariate_send_receive<16>();
 }
 
 // Temporarily disabled - bigfield template issues
-TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinUnivariateSendReceive)
+TYPED_TEST(TranscriptTests, GrumpkinUnivariateSendReceive)
 {
     this->template test_grumpkin_univariate_send_receive<3>();
 }
@@ -78,12 +78,12 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinUnivariateSendReceive)
 // Infinity Point Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, BN254InfinityHandling)
+TYPED_TEST(TranscriptTests, BN254InfinityHandling)
 {
     this->test_bn254_infinity_handling();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinInfinityHandling)
+TYPED_TEST(TranscriptTests, GrumpkinInfinityHandling)
 {
     this->test_grumpkin_infinity_handling();
 }
@@ -92,12 +92,12 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, GrumpkinInfinityHandling)
 // Multi-Round Protocol Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, MultiRoundProtocol)
+TYPED_TEST(TranscriptTests, MultiRoundProtocol)
 {
     this->test_multi_round_protocol();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ManifestConsistency)
+TYPED_TEST(TranscriptTests, ManifestConsistency)
 {
     this->test_manifest_consistency();
 }
@@ -106,12 +106,12 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, ManifestConsistency)
 // Challenge Generation Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ChallengesNonZero)
+TYPED_TEST(TranscriptTests, ChallengesNonZero)
 {
     this->test_challenges_are_nonzero();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ChallengesAfterData)
+TYPED_TEST(TranscriptTests, ChallengesAfterData)
 {
     this->test_challenges_after_data();
 }
@@ -120,7 +120,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, ChallengesAfterData)
 // Hash Buffer Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, HashBufferConsistency)
+TYPED_TEST(TranscriptTests, HashBufferConsistency)
 {
     this->test_hash_buffer_consistency();
 }
@@ -129,12 +129,12 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, HashBufferConsistency)
 // Stdlib-Specific Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, CircuitConstraints)
+TYPED_TEST(TranscriptTests, CircuitConstraints)
 {
     this->test_circuit_creates_constraints();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, CircuitSizeBounded)
+TYPED_TEST(TranscriptTests, CircuitSizeBounded)
 {
     this->test_circuit_size_bounded();
 }
@@ -143,17 +143,17 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, CircuitSizeBounded)
 // Native-Specific Tests
 // ============================================================================
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, StateTracking)
+TYPED_TEST(TranscriptTests, StateTracking)
 {
     this->test_state_tracking();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, ProverToVerifierConversion)
+TYPED_TEST(TranscriptTests, ProverToVerifierConversion)
 {
     this->test_prover_to_verifier_conversion();
 }
 
-TYPED_TEST(UnifiedTranscriptTestWrapper, TamperingDetection)
+TYPED_TEST(TranscriptTests, TamperingDetection)
 {
     this->test_tampering_detection();
 }
@@ -166,7 +166,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, TamperingDetection)
  * @brief Test all supported types in a single protocol
  * @details This ensures that mixing different types in one transcript works correctly
  */
-TYPED_TEST(UnifiedTranscriptTestWrapper, AllTypesMixed)
+TYPED_TEST(TranscriptTests, AllTypesMixed)
 {
     using FF = typename TestFixture::FF;
     // using BF = typename TestFixture::BF;  // Unused - basefield tests skipped
@@ -220,7 +220,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, AllTypesMixed)
 /**
  * @brief Stress test with many rounds and challenges
  */
-TYPED_TEST(UnifiedTranscriptTestWrapper, ManyRoundsStressTest)
+TYPED_TEST(TranscriptTests, ManyRoundsStressTest)
 {
     using FF = typename TestFixture::FF;
 
@@ -253,7 +253,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, ManyRoundsStressTest)
 /**
  * @brief Test edge case: minimal data with challenges
  */
-TYPED_TEST(UnifiedTranscriptTestWrapper, OnlyChallenges)
+TYPED_TEST(TranscriptTests, OnlyChallenges)
 {
     using FF = typename TestFixture::FF;
 
@@ -278,7 +278,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, OnlyChallenges)
 /**
  * @brief Test that getting multiple challenges at once works correctly
  */
-TYPED_TEST(UnifiedTranscriptTestWrapper, BatchChallengeGeneration)
+TYPED_TEST(TranscriptTests, BatchChallengeGeneration)
 {
     using FF = typename TestFixture::FF;
 
@@ -304,7 +304,7 @@ TYPED_TEST(UnifiedTranscriptTestWrapper, BatchChallengeGeneration)
 /**
  * @brief Test using vector of challenge labels
  */
-TYPED_TEST(UnifiedTranscriptTestWrapper, VectorChallengeGeneration)
+TYPED_TEST(TranscriptTests, VectorChallengeGeneration)
 {
     using FF = typename TestFixture::FF;
 

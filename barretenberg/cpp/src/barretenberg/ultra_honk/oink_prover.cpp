@@ -61,8 +61,6 @@ template <IsUltraOrMegaHonk Flavor> typename OinkProver<Flavor>::Proof OinkProve
 template <IsUltraOrMegaHonk Flavor> void OinkProver<Flavor>::execute_preamble_round()
 {
     BB_BENCH_NAME("OinkProver::execute_preamble_round");
-    // Compute VK hash through transcript's independent buffer (see oink_verifier.cpp for detailed explanation).
-    // This ensures VK commitment witnesses get tagged for origin tag correctness in recursive verification.
     fr vk_hash = honk_vk->hash_through_transcript(domain_separator, *transcript);
     transcript->add_to_hash_buffer(domain_separator + "vk_hash", vk_hash);
     vinfo("vk hash in Oink prover: ", vk_hash);
