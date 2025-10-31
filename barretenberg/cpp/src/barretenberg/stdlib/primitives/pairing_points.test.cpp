@@ -1,4 +1,5 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -12,14 +13,14 @@ template <typename Builder> class PairingPointsTests : public testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using Builders = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
-TYPED_TEST_SUITE(PairingPointsTests, Builders);
+using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
+TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     static constexpr size_t NUM_GATES_ADDED = 20;
 
-    TypeParam builder;
+    typename TypeParam::Builder builder;
 
     size_t num_gates = builder.num_gates();
     PairingPoints<TypeParam>::set_default_to_public(&builder);
@@ -31,8 +32,8 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
 
 TYPED_TEST(PairingPointsTests, TestDefault)
 {
-    using Builder = TypeParam;
-    using Group = PairingPoints<Builder>::Group;
+    using Builder = TypeParam::Builder;
+    using Group = PairingPoints<TypeParam>::Group;
     using CommitmentKey = bb::CommitmentKey<curve::BN254>;
 
     Builder builder;
@@ -41,23 +42,24 @@ TYPED_TEST(PairingPointsTests, TestDefault)
     Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
-    PairingPoints<Builder> pp(P0, P1);
+    PairingPoints<TypeParam> pp(P0, P1);
     pp.set_public();
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Validate default PairingPoints
     CommitmentKey commitment_key;
-    bb::PairingPoints native_pp(P0.get_value(), P1.get_value());
+    bb::PairingPoints<curve::BN254> native_pp(P0.get_value(), P1.get_value());
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 {
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
 
     Builder builder;
 
@@ -112,11 +114,13 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 {
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
     using Flavor = std::conditional_t<IsMegaBuilder<Builder>, MegaFlavor, UltraFlavor>;
     using ProverInstance = ProverInstance_<Flavor>;
 
@@ -172,11 +176,13 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 
 TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
 {
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = Curve::ScalarField;
+    using NativeFr = Curve::ScalarFieldNative;
 
     Builder builder;
 

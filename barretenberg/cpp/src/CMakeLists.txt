@@ -176,7 +176,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
-    $<TARGET_OBJECTS:stdlib_merge_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>

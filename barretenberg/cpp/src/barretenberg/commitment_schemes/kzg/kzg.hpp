@@ -8,8 +8,10 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/utils/batch_mul_native.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <memory>
@@ -26,7 +28,8 @@ template <typename Curve_> class KZG {
     using Commitment = typename Curve::AffineElement;
     using GroupElement = typename Curve::Element;
     using Polynomial = bb::Polynomial<Fr>;
-    using VerifierAccumulator = std::array<GroupElement, 2>;
+    using PairingPointsType =
+        std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 
     /**
      * @brief Computes the KZG commitment to an opening proof polynomial at a single evaluation point
@@ -67,13 +70,13 @@ template <typename Curve_> class KZG {
      * @details This is used in the recursive setting where we want to "aggregate" proofs, not verify them.
      *
      * @param claim OpeningClaim ({r, v}, C)
-     * @return  {P₀, P₁} where
+     * @return  PairingPoints {P₀, P₁} where
      *      - P₀ = C − v⋅[1]₁ + r⋅[W(x)]₁
      *      - P₁ = - [W(x)]₁
      */
     template <typename Transcript>
-    static VerifierAccumulator reduce_verify(const OpeningClaim<Curve>& claim,
-                                             const std::shared_ptr<Transcript>& verifier_transcript)
+    static PairingPointsType reduce_verify(const OpeningClaim<Curve>& claim,
+                                           const std::shared_ptr<Transcript>& verifier_transcript)
     {
         auto quotient_commitment = verifier_transcript->template receive_from_prover<Commitment>("KZG:W");
 
@@ -98,7 +101,7 @@ template <typename Curve_> class KZG {
         }
 
         auto P_1 = -quotient_commitment;
-        return { P_0, P_1 };
+        return PairingPointsType(P_0, P_1);
     };
 
     /**
@@ -114,13 +117,13 @@ template <typename Curve_> class KZG {
      *
      * @param batch_opening_claim \f$(\text{commitments}, \text{scalars}, \text{shplonk_evaluation_challenge})\f$
      *        A struct containing the commitments, scalars, and the Shplonk evaluation challenge.
-     * @return \f$ \{P_0, P_1\}\f$ where:
+     * @return PairingPoints \f$ \{P_0, P_1\}\f$ where:
      *         - \f$ P_0 = C + [W(x)]_1 \cdot z \f$
      *         - \f$ P_1 = - [W(x)]_1 \f$
      */
     template <typename Transcript>
-    static VerifierAccumulator reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
-                                                                 const std::shared_ptr<Transcript>& transcript)
+    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
+                                                               const std::shared_ptr<Transcript>& transcript)
     {
         auto quotient_commitment = transcript->template receive_from_prover<Commitment>("KZG:W");
 
@@ -142,7 +145,8 @@ template <typename Curve_> class KZG {
         }
         auto P_1 = -quotient_commitment;
 
-        return { P_0, P_1 };
+        return PairingPointsType(P_0, P_1);
     }
 };
+
 } // namespace bb

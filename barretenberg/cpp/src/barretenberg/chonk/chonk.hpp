@@ -60,7 +60,7 @@ class Chonk : public IVCBase {
     using RecursiveVerificationKey = RecursiveFlavor::VerificationKey;
     using RecursiveVKAndHash = RecursiveFlavor::VKAndHash;
     using RecursiveTranscript = RecursiveFlavor::Transcript;
-    using PairingPoints = stdlib::recursion::PairingPoints<ClientCircuit>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<ClientCircuit>>;
     using KernelIO = bb::stdlib::recursion::honk::KernelIO;
     using HidingKernelIO = bb::stdlib::recursion::honk::HidingKernelIO<ClientCircuit>;
     using AppIO = bb::stdlib::recursion::honk::AppIO;
