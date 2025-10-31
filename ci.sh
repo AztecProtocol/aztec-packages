@@ -180,13 +180,16 @@ case "$cmd" in
     prep_vars
     # Spin up ec2 instance and run the release test flow.
     run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-test'"
+      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
     }
     export -f run
-    # We need to run the release test flow on both x86 and arm64.
+    # We need to run fast CI and release test flow on both x86 and arm64.
+    # The release flow doesn't run tests, so we run them too.
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release-test amd64' \
-      'run a-release-test arm64' | DUP=1 cache_log "Release test CI run" $RUN_ID
+      'run x-fast amd64 ci-fast' \
+      'run a-fast arm64 ci-fast' \
+      'run x-release-test amd64 ci-release-test' \
+      'run a-release-test arm64 ci-release-test' | DUP=1 cache_log "Release test CI run" $RUN_ID
     ;;
   "shell-new")
     # Spin up ec2 instance, clone, and drop into shell.
