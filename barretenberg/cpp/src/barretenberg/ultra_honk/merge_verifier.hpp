@@ -59,12 +59,9 @@ template <typename Curve> class MergeVerifier_ {
         bool degree_check_passed;
     };
 
-    // For recursive case, we need a builder pointer (store as void* to avoid template instantiation issues)
-
     MergeSettings settings;
     std::shared_ptr<Transcript> transcript;
 
-    // Constructor for native case
     explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND,
                             std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
         : settings(settings)

@@ -104,8 +104,8 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
-    FF pow_kappa = kappa.pow(shift_size);
-    FF pow_kappa_minus_one = pow_kappa * kappa_inv;
+    const FF pow_kappa = kappa.pow(shift_size);
+    const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
     // Opening claims to be passed to the Shplonk verifier
     std::vector<Claims> opening_claims;
@@ -161,7 +161,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
 
             // Constrain the equality in-circuit
             left_table_reversed_eval.assert_equal(left_table_eval_kappa_inv * pow_kappa_minus_one,
-                                                  "Merge Verifier: degree check identity failed");
+                                                  "assert_equal: degree check identity failed in Merge Verifier");
 
         } else {
             // In native case, track as a boolean
@@ -171,8 +171,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     }
 
     // Initialize Shplonk verifier
-    ShplonkVerifier_<Curve> verifier(
-        table_commitments, const_cast<std::shared_ptr<Transcript>&>(transcript), opening_claims.size());
+    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
     verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
 
     // Export batched claim

@@ -88,8 +88,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         }
 
         // Create a recursive merge verification circuit for the merge proof
-        std::shared_ptr<StdlibTranscript<RecursiveBuilder>> merge_transcript =
-            std::make_shared<StdlibTranscript<RecursiveBuilder>>();
+        auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
         RecursiveMergeVerifier verifier{ settings, merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
         [[maybe_unused]] auto [pairing_points, recursive_merged_table_commitments, degree_check_verified] =
