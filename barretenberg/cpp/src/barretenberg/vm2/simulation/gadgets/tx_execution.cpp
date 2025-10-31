@@ -71,14 +71,14 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         .phase_lengths = PhaseLengths::from_tx(tx), // extract lengths of each phase at start
     });
 
-    info("Simulating tx ",
-         tx.hash,
-         " with ",
-         tx.setupEnqueuedCalls.size(),
-         " setup enqueued calls, ",
-         tx.appLogicEnqueuedCalls.size(),
-         " app logic enqueued calls, and ",
-         tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
+    vinfo("Simulating tx ",
+          tx.hash,
+          " with ",
+          tx.setupEnqueuedCalls.size(),
+          " setup enqueued calls, ",
+          tx.appLogicEnqueuedCalls.size(),
+          " app logic enqueued calls, and ",
+          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // Insert non-revertibles. This can throw if there is a nullifier collision.
     // That would result in an unprovable tx.
@@ -166,7 +166,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             }
         }
     } catch (const TxExecutionException& e) {
-        info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
+        vinfo("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.reverted = true;
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
