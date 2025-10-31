@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 17,
+  "id": 0,
   "links": [],
   "panels": [
     {
@@ -102,7 +102,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0-18356121373.patch4",
+      "pluginVersion": "12.3.0-18686767985",
       "targets": [
         {
           "editorMode": "code",
@@ -215,7 +215,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0-18356121373.patch4",
+      "pluginVersion": "12.3.0-18686767985",
       "targets": [
         {
           "editorMode": "code",
@@ -309,7 +309,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.0-18356121373.patch4",
+      "pluginVersion": "12.3.0-18686767985",
       "targets": [
         {
           "editorMode": "code",
@@ -331,12 +331,12 @@
     "list": []
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-6h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Aztec Testnet Block Height Monitor",
+  "title": "Aztec Network Block Height Monitor",
   "uid": "alpha-testnet-monitor",
-  "version": 11
+  "version": 12
 }
