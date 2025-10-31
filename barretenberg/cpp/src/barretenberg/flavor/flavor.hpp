@@ -263,35 +263,16 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Compute VK hash by accumulating components through the transcript's independent buffer.
+     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
+     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
+     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
+     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
+     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
      *
-     * @details This method serves TWO purposes:
-     *
-     * 1. **Compute VK hash**: Accumulates VK components (circuit size, public input count, commitments) into the
-     *    independent hash buffer, then returns H(all_components).
-     *
-     * 2. **Tag VK witnesses for origin tag system** (recursive verification only):
-     *    In recursive verification, VK commitments are circuit witnesses that need origin tags. By flowing them
-     *    through the transcript, they receive proper origin tags as a side effect of serialization.
-     *
-     *    **Why this is necessary**: Later in verification, the VK commitments are copied into VerifierCommitments
-     *    for use in Sumcheck and PCS. If we computed the hash outside the transcript (vk->hash()), only the hash
-     *    value would be tagged, not the underlying VK commitment witnesses. When VerifierCommitments tries to use
-     *    these untagged witnesses, the origin tag system would abort.
-     *
-     *    **The tradeoff**: This means the independent buffer has dual purpose - computing hashes AND tagging witnesses.
-     *    It's a subtle design choice that could be refactored, but works correctly for now.
-     *
-     * @param domain_separator Prefix for all labels
-     * @param transcript Transcript instance (uses independent buffer, NOT main Fiat-Shamir buffer)
+     * @param domain_separator
+     * @param transcript
      * @returns The hash of the verification key
-     *
-     * @note For native verification (non-recursive), the tagging side effect is a no-op, and this simply computes
-     *       the hash. For recursive verification, this is critical for origin tag correctness.
-     *
-     * @note ECCVM and Translator recursive verifiers DON'T use this method (it throws an error). Their VKs are
-     *       hardcoded into the circuit as trusted commitments (not extracted from proof), so they use vk->hash()
-     *       directly. Ultra/Mega VKs are dynamic and verified, requiring this tagging pattern.
      */
     virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
                                                                   Transcript& transcript) const
