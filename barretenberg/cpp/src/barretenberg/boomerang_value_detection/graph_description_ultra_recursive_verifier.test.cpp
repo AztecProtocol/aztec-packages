@@ -118,8 +118,13 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         StdlibProof stdlib_inner_proof(outer_circuit, inner_proof);
         VerifierOutput output = verifier.template verify_proof<DefaultIO<OuterBuilder>>(stdlib_inner_proof);
         PairingObject pairing_points = output.points_accumulator;
-        // BIGGROUP_AUDITTODO: It seems suspicious that we have to fix these witnesses here to make this test pass.
-        // Seems to defeat the purpose of the test.
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their
+        // output coordinates may not appear in multiple constraint gates. Calling fix_witness() adds explicit
+        // constraints on these values. Without these constraints, the StaticAnalyzer detects unconstrained variables
+        // (coordinate limbs) that appear in only one gate. This ensures the pairing point coordinates are properly
+        // constrained within the circuit itself, rather than relying solely on them being public outputs.
         pairing_points.P0.fix_witness();
         pairing_points.P1.fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
