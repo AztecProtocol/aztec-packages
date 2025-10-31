@@ -116,10 +116,9 @@ add_subdirectory(barretenberg/lmdblib)
 # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
 if(NOT WASM)
     add_subdirectory(barretenberg/vm2)
-endif()
-
-if(FUZZING)
-    add_subdirectory(barretenberg/avm_fuzzer)
+    if(FUZZING)
+        add_subdirectory(barretenberg/avm_fuzzer)
+    endif()
 endif()
 
 if(NOT FUZZING AND NOT WASM)
