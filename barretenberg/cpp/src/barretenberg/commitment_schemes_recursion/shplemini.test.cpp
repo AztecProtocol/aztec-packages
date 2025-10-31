@@ -72,8 +72,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
         KZG<NativeCurve>::compute_opening_proof(commitment_key, prover_opening_claims, prover_transcript);
         Builder builder;
         StdlibProof stdlib_proof(builder, prover_transcript->export_proof());
-        auto stdlib_verifier_transcript = std::make_shared<Transcript>();
-        stdlib_verifier_transcript->load_proof(stdlib_proof);
+        auto stdlib_verifier_transcript = std::make_shared<Transcript>(stdlib_proof);
         [[maybe_unused]] auto _ = stdlib_verifier_transcript->template receive_from_prover<Fr>("Init");
 
         // Execute Verifier protocol without the need for vk prior the final check

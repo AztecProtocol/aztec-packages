@@ -171,8 +171,7 @@ TYPED_TEST(TranscriptTests, AllTypesMixed)
     auto challenge = prover.template get_challenge<bb::fr>("final_challenge");
 
     // Verify
-    typename TestFixture::Transcript verifier;
-    verifier.load_proof(this->export_proof(prover));
+    typename TestFixture::Transcript verifier(this->export_proof(prover));
 
     verifier.template receive_from_prover<FF>("scalar");
     // Skip basefield - causes template instantiation issues with bigfield
@@ -198,7 +197,6 @@ TYPED_TEST(TranscriptTests, ManyRoundsStressTest)
     using FF = typename TestFixture::FF;
 
     NativeTranscript prover;
-    typename TestFixture::Transcript verifier;
 
     constexpr size_t NUM_ROUNDS = 10;
     std::vector<bb::fr> prover_challenges;
@@ -212,7 +210,7 @@ TYPED_TEST(TranscriptTests, ManyRoundsStressTest)
     }
 
     // Verifier: replay
-    verifier.load_proof(this->export_proof(prover));
+    typename TestFixture::Transcript verifier(this->export_proof(prover));
     for (size_t i = 0; i < NUM_ROUNDS; ++i) {
         verifier.template receive_from_prover<FF>("data_" + std::to_string(i));
         auto chal = verifier.template get_challenge<FF>("challenge_" + std::to_string(i));
@@ -236,8 +234,7 @@ TYPED_TEST(TranscriptTests, BatchChallengeGeneration)
     std::array<std::string, 3> labels = { "alpha", "beta", "gamma" };
     auto [p_alpha, p_beta, p_gamma] = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier;
-    verifier.load_proof(this->export_proof(prover));
+    typename TestFixture::Transcript verifier(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("data");
 
     auto [v_alpha, v_beta, v_gamma] = verifier.template get_challenges<FF>(labels);
@@ -262,8 +259,7 @@ TYPED_TEST(TranscriptTests, VectorChallengeGeneration)
     std::vector<std::string> labels = { "c1", "c2", "c3", "c4", "c5" };
     auto prover_challenges = prover.template get_challenges<bb::fr>(labels);
 
-    typename TestFixture::Transcript verifier;
-    verifier.load_proof(this->export_proof(prover));
+    typename TestFixture::Transcript verifier(this->export_proof(prover));
     verifier.template receive_from_prover<FF>("init");
     auto verifier_challenges = verifier.template get_challenges<FF>(labels);
 

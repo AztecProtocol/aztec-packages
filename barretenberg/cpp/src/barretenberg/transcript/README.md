@@ -45,6 +45,12 @@ using KeccakTranscript = BaseTranscript<U256Codec, crypto::Keccak>;
 // In-circuit transcript for recursive verification
 template <typename Builder>
 using StdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<Builder>>, stdlib::poseidon2<Builder>>;
+
+// Builder-specific in-circuit transcripts
+using UltraStdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<UltraCircuitBuilder>>,
+                                              stdlib::poseidon2<UltraCircuitBuilder>>;
+using MegaStdlibTranscript = BaseTranscript<stdlib::StdlibCodec<field_t<MegaCircuitBuilder>>,
+                                             stdlib::poseidon2<MegaCircuitBuilder>>;
 ```
 
 ---
@@ -214,7 +220,7 @@ transcript->add_to_hash_buffer("vk_hash", vk_hash);
 - Computing verification key/verifier instance hashes
 
 #### `receive_from_prover<T>(const std::string& label) -> T`
-Deserialize and extract element from proof, update transcript state. In-circuit deserialization for `UltraCircuitBuilder` includes `on_curve` checks and proper constraints for `T` = `bigfield`. We also perform `is_infinity` checks to correctly desereialize points at infinity.
+Deserialize and extract element from proof, update transcript state.
 
 ```cpp
 auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments");
@@ -224,6 +230,10 @@ auto commitment = transcript->receive_from_prover<Commitment>("wire_commitments"
 - Reads `calc_num_fields<T>()` field elements from proof
 - Advances read position
 - Adds to `current_round_data`
+- Deserializes via `Codec::deserialize_from_fields<T>()` which enforces:
+  - **Curve checks** (for point types): `validate_on_curve()` called during deserialization
+  - **Range constraints** (for `bigfield` with UltraCircuitBuilder): Limb bounds enforced
+  - **Point-at-infinity detection**: `check_point_at_infinity()` used during point reconstruction
 - Assigns and validates origin tag (in-circuit mode)
 
 ### Challenge Generation
@@ -258,13 +268,13 @@ auto [beta, gamma] = transcript->get_challenges<FF>({"beta", "gamma"});
 - Uses iterative duplex hashing for subsequent pairs
 - All challenges from same round get the same origin tag
 
-#### `get_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_powers) -> std::vector<ChallengeType>`
-Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^num_powers)]`.
+#### `get_powers_of_challenge<ChallengeType>(const std::string& label, size_t num_challenges) -> std::vector<ChallengeType>`
+Generate a challenge and compute powers `[δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))]`.
 
 ```cpp
 // Used for gate separators in Sumcheck
 auto gate_challenges = transcript->get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
-// Returns [δ, δ², δ⁴, δ⁸, ...]
+// Returns [δ, δ², δ⁴, δ⁸, ...] (log_n elements)
 ```
 
 **Why squared powers?**

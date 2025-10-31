@@ -45,7 +45,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
-
+    // A DataType challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
     // The unique index of the transcript
@@ -65,6 +65,8 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
             transcript_index = unique_transcript_index.fetch_add(1);
         }
     }
+
+    BaseTranscript(const Proof& proof) { load_proof(proof); }
 
     std::ptrdiff_t proof_start = 0;
     size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
@@ -197,6 +199,11 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         return result;
     };
 
+    /**
+     * @brief
+     *
+     * @param proof
+     */
     void load_proof(const std::vector<DataType>& proof)
     {
         std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
@@ -304,8 +311,12 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     }
 
     /**
-     * @brief Get a challenge and compute its powers [δ, δ^2,..., δ^2^num_challenges].
-     * @details This is Step 2 of the protocol as written in the Protogalaxy paper.
+     * @brief Get a challenge and compute its powers [δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))].
+     * @details Generates num_challenges elements where each element is the square of the previous one.
+     * This is Step 2 of the protocol as written in the Protogalaxy paper.
+     * @param label Human-readable name for the challenge
+     * @param num_challenges Number of power-of-2 powers to generate
+     * @return Vector of num_challenges elements: [δ, δ², δ⁴, δ⁸, ...]
      */
     template <typename ChallengeType>
     std::vector<ChallengeType> get_powers_of_challenge(const std::string& label, size_t num_challenges)
@@ -482,8 +493,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
      */
     static std::shared_ptr<BaseTranscript> verifier_init_empty(const std::shared_ptr<BaseTranscript>& transcript)
     {
-        auto verifier_transcript = std::make_shared<BaseTranscript>();
-        verifier_transcript->load_proof(transcript->proof_data);
+        auto verifier_transcript = std::make_shared<BaseTranscript>(transcript->proof_data);
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };

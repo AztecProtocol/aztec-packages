@@ -108,8 +108,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Mock a previous verifier that would in reality be the ECCVM recursive verifier
         stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
-        auto transcript = std::make_shared<RecursiveFlavor::Transcript>();
-        transcript->load_proof(stdlib_proof);
+        auto transcript = std::make_shared<RecursiveFlavor::Transcript>(stdlib_proof);
         [[maybe_unused]] auto _ = transcript->template receive_from_prover<RecursiveFlavor::BF>("init");
 
         auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(prover.key->proving_key);
@@ -125,8 +124,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        auto native_verifier_transcript = std::make_shared<Transcript>();
-        native_verifier_transcript->load_proof(fake_inital_proof);
+        auto native_verifier_transcript = std::make_shared<Transcript>(fake_inital_proof);
         native_verifier_transcript->template receive_from_prover<InnerBF>("init");
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
         bool native_result = native_verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
@@ -190,8 +188,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
             // Mock a previous verifier that would in reality be the ECCVM recursive verifier
             stdlib::Proof<OuterBuilder> stdlib_proof(outer_circuit, fake_inital_proof);
-            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>();
-            transcript->load_proof(stdlib_proof);
+            auto transcript = std::make_shared<typename RecursiveFlavor::Transcript>(stdlib_proof);
             [[maybe_unused]] auto _ = transcript->template receive_from_prover<typename RecursiveFlavor::BF>("init");
 
             RecursiveVerifier verifier{ &outer_circuit, verification_key, transcript };

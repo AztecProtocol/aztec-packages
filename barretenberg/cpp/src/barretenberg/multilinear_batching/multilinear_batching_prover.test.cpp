@@ -76,8 +76,7 @@ TEST(MultilinearBatchingVerifier, VerifyProof)
 
     auto proof = prover.construct_proof();
     EXPECT_FALSE(proof.empty());
-    auto verifier_transcript = std::make_shared<Transcript>();
-    verifier_transcript->load_proof(proof);
+    auto verifier_transcript = std::make_shared<Transcript>(proof);
     MultilinearBatchingVerifier<MultilinearBatchingFlavor> verifier{ verifier_transcript };
 
     auto [verified, sumcheck_output] = verifier.verify_proof();
