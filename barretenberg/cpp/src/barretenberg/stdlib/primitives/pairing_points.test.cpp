@@ -1,6 +1,7 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include <gtest/gtest.h>
 
@@ -111,8 +112,6 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 {
-    BB_DISABLE_ASSERTS();
-
     using Builder = TypeParam;
     using PairingPoints = PairingPoints<Builder>;
     using Group = PairingPoints::Group;
@@ -146,13 +145,55 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
     // Check that the tags have not been merged
     EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
-    // Create a ProverInstance, expect failure
-    try {
-        ProverInstance prover_instance(builder);
-    } catch (std::exception& e) {
-        BB_ASSERT_EQ(e.what(),
-                     "Pairing points must all be aggregated together. Either no pairing points should be created, or "
-                     "all created pairing points must be aggregated into a single pairing point.");
-    }
+    // Create a ProverInstance, expect failure because pairing points have not been aggregated
+    EXPECT_THROW_OR_ABORT(
+        ProverInstance prover_instance(builder),
+        ::testing::HasSubstr(
+            "Pairing points must all be aggregated together. Either no pairing points should be created, or all "
+            "created pairing points must be aggregated into a single pairing point. Found 2 different pairing "
+            "points."));
+
+    // Aggregate pairing points
+    pp_one.aggregate(pp_three);
+
+    // Create a ProverInstance, expect failure because pairing points have not been set to public
+    EXPECT_THROW_OR_ABORT(
+        ProverInstance prover_instance(builder),
+        ::testing::HasSubstr(
+            "Pairing points must be set to public in the circuit before constructing the ProverInstance."));
+
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = pp_one;
+    inputs.set_public();
+
+    // Construct Prover instance successfully
+    ProverInstance prover_instance(builder);
 }
+
+TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
+{
+    using Builder = TypeParam;
+    using PairingPoints = PairingPoints<Builder>;
+    using Group = PairingPoints::Group;
+    using Fr = PairingPoints::Curve::ScalarField;
+    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    PairingPoints pp_original = { P0, P1 };
+    PairingPoints pp_copy(pp_original);
+
+    // Check that there is only one tag
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Check that the tags are the same
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_original.tag_index),
+                 builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
+}
+
 } // namespace bb::stdlib::recursion
