@@ -115,7 +115,6 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
 
     void test_basefield_send_receive()
     {
-
         NativeTranscript prover;
         bb::fq basefield_value = bb::fq::random_element();
         prover.send_to_verifier("basefield", basefield_value);
@@ -124,7 +123,8 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
         auto received = verifier.template receive_from_prover<BF>("basefield");
 
-        EXPECT_EQ(basefield_value, to_native(received));
+        EXPECT_EQ(basefield_value, bb::fq(to_native(received)));
+        check_circuit();
     }
 
     void test_bn254_commitment_send_receive()
@@ -189,10 +189,10 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
 
         // For stdlib, grumpkin::fr is serialized as bigfield
-        auto received = verifier.template receive_from_prover<std::array<fq, SIZE>>("grumpkin_array");
+        auto received = verifier.template receive_from_prover<std::array<BF, SIZE>>("grumpkin_array");
         for (size_t i = 0; i < SIZE; ++i) {
             // Convert bigfield back to grumpkin::fr via uint256_t
-            grumpkin::fr received_value(received[i].get_value());
+            grumpkin::fr received_value(to_native(received[i]));
             EXPECT_EQ(array_value[i], received_value);
         }
         check_circuit();
@@ -524,6 +524,8 @@ using UltraHash = stdlib::poseidon2<UltraCircuitBuilder>;
 using MegaCodec = stdlib::StdlibCodec<stdlib::field_t<MegaCircuitBuilder>>;
 using MegaHash = stdlib::poseidon2<MegaCircuitBuilder>;
 
+// NOTE: Keccak transcripts use U256Codec and are tested separately via flavor-specific tests
+// (e.g., UltraKeccakFlavor tests) because they require different data representation (uint256_t vs fr)
 using TranscriptTypes = ::testing::
     Types<std::pair<NativeCodec, NativeHash>, std::pair<UltraCodec, UltraHash>, std::pair<MegaCodec, MegaHash>>;
 

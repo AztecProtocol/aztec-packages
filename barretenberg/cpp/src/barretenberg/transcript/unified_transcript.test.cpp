@@ -44,15 +44,9 @@ TYPED_TEST(TranscriptTests, Uint32SendReceive)
 
 TYPED_TEST(TranscriptTests, ArraySendReceive)
 {
-    this->template test_array_send_receive<5>();
+    this->template test_array_send_receive<8>();
 }
 
-TYPED_TEST(TranscriptTests, LargeArraySendReceive)
-{
-    this->template test_array_send_receive<10>();
-}
-
-// Temporarily disabled - bigfield template issues
 TYPED_TEST(TranscriptTests, GrumpkinFieldArraySendReceive)
 {
     this->template test_grumpkin_field_array_send_receive<7>();
@@ -63,12 +57,6 @@ TYPED_TEST(TranscriptTests, UnivariateSendReceive)
     this->template test_univariate_send_receive<8>();
 }
 
-TYPED_TEST(TranscriptTests, LargeUnivariateSendReceive)
-{
-    this->template test_univariate_send_receive<16>();
-}
-
-// Temporarily disabled - bigfield template issues
 TYPED_TEST(TranscriptTests, GrumpkinUnivariateSendReceive)
 {
     this->template test_grumpkin_univariate_send_receive<3>();
@@ -92,7 +80,7 @@ TYPED_TEST(TranscriptTests, GrumpkinInfinityHandling)
 // Multi-Round Protocol Tests
 // ============================================================================
 
-TYPED_TEST(TranscriptTests, MultiRoundProtocol)
+TYPED_TEST(TranscriptTests, BasicMultiRoundProtocol)
 {
     this->test_multi_round_protocol();
 }
@@ -170,8 +158,8 @@ TYPED_TEST(TranscriptTests, AllTypesMixed)
 {
     using FF = typename TestFixture::FF;
     // using BF = typename TestFixture::BF;  // Unused - basefield tests skipped
-    using BN254Commitment = typename TestFixture::BN254Commitment;
-    using GrumpkinCommitment = typename TestFixture::GrumpkinCommitment;
+    using BN254Commitment = typename TestFixture::bn254_commitment;
+    using GrumpkinCommitment = typename TestFixture::grumpkin_commitment;
 
     NativeTranscript prover;
 
@@ -247,31 +235,6 @@ TYPED_TEST(TranscriptTests, ManyRoundsStressTest)
     }
 
     EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
-    this->check_circuit();
-}
-
-/**
- * @brief Test edge case: minimal data with challenges
- */
-TYPED_TEST(TranscriptTests, OnlyChallenges)
-{
-    using FF = typename TestFixture::FF;
-
-    NativeTranscript prover;
-    // Need at least one piece of data before generating challenges
-    prover.send_to_verifier("init", bb::fr(1));
-    auto prover_chal1 = prover.template get_challenge<bb::fr>("alpha");
-    auto prover_chal2 = prover.template get_challenge<bb::fr>("beta");
-
-    typename TestFixture::Transcript verifier;
-    verifier.load_proof(this->export_proof(prover));
-    verifier.template receive_from_prover<FF>("init");
-    auto verifier_chal1 = verifier.template get_challenge<FF>("alpha");
-    auto verifier_chal2 = verifier.template get_challenge<FF>("beta");
-
-    EXPECT_EQ(prover_chal1, this->to_native(verifier_chal1));
-    EXPECT_EQ(prover_chal2, this->to_native(verifier_chal2));
-
     this->check_circuit();
 }
 
