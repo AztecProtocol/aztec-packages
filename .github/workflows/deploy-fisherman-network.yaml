@@ -183,6 +183,7 @@ jobs:
       network: staging-ignition
       namespace: ignition-fisherman-sepolia
       l1_network: sepolia
+      cluster: aztec-gke-private
 
   setup-irm-mainnet:
     needs: deploy-fisherman
@@ -193,3 +194,4 @@ jobs:
       network: mainnet
       namespace: ignition-fisherman-mainnet
       l1_network: mainnet
+      cluster: aztec-gke-private
