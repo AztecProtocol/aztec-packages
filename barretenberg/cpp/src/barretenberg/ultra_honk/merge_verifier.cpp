@@ -60,8 +60,6 @@ template <typename Curve>
 typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify_proof(
     const Proof& proof, const InputCommitments& input_commitments)
 {
-    using Claims = typename ShplonkVerifier_<Curve>::LinearCombinationOfClaims;
-
     transcript->load_proof(proof);
 
     // Receive shift size from prover
@@ -76,19 +74,25 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
         BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
     }
 
-    // Vector of commitments to be passed to the Shplonk verifier
-    // The vector is composed of: [l_1], [r_1], [m_1],, ..., [l_4], [r_4], [m_4], [g]
-    std::vector<Commitment> table_commitments;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
-                                                             : input_commitments.T_prev_commitments[idx];
-        auto right_table = settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
-                                                              : input_commitments.t_commitments[idx];
+    // Store T_commitments of the verifier
+    TableCommitments merged_table_commitments;
 
-        table_commitments.emplace_back(left_table);
-        table_commitments.emplace_back(right_table);
+    // Vector of commitments
+    // The vector is composed of: [L_1], .., [L_4], [R_1], .., [R_4], [M_1], .., [M_4], [G]
+    std::vector<Commitment> table_commitments;
+    table_commitments.reserve((3 * NUM_WIRES) + 1);
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
+                                                                          : input_commitments.T_prev_commitments[idx]);
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        table_commitments.emplace_back(settings == MergeSettings::PREPEND ? input_commitments.T_prev_commitments[idx]
+                                                                          : input_commitments.t_commitments[idx]);
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         table_commitments.emplace_back(
             transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
+        merged_table_commitments[idx] = table_commitments.back();
     }
 
     // Generate degree check batching challenges
@@ -103,13 +107,13 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     table_commitments.emplace_back(
         transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
 
-    // Store T_commitments of the verifier
-    TableCommitments merged_table_commitments;
-    size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
-    for (auto& commitment : merged_table_commitments) {
-        commitment = table_commitments[commitment_idx];
-        commitment_idx += NUM_WIRES - 1;
+    // Compute batching challenges
+    std::vector<std::string> labels_shplonk_batching_challenges((3 * NUM_WIRES) + 1);
+    for (size_t idx = 0; idx < 3 * NUM_WIRES + 1; idx++) {
+        labels_shplonk_batching_challenges[idx] = "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx);
     }
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -117,83 +121,104 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     const FF pow_kappa = kappa.pow(shift_size);
     const FF pow_kappa_minus_one = pow_kappa * kappa_inv;
 
-    // Opening claims to be passed to the Shplonk verifier
-    std::vector<Claims> opening_claims;
-
-    // Field element constants for constructing claims
-    const FF one(1);
-    const FF zero(0);
-    const FF neg_one(-1);
-
-    // Add opening claim for p_j(X) = l_j(X) + X^k r_j(X) - m_j(X)
-    commitment_idx = 0;
+    // Receive evaluations of [L_i], [R_i], [M_i] at kappa
+    std::vector<FF> evals;
+    evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Claims claim{ { /*index of [l_j]*/ commitment_idx,
-                        /*index of [r_j]*/ commitment_idx + 1,
-                        /*index of [m_j]*/ commitment_idx + 2 },
-                      { one, pow_kappa, neg_one },
-                      { kappa, zero } };
-        opening_claims.emplace_back(claim);
-
-        // Move commitment_idx to the index of [l_{j+1}]
-        commitment_idx += NUM_WIRES - 1;
+        evals.emplace_back(transcript->template receive_from_prover<FF>("LEFT_TABLE_EVAL_" + std::to_string(idx)));
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        evals.emplace_back(transcript->template receive_from_prover<FF>("RIGHT_TABLE_EVAL_" + std::to_string(idx)));
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        evals.emplace_back(transcript->template receive_from_prover<FF>("MERGED_TABLE_EVAL_" + std::to_string(idx)));
     }
 
-    // Boolean keeping track of the degree identities (only used in native case)
+    // Receive evaluation of G at 1/kappa
+    evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
+
+    // Check concatenation identities
+    bool concatenation_verified = true;
+    FF concatenation_diff(0);
+    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
+        if constexpr (IsRecursive) {
+            concatenation_diff.assert_equal(FF(0),
+                                            "assert_equal: merge concatenation identity failed in Merge Verifier");
+            concatenation_verified &= concatenation_diff.get_value() == 0;
+        } else {
+            concatenation_verified &= concatenation_diff == 0;
+        }
+    }
+
+    // Check degree identity
     bool degree_check_verified = true;
-
-    // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
-    commitment_idx = 0;
-    FF batched_left_tables_eval(0);
+    FF degree_check_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        // Opening claim for l_j(1/kappa)
-        FF left_table_eval_kappa_inv =
-            transcript->template receive_from_prover<FF>("left_table_eval_kappa_inv_" + std::to_string(idx));
-        Claims claim = { { commitment_idx }, { one }, { kappa_inv, left_table_eval_kappa_inv } };
-        opening_claims.emplace_back(claim);
-
-        batched_left_tables_eval += left_table_eval_kappa_inv * degree_check_challenges[idx];
-
-        // Move commitment_idx to index of left_table_{j+1}
-        commitment_idx += NUM_WIRES - 1;
+        degree_check_diff += evals[idx] * degree_check_challenges[idx];
     }
-
-    // Opening claim for g(kappa)
-    FF reversed_batched_left_tables_eval =
-        transcript->template receive_from_prover<FF>("reversed_batched_left_tables_eval");
-    Claims claim = { { table_commitments.size() - 1 }, { one }, { kappa, reversed_batched_left_tables_eval } };
-    opening_claims.emplace_back(claim);
-
-    // Degree identity check
+    degree_check_diff -= evals.back() * pow_kappa_minus_one;
     if constexpr (IsRecursive) {
-        // For debugging purposes
-        degree_check_verified = (reversed_batched_left_tables_eval.get_value() ==
-                                 (batched_left_tables_eval.get_value() * pow_kappa_minus_one.get_value()));
-
-        // Constrain the equality in-circuit
-        reversed_batched_left_tables_eval.assert_equal(batched_left_tables_eval * pow_kappa_minus_one,
-                                                       "assert_equal: degree check identity failed in Merge Verifier");
-
+        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
+        degree_check_verified &= degree_check_diff.get_value() == 0;
     } else {
-        // In native case, track as a boolean
-        degree_check_verified = (reversed_batched_left_tables_eval == (batched_left_tables_eval * pow_kappa_minus_one));
+        degree_check_verified &= degree_check_diff == 0;
     }
 
-    // Initialize Shplonk verifier
-    ShplonkVerifier_<Curve> verifier(table_commitments, transcript, opening_claims.size());
-    verifier.reduce_verification_vector_claims_no_finalize(opening_claims);
+    // Receive Shplonk batched quotient
+    Commitment shplonk_batched_quotient =
+        transcript->template receive_from_prover<Commitment>("SHPLONK_BATCHED_QUOTIENT");
 
-    // Export batched claim
-    Commitment one_commitment;
+    // Generate Shplonk opening challenge
+    FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
+
+    // Prepare batched opening claim to be passed to KZG
+    BatchOpeningClaim<Curve> batch_opening_claim;
+
+    batch_opening_claim.commitments = { shplonk_batched_quotient };
+    for (auto& commitment : table_commitments) {
+        batch_opening_claim.commitments.emplace_back(-std::move(commitment));
+    }
     if constexpr (IsRecursive) {
-        one_commitment = Commitment::one(kappa.get_context());
+        batch_opening_claim.commitments.emplace_back(Commitment::one(kappa.get_context()));
     } else {
-        one_commitment = Commitment::one();
+        batch_opening_claim.commitments.emplace_back(Commitment::one());
     }
-    auto batch_opening_claim = verifier.export_batch_opening_claim(one_commitment);
 
+    batch_opening_claim.scalars = { (shplonk_opening_challenge - kappa) };
+    for (auto& scalar : shplonk_batching_challenges) {
+        batch_opening_claim.scalars.emplace_back(std::move(scalar));
+    }
+    batch_opening_claim.scalars.back() *=
+        (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
+
+    batch_opening_claim.scalars.emplace_back(FF(0));
+    for (size_t idx = 0; idx < evals.size(); idx++) {
+        if (idx < evals.size() - 1) {
+            batch_opening_claim.scalars.back() += evals[idx] * shplonk_batching_challenges[idx];
+        } else {
+            batch_opening_claim.scalars.back() += shplonk_batching_challenges.back() * evals.back() *
+                                                  (shplonk_opening_challenge - kappa) *
+                                                  (shplonk_opening_challenge - kappa_inv).invert();
+        }
+    }
+
+    batch_opening_claim.evaluation_point = { shplonk_opening_challenge };
+
+    size_t num_rows = 0;
+    if constexpr (IsRecursive) {
+        if constexpr (IsMegaBuilder<typename Curve::Builder>) {
+            num_rows = kappa.get_context()->op_queue->get_num_rows();
+        }
+    };
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
+
+    if constexpr (IsRecursive) {
+        if constexpr (IsMegaBuilder<typename Curve::Builder>) {
+            info("NUM ROWS ADDED: ", kappa.get_context()->op_queue->get_num_rows() - num_rows);
+        }
+    };
 
     return { pairing_points, merged_table_commitments, degree_check_verified };
 }
