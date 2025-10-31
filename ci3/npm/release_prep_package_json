@@ -2,39 +2,22 @@
 # Used before releases to write version and rewrite 'workspace:^' URLs.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 version=$1
-repo=${AZTEC_RELEASE_REPO:-aztec}
 
 tmp=$(mktemp)
 
-# If AZTEC_RELEASE_REPO is set to something other than 'aztec', update package scope
-if [ "$repo" != "aztec" ]; then
-  jq --arg v $version --arg repo "$repo" '
-    .version = $v |
-    if .name | startswith("@aztec/") then
-      .name = "@" + $repo + "/" + (.name | sub("^@aztec/"; ""))
-    else . end
-  ' package.json >$tmp && mv $tmp package.json
-else
-  jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
-fi
+jq --arg v $version '.version = $v' package.json >$tmp && mv $tmp package.json
 
 # We update every category of dependency.
 # While we don't strictly need to update devDependencies, 'workspace:^' is not a valid URL in npm.
 for deps in dependencies devDependencies peerDependencies; do
   # Update each dependency @aztec package version in package.json.
   for pkg in $(jq --raw-output "(.$deps // {}) | keys[] | select(contains(\"@aztec/\"))" package.json); do
-    if [ "$repo" != "aztec" ]; then
-      # Rename @aztec dependencies to @{repo}
-      new_pkg="@${repo}/${pkg#@aztec/}"
-      jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" ".$deps[\$new] = \$v | del(.$deps[\$old])" package.json >$tmp
-    else
-      jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
-    fi
+    jq --arg v $version ".$deps[\"$pkg\"] = \$v" package.json >$tmp
     mv $tmp package.json
   done
   # Update each dependency @noir-lang package version in package.json to point to renamed packages and versions.
   for pkg in $(jq --raw-output '(.'$deps' // {}) | keys[] | select(startswith("@noir-lang/"))' package.json); do
-    new_pkg="@${repo}/noir-${pkg#@noir-lang/}"
+    new_pkg="@aztec/noir-${pkg#@noir-lang/}"
     jq --arg v "$version" --arg old "$pkg" --arg new "$new_pkg" '.'$deps'[$new] = $v | del(.'$deps'[$old])' package.json > tmp.json
     mv tmp.json package.json
   done
