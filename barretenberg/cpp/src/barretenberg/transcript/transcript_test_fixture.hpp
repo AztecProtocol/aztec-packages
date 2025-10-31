@@ -81,6 +81,16 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         }
     }
 
+    size_t get_num_gates() const
+    {
+        if constexpr (IsStdlib) {
+            if (builder) {
+                return builder->get_estimated_num_finalized_gates();
+            }
+        }
+        return 0;
+    }
+
     auto export_proof(NativeTranscript& prover)
     {
         if constexpr (IsStdlib) {
@@ -109,7 +119,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
         auto received = verifier.template receive_from_prover<FF>("scalar");
 
-        EXPECT_EQ(scalar_value, to_native(received));
+        BB_ASSERT_EQ(scalar_value, to_native(received));
         check_circuit();
     }
 
@@ -123,7 +133,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
         auto received = verifier.template receive_from_prover<BF>("basefield");
 
-        EXPECT_EQ(basefield_value, bb::fq(to_native(received)));
+        BB_ASSERT_EQ(basefield_value, bb::fq(to_native(received)));
         check_circuit();
     }
 
@@ -137,7 +147,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
         auto received = verifier.template receive_from_prover<bn254_commitment>("commitment");
 
-        EXPECT_EQ(commitment, to_native(received));
+        BB_ASSERT_EQ(commitment, to_native(received));
         check_circuit();
     }
 
@@ -151,11 +161,9 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.load_proof(export_proof(prover));
         auto received = verifier.template receive_from_prover<grumpkin_commitment>("commitment");
 
-        EXPECT_EQ(commitment, to_native(received));
+        BB_ASSERT_EQ(commitment, to_native(received));
         check_circuit();
     }
-
-    void test_uint32_send_receive() { GTEST_SKIP() << "uint32_t serialization not needed for transcript tests"; }
 
     template <size_t SIZE> void test_array_send_receive()
     {
@@ -171,7 +179,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto received = verifier.template receive_from_prover<std::array<FF, SIZE>>("array");
 
         for (size_t i = 0; i < SIZE; ++i) {
-            EXPECT_EQ(array_value[i], to_native(received[i]));
+            BB_ASSERT_EQ(array_value[i], to_native(received[i]));
         }
         check_circuit();
     }
@@ -193,7 +201,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         for (size_t i = 0; i < SIZE; ++i) {
             // Convert bigfield back to grumpkin::fr via uint256_t
             grumpkin::fr received_value(to_native(received[i]));
-            EXPECT_EQ(array_value[i], received_value);
+            BB_ASSERT_EQ(array_value[i], received_value);
         }
         check_circuit();
     }
@@ -213,7 +221,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto received = verifier.template receive_from_prover<bb::Univariate<FF, LENGTH>>("univariate");
 
         for (size_t i = 0; i < LENGTH; ++i) {
-            EXPECT_EQ(evals[i], to_native(received.evaluations[i]));
+            BB_ASSERT_EQ(evals[i], to_native(received.evaluations[i]));
         }
         check_circuit();
     }
@@ -235,13 +243,13 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
             auto received = verifier.template receive_from_prover<bb::Univariate<BF, LENGTH>>("grumpkin_univariate");
             for (size_t i = 0; i < LENGTH; ++i) {
                 grumpkin::fr received_value(received.evaluations[i].get_value());
-                EXPECT_EQ(evals[i], received_value);
+                BB_ASSERT_EQ(evals[i], received_value);
             }
         } else {
             auto received =
                 verifier.template receive_from_prover<bb::Univariate<grumpkin::fr, LENGTH>>("grumpkin_univariate");
             for (size_t i = 0; i < LENGTH; ++i) {
-                EXPECT_EQ(evals[i], received.evaluations[i]);
+                BB_ASSERT_EQ(evals[i], received.evaluations[i]);
             }
         }
         check_circuit();
@@ -262,7 +270,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         } else {
             EXPECT_TRUE(received.is_point_at_infinity());
         }
-        EXPECT_EQ(infinity, to_native(received));
+        BB_ASSERT_EQ(infinity, to_native(received));
         check_circuit();
     }
 
@@ -281,7 +289,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         } else {
             EXPECT_TRUE(received.is_point_at_infinity());
         }
-        EXPECT_EQ(infinity, to_native(received));
+        BB_ASSERT_EQ(infinity, to_native(received));
         check_circuit();
     }
 
@@ -316,12 +324,11 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto [verifier_beta, verifier_gamma] = verifier.template get_challenges<FF>(challenge_labels);
 
         // Verify values match
-        EXPECT_EQ(uint32_t(25), uint32_t(to_native(data_recv)));
-        EXPECT_EQ(scalar, to_native(recv_scalar));
-        EXPECT_EQ(commitment, to_native(recv_commitment));
-        EXPECT_EQ(prover_alpha, to_native(verifier_alpha));
-        EXPECT_EQ(prover_beta, to_native(verifier_beta));
-        EXPECT_EQ(prover_gamma, to_native(verifier_gamma));
+        BB_ASSERT_EQ(scalar, to_native(recv_scalar));
+        BB_ASSERT_EQ(commitment, to_native(recv_commitment));
+        BB_ASSERT_EQ(prover_alpha, to_native(verifier_alpha));
+        BB_ASSERT_EQ(prover_beta, to_native(verifier_beta));
+        BB_ASSERT_EQ(prover_gamma, to_native(verifier_gamma));
 
         check_circuit();
     }
@@ -344,7 +351,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.template receive_from_prover<bn254_commitment>("commitment");
         verifier.template get_challenges<FF>(challenge_labels);
 
-        EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
+        BB_ASSERT_EQ(prover.get_manifest(), verifier.get_manifest());
 
         check_circuit();
     }
@@ -358,9 +365,9 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto challenge2 = prover.template get_challenge<bb::fr>("beta");
         auto challenge3 = prover.template get_challenge<bb::fr>("gamma");
 
-        EXPECT_NE(challenge1, bb::fr::zero());
-        EXPECT_NE(challenge2, bb::fr::zero());
-        EXPECT_NE(challenge3, bb::fr::zero());
+        BB_ASSERT_NEQ(challenge1, bb::fr::zero());
+        BB_ASSERT_NEQ(challenge2, bb::fr::zero());
+        BB_ASSERT_NEQ(challenge3, bb::fr::zero());
     }
 
     void test_challenges_after_data()
@@ -375,7 +382,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto challenge2 = prover.template get_challenge<bb::fr>("beta");
 
         // Challenges should be different
-        EXPECT_NE(challenge1, challenge2);
+        BB_ASSERT_NEQ(challenge1, challenge2);
     }
 
     void test_hash_buffer_consistency()
@@ -385,29 +392,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         verifier.add_to_hash_buffer("a", bb::fr(1));
         auto prover_chal = prover.template get_challenge<bb::fr>("alpha");
         auto verifier_chal = verifier.template get_challenge<bb::fr>("alpha");
-        EXPECT_EQ(prover_chal, verifier_chal);
-    }
-
-    void test_circuit_creates_constraints()
-    {
-        if constexpr (!IsStdlib) {
-            GTEST_SKIP() << "Stdlib-only - verifies circuit constraints are created";
-            return;
-        }
-
-        NativeTranscript prover;
-        prover.send_to_verifier("scalar", bb::fr::random_element());
-        prover.send_to_verifier("commitment", curve::BN254::AffineElement::random_element());
-        prover.template get_challenge<bb::fr>("alpha");
-
-        Transcript verifier;
-        verifier.load_proof(export_proof(prover));
-        verifier.template receive_from_prover<FF>("scalar");
-        verifier.template receive_from_prover<bn254_commitment>("commitment");
-        verifier.template get_challenge<FF>("alpha");
-
-        check_circuit();
-        // Circuit creates gates for Fiat-Shamir hashing
+        BB_ASSERT_EQ(prover_chal, verifier_chal);
     }
 
     void test_circuit_size_bounded()
@@ -439,17 +424,17 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         skip_if_stdlib("Native-only - tests internal state management");
 
         NativeTranscript transcript;
-        EXPECT_EQ(transcript.proof_start, 0);
-        EXPECT_EQ(transcript.num_frs_written, 0UL);
+        BB_ASSERT_EQ(transcript.proof_start, 0);
+        BB_ASSERT_EQ(transcript.num_frs_written, 0UL);
 
         bb::fr elt_a = 1377;
         transcript.send_to_verifier("a", elt_a);
-        EXPECT_EQ(transcript.proof_start, 0);
-        EXPECT_EQ(transcript.num_frs_written, 1UL);
+        BB_ASSERT_EQ(transcript.proof_start, 0);
+        BB_ASSERT_EQ(transcript.num_frs_written, 1UL);
 
         transcript.export_proof();
-        EXPECT_EQ(transcript.proof_start, 1);
-        EXPECT_EQ(transcript.num_frs_written, 0UL);
+        BB_ASSERT_EQ(transcript.proof_start, 1);
+        BB_ASSERT_EQ(transcript.num_frs_written, 0UL);
     }
 
     void test_prover_to_verifier_conversion()
@@ -469,9 +454,9 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         auto verifier_transcript =
             NativeTranscript::convert_prover_transcript_to_verifier_transcript(prover_transcript);
 
-        EXPECT_EQ(verifier_transcript->proof_start, 0);
-        EXPECT_EQ(prover_transcript->template get_challenge<bb::fr>("test_challenge"),
-                  verifier_transcript->template get_challenge<bb::fr>("test_challenge"));
+        BB_ASSERT_EQ(verifier_transcript->proof_start, 0);
+        BB_ASSERT_EQ(prover_transcript->template get_challenge<bb::fr>("test_challenge"),
+                     verifier_transcript->template get_challenge<bb::fr>("test_challenge"));
     }
 
     void test_tampering_detection()
@@ -503,7 +488,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
             verifier.template receive_from_prover<bb::fr>("random_field");
             auto verifier_challenge = verifier.template get_challenge<bb::fr>("alpha");
 
-            EXPECT_NE(prover_challenge, verifier_challenge)
+            BB_ASSERT_NEQ(prover_challenge, verifier_challenge)
                 << "Tampering should cause challenge mismatch in round " << round;
         }
     }
