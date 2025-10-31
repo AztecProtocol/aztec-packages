@@ -305,3 +305,220 @@ a &= -\mathfrak{s}_a + \sum_{i=0}^{n-1} (1 - 2 \cdot a'_{i+1}) \cdot \windex{2^{
 $$
 
 Note that the positive and negative parts are both non-negative and can be computed in a circuit without any conditional logic.
+
+### Strauss MSM with NAF
+
+Given scalars $a_1, a_2, \dots, a_m \in \mathbb{F}_r$ and group elements $P_1, P_2, \dots, P_m \in \mathbb{G}$, the multi-scalar multiplication (MSM) is defined as:
+
+$$
+A = \sum_{j=1}^{m} a_j \cdot P_j
+$$
+
+In the Strauss MSM algorithm using NAF representation, we decompose each scalar $a_j$ into its NAF slices as follows:
+
+$$
+\begin{aligned}
+a_j &= -\mathfrak{s}_j + \sum_{i=0}^{n-1} a_{j,n-1-i} \cdot \windex{2^{i}} \\
+\end{aligned}
+$$
+
+where $a_{j,n-1-i} \in \{-1, 1\}$ are the NAF slices for scalar $a_j$ and $\mathfrak{s}_j \in \{0, 1\}$ is the skew factor for $a_j$. Note that $a_{j, 0}$ is the most-significant NAF slice. Let us draw a table of the NAF slices for all scalars along with the generator points:
+
+$$
+\begin{aligned}
+\def\arraystretch{2}
+\def\arraycolsep{40pt}
+   \begin{array}{|c||c:c:c:c||c:c:c:c|}
+   \hline
+    \textcolor{olive}{P_1} & a_{1,0} & a_{1,1} & a_{1,2} & a_{1,3} & a_{1, 4} & \cdots & a_{1,n-2} & a_{1,n-1} \\ \hline
+    \textcolor{olive}{P_2} & a_{2,0} & a_{2,1} & a_{2,2} & a_{2,3} & a_{2, 4} & \cdots & a_{2,n-2} & a_{2,n-1} \\ \hline
+    \textcolor{olive}{P_3} & a_{3,0} & a_{3,1} & a_{3,2} & a_{3,3} & a_{3, 4} & \cdots & a_{3,n-2} & a_{3,n-1} \\ \hline
+    \textcolor{olive}{P_4} & a_{4,0} & a_{4,1} & a_{4,2} & a_{4,3} & a_{4, 4} & \cdots & a_{4,n-2} & a_{4,n-1} \\ \hline
+    \textcolor{olive}{P_5} & a_{5,0} & a_{5,1} & a_{5,2} & a_{5,3} & a_{5, 4} & \cdots & a_{5,n-2} & a_{5,n-1} \\ \hline
+    \vdots & \vdots & \vdots & \vdots & \vdots & \vdots & \qquad \ddots \qquad  & \vdots & \vdots \\ \hline
+    \textcolor{olive}{P_m} & a_{m,0} & a_{m,1} & a_{m,2} & a_{m,3} & a_{m, 4} & \cdots &  a_{m,n-2} & a_{m,n-1} \\
+    \hline
+\end{array}
+\end{aligned}
+$$
+
+We group the generator points in sizes of 5 points each (the last group can have less than 5 points). We sometimes use 6 points per group if the net number of tables can be reduced for optimization purposes. In this case, for the first 5 points, we compute the following ROM lookup table:
+
+$$
+\begin{aligned}
+\def\arraystretch{2}
+\def\arraycolsep{40pt}
+   \begin{array}{|c||c|}
+   \hline
+    \textsf{Index} & \textsf{Group Element} \\ \hline \hline
+    0 & \textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4} + \textcolor{olive}{P_5} \\ \hline
+    1 & \textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4} - \textcolor{olive}{P_5} \\ \hline
+    2 & \textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} - \textcolor{olive}{P_4} - \textcolor{olive}{P_5} \\ \hline
+    \vdots & \vdots \\ \hline
+    15 & \textcolor{olive}{P_1} - \textcolor{olive}{P_2} - \textcolor{olive}{P_3} - \textcolor{olive}{P_4} - \textcolor{olive}{P_5} \\ \hline
+    16 & -\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4} + \textcolor{olive}{P_5} \\ \hline
+    17 & -\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4} - \textcolor{olive}{P_5} \\ \hline
+    \vdots & \vdots \\ \hline
+    31 & -\textcolor{olive}{P_1} - \textcolor{olive}{P_2} - \textcolor{olive}{P_3} - \textcolor{olive}{P_4} - \textcolor{olive}{P_5} \\ \hline
+\end{array}
+\end{aligned}
+$$
+
+Going back to the NAF slice table, we can see that each column (i.e., each NAF slice index) corresponds to one of the entries in the above ROM table. For instance, the first column corresponds to the group element selected from the ROM table based on the signs of $a_{1,0}, a_{2,0}, a_{3,0}, a_{4,0}, a_{5,0}$. For example, since the first column always has values $(1, 1, 1, 1, 1)$, then we select the group element $(\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4} + \textcolor{olive}{P_5})$ from the ROM table (which corresponds to index 0). We do this for all groups of 5 points in a given column and sum the selected group elements to get the total group element for that NAF slice column.
+
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\begin{array}{c}
+\begin{array}{|c||c|}
+\hline
+\textcolor{olive}{P_1} & a_{1,i} \\ \hline
+\textcolor{olive}{P_2} & a_{2,i} \\ \hline
+\textcolor{olive}{P_3} & a_{3,i} \\ \hline
+\textcolor{olive}{P_4} & a_{4,i} \\ \hline
+\textcolor{olive}{P_5} & a_{5,i} \\ \hline
+\end{array}
+\left.
+\begin{array}{c}
+\\ \\ \\ \\ \\
+\end{array}
+\right\} \xrightarrow{\text{lookup from ROM table 1}} \ \textcolor{orange}{Q_{i,1}}
+\end{array}
+\\
+\def\arraystretch{1.6}
+\begin{array}{c}
+\begin{array}{|c||c|}
+\hline
+\textcolor{olive}{P_6} & a_{6,i} \\ \hline
+\textcolor{olive}{P_7} & a_{7,i} \\ \hline
+\textcolor{olive}{P_8} & a_{8,i} \\ \hline
+\textcolor{olive}{P_9} & a_{9,i} \\ \hline
+\textcolor{olive}{P_{10}} & a_{10,i} \\ \hline
+\end{array}
+\left.
+\begin{array}{c}
+\\ \\ \\ \\ \\
+\end{array}
+\right\} \xrightarrow{\text{lookup from ROM table 2}} \ \textcolor{orange}{Q_{i,2}}
+\end{array}
+\\
+\vdots \\
+\def\arraystretch{1.6}
+\begin{array}{c}
+\begin{array}{|c||c|}
+\hline
+\textcolor{olive}{P_{m-2}} & a_{m-2,i} \\ \hline
+\textcolor{olive}{P_{m-1}} & a_{m-1,i} \\ \hline
+\textcolor{olive}{P_{m}} & a_{m,i} \\ \hline
+\end{array}
+\left.
+\begin{array}{c}
+\\ \\ \\
+\end{array}
+\right\} \xrightarrow{\text{lookup from ROM table k}} \ \textcolor{orange}{Q_{i,k}}
+\end{array}
+\end{aligned}
+$$
+
+Here, $\textcolor{orange}{Q_{i,1}}, \textcolor{orange}{Q_{i,2}}, \dots, \textcolor{orange}{Q_{i,k}}$ are the selected group elements from each ROM table for the $i^{th}$ NAF slice column. We then sum these group elements to get the total group element for the $i^{th}$ NAF slice column:
+
+$$
+\textcolor{violet}{Q_{i}} = \textcolor{orange}{Q_{i,1}} + \textcolor{orange}{Q_{i,2}} + \dots + \textcolor{orange}{Q_{i,k}}
+$$
+
+To accumulate results from all columns, we iterate over the NAF columns in groups of 4 columns at a time. For each group of 4 columns, we perform the following steps:
+
+1. For each NAF column in the group, we compute the accumulated group element $\textcolor{violet}{Q_i}$ as described above by performing ROM lookups and additions.
+2. Suppose the accumulated group elements for the 4 columns are $\textcolor{violet}{Q_0}, \textcolor{violet}{Q_1}, \textcolor{violet}{Q_2}, \textcolor{violet}{Q_3}$. We then add these group elements to the overall accumulator with appropriate doublings. Specifically, we perform the following operation on the accumulator $R$:
+
+$$
+R = 2 \cdot \Big( 2 \cdot \big(2\cdot (2 \cdot R + \textcolor{violet}{Q_0}) + \textcolor{violet}{Q_1}\big) + \textcolor{violet}{Q_2}\Big) + \textcolor{violet}{Q_3}
+$$
+
+3. Lastly, after processing all NAF columns, we need to account for the skew factors $\mathfrak{s}_j$ for each scalar $a_j$:
+   - If $\mathfrak{s}_j = 1$, we subtract the corresponding group element $P_j$ from the accumulator $R$.
+   - If $\mathfrak{s}_j = 0$, we do nothing.
+
+Thus, the final result of the Strauss MSM using NAF representation is given by:
+
+$$
+A = R - \sum_{j=1}^{m} \mathfrak{s}_j \cdot \textcolor{olive}{P_j}.
+$$
+
+#### Handling Points at Infinity
+
+In the above Strauss MSM algorithm using NAF representation, if any of the group elements $P_j$ is the point at infinity (denoted as $\mathcal{O}$), we replace the pair $(\textcolor{olive}{P_j}, a_j)$ with $(\textcolor{olive}{G}, 0)$ in the input. This ensures that the contribution of that point to the MSM is effectively nullified, as multiplying any point by zero results in the point at infinity. Here, $\textcolor{olive}{G}$ is the generator point on the curve. This substitution allows us to maintain the structure of the MSM algorithm without introducing special cases for points at infinity.
+
+Once we replace all points at infinity with $(\textcolor{olive}{G}, 0)$, we can proceed with the Strauss MSM algorithm as described above. However, when we construct the ROM tables, one of the entries can lead to a point at infinity if the group elements are linearly dependent. For instance, given distinct points $\textcolor{olive}{P_1}, \textcolor{olive}{P_2}, \textcolor{olive}{P_3}, \textcolor{olive}{P_4}, \textcolor{olive}{P_5} \in \mathbb{G}$, if we have $\textcolor{olive}{P_5} = (\textcolor{olive}{P_1} + \textcolor{olive}{P_2} + \textcolor{olive}{P_3} + \textcolor{olive}{P_4})$, then the entry at index $1$ in the ROM table will be the point at infinity. Our circuit implementation does not allow for such cases and will throw an error asserting that the $x$-coordinates of two points being added are equal (which happens when adding a point to its negation). Therefore, it is crucial to ensure that the input points are linearly independent to avoid points at infinity in the ROM tables. To achieve this, we can perform a pre-processing step on the input points to add a small random multiple of the generator point to each input point.
+
+$$
+\begin{aligned}
+\textcolor{olive}{P_j} &\leftarrow \textcolor{olive}{P_j} + 2^{j} \cdot \delta \cdot \textcolor{olive}{G} \\
+\end{aligned}
+$$
+
+where $\delta$ is a verifier-chosen, 128-bit random scalar in $\mathbb{F}_r$. This randomization helps in breaking any linear dependencies among the points, thereby preventing the occurrence of points at infinity in the ROM tables during the MSM computation. The reason we need to use a verifier-chosen scalar is to ensure that a malicious prover cannot manipulate input points to create linear dependencies that could lead to inability to generate valid proofs. We choose powers of 2 multiples of $\delta$ to ensure that the randomization does not add significant overhead to the recursive circuit. Specifically, we need to compute $\delta \cdot \textcolor{olive}{G}$ just once, and then we can obtain $2^{j} \cdot \delta \cdot \textcolor{olive}{G}$ by performing $j$ doublings, which is efficient in terms of circuit complexity. This approach effectively mitigates the risk of points at infinity while keeping the overhead manageable.
+
+Even after randomization, we can still encounter points at infinity while accumulating the outputs of the ROM lookups for the first two NAF columns. For example, suppose the NAF slices for for a 5-point MSM in the first two rounds are as follows:
+
+$$
+\begin{aligned}
+\def\arraystretch{1.6}
+\begin{array}{c}
+\begin{array}{|c||c|c|c|c|}
+\hline
+& \textsf{round 1} & \textsf{round 2} \\ \hline \hline
+\textcolor{olive}{P_1} & +1 & -1 \\ \hline
+\textcolor{olive}{P_2} & +1 & -1 \\ \hline
+\textcolor{olive}{P_3} & +1 & -1 \\ \hline
+\textcolor{olive}{P_4} & +1 & -1 \\ \hline
+\textcolor{olive}{P_5} & +1 & -1 \\ \hline \hline
+\textsf{column output} & \textcolor{violet}{Q_{1}} & \textcolor{violet}{Q_{2}} \\ \hline
+\end{array}
+\end{array}
+\end{aligned}
+$$
+
+In this case, since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$, while initialising the accumulator $R$:
+
+$$
+\begin{aligned}
+R &= 2 \cdot \textcolor{violet}{Q_{1}} + \textcolor{violet}{Q_{2}} =
+\underbrace{(\textcolor{violet}{Q_{1}} + \textcolor{violet}{Q_{2}})}_{= \ \mathcal{O}} + (\textcolor{violet}{Q_{1}}) \\
+\end{aligned}
+$$
+
+Our Montmogomery ladder implementation requires that the two points being added have distinct $x$-coordinates, which is not the case here since $\textcolor{violet}{Q_{2}} = -\textcolor{violet}{Q_{1}}$. So an honest prover would fail to generate a valid proof. To prevent this, we can add a random offset generator to the first column output before adding it to the accumulator:
+
+$$
+\begin{aligned}
+R &= 2 \cdot (\textcolor{violet}{Q_{1}} + \windex{G_{\textsf{offset}}}) + \textcolor{violet}{Q_{2}} \\
+\end{aligned}
+$$
+
+Adding this offset generator ensures that the two points being added have distinct $x$-coordinates during the addition operation in the Montgomery ladder.
+
+> Note that we do not choose the offset generator to be dependent on the random scalar $\delta$ used for point randomization. This is safe when we are masking the points with random multiples of the generator, as a malicious prover cannot control the randomization applied to the masked points. However, this could be a vulnerability if the input points were not masked, as a malicious prover could potentially exploit knowledge of the offset generator to create points at infinity. In our usage of the `batch_mul` implementation in the recursive circuit, we always mask the input points, so using a fixed offset generator is secure. When using `scalar_mul` to aggregate pairing points in the recursive verifier, we do not apply masking to the input point. However, since the pairing points themselves are derived using verifier-chosen randomness, there is no risk of a malicious prover exploiting the offset generator in this context.
+
+In summary, the modified MSM computation becomes:
+
+$$
+\begin{aligned}
+A &= \sum_{j=1}^{m} a_j \cdot (\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{\delta G}) - \left(\sum_{j=1}^{m} 2^{j} \cdot a_j \right) \cdot \textcolor{olive}{\delta G} \\
+&= \sum_{j=1}^{m} a_j \cdot \underbrace{(\textcolor{olive}{P_j} + 2^{j} \cdot \textcolor{olive}{\delta G})}_{=: \ \textcolor{olive}{P'_j}} - \underbrace{\left(\sum_{j=1}^{m} \frac{2^{j} \cdot a_j}{2^{m+1}} \right)}_{=: \ a_{m+1}} \cdot \underbrace{(2^{m+1} \cdot \textcolor{olive}{\delta G})}_{=: \ \textcolor{olive}{P'_{m+1}}} \\
+&= \sum_{j=1}^{m+1} a_j \cdot \textcolor{olive}{P'_j}
+\end{aligned}
+$$
+
+Substituting the NAF representation of each scalar $a_j, j \in [1, m+1]$ into the MSM computation, we get:
+
+$$
+\begin{aligned}
+A &= \sum_{j=1}^{m+1} \left( -\mathfrak{s}_{j} + \sum_{i=0}^{n-1} \windex{2^{i}} \cdot a_{j, n-1-i} \right) \cdot \textcolor{olive}{P'_j} \\
+&= \sum_{j=1}^{m+1} \left( \sum_{i=0}^{n-1} \windex{2^{i}} \cdot a_{j, n-1-i} \right) \cdot \textcolor{olive}{P'_j} - \sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j} \\
+&= \windex{2^{n - 1}} \cdot \underbrace{\left(\sum_{j=1}^{m+1}  a_{j, 0} \cdot \textcolor{olive}{P'_j}\right)}_{=: \ \textcolor{violet}{Q_1}} + \sum_{i=1}^{n-1} \windex{2^{i}} \cdot \underbrace{\left( \sum_{j=1}^{m+1} a_{j, n-1-i} \cdot \textcolor{olive}{P'_j} \right)}_{\textcolor{violet}{Q_i}} - \sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j} \\
+&= \windex{2^{n-1}} \cdot \left( \textcolor{violet}{Q_1} + \windex{G_{\textsf{offset}}} \right) - \windex{2^{n-1}} \cdot \windex{G_{\textsf{offset}}} + \left(\sum_{i=1}^{n-1} \windex{2^{i}} \cdot \textcolor{violet}{Q_i}\right) - \left(\sum_{j=1}^{m+1} \mathfrak{s}_{j} \cdot \textcolor{olive}{P'_j}\right). \\
+\end{aligned}
+$$
+
+Thus, we need to subtract the term $\windex{2^{n-1}} \cdot \windex{G_{\textsf{offset}}}$ from the final MSM result to account for the offset generator added to the first NAF column output. This ensures that the final MSM result is correct and unaffected by the offset generator used to prevent points at infinity during intermediate computations.
