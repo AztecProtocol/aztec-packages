@@ -56,7 +56,7 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-        run: |          
+        run: |
           # Kludge. We should write this in Python or not checkout history.
           # Bash has an ugly footgun with changing history while running the script.
           buffer_script=$(cat ./scripts/backport_to_staging.sh)
