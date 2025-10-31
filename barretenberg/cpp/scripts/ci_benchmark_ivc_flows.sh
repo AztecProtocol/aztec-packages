@@ -2,6 +2,8 @@
 # Performs the chonk private transaction proving benchmarks for our 'realistic apps'.
 # This is called by yarn-project/end-to-end/bootstrap.sh bench, which creates these inputs from end-to-end tests.
 source $(git rev-parse --show-toplevel)/ci3/source
+source $(git rev-parse --show-toplevel)/ci3/source_redis
+source $(git rev-parse --show-toplevel)/ci3/source_cache
 
 if [[ $# -ne 2 ]]; then
   echo "Usage: $0 <runtime> <benchmark_folder>"
@@ -45,15 +47,16 @@ function run_bb_cli_bench {
   shift 2
 
   if [[ "$runtime" == "native" ]]; then
-    memusage "./$native_build_dir/bin/bb" "$@" || {
-      echo "bb native failed with args: $@"
+    # Add --bench_out_hierarchical flag for native builds to capture hierarchical op counts and timings
+    memusage "./$native_build_dir/bin/bb" "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb native failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   else # wasm
     export WASMTIME_ALLOWED_DIRS="--dir=$flow_folder --dir=$output"
-    # TODO support wasm op count time preset
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" || {
-      echo "bb wasm failed with args: $@"
+    # Add --bench_out_hierarchical flag for wasm builds to capture hierarchical op counts and timings
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb "$@" "--bench_out_hierarchical" "$output/benchmark_breakdown.json" || {
+      echo "bb wasm failed with args: $@ --bench_out_hierarchical $output/benchmark_breakdown.json"
       exit 1
     }
   fi
@@ -102,3 +105,37 @@ EOF
 export -f verify_ivc_flow run_bb_cli_bench
 
 chonk_flow $1 $2
+
+# Upload benchmark breakdown (op counts and timings) to disk if running in CI
+if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+  echo_header "Uploading Barretenberg benchmark breakdowns"
+
+  runtime="$1"
+  flow_name="$(basename $2)"
+  benchmark_breakdown_file="bench-out/app-proving/$flow_name/$runtime/benchmark_breakdown.json"
+
+  if [[ -f "$benchmark_breakdown_file" ]]; then
+    current_sha=$(git rev-parse HEAD)
+
+    # Create cache key: bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
+    cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
+
+    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    {
+      # Write to Redis for ci.aztec-labs.com access
+      cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
+
+      # Write to disk in explicit subfolder (only if disk logging enabled)
+      if [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
+        # Strip the prefix from key when writing to disk subfolder
+        disk_key="${cache_key#bench-bb-breakdown-}"
+        cat "$benchmark_breakdown_file" | gzip | cache_disk_transfer_to "bench/bb-breakdown" "$disk_key"
+      fi
+    } &
+
+    echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
+  else
+    echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
+  fi
+fi
