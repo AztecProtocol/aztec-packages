@@ -11,23 +11,6 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-# Temporarily duplicated with barretenberg/cpp/bootstrap.sh until part of base image
-function ensure_zig {
-  if command -v zig &>/dev/null; then
-    return
-  fi
-  local arch=$(uname -m)
-  local zig_version=0.15.1
-  local bin_path=/opt/zig-${arch}-linux-${zig_version}
-  if [ -f $bin_path/zig ]; then
-    export PATH="$bin_path:$PATH"
-    return
-  fi
-  echo "Installing zig $zig_version..."
-  curl -sL https://ziglang.org/download/$zig_version/zig-${arch}-linux-$zig_version.tar.xz | sudo tar -xJ -C /opt
-  export PATH="$bin_path:$PATH"
-}
-
 function build {
   echo_header "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
@@ -42,7 +25,6 @@ function build {
 
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     if ! cache_download $cross_compile_artifact; then
-      ensure_zig
       # We build libraries to be linked by barretenberg
       # For now we only use the zig build for macOS targets
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then

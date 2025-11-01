@@ -50,11 +50,12 @@ define run_command
 endef
 
 # Main build helper - calls bootstrap.sh with optional function argument
-# Usage: $(call build,project-path[,function-name])
-# If function-name is provided: ./bootstrap.sh function-name
-# If omitted: ./bootstrap.sh $(BUILD_MODE)
+# Usage: $(call build,label,project-path[,function-name])
+# label: Display name for colored output (usually the target name)
+# project-path: Path to the project directory
+# function-name: Optional bootstrap.sh command (defaults to $(BUILD_MODE))
 define build
-	$(call run_command,$(1),$(ROOT)/$(1),$(ROOT)/ci3/denoise './bootstrap.sh $(if $(2),$(2),$(BUILD_MODE))')
+	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(if $(3),$(3),$(BUILD_MODE))')
 endef
 
 #==============================================================================
@@ -78,14 +79,17 @@ all: release-image barretenberg boxes playground docs spartan aztec-up
 #==============================================================================
 # Noir
 #==============================================================================
-noir:
-	$(call build,noir)
+noir-sync:
+	$(call build,$@,noir,noir-sync)
+
+noir: noir-sync
+	$(call build,$@,noir)
 
 #==============================================================================
 # AVM Transpiler
 #==============================================================================
-avm-transpiler:
-	$(call build,avm-transpiler)
+avm-transpiler: noir-sync
+	$(call build,$@,avm-transpiler)
 
 #==============================================================================
 # Barretenberg
@@ -126,51 +130,51 @@ bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 
 # BB CRS Download - Downloads cryptographic reference string
 bb-crs:
-	$(call build,barretenberg/crs)
+	$(call build,$@,barretenberg/crs)
 
 # BBup - BB updater tool
 bb-bbup:
-	$(call build,barretenberg/bbup)
+	$(call build,$@,barretenberg/bbup)
 
 # BB C++ Native - Native bb binary and libraries
 bb-cpp-native: avm-transpiler
-	$(call build,barretenberg/cpp,build_native)
+	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build
 bb-cpp-wasm:
-	$(call build,barretenberg/cpp,build_wasm)
+	$(call build,$@,barretenberg/cpp,build_wasm)
 
 # BB C++ WASM Threads - Multi-threaded WebAssembly build
 bb-cpp-wasm-threads:
-	$(call build,barretenberg/cpp,build_wasm_threads)
+	$(call build,$@,barretenberg/cpp,build_wasm_threads)
 
 # Cross-compile for ARM64 Linux (release only)
 bb-cpp-cross-arm64-linux: avm-transpiler
-	$(call build,barretenberg/cpp,build_cross arm64-linux)
+	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
 bb-cpp-cross-amd64-macos: avm-transpiler
-	$(call build,barretenberg/cpp,build_cross amd64-macos)
+	$(call build,$@,barretenberg/cpp,build_cross amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
 bb-cpp-cross-arm64-macos: avm-transpiler
-	$(call build,barretenberg/cpp,build_cross arm64-macos)
+	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
-	$(call build,barretenberg/cpp,build_gcc_syntax_check_only)
+	$(call build,$@,barretenberg/cpp,build_gcc_syntax_check_only)
 
 # Fuzzing preset check (CI only, non-release)
 bb-cpp-fuzzing:
-	$(call build,barretenberg/cpp,build_fuzzing_syntax_check_only)
+	$(call build,$@,barretenberg/cpp,build_fuzzing_syntax_check_only)
 
 # Address sanitizer build (CI only, non-release)
 bb-cpp-asan:
-	$(call build,barretenberg/cpp,build_asan_fast)
+	$(call build,$@,barretenberg/cpp,build_asan_fast)
 
 # SMT verification (CI_FULL only)
 bb-cpp-smt:
-	$(call build,barretenberg/cpp,build_smt_verification)
+	$(call build,$@,barretenberg/cpp,build_smt_verification)
 
 # Conditional aggregate targets using parse-time dependency lists
 bb-cpp-cross: $(BB_CPP_CROSS_TARGETS)
@@ -180,54 +184,54 @@ bb-cpp-ci: $(BB_CPP_CI_TARGETS)
 # BB TypeScript - TypeScript bindings
 # Dependencies: Only needs WASM builds (for bb.js), not native (will need native soon)
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads
-	$(call build,barretenberg/ts)
+	$(call build,$@,barretenberg/ts)
 
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir-tests: noir bb-cpp-native
-	$(call build,barretenberg/acir_tests)
+	$(call build,$@,barretenberg/acir_tests)
 
 # BB Documentation
 bb-docs:
-	$(call build,barretenberg/docs)
+	$(call build,$@,barretenberg/docs)
 
 # BB Solidity - Solidity verifier contracts
 bb-sol: bb-cpp-native
-	$(call build,barretenberg/sol)
+	$(call build,$@,barretenberg/sol)
 
 # Noir Projects - Protocol circuits, contracts, and Aztec.nr
 noir-projects: noir bb-cpp-native
-	$(call build,noir-projects)
+	$(call build,$@,noir-projects)
 
 # L1 Contracts - Ethereum L1 smart contracts
 # Dependencies: noir-projects (needs rollup_root_verifier.sol)
 # TODO: Split so we can "link in" the verifier later.
 l1-contracts: noir-projects
-	$(call build,l1-contracts)
+	$(call build,$@,l1-contracts)
 
 # Yarn Project - TypeScript monorepo with all TS packages
 # Dependencies: noir (types, JS bindings), bb-cpp-wasm* (for bb.js), bb-ts (TypeScript bindings),
 #               noir-projects (circuit types), l1-contracts (contract artifacts)
 # Note: Only needs WASM builds and bb-ts, not native bb (which can build in parallel)
 yarn-project: bb-cpp-wasm bb-cpp-wasm-threads bb-ts noir-projects l1-contracts
-	$(call build,yarn-project)
+	$(call build,$@,yarn-project)
 
 # Release Image - Docker image for releases
 # Dependencies: yarn-project (needs built artifacts)
 release-image: yarn-project
-	$(call build,release-image)
+	$(call build,$@,release-image)
 
 boxes: yarn-project
-	$(call build,boxes)
+	$(call build,$@,boxes)
 
 playground: yarn-project
-	$(call build,playground)
+	$(call build,$@,playground)
 
 # Docs - Project documentation
 docs: yarn-project
-	$(call build,docs)
+	$(call build,$@,docs)
 
 spartan: yarn-project
-	$(call build,spartan)
+	$(call build,$@,spartan)
 
 aztec-up: yarn-project
-	$(call build,aztec-up)
+	$(call build,$@,aztec-up)
