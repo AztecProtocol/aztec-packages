@@ -25,14 +25,10 @@ CI_FULL ?= 0
 IS_RELEASE := $(shell $(ROOT)/ci3/semver check "$(REF_NAME)" && echo 1 || echo 0)
 IS_AMD64 := $(shell [ "$(ARCH)" = "amd64" ] && echo 1 || echo 0)
 
-# ANSI 256-color palette - curated readable colors (avoiding black/white/gray)
-# These are chosen for good contrast on both light and dark terminals
-READABLE_COLORS := 33 39 76 82 99 141 165 166 172 178 196 202 208 211 214 220 226
-
 # Function to compute color from project name hash
-# Uses a simple hash to pick from READABLE_COLORS array
+# Picks a color between 20 and 231 (avoiding very dark/light colors)
 define compute_color
-$(word $(shell echo "$$((($$(printf '%s' '$(1)' | cksum | cut -d' ' -f1) % $(words $(READABLE_COLORS))) + 1))"),$(READABLE_COLORS))
+$(shell echo "$$((($$(printf '%s' '$(1)' | cksum | cut -d' ' -f1) % 212) + 20))")
 endef
 
 # Core helper to run a shell command with colored, prefixed output
@@ -63,7 +59,7 @@ endef
 #==============================================================================
 
 .PHONY: all build
-.PHONY: noir avm-transpiler barretenberg noir-projects l1-contracts yarn-project release-image
+.PHONY: noir avm-transpiler barretenberg noir-projects l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
 .PHONY: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 .PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
@@ -128,7 +124,7 @@ barretenberg: bb-cpp bb-ts bb-acir-tests bb-docs bb-sol bb-bbup
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 
-# BB CRS Download - Downloads cryptographic reference string
+# BB CRS Download
 bb-crs:
 	$(call build,$@,barretenberg/crs)
 
@@ -202,11 +198,17 @@ bb-sol: bb-cpp-native
 noir-projects: noir bb-cpp-native
 	$(call build,$@,noir-projects)
 
-# L1 Contracts - Ethereum L1 smart contracts
-# Dependencies: noir-projects (needs rollup_root_verifier.sol)
-# TODO: Split so we can "link in" the verifier later.
-l1-contracts: noir-projects
-	$(call build,$@,l1-contracts)
+# L1 Contracts - Ethereum L1 smart contracts (split for parallelization)
+# l1-contracts-src: Build all src/ contracts (fully independent!)
+l1-contracts-src:
+	$(call build,$@,l1-contracts,build_src)
+
+# l1-contracts-verifier: Build generated verifier and tests (depends on noir-projects)
+l1-contracts-verifier: noir-projects l1-contracts-src
+	$(call build,$@,l1-contracts,build_verifier)
+
+# l1-contracts: Complete build (aggregate target)
+l1-contracts: l1-contracts-src l1-contracts-verifier
 
 # Yarn Project - TypeScript monorepo with all TS packages
 # Dependencies: noir (types, JS bindings), bb-cpp-wasm* (for bb.js), bb-ts (TypeScript bindings),
