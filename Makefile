@@ -27,7 +27,7 @@ IS_AMD64 := $(shell [ "$(ARCH)" = "amd64" ] && echo 1 || echo 0)
 
 # ANSI 256-color palette - curated readable colors (avoiding black/white/gray)
 # These are chosen for good contrast on both light and dark terminals
-READABLE_COLORS := 33 39 76 82 99 165 166 172 196 202 208 214 220 226
+READABLE_COLORS := 33 39 76 82 99 141 165 166 172 178 196 202 208 211 214 220 226
 
 # Function to compute color from project name hash
 # Uses a simple hash to pick from READABLE_COLORS array
