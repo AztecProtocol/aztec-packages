@@ -13,24 +13,15 @@
 #
 # The BUILD_MODE variable is passed from bootstrap.sh (fast/full/etc)
 
-# Shell to use for all commands
-SHELL := /bin/bash
-
-# Build mode: passed from bootstrap.sh, defaults to fast
-# BUILD_MODE ?= fast
-
-# Git root directory
-ROOT := $(shell git rev-parse --show-toplevel)
+# Shell to use for all commands. -e ensures fail fast.
+SHELL := /bin/bash -e
 
 export DENOISE := 1
 
-# Architecture detection (using ci3/arch script for normalization)
+ROOT := $(shell git rev-parse --show-toplevel)
 ARCH := $(shell $(ROOT)/ci3/arch 2>/dev/null || echo "unknown")
-
-# CI and release mode detection
 CI ?= 0
 CI_FULL ?= 0
-# REF_NAME ?= $(shell git describe --tags --always 2>/dev/null || echo "dev")
 IS_RELEASE := $(shell $(ROOT)/ci3/semver check "$(REF_NAME)" && echo 1 || echo 0)
 IS_AMD64 := $(shell [ "$(ARCH)" = "amd64" ] && echo 1 || echo 0)
 
@@ -41,7 +32,7 @@ READABLE_COLORS := 33 39 76 82 99 165 166 172 196 202 208 214 220 226
 # Function to compute color from project name hash
 # Uses a simple hash to pick from READABLE_COLORS array
 define compute_color
-$(word $(shell echo "$$((($$(printf '%s' '$(1)' | cksum | cut -d' ' -f1) % $(words $(READABLE_COLORS))) + 1))"),$(READABLE_COLORS))
+	$(word $(shell echo "$$((($$(printf '%s' '$(1)' | cksum | cut -d' ' -f1) % $(words $(READABLE_COLORS))) + 1))"),$(READABLE_COLORS))
 endef
 
 # Core helper to run a shell command with colored, prefixed output
