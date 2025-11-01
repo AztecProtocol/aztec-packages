@@ -53,8 +53,18 @@ function build_preset() {
   if [[ "$preset" == "wasm-threads" ]] && ! semver check "$REF_NAME"; then
     cmake_args+=(-DENABLE_WASM_BENCH=ON)
   fi
-  cmake --fresh --preset "$preset" "${cmake_args[@]}"
+  cmake --preset "$preset" "${cmake_args[@]}"
   cmake --build --preset "$preset" "$@"
+}
+
+# Build only object files (compilation phase, no linking)
+# This can run in parallel with avm-transpiler since no linking occurs
+# Builds barretenberg library + vm2_sim for native (includes nodejs_module deps)
+function build_objects {
+  set -eu
+  if ! cache_download barretenberg-$native_preset-$hash.zst; then
+    build_preset $native_preset --target barretenberg --target vm2_sim --target vm2
+  fi
 }
 
 # Build all native binaries, including bb, bb-avm, tests, benches and napi lib.
@@ -64,6 +74,16 @@ function build_native {
     ./format.sh check
     build_preset $native_preset
     cache_upload barretenberg-$native_preset-$hash.zst build/{bin,lib}
+  fi
+}
+
+# Build only bb objects for cross-compile (excludes vm2_sim)
+# This can run in parallel with avm-transpiler cross-compile
+function build_cross_objects {
+  set -eu
+  target=$1
+  if ! cache_download barretenberg-$target-$hash.zst; then
+    build_preset zig-$target --target barretenberg
   fi
 }
 
@@ -197,7 +217,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f build_preset build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
   echo_header "bb cpp build"
@@ -396,7 +416,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
+  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_objects|build_cross_objects|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
     $cmd "$@"
     ;;
   *)

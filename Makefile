@@ -54,8 +54,9 @@ endef
 .PHONY: all build
 .PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
-.PHONY: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
+.PHONY: bb-cpp-objects bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 .PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+.PHONY: bb-cpp-cross-arm64-linux-objects bb-cpp-cross-amd64-macos-objects bb-cpp-cross-arm64-macos-objects
 .PHONY: bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt
 .PHONY: boxes playground docs spartan aztec-up
 
@@ -149,8 +150,13 @@ bb-crs:
 bb-bbup:
 	$(call build,$@,barretenberg/bbup)
 
-# BB C++ Native - Native bb binary and libraries
-bb-cpp-native: avm-transpiler-native
+# BB C++ Native - Split into compilation and linking phases
+# Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
+bb-cpp-objects:
+	$(call build,$@,barretenberg/cpp,build_objects)
+
+# Linking phase: Link all native binaries (needs avm-transpiler)
+bb-cpp-native: bb-cpp-objects avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build
@@ -161,16 +167,26 @@ bb-cpp-wasm:
 bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_wasm_threads)
 
+# Cross-compile object phases (parallel with avm-transpiler cross-compile)
+bb-cpp-cross-arm64-linux-objects:
+	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-linux)
+
+bb-cpp-cross-amd64-macos-objects:
+	$(call build,$@,barretenberg/cpp,build_cross_objects amd64-macos)
+
+bb-cpp-cross-arm64-macos-objects:
+	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
+
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: avm-transpiler-native
+bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: avm-transpiler-cross-amd64-macos
+bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos
 	$(call build,$@,barretenberg/cpp,build_cross amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: avm-transpiler-cross-arm64-macos
+bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
 # GCC syntax check (CI only, non-release)
