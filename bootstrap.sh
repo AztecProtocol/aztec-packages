@@ -150,20 +150,25 @@ EOF
 function sort_by_cpus {
   awk '
     {
+      has_timeout = 0;
       cpus = 0;  # Default value
       # Split line on space, take first field ($1)
       split($1, subfields, ":");  # Split first field on :
       for (i in subfields) {
         split(subfields[i], arr, "=");
+        if (arr[1] == "TIMEOUT") {
+          has_timeout = 1;
+        }
         if (arr[1] == "CPUS") {
           cpus = arr[2];
-          break;
         }
       }
-      # Print padded CPUS value followed by original line
-      printf "%010d %s\n", cpus, $0
+      # Print has_timeout, then padded CPUS, then original line
+      # has_timeout=1 for TIMEOUT tests, has_timeout=0 for others
+      # We want TIMEOUT tests first, so sort descending on first key (1 before 0)
+      printf "%d %010d %s\n", has_timeout, cpus, $0
     }
-  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
+  ' | sort -s -r -n -k1,1 -r -n -k2,2 | cut -d' ' -f3-
 }
 
 function test_cmds {
