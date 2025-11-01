@@ -231,6 +231,8 @@ function test {
   echo "$tests" | parallelize
 }
 
+USE_MAKE=${USE_MAKE:-0}
+
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
@@ -239,6 +241,19 @@ function build {
 
   # Ensure we have yarn set up.
   corepack enable
+
+  # If Make is enabled.
+  if [ "$USE_MAKE" -eq 1 ]; then
+    echo_header "building with make"
+    local make_target="build"
+    local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
+    # Pass BUILD_MODE to Make
+    local build_mode="${1:-}"
+
+    make $make_flags BUILD_MODE=$build_mode $make_target
+    return $?
+  fi
 
   # These projects are dependent on each other and must be built linearly.
   serial_projects=(

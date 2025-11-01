@@ -127,7 +127,7 @@ function ensure_eth_balances {
 }
 
 case "$cmd" in
-  "")
+  ""|fast)
     # do nothing but the install_deps.sh above
     ;;
   "ensure_eth_balances")
