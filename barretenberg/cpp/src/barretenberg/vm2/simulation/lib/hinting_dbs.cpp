@@ -39,7 +39,6 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, const auto& tree_r
 // HintingContractsDB starts.
 std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const AztecAddress& address) const
 {
-    info("HintingContractsDB get_contract_instance");
     auto instance = db.get_contract_instance(address);
     // If we don't find the instance hint, this is not a catastrophic failure. The inner db should handle it, and
     // here we simply don't store any hint:
@@ -65,7 +64,6 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
 
 std::optional<ContractClass> HintingContractsDB::get_contract_class(const ContractClassId& class_id) const
 {
-    info("HintingContractsDB get_contract_class");
     auto klass = db.get_contract_class(class_id);
     // If we don't find the instance hint, this is not a catastrophic failure. The inner db should handle it, and
     // here we simply don't store any hint:
@@ -108,7 +106,6 @@ const AppendOnlyTreeSnapshot& HintingRawDB::get_tree_info(world_state::MerkleTre
 
 SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
-    info("HintingRawDB get_sib: ", leaf_index);
     auto tree_info = get_tree_info(tree_id);
     auto path = db.get_sibling_path(tree_id, leaf_index);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
@@ -119,7 +116,6 @@ SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, in
 
 GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id, const FF& value) const
 {
-    info("HintingRawDB get_low_indexed_leaf");
     auto tree_info = get_tree_info(tree_id);
     auto resp = db.get_low_indexed_leaf(tree_id, value);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
@@ -147,7 +143,6 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
 
 FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
-    info("HintingRawDB get_leaf_value");
     auto tree_info = get_tree_info(tree_id);
     auto value = db.get_leaf_value(tree_id, leaf_index);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
@@ -159,7 +154,6 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
 
 IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
-    info("HintingRawDB get_leaf_preimage_public_data_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     auto preimage = db.get_leaf_preimage_public_data_tree(leaf_index);
 
@@ -172,7 +166,6 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
 
 IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
-    info("HintingRawDB get_leaf_preimage_nullifier_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     auto preimage = db.get_leaf_preimage_nullifier_tree(leaf_index);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -185,7 +178,6 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
 SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
-    info("HintingRawDB insert_indexed_leaves_public_data_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     auto result = db.insert_indexed_leaves_public_data_tree(leaf_value);
     // The underlying db should update its state post insertion:
@@ -208,7 +200,6 @@ SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leav
 SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
-    info("HintingRawDB insert_indexed_leaves_nullifier_tree");
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     auto result = db.insert_indexed_leaves_nullifier_tree(leaf_value);
     // The underlying db should update its state post insertion:
@@ -230,7 +221,6 @@ SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leave
 
 void HintingRawDB::create_checkpoint()
 {
-    info("HintingRawDB create_checkpoint");
     auto old_checkpoint_id = db.get_checkpoint_id();
     // Update underlying db:
     db.create_checkpoint();
@@ -248,7 +238,6 @@ void HintingRawDB::create_checkpoint()
 
 void HintingRawDB::commit_checkpoint()
 {
-    info("HintingRawDB commit_checkpoint");
     auto old_checkpoint_id = db.get_checkpoint_id();
     // Update underlying db:
     db.commit_checkpoint();
@@ -265,7 +254,6 @@ void HintingRawDB::commit_checkpoint()
 
 void HintingRawDB::revert_checkpoint()
 {
-    info("HintingRawDB revert_checkpoint");
     auto state_before = db.get_tree_roots();
     auto old_checkpoint_id = db.get_checkpoint_id();
     // Update underlying db:
@@ -292,7 +280,6 @@ void HintingRawDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves
 
 std::vector<AppendLeafResult> HintingRawDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
 {
-    info("HintingRawDB append_leaves: ", leaves.size());
     auto tree_info = get_tree_info(tree_id);
     // Update underlying db:
     auto results = db.append_leaves(tree_id, leaves);

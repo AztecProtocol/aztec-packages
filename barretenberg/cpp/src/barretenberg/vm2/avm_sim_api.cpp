@@ -26,6 +26,11 @@ TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inpu
     AvmSimulationHelper simulation_helper;
     auto result = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints));
 
+    if (debug_logging) {
+        // TODO(fcarreiro): Enable once PI generation is complete.
+        // BB_ASSERT_EQ(inputs.publicInputs, result.public_inputs);
+    }
+
     return result;
 }
 
