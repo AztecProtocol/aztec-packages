@@ -193,14 +193,6 @@ class HintingDBsTest : public ::testing::Test {
         //     }
         // }
     }
-
-    static std::vector<PublicDataWrite> get_public_data_writes(const PublicInputs& inputs)
-    {
-        assert(inputs.accumulatedDataArrayLengths.publicDataWrites <= inputs.accumulatedData.publicDataWrites.size());
-        const auto* public_data_writes_start = inputs.accumulatedData.publicDataWrites.begin();
-        return std::vector<PublicDataWrite>(
-            public_data_writes_start, public_data_writes_start + inputs.accumulatedDataArrayLengths.publicDataWrites);
-    }
 };
 
 TEST_F(HintingDBsTest, Basic)
@@ -215,7 +207,7 @@ TEST_F(HintingDBsTest, Basic)
     compare_all_hints(input_hints, collected_hints);
 
     // Check witgen simulation works with collected hints:
-    simulation_helper.simulate_for_witgen(collected_hints, get_public_data_writes(inputs.publicInputs));
+    simulation_helper.simulate_for_witgen(collected_hints);
 }
 
 } // namespace

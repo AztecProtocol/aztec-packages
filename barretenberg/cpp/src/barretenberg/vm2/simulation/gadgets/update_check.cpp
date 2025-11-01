@@ -14,9 +14,7 @@ using UnconstrainedPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFie
 FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf_slot)
 {
     auto [present, index] = merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
-    info("performing unconstrained read for slot: ", leaf_slot, ", w res index: ", index);
     auto preimage = merkle_db.get_leaf_preimage_public_data_tree(index);
-    info("performing get leaf preimage for index: ", index, ", got value: ", preimage.leaf.value);
     return present ? preimage.leaf.value : 0;
 }
 
@@ -25,7 +23,6 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 void UpdateCheck::check_current_class_id(const AztecAddress& address, const ContractInstance& instance)
 {
     // Compute the public data tree slots
-    info("should arrive here after instance");
     FF delayed_public_mutable_slot = poseidon2.hash({ UPDATED_CLASS_IDS_SLOT, address });
     FF delayed_public_mutable_hash_slot = delayed_public_mutable_slot + UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN;
     // Read the hash from the tree. We do a trick with delayed public mutables (updates are delayed public mutables)
@@ -41,13 +38,6 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     uint64_t current_timestamp = globals.timestamp;
 
     if (hash == 0) {
-        info("hash 0, not performing unconstrained reads, would be for slots:");
-        info(unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, delayed_public_mutable_slot));
-        info(unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-                                             delayed_public_mutable_slot + 1));
-        info(unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
-                                             delayed_public_mutable_slot + 2));
-
         // If the delayed public mutable has never been written, then the contract was never updated. We short circuit
         // early.
         if (instance.original_contract_class_id != instance.current_contract_class_id) {
@@ -62,7 +52,6 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         for (size_t i = 0; i < update_preimage.size(); ++i) {
             FF leaf_slot = unconstrained_compute_leaf_slot(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
                                                            delayed_public_mutable_slot + i);
-            info("performing unconstrained reads i = ", i);
             update_preimage[i] = unconstrained_read(unconstrained_merkle_db, leaf_slot);
         }
 
