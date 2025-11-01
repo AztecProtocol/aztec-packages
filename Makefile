@@ -4,13 +4,6 @@
 # It coordinates the build order and dependencies between projects.
 # The actual build logic remains in each project's bootstrap.sh script.
 #
-# Usage (typically called from bootstrap.sh):
-#   make              # Build everything
-#   make -j8          # Build with 8 parallel jobs
-#   make noir         # Build only noir
-#   make barretenberg # Build barretenberg (and dependencies)
-#   make bb-cpp       # Build only barretenberg C++ library
-#
 # The BUILD_MODE variable is passed from bootstrap.sh (fast/full/etc)
 
 # Shell to use for all commands
@@ -59,7 +52,7 @@ endef
 #==============================================================================
 
 .PHONY: all build
-.PHONY: noir avm-transpiler barretenberg noir-projects l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
+.PHONY: noir avm-transpiler barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
 .PHONY: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 .PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
@@ -194,31 +187,52 @@ bb-docs:
 bb-sol: bb-cpp-native
 	$(call build,$@,barretenberg/sol)
 
-# Noir Projects - Protocol circuits, contracts, and Aztec.nr
-noir-projects: noir bb-cpp-native
-	$(call build,$@,noir-projects)
+#==============================================================================
+# Noir Projects
+#==============================================================================
 
-# L1 Contracts - Ethereum L1 smart contracts (split for parallelization)
+noir-protocol-circuits: noir bb-cpp-native
+	$(call build,$@,noir-projects/noir-protocol-circuits)
+
+mock-protocol-circuits: noir bb-cpp-native
+	$(call build,$@,noir-projects/mock-protocol-circuits)
+
+noir-contracts: noir bb-cpp-native
+	$(call build,$@,noir-projects/noir-contracts)
+
+aztec-nr: noir bb-cpp-native
+	$(call build,$@,noir-projects/aztec-nr)
+
+# Noir Projects - Aggregate target (builds all sub-projects)
+noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr
+
+#==============================================================================
+# L1 Contracts - Ethereum L1 smart contracts
+#==============================================================================
+
 # l1-contracts-src: Build all src/ contracts (fully independent!)
 l1-contracts-src:
 	$(call build,$@,l1-contracts,build_src)
 
-# l1-contracts-verifier: Build generated verifier and tests (depends on noir-projects)
-l1-contracts-verifier: noir-projects l1-contracts-src
+# l1-contracts-verifier: Build generated verifier and tests (depends on noir-protocol-circuits)
+l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 	$(call build,$@,l1-contracts,build_verifier)
 
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier
 
+#==============================================================================
 # Yarn Project - TypeScript monorepo with all TS packages
-# Dependencies: noir (types, JS bindings), bb-cpp-wasm* (for bb.js), bb-ts (TypeScript bindings),
-#               noir-projects (circuit types), l1-contracts (contract artifacts)
-# Note: Only needs WASM builds and bb-ts, not native bb (which can build in parallel)
+#==============================================================================
+
 yarn-project: bb-cpp-wasm bb-cpp-wasm-threads bb-ts noir-projects l1-contracts
 	$(call build,$@,yarn-project)
 
+#==============================================================================
+# The Rest
+#==============================================================================
+
 # Release Image - Docker image for releases
-# Dependencies: yarn-project (needs built artifacts)
 release-image: yarn-project
 	$(call build,$@,release-image)
 
