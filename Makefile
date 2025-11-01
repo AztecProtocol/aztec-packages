@@ -136,7 +136,7 @@ ifeq ($(CI_FULL),1)
 endif
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir-tests bb-docs bb-sol bb-bbup
+barretenberg: bb-cpp bb-ts bb-acir-tests bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
