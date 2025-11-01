@@ -231,8 +231,6 @@ function test {
   echo "$tests" | parallelize
 }
 
-USE_MAKE=${USE_MAKE:-0}
-
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
@@ -242,63 +240,60 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  # If Make is enabled.
-  if [ "$USE_MAKE" -eq 1 ]; then
-    echo_header "building with make"
-    local make_target="build"
-    local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
+  echo_header "building with make"
+  local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
 
-    # Pass BUILD_MODE to Make
-    local build_mode="${1:-}"
+  # Pass BUILD_MODE to Make
+  local build_mode="${1:-}"
 
-    make $make_flags BUILD_MODE=$build_mode $make_target
-    return $?
-  fi
+  make $make_flags BUILD_MODE=$build_mode
+  # return $?
+  # fi
 
-  # These projects are dependent on each other and must be built linearly.
-  serial_projects=(
-    noir
-    avm-transpiler
-    barretenberg
-    noir-projects
-    l1-contracts
-    yarn-project
-    release-image
-  )
-  # These projects can be built in parallel.
-  parallel_cmds=(
-    boxes/bootstrap.sh
-    playground/bootstrap.sh
-    docs/bootstrap.sh
-    spartan/bootstrap.sh
-    aztec-up/bootstrap.sh
-  )
+  # # These projects are dependent on each other and must be built linearly.
+  # serial_projects=(
+  #   noir
+  #   avm-transpiler
+  #   barretenberg
+  #   noir-projects
+  #   l1-contracts
+  #   yarn-project
+  #   release-image
+  # )
+  # # These projects can be built in parallel.
+  # parallel_cmds=(
+  #   boxes/bootstrap.sh
+  #   playground/bootstrap.sh
+  #   docs/bootstrap.sh
+  #   spartan/bootstrap.sh
+  #   aztec-up/bootstrap.sh
+  # )
 
-  local start_building=false
-  for project in "${serial_projects[@]}"; do
-    # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-    # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-    # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
+  # local start_building=false
+  # for project in "${serial_projects[@]}"; do
+  #   # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
+  #   # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
+  #   # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
 
-    # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-    if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-      start_building=true
-      continue
-    fi
+  #   # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
+  #   if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
+  #     start_building=true
+  #     continue
+  #   fi
 
-    # Build the project if we should be building
-    if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-      $project/bootstrap.sh ${1:-}
-    fi
+  #   # Build the project if we should be building
+  #   if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
+  #     $project/bootstrap.sh ${1:-}
+  #   fi
 
-    # Stop the build if we've reached BOOTSTRAP_TO
-    # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-    if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-      return
-    fi
-  done
+  #   # Stop the build if we've reached BOOTSTRAP_TO
+  #   # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
+  #   if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
+  #     return
+  #   fi
+  # done
 
-  parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
+  # parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
