@@ -52,7 +52,7 @@ endef
 #==============================================================================
 
 .PHONY: all build
-.PHONY: noir avm-transpiler barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
+.PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
 .PHONY: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 .PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
@@ -77,8 +77,32 @@ noir: noir-sync
 #==============================================================================
 # AVM Transpiler
 #==============================================================================
-avm-transpiler: noir-sync
-	$(call build,$@,avm-transpiler)
+
+# Determine which cross-compilation targets to build for avm-transpiler
+AVM_CROSS_TARGETS :=
+ifeq ($(IS_RELEASE),1)
+  ifeq ($(IS_AMD64),1)
+    AVM_CROSS_TARGETS := avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
+  endif
+endif
+
+# Native build (always needed)
+avm-transpiler-native: noir-sync
+	$(call build,$@,avm-transpiler,build_native)
+
+# Cross-compile for AMD64 macOS (release only)
+avm-transpiler-cross-amd64-macos: avm-transpiler-native
+	$(call build,$@,avm-transpiler,build_cross amd64-macos)
+
+# Cross-compile for ARM64 macOS (release only)
+avm-transpiler-cross-arm64-macos: avm-transpiler-native
+	$(call build,$@,avm-transpiler,build_cross arm64-macos)
+
+# Aggregate cross-compile target
+avm-transpiler-cross: $(AVM_CROSS_TARGETS)
+
+# Default avm-transpiler target (just native, cross builds happen conditionally)
+avm-transpiler: avm-transpiler-native $(AVM_CROSS_TARGETS)
 
 #==============================================================================
 # Barretenberg
@@ -126,7 +150,7 @@ bb-bbup:
 	$(call build,$@,barretenberg/bbup)
 
 # BB C++ Native - Native bb binary and libraries
-bb-cpp-native: avm-transpiler
+bb-cpp-native: avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build
@@ -138,15 +162,15 @@ bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_wasm_threads)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: avm-transpiler
+bb-cpp-cross-arm64-linux: avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_cross arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: avm-transpiler
+bb-cpp-cross-amd64-macos: avm-transpiler-cross-amd64-macos
 	$(call build,$@,barretenberg/cpp,build_cross amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: avm-transpiler
+bb-cpp-cross-arm64-macos: avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
 # GCC syntax check (CI only, non-release)

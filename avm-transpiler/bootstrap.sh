@@ -11,8 +11,8 @@ export SOURCE_DATE_EPOCH=0
 export GIT_DIRTY=false
 export RUSTFLAGS="-Dwarnings"
 
-function build {
-  echo_header "avm-transpiler build"
+function build_native {
+  echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
     denoise "cargo build --release --locked --bin avm-transpiler"
@@ -21,33 +21,47 @@ function build {
     denoise "cargo clippy"
     cache_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
   fi
-  cross_compile_artifact=avm-transpiler-cross-$hash.tar.gz
+}
 
-  if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-    if ! cache_download $cross_compile_artifact; then
-      # We build libraries to be linked by barretenberg
-      # For now we only use the zig build for macOS targets
-      if ! command -v cargo-zigbuild >/dev/null 2>&1; then
-        cargo install --locked cargo-zigbuild
-      fi
+function build_cross {
+  local target=$1
+  echo_header "avm-transpiler build_cross $target"
 
-      targets=(
-        x86_64-apple-darwin
-        aarch64-apple-darwin
-      )
-
-      for target in "${targets[@]}"; do
-        if ! rustup target list --installed | grep -q "^$target$"; then
-          echo "Installing Rust target: $target"
-          rustup target add "$target"
-        fi
-      done
-
-      parallel --tag --line-buffered cargo zigbuild --release --target {} --lib ::: "${targets[@]}"
-
-      cache_upload $cross_compile_artifact target/x86_64-apple-darwin/release/libavm_transpiler.a target/aarch64-apple-darwin/release/libavm_transpiler.a
+  cross_compile_artifact=avm-transpiler-cross-$target-$hash.tar.gz
+  if ! cache_download $cross_compile_artifact; then
+    # We build libraries to be linked by barretenberg
+    # For now we only use the zig build for macOS targets
+    if ! command -v cargo-zigbuild >/dev/null 2>&1; then
+      cargo install --locked cargo-zigbuild
     fi
+
+    local rust_target
+    case "$target" in
+      amd64-macos)
+        rust_target=x86_64-apple-darwin
+        ;;
+      arm64-macos)
+        rust_target=aarch64-apple-darwin
+        ;;
+      *)
+        echo_stderr "Unknown target: $target"
+        exit 1
+        ;;
+    esac
+
+    if ! rustup target list --installed | grep -q "^$rust_target$"; then
+      echo "Installing Rust target: $rust_target"
+      rustup target add "$rust_target"
+    fi
+
+    cargo zigbuild --release --target "$rust_target" --lib
+
+    cache_upload $cross_compile_artifact target/$rust_target/release/libavm_transpiler.a
   fi
+}
+
+function build {
+  build_native
 }
 
 case "$cmd" in
@@ -56,6 +70,13 @@ case "$cmd" in
     ;;
   ""|"fast"|"full"|"ci")
     build
+    ;;
+  build_native)
+    build_native
+    ;;
+  build_cross)
+    shift
+    build_cross "$@"
     ;;
   "test")
     echo "No tests."
