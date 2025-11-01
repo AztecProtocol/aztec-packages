@@ -101,6 +101,7 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
     // Private helper methods. TODO(MW): extract out? Copied from raw_data_dbs
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot appendLeafInternal(AppendOnlyTreeSnapshot state_before,
+                                              SiblingPath& path,
                                               const FF& root_after,
                                               MerkleTreeId tree_id,
                                               const FF& leaf);

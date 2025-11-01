@@ -343,6 +343,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
     NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
     NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    NoopEventEmitter<UpdateCheckEvent> update_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -369,7 +370,11 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
     SideEffectTrackingDB merkle_db(tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
 
-    NoopUpdateCheck update_check;
+    // NoopUpdateCheck update_check;
+    // TODO(MW): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip collecting
+    // a required hint for a storage_read. Optionally use Noop if we don't need hints:
+
+    UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
     InstructionInfoDB instruction_info_db;
 

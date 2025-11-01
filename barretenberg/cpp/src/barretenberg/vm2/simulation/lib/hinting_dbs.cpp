@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -127,6 +126,22 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
     query_hints.get_previous_value_index_hints[key] = { resp.is_already_present, resp.index };
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, resp.index);
+
+    if (tree_id == world_state::MerkleTreeId::NULLIFIER_TREE) {
+        // TODO(MW): We may need a GetLeafPreimageHint for the nullifier tree when calling nullifier_exists, so collect
+        // it
+        // in case.
+        // NB: The PureMerkleDB does not perform this, but the nullifier check gadget requires a leaf preimage. Ts
+        // gathers the hint: (state_manager -> checkNullifierExists() -> doMerkleOperations -> public_db_sources ->
+        // checkNullifierExists())
+        get_leaf_preimage_nullifier_tree(resp.index);
+    } else if ((tree_id == world_state::MerkleTreeId::PUBLIC_DATA_TREE) && (!resp.is_already_present)) {
+        // TODO(MW): We may need a GetLeafPreimageHint for the public data tree when calling storage_read, so collect it
+        // in case.
+        // NB: The PureMerkleDB does not perform this if !is_already_present, but MerkleDB and ts perform it
+        // unconditionally. Ts gathers the hint: (public_db_sources -> storageRead())
+        get_leaf_preimage_public_data_tree(resp.index);
+    }
     return resp;
 }
 
@@ -286,14 +301,14 @@ std::vector<AppendLeafResult> HintingRawDB::append_leaves(world_state::MerkleTre
     for (uint32_t i = 0; i < leaves.size(); i++) {
         FF root_after = i == leaves.size() - 1 ? get_tree_info(tree_id).root : results[i + 1].root;
         // Iterate tree_info to the be state after adding this leaf:
-        tree_info = appendLeafInternal(tree_info, root_after, tree_id, leaves[i]);
+        tree_info = appendLeafInternal(tree_info, results[i].path, root_after, tree_id, leaves[i]);
     }
 
     return results;
 }
 
-// TODO(MW): rework
 AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(AppendOnlyTreeSnapshot state_before,
+                                                        SiblingPath& path,
                                                         const FF& root_after,
                                                         world_state::MerkleTreeId tree_id,
                                                         const FF& leaf)
@@ -303,14 +318,15 @@ AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(AppendOnlyTreeSnapshot s
     // constraint the insertion.
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state
     // appendLeaves returns the sibling paths.
-    AppendLeavesHintKey key = { state_before, tree_id, { leaf } };
+    AppendLeavesHintKey append_key = { state_before, tree_id, { leaf } };
     AppendOnlyTreeSnapshot state_after = { .root = root_after,
                                            .nextAvailableLeafIndex = state_before.nextAvailableLeafIndex + 1 };
-    append_leaves_hints[key] = state_after;
-    // TODO(MW): Just store hint using result in append_leaves to avoid unnecessary extra calls to underlying db?
-    // NOTE: this call will use the /current/ db.get_tree_info() (post full append_leaves), which may not match that at
-    // root_after:
-    get_sibling_path(tree_id, state_before.nextAvailableLeafIndex);
+    append_leaves_hints[append_key] = state_after;
+    // TODO(MW): Storing sibling path hint manually using the result since a get_sibling_path() call here will use the
+    // /current/ db.get_tree_info() (post full append_leaves), which may not match that at result.root. We may not care
+    // about this (see comment in PureRawMerkleDB::append_leaves())
+    GetSiblingPathKey path_key = { state_after, tree_id, state_before.nextAvailableLeafIndex };
+    query_hints.get_sibling_path_hints[path_key] = path;
     return state_after;
 }
 
