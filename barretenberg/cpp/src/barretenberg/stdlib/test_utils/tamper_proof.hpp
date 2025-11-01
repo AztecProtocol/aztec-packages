@@ -99,8 +99,8 @@ void tamper_with_proof(InnerProver& inner_prover, ProofType& inner_proof, Tamper
 }
 
 /**
- * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1 and by modifying the last
- * commitment.
+ * @brief Tamper with a proof by modifying the first pairing point to be P+G (where G is the generator).
+ * This keeps the point on the curve but makes the proof invalid.
  *
  */
 template <typename InnerProver, typename InnerFlavor, typename ProofType>
@@ -108,12 +108,45 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
 {
     using Commitment = typename InnerFlavor::Curve::AffineElement;
     using FF = typename InnerFlavor::FF;
+    using Fq = typename InnerFlavor::Curve::BaseField;
+
+    // Helper to deserialize bigfield-encoded coordinate (4 limbs of 68 bits each)
+    auto deserialize_bigfield_fq = [](std::span<const FF> limbs) -> Fq {
+        BB_ASSERT_EQ(limbs.size(), size_t(4));
+        return Fq(uint256_t(limbs[0]) + (uint256_t(limbs[1]) << 68) + (uint256_t(limbs[2]) << (136)) +
+                  (uint256_t(limbs[3]) << (204)));
+    };
+
+    // Helper to serialize coordinate to bigfield limbs
+    auto serialize_bigfield_fq = [](const Fq& coord) -> std::array<FF, 4> {
+        constexpr uint256_t LIMB_MASK = (uint256_t(1) << 68) - 1;
+        uint256_t val = uint256_t(coord);
+        return {
+            FF(val & LIMB_MASK), FF((val >> 68) & LIMB_MASK), FF((val >> 136) & LIMB_MASK), FF((val >> 204) & LIMB_MASK)
+        };
+    };
 
     if (!end_of_proof) {
-        for (auto& val : inner_proof) {
-            if (val > 0) {
-                val += 1;
-                break;
+        // Tamper with the first pairing point (P0) by adding the generator
+        // P0 is stored as bigfield limbs: P0.x at indices [0-3], P0.y at indices [4-7]
+        constexpr size_t LIMBS_PER_FQ = 4;                 // bigfield uses 4 limbs per coordinate
+        constexpr size_t FRS_PER_POINT = 2 * LIMBS_PER_FQ; // 8 frs for one point (x and y)
+
+        if (inner_proof.size() >= FRS_PER_POINT) {
+            // Deserialize P0 from proof
+            auto p0_frs = std::span{ inner_proof }.subspan(0, FRS_PER_POINT);
+            Commitment P0(deserialize_bigfield_fq(p0_frs.subspan(0, LIMBS_PER_FQ)),
+                          deserialize_bigfield_fq(p0_frs.subspan(LIMBS_PER_FQ, LIMBS_PER_FQ)));
+
+            // Tamper: P0 + G (still on curve, but invalid for verification)
+            Commitment tampered_point = P0 + Commitment::one();
+
+            // Serialize tampered point back to proof
+            auto x_limbs = serialize_bigfield_fq(tampered_point.x);
+            auto y_limbs = serialize_bigfield_fq(tampered_point.y);
+            for (size_t idx = 0; idx < LIMBS_PER_FQ; ++idx) {
+                inner_proof[idx] = x_limbs[idx];
+                inner_proof[LIMBS_PER_FQ + idx] = y_limbs[idx];
             }
         }
     } else {
