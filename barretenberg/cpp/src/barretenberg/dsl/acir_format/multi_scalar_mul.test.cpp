@@ -52,7 +52,6 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
     {
         // Generate a single point and scalar for simplicity
         GrumpkinPoint point = GrumpkinPoint::random_element();
-        // For Grumpkin, scalar field is bb::fq (grumpkin::fr)
         bb::fq scalar_native = bb::fq::random_element();
         GrumpkinPoint result = point * scalar_native;
         BB_ASSERT(result != GrumpkinPoint::one()); // Ensure that tampering works correctly
@@ -62,91 +61,57 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         FF scalar_lo = scalar_u256.slice(0, 128);
         FF scalar_hi = scalar_u256.slice(128, 256);
 
-        if constexpr (Constancy == InputConstancy::None) {
-            // All inputs are witnesses
-            std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
-            std::vector<uint32_t> scalar_indices;
-            scalar_indices.push_back(static_cast<uint32_t>(witness_values.size()));
-            witness_values.emplace_back(scalar_lo);
-            scalar_indices.push_back(static_cast<uint32_t>(witness_values.size()));
-            witness_values.emplace_back(scalar_hi);
-            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
+        // Helper to add points: either as witnesses or constants based on Constancy
+        auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
+            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Scalars) {
+                // Points are witnesses
+                std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
+                return { WitnessOrConstant<FF>::from_index(point_indices[0]),
+                         WitnessOrConstant<FF>::from_index(point_indices[1]),
+                         WitnessOrConstant<FF>::from_index(point_indices[2]) };
+            } else {
+                // Points are constants
+                return { WitnessOrConstant<FF>::from_constant(point.x),
+                         WitnessOrConstant<FF>::from_constant(point.y),
+                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
+            }
+        };
 
-            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(FF::one()); // predicate
+        // Helper to add scalars: either as witnesses or constants based on Constancy
+        auto construct_scalars = [&]() -> std::vector<WitnessOrConstant<FF>> {
+            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Points) {
+                // Scalars are witnesses
+                uint32_t scalar_lo_index = static_cast<uint32_t>(witness_values.size());
+                witness_values.emplace_back(scalar_lo);
+                uint32_t scalar_hi_index = static_cast<uint32_t>(witness_values.size());
+                witness_values.emplace_back(scalar_hi);
+                return { WitnessOrConstant<FF>::from_index(scalar_lo_index),
+                         WitnessOrConstant<FF>::from_index(scalar_hi_index) };
+            } else {
+                // Scalars are constants
+                return { WitnessOrConstant<FF>::from_constant(scalar_lo),
+                         WitnessOrConstant<FF>::from_constant(scalar_hi) };
+            }
+        };
 
-            msm_constraint = MultiScalarMul{
-                .points = { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                            WitnessOrConstant<FF>::from_index(point_indices[1]),
-                            WitnessOrConstant<FF>::from_index(point_indices[2]) },
-                .scalars = { WitnessOrConstant<FF>::from_index(scalar_indices[0]),
-                             WitnessOrConstant<FF>::from_index(scalar_indices[1]) },
-                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-                .out_point_x = result_indices[0],
-                .out_point_y = result_indices[1],
-                .out_point_is_infinite = result_indices[2],
-            };
-        } else if constexpr (Constancy == InputConstancy::Points) {
-            // Points are constants, scalars are witnesses
-            std::vector<uint32_t> scalar_indices;
-            scalar_indices.push_back(static_cast<uint32_t>(witness_values.size()));
-            witness_values.emplace_back(scalar_lo);
-            scalar_indices.push_back(static_cast<uint32_t>(witness_values.size()));
-            witness_values.emplace_back(scalar_hi);
-            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
+        // Add points and scalars according to constancy template parameter
+        auto points = construct_points();
+        auto scalars = construct_scalars();
 
-            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(FF::one()); // predicate
+        // Construct result and predicate as witnesses
+        std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
+        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+        witness_values.emplace_back(FF::one()); // predicate
 
-            msm_constraint = MultiScalarMul{
-                .points = { WitnessOrConstant<FF>::from_constant(point.x),
-                            WitnessOrConstant<FF>::from_constant(point.y),
-                            WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) },
-                .scalars = { WitnessOrConstant<FF>::from_index(scalar_indices[0]),
-                             WitnessOrConstant<FF>::from_index(scalar_indices[1]) },
-                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-                .out_point_x = result_indices[0],
-                .out_point_y = result_indices[1],
-                .out_point_is_infinite = result_indices[2],
-            };
-        } else if constexpr (Constancy == InputConstancy::Scalars) {
-            // Scalars are constants, points are witnesses
-            std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
-            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
-
-            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(FF::one()); // predicate
-
-            msm_constraint = MultiScalarMul{
-                .points = { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                            WitnessOrConstant<FF>::from_index(point_indices[1]),
-                            WitnessOrConstant<FF>::from_index(point_indices[2]) },
-                .scalars = { WitnessOrConstant<FF>::from_constant(scalar_lo),
-                             WitnessOrConstant<FF>::from_constant(scalar_hi) },
-                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-                .out_point_x = result_indices[0],
-                .out_point_y = result_indices[1],
-                .out_point_is_infinite = result_indices[2],
-            };
-        } else if constexpr (Constancy == InputConstancy::Both) {
-            // All inputs are constants
-            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
-
-            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(FF::one()); // predicate
-
-            msm_constraint = MultiScalarMul{
-                .points = { WitnessOrConstant<FF>::from_constant(point.x),
-                            WitnessOrConstant<FF>::from_constant(point.y),
-                            WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) },
-                .scalars = { WitnessOrConstant<FF>::from_constant(scalar_lo),
-                             WitnessOrConstant<FF>::from_constant(scalar_hi) },
-                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-                .out_point_x = result_indices[0],
-                .out_point_y = result_indices[1],
-                .out_point_is_infinite = result_indices[2],
-            };
-        }
+        // Build the constraint
+        msm_constraint = MultiScalarMul{
+            .points = points,
+            .scalars = scalars,
+            .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
+            .out_point_x = result_indices[0],
+            .out_point_y = result_indices[1],
+            .out_point_is_infinite = result_indices[2],
+        };
     }
 
     static void override_witness(AcirConstraint& constraint,
