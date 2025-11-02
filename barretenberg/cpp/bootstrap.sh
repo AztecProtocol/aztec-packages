@@ -85,7 +85,7 @@ function build_cross_objects {
   set -eu
   target=$1
   if ! cache_download barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target barretenberg nodejs_mdoule
+    build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
 
