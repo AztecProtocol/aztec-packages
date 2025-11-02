@@ -57,13 +57,14 @@ function build_preset() {
   cmake --build --preset "$preset" "$@"
 }
 
-# Build only object files (compilation phase, no linking)
-# This can run in parallel with avm-transpiler since no linking occurs
-# Builds barretenberg library + vm2_sim for native (includes nodejs_module deps)
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
 function build_objects {
   set -eu
   if ! cache_download barretenberg-$native_preset-$hash.zst; then
-    build_preset $native_preset --target barretenberg --target vm2_sim --target vm2
+    cmake --preset "$native_preset"
+    targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
+    cmake --build --preset "$native_preset" --target $targets nodejs_module
   fi
 }
 
@@ -77,13 +78,14 @@ function build_native {
   fi
 }
 
-# Build only bb objects for cross-compile (excludes vm2_sim)
-# This can run in parallel with avm-transpiler cross-compile
+# Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
+# Allow the build system to get a head start on compilation while building dependencies.
+# For cross compilation we're only building bb and napi module.
 function build_cross_objects {
   set -eu
   target=$1
   if ! cache_download barretenberg-$target-$hash.zst; then
-    build_preset zig-$target --target barretenberg
+    build_preset zig-$target --target barretenberg nodejs_mdoule
   fi
 }
 
@@ -220,34 +222,7 @@ function build_release_dir {
 export -f build_preset build_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
-  echo_header "bb cpp build"
-
-  (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-
-  if semver check "$REF_NAME" && [[ "$(arch)" == "amd64" ]]; then
-    # Perform release builds of bb and napi module, for all architectures.
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: \
-      "build_native" \
-      "build_wasm" \
-      "build_wasm_threads" \
-      "build_cross arm64-linux" \
-      "build_cross amd64-macos" \
-      "build_cross arm64-macos"
-    build_release_dir
-  else
-    builds=(
-      build_native
-      build_wasm
-      build_wasm_threads
-    )
-    if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
-      builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_asan_fast)
-    fi
-    if [ "$(arch)" == "amd64" ] && [ "$CI_FULL" -eq 1 ]; then
-      builds+=("build_cross arm64-macos" build_smt_verification)
-    fi
-    parallel --line-buffered --tag --halt now,fail=1 "denoise {}" ::: "${builds[@]}"
-  fi
+    (cd $root && make barretenberg)
 }
 
 # Print every individual test command. Can be fed into gnu parallel.

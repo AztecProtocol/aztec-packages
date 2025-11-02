@@ -51,7 +51,7 @@ endef
 # PHONY TARGETS
 #==============================================================================
 
-.PHONY: all build
+.PHONY: all
 .PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
 .PHONY: bb-cpp-objects bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
@@ -92,11 +92,11 @@ avm-transpiler-native: noir-sync
 	$(call build,$@,avm-transpiler,build_native)
 
 # Cross-compile for AMD64 macOS (release only)
-avm-transpiler-cross-amd64-macos: avm-transpiler-native
+avm-transpiler-cross-amd64-macos: noir-sync
 	$(call build,$@,avm-transpiler,build_cross amd64-macos)
 
 # Cross-compile for ARM64 macOS (release only)
-avm-transpiler-cross-arm64-macos: avm-transpiler-native
+avm-transpiler-cross-arm64-macos: noir-sync
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
 # Aggregate cross-compile target
@@ -211,8 +211,7 @@ bb-cpp-cross: $(BB_CPP_CROSS_TARGETS)
 bb-cpp-ci: $(BB_CPP_CI_TARGETS)
 
 # BB TypeScript - TypeScript bindings
-# Dependencies: Only needs WASM builds (for bb.js), not native (will need native soon)
-bb-ts: bb-cpp-wasm bb-cpp-wasm-threads
+bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 	$(call build,$@,barretenberg/ts)
 
 # BB ACIR Tests - ACIR compatibility tests
