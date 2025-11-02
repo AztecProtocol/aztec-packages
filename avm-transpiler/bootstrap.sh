@@ -38,26 +38,27 @@ function build_cross {
     # We build libraries to be linked by barretenberg
     # For now we only use the zig build for macOS targets
 
+    # Determine rust target outside of subshell
+    local rust_target
+    case "$target" in
+      amd64-macos)
+        rust_target=x86_64-apple-darwin
+        ;;
+      arm64-macos)
+        rust_target=aarch64-apple-darwin
+        ;;
+      *)
+        echo_stderr "Unknown target: $target"
+        exit 1
+        ;;
+    esac
+
     # Serialize rustup operations to avoid race conditions when running parallel builds
     (
       flock -x 200
       if ! command -v cargo-zigbuild >/dev/null 2>&1; then
         cargo install --locked cargo-zigbuild
       fi
-
-      local rust_target
-      case "$target" in
-        amd64-macos)
-          rust_target=x86_64-apple-darwin
-          ;;
-        arm64-macos)
-          rust_target=aarch64-apple-darwin
-          ;;
-        *)
-          echo_stderr "Unknown target: $target"
-          exit 1
-          ;;
-      esac
 
       if ! rustup target list --installed | grep -q "^$rust_target$"; then
         echo "Installing Rust target: $rust_target"
