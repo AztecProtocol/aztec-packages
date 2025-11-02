@@ -4,9 +4,8 @@ import { type ContractProvider, avmSimulate, avmSimulateWithHintedDbs } from '@a
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AvmFastSimulationInputs, deserializeFromMessagePack, serializeWithMessagePack } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { ContractDeploymentData } from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { ContractClassLog, ContractClassLogFields, PrivateLog } from '@aztec/stdlib/logs';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 import { WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
@@ -70,10 +69,10 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
       tsStateRef = await this.merkleTree.getStateReference(); // capture tree roots for later comparsion
     } finally {
-      // revert checkpoint for ws and clear contract db changes
+      // revert checkpoint for ws
       // (cpp should reapply exactly the same changes if there are no bugs)
       await this.merkleTree.revertCheckpoint();
-      this.contractsDB.clearContractsForTx();
+      // Note: ContractsDB checkpoint will be reverted by the public processor's checkpoint management
     }
 
     const hints = tsResult.avmProvingRequest.inputs.hints;
@@ -114,6 +113,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     try {
       resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle);
     } catch (error: any) {
+      // log out full error with stack info
+      this.log.error(`C++ simulation error for tx ${txHash}: ${error.stack || error.message || error}`);
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }
 
@@ -188,31 +189,9 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
         return serializeWithMessagePack(contractClass);
       },
 
-      addNewNonRevertibleContracts: async (nonRevertibleContractDeploymentDataBuffer: Buffer) => {
-        this.log.debug(`Contract provider callback: addNewNonRevertibleContracts`);
-
-        const rawData = deserializeFromMessagePack<any>(nonRevertibleContractDeploymentDataBuffer);
-
-        // Construct class instances using the from method
-        const nonRevertibleContractDeploymentData = this.reconstructContractDeploymentData(rawData);
-
-        // Add non-revertible contracts to the contracts DB
-        this.log.debug(`Calling contractsDB.addNewNonRevertibleContracts`);
-        await this.contractsDB.addNewNonRevertibleContracts(nonRevertibleContractDeploymentData);
-      },
-
-      addNewRevertibleContracts: async (revertibleContractDeploymentDataBuffer: Buffer) => {
-        this.log.debug(`Contract provider callback: addNewRevertibleContracts`);
-
-        const rawData = deserializeFromMessagePack<any>(revertibleContractDeploymentDataBuffer);
-
-        // Construct class instances using the from method
-        const revertibleContractDeploymentData = this.reconstructContractDeploymentData(rawData);
-
-        // Add revertible contracts to the contracts DB
-        this.log.debug(`Calling contractsDB.addNewRevertibleContracts`);
-        await this.contractsDB.addNewRevertibleContracts(revertibleContractDeploymentData);
-      },
+      // Note: addContracts, createCheckpoint, commitCheckpoint, revertCheckpoint are not yet supported in ContractProvider
+      // These will be added in a future phase when C++ simulation helper is refactored to support runtime ContractDB injection
+      // For now, contracts are managed through hints in AvmFastSimulationInputs
 
       getBytecodeCommitment: async (classId: string) => {
         this.log.debug(`Contract provider callback: getBytecodeCommitment(${classId})`);
@@ -251,46 +230,39 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
 
         return name;
       },
+
+      addContracts: async (contractClassesBuffer: Buffer, contractInstancesBuffer: Buffer) => {
+        this.log.debug(`Contract provider callback: addContracts (deserializing buffers)`);
+
+        // Deserialize msgpack buffers to TypeScript objects
+        const contractClasses = deserializeFromMessagePack<ContractClassPublic[]>(contractClassesBuffer);
+        const contractInstances = deserializeFromMessagePack<ContractInstanceWithAddress[]>(contractInstancesBuffer);
+
+        this.log.debug(
+          `Contract provider callback: addContracts(${contractClasses.length} classes, ${contractInstances.length} instances)`,
+        );
+
+        await this.contractsDB.addContracts(contractClasses, contractInstances);
+      },
+
+      createCheckpoint: () => {
+        this.log.debug(`Contract provider callback: createCheckpoint`);
+        this.contractsDB.createCheckpoint();
+        return Promise.resolve();
+      },
+
+      commitCheckpoint: () => {
+        this.log.debug(`Contract provider callback: commitCheckpoint`);
+        this.contractsDB.commitCheckpoint();
+        return Promise.resolve();
+      },
+
+      revertCheckpoint: () => {
+        this.log.debug(`Contract provider callback: revertCheckpoint`);
+        this.contractsDB.revertCheckpoint();
+        return Promise.resolve();
+      },
     };
-  }
-
-  /**
-   * Reconstruct ContractDeploymentData from plain msgpack-deserialized objects.
-   * msgpackr does not automatically apply extensions to nested fields, so we need to
-   * manually reconstruct ContractClassLog and PrivateLog instances with proper types.
-   */
-  private reconstructContractDeploymentData(rawData: any): ContractDeploymentData {
-    // Helper to ensure a value is an Fr instance
-    const toFr = (value: any): Fr => {
-      if (value instanceof Fr) {
-        return value;
-      }
-      if (Buffer.isBuffer(value)) {
-        return Fr.fromBuffer(value);
-      }
-      return new Fr(value);
-    };
-
-    // Reconstruct ContractClassLogs
-    const contractClassLogs = (rawData.contractClassLogs || []).map((log: any) => {
-      // Convert contractAddress to AztecAddress
-      const addressFr = toFr(log.contractAddress);
-      const address = AztecAddress.fromField(addressFr);
-
-      // Ensure all fields are Fr instances
-      const fields = (log.fields.fields || []).map((field: any) => toFr(field));
-
-      // Create proper ContractClassLog instance
-      return new ContractClassLog(address, new ContractClassLogFields(fields), log.emittedLength);
-    });
-
-    // Reconstruct PrivateLogs - ensure fields are Fr instances
-    const privateLogs = (rawData.privateLogs || []).map((log: any) => {
-      const fields = (log.fields || []).map((field: any) => toFr(field));
-      return new PrivateLog(fields as any, log.emittedLength);
-    });
-
-    return new ContractDeploymentData(contractClassLogs, privateLogs);
   }
 
   /**

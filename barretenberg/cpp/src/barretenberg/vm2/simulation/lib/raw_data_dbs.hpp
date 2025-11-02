@@ -31,15 +31,35 @@ class HintedRawContractDB final : public ContractDBInterface {
     std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                        const FunctionSelector& selector) const override;
 
-    void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
-    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+    void add_contracts(const std::vector<ContractClass>& contract_classes,
+                       const std::vector<ContractInstanceWithAddress>& contract_instances) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+    uint32_t get_checkpoint_id() const;
 
   private:
-    unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
-    unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
-    unordered_flat_map<ContractClassId, FF> bytecode_commitments;
+    // Checkpoint tracking (same pattern as HintedRawMerkleDB)
+    uint32_t checkpoint_action_counter = 0;
+    // We start with a checkpoint id of 0, which is the assumed initial state checkpoint.
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
+
+    // Composite key structures (checkpoint ID + contract identifier)
+    using GetContractInstanceKey = std::tuple<uint32_t /*checkpointId*/, AztecAddress>;
+    using GetContractClassKey = std::tuple<uint32_t /*checkpointId*/, ContractClassId>;
+    using GetBytecodeCommitmentKey = std::tuple<uint32_t /*checkpointId*/, ContractClassId>;
+
+    // Contract hint maps (keyed by checkpoint ID + identifier)
+    unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
+    unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
+    unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
     unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
+
+    // Checkpoint action hints - ContractDB-specific (keyed by action counter)
+    unordered_flat_map<uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 // This class interacts with the external world, without emiting any simulation events.

@@ -75,9 +75,15 @@ export class ContractClassPublishedEvent {
     };
   }
 
-  public static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {
+  private static extractContractClassEvents(logs: ContractClassLog[]): ContractClassPublishedEvent[] {
     return logs
       .filter((log: ContractClassLog) => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
       .map((log: ContractClassLog) => ContractClassPublishedEvent.fromLog(log));
+  }
+
+  public static async extractContractClasses(logs: ContractClassLog[]): Promise<ContractClassPublic[]> {
+    return await Promise.all(
+      ContractClassPublishedEvent.extractContractClassEvents(logs).map(e => e.toContractClassPublic()),
+    );
   }
 }

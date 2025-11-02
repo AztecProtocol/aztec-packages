@@ -122,6 +122,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     // The checkpoint we should go back to if anything from now on reverts.
     merkle_db.create_checkpoint();
+    contract_db.create_checkpoint();
 
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
@@ -168,10 +169,12 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.reverted = true;
         // We revert to the post-setup state.
+        contract_db.revert_checkpoint();
         merkle_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
         merkle_db.create_checkpoint();
+        contract_db.create_checkpoint();
     }
 
     // Compute the transaction fee here so it can be passed to teardown
@@ -223,11 +226,13 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         }
 
         // We commit the forked state and we are done.
+        contract_db.commit_checkpoint();
         merkle_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.reverted = true;
         // We rollback to the post-setup state.
+        contract_db.revert_checkpoint();
         merkle_db.revert_checkpoint();
     }
 
@@ -384,7 +389,7 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
     }
 
     // Add new contracts to the contracts DB so that their code may be found and called
-    contract_db.add_new_non_revertible_contracts(tx.nonRevertibleContractDeploymentData);
+    contract_db.add_contracts(tx.nonRevertibleNewContractClasses, tx.nonRevertibleNewContractInstances);
 }
 
 // TODO: Error Handling
@@ -427,7 +432,7 @@ void TxExecution::insert_revertibles(const Tx& tx)
     }
 
     // Add new contracts to the contracts DB so that their functions may be found and called
-    contract_db.add_new_revertible_contracts(tx.revertibleContractDeploymentData);
+    contract_db.add_contracts(tx.revertibleNewContractClasses, tx.revertibleNewContractInstances);
 }
 
 void TxExecution::pay_fee(const FF& fee_payer,

@@ -112,8 +112,7 @@ struct ContractInstance {
     void msgpack(auto pack_fn)
     {
         pack_fn(NVP(salt),
-                "deployer",
-                deployer,
+                NVP(deployer),
                 "currentContractClassId",
                 current_contract_class_id,
                 "originalContractClassId",
@@ -122,6 +121,33 @@ struct ContractInstance {
                 initialization_hash,
                 "publicKeys",
                 public_keys);
+    }
+};
+struct ContractInstanceWithAddress {
+    FF salt;
+    AztecAddress deployer;
+    ContractClassId current_contract_class_id;
+    ContractClassId original_contract_class_id;
+    FF initialization_hash;
+    PublicKeys public_keys;
+    AztecAddress address;
+
+    bool operator==(const ContractInstanceWithAddress& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(salt),
+                NVP(deployer),
+                "currentContractClassId",
+                current_contract_class_id,
+                "originalContractClassId",
+                original_contract_class_id,
+                "initializationHash",
+                initialization_hash,
+                "publicKeys",
+                public_keys,
+                NVP(address));
     }
 };
 

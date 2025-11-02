@@ -10,6 +10,7 @@ import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/st
 export class TxContractCache {
   private instanceCache = new Map<string, ContractInstanceWithAddress>();
   private classCache = new Map<string, ContractClassPublic>();
+  private bytecodeCommitmentCache = new Map<string, Fr>();
 
   /**
    * Add a contract instance to the cache
@@ -47,11 +48,26 @@ export class TxContractCache {
   }
 
   /**
+   * Get a bytecode commitment from the cache
+   */
+  public getBytecodeCommitment(classId: Fr): Fr | undefined {
+    return this.bytecodeCommitmentCache.get(classId.toString());
+  }
+
+  /**
+   * Set a bytecode commitment in the cache
+   */
+  public setBytecodeCommitment(classId: Fr, commitment: Fr): void {
+    this.bytecodeCommitmentCache.set(classId.toString(), commitment);
+  }
+
+  /**
    * Clear all entries from the cache
    */
   public clear(): void {
     this.instanceCache.clear();
     this.classCache.clear();
+    this.bytecodeCommitmentCache.clear();
   }
 
   /**
@@ -64,6 +80,10 @@ export class TxContractCache {
 
     other.classCache.forEach((value, key) => {
       this.classCache.set(key, value);
+    });
+
+    other.bytecodeCommitmentCache.forEach((value, key) => {
+      this.bytecodeCommitmentCache.set(key, value);
     });
   }
 }

@@ -55,20 +55,6 @@ export interface ContractProvider {
   getContractClass(classId: string): Promise<Buffer | undefined>;
 
   /**
-   * Add non-revertible contracts from a transaction.
-   * @param nonRevertibleContractDeploymentData - Msgpack-serialized ContractDeploymentData buffer
-   * @returns Promise that resolves when contracts are added
-   */
-  addNewNonRevertibleContracts(nonRevertibleContractDeploymentData: Buffer): Promise<void>;
-
-  /**
-   * Add revertible contracts from a transaction.
-   * @param revertibleContractDeploymentData - Msgpack-serialized ContractDeploymentData buffer
-   * @returns Promise that resolves when contracts are added
-   */
-  addNewRevertibleContracts(revertibleContractDeploymentData: Buffer): Promise<void>;
-
-  /**
    * Fetch the bytecode commitment for a contract class.
    * @param classId - The contract class ID as a string (hex format)
    * @returns Promise resolving to msgpack-serialized Fr buffer, or undefined if not found
@@ -82,6 +68,28 @@ export interface ContractProvider {
    * @returns Promise resolving to function name string, or undefined if not found
    */
   getDebugFunctionName(address: string, selector: string): Promise<string | undefined>;
+
+  /**
+   * Add contracts to the contracts database.
+   * @param contractClassesBuffer - Msgpack-serialized buffer of ContractClassPublic[]
+   * @param contractInstancesBuffer - Msgpack-serialized buffer of ContractInstanceWithAddress[]
+   */
+  addContracts(contractClassesBuffer: Buffer, contractInstancesBuffer: Buffer): Promise<void>;
+
+  /**
+   * Create a new checkpoint in the contracts database.
+   */
+  createCheckpoint(): Promise<void>;
+
+  /**
+   * Commit the current checkpoint in the contracts database.
+   */
+  commitCheckpoint(): Promise<void>;
+
+  /**
+   * Revert the current checkpoint in the contracts database.
+   */
+  revertCheckpoint(): Promise<void>;
 }
 
 /**

@@ -8,6 +8,9 @@ import {
   AvmBytecodeCommitmentHint,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
+  AvmContractDBCommitCheckpointHint,
+  AvmContractDBCreateCheckpointHint,
+  AvmContractDBRevertCheckpointHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
@@ -51,23 +54,47 @@ import type { PublicContractsDBInterface } from './db_interfaces.js';
  * A public contracts database that forwards requests and collects AVM hints.
  */
 export class HintingPublicContractsDB implements PublicContractsDBInterface {
+  private static readonly log: Logger = createLogger('simulator:hinting-contracts-db');
+
   // We deduplicate contract classes because they include the whole bytecode.
   private contractClassIds: Set<bigint> = new Set();
+
+  // Checkpoint ID management using monotonically increasing IDs (never reused)
+  // This matches the pattern used by HintingMerkleWriteOperations
+  private checkpointStack: number[] = [0];
+  private nextCheckpointId: number = 1;
+  private checkpointActionCounter: number = 0; // yes, a side-effect counter.
 
   constructor(
     private readonly db: PublicContractsDBInterface,
     private hints: AvmExecutionHints,
   ) {}
 
-  public async getContractInstance(
-    address: AztecAddress,
-    timestamp: UInt64,
-  ): Promise<ContractInstanceWithAddress | undefined> {
-    const instance = await this.db.getContractInstance(address, timestamp);
-    if (instance) {
-      // We don't need to hint the block number because it doesn't change.
+  /**
+   * Gets the current checkpoint ID.
+   * Checkpoint ID is managed at the hinting layer to ensure hints have correct IDs.
+   */
+  public getCheckpointId(): number {
+    return this.checkpointStack[this.checkpointStack.length - 1];
+  }
+
+  /**
+   * Adds contracts (classes and instances) to the database.
+   * Forwards to the underlying DB and collects contract instance hints.
+   */
+  public async addContracts(
+    contractClasses: ContractClassPublic[],
+    contractInstances: ContractInstanceWithAddress[],
+  ): Promise<void> {
+    // Add to underlying DB first
+    await this.db.addContracts(contractClasses, contractInstances);
+
+    // Collect hints for each added contract instance so C++ knows about them
+    const checkpointId = this.getCheckpointId();
+    for (const instance of contractInstances) {
       this.hints.contractInstances.push(
         new AvmContractInstanceHint(
+          checkpointId,
           instance.address,
           instance.salt,
           instance.deployer,
@@ -78,6 +105,42 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
         ),
       );
     }
+  }
+
+  public async getContractInstance(
+    address: AztecAddress,
+    timestamp: UInt64,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    const checkpointId = this.getCheckpointId();
+    HintingPublicContractsDB.log.info(
+      `[TS] getContractInstance looking up: checkpointId=${checkpointId} address=${address.toString().slice(0, 20)}...`,
+    );
+    const instance = await this.db.getContractInstance(address, timestamp);
+    if (instance) {
+      HintingPublicContractsDB.log.info(
+        `[TS] getContractInstance FOUND: checkpointId=${checkpointId} address=${address.toString().slice(0, 20)}...`,
+      );
+      HintingPublicContractsDB.log.info(
+        `[TS] Adding contract instance hint with checkpointId=${checkpointId}, total hints so far=${this.hints.contractInstances.length}`,
+      );
+      // We don't need to hint the block number because it doesn't change.
+      this.hints.contractInstances.push(
+        new AvmContractInstanceHint(
+          this.checkpointActionCounter, // Include checkpoint ID as hintKey
+          instance.address,
+          instance.salt,
+          instance.deployer,
+          instance.currentContractClassId,
+          instance.originalContractClassId,
+          instance.initializationHash,
+          instance.publicKeys,
+        ),
+      );
+    } else {
+      HintingPublicContractsDB.log.info(
+        `[TS] getContractInstance NOT FOUND: checkpointId=${checkpointId} address=${address.toString().slice(0, 20)}...`,
+      );
+    }
     return instance;
   }
 
@@ -85,8 +148,12 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
     const contractClass = await this.db.getContractClass(contractClassId);
     if (contractClass && !this.contractClassIds.has(contractClassId.toBigInt())) {
       this.contractClassIds.add(contractClassId.toBigInt());
+      // Get current checkpoint ID from the underlying DB
+      const checkpointId = this.getCheckpointId();
+
       this.hints.contractClasses.push(
         new AvmContractClassHint(
+          this.checkpointActionCounter, // Include checkpoint ID as hintKey
           contractClass.id,
           contractClass.artifactHash,
           contractClass.privateFunctionsRoot,
@@ -100,7 +167,16 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
     const commitment = await this.db.getBytecodeCommitment(contractClassId);
     if (commitment) {
-      this.hints.bytecodeCommitments.push(new AvmBytecodeCommitmentHint(contractClassId, commitment));
+      // Get current checkpoint ID from the underlying DB
+      const checkpointId = this.getCheckpointId();
+
+      this.hints.bytecodeCommitments.push(
+        new AvmBytecodeCommitmentHint(
+          this.checkpointActionCounter, // Include checkpoint ID as hintKey
+          contractClassId,
+          commitment,
+        ),
+      );
     }
     return commitment;
   }
@@ -115,6 +191,44 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
       this.hints.debugFunctionNames.push(new AvmDebugFunctionNameHint(contractAddress, selector.toField(), name));
     }
     return name;
+  }
+
+  // Checkpoint methods pass through to underlying DB and manage checkpoint ID
+  // Uses monotonically increasing checkpoint IDs (never reused after revert)
+  public createCheckpoint(): void {
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCheckpointId();
+    this.db.createCheckpoint();
+    this.checkpointStack.push(this.nextCheckpointId++);
+    const newCheckpointId = this.getCheckpointId();
+
+    this.hints.contractDBCreateCheckpointHints.push(
+      new AvmContractDBCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId),
+    );
+  }
+
+  public commitCheckpoint(): void {
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCheckpointId();
+    this.db.commitCheckpoint();
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCheckpointId();
+
+    this.hints.contractDBCommitCheckpointHints.push(
+      new AvmContractDBCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId),
+    );
+  }
+
+  public revertCheckpoint(): void {
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCheckpointId();
+    this.db.revertCheckpoint();
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCheckpointId();
+
+    this.hints.contractDBRevertCheckpointHints.push(
+      new AvmContractDBRevertCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId),
+    );
   }
 }
 
@@ -327,7 +441,9 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     this.checkpointStack.push(this.nextCheckpointId++);
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.createCheckpointHints.push(new AvmCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
+    this.hints.createCheckpointHints.push(
+      new AvmCreateCheckpointHint(/*actionCounter=*/ actionCounter, oldCheckpointId, newCheckpointId),
+    );
 
     HintingMerkleWriteOperations.log.trace(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
@@ -351,7 +467,9 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.commitCheckpointHints.push(new AvmCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
+    this.hints.commitCheckpointHints.push(
+      new AvmCommitCheckpointHint(/*actionCounter=*/ actionCounter, oldCheckpointId, newCheckpointId),
+    );
 
     HintingMerkleWriteOperations.log.trace(
       `[commitCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
@@ -383,8 +501,28 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       [MerkleTreeId.ARCHIVE]: await this.getHintKey(MerkleTreeId.ARCHIVE),
     };
 
+    const stateBeforeSnapshots = new TreeSnapshots(
+      beforeState[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+      beforeState[MerkleTreeId.NOTE_HASH_TREE],
+      beforeState[MerkleTreeId.NULLIFIER_TREE],
+      beforeState[MerkleTreeId.PUBLIC_DATA_TREE],
+    );
+
+    const stateAfterSnapshots = new TreeSnapshots(
+      afterState[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+      afterState[MerkleTreeId.NOTE_HASH_TREE],
+      afterState[MerkleTreeId.NULLIFIER_TREE],
+      afterState[MerkleTreeId.PUBLIC_DATA_TREE],
+    );
+
     this.hints.revertCheckpointHints.push(
-      AvmRevertCheckpointHint.create(actionCounter, oldCheckpointId, newCheckpointId, beforeState, afterState),
+      new AvmRevertCheckpointHint(
+        /*actionCounter=*/ actionCounter,
+        oldCheckpointId,
+        newCheckpointId,
+        stateBeforeSnapshots,
+        stateAfterSnapshots,
+      ),
     );
 
     HintingMerkleWriteOperations.log.trace(

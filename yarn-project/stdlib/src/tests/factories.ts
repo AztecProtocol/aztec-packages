@@ -57,10 +57,9 @@ import {
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmCommitCheckpointHint,
   AvmContractClassHint,
+  AvmContractDBCheckpointHint,
   AvmContractInstanceHint,
-  AvmCreateCheckpointHint,
   AvmDebugFunctionNameHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
@@ -1338,29 +1337,21 @@ export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
   );
 }
 
-export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
-  return new AvmCreateCheckpointHint(
+export function makeAvmContractDBCheckpointHint(seed = 0): AvmContractDBCheckpointHint {
+  return new AvmContractDBCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
     /*newCheckpointId=*/ seed + 2,
   );
 }
 
-export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
-  return new AvmCommitCheckpointHint(
-    /*actionCounter=*/ seed,
-    /*oldCheckpointId=*/ seed + 1,
-    /*newCheckpointId=*/ seed + 2,
-  );
-}
-
-export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+export function makeAvmRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
   return new AvmRevertCheckpointHint(
     /*actionCounter=*/ seed,
     /*oldCheckpointId=*/ seed + 1,
     /*newCheckpointId=*/ seed + 2,
-    /*beforeState=*/ makeTreeSnapshots(seed + 3),
-    /*afterState=*/ makeTreeSnapshots(seed + 7),
+    /*stateBefore=*/ makeTreeSnapshots(seed + 100),
+    /*stateAfter=*/ makeTreeSnapshots(seed + 200),
   );
 }
 
@@ -1371,6 +1362,7 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
+    seed % 10, // hintKey (checkpoint ID)
     new AztecAddress(new Fr(seed)),
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
@@ -1401,13 +1393,23 @@ export function makeAvmDebugFunctionNameHint(seed = 0): AvmDebugFunctionNameHint
  */
 export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+  return new AvmContractClassHint(
+    seed % 10, // hintKey (checkpoint ID)
+    new Fr(seed),
+    new Fr(seed + 0x2),
+    new Fr(seed + 0x3),
+    bytecode,
+  );
 }
 
 export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
   const classId = new Fr(seed + 2);
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
+  return new AvmBytecodeCommitmentHint(
+    seed % 10, // hintKey (checkpoint ID)
+    classId,
+    await computePublicBytecodeCommitment(bytecode),
+  );
 }
 
 export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {
@@ -1437,8 +1439,11 @@ export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
     `txhash-${seed}`,
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
-    makeContractDeploymentData(seed + 0x2000),
-    makeContractDeploymentData(seed + 0x3000),
+    // Contract arrays instead of deployment data
+    await makeArrayAsync((seed % 5) + 1, i => makeContractClassPublic(seed + 0x2000 + i)), // nonRevertibleNewContractClasses
+    await makeArrayAsync((seed % 5) + 1, i => makeContractInstanceFromClassId(new Fr(seed + 0x2500 + i))), // nonRevertibleNewContractInstances
+    await makeArrayAsync((seed % 5) + 1, i => makeContractClassPublic(seed + 0x3000 + i)), // revertibleNewContractClasses
+    await makeArrayAsync((seed % 5) + 1, i => makeContractInstanceFromClassId(new Fr(seed + 0x3500 + i))), // revertibleNewContractInstances
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1499,9 +1504,9 @@ export async function makeAvmExecutionHints(
       seed + 0x5700,
     ),
     appendLeavesHints: makeArray(baseLength + 5, makeAvmAppendLeavesHint, seed + 0x5800),
-    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
-    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
-    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmContractDBCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmContractDBCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 

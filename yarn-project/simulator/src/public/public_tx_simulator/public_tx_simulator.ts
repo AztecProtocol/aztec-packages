@@ -129,13 +129,14 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    const contractClassesAndInstances = await this.contractsDB.getContractClassesAndInstancesFromTx(tx);
     const txHash = this.computeTxHash(tx);
     this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
     // Create hinting DBs.
     const hints = new AvmExecutionHints(
       this.globalVariables,
-      AvmTxHint.fromTx(tx, this.globalVariables.gasFees),
+      AvmTxHint.fromTx(tx, this.globalVariables.gasFees, contractClassesAndInstances),
       ProtocolContractsList, // imported from file
     );
     const hintingMerkleTree = await HintingMerkleWriteOperations.create(this.merkleTree, hints);
@@ -146,6 +147,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       hintingTreesDB,
       hintingContractsDB,
       tx,
+      contractClassesAndInstances,
       this.globalVariables,
       ProtocolContractsList, // imported from file
       this.config.doMerkleOperations,
@@ -171,6 +173,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     // The checkpoint we should go back to if anything from now on reverts.
     await context.state.fork();
+    hintingContractsDB.createCheckpoint(); // post-setup contracts checkpoint
 
     try {
       // This will throw if there is a nullifier collision or other insertion error (limit reached).
@@ -185,12 +188,14 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
         }
       }
     } catch (e: any) {
+      // We revert to the post-setup state.
+      await context.state.discardForkedState();
+      hintingContractsDB.revertCheckpoint();
       if (e instanceof TxSimRevertibleInsertionsRevert || e instanceof TxSimAppLogicRevert) {
-        // We revert to the post-setup state.
-        await context.state.discardForkedState();
-        // But we also create a new fork so that the teardown phase can transparently
+        // For checked errors, we also create a new fork so that the teardown phase can
         // commit or rollback at the end of teardown.
         await context.state.fork();
+        hintingContractsDB.createCheckpoint(); // post-app-logic checkpoint
       } else {
         // Unchecked/unknown error - re-throw as-is
         throw e;
@@ -207,11 +212,12 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       }
       // We commit the forked state and we are done.
       await context.state.mergeForkedState();
+      hintingContractsDB.commitCheckpoint();
     } catch (e: any) {
-      if (e instanceof TxSimTeardownRevert) {
-        // We revert to the post-setup state and we are done.
-        await context.state.discardForkedState();
-      } else {
+      // We revert to the post-setup state and we are done.
+      await context.state.discardForkedState();
+      hintingContractsDB.revertCheckpoint();
+      if (!(e instanceof TxSimTeardownRevert)) {
         // Unchecked/unknown error - re-throw as-is
         throw e;
       }
@@ -397,12 +403,9 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       }
     }
 
-    // add new contracts to the contracts db so that their code may be found and called
-    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
-    // However, things work as expected because later calls to getters on the hintingContractsDB
-    // will pick up the new contracts and will generate the necessary hints.
-    // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addNewNonRevertibleContracts(context.nonRevertibleContractDeploymentData);
+    // Add new contracts to the contracts db so that their code may be found and called.
+    // Extract contracts from deployment data and add them.
+    await this.contractsDB.addContracts(context.nonRevertibleContractClasses, context.nonRevertibleContractInstances);
   }
 
   /**
@@ -482,12 +485,8 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       }
     }
 
-    // add new contracts to the contracts db so that their functions may be found and called
-    // FIXME(fcarreiro): this should conceptually use the hinting contracts db.
-    // However, things work as expected because later calls to getters on the hintingContractsDB
-    // will pick up the new contracts and will generate the necessary hints.
-    // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addNewRevertibleContracts(context.revertibleContractDeploymentData);
+    // Add new contracts to the contracts db so that their functions may be found and called.
+    await this.contractsDB.addContracts(context.revertibleContractClasses, context.revertibleContractInstances);
   }
 
   private async payFee(context: PublicTxContext) {

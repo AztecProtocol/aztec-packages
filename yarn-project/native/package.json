@@ -20,6 +20,7 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "msgpackr": "^1.11.2"
   },
   "devDependencies": {

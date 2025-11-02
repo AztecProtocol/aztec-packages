@@ -18,16 +18,20 @@ namespace bb::nodejs {
 
 TsCallbackContractDB::TsCallbackContractDB(Napi::ThreadSafeFunction instanceCallback,
                                            Napi::ThreadSafeFunction classCallback,
-                                           Napi::ThreadSafeFunction addNonRevCallback,
-                                           Napi::ThreadSafeFunction addRevCallback,
                                            Napi::ThreadSafeFunction bytecodeCommitmentCallback,
-                                           Napi::ThreadSafeFunction debugNameCallback)
+                                           Napi::ThreadSafeFunction debugNameCallback,
+                                           Napi::ThreadSafeFunction addContractsCallback,
+                                           Napi::ThreadSafeFunction createCheckpointCallback,
+                                           Napi::ThreadSafeFunction commitCheckpointCallback,
+                                           Napi::ThreadSafeFunction revertCheckpointCallback)
     : contract_instance_callback_(std::move(instanceCallback))
     , contract_class_callback_(std::move(classCallback))
-    , add_non_rev_callback_(std::move(addNonRevCallback))
-    , add_rev_callback_(std::move(addRevCallback))
     , bytecode_commitment_callback_(std::move(bytecodeCommitmentCallback))
     , debug_name_callback_(std::move(debugNameCallback))
+    , add_contracts_callback_(std::move(addContractsCallback))
+    , create_checkpoint_callback_(std::move(createCheckpointCallback))
+    , commit_checkpoint_callback_(std::move(commitCheckpointCallback))
+    , revert_checkpoint_callback_(std::move(revertCheckpointCallback))
 {}
 
 namespace {
@@ -310,18 +314,46 @@ std::optional<std::vector<uint8_t>> invoke_double_string_callback(const Napi::Th
 }
 
 /**
- * @brief Helper for callbacks that take a buffer and return void
+ * @brief Helper for callbacks that take no arguments and return void
  */
-void invoke_buffer_void_callback(const Napi::ThreadSafeFunction& callback,
-                                 std::vector<uint8_t> buffer_data,
-                                 const std::string& operation_name)
+void invoke_void_void_callback(const Napi::ThreadSafeFunction& callback, const std::string& operation_name)
+{
+    auto result = invoke_ts_callback_with_promise(
+        callback, operation_name, [](Napi::Env env, Napi::Function js_callback, CallbackData* data) {
+            auto js_result = js_callback.Call({});
+
+            if (!js_result.IsPromise()) {
+                data->error_message = "TypeScript callback did not return a Promise";
+                data->result_promise.set_value(std::nullopt);
+                return;
+            }
+
+            auto promise = js_result.As<Napi::Promise>();
+            auto resolve_handler = create_void_resolve_handler(env, data);
+            auto reject_handler = create_reject_handler(env, data);
+            attach_promise_handlers(promise, resolve_handler, reject_handler, data);
+        });
+
+    // For void callbacks, we just need to ensure no errors occurred
+    // The result itself is ignored (will be nullopt for void)
+}
+
+/**
+ * @brief Helper for callbacks that take two buffers and return void
+ */
+void invoke_two_buffers_void_callback(const Napi::ThreadSafeFunction& callback,
+                                      std::vector<uint8_t> buffer_data1,
+                                      std::vector<uint8_t> buffer_data2,
+                                      const std::string& operation_name)
 {
     auto result = invoke_ts_callback_with_promise(
         callback,
         operation_name,
-        [buffer_data = std::move(buffer_data)](Napi::Env env, Napi::Function js_callback, CallbackData* data) {
-            auto js_buffer = Napi::Buffer<uint8_t>::Copy(env, buffer_data.data(), buffer_data.size());
-            auto js_result = js_callback.Call({ js_buffer });
+        [buffer_data1 = std::move(buffer_data1),
+         buffer_data2 = std::move(buffer_data2)](Napi::Env env, Napi::Function js_callback, CallbackData* data) {
+            auto js_buffer1 = Napi::Buffer<uint8_t>::Copy(env, buffer_data1.data(), buffer_data1.size());
+            auto js_buffer2 = Napi::Buffer<uint8_t>::Copy(env, buffer_data2.data(), buffer_data2.size());
+            auto js_result = js_callback.Call({ js_buffer1, js_buffer2 });
 
             if (!js_result.IsPromise()) {
                 data->error_message = "TypeScript callback did not return a Promise";
@@ -393,34 +425,55 @@ std::optional<bb::avm2::ContractClass> TsCallbackContractDB::get_contract_class(
     return std::make_optional(std::move(contract_class));
 }
 
-void TsCallbackContractDB::add_new_non_revertible_contracts(
-    const bb::avm2::ContractDeploymentData& non_revertible_contract_deployment_data)
+void TsCallbackContractDB::add_contracts(const std::vector<bb::avm2::ContractClass>& contract_classes,
+                                         const std::vector<bb::avm2::ContractInstanceWithAddress>& contract_instances)
 {
     if (released_) {
-        throw std::runtime_error("Cannot call add_new_non_revertible_contracts after releasing callbacks");
+        throw std::runtime_error("Cannot call add_contracts after releasing callbacks");
     }
 
-    vinfo("TsCallbackContractDB: Adding non-revertible contracts");
+    vinfo("TsCallbackContractDB: Adding ",
+          contract_classes.size(),
+          " contract classes and ",
+          contract_instances.size(),
+          " contract instances");
 
-    auto serialized_data = serialize_to_msgpack(non_revertible_contract_deployment_data);
-    invoke_buffer_void_callback(add_non_rev_callback_, std::move(serialized_data), "add_new_non_revertible_contracts");
+    // Serialize both arrays to msgpack
+    auto classes_buffer = serialize_to_msgpack(contract_classes);
+    auto instances_buffer = serialize_to_msgpack(contract_instances);
 
-    vinfo("TsCallbackContractDB: Added non-revertible contracts");
+    // Call TypeScript with both buffers
+    invoke_two_buffers_void_callback(add_contracts_callback_, classes_buffer, instances_buffer, "addContracts");
 }
 
-void TsCallbackContractDB::add_new_revertible_contracts(
-    const bb::avm2::ContractDeploymentData& revertible_contract_deployment_data)
+void TsCallbackContractDB::create_checkpoint()
 {
     if (released_) {
-        throw std::runtime_error("Cannot call add_new_revertible_contracts after releasing callbacks");
+        throw std::runtime_error("Cannot call create_checkpoint after releasing callbacks");
     }
 
-    vinfo("TsCallbackContractDB: Adding revertible contracts");
+    vinfo("TsCallbackContractDB: Calling createCheckpoint");
+    invoke_void_void_callback(create_checkpoint_callback_, "createCheckpoint");
+}
 
-    auto serialized_data = serialize_to_msgpack(revertible_contract_deployment_data);
-    invoke_buffer_void_callback(add_rev_callback_, std::move(serialized_data), "add_new_revertible_contracts");
+void TsCallbackContractDB::commit_checkpoint()
+{
+    if (released_) {
+        throw std::runtime_error("Cannot call commit_checkpoint after releasing callbacks");
+    }
 
-    vinfo("TsCallbackContractDB: Added revertible contracts");
+    vinfo("TsCallbackContractDB: Calling commitCheckpoint");
+    invoke_void_void_callback(commit_checkpoint_callback_, "commitCheckpoint");
+}
+
+void TsCallbackContractDB::revert_checkpoint()
+{
+    if (released_) {
+        throw std::runtime_error("Cannot call revert_checkpoint after releasing callbacks");
+    }
+
+    vinfo("TsCallbackContractDB: Calling revertCheckpoint");
+    invoke_void_void_callback(revert_checkpoint_callback_, "revertCheckpoint");
 }
 
 std::optional<bb::avm2::FF> TsCallbackContractDB::get_bytecode_commitment(
@@ -471,10 +524,12 @@ void TsCallbackContractDB::release()
     if (!released_) {
         contract_instance_callback_.Release();
         contract_class_callback_.Release();
-        add_non_rev_callback_.Release();
-        add_rev_callback_.Release();
         bytecode_commitment_callback_.Release();
         debug_name_callback_.Release();
+        add_contracts_callback_.Release();
+        create_checkpoint_callback_.Release();
+        commit_checkpoint_callback_.Release();
+        revert_checkpoint_callback_.Release();
         released_ = true;
         vinfo("TsCallbackContractDB: Released thread-safe function handles");
     }

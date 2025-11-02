@@ -29,15 +29,25 @@ std::optional<std::string> PureContractDB::get_debug_function_name(const AztecAd
     return raw_contract_db.get_debug_function_name(address, selector);
 }
 
-void PureContractDB::add_new_non_revertible_contracts(
-    const ContractDeploymentData& non_revertible_contract_deployment_data)
+void PureContractDB::add_contracts(const std::vector<ContractClass>& contract_classes,
+                                   const std::vector<ContractInstanceWithAddress>& contract_instances)
 {
-    raw_contract_db.add_new_non_revertible_contracts(non_revertible_contract_deployment_data);
+    raw_contract_db.add_contracts(contract_classes, contract_instances);
 }
 
-void PureContractDB::add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data)
+void PureContractDB::create_checkpoint()
 {
-    raw_contract_db.add_new_revertible_contracts(revertible_contract_deployment_data);
+    raw_contract_db.create_checkpoint();
+}
+
+void PureContractDB::commit_checkpoint()
+{
+    raw_contract_db.commit_checkpoint();
+}
+
+void PureContractDB::revert_checkpoint()
+{
+    raw_contract_db.revert_checkpoint();
 }
 
 // Merkle DB starts.

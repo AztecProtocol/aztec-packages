@@ -33,21 +33,27 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
      *        Expected signature: (address: string) => Promise<Buffer | undefined>
      * @param classCallback Thread-safe function to fetch contract classes from TypeScript
      *        Expected signature: (classId: string) => Promise<Buffer | undefined>
-     * @param addNonRevCallback Thread-safe function to add non-revertible contracts
-     *        Expected signature: (contractDeploymentData: Buffer) => Promise<void>
-     * @param addRevCallback Thread-safe function to add revertible contracts
-     *        Expected signature: (contractDeploymentData: Buffer) => Promise<void>
      * @param bytecodeCommitmentCallback Thread-safe function to fetch bytecode commitments
      *        Expected signature: (classId: string) => Promise<Buffer | undefined>
      * @param debugNameCallback Thread-safe function to fetch debug function names
      *        Expected signature: (address: string, selector: string) => Promise<string | undefined>
+     * @param addContractsCallback Thread-safe function to add contracts in TypeScript
+     *        Expected signature: (classesBuffer: Buffer, instancesBuffer: Buffer) => Promise<void>
+     * @param createCheckpointCallback Thread-safe function to create checkpoint in TypeScript
+     *        Expected signature: () => Promise<void>
+     * @param commitCheckpointCallback Thread-safe function to commit checkpoint in TypeScript
+     *        Expected signature: () => Promise<void>
+     * @param revertCheckpointCallback Thread-safe function to revert checkpoint in TypeScript
+     *        Expected signature: () => Promise<void>
      */
     TsCallbackContractDB(Napi::ThreadSafeFunction instanceCallback,
                          Napi::ThreadSafeFunction classCallback,
-                         Napi::ThreadSafeFunction addNonRevCallback,
-                         Napi::ThreadSafeFunction addRevCallback,
                          Napi::ThreadSafeFunction bytecodeCommitmentCallback,
-                         Napi::ThreadSafeFunction debugNameCallback);
+                         Napi::ThreadSafeFunction debugNameCallback,
+                         Napi::ThreadSafeFunction addContractsCallback,
+                         Napi::ThreadSafeFunction createCheckpointCallback,
+                         Napi::ThreadSafeFunction commitCheckpointCallback,
+                         Napi::ThreadSafeFunction revertCheckpointCallback);
 
     /**
      * @brief Fetches a contract instance by address
@@ -73,20 +79,28 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
     std::optional<bb::avm2::ContractClass> get_contract_class(const bb::avm2::ContractClassId& class_id) const override;
 
     /**
-     * @brief Adds non-revertible contracts from a transaction
+     * @brief Adds contracts from a transaction
      *
-     * @param non_revertible_contract_deployment_data The non-revertible contract deployment data
+     * @param contract_classes The contract classes to add
+     * @param contract_instances The contract instances to add
      */
-    void add_new_non_revertible_contracts(
-        const bb::avm2::ContractDeploymentData& non_revertible_contract_deployment_data) override;
+    void add_contracts(const std::vector<bb::avm2::ContractClass>& contract_classes,
+                       const std::vector<bb::avm2::ContractInstanceWithAddress>& contract_instances) override;
 
     /**
-     * @brief Adds revertible contracts from a transaction
-     *
-     * @param revertible_contract_deployment_data The revertible contract deployment data
+     * @brief Creates a new checkpoint
      */
-    void add_new_revertible_contracts(
-        const bb::avm2::ContractDeploymentData& revertible_contract_deployment_data) override;
+    void create_checkpoint() override;
+
+    /**
+     * @brief Commits the current checkpoint
+     */
+    void commit_checkpoint() override;
+
+    /**
+     * @brief Reverts the current checkpoint
+     */
+    void revert_checkpoint() override;
 
     /**
      * @brief Fetches bytecode commitment for a contract class
@@ -117,10 +131,13 @@ class TsCallbackContractDB : public avm2::simulation::ContractDBInterface {
   private:
     Napi::ThreadSafeFunction contract_instance_callback_;
     Napi::ThreadSafeFunction contract_class_callback_;
-    Napi::ThreadSafeFunction add_non_rev_callback_;
-    Napi::ThreadSafeFunction add_rev_callback_;
     Napi::ThreadSafeFunction bytecode_commitment_callback_;
     Napi::ThreadSafeFunction debug_name_callback_;
+    Napi::ThreadSafeFunction add_contracts_callback_;
+    // Checkpoint callbacks
+    Napi::ThreadSafeFunction create_checkpoint_callback_;
+    Napi::ThreadSafeFunction commit_checkpoint_callback_;
+    Napi::ThreadSafeFunction revert_checkpoint_callback_;
 
     // Track whether TSFNs have been released to avoid double-release
     mutable bool released_ = false;

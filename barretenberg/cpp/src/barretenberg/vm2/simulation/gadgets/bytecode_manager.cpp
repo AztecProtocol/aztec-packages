@@ -77,8 +77,6 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     BytecodeId bytecode_id = maybe_bytecode_commitment.value();
     retrieval_event.bytecode_id = bytecode_id;
 
-    // Class ID derivation validation
-    class_id_derivation.assert_derivation(klass.with_commitment(bytecode_id));
     debug("Bytecode for ", address, " successfully retrieved!");
 
     // Check if we've already processed this bytecode. If so, don't do hashing and decomposition again!

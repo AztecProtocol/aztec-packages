@@ -232,6 +232,7 @@ export class PublicProcessor implements Traceable {
       // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
       const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
       const startStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
+      this.contractsDB.createCheckpoint();
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -247,6 +248,7 @@ export class PublicProcessor implements Traceable {
           });
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -264,6 +266,7 @@ export class PublicProcessor implements Traceable {
           );
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -278,6 +281,8 @@ export class PublicProcessor implements Traceable {
         totalBlockGas = totalBlockGas.add(processedTx.gasUsed.totalGas);
         totalSizeInBytes += txSize;
         totalBlobFields += txBlobFields;
+
+        this.contractsDB.commitCheckpoint();
       } catch (err: any) {
         if (err?.name === 'PublicProcessorTimeoutError') {
           this.log.warn(`Stopping tx processing due to timeout.`);
@@ -293,6 +298,7 @@ export class PublicProcessor implements Traceable {
           // which may not be the one originally created by this object. But that is ok, we do this to fulfil the ForkCheckpoint
           // lifecycle expectations and ensure it doesn't attempt to commit later on.
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
 
           // Now we want to revert any/all remaining checkpoints, destroying any outstanding state updates.
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
@@ -307,7 +313,9 @@ export class PublicProcessor implements Traceable {
 
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
+        this.contractsDB.revertCheckpoint();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
@@ -318,11 +326,6 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        // The tx-level contracts cache should not live on to the next tx
-        // On tx success (inclusion in block), created contracts should have been committed down too the block-level cache,
-        // in which case this clear should be a no-op, but is good for sanity.
-        // On failure (error and no inclusion in block), this clears the tx-level cache of any contracts that were created.
-        this.contractsDB.clearContractsForTx();
       }
     }
 
@@ -511,9 +514,7 @@ export class PublicProcessor implements Traceable {
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
     // Add any contracts registered/deployed in this private-only tx to the block-level cache
-    // (add to tx-level cache and then commit to block-level cache)
-    await this.contractsDB.addNewContracts(tx);
-    this.contractsDB.commitContractsForTx();
+    await this.contractsDB.addContractsFromTx(tx);
 
     return [processedTx, undefined];
   }
@@ -524,13 +525,9 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[]]> {
     const timer = new Timer();
 
-    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
-      await this.publicTxSimulator.simulate(tx);
-    // Commit contracts from this TX to the block-level cache and clear tx cache
-    // If the tx reverted, only commit non-revertible contracts.
-    // This commit function also clears the tx-level caches (both non-revertible and revertible caches).
-    this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
-    // NOTE: You can't create contracts in public, so this just adds contracts from the TX's private section.
+    const simResult = await this.publicTxSimulator.simulate(tx);
+
+    const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } = simResult;
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();

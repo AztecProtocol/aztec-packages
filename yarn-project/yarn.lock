@@ -1547,6 +1547,7 @@ __metadata:
   resolution: "@aztec/native@workspace:native"
   dependencies:
     "@aztec/foundation": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"

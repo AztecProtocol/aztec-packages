@@ -79,83 +79,124 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
           "\n * bytecodeCommitments: ",
           hints.bytecodeCommitments.size(),
           "\n * debugFunctionNames: ",
-          hints.debugFunctionNames.size());
+          hints.debugFunctionNames.size(),
+          "\n * contractDBCreateCheckpointHints: ",
+          hints.contractDBCreateCheckpointHints.size(),
+          "\n * contractDBCommitCheckpointHints: ",
+          hints.contractDBCommitCheckpointHints.size(),
+          "\n * contractDBRevertCheckpointHints: ",
+          hints.contractDBRevertCheckpointHints.size());
 
-    for (const auto& contract_instance_hint : hints.contractInstances) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_instances.contains(contract_instance_hint.address));
-        contract_instances[contract_instance_hint.address] = contract_instance_hint;
+    // Build contract hint maps using composite keys (checkpoint ID + identifier)
+    for (const auto& hint : hints.contractInstances) {
+        GetContractInstanceKey key = { hint.hintKey, hint.address };
+        contract_instances[key] = hint;
+        info("[C++ HintedRawContractDB] Adding contract instance hint: checkpointId=",
+             hint.hintKey,
+             " address=",
+             hint.address);
     }
 
-    for (const auto& contract_class_hint : hints.contractClasses) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_classes.contains(contract_class_hint.classId));
-        contract_classes[contract_class_hint.classId] = contract_class_hint;
+    for (const auto& hint : hints.contractClasses) {
+        GetContractClassKey key = { hint.hintKey, hint.classId };
+        contract_classes[key] = hint;
     }
 
-    for (const auto& bytecode_commitment_hint : hints.bytecodeCommitments) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
-        bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
+    for (const auto& hint : hints.bytecodeCommitments) {
+        GetBytecodeCommitmentKey key = { hint.hintKey, hint.classId };
+        bytecode_commitments[key] = hint.commitment;
     }
 
-    for (const auto& debug_function_name_hint : hints.debugFunctionNames) {
-        debug_function_names[std::make_pair(debug_function_name_hint.address, debug_function_name_hint.selector)] =
-            debug_function_name_hint.name;
+    for (const auto& hint : hints.debugFunctionNames) {
+        debug_function_names[std::make_pair(hint.address, hint.selector)] = hint.name;
+    }
+
+    // Build ContractDB-specific checkpoint action hint maps (keyed by action counter)
+    for (const auto& hint : hints.contractDBCreateCheckpointHints) {
+        create_checkpoint_hints[hint.actionCounter] = hint;
+    }
+
+    for (const auto& hint : hints.contractDBCommitCheckpointHints) {
+        commit_checkpoint_hints[hint.actionCounter] = hint;
+    }
+
+    for (const auto& hint : hints.contractDBRevertCheckpointHints) {
+        revert_checkpoint_hints[hint.actionCounter] = hint;
     }
 }
 
 std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const AztecAddress& address) const
 {
-    auto it = contract_instances.find(address);
-    // If we don't find the instance hint, this is not a catastrohic failure. It means that on the TS side,
+    uint32_t current_checkpoint = checkpoint_stack.top();
+    info("[C++ HintedRawContractDB] get_contract_instance looking up: checkpointId=",
+         current_checkpoint,
+         " address=",
+         address);
+    GetContractInstanceKey key = { current_checkpoint, address };
+    auto it = contract_instances.find(key);
+
+    // If we don't find the instance hint, this is not a catastrophic failure. It means that on the TS side,
     // the instance was also not found, and should be handled.
     if (it == contract_instances.end()) {
-        vinfo("Contract instance not found: ", address);
+        info("[C++ HintedRawContractDB] Contract instance NOT FOUND for checkpointId=",
+             current_checkpoint,
+             " address=",
+             address);
+        vinfo("Contract instance not found for checkpoint ", current_checkpoint, ", address ", address);
         return std::nullopt;
     }
-    const auto& contract_instance_hint = it->second;
+    info("[C++ HintedRawContractDB] Contract instance FOUND for checkpointId=",
+         current_checkpoint,
+         " address=",
+         address);
+    const auto& hint = it->second;
 
     return std::make_optional<ContractInstance>({
-        .salt = contract_instance_hint.salt,
-        .deployer = contract_instance_hint.deployer,
-        .current_contract_class_id = contract_instance_hint.currentContractClassId,
-        .original_contract_class_id = contract_instance_hint.originalContractClassId,
-        .initialization_hash = contract_instance_hint.initializationHash,
+        .salt = hint.salt,
+        .deployer = hint.deployer,
+        .current_contract_class_id = hint.currentContractClassId,
+        .original_contract_class_id = hint.originalContractClassId,
+        .initialization_hash = hint.initializationHash,
         .public_keys =
             PublicKeys{
-                .nullifier_key = contract_instance_hint.publicKeys.masterNullifierPublicKey,
-                .incoming_viewing_key = contract_instance_hint.publicKeys.masterIncomingViewingPublicKey,
-                .outgoing_viewing_key = contract_instance_hint.publicKeys.masterOutgoingViewingPublicKey,
-                .tagging_key = contract_instance_hint.publicKeys.masterTaggingPublicKey,
+                .nullifier_key = hint.publicKeys.masterNullifierPublicKey,
+                .incoming_viewing_key = hint.publicKeys.masterIncomingViewingPublicKey,
+                .outgoing_viewing_key = hint.publicKeys.masterOutgoingViewingPublicKey,
+                .tagging_key = hint.publicKeys.masterTaggingPublicKey,
             },
     });
 }
 
 std::optional<ContractClass> HintedRawContractDB::get_contract_class(const ContractClassId& class_id) const
 {
-    auto it = contract_classes.find(class_id);
-    // If we don't find the class hint, this is not a catastrohic failure. It means that on the TS side,
+    uint32_t current_checkpoint = checkpoint_stack.top();
+    GetContractClassKey key = { current_checkpoint, class_id };
+    auto it = contract_classes.find(key);
+
+    // If we don't find the class hint, this is not a catastrophic failure. It means that on the TS side,
     // the class was also not found, and should be handled.
     if (it == contract_classes.end()) {
-        vinfo("Contract class not found: ", class_id);
+        vinfo("Contract class not found for checkpoint ", current_checkpoint, ", class_id ", class_id);
         return std::nullopt;
     }
-    const auto& contract_class_hint = it->second;
+    const auto& hint = it->second;
 
     return std::make_optional<ContractClass>({
         .id = class_id,
-        .artifact_hash = contract_class_hint.artifactHash,
-        .private_functions_root = contract_class_hint.privateFunctionsRoot,
-        .packed_bytecode = contract_class_hint.packedBytecode,
+        .artifact_hash = hint.artifactHash,
+        .private_functions_root = hint.privateFunctionsRoot,
+        .packed_bytecode = hint.packedBytecode,
     });
 }
 
 std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id) const
 {
-    auto it = bytecode_commitments.find(class_id);
+    uint32_t current_checkpoint = checkpoint_stack.top();
+    GetBytecodeCommitmentKey key = { current_checkpoint, class_id };
+    auto it = bytecode_commitments.find(key);
+
     if (it == bytecode_commitments.end()) {
-        vinfo("Bytecode commitment not found for class id: ", class_id);
+        vinfo("Bytecode commitment not found for checkpoint ", current_checkpoint, ", class_id ", class_id);
         return std::nullopt;
     }
     return it->second;
@@ -164,19 +205,133 @@ std::optional<FF> HintedRawContractDB::get_bytecode_commitment(const ContractCla
 std::optional<std::string> HintedRawContractDB::get_debug_function_name(const AztecAddress& address,
                                                                         const FunctionSelector& selector) const
 {
-    return debug_function_names.at(std::make_pair(address, selector));
+    // Debug names are not checkpoint-dependent
+    auto it = debug_function_names.find(std::make_pair(address, selector));
+    if (it == debug_function_names.end()) {
+        return std::nullopt;
+    }
+    return it->second;
 }
 
-void HintedRawContractDB::add_new_non_revertible_contracts(
-    [[maybe_unused]] const ContractDeploymentData& non_revertible_contract_deployment_data)
+void HintedRawContractDB::add_contracts(
+    [[maybe_unused]] const std::vector<ContractClass>& contract_classes,
+    [[maybe_unused]] const std::vector<ContractInstanceWithAddress>& contract_instances)
 {
-    debug("add_non_revertible_contracts called (no-op in hinted mode)");
+    debug("add_contracts called (no-op in hinted mode)");
 }
 
-void HintedRawContractDB::add_new_revertible_contracts(
-    [[maybe_unused]] const ContractDeploymentData& revertible_contract_deployment_data)
+void HintedRawContractDB::create_checkpoint()
 {
-    debug("add_revertible_contracts called (no-op in hinted mode)");
+    auto it = create_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == create_checkpoint_hints.end()) {
+        throw std::runtime_error(format("[create_checkpoint@", checkpoint_action_counter, "] Hint not found!"));
+    }
+    const auto& hint = it->second;
+
+    // Validate old checkpoint ID
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[create_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint ID mismatch: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    debug("[create_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_stack.push(hint.newCheckpointId);
+    checkpoint_action_counter++;
+}
+
+void HintedRawContractDB::commit_checkpoint()
+{
+    auto it = commit_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == commit_checkpoint_hints.end()) {
+        throw std::runtime_error(format("[commit_checkpoint@", checkpoint_action_counter, "] Hint not found!"));
+    }
+    const auto& hint = it->second;
+
+    // Validate old checkpoint ID
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[commit_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint ID mismatch: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    checkpoint_stack.pop();
+
+    // Validate new checkpoint ID
+    if (hint.newCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[commit_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] New checkpoint ID mismatch: ",
+                                        hint.newCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    debug("[commit_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_action_counter++;
+}
+
+void HintedRawContractDB::revert_checkpoint()
+{
+    auto it = revert_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == revert_checkpoint_hints.end()) {
+        throw std::runtime_error(format("[revert_checkpoint@", checkpoint_action_counter, "] Hint not found!"));
+    }
+    const auto& hint = it->second;
+
+    // Validate old checkpoint ID
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[revert_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint ID mismatch: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    checkpoint_stack.pop();
+
+    // Validate new checkpoint ID
+    if (hint.newCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[revert_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] New checkpoint ID mismatch: ",
+                                        hint.newCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    debug("[revert_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_action_counter++;
+}
+
+uint32_t HintedRawContractDB::get_checkpoint_id() const
+{
+    return checkpoint_stack.top();
 }
 
 // Hinted MerkleDB starts.

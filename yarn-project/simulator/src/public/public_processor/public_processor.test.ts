@@ -335,8 +335,57 @@ describe('public_processor', () => {
 
       // Mock the simulator to add contracts to the DB (simulating what the real simulator does)
       publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
-        // Add contracts from the tx to the contractsDB's revertible and non-revertible tx-level caches
-        await contractsDB.addNewContracts(simulatedTx);
+        // Extract and add contracts from the tx to the contractsDB
+        const { AllContractDeploymentData } = await import('@aztec/stdlib/contract');
+        const { ContractClassPublishedEvent } = await import('@aztec/protocol-contracts/class-registry');
+        const { ContractInstancePublishedEvent } = await import('@aztec/protocol-contracts/instance-registry');
+
+        const deploymentData = AllContractDeploymentData.fromTx(simulatedTx);
+
+        // Process non-revertible contracts
+        const nonRevertibleClasses = await Promise.all(
+          ContractClassPublishedEvent.extractContractClassEvents(
+            deploymentData.nonRevertibleContractDeploymentData.contractClassLogs,
+          ).map(e => e.toContractClassPublic()),
+        );
+        const nonRevertibleInstances = ContractInstancePublishedEvent.extractContractInstanceEvents(
+          deploymentData.nonRevertibleContractDeploymentData.privateLogs,
+        ).map(e => e.toContractInstance());
+
+        // Process revertible contracts
+        const revertibleClasses = await Promise.all(
+          ContractClassPublishedEvent.extractContractClassEvents(
+            deploymentData.revertibleContractDeploymentData.contractClassLogs,
+          ).map(e => e.toContractClassPublic()),
+        );
+        const revertibleInstances = ContractInstancePublishedEvent.extractContractInstanceEvents(
+          deploymentData.revertibleContractDeploymentData.privateLogs,
+        ).map(e => e.toContractInstance());
+
+        // Add non-revertible contracts
+        if (nonRevertibleClasses.length > 0 || nonRevertibleInstances.length > 0) {
+          await contractsDB.addContracts(nonRevertibleClasses, nonRevertibleInstances);
+        }
+
+        // Create checkpoint for revertible contracts
+        const hasRevertibleContracts = revertibleClasses.length > 0 || revertibleInstances.length > 0;
+        if (hasRevertibleContracts) {
+          contractsDB.createCheckpoint();
+          await contractsDB.addContracts(revertibleClasses, revertibleInstances);
+        }
+
+        // Note: The simulator would normally commit/revert the checkpoint based on result,
+        // but in this test we mock that behavior and expect the processor to handle it.
+        // Since mockedEnqueuedCallsResult.revertCode might be set to APP_LOGIC_REVERTED,
+        // we need to commit or revert the checkpoint accordingly (only if we created one).
+        if (hasRevertibleContracts) {
+          if (mockedEnqueuedCallsResult.revertCode.isOK()) {
+            contractsDB.commitCheckpoint();
+          } else {
+            contractsDB.revertCheckpoint();
+          }
+        }
+
         return Promise.resolve(mockedEnqueuedCallsResult);
       });
 
@@ -366,7 +415,28 @@ describe('public_processor', () => {
     const contractClassId = await mockContractClassForTx(tx, /*revertible=*/ false);
 
     publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
-      await contractsDB.addNewContracts(simulatedTx);
+      // Extract and add contracts from the tx to the contractsDB
+      const { AllContractDeploymentData } = await import('@aztec/stdlib/contract');
+      const { ContractClassPublishedEvent } = await import('@aztec/protocol-contracts/class-registry');
+      const { ContractInstancePublishedEvent } = await import('@aztec/protocol-contracts/instance-registry');
+
+      const deploymentData = AllContractDeploymentData.fromTx(simulatedTx);
+
+      // Process non-revertible contracts
+      const nonRevertibleClasses = await Promise.all(
+        ContractClassPublishedEvent.extractContractClassEvents(
+          deploymentData.nonRevertibleContractDeploymentData.contractClassLogs,
+        ).map(e => e.toContractClassPublic()),
+      );
+      const nonRevertibleInstances = ContractInstancePublishedEvent.extractContractInstanceEvents(
+        deploymentData.nonRevertibleContractDeploymentData.privateLogs,
+      ).map(e => e.toContractInstance());
+
+      // Add non-revertible contracts
+      if (nonRevertibleClasses.length > 0 || nonRevertibleInstances.length > 0) {
+        await contractsDB.addContracts(nonRevertibleClasses, nonRevertibleInstances);
+      }
+
       throw new Error('Uncaught error');
     });
 

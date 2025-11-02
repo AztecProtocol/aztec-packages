@@ -3,6 +3,16 @@ import type { Tx } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
+import type { ContractClassPublic } from './interfaces/contract_class.js';
+import type { ContractInstanceWithAddress } from './interfaces/contract_instance.js';
+
+export interface TxContractClassesInstances {
+  nonRevertibleContractClasses: ContractClassPublic[];
+  revertibleContractClasses: ContractClassPublic[];
+  nonRevertibleContractInstances: ContractInstanceWithAddress[];
+  revertibleContractInstances: ContractInstanceWithAddress[];
+}
+
 /**
  * Class containing contract class logs and private logs which are both
  * relevant for contract registrations and deployments.

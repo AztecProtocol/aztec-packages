@@ -67,4 +67,10 @@ export class ContractInstancePublishedEvent {
       .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
       .map(log => ContractInstancePublishedEvent.fromLog(log));
   }
+
+  public static async extractContractInstances(logs: PrivateLog[]): Promise<ContractInstanceWithAddress[]> {
+    return await Promise.all(
+      ContractInstancePublishedEvent.extractContractInstanceEvents(logs).map(e => e.toContractInstance()),
+    );
+  }
 }

@@ -58,4 +58,31 @@ export interface PublicContractsDBInterface {
    * @returns The name of the function or undefined if not found.
    */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+
+  /**
+   * Adds contracts (classes and instances) to the database.
+   * Contracts are added to the current checkpoint level (top of the stack).
+   * @param contractClasses - Array of contract classes to add.
+   * @param contractInstances - Array of contract instances to add.
+   */
+  addContracts(contractClasses: ContractClassPublic[], contractInstances: ContractInstanceWithAddress[]): Promise<void>;
+
+  /**
+   * Creates a checkpoint for speculative contract additions.
+   * Follows copy-on-create semantics: copies the current top of the stack.
+   * Maximum of 3 total levels (base + 2 checkpoints).
+   */
+  createCheckpoint(): void;
+
+  /**
+   * Commits the current checkpoint, merging it into its parent.
+   * Throws if no active checkpoint exists.
+   */
+  commitCheckpoint(): void;
+
+  /**
+   * Reverts the current checkpoint, discarding all changes made since creation.
+   * Throws if no active checkpoint exists.
+   */
+  revertCheckpoint(): void;
 }

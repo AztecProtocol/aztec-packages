@@ -130,6 +130,7 @@ struct PublicKeysHint {
 };
 
 struct ContractInstanceHint {
+    uint32_t hintKey; // Checkpoint ID at time of retrieval
     AztecAddress address;
     FF salt;
     AztecAddress deployer;
@@ -140,11 +141,18 @@ struct ContractInstanceHint {
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(
-        address, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys);
+    MSGPACK_FIELDS(hintKey,
+                   address,
+                   salt,
+                   deployer,
+                   currentContractClassId,
+                   originalContractClassId,
+                   initializationHash,
+                   publicKeys);
 };
 
 struct ContractClassHint {
+    uint32_t hintKey; // Checkpoint ID at time of retrieval
     FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
@@ -152,16 +160,17 @@ struct ContractClassHint {
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, packedBytecode);
+    MSGPACK_FIELDS(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode);
 };
 
 struct BytecodeCommitmentHint {
+    uint32_t hintKey; // Checkpoint ID at time of retrieval
     FF classId;
     FF commitment;
 
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, commitment);
+    MSGPACK_FIELDS(hintKey, classId, commitment);
 };
 
 struct DebugFunctionNameHint {
@@ -271,6 +280,7 @@ struct CheckpointActionNoStateChangeHint {
     MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
 };
 
+// MerkleDB-specific checkpoint hints.
 using CreateCheckpointHint = CheckpointActionNoStateChangeHint;
 using CommitCheckpointHint = CheckpointActionNoStateChangeHint;
 
@@ -287,6 +297,37 @@ struct RevertCheckpointHint {
     bool operator==(const RevertCheckpointHint& other) const = default;
 
     MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
+};
+
+// ContractDB-specific checkpoint hints.
+struct ContractDBCreateCheckpointHint {
+    uint32_t actionCounter;
+    uint32_t oldCheckpointId;
+    uint32_t newCheckpointId;
+
+    bool operator==(const ContractDBCreateCheckpointHint& other) const = default;
+
+    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
+};
+
+struct ContractDBCommitCheckpointHint {
+    uint32_t actionCounter;
+    uint32_t oldCheckpointId;
+    uint32_t newCheckpointId;
+
+    bool operator==(const ContractDBCommitCheckpointHint& other) const = default;
+
+    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
+};
+
+struct ContractDBRevertCheckpointHint {
+    uint32_t actionCounter;
+    uint32_t oldCheckpointId;
+    uint32_t newCheckpointId;
+
+    bool operator==(const ContractDBRevertCheckpointHint& other) const = default;
+
+    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -319,8 +360,11 @@ struct Tx {
     std::string hash;
     GasSettings gasSettings;
     GasFees effectiveGasFees;
-    ContractDeploymentData nonRevertibleContractDeploymentData;
-    ContractDeploymentData revertibleContractDeploymentData;
+    // Contract arrays instead of deployment data
+    std::vector<ContractClass> nonRevertibleNewContractClasses;
+    std::vector<ContractInstanceWithAddress> nonRevertibleNewContractInstances;
+    std::vector<ContractClass> revertibleNewContractClasses;
+    std::vector<ContractInstanceWithAddress> revertibleNewContractInstances;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<PublicCallRequestWithCalldata> setupEnqueuedCalls;
@@ -333,8 +377,10 @@ struct Tx {
     MSGPACK_FIELDS(hash,
                    gasSettings,
                    effectiveGasFees,
-                   nonRevertibleContractDeploymentData,
-                   revertibleContractDeploymentData,
+                   nonRevertibleNewContractClasses,
+                   nonRevertibleNewContractInstances,
+                   revertibleNewContractClasses,
+                   revertibleNewContractInstances,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
@@ -366,9 +412,14 @@ struct ExecutionHints {
     std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
     std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
     std::vector<AppendLeavesHint> appendLeavesHints;
+    // MerkleDB-specific checkpoint hints.
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
+    // ContractDB-specific checkpoint hints.
+    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
+    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
+    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -390,7 +441,10 @@ struct ExecutionHints {
                    appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
-                   revertCheckpointHints);
+                   revertCheckpointHints,
+                   contractDBCreateCheckpointHints,
+                   contractDBCommitCheckpointHints,
+                   contractDBRevertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////

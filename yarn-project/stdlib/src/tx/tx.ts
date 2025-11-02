@@ -13,6 +13,7 @@ import type { L2LogsSource } from '../interfaces/l2_logs_source.js';
 import type { PublicCallRequest } from '../kernel/index.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
+import type { PrivateLog } from '../logs/private_log.js';
 import { Gossipable } from '../p2p/gossipable.js';
 import { TopicType } from '../p2p/topic_type.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
@@ -20,6 +21,13 @@ import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';
 import { PublicCallRequestWithCalldata } from './public_call_request_with_calldata.js';
 import { TxHash } from './tx_hash.js';
+
+interface TxContractDeploymentLogs {
+  nonRevertibleContractClassLogs: ContractClassLog[];
+  revertibleContractClassLogs: ContractClassLog[];
+  nonRevertibleContractInstanceLogs: PrivateLog[];
+  revertibleContractInstanceLogs: PrivateLog[];
+}
 
 /**
  * The interface of an L2 transaction.
@@ -206,6 +214,50 @@ export class Tx extends Gossipable {
       h => !h.isEmpty(),
     ).length;
     return revertible ? contractClassLogs.slice(numNonRevertible) : contractClassLogs.slice(0, numNonRevertible);
+  }
+
+  getContractDeploymentLogs(): TxContractDeploymentLogs {
+    const hasPublicCalls = !!this.data.forPublic;
+
+    // Extract contract class logs from the tx
+    let nonRevertibleClassLogs: ContractClassLog[];
+    let revertibleClassLogs: ContractClassLog[];
+
+    if (hasPublicCalls) {
+      // Transactions with public calls can have both revertible and non-revertible contract class logs
+      // Split the logs up here based on revertibility
+      nonRevertibleClassLogs = this.getSplitContractClassLogs(/*revertible=*/ false);
+      revertibleClassLogs = this.getSplitContractClassLogs(/*revertible=*/ true);
+    } else {
+      // Private-only tx: all logs are non-revertible
+      nonRevertibleClassLogs = this.getContractClassLogs();
+      revertibleClassLogs = [];
+    }
+
+    // Extract contract instance logs from the transaction's private logs
+    let nonRevertibleInstanceLogs: PrivateLog[];
+    let revertibleInstanceLogs: PrivateLog[];
+
+    if (hasPublicCalls) {
+      // Transactions with public calls can have both revertible and non-revertible contract instance logs
+      // Split the logs up here based on revertibility
+      nonRevertibleInstanceLogs = this.data.forPublic!.nonRevertibleAccumulatedData.privateLogs.filter(
+        l => !l.isEmpty(),
+      );
+      revertibleInstanceLogs = this.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty());
+    } else {
+      // Private-only tx: use logs from the `forRollup` member of the tx
+      // For private-only txs, all logs are non-revertible
+      nonRevertibleInstanceLogs = this.data.forRollup!.end.privateLogs.filter(l => !l.isEmpty());
+      revertibleInstanceLogs = [];
+    }
+
+    return {
+      nonRevertibleContractClassLogs: nonRevertibleClassLogs,
+      revertibleContractClassLogs: revertibleClassLogs,
+      nonRevertibleContractInstanceLogs: nonRevertibleInstanceLogs,
+      revertibleContractInstanceLogs: revertibleInstanceLogs,
+    };
   }
 
   /**

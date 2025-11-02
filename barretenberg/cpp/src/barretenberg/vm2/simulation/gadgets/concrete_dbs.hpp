@@ -3,6 +3,7 @@
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/simulation/gadgets/address_derivation.hpp"
+#include "barretenberg/vm2/simulation/gadgets/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/gadgets/l1_to_l2_message_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/note_hash_tree_check.hpp"
 #include "barretenberg/vm2/simulation/gadgets/nullifier_tree_check.hpp"
@@ -18,9 +19,11 @@ class ContractDB final : public ContractDBInterface {
   public:
     ContractDB(ContractDBInterface& raw_contract_db,
                AddressDerivationInterface& address_derivation,
+               ClassIdDerivationInterface& class_id_derivation,
                const ProtocolContracts& protocol_contracts)
         : raw_contract_db(raw_contract_db)
         , address_derivation(address_derivation)
+        , class_id_derivation(class_id_derivation)
         , protocol_contracts(protocol_contracts)
     {}
 
@@ -39,15 +42,19 @@ class ContractDB final : public ContractDBInterface {
     std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                        const FunctionSelector& selector) const override;
 
-    // Adds non-revertible contracts to the DB.
-    void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
-    // Adds revertible contracts to the DB.
-    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+    // Adds contracts to the DB.
+    void add_contracts(const std::vector<ContractClass>& contract_classes,
+                       const std::vector<ContractInstanceWithAddress>& contract_instances) override;
+
+    // Checkpoint management
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
   private:
     ContractDBInterface& raw_contract_db;
     AddressDerivationInterface& address_derivation;
+    ClassIdDerivationInterface& class_id_derivation;
     const ProtocolContracts& protocol_contracts;
 };
 

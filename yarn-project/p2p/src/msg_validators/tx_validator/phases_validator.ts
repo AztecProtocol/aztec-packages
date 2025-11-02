@@ -27,10 +27,11 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
     try {
+      this.contractsDB.createCheckpoint();
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
-      await this.contractsDB.addNewContracts(tx);
+      await this.contractsDB.addContractsFromTx(tx);
 
       if (!tx.data.forPublic) {
         this.#log.debug(
@@ -58,7 +59,8 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       this.#log.error(`Error validating phases for tx`, err);
       return { result: 'invalid', reason: [TX_ERROR_DURING_VALIDATION] };
     } finally {
-      this.contractsDB.clearContractsForTx();
+      // Revert the checkpoint we created for temporary contract additions
+      this.contractsDB.revertCheckpoint();
     }
   }
 

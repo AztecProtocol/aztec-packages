@@ -5,7 +5,13 @@ import { schemas } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { AllContractDeploymentData, ContractDeploymentData } from '../contract/index.js';
+import {
+  type ContractClassPublic,
+  ContractClassPublicSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+  type TxContractClassesInstances,
+} from '../contract/index.js';
 import { computeEffectiveGasFees } from '../fees/transaction_fee.js';
 import { Gas } from '../gas/gas.js';
 import { GasFees } from '../gas/gas_fees.js';
@@ -32,6 +38,7 @@ import { serializeWithMessagePack } from './message_pack.js';
 ////////////////////////////////////////////////////////////////////////////
 export class AvmContractClassHint {
   constructor(
+    public readonly hintKey: number, // Checkpoint ID at time of retrieval
     public readonly classId: Fr,
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
@@ -41,20 +48,22 @@ export class AvmContractClassHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         artifactHash: schemas.Fr,
         privateFunctionsRoot: schemas.Fr,
         packedBytecode: schemas.Buffer,
       })
       .transform(
-        ({ classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
-          new AvmContractClassHint(classId, artifactHash, privateFunctionsRoot, packedBytecode),
+        ({ hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
+          new AvmContractClassHint(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
   }
 }
 
 export class AvmBytecodeCommitmentHint {
   constructor(
+    public readonly hintKey: number, // Checkpoint ID at time of retrieval
     public readonly classId: Fr,
     public readonly commitment: Fr,
   ) {}
@@ -62,15 +71,17 @@ export class AvmBytecodeCommitmentHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         commitment: schemas.Fr,
       })
-      .transform(({ classId, commitment }) => new AvmBytecodeCommitmentHint(classId, commitment));
+      .transform(({ hintKey, classId, commitment }) => new AvmBytecodeCommitmentHint(hintKey, classId, commitment));
   }
 }
 
 export class AvmContractInstanceHint {
   constructor(
+    public readonly hintKey: number, // Checkpoint ID at time of retrieval
     public readonly address: AztecAddress,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
@@ -83,6 +94,7 @@ export class AvmContractInstanceHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         address: AztecAddress.schema,
         salt: schemas.Fr,
         deployer: AztecAddress.schema,
@@ -93,6 +105,7 @@ export class AvmContractInstanceHint {
       })
       .transform(
         ({
+          hintKey,
           address,
           salt,
           deployer,
@@ -102,6 +115,7 @@ export class AvmContractInstanceHint {
           publicKeys,
         }) =>
           new AvmContractInstanceHint(
+            hintKey,
             address,
             salt,
             deployer,
@@ -345,15 +359,15 @@ class AvmCheckpointActionNoStateChangeHint {
   }
 }
 
+export class AvmContractDBCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
+// MerkleDB-specific checkpoint hints.
 // Hint for MerkleTreeDB.createCheckpoint.
 export class AvmCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-
 // Hint for MerkleTreeDB.commitCheckpoint.
 export class AvmCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
-
 // Hint for MerkleTreeDB.revertCheckpoint.
 export class AvmRevertCheckpointHint {
-  // We use explicit fields for MessagePack.
   constructor(
     // key
     public readonly actionCounter: number,
@@ -365,47 +379,35 @@ export class AvmRevertCheckpointHint {
     public readonly stateAfter: TreeSnapshots,
   ) {}
 
-  static create(
-    actionCounter: number,
-    oldCheckpointId: number,
-    newCheckpointId: number,
-    stateBefore: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
-    stateAfter: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
-  ): AvmRevertCheckpointHint {
-    return new AvmRevertCheckpointHint(
-      actionCounter,
-      oldCheckpointId,
-      newCheckpointId,
-      new TreeSnapshots(
-        stateBefore[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
-        stateBefore[MerkleTreeId.NOTE_HASH_TREE],
-        stateBefore[MerkleTreeId.NULLIFIER_TREE],
-        stateBefore[MerkleTreeId.PUBLIC_DATA_TREE],
-      ),
-      new TreeSnapshots(
-        stateAfter[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
-        stateAfter[MerkleTreeId.NOTE_HASH_TREE],
-        stateAfter[MerkleTreeId.NULLIFIER_TREE],
-        stateAfter[MerkleTreeId.PUBLIC_DATA_TREE],
-      ),
-    );
-  }
-
   static get schema() {
     return z
       .object({
-        actionCounter: z.number().int().nonnegative(),
-        oldCheckpointId: z.number().int().nonnegative(),
-        newCheckpointId: z.number().int().nonnegative(),
+        actionCounter: z.number(),
+        oldCheckpointId: z.number(),
+        newCheckpointId: z.number(),
         stateBefore: TreeSnapshots.schema,
         stateAfter: TreeSnapshots.schema,
       })
       .transform(
-        ({ actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter }) =>
-          new AvmRevertCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter),
+        obj =>
+          new AvmRevertCheckpointHint(
+            obj.actionCounter,
+            obj.oldCheckpointId,
+            obj.newCheckpointId,
+            obj.stateBefore,
+            obj.stateAfter,
+          ),
       );
   }
 }
+
+// ContractDB-specific checkpoint hints.
+// Hint for ContractDB.createCheckpoint.
+export class AvmContractDBCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+// Hint for ContractDB.commitCheckpoint.
+export class AvmContractDBCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+// Hint for ContractDB.revertCheckpoint.
+export class AvmContractDBRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -415,8 +417,11 @@ export class AvmTxHint {
     public readonly hash: string,
     public readonly gasSettings: GasSettings,
     public readonly effectiveGasFees: GasFees,
-    public readonly nonRevertibleContractDeploymentData: ContractDeploymentData,
-    public readonly revertibleContractDeploymentData: ContractDeploymentData,
+    // Contract arrays instead of deployment data
+    public readonly nonRevertibleNewContractClasses: ContractClassPublic[],
+    public readonly nonRevertibleNewContractInstances: ContractInstanceWithAddress[],
+    public readonly revertibleNewContractClasses: ContractClassPublic[],
+    public readonly revertibleNewContractInstances: ContractInstanceWithAddress[],
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -436,23 +441,25 @@ export class AvmTxHint {
     public readonly feePayer: AztecAddress,
   ) {}
 
-  static fromTx(tx: Tx, gasFees: GasFees): AvmTxHint {
+  static fromTx(tx: Tx, gasFees: GasFees, contractClassesAndInstances: TxContractClassesInstances): AvmTxHint {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const effectiveGasFees = computeEffectiveGasFees(gasFees, gasSettings);
-    const allContractDeploymentData = AllContractDeploymentData.fromTx(tx);
 
     // For informational purposes. Assumed quick because it should be cached.
     const txHash = tx.getTxHash();
 
+    // Extract revertible contracts
     return new AvmTxHint(
       txHash.hash.toString(),
       gasSettings,
       effectiveGasFees,
-      allContractDeploymentData.getNonRevertibleContractDeploymentData(),
-      allContractDeploymentData.getRevertibleContractDeploymentData(),
+      contractClassesAndInstances.nonRevertibleContractClasses,
+      contractClassesAndInstances.nonRevertibleContractInstances,
+      contractClassesAndInstances.revertibleContractClasses,
+      contractClassesAndInstances.revertibleContractInstances,
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -476,8 +483,10 @@ export class AvmTxHint {
       '',
       GasSettings.empty(),
       GasFees.empty(),
-      ContractDeploymentData.empty(),
-      ContractDeploymentData.empty(),
+      /*nonRevertibleNewContractClasses=*/ [],
+      /*nonRevertibleNewContractInstances=*/ [],
+      /*revertibleNewContractClasses=*/ [],
+      /*revertibleNewContractInstances=*/ [],
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       { noteHashes: [], nullifiers: [], l2ToL1Messages: [] },
       [],
@@ -494,8 +503,10 @@ export class AvmTxHint {
         hash: z.string(),
         gasSettings: GasSettings.schema,
         effectiveGasFees: GasFees.schema,
-        nonRevertibleContractDeploymentData: ContractDeploymentData.schema,
-        revertibleContractDeploymentData: ContractDeploymentData.schema,
+        nonRevertibleNewContractClasses: ContractClassPublicSchema.array(),
+        nonRevertibleNewContractInstances: ContractInstanceWithAddressSchema.array(),
+        revertibleNewContractClasses: ContractClassPublicSchema.array(),
+        revertibleNewContractInstances: ContractInstanceWithAddressSchema.array(),
         nonRevertibleAccumulatedData: z.object({
           noteHashes: schemas.Fr.array(),
           nullifiers: schemas.Fr.array(),
@@ -517,8 +528,10 @@ export class AvmTxHint {
           hash,
           gasSettings,
           effectiveGasFees,
-          nonRevertibleContractDeploymentData,
-          revertibleContractDeploymentData,
+          nonRevertibleNewContractClasses,
+          nonRevertibleNewContractInstances,
+          revertibleNewContractClasses,
+          revertibleNewContractInstances,
           nonRevertibleAccumulatedData,
           revertibleAccumulatedData,
           setupEnqueuedCalls,
@@ -531,8 +544,10 @@ export class AvmTxHint {
             hash,
             gasSettings,
             effectiveGasFees,
-            nonRevertibleContractDeploymentData,
-            revertibleContractDeploymentData,
+            nonRevertibleNewContractClasses,
+            nonRevertibleNewContractInstances,
+            revertibleNewContractClasses,
+            revertibleNewContractInstances,
             nonRevertibleAccumulatedData,
             revertibleAccumulatedData,
             setupEnqueuedCalls,
@@ -566,9 +581,14 @@ export class AvmExecutionHints {
     public readonly sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree[] = [],
     public readonly sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree[] = [],
     public readonly appendLeavesHints: AvmAppendLeavesHint[] = [],
+    // MerkleDB-specific checkpoint hints.
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
+    // ContractDB-specific checkpoint hints.
+    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
+    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
+    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
@@ -597,6 +617,9 @@ export class AvmExecutionHints {
         createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
         commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
         revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
+        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
+        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
+        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
@@ -619,6 +642,9 @@ export class AvmExecutionHints {
           createCheckpointHints,
           commitCheckpointHints,
           revertCheckpointHints,
+          contractDBCreateCheckpointHints,
+          contractDBCommitCheckpointHints,
+          contractDBRevertCheckpointHints,
         }) =>
           new AvmExecutionHints(
             globalVariables,
@@ -640,6 +666,9 @@ export class AvmExecutionHints {
             createCheckpointHints,
             commitCheckpointHints,
             revertCheckpointHints,
+            contractDBCreateCheckpointHints,
+            contractDBCommitCheckpointHints,
+            contractDBRevertCheckpointHints,
           ),
       );
   }

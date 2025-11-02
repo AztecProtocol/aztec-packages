@@ -13,7 +13,7 @@ import { PublicContractsDB } from '../../../server.js';
 import { createContractClassAndInstance } from '../../avm/fixtures/utils.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
+import { CppPublicTxSimulatorHintedDbs } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
@@ -41,7 +41,7 @@ describe.each([
     const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
     const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {
+      ? new CppPublicTxSimulatorHintedDbs(guardedMerkleTrees, contractsDB, globals, {
           doMerkleOperations: true,
         })
       : new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, {

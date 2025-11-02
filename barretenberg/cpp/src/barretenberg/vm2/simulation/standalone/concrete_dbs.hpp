@@ -24,9 +24,12 @@ class PureContractDB final : public ContractDBInterface {
     std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                        const FunctionSelector& selector) const override;
 
-    void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
-    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+    void add_contracts(const std::vector<ContractClass>& contract_classes,
+                       const std::vector<ContractInstanceWithAddress>& contract_instances) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
   private:
     ContractDBInterface& raw_contract_db;
