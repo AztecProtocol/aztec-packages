@@ -15,8 +15,14 @@ function build_native {
   echo_header "avm-transpiler build_native"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    denoise "cargo build --release --locked --bin avm-transpiler"
-    denoise "cargo build --release --locked --lib"
+    # Serialize cargo/rustup operations to avoid race conditions when running parallel builds
+    # Cargo may trigger rustup to install components (rust-src, etc.) in shared directories
+    (
+      flock -x 200
+      denoise "cargo build --release --locked --bin avm-transpiler"
+      denoise "cargo build --release --locked --lib"
+    ) 200>/tmp/rustup-avm-transpiler.lock
+
     denoise "cargo fmt --check"
     denoise "cargo clippy"
     cache_upload $artifact target/release/avm-transpiler target/release/libavm_transpiler.a
