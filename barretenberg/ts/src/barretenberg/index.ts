@@ -8,7 +8,8 @@ import { RawBuffer } from '../types/raw_buffer.js';
 import { fetchModuleAndThreads } from '../barretenberg_wasm/index.js';
 import { createDebugLogger } from '../log/index.js';
 import { AsyncApi } from '../cbind/generated/async.js';
-import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields } from '../cbind/generated/api_types.js';
+import { BbApiBase, CircuitComputeVk, CircuitProve, CircuitVerify, ClientIvcAccumulate, ClientIvcComputeIvcVk, ClientIvcStats, ClientIvcLoad, ClientIvcProve, ClientIvcStart, ClientIvcVerify, VkAsFields, Bn254G1Mul, Bn254G2Mul, Bn254G1FromCompressed, Bn254G1IsOnCurve, Bn254FqSqrt } from '../cbind/generated/api_types.js';
+import { SyncApi } from '../cbind/generated/sync.js';
 
 export { UltraHonkBackend, UltraHonkVerifierBackend, AztecClientBackend } from './backend.js';
 
@@ -171,8 +172,10 @@ let barretenbergSyncSingletonPromise: Promise<BarretenbergSync>;
 let barretenbergSyncSingleton: BarretenbergSync;
 
 export class BarretenbergSync extends BarretenbergApiSync {
+  api: SyncApi;
   private constructor(wasm: BarretenbergWasmMain) {
     super(wasm);
+    this.api = new SyncApi(wasm);
   }
 
   private static async new(wasmPath?: string, logger: (msg: string) => void = createDebugLogger('bb_wasm_sync')) {
@@ -196,6 +199,22 @@ export class BarretenbergSync extends BarretenbergApiSync {
       throw new Error('First call BarretenbergSync.initSingleton() on @aztec/bb.js module.');
     }
     return barretenbergSyncSingleton;
+  }
+
+  bn254G1Mul(command: Bn254G1Mul) {
+    return this.api.bn254G1Mul(command);
+  }
+  bn254G2Mul(command: Bn254G2Mul) {
+    return this.api.bn254G2Mul(command);
+  }
+  bn254G1IsOnCurve(command: Bn254G1IsOnCurve) {
+    return this.api.bn254G1IsOnCurve(command);
+  }
+  bn254G1FromCompressed(command: Bn254G1FromCompressed) {
+    return this.api.bn254G1FromCompressed(command);
+  }
+  bn254FqSqrt(command: Bn254FqSqrt) {
+    return this.api.bn254FqSqrt(command);
   }
 
   getWasm() {
