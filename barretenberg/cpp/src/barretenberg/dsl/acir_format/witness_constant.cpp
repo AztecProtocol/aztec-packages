@@ -88,15 +88,14 @@ template bb::stdlib::cycle_group<MegaCircuitBuilder> to_grumpkin_point(
 
 /**
  * @brief Convert inputs representing a Grumpkin scalar into a cycle_scalar element.
- * @details Inputs scalar_lo and scalar_hi are used to construct the scalar (as a 256-bit value split into two
- * 128-bit limbs). We handle two cases:
+ * @details Inputs scalar_lo and scalar_hi are used to construct the scalar. We handle two cases:
  *  1. has_valid_witness_assignments is false: we are in a write_vk scenario. In this case, we set the scalar to 1.
  *  2. predicate is a witness: we conditionally assign the scalar depending on the predicate; if it is witness true, we
  *     use the witnesses provided, otherwise, we set the scalar to 1.
  *
  * @tparam Builder
  * @param scalar_lo low 128-bit limb of the scalar
- * @param scalar_hi high 128-bit limb of the scalar
+ * @param scalar_hi high 126-bit limb of the scalar
  * @param has_valid_witness_assignments boolean indicating whether a witness is provided
  * @param predicate A relevant predicate used to conditionally assign the scalar to a valid value
  * @param builder

@@ -52,7 +52,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
 {
     using cycle_group_ct = stdlib::cycle_group<Builder>;
 
-    // Step 1: Reconstruct inputs
+    // Step 1: Reconstruct inputs (points, scalars, expected result)
     MsmInputs input = reconstruct_msm_inputs(builder, constraint_input, has_valid_witness_assignments);
 
     // Step 2: Compute result and connect it to the expected result reconstructed from inputs
