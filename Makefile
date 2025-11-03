@@ -60,7 +60,7 @@ endef
 
 .PHONY: all tests
 .PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
-.PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
+.PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir bb-docs bb-sol
 .PHONY: bb-cpp-objects bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
 .PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
 .PHONY: bb-cpp-cross-arm64-linux-objects bb-cpp-cross-amd64-macos-objects bb-cpp-cross-arm64-macos-objects
@@ -150,7 +150,7 @@ ifeq ($(CI_FULL),1)
 endif
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-acir-tests bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
@@ -228,7 +228,7 @@ bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 	$(call build,$@,barretenberg/ts)
 
 # BB ACIR Tests - ACIR compatibility tests
-bb-acir-tests: noir bb-cpp-native
+bb-acir: noir bb-cpp-native
 	$(call build,$@,barretenberg/acir_tests)
 
 # BB Documentation
@@ -239,8 +239,25 @@ bb-docs:
 bb-sol: bb-cpp-native
 	$(call build,$@,barretenberg/sol)
 
-bb-tests: bb-cpp-native
+bb-cpp-tests: bb-cpp-native
 	$(call test,$@,barretenberg/cpp)
+
+bb-acir-tests: bb-acir
+	$(call test,$@,barretenberg/acir_test)
+
+bb-ts-tests: bb-ts
+	$(call test,$@,barretenberg/ts)
+
+bb-sol-tests: bb-sol
+	$(call test,$@,barretenberg/sol)
+
+bb-docs-tests: bb-docs
+	$(call test,$@,barretenberg/docs)
+
+bb-bbup-tests: bb-bbup
+	$(call test,$@,barretenberg/docs)
+
+bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-docs-tests bb-bbup-tests
 
 #==============================================================================
 # Noir Projects
@@ -249,7 +266,7 @@ bb-tests: bb-cpp-native
 noir-protocol-circuits: noir bb-cpp-native
 	$(call build,$@,noir-projects/noir-protocol-circuits)
 
-noir-protocol-circuits-tests: noir
+noir-protocol-circuits-tests: noir noir-protocol-circuits
 	$(call test,$@,noir-projects/noir-protocol-circuits)
 
 mock-protocol-circuits: noir bb-cpp-native
