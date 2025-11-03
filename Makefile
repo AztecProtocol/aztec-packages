@@ -47,11 +47,18 @@ define build
 	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(if $(3),$(3),$(BUILD_MODE))')
 endef
 
+define test
+	$(call run_command,$(1),$(ROOT)/$(2),\
+	  ./bootstrap.sh test_cmds | filter_test_cmds | while IFS= read -r line; do \
+	    echo "$$line" >> /tmp/test_cmds; \
+	  done)
+endef
+
 #==============================================================================
 # PHONY TARGETS
 #==============================================================================
 
-.PHONY: all
+.PHONY: all tests
 .PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
 .PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir-tests bb-docs bb-sol
 .PHONY: bb-cpp-objects bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
@@ -65,6 +72,12 @@ endef
 #==============================================================================
 
 all: release-image barretenberg boxes playground docs spartan aztec-up
+
+#==============================================================================
+# TESTS
+#==============================================================================
+
+tests: bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
 
 #==============================================================================
 # Noir
@@ -226,12 +239,18 @@ bb-docs:
 bb-sol: bb-cpp-native
 	$(call build,$@,barretenberg/sol)
 
+bb-tests: bb-cpp-native
+	$(call test,$@,barretenberg/cpp)
+
 #==============================================================================
 # Noir Projects
 #==============================================================================
 
 noir-protocol-circuits: noir bb-cpp-native
 	$(call build,$@,noir-projects/noir-protocol-circuits)
+
+noir-protocol-circuits-tests: noir
+	$(call test,$@,noir-projects/noir-protocol-circuits)
 
 mock-protocol-circuits: noir bb-cpp-native
 	$(call build,$@,noir-projects/mock-protocol-circuits)
@@ -241,6 +260,13 @@ noir-contracts: noir bb-cpp-native
 
 aztec-nr: noir bb-cpp-native
 	$(call build,$@,noir-projects/aztec-nr)
+
+# These tests are not included in the dep tree.
+# Rather this target must be explicitly called by bootstrap.sh after it's started the txe's.
+noir-projects-txe-tests:
+	$(call test,$@,noir-projects/aztec-nr)
+	$(call test,$@,noir-projects/noir-contracts)
+	$(call test,$@,noir-projects/noir-contracts-comp-failures)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
 noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr
@@ -260,12 +286,19 @@ l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 # l1-contracts: Complete build (aggregate target)
 l1-contracts: l1-contracts-src l1-contracts-verifier
 
+l1-contracts-tests: l1-contracts-verifier
+	$(call test,$@,l1-contracts)
+
 #==============================================================================
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
 yarn-project: bb-cpp-wasm bb-cpp-wasm-threads bb-ts noir-projects l1-contracts
 	$(call build,$@,yarn-project)
+
+yarn-project-tests: yarn-project
+	$(call test,$@,yarn-project/end-to-end)
+	$(call test,$@,yarn-project)
 
 #==============================================================================
 # The Rest
@@ -278,15 +311,27 @@ release-image: yarn-project
 boxes: yarn-project
 	$(call build,$@,boxes)
 
+boxes-tests: boxes
+	$(call test,$@,boxes)
+
 playground: yarn-project
 	$(call build,$@,playground)
+
+playground-tests: playground
+	$(call test,$@,playground)
 
 # Docs - Project documentation
 docs: yarn-project
 	$(call build,$@,docs)
+
+docs-tests: docs
+	$(call test,$@,docs)
 
 spartan: yarn-project
 	$(call build,$@,spartan)
 
 aztec-up: yarn-project
 	$(call build,$@,aztec-up)
+
+aztec-up-tests: aztec-up
+	$(call test,$@,aztec-up)

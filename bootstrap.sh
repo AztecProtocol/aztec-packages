@@ -21,6 +21,15 @@ if [ ! -v NOIR_HASH ] && [ "$cmd" != "clean" ]; then
   [ -n "$NOIR_HASH" ]
 fi
 
+# Cleanup function. Called on script exit.
+function cleanup {
+  if [ -n "${txe_pids:-}" ]; then
+    kill -SIGTERM $txe_pids &>/dev/null || true
+  fi
+  rm -f $test_cmds_file
+}
+trap cleanup EXIT
+
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -147,46 +156,10 @@ EOF
   chmod +x $hooks_dir/post-checkout
 }
 
-function sort_by_cpus {
-  awk '
-    {
-      has_timeout = 0;
-      cpus = 0;  # Default value
-      # Split line on space, take first field ($1)
-      split($1, subfields, ":");  # Split first field on :
-      for (i in subfields) {
-        split(subfields[i], arr, "=");
-        if (arr[1] == "TIMEOUT") {
-          has_timeout = 1;
-        }
-        if (arr[1] == "CPUS") {
-          cpus = arr[2];
-        }
-      }
-      # Print has_timeout, then padded CPUS, then original line
-      # has_timeout=1 for TIMEOUT tests, has_timeout=0 for others
-      # We want TIMEOUT tests first, so sort descending on first key (1 before 0)
-      printf "%d %010d %s\n", has_timeout, cpus, $0
-    }
-  ' | sort -s -r -n -k1,1 -r -n -k2,2 | cut -d' ' -f3-
-}
+export test_cmds_file="/tmp/test_cmds"
 
-function test_cmds {
-  if [ "$#" -eq 0 ]; then
-    # Ordered with longest running first, to ensure they get scheduled earliest.
-    set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir docs
-  fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
-}
-
-function start_test_env {
+function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap '(kill -SIGTERM $txe_pids &>/dev/null || true) && ./spartan/bootstrap.sh stop_env' EXIT
-
-  # Start env for spartan tests in the background
-  dump_fail "spartan/bootstrap.sh start_env" &
-  spartan_pid=$!
-
   for i in $(seq 0 $((NUM_TXES-1))); do
     port=$((45730 + i))
     existing_pid=$(lsof -ti :$port || true)
@@ -208,19 +181,58 @@ function start_test_env {
         j=$((j+1))
       done
   done
+}
 
-  echo "Waiting for spartan environment to complete setup..."
-  if wait $spartan_pid; then
-    echo "Spartan environment setup completed successfully."
-  else
-    echo_stderr "Spartan environment setup failed. Exiting."
+function test_engine_start {
+  set -euo pipefail
+  rm -f $test_cmds_file
+  touch $test_cmds_file
+  DENOISE=0 parallelize "$@" < <(awk '/^$/{exit} {print}' < <(tail -f $test_cmds_file))
+}
+export -f test_engine_start
+
+function build_and_test {
+  echo_header "test"
+
+  # If no specific targets given, build everything (all), run all tests (tests).
+  if [ "$#" -eq 0 ]; then
+    set -- all tests
   fi
+
+  # Start the test engine.
+  color_prefix "test-engine" "denoise test_engine_start" &
+  test_engine_pid=$!
+
+  make "$@"
+
+  # TODO: Handle this better to they can be run as part of the Makefile dependency tree.
+  start_txes
+  make noir-projects-txe-tests
+
+  # Signal complete with empty line.
+  # Will wait for any tests in the test engine to complete.
+  echo >> $test_cmds_file
+  wait $test_engine_pid
+}
+
+function build {
+  echo_header "pull submodules"
+  denoise "git submodule update --init --recursive"
+
+  check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
+
+  echo_header "build"
+  local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
+  make $make_flags BUILD_MODE=${1:-} $@
 }
 
 function test {
   echo_header "test all"
 
-  start_test_env
+  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -234,71 +246,6 @@ function test {
   echo "Gathered $num tests."
 
   echo "$tests" | parallelize
-}
-
-function build {
-  echo_header "pull submodules"
-  denoise "git submodule update --init --recursive"
-
-  check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
-
-  echo_header "building with make"
-  local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
-
-  # Pass BUILD_MODE to Make
-  local build_mode="${1:-}"
-
-  make $make_flags BUILD_MODE=$build_mode
-  # return $?
-  # fi
-
-  # # These projects are dependent on each other and must be built linearly.
-  # serial_projects=(
-  #   noir
-  #   avm-transpiler
-  #   barretenberg
-  #   noir-projects
-  #   l1-contracts
-  #   yarn-project
-  #   release-image
-  # )
-  # # These projects can be built in parallel.
-  # parallel_cmds=(
-  #   boxes/bootstrap.sh
-  #   playground/bootstrap.sh
-  #   docs/bootstrap.sh
-  #   spartan/bootstrap.sh
-  #   aztec-up/bootstrap.sh
-  # )
-
-  # local start_building=false
-  # for project in "${serial_projects[@]}"; do
-  #   # BOOTSTRAP_AFTER and BOOTSTRAP_TO are used to control the order of building.
-  #   # If BOOTSTRAP_AFTER is set, it should be one of our serial projects and we will only build projects after it.
-  #   # If BOOTSTRAP_TO is set, it should be one of our serial projects and we will only build projects up to it. We will skip parallel_cmds.
-
-  #   # Start building after we've seen BOOTSTRAP_AFTER, skipping BOOTSTRAP_AFTER itself.
-  #   if [ "$project" == "${BOOTSTRAP_AFTER:-}" ]; then
-  #     start_building=true
-  #     continue
-  #   fi
-
-  #   # Build the project if we should be building
-  #   if [[ -z "${BOOTSTRAP_AFTER:-}" || "$start_building" = true ]]; then
-  #     $project/bootstrap.sh ${1:-}
-  #   fi
-
-  #   # Stop the build if we've reached BOOTSTRAP_TO
-  #   # We therefore don't run parallel commands if BOOTSTRAP_TO is set.
-  #   if [ "$project" = "${BOOTSTRAP_TO:-}" ]; then
-  #     return
-  #   fi
-  # done
-
-  # parallel --line-buffer --tag --halt now,fail=1 "denoise '{}'" ::: ${parallel_cmds[@]}
 }
 
 function bench_cmds {
@@ -448,15 +395,13 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build
-    test
+    build_and_test
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build
-    test
+    build_and_test
     bench
     ;;
   "ci-nightly")
@@ -500,7 +445,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun)
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun|build|build_and_test)
     $cmd "$@"
     ;;
   *)
