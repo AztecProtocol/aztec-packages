@@ -126,6 +126,27 @@ struct BBApiRequest {
     std::optional<acir_format::AcirFormat> loaded_circuit_constraints;
     // Store the verification key passed with the circuit
     std::vector<uint8_t> loaded_circuit_vk;
+    // Error message - empty string means no error
+    std::string error_message;
+};
+
+/**
+ * @brief Macro to set error in BBApiRequest and return default response
+ */
+#define BBAPI_ERROR(request, msg)                                                                                      \
+    do {                                                                                                               \
+        (request).error_message = (msg);                                                                               \
+        return {};                                                                                                     \
+    } while (0)
+
+/**
+ * @brief Error response returned when a command fails
+ */
+struct ErrorResponse {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "ErrorResponse";
+    std::string message;
+    MSGPACK_FIELDS(message);
+    bool operator==(const ErrorResponse&) const = default;
 };
 
 } // namespace bb::bbapi
