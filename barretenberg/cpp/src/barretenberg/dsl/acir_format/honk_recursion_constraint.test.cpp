@@ -298,7 +298,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraintSm
     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
     // print out the number of gates in the inner circuit
-    info("number of gates in the inner circuit = ", layer_1_circuits[0].get_estimated_num_finalized_gates());
+    info("number of gates in the inner circuit = ", layer_1_circuits[0].get_num_finalized_gates_inefficient());
 
     auto layer_2_circuit =
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
@@ -306,7 +306,7 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraintSm
                                                                                        /*predicate_val=*/true,
                                                                                        /*small_inner_circuit=*/true);
 
-    info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+    info("estimate finalized circuit gates = ", layer_2_circuit.get_num_finalized_gates_inefficient());
 
     auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
     auto verification_key =
