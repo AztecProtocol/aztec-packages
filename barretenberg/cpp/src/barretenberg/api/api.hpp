@@ -11,7 +11,8 @@ class API {
         bool verbose{ false };    // more logging
         bool debug{ false };      // even more logging
         bool disable_zk{ false }; // disable the zero knowledge property. this is off by default as we aim to use the
-                                  // zero knowledge variant of the protocol by default
+        // zero knowledge variant of the protocol by default
+        bool small_circuit{ false };          // use a small circuit proof
         std::filesystem::path crs_path{ "" }; // the location of reference strings for commitment schemes
         bool recursive{ false };              // deprecated flag indicating that a circuit is to be recursively verified
         bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
@@ -34,6 +35,7 @@ class API {
                << "  verbose: " << flags.verbose << "\n"
                << "  debug: " << flags.debug << "\n"
                << "  disable_zk: " << flags.disable_zk << "\n"
+               << "  small_circuit: " << flags.small_circuit << "\n"
                << "  crs_path: " << flags.crs_path << "\n"
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  scheme: " << flags.scheme << "\n"

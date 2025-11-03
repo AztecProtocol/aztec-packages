@@ -48,10 +48,23 @@
       "name": "Debug acir test",
       "type": "lldb",
       "request": "launch",
-      "program": "${workspaceFolder}/barretenberg/cpp/build-debug-fast-no-avm/bin/bb",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
       "args": ["prove", "--scheme", "ultra_honk", "--output_path", ".", "-b", "./target/program.json", "--write_vk"],
       // Can replace with any directory containing target/program.json and target/witness.gz
-      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/embedded_curve_ops",
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/verify_honk_zk_small_proof",
+      "initCommands": [
+        "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
+      ],
+    },
+    {
+      // Debug acir test write_vk
+      "name": "Debug acir test write_vk",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/barretenberg/cpp/build-debug/bin/bb",
+      "args": ["write_vk", "-v", "--scheme", "ultra_honk", "--small_circuit", "-b", "./target/program.json", "-o", "."],
+      // Can replace with any directory containing target/program.json and target/witness.gz
+      "cwd": "${workspaceFolder}/barretenberg/acir_tests/acir_tests/verify_honk_zk_small_proof",
       "initCommands": [
         "command script import ${workspaceFolder}/barretenberg/cpp/scripts/lldb_format.py"
       ],

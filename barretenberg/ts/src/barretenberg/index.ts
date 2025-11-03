@@ -101,6 +101,7 @@ export class Barretenberg extends AsyncApi {
         oracleHashType: honkRecursion ? 'poseidon2' : 'keccak',
         disableZk: !recursive,
         optimizedSolidityVerifier: false,
+        smallCircuit: false,
       },
     });
     return [response.numGates, response.numGatesDyadic];

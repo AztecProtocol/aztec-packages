@@ -101,7 +101,8 @@ template <IsUltraOrMegaHonk Flavor> void UltraProver_<Flavor>::generate_gate_cha
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 }
 
-template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor>
+typename UltraProver_<Flavor>::Proof UltraProver_<Flavor>::construct_proof(size_t virtual_log_n)
 {
     OinkProver<Flavor> oink_prover(prover_instance, honk_vk, transcript);
     oink_prover.prove();
@@ -110,7 +111,7 @@ template <IsUltraOrMegaHonk Flavor> typename UltraProver_<Flavor>::Proof UltraPr
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(prover_instance, transcript);
-    decider_prover.construct_proof();
+    decider_prover.construct_proof(virtual_log_n);
     return export_proof();
 }
 

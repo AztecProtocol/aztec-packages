@@ -31,9 +31,9 @@ DeciderProver_<Flavor>::DeciderProver_(const std::shared_ptr<ProverInstance>& pr
  * challenges and all evaluations at u being calculated.
  *
  */
-template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::execute_relation_check_rounds(size_t virtual_log_n)
 {
-    const size_t virtual_log_n = Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : prover_instance->log_dyadic_size();
+    virtual_log_n = Flavor::USE_PADDING ? virtual_log_n : prover_instance->log_dyadic_size();
 
     using Sumcheck = SumcheckProver<Flavor>;
     size_t polynomial_size = prover_instance->dyadic_size();
@@ -106,12 +106,12 @@ template <IsUltraOrMegaHonk Flavor> DeciderProver_<Flavor>::Proof DeciderProver_
     return transcript->export_proof();
 }
 
-template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof()
+template <IsUltraOrMegaHonk Flavor> void DeciderProver_<Flavor>::construct_proof(size_t virtual_log_n)
 {
     BB_BENCH_NAME("Decider::construct_proof");
 
     // Run sumcheck subprotocol.
-    execute_relation_check_rounds();
+    execute_relation_check_rounds(virtual_log_n);
 
     // Fiat-Shamir: rho, y, x, z
     // Execute Shplemini PCS

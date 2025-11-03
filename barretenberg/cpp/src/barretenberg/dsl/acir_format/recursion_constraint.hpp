@@ -30,9 +30,7 @@ enum PROOF_TYPE {
     HN_TAIL,
     CHONK,
     // Ultra ZK proof types with different circuit sizes (virtual_log_n)
-    HONK_ZK_23,
-    HONK_ZK_21,
-    HONK_ZK_19
+    HONK_ZK_SMALL, // for circuits with virtual_log_n = 21
 };
 
 /**
@@ -56,15 +54,9 @@ inline constexpr size_t get_virtual_log_n_from_proof_type(PROOF_TYPE proof_type)
     // Ultra ZK proofs - default size 25
     case HONK_ZK:
         return 25;
-    // Ultra ZK proofs - size 23
-    case HONK_ZK_23:
-        return 23;
     // Ultra ZK proofs - size 21
-    case HONK_ZK_21:
+    case HONK_ZK_SMALL:
         return 21;
-    // Ultra ZK proofs - size 19
-    case HONK_ZK_19:
-        return 19;
     // Rollup proofs (keep existing size)
     case ROLLUP_HONK:
     case ROOT_ROLLUP_HONK:

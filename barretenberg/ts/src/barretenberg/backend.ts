@@ -42,6 +42,7 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
   oracleHashType: string;
   disableZk: boolean;
   optimizedSolidityVerifier: boolean;
+  smallCircuit: boolean;
 } {
   return {
     ipaAccumulation: false,
@@ -54,6 +55,7 @@ function getProofSettingsFromOptions(options?: UltraHonkBackendOptions): {
     // TODO no current way to target non-zk poseidon2 hash
     disableZk: options?.keccak || options?.starknet ? true : false,
     optimizedSolidityVerifier: false,
+    smallCircuit: false,
   };
 }
 

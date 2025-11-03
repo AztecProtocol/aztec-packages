@@ -177,8 +177,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
                                   stdlib::recursion::honk::DefaultIO<Builder>>;
 
     // Check that proof type is valid for this flavor
-    bool is_ultra_proof = (input.proof_type == HONK || input.proof_type == HONK_ZK || input.proof_type == HONK_ZK_23 ||
-                           input.proof_type == HONK_ZK_21 || input.proof_type == HONK_ZK_19);
+    bool is_ultra_proof =
+        (input.proof_type == HONK || input.proof_type == HONK_ZK || input.proof_type == HONK_ZK_SMALL);
     BB_ASSERT(is_ultra_proof || HasIPAAccumulator<Flavor>);
     BB_ASSERT_EQ(input.proof_type == ROLLUP_HONK || input.proof_type == ROOT_ROLLUP_HONK, HasIPAAccumulator<Flavor>);
 
@@ -259,7 +259,8 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(vk_fields);
     auto vk_and_hash = std::make_shared<RecursiveVKAndHash>(vkey, vk_hash);
-    RecursiveVerifier verifier(&builder, vk_and_hash);
+    auto transcript = std::make_shared<typename Flavor::Transcript>();
+    RecursiveVerifier verifier(&builder, vk_and_hash, transcript, virtual_log_n);
     UltraRecursiveVerifierOutput<Builder> verifier_output = verifier.template verify_proof<IO>(proof_fields);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.

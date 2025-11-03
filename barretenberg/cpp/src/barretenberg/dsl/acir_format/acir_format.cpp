@@ -491,8 +491,7 @@ process_honk_recursion_constraints(Builder& builder,
         HonkRecursionConstraintOutput<Builder> honk_recursion_constraint;
 
         // Check if this is an Ultra ZK proof type (any size)
-        bool is_ultra_zk = (constraint.proof_type == HONK_ZK || constraint.proof_type == HONK_ZK_23 ||
-                            constraint.proof_type == HONK_ZK_21 || constraint.proof_type == HONK_ZK_19);
+        bool is_ultra_zk = (constraint.proof_type == HONK_ZK || constraint.proof_type == HONK_ZK_SMALL);
 
         if (is_ultra_zk) {
             honk_recursion_constraint = create_honk_recursion_constraints<UltraZKRecursiveFlavor_<Builder>>(

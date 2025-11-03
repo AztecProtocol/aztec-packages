@@ -15,11 +15,10 @@ mkdir -p output-$$
 trap "rm -rf output-$$" EXIT
 
 # Generate VK
-$bb write_vk $flags -b target/program.json -o output-$$
+$bb write_vk $flags -b target/program.json -o output-$$ -v
 
 # Prove
 $bb prove $flags -b target/program.json -k output-$$/vk -o output-$$
-
 # Verify
 $bb verify $flags \
     -k output-$$/vk \

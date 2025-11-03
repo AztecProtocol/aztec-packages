@@ -67,7 +67,8 @@ void UltraHonkAPI::prove(const Flags& flags,
     // Convert flags to ProofSystemSettings
     bbapi::ProofSystemSettings settings{ .ipa_accumulation = flags.ipa_accumulation,
                                          .oracle_hash_type = flags.oracle_hash_type,
-                                         .disable_zk = flags.disable_zk };
+                                         .disable_zk = flags.disable_zk,
+                                         .small_circuit = flags.small_circuit };
 
     // Read input files
     auto bytecode = get_bytecode(bytecode_path);

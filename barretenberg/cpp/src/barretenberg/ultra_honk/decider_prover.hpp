@@ -38,11 +38,11 @@ template <IsUltraOrMegaHonk Flavor> class DeciderProver_ {
     explicit DeciderProver_(const std::shared_ptr<ProverInstance>&,
                             const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
-    BB_PROFILE void execute_relation_check_rounds();
+    BB_PROFILE void execute_relation_check_rounds(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
     BB_PROFILE void execute_pcs_rounds();
 
     Proof export_proof();
-    void construct_proof();
+    void construct_proof(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
 
     std::shared_ptr<ProverInstance> prover_instance;
 

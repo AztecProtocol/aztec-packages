@@ -68,7 +68,7 @@ template <IsUltraOrMegaHonk Flavor_> class UltraProver_ {
     BB_PROFILE void generate_gate_challenges();
 
     Proof export_proof();
-    Proof construct_proof();
+    Proof construct_proof(size_t virtual_log_n = Flavor::VIRTUAL_LOG_N);
     Proof prove() { return construct_proof(); };
 };
 

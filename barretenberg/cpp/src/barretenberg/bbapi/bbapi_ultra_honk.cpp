@@ -67,7 +67,8 @@ std::shared_ptr<ProverInstance_<Flavor>> _compute_prover_instance(std::vector<ui
 template <typename Flavor>
 CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
                               std::vector<uint8_t>&& witness,
-                              std::vector<uint8_t>&& vk_bytes)
+                              std::vector<uint8_t>&& vk_bytes,
+                              const bool small_circuit = false)
 {
     using Proof = typename Flavor::Transcript::Proof;
 
@@ -81,9 +82,13 @@ CircuitProve::Response _prove(std::vector<uint8_t>&& bytecode,
             std::make_shared<typename Flavor::VerificationKey>(from_buffer<typename Flavor::VerificationKey>(vk_bytes));
     }
 
-    UltraProver_<Flavor> prover{ prover_instance, vk };
+    size_t virtual_log_n = small_circuit ? 21 : Flavor::VIRTUAL_LOG_N;
 
-    Proof concat_pi_and_proof = prover.construct_proof();
+    UltraProver_<Flavor> prover{ prover_instance, vk, prover_instance->commitment_key, virtual_log_n };
+
+    Proof concat_pi_and_proof = prover.construct_proof(virtual_log_n);
+    // print the size of the proof
+    info("Proof size: ", concat_pi_and_proof.size());
     // Compute number of inner public inputs. Perform loose checks that the public inputs contain enough data.
     auto num_inner_public_inputs = [&]() {
         size_t num_public_inputs = prover.prover_instance->num_public_inputs();
@@ -191,12 +196,20 @@ CircuitProve::Response CircuitProve::execute(BB_UNUSED const BBApiRequest& reque
     }
     if (settings.oracle_hash_type == "poseidon2" && !settings.disable_zk) {
         // if we are not disabling ZK and the oracle hash type is poseidon2, we are using the UltraZKFlavor
-        return _prove<UltraZKFlavor>(
-            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
+        return _prove<UltraZKFlavor>(std::move(circuit.bytecode),
+                                     std::move(witness),
+                                     std::move(circuit.verification_key),
+                                     settings.small_circuit);
+        // small circuit is only a flag for ultra zk flavors
     }
     if (settings.oracle_hash_type == "poseidon2" && settings.disable_zk) {
         // if we are disabling ZK and the oracle hash type is poseidon2, we are using the UltraFlavor
         return _prove<UltraFlavor>(
+            std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
+    }
+    if (settings.oracle_hash_type == "poseidon2" && settings.small_circuit) {
+        // if we are using a small circuit and the oracle hash type is poseidon2, we are using the UltraZKSmallFlavor
+        return _prove<UltraZKFlavor>(
             std::move(circuit.bytecode), std::move(witness), std::move(circuit.verification_key));
     }
     if (settings.oracle_hash_type == "keccak" && !settings.disable_zk) {

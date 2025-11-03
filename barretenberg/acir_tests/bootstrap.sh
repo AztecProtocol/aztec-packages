@@ -27,7 +27,9 @@ function hex_to_fields_json {
 }
 
 # Generate inputs for a given recursively verifying program.
+
 function run_proof_generation {
+  set -x
   local program=$1
   local native_build_dir=$(../cpp/scripts/native-preset-build-dir)
   local bb=$(realpath ../cpp/$native_build_dir/bin/bb)
@@ -38,16 +40,21 @@ function run_proof_generation {
   cd ./acir_tests/assert_statement
   # we add a variable to track whether we are disabling zk for the test or not.
   local disable_zk="--disable_zk"
+  local small_circuit_flag=""
 
   # Adjust settings based on program type
   if [[ $program == *"rollup"* ]]; then
       ipa_accumulation_flag="--ipa_accumulation"
   fi
-  # If the test program has zk in it's name would like to use the zk prover, so we empty the flag in this case.
+  # If the test program has zk in its name, we would like to use the zk prover, so we empty the flag in this case.
   if [[ $program == *"zk"* ]]; then
     disable_zk=""
+  fi # <-- MISSING previously!
+  if [[ $program == *"small"* ]]; then
+    echo $program "small_circuit_flag" $small_circuit_flag
+    small_circuit_flag="--small_circuit"
   fi
-  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
+  local prove_cmd="$bb prove --scheme ultra_honk $disable_zk $ipa_accumulation_flag $small_circuit_flag --write_vk -o $outdir -b ./target/program.json -w ./target/witness.gz"
   echo_stderr "$prove_cmd"
   dump_fail "$prove_cmd"
 
@@ -93,7 +100,7 @@ function regenerate_recursive_inputs {
   mv ./target/assert_statement.json ./target/program.json
   mv ./target/assert_statement.gz ./target/witness.gz
   cd ../..
-  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof"
+  parallel 'run_proof_generation {}' ::: "double_verify_honk_proof" "verify_honk_proof" "verify_honk_zk_proof" "double_verify_honk_zk_proof" "verify_rollup_honk_proof" "verify_honk_zk_small_proof"
 }
 
 export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation generate_toml
@@ -101,7 +108,7 @@ export -f hex_to_fields_json regenerate_recursive_inputs run_proof_generation ge
 function compile {
   echo_header "Compiling acir_tests"
   local nargo=$(realpath ../../noir/noir-repo/target/release/nargo)
-  denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
+   denoise "parallel --joblog joblog.txt --line-buffered 'cd {} && rm -rf target && $nargo compile --silence-warnings && $nargo execute && mv ./target/\$(basename {}).json ./target/program.json && mv ./target/\$(basename {}).gz ./target/witness.gz' ::: ./acir_tests/*"
 }
 
 function build {
@@ -131,7 +138,7 @@ function build {
 
   npm_install_deps
 
-  parallel --line-buffer --tag --halt now,fail=1 'cd {} && denoise "yarn build"' ::: browser-test-app bbjs-test
+  parallel --line-buffer --tag --halt Ynow,fail=1 'cd {} && denoise "yarn build"' ::: browser-test-app bbjs-test
 }
 
 function test {
@@ -189,7 +196,10 @@ function test_cmds {
   echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof"
   # Run the ZK UH recursive verifier tests without ZK.
   echo "$tests_hash $scripts/bb_prove.sh double_verify_honk_zk_proof --disable_zk"
-
+  # Run the ZK UH recursive verifier tests with small inner circuit.
+  echo "$tests_hash $scripts/bb_prove.sh verify_honk_zk_small_proof"
+  # Run the ZK UH recursive verifier tests without ZK.
+  echo "$tests_hash $scripts/bb_prove.sh verify_honk_zk_small_proof --disable_zk"
   echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash keccak"
   # If starknet enabled:
   #echo "$tests_hash $scripts/bb_prove.sh assert_statement --oracle_hash starknet"

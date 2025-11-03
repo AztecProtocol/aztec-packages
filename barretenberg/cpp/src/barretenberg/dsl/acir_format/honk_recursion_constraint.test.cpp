@@ -136,7 +136,8 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     template <typename BuilderType>
     BuilderType create_outer_circuit(std::vector<InnerBuilder>& inner_circuits,
                                      bool dummy_witnesses,
-                                     bool predicate_val)
+                                     bool predicate_val,
+                                     const bool small_inner_circuit = false)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
@@ -161,7 +162,11 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
                 if constexpr (HasIPAAccumulator<InnerFlavor>) {
                     return { num_public_inputs_to_extract - RollupIO::PUBLIC_INPUTS_SIZE, ROLLUP_HONK };
                 } else if constexpr (InnerFlavor::HasZK) {
-                    return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK };
+                    if (small_inner_circuit) {
+                        return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK_SMALL };
+                    } else {
+                        return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK_ZK };
+                    }
                 } else {
                     return { num_public_inputs_to_extract - DefaultIO::PUBLIC_INPUTS_SIZE, HONK };
                 }
@@ -275,6 +280,31 @@ TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
         TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
                                                                                        /*dummy_witnesses=*/false,
                                                                                        /*predicate_val=*/true);
+
+    info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+
+    auto prover_instance = std::make_shared<typename TestFixture::OuterProverInstance>(layer_2_circuit);
+    auto verification_key =
+        std::make_shared<typename TestFixture::OuterVerificationKey>(prover_instance->get_precomputed());
+    typename TestFixture::OuterProver prover(prover_instance, verification_key);
+    info("prover gates = ", prover_instance->dyadic_size());
+    auto proof = prover.construct_proof();
+
+    EXPECT_EQ(TestFixture::verify_proof(prover_instance, verification_key, proof), true);
+}
+
+TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraintSmallInnerCircuit)
+{
+    std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
+    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+    // print out the number of gates in the inner circuit
+    info("number of gates in the inner circuit = ", layer_1_circuits[0].get_estimated_num_finalized_gates());
+
+    auto layer_2_circuit =
+        TestFixture::template create_outer_circuit<typename TestFixture::OuterBuilder>(layer_1_circuits,
+                                                                                       /*dummy_witnesses=*/false,
+                                                                                       /*predicate_val=*/true,
+                                                                                       /*small_inner_circuit=*/true);
 
     info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 

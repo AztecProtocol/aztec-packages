@@ -103,10 +103,16 @@ struct ProofSystemSettings {
      */
     bool disable_zk = false;
 
+    /**
+     * @brief Flag to indicate if the proof should be generated with a small circuit.
+     * Useful for cases that require a small circuit proof, such as when the virtual_log_n of the circuit is 21 or less.
+     */
+    bool small_circuit = false;
+
     // TODO(md): remove this once considered stable
     bool optimized_solidity_verifier = false;
 
-    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, optimized_solidity_verifier);
+    MSGPACK_FIELDS(ipa_accumulation, oracle_hash_type, disable_zk, small_circuit, optimized_solidity_verifier);
     bool operator==(const ProofSystemSettings& other) const = default;
 };
 

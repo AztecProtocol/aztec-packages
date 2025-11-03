@@ -49,7 +49,9 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     const size_t num_public_inputs =
         static_cast<uint32_t>(verifier_instance->vk_and_hash->vk->num_public_inputs.get_value());
-    BB_ASSERT_EQ(proof.size(), Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS() + num_public_inputs);
+    vinfo("now running the ultra recursive verifier");
+    BB_ASSERT_EQ(proof.size(),
+                 Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + num_public_inputs);
 
     StdlibProof ipa_proof;
     StdlibProof honk_proof;
@@ -77,14 +79,14 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
-    // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
-    // multivariate evaluations at u
+    // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and
+    // purported multivariate evaluations at u
 
     std::vector<FF> padding_indicator_array(virtual_log_n, 1);
     if constexpr (Flavor::HasZK) {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1521): ZK Recursive verifiers need to evaluate
-        // RowDisablingPolynomial, which requires knowing the actual `log_circuit_size`. Can be fixed by reserving the
-        // first rows of the trace for masking.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1521): ZK Recursive verifiers need to
+        // evaluate RowDisablingPolynomial, which requires knowing the actual `log_circuit_size`. Can be
+        // fixed by reserving the first rows of the trace for masking.
         padding_indicator_array = compute_padding_indicator_vector<Curve>(
             verifier_instance->vk_and_hash->vk->log_circuit_size, virtual_log_n);
     }

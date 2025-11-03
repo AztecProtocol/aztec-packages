@@ -765,9 +765,7 @@ void handle_blackbox_func_call(Acir::Opcode::BlackBoxFuncCall const& arg, AcirFo
                 switch (c.proof_type) {
                 case PLONK:
                 case HONK_ZK:
-                case HONK_ZK_23:
-                case HONK_ZK_21:
-                case HONK_ZK_19:
+                case HONK_ZK_SMALL:
                 case HONK:
                 case ROLLUP_HONK:
                 case ROOT_ROLLUP_HONK:
