@@ -37,9 +37,10 @@ inline std::atomic<size_t> unique_transcript_index{ 0 };
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
-template <typename Codec_, typename HashFunction> class BaseTranscript {
+template <typename Codec_, typename HashFunction_> class BaseTranscript {
   public:
     using Codec = Codec_;
+    using HashFunction = HashFunction_;
     using DataType = typename Codec::DataType;
     using Proof = std::vector<DataType>;
 
@@ -215,27 +216,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     // Enables the manifest
     void enable_manifest() { use_manifest = true; }
-
-    /**
-     * @brief Static hash method that forwards to Codec hash.
-     * @details This method allows hash to be called on the Transcript class directly,
-     * which is needed for verification key hashing.
-     *
-     * @param data Vector of field elements to hash
-     * @return Fr Hash result
-     */
-    static DataType hash(const std::vector<DataType>& data) { return HashFunction::hash(data); }
-
-    // Serialize an element of type T to a vector of fields
-    template <typename T> static std::vector<DataType> serialize(const T& element)
-    {
-        return Codec::serialize_to_fields(element);
-    }
-
-    template <typename T> static T deserialize(std::span<const DataType> frs)
-    {
-        return Codec::template deserialize_from_fields<T>(frs);
-    }
 
     /**
      * @brief After all the prover messages have been sent, finalize the round by hashing all the data and then
@@ -455,6 +435,15 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         return element;
     }
 
+    template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
+    {
+        std::span<const std::string> label_span(&label, 1);
+        auto result = get_challenges<ChallengeType>(label_span);
+
+        DEBUG_LOG(label, result);
+        return result[0];
+    }
+
     /**
      * @brief Convert a prover transcript to a verifier transcript
      *
@@ -470,6 +459,17 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         verifier_transcript->num_frs_read = static_cast<size_t>(verifier_transcript->proof_start);
         verifier_transcript->proof_start = 0;
         return verifier_transcript;
+    }
+
+    // Serialize an element of type T to a vector of fields
+    template <typename T> static std::vector<DataType> serialize(const T& element)
+    {
+        return Codec::serialize_to_fields(element);
+    }
+
+    template <typename T> static T deserialize(std::span<const DataType> frs)
+    {
+        return Codec::template deserialize_from_fields<T>(frs);
     }
     /**
      * @brief For testing: initializes transcript with some arbitrary data so that a challenge can be generated
@@ -498,16 +498,6 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         [[maybe_unused]] auto _ = verifier_transcript->template receive_from_prover<DataType>("Init");
         return verifier_transcript;
     };
-
-    template <typename ChallengeType> ChallengeType get_challenge(const std::string& label)
-    {
-        std::span<const std::string> label_span(&label, 1);
-        auto result = get_challenges<ChallengeType>(label_span);
-
-        DEBUG_LOG(label, result);
-        return result[0];
-    }
-
     [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
 
     void print()

@@ -251,14 +251,12 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief A model function to show how to compute the VK hash(without the Transcript abstracting things away)
-     * @details Currently only used in testing.
+     * @brief Compute VK hash
      * @return FF
      */
     fr hash() const
     {
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1498): should hash be dependent on transcript?
-        fr vk_hash = Transcript::hash(this->to_field_elements());
+        fr vk_hash = Transcript::HashFunction::hash(this->to_field_elements());
         return vk_hash;
     }
 
