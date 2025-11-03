@@ -120,7 +120,6 @@
     canvas {
       max-width: 100% !important;
       max-height: 100% !important;
-      cursor: pointer;
     }
 
     .error {
@@ -438,6 +437,9 @@
         options: {
           responsive: true,
           maintainAspectRatio: true,
+          onHover: (event, elements) => {
+            event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+          },
           onClick: (event, elements) => {
             if (elements.length > 0) {
               const index = elements[0].index;
