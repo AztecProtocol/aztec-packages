@@ -36,6 +36,7 @@ class CppSimulator : public Simulator {
 class JsSimulator : public Simulator {
   protected:
     static JsSimulator* instance;
+    std::string simulator_path;
     JsSimulator(std::string& simulator_path);
     Process process;
 
@@ -48,6 +49,7 @@ class JsSimulator : public Simulator {
 
     static JsSimulator* getInstance();
     static void initialize(std::string& simulator_path);
+    static void restart_simulator();
 
     SimulatorResult simulate(const std::vector<uint8_t>& bytecode, const std::vector<FF>& calldata) override;
 };
