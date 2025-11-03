@@ -50,6 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    outputs:
+      cluster: ${{ steps.deploy-network.outputs.cluster }}
     steps:
       - name: Determine checkout ref
         id: checkout-ref
@@ -118,6 +120,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
 
       - name: Deploy network
+        id: deploy-network
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -138,7 +141,9 @@ jobs:
           ./scripts/network_deploy.sh "${{ inputs.network }}"
 
           if [ -n "$CLUSTER" ]; then
-            echo "CLUSTER=$CLUSTER" >> $GITHUB_OUTPUT
+            echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
+          else 
+            echo "cluster=" >> $GITHUB_OUTPUT
           fi
 
       - name: Notify Slack on failure
@@ -167,4 +172,4 @@ jobs:
     with:
       network: testnet
       l1_network: sepolia
-      cluster: ${{ env.CLUSTER }}
+      cluster: ${{ needs.deploy-network.outputs.cluster }}
