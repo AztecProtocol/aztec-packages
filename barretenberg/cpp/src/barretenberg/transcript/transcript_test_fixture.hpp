@@ -18,9 +18,9 @@ namespace bb::test {
 // Unified Test Fixture - Templates on Codec and HashFn like BaseTranscript
 // ============================================================================
 
-template <typename Codec, typename HashFn> class TranscriptTest : public ::testing::Test {
+template <typename Codec, typename HashFunction> class TranscriptTest : public ::testing::Test {
   public:
-    using Transcript = BaseTranscript<Codec, HashFn>;
+    using Transcript = BaseTranscript<Codec, HashFunction>;
     using FF = typename Codec::fr;
     using BF = typename Codec::fq;
     using bn254_commitment = typename Codec::bn254_commitment;
@@ -391,7 +391,6 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
 
     void test_tampering_detection()
     {
-
         class TamperableTranscript : public NativeTranscript {
           public:
             void tamper_proof_data() { proof_data[0] += 1; }
