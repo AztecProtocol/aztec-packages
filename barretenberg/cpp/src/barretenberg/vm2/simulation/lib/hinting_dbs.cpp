@@ -44,7 +44,7 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
     // here we simply don't store any hint:
     if (instance.has_value()) {
         // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        mapped_hints.contract_instances[address] = ContractInstanceHint{
+        contract_hints.contract_instances[address] = ContractInstanceHint{
             .address = address,
             .salt = instance->salt,
             .deployer = instance->deployer_addr,
@@ -69,7 +69,7 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
     // here we simply don't store any hint:
     if (klass.has_value()) {
         // TODO(MW): Use/write instance to hint methods for ContractInstance, PublicKeys, ContractClass, etc.
-        mapped_hints.contract_classes[class_id] = ContractClassHint{
+        contract_hints.contract_classes[class_id] = ContractClassHint{
             .classId = class_id,
             .artifactHash = klass->artifact_hash,
             .privateFunctionsRoot = klass->private_function_root,
@@ -77,7 +77,7 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
         };
         // Note: HintedRawContractDB accesses the bytecode commitment 'hint' during get_contract_class, so following
         // same logic here:
-        mapped_hints.bytecode_commitments[class_id] =
+        contract_hints.bytecode_commitments[class_id] =
             BytecodeCommitmentHint{ .classId = class_id, .commitment = klass->public_bytecode_commitment };
     }
 
@@ -87,13 +87,13 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
 {
     // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& contract_instance : mapped_hints.contract_instances) {
+    for (const auto& contract_instance : contract_hints.contract_instances) {
         hints.contractInstances.push_back(contract_instance.second);
     }
-    for (const auto& contract_class : mapped_hints.contract_classes) {
+    for (const auto& contract_class : contract_hints.contract_classes) {
         hints.contractClasses.push_back(contract_class.second);
     }
-    for (const auto& bytecode_commitment : mapped_hints.bytecode_commitments) {
+    for (const auto& bytecode_commitment : contract_hints.bytecode_commitments) {
         hints.bytecodeCommitments.push_back(bytecode_commitment.second);
     }
 }
@@ -109,7 +109,8 @@ SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, in
     auto tree_info = get_tree_info(tree_id);
     auto path = db.get_sibling_path(tree_id, leaf_index);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
-    query_hints.get_sibling_path_hints[key] = path;
+    merkle_hints.get_sibling_path_hints[key] =
+        GetSiblingPathHint{ .hintKey = tree_info, .treeId = tree_id, .index = leaf_index, .path = path };
 
     return path;
 }
@@ -119,7 +120,14 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
     auto tree_info = get_tree_info(tree_id);
     auto resp = db.get_low_indexed_leaf(tree_id, value);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
-    query_hints.get_previous_value_index_hints[key] = { resp.is_already_present, resp.index };
+    merkle_hints.get_previous_value_index_hints[key] = GetPreviousValueIndexHint{
+        .hintKey = tree_info,
+        .treeId = tree_id,
+        .value = value,
+        .index = resp.index,
+        .alreadyPresent = resp.is_already_present,
+    };
+
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, resp.index);
 
@@ -146,7 +154,8 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
     auto tree_info = get_tree_info(tree_id);
     auto value = db.get_leaf_value(tree_id, leaf_index);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
-    query_hints.get_leaf_value_hints[key] = value;
+    merkle_hints.get_leaf_value_hints[key] =
+        GetLeafValueHint{ .hintKey = tree_info, .treeId = tree_id, .index = leaf_index, .value = value };
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, leaf_index);
     return value;
@@ -158,7 +167,9 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
     auto preimage = db.get_leaf_preimage_public_data_tree(leaf_index);
 
     GetLeafPreimageKey key = { tree_info, leaf_index };
-    query_hints.get_leaf_preimage_hints_public_data_tree[key] = preimage;
+    merkle_hints.get_leaf_preimage_hints_public_data_tree[key] = GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
+        .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
+    };
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
     return preimage;
@@ -169,7 +180,9 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     auto preimage = db.get_leaf_preimage_nullifier_tree(leaf_index);
     GetLeafPreimageKey key = { tree_info, leaf_index };
-    query_hints.get_leaf_preimage_hints_nullifier_tree[key] = preimage;
+    merkle_hints.get_leaf_preimage_hints_nullifier_tree[key] = GetLeafPreimageHint<NullifierTreeLeafPreimage>{
+        .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
+    };
     // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, leaf_index);
     return preimage;
@@ -192,7 +205,7 @@ SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leav
         .insertionWitnessData = result.insertion_witness_data.back(),
         .stateAfter = stateAfter
     };
-    sequential_insert_hints_public_data_tree[key] = sequential_insert_hint;
+    merkle_hints.sequential_insert_hints_public_data_tree[key] = sequential_insert_hint;
 
     return result;
 }
@@ -214,7 +227,7 @@ SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leave
         .insertionWitnessData = result.insertion_witness_data.back(),
         .stateAfter = stateAfter
     };
-    sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
+    merkle_hints.sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
 
     return result;
 }
@@ -308,58 +321,44 @@ AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(AppendOnlyTreeSnapshot s
     AppendLeavesHintKey append_key = { state_before, tree_id, { leaf } };
     AppendOnlyTreeSnapshot state_after = { .root = root_after,
                                            .nextAvailableLeafIndex = state_before.nextAvailableLeafIndex + 1 };
-    append_leaves_hints[append_key] = state_after;
+    merkle_hints.append_leaves_hints[append_key] =
+        AppendLeavesHint{ .hintKey = state_before, .stateAfter = state_after, .treeId = tree_id, .leaves = { leaf } };
     // TODO(MW): Storing sibling path hint manually using the result since a get_sibling_path() call here will use the
     // /current/ db.get_tree_info() (post full append_leaves), which may not match that at result.root. We may not care
     // about this (see comment in PureRawMerkleDB::append_leaves())
     GetSiblingPathKey path_key = { state_after, tree_id, state_before.nextAvailableLeafIndex };
-    query_hints.get_sibling_path_hints[path_key] = path;
+    merkle_hints.get_sibling_path_hints[path_key] = GetSiblingPathHint{
+        .hintKey = state_after, .treeId = tree_id, .index = state_before.nextAvailableLeafIndex, .path = path
+    };
     return state_after;
 }
 
 void HintingRawDB::dump_hints(ExecutionHints& hints)
 {
     // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& get_sibling_path_hint : query_hints.get_sibling_path_hints) {
-        auto [hint_key, tree_id, index] = get_sibling_path_hint.first;
-        hints.getSiblingPathHints.push_back(GetSiblingPathHint{
-            .hintKey = hint_key, .treeId = tree_id, .index = index, .path = get_sibling_path_hint.second });
+    for (const auto& get_sibling_path_hint : merkle_hints.get_sibling_path_hints) {
+        hints.getSiblingPathHints.push_back(get_sibling_path_hint.second);
     }
-    for (const auto& get_previous_value_index_hint : query_hints.get_previous_value_index_hints) {
-        auto [hint_key, tree_id, value] = get_previous_value_index_hint.first;
-        hints.getPreviousValueIndexHints.push_back(GetPreviousValueIndexHint{
-            .hintKey = hint_key,
-            .treeId = tree_id,
-            .value = value,
-            .index = get_previous_value_index_hint.second.index,
-            .alreadyPresent = get_previous_value_index_hint.second.is_already_present,
-        });
+    for (const auto& get_previous_value_index_hint : merkle_hints.get_previous_value_index_hints) {
+        hints.getPreviousValueIndexHints.push_back(get_previous_value_index_hint.second);
     }
-    for (const auto& get_leaf_preimage_hint : query_hints.get_leaf_preimage_hints_public_data_tree) {
-        auto [hint_key, index] = get_leaf_preimage_hint.first;
-        hints.getLeafPreimageHintsPublicDataTree.push_back(
-            { .hintKey = hint_key, .index = index, .leafPreimage = get_leaf_preimage_hint.second });
+    for (const auto& get_leaf_preimage_hint : merkle_hints.get_leaf_preimage_hints_public_data_tree) {
+        hints.getLeafPreimageHintsPublicDataTree.push_back(get_leaf_preimage_hint.second);
     }
-    for (const auto& get_leaf_preimage_hint : query_hints.get_leaf_preimage_hints_nullifier_tree) {
-        auto [hint_key, index] = get_leaf_preimage_hint.first;
-        hints.getLeafPreimageHintsNullifierTree.push_back(
-            { .hintKey = hint_key, .index = index, .leafPreimage = get_leaf_preimage_hint.second });
+    for (const auto& get_leaf_preimage_hint : merkle_hints.get_leaf_preimage_hints_nullifier_tree) {
+        hints.getLeafPreimageHintsNullifierTree.push_back(get_leaf_preimage_hint.second);
     }
-    for (const auto& get_leaf_value_hint : query_hints.get_leaf_value_hints) {
-        auto [hint_key, tree_id, index] = get_leaf_value_hint.first;
-        hints.getLeafValueHints.push_back(GetLeafValueHint{
-            .hintKey = hint_key, .treeId = tree_id, .index = index, .value = get_leaf_value_hint.second });
+    for (const auto& get_leaf_value_hint : merkle_hints.get_leaf_value_hints) {
+        hints.getLeafValueHints.push_back(get_leaf_value_hint.second);
     }
-    for (const auto& sequential_insert_hint : sequential_insert_hints_public_data_tree) {
+    for (const auto& sequential_insert_hint : merkle_hints.sequential_insert_hints_public_data_tree) {
         hints.sequentialInsertHintsPublicDataTree.push_back(sequential_insert_hint.second);
     }
-    for (const auto& sequential_insert_hint : sequential_insert_hints_nullifier_tree) {
+    for (const auto& sequential_insert_hint : merkle_hints.sequential_insert_hints_nullifier_tree) {
         hints.sequentialInsertHintsNullifierTree.push_back(sequential_insert_hint.second);
     }
-    for (const auto& append_leaves_hint : append_leaves_hints) {
-        auto [hint_key, tree_id, leaves] = append_leaves_hint.first;
-        hints.appendLeavesHints.push_back(AppendLeavesHint{
-            .hintKey = hint_key, .stateAfter = append_leaves_hint.second, .treeId = tree_id, .leaves = leaves });
+    for (const auto& append_leaves_hint : merkle_hints.append_leaves_hints) {
+        hints.appendLeavesHints.push_back(append_leaves_hint.second);
     }
     for (const auto& create_checkpoint_hint : create_checkpoint_hints) {
         hints.createCheckpointHints.push_back(create_checkpoint_hint.second);

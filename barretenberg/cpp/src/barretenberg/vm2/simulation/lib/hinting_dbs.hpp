@@ -21,9 +21,9 @@ namespace bb::avm2::simulation {
 
 class HintingContractsDB final : public ContractDBInterface {
   public:
-    HintingContractsDB(ContractDBInterface& db, MappedContractHints& mapped_hints)
+    HintingContractsDB(ContractDBInterface& db, MappedContractHints& contract_hints)
         : db(db)
-        , mapped_hints(mapped_hints)
+        , contract_hints(contract_hints)
     {}
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
@@ -35,20 +35,15 @@ class HintingContractsDB final : public ContractDBInterface {
   private:
     ContractDBInterface& db;
     // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters
-    MappedContractHints& mapped_hints;
-
-    // unordered_flat_map<AztecAddress, ContractInstanceHint>& contract_instances;
-    // unordered_flat_map<ContractClassId, ContractClassHint>& contract_classes;
-    // // TODO(MW): below required? Exists in HintedRawContractDB and used for dumping hints.
-    // unordered_flat_map<ContractClassId, BytecodeCommitmentHint>& bytecode_commitments;
+    MappedContractHints& contract_hints;
 };
 
 class HintingRawDB final : public LowLevelMerkleDBInterface {
   public:
-    HintingRawDB(LowLevelMerkleDBInterface& db, MappedQueryHints& query_hints)
+    HintingRawDB(LowLevelMerkleDBInterface& db, MappedMerkleHints& merkle_hints)
         : db(db)
-        , query_hints(
-              query_hints) // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters
+        , merkle_hints(
+              merkle_hints) // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters
     {}
 
     TreeSnapshots get_tree_roots() const override { return db.get_tree_roots(); }
@@ -82,18 +77,7 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
 
     // Query hints.
     // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters:
-    MappedQueryHints& query_hints;
-    // unordered_flat_map<GetSiblingPathKey, SiblingPath>& get_sibling_path_hints;
-    // unordered_flat_map<GetPreviousValueIndexKey, GetLowIndexedLeafResponse>& get_previous_value_index_hints;
-    // unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<PublicDataLeafValue>>&
-    // get_leaf_preimage_hints_public_data_tree; unordered_flat_map<GetLeafPreimageKey,
-    // IndexedLeaf<NullifierLeafValue>>& get_leaf_preimage_hints_nullifier_tree; unordered_flat_map<GetLeafValueKey,
-    // FF>& get_leaf_value_hints; State modification hints.
-    unordered_flat_map<SequentialInsertHintPublicDataTreeKey, SequentialInsertHint<PublicDataLeafValue>>
-        sequential_insert_hints_public_data_tree;
-    unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
-        sequential_insert_hints_nullifier_tree;
-    unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
+    MappedMerkleHints& merkle_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;

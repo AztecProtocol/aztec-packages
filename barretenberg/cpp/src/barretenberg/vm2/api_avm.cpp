@@ -84,6 +84,7 @@ void avm_simulate(const std::filesystem::path& inputs_path)
     AVM_TRACK_TIME("command/avm_simulate", {
         avm2::AvmAPI avm;
         auto inputs = avm2::AvmAPI::ProvingInputs::from(read_file(inputs_path));
+        // TODO(MW): add simulate_without_hinted_dbs version, either as input option or new API method
         avm.simulate_with_hinted_dbs(inputs);
     });
 

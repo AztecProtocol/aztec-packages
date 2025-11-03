@@ -20,20 +20,30 @@ using SequentialInsertHintPublicDataTreeKey = std::tuple<AppendOnlyTreeSnapshot,
 using SequentialInsertHintNullifierTreeKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, NullifierLeafValue>;
 using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, MerkleTreeId, std::vector<FF>>;
 
-// TODO(MW): Temp struct for query hints to allow using a ref in the HintingContractsDB class constructor
+// TODO(MW): Temp struct for hints to allow using a ref in the HintingContractsDB class constructor
 struct MappedContractHints {
     unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
     unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
     unordered_flat_map<ContractClassId, BytecodeCommitmentHint> bytecode_commitments;
 };
 
-// TODO(MW): Temp struct for query hints to allow using a ref in the HintingRawDB class constructor
-struct MappedQueryHints {
-    unordered_flat_map<GetSiblingPathKey, SiblingPath> get_sibling_path_hints;
-    unordered_flat_map<GetPreviousValueIndexKey, GetLowIndexedLeafResponse> get_previous_value_index_hints;
-    unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<PublicDataLeafValue>> get_leaf_preimage_hints_public_data_tree;
-    unordered_flat_map<GetLeafPreimageKey, IndexedLeaf<NullifierLeafValue>> get_leaf_preimage_hints_nullifier_tree;
-    unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
+// TODO(MW): Temp struct for hints to allow using a ref in the HintingRawDB class constructor
+struct MappedMerkleHints {
+    // Query hints:
+    unordered_flat_map<GetSiblingPathKey, GetSiblingPathHint> get_sibling_path_hints;
+    unordered_flat_map<GetPreviousValueIndexKey, GetPreviousValueIndexHint> get_previous_value_index_hints;
+    unordered_flat_map<GetLeafPreimageKey, GetLeafPreimageHint<PublicDataTreeLeafPreimage>>
+        get_leaf_preimage_hints_public_data_tree;
+    unordered_flat_map<GetLeafPreimageKey, GetLeafPreimageHint<NullifierTreeLeafPreimage>>
+        get_leaf_preimage_hints_nullifier_tree;
+    unordered_flat_map<GetLeafValueKey, GetLeafValueHint> get_leaf_value_hints;
+    // State modification hints:
+    unordered_flat_map<SequentialInsertHintPublicDataTreeKey, SequentialInsertHint<PublicDataLeafValue>>
+        sequential_insert_hints_public_data_tree;
+    unordered_flat_map<SequentialInsertHintNullifierTreeKey, SequentialInsertHint<NullifierLeafValue>>
+        sequential_insert_hints_nullifier_tree;
+    unordered_flat_map<AppendLeavesHintKey, AppendLeavesHint> append_leaves_hints;
+    // TODO(MW): Add checkpoint hints here?
 };
 
 struct TreeCounters {

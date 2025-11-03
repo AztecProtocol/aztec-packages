@@ -22,6 +22,8 @@ class AvmSimulationHelper {
                                                       const ProtocolContracts& protocol_contracts);
 
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
+    // Note: we currently only have hinted raw dbs, TODO eventually remove hints:
+    TxSimulationResult simulate_fast_without_hinted_dbs(const ExecutionHints& hints);
 
   protected:
     // Helper called by simulate_fast* functions.

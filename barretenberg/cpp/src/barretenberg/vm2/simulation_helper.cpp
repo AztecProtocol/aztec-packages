@@ -315,9 +315,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                                                       const ProtocolContracts& protocol_contracts)
 {
     BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
-    // TODO(MW): reinstate after checking in simulate_fast_with_hinted_dbs
-    // HintingContractsDB hinting_contracts_db(raw_contract_db);
-    // HintingRawDB hinting_raw_db(raw_merkle_db);
 
     // TODO(fcarreiro): These should come from the simulate call.
     bool user_requested_simulation = false;
@@ -483,22 +480,31 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
 {
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
+    return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+}
+
+// Note: we currently only have hinted raw dbs, TODO eventually remove hints:
+TxSimulationResult AvmSimulationHelper::simulate_fast_without_hinted_dbs(const ExecutionHints& hints)
+{
+    // Note: we currently only have hinted raw dbs, TODO eventually replace with raw db:
+    HintedRawContractDB base_contract_db(hints);
+    HintedRawMerkleDB base_merkle_db(hints);
     // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters:
     MappedContractHints contract_hints;
-    MappedQueryHints query_hints;
+    MappedMerkleHints merkle_hints;
 
-    HintingContractsDB hinting_contracts_db(raw_contract_db, contract_hints);
-    HintingRawDB hinting_raw_db(raw_merkle_db, query_hints);
+    HintingContractsDB raw_contract_db(base_contract_db, contract_hints);
+    HintingRawDB raw_merkle_db(base_merkle_db, merkle_hints);
     auto result =
-        simulate_fast(hinting_contracts_db, hinting_raw_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+        simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 
-    // TODO(MW): remove below after checks, move HintingDb instantiation to inside simulate_fast
+    // TODO(MW): move to simulate_fast?
     ExecutionHints collected_hints = ExecutionHints{ .globalVariables = hints.globalVariables,
                                                      .tx = hints.tx,
                                                      .protocolContracts = hints.protocolContracts,
                                                      .startingTreeRoots = hints.startingTreeRoots };
-    hinting_contracts_db.dump_hints(collected_hints);
-    hinting_raw_db.dump_hints(collected_hints);
+    raw_contract_db.dump_hints(collected_hints);
+    raw_merkle_db.dump_hints(collected_hints);
 
     result.execution_hints = collected_hints;
     return result;

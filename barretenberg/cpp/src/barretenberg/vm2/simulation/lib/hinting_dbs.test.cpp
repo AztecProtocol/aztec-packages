@@ -1,5 +1,6 @@
 #include "barretenberg/vm2/simulation/lib/hinting_dbs.hpp"
 #include "barretenberg/api/file_io.hpp"
+#include "barretenberg/vm2/avm_api.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
 
@@ -16,6 +17,8 @@ class HintingDBsTest : public ::testing::Test {
   protected:
     AvmProvingInputs inputs =
         AvmProvingInputs::from(read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin"));
+
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
     static ExecutionHints dedupe_input_hints(const ExecutionHints& input_hints)
     {
@@ -198,7 +201,7 @@ class HintingDBsTest : public ::testing::Test {
 TEST_F(HintingDBsTest, Basic)
 {
     AvmSimulationHelper simulation_helper;
-    TxSimulationResult result = simulation_helper.simulate_fast_with_hinted_dbs(inputs.hints);
+    TxSimulationResult result = simulation_helper.simulate_fast_without_hinted_dbs(inputs.hints);
 
     EXPECT_TRUE(result.execution_hints.has_value());
     auto collected_hints = result.execution_hints.value();
@@ -206,8 +209,13 @@ TEST_F(HintingDBsTest, Basic)
 
     compare_all_hints(input_hints, collected_hints);
 
-    // Check witgen simulation works with collected hints:
-    simulation_helper.simulate_for_witgen(collected_hints);
+    // Check proving works with collected hints:
+    AvmProvingInputs inputs_with_collected_hints = inputs;
+    AvmAPI api;
+    inputs_with_collected_hints.hints = collected_hints;
+    // Note: prove() call includes simulate_for_witgen() call with our collected hints:
+    auto [proof, vk] = api.prove(inputs_with_collected_hints);
+    EXPECT_TRUE(api.verify(proof, inputs_with_collected_hints.publicInputs, vk));
 }
 
 } // namespace
