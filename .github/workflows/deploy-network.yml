@@ -138,6 +138,10 @@ jobs:
           ./scripts/install_deps.sh
           ./scripts/network_deploy.sh "${{ inputs.network }}"
 
+          if [ -n "$CLUSTER" ]; then
+            echo "CLUSTER=$CLUSTER" >> $GITHUB_OUTPUT
+          fi
+
       - name: Notify Slack on failure
         if: failure()
         env:
@@ -164,3 +168,4 @@ jobs:
     with:
       network: testnet
       l1_network: sepolia
+      cluster: ${{ env.CLUSTER }}
