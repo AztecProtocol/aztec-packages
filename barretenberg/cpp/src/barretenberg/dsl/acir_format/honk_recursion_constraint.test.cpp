@@ -174,65 +174,60 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
             uint32_t predicate_index = add_to_witness_and_track_indices(witness, predicate_val ? fr(1) : fr(0));
             auto predicate = WitnessOrConstant<fr>::from_index(predicate_index);
+
+            RecursionConstraint honk_recursion_constraint{
+                .key = key_indices,
+                .proof = proof_indices,
+                .public_inputs = inner_public_inputs,
+                .key_hash = key_hash_index,
+                .proof_type = proof_type,
+                .predicate = predicate,
+            };
+            honk_recursion_constraints.push_back(honk_recursion_constraint);
         }
 
-        RecursionConstraint honk_recursion_constraint{
-            .key = key_indices,
-            .proof = proof_indices,
-            .public_inputs = inner_public_inputs,
-            .key_hash = key_hash_index,
-            .proof_type = proof_type,
-            .predicate = predicate,
-        };
-        honk_recursion_constraints.push_back(honk_recursion_constraint);
+        AcirFormat constraint_system{};
+        constraint_system.varnum = static_cast<uint32_t>(witness.size());
+        constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
+        constraint_system.honk_recursion_constraints = honk_recursion_constraints;
+        constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
+
+        mock_opcode_indices(constraint_system);
+        bool constexpr has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
+
+        ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
+        if (dummy_witnesses) {
+            witness = {}; // set it all to 0
+        }
+        AcirProgram program{ constraint_system, witness };
+        BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
+
+        return outer_circuit;
     }
-
-    AcirFormat constraint_system{};
-    constraint_system.varnum = static_cast<uint32_t>(witness.size());
-    constraint_system.num_acir_opcodes = static_cast<uint32_t>(honk_recursion_constraints.size());
-    constraint_system.honk_recursion_constraints = honk_recursion_constraints;
-    constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
-
-    mock_opcode_indices(constraint_system);
-    bool constexpr has_ipa_claim = IsAnyOf<InnerFlavor, UltraRollupFlavor>;
-
-    ProgramMetadata metadata{ .has_ipa_claim = has_ipa_claim };
-    if (dummy_witnesses) {
-        witness = {}; // set it all to 0
-    }
-    AcirProgram program{ constraint_system, witness };
-    BuilderType outer_circuit = create_circuit<BuilderType>(program, metadata);
-
-    return outer_circuit;
-}
 
     bool verify_proof(const std::shared_ptr<OuterProverInstance>& prover_instance,
                       const std::shared_ptr<OuterVerificationKey>& verification_key,
                       const HonkProof& proof)
-{
-    using IO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, RollupIO, DefaultIO>;
+    {
+        using IO = std::conditional_t<HasIPAAccumulator<RecursiveFlavor>, RollupIO, DefaultIO>;
 
-    bool result = false;
+        bool result = false;
 
-    if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
-        VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
-        OuterVerifier verifier(verification_key, ipa_verification_key);
-        result = verifier.template verify_proof<IO>(proof, prover_instance->ipa_proof).result;
-    } else {
-        OuterVerifier verifier(verification_key);
-        result = verifier.template verify_proof<IO>(proof).result;
+        if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
+            VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
+            OuterVerifier verifier(verification_key, ipa_verification_key);
+            result = verifier.template verify_proof<IO>(proof, prover_instance->ipa_proof).result;
+        } else {
+            OuterVerifier verifier(verification_key);
+            result = verifier.template verify_proof<IO>(proof).result;
+        }
+
+        return result;
     }
 
-    return result;
-}
-
-protected:
-static void SetUpTestSuite()
-{
-    bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
-}
-}
-;
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
 
 using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
                                UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
