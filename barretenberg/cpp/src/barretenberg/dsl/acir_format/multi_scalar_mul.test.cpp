@@ -61,42 +61,45 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         FF scalar_lo = scalar_u256.slice(0, 128);
         FF scalar_hi = scalar_u256.slice(128, 256);
 
+        // Determine which inputs are constants based on the Constancy template parameter
+        constexpr bool points_are_constant = (Constancy == InputConstancy::Points || Constancy == InputConstancy::Both);
+        constexpr bool scalars_are_constant =
+            (Constancy == InputConstancy::Scalars || Constancy == InputConstancy::Both);
+
         // Helper to add points: either as witnesses or constants based on Constancy
         auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
-            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Scalars) {
-                // Points are witnesses
-                std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
-                return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                         WitnessOrConstant<FF>::from_index(point_indices[1]),
-                         WitnessOrConstant<FF>::from_index(point_indices[2]) };
-            } else {
+            if constexpr (points_are_constant) {
                 // Points are constants
                 return { WitnessOrConstant<FF>::from_constant(point.x),
                          WitnessOrConstant<FF>::from_constant(point.y),
                          WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
             }
+            // Points are witnesses
+            std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
+            return { WitnessOrConstant<FF>::from_index(point_indices[0]),
+                     WitnessOrConstant<FF>::from_index(point_indices[1]),
+                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
         };
 
         // Helper to add scalars: either as witnesses or constants based on Constancy
         auto construct_scalars = [&]() -> std::vector<WitnessOrConstant<FF>> {
-            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Points) {
-                // Scalars are witnesses
-                uint32_t scalar_lo_index = static_cast<uint32_t>(witness_values.size());
-                witness_values.emplace_back(scalar_lo);
-                uint32_t scalar_hi_index = static_cast<uint32_t>(witness_values.size());
-                witness_values.emplace_back(scalar_hi);
-                return { WitnessOrConstant<FF>::from_index(scalar_lo_index),
-                         WitnessOrConstant<FF>::from_index(scalar_hi_index) };
-            } else {
+            if constexpr (scalars_are_constant) {
                 // Scalars are constants
                 return { WitnessOrConstant<FF>::from_constant(scalar_lo),
                          WitnessOrConstant<FF>::from_constant(scalar_hi) };
             }
+            // Scalars are witnesses
+            uint32_t scalar_lo_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(scalar_lo);
+            uint32_t scalar_hi_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(scalar_hi);
+            return { WitnessOrConstant<FF>::from_index(scalar_lo_index),
+                     WitnessOrConstant<FF>::from_index(scalar_hi_index) };
         };
 
         // Add points and scalars according to constancy template parameter
-        auto points = construct_points();
-        auto scalars = construct_scalars();
+        auto point_fields = construct_points();
+        auto scalar_fields = construct_scalars();
 
         // Construct result and predicate as witnesses
         std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
@@ -105,8 +108,8 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
 
         // Build the constraint
         msm_constraint = MultiScalarMul{
-            .points = points,
-            .scalars = scalars,
+            .points = point_fields,
+            .scalars = scalar_fields,
             .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
             .out_point_x = result_indices[0],
             .out_point_y = result_indices[1],
