@@ -121,7 +121,7 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
     # This will be accessible at: http://ci.aztec-labs.com/bench-bb-breakdown-<runtime>-<flow_name>-<sha>
     cache_key="bench-bb-breakdown-${runtime}-${flow_name}-${current_sha}"
 
-    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder)
+    # Upload to Redis (30 day retention) and disk (bench/bb-breakdown subfolder) in background
     {
       # Write to Redis for ci.aztec-labs.com access
       cat "$benchmark_breakdown_file" | gzip | redis_cli -x SETEX "$cache_key" 2592000 &>/dev/null
@@ -135,53 +135,52 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
     } &
 
     # Also commit to gh-pages for public access via GitHub raw URLs
-    {
-      gh auth setup-git &>/dev/null || true
+    # Run in foreground to catch any errors
+    gh auth setup-git &>/dev/null || true
 
-      # Retry push up to 5 times with pull-rebase to handle concurrent pushes
-      for push_attempt in {1..5}; do
-        # Clone gh-pages (shallow)
-        rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
-        if ! git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
-          echo "Failed to clone gh-pages (attempt $push_attempt/5)"
-          sleep 2
-          continue
-        fi
+    # Retry push up to 5 times with pull-rebase to handle concurrent pushes
+    for push_attempt in {1..5}; do
+      # Clone gh-pages (shallow)
+      rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
+      if ! git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$; then
+        echo "Failed to clone gh-pages (attempt $push_attempt/5)"
+        sleep 2
+        continue
+      fi
 
-        # Create directory structure: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
-        mkdir -p "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}"
-        cp "$benchmark_breakdown_file" "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}/${runtime}-${current_sha:0:7}.json"
+      # Create directory structure: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
+      mkdir -p "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}"
+      cp "$benchmark_breakdown_file" "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}/${runtime}-${current_sha:0:7}.json"
 
-        cd "/tmp/gh-pages-$$"
-        git config user.name "Aztec Bot"
-        git config user.email "bot@aztec.network"
-        git add "bench/barretenberg-breakdowns/"
+      cd "/tmp/gh-pages-$$"
+      git config user.name "Aztec Bot"
+      git config user.email "bot@aztec.network"
+      git add "bench/barretenberg-breakdowns/"
 
-        if ! git diff --staged --quiet; then
-          git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
+      if ! git diff --staged --quiet; then
+        git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
 
-          # Try to push, if it fails pull and rebase
-          if git push 2>&1; then
-            echo "Successfully pushed breakdown to gh-pages"
-            cd - > /dev/null
-            rm -rf "/tmp/gh-pages-$$"
-            break
-          else
-            echo "Push failed (attempt $push_attempt/5), will retry with rebase..."
-            cd - > /dev/null
-            sleep $((push_attempt * 2))
-          fi
-        else
-          echo "No changes to commit (file already exists)"
+        # Try to push, if it fails pull and rebase
+        if git push 2>&1; then
+          echo "Successfully pushed breakdown to gh-pages"
           cd - > /dev/null
           rm -rf "/tmp/gh-pages-$$"
           break
+        else
+          echo "Push failed (attempt $push_attempt/5), will retry with rebase..."
+          cd - > /dev/null
+          sleep $((push_attempt * 2))
         fi
-      done
+      else
+        echo "No changes to commit (file already exists)"
+        cd - > /dev/null
+        rm -rf "/tmp/gh-pages-$$"
+        break
+      fi
+    done
 
-      # Clean up if we ran out of retries
-      rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
-    } &
+    # Clean up if we ran out of retries
+    rm -rf "/tmp/gh-pages-$$" 2>/dev/null || true
 
     echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
   else
