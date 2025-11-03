@@ -669,7 +669,7 @@ ${methods}
     if (this.config.mode === 'async') {
       return `  ${name}(command: ${commandType}): Promise<${responseType}> {
     const msgpackCommand = from${commandType}(command);
-    return msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
+    return msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]).then(([variantName, result]: [string, any]) => {
       if (variantName === 'ErrorResponse') {
         throw new BBApiException(result.message || 'Unknown error from barretenberg');
       }
@@ -684,7 +684,7 @@ ${methods}
     // For sync mode, keep the synchronous behavior
     return `  ${name}(command: ${commandType}): ${responseType} {
     const msgpackCommand = from${commandType}(command);
-    const [variantName, result] = msgpackCall(this.backend, [["${capitalize(name)}", msgpackCommand]]);
+    const [variantName, result] = msgpackCall(this.wasm, 'bbapi', [["${capitalize(name)}", msgpackCommand]]);
     if (variantName === 'ErrorResponse') {
       throw new BBApiException(result.message || 'Unknown error from barretenberg');
     }
