@@ -438,7 +438,7 @@
           responsive: true,
           maintainAspectRatio: true,
           onHover: (event, elements) => {
-            event.native.target.style.cursor = elements.length > 0 ? 'pointer' : 'default';
+            event.native.target.style.cursor = elements.length > 0 ? 'zoom-in' : 'default';
           },
           onClick: (event, elements) => {
             if (elements.length > 0) {
