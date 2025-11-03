@@ -41,11 +41,11 @@ class ContractDB final : public ContractDBInterface {
     std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                        const FunctionSelector& selector) const override;
 
-    // Adds non-revertible contracts to the DB.
-    void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
-    // Adds revertible contracts to the DB.
-    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override { raw_contract_db.create_checkpoint(); }
+    void commit_checkpoint() override { raw_contract_db.commit_checkpoint(); }
+    void revert_checkpoint() override { raw_contract_db.revert_checkpoint(); }
 
   private:
     ContractDBInterface& raw_contract_db;

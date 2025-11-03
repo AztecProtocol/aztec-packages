@@ -171,6 +171,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
 
     // The checkpoint we should go back to if anything from now on reverts.
     await context.state.fork();
+    hintingContractsDB.createCheckpoint();
 
     try {
       // This will throw if there is a nullifier collision or other insertion error (limit reached).
@@ -188,9 +189,11 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       if (e instanceof TxSimRevertibleInsertionsRevert || e instanceof TxSimAppLogicRevert) {
         // We revert to the post-setup state.
         await context.state.discardForkedState();
+        hintingContractsDB.revertCheckpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback at the end of teardown.
         await context.state.fork();
+        hintingContractsDB.createCheckpoint();
       } else {
         // Unchecked/unknown error - re-throw as-is
         throw e;
@@ -207,10 +210,12 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
       }
       // We commit the forked state and we are done.
       await context.state.mergeForkedState();
+      hintingContractsDB.commitCheckpoint();
     } catch (e: any) {
       if (e instanceof TxSimTeardownRevert) {
         // We revert to the post-setup state and we are done.
         await context.state.discardForkedState();
+        hintingContractsDB.revertCheckpoint();
       } else {
         // Unchecked/unknown error - re-throw as-is
         throw e;
@@ -402,7 +407,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addNewNonRevertibleContracts(context.nonRevertibleContractDeploymentData);
+    await this.contractsDB.addContracts(context.nonRevertibleContractDeploymentData);
   }
 
   /**
@@ -487,7 +492,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    await this.contractsDB.addNewRevertibleContracts(context.revertibleContractDeploymentData);
+    await this.contractsDB.addContracts(context.revertibleContractDeploymentData);
   }
 
   private async payFee(context: PublicTxContext) {

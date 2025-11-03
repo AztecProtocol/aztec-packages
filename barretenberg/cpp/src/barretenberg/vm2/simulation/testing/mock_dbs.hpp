@@ -23,14 +23,10 @@ class MockContractDB : public ContractDBInterface {
                 get_debug_function_name,
                 (const AztecAddress& address, const FunctionSelector& selector),
                 (const, override));
-    MOCK_METHOD(void,
-                add_new_non_revertible_contracts,
-                (const ContractDeploymentData& non_revertible_contract_deployment_data),
-                (override));
-    MOCK_METHOD(void,
-                add_new_revertible_contracts,
-                (const ContractDeploymentData& revertible_contract_deployment_data),
-                (override));
+    MOCK_METHOD(void, add_contracts, (const ContractDeploymentData& contract_deployment_data), (override));
+    MOCK_METHOD(void, create_checkpoint, (), (override));
+    MOCK_METHOD(void, commit_checkpoint, (), (override));
+    MOCK_METHOD(void, revert_checkpoint, (), (override));
 };
 
 class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {

@@ -130,6 +130,7 @@ struct PublicKeysHint {
 };
 
 struct ContractInstanceHint {
+    uint32_t hintKey;
     AztecAddress address;
     FF salt;
     AztecAddress deployer;
@@ -140,11 +141,18 @@ struct ContractInstanceHint {
 
     bool operator==(const ContractInstanceHint& other) const = default;
 
-    MSGPACK_FIELDS(
-        address, salt, deployer, currentContractClassId, originalContractClassId, initializationHash, publicKeys);
+    MSGPACK_FIELDS(hintKey,
+                   address,
+                   salt,
+                   deployer,
+                   currentContractClassId,
+                   originalContractClassId,
+                   initializationHash,
+                   publicKeys);
 };
 
 struct ContractClassHint {
+    uint32_t hintKey;
     FF classId;
     FF artifactHash;
     FF privateFunctionsRoot;
@@ -152,16 +160,17 @@ struct ContractClassHint {
 
     bool operator==(const ContractClassHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, artifactHash, privateFunctionsRoot, packedBytecode);
+    MSGPACK_FIELDS(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode);
 };
 
 struct BytecodeCommitmentHint {
+    uint32_t hintKey;
     FF classId;
     FF commitment;
 
     bool operator==(const BytecodeCommitmentHint& other) const = default;
 
-    MSGPACK_FIELDS(classId, commitment);
+    MSGPACK_FIELDS(hintKey, classId, commitment);
 };
 
 struct DebugFunctionNameHint {
@@ -289,6 +298,10 @@ struct RevertCheckpointHint {
     MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
 };
 
+using ContractDBCreateCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBCommitCheckpointHint = CheckpointActionNoStateChangeHint;
+using ContractDBRevertCheckpointHint = CheckpointActionNoStateChangeHint;
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -369,6 +382,9 @@ struct ExecutionHints {
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
+    std::vector<ContractDBCreateCheckpointHint> contractDBCreateCheckpointHints;
+    std::vector<ContractDBCommitCheckpointHint> contractDBCommitCheckpointHints;
+    std::vector<ContractDBRevertCheckpointHint> contractDBRevertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -390,7 +406,10 @@ struct ExecutionHints {
                    appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
-                   revertCheckpointHints);
+                   revertCheckpointHints,
+                   contractDBCreateCheckpointHints,
+                   contractDBCommitCheckpointHints,
+                   contractDBRevertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////

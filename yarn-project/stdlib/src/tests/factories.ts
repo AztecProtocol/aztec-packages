@@ -1371,6 +1371,7 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
+    seed,
     new AztecAddress(new Fr(seed)),
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
@@ -1401,13 +1402,13 @@ export function makeAvmDebugFunctionNameHint(seed = 0): AvmDebugFunctionNameHint
  */
 export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+  return new AvmContractClassHint(seed, new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
 }
 
 export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
   const classId = new Fr(seed + 2);
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
+  return new AvmBytecodeCommitmentHint(seed, classId, await computePublicBytecodeCommitment(bytecode));
 }
 
 export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {

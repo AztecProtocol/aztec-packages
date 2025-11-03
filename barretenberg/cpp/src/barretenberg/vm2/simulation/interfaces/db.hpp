@@ -24,9 +24,11 @@ class ContractDBInterface {
     virtual std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                                const FunctionSelector& selector) const = 0;
 
-    virtual void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) = 0;
-    virtual void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) = 0;
+    virtual void add_contracts(const ContractDeploymentData& contract_deployment_data) = 0;
+
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 };
 
 // Aliases.

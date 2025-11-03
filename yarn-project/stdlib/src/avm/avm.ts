@@ -31,6 +31,7 @@ import { serializeWithMessagePack } from './message_pack.js';
 ////////////////////////////////////////////////////////////////////////////
 export class AvmContractClassHint {
   constructor(
+    public readonly hintKey: number,
     public readonly classId: Fr,
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
@@ -40,20 +41,22 @@ export class AvmContractClassHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         artifactHash: schemas.Fr,
         privateFunctionsRoot: schemas.Fr,
         packedBytecode: schemas.Buffer,
       })
       .transform(
-        ({ classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
-          new AvmContractClassHint(classId, artifactHash, privateFunctionsRoot, packedBytecode),
+        ({ hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
+          new AvmContractClassHint(hintKey, classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
   }
 }
 
 export class AvmBytecodeCommitmentHint {
   constructor(
+    public readonly hintKey: number,
     public readonly classId: Fr,
     public readonly commitment: Fr,
   ) {}
@@ -61,15 +64,17 @@ export class AvmBytecodeCommitmentHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         classId: schemas.Fr,
         commitment: schemas.Fr,
       })
-      .transform(({ classId, commitment }) => new AvmBytecodeCommitmentHint(classId, commitment));
+      .transform(({ hintKey, classId, commitment }) => new AvmBytecodeCommitmentHint(hintKey, classId, commitment));
   }
 }
 
 export class AvmContractInstanceHint {
   constructor(
+    public readonly hintKey: number,
     public readonly address: AztecAddress,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
@@ -82,6 +87,7 @@ export class AvmContractInstanceHint {
   static get schema() {
     return z
       .object({
+        hintKey: z.number().int().nonnegative(),
         address: AztecAddress.schema,
         salt: schemas.Fr,
         deployer: AztecAddress.schema,
@@ -92,6 +98,7 @@ export class AvmContractInstanceHint {
       })
       .transform(
         ({
+          hintKey,
           address,
           salt,
           deployer,
@@ -101,6 +108,7 @@ export class AvmContractInstanceHint {
           publicKeys,
         }) =>
           new AvmContractInstanceHint(
+            hintKey,
             address,
             salt,
             deployer,
@@ -406,6 +414,10 @@ export class AvmRevertCheckpointHint {
   }
 }
 
+export class AvmContractDBCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDBCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+export class AvmContractDBRevertCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -568,6 +580,9 @@ export class AvmExecutionHints {
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
+    public readonly contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint[] = [],
+    public readonly contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint[] = [],
+    public readonly contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
@@ -596,6 +611,9 @@ export class AvmExecutionHints {
         createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
         commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
         revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
+        contractDBCreateCheckpointHints: AvmContractDBCreateCheckpointHint.schema.array(),
+        contractDBCommitCheckpointHints: AvmContractDBCommitCheckpointHint.schema.array(),
+        contractDBRevertCheckpointHints: AvmContractDBRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
@@ -618,6 +636,9 @@ export class AvmExecutionHints {
           createCheckpointHints,
           commitCheckpointHints,
           revertCheckpointHints,
+          contractDBCreateCheckpointHints,
+          contractDBCommitCheckpointHints,
+          contractDBRevertCheckpointHints,
         }) =>
           new AvmExecutionHints(
             globalVariables,
@@ -639,6 +660,9 @@ export class AvmExecutionHints {
             createCheckpointHints,
             commitCheckpointHints,
             revertCheckpointHints,
+            contractDBCreateCheckpointHints,
+            contractDBCommitCheckpointHints,
+            contractDBRevertCheckpointHints,
           ),
       );
   }

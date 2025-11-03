@@ -31,15 +31,29 @@ class HintedRawContractDB final : public ContractDBInterface {
     std::optional<std::string> get_debug_function_name(const AztecAddress& address,
                                                        const FunctionSelector& selector) const override;
 
-    void add_new_non_revertible_contracts(
-        const ContractDeploymentData& non_revertible_contract_deployment_data) override;
-    void add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data) override;
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
   private:
-    unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
-    unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
-    unordered_flat_map<ContractClassId, FF> bytecode_commitments;
+    uint32_t get_checkpoint_id() const;
+
+    using GetContractInstanceKey = std::tuple<uint32_t, AztecAddress>;
+    using GetContractClassKey = std::tuple<uint32_t, ContractClassId>;
+    using GetBytecodeCommitmentKey = std::tuple<uint32_t, ContractClassId>;
+
+    unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
+    unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
+    unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
     unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
+
+    uint32_t action_counter = 0;
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
+    unordered_flat_map<uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 // This class interacts with the external world, without emiting any simulation events.

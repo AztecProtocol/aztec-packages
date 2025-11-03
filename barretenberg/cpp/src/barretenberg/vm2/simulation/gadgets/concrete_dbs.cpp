@@ -56,14 +56,9 @@ std::optional<std::string> ContractDB::get_debug_function_name(const AztecAddres
     return raw_contract_db.get_debug_function_name(address, selector);
 }
 
-void ContractDB::add_new_non_revertible_contracts(const ContractDeploymentData& non_revertible_contract_deployment_data)
+void ContractDB::add_contracts(const ContractDeploymentData& contract_deployment_data)
 {
-    raw_contract_db.add_new_non_revertible_contracts(non_revertible_contract_deployment_data);
-}
-
-void ContractDB::add_new_revertible_contracts(const ContractDeploymentData& revertible_contract_deployment_data)
-{
-    raw_contract_db.add_new_revertible_contracts(revertible_contract_deployment_data);
+    raw_contract_db.add_contracts(contract_deployment_data);
 }
 
 // Merkle DB starts.

@@ -320,44 +320,6 @@ describe('public_processor', () => {
     });
   });
 
-  describe('contract class logs', () => {
-    it.each([
-      [' not', 'revertible'],
-      ['', 'non-revertible'],
-    ])('after a revert, does%s retain contract classes emitted from %s logs', async (_, kind) => {
-      const tx = await mockTxWithPublicCalls();
-
-      const contractClassId = await mockContractClassForTx(tx, kind === 'revertible');
-
-      // Mock the simulator to return a reverted result
-      mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
-      mockedEnqueuedCallsResult.revertReason = new SimulationError('Simulation Failed in app logic', []);
-
-      // Mock the simulator to add contracts to the DB (simulating what the real simulator does)
-      publicTxSimulator.simulate.mockImplementation(async (simulatedTx: Tx) => {
-        // Add contracts from the tx to the contractsDB's revertible and non-revertible tx-level caches
-        await contractsDB.addNewContracts(simulatedTx);
-        return Promise.resolve(mockedEnqueuedCallsResult);
-      });
-
-      const [processed, failed] = await processor.process([tx]);
-
-      // Transaction should be processed but with revert
-      expect(processed.length).toBe(1);
-      expect(failed).toEqual([]);
-
-      // Check whether the contract class is in the DB based on whether it was revertible
-      const contractClass = await contractsDB.getContractClass(contractClassId);
-      // On revert, the public processor only commits non-revertible contracts to the block-level cache
-      // On success, it commits both revertible and non-revertible contracts to the block-level cache
-      if (kind === 'revertible') {
-        expect(contractClass).toBeUndefined();
-      } else {
-        expect(contractClass).toBeDefined();
-      }
-    });
-  });
-
   // on uncaught error, public processor clears the tx-level cache entirely
   it('clears the tx-level cache entirely on uncaught error (like SETUP failure)', async function () {
     const tx = await mockTxWithPublicCalls();

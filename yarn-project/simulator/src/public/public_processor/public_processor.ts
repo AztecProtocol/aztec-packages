@@ -232,6 +232,7 @@ export class PublicProcessor implements Traceable {
       // Note: We use the underlying fork here not the guarded one, this ensures that it's not impacted by stopping the guarded version
       const checkpoint = await ForkCheckpoint.new(this.guardedMerkleTree.getUnderlyingFork());
       const startStateReference = await this.guardedMerkleTree.getUnderlyingFork().getStateReference();
+      this.contractsDB.createCheckpoint();
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -247,6 +248,7 @@ export class PublicProcessor implements Traceable {
           });
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -264,6 +266,7 @@ export class PublicProcessor implements Traceable {
           );
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
+          this.contractsDB.revertCheckpoint();
           continue;
         }
 
@@ -298,6 +301,9 @@ export class PublicProcessor implements Traceable {
           // This needs to be done directly on the underlying fork as the guarded fork has been stopped.
           await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
 
+          // Revert any contracts added to the DB for the tx.
+          this.contractsDB.revertCheckpoint();
+
           // Ensure we're at the same state as when we started processing this tx.
           await this.checkWorldStateUnchanged(startStateReference, txHash, err);
 
@@ -308,6 +314,7 @@ export class PublicProcessor implements Traceable {
         // Roll back state to start of TX before proceeding to next TX
         await checkpoint.revert();
         await this.guardedMerkleTree.getUnderlyingFork().revertAllCheckpoints();
+        this.contractsDB.revertCheckpoint();
         const errorMessage = err instanceof Error || err instanceof AssertionError ? err.message : 'Unknown error';
         this.log.warn(`Failed to process tx ${txHash.toString()}: ${errorMessage} ${err?.stack}`);
         failed.push({ tx, error: err instanceof Error ? err : new Error(errorMessage) });
@@ -318,11 +325,7 @@ export class PublicProcessor implements Traceable {
       } finally {
         // Base case is we always commit the checkpoint. Using the ForkCheckpoint means this has no effect if the tx was previously reverted
         await checkpoint.commit();
-        // The tx-level contracts cache should not live on to the next tx
-        // On tx success (inclusion in block), created contracts should have been committed down too the block-level cache,
-        // in which case this clear should be a no-op, but is good for sanity.
-        // On failure (error and no inclusion in block), this clears the tx-level cache of any contracts that were created.
-        this.contractsDB.clearContractsForTx();
+        this.contractsDB.commitCheckpointOkIfNone();
       }
     }
 
@@ -510,10 +513,7 @@ export class PublicProcessor implements Traceable {
     // Fee payment insertion has already been done. Do the rest.
     await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
-    // Add any contracts registered/deployed in this private-only tx to the block-level cache
-    // (add to tx-level cache and then commit to block-level cache)
     await this.contractsDB.addNewContracts(tx);
-    this.contractsDB.commitContractsForTx();
 
     return [processedTx, undefined];
   }
@@ -526,11 +526,6 @@ export class PublicProcessor implements Traceable {
 
     const { avmProvingRequest, gasUsed, revertCode, revertReason, processedPhases } =
       await this.publicTxSimulator.simulate(tx);
-    // Commit contracts from this TX to the block-level cache and clear tx cache
-    // If the tx reverted, only commit non-revertible contracts.
-    // This commit function also clears the tx-level caches (both non-revertible and revertible caches).
-    this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
-    // NOTE: You can't create contracts in public, so this just adds contracts from the TX's private section.
 
     if (!avmProvingRequest) {
       this.metrics.recordFailedTx();
