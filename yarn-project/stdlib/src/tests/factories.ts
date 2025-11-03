@@ -48,7 +48,7 @@ import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/a
 import { compact, padArrayEnd } from '@aztec/foundation/collection';
 import { Grumpkin, SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { BLS12Point, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { BLS12Point, Fq, Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 
@@ -1251,7 +1251,7 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
 }
 
 export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
-  const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
+  const f = (offset: number) => new Grumpkin().mul(Grumpkin.generator, new Fq(seed + offset));
 
   return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
 }
