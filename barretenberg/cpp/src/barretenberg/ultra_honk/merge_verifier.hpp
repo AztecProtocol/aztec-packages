@@ -142,17 +142,17 @@ template <typename Curve> class MergeVerifier_ {
                                                            const std::vector<FF>& evals) const
     {
         // Claim {Q', (z, 0)} expressed as
-        // Q' = Q * (z - \kappa) +
-        //      - \sum_i \beta_i L_i - \sum_i \beta_i R_i - \sum_i \beta_i M_i
-        //      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i G
-        //      + \sum_i \beta_i l_i + \sum_i \beta_i r_i + \sum_i \beta_i m_i
-        //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i * g
+        // Q' = -Q * (z - \kappa) +
+        //      + \sum_i \beta_i L_i - \sum_i \beta_i R_i - \sum_i \beta_i M_i
+        //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i G
+        //      - \sum_i \beta_i l_i - \sum_i \beta_i r_i - \sum_i \beta_i m_i
+        //      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i * g
         BatchOpeningClaim<Curve> batch_opening_claim;
 
         // Commitment: [L_1], [L_2], ..., [L_n], [R_1], ..., [R_n], [M_1], ..., [M_n], [G], [1]
         batch_opening_claim.commitments = { std::move(shplonk_batched_quotient) };
         for (auto& commitment : table_commitments) {
-            batch_opening_claim.commitments.emplace_back(-std::move(commitment));
+            batch_opening_claim.commitments.emplace_back(std::move(commitment));
         }
         if constexpr (IsRecursive) {
             batch_opening_claim.commitments.emplace_back(Commitment::one(kappa.get_context()));
@@ -161,10 +161,11 @@ template <typename Curve> class MergeVerifier_ {
         }
 
         // Scalars:
-        // (shplonk_opening_challenge - kappa), \beta_1, ..., \beta_12,
+        // -(shplonk_opening_challenge - kappa), \beta_1, ..., \beta_12,
         // \beta_13 * (z - \kappa) / (z - \kappa^{-1})
-        // \sum_i \beta_i l_i + \sum_i \beta_i r_i + \sum_i \beta_i m_i + \beta_13 * (z - \kappa) / (z - \kappa^{-1})* g
-        batch_opening_claim.scalars = { (shplonk_opening_challenge - kappa) };
+        // - ( \sum_i \beta_i l_i + \sum_i \beta_i r_i + \sum_i \beta_i m_i
+        //          + \beta_13 * (z - \kappa) / (z - \kappa^{-1})* g )
+        batch_opening_claim.scalars = { -(shplonk_opening_challenge - kappa) };
         for (auto& scalar : shplonk_batching_challenges) {
             batch_opening_claim.scalars.emplace_back(std::move(scalar));
         }
@@ -174,9 +175,9 @@ template <typename Curve> class MergeVerifier_ {
         batch_opening_claim.scalars.emplace_back(FF(0));
         for (size_t idx = 0; idx < evals.size(); idx++) {
             if (idx < evals.size() - 1) {
-                batch_opening_claim.scalars.back() += evals[idx] * shplonk_batching_challenges[idx];
+                batch_opening_claim.scalars.back() -= evals[idx] * shplonk_batching_challenges[idx];
             } else {
-                batch_opening_claim.scalars.back() += shplonk_batching_challenges.back() * evals.back() *
+                batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() *
                                                       (shplonk_opening_challenge - kappa) *
                                                       (shplonk_opening_challenge - kappa_inv).invert();
             }

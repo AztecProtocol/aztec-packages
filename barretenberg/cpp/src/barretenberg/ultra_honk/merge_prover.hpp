@@ -148,9 +148,9 @@ class MergeProver {
      *
      * @details Compute the partially evaluated batched quotient \f$Q'(X)\f$ defined as:
      * \f[
-     *  Q * (z - \kappa) +
-     *      - (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
-     *      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
+     *  -Q * (z - \kappa) +
+     *      + (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
+     *      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
      * \f]
      * and return the opening claim \f$\{ Q', (z, 0) \}\f$.
      *
@@ -167,13 +167,13 @@ class MergeProver {
                                                       const std::vector<FF>& evals)
     {
         // Q' (partially evaluated batched quotient) =
-        //  Q * (z - \kappa) +
-        //      - (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
-        //      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
+        //  -Q * (z - \kappa) +
+        //      + (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
+        //      + (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
 
         //
         Polynomial shplonk_partially_evaluated_batched_quotient(std::move(shplonk_batched_quotient));
-        shplonk_partially_evaluated_batched_quotient *= (shplonk_opening_challenge - kappa);
+        shplonk_partially_evaluated_batched_quotient *= -(shplonk_opening_challenge - kappa);
 
         // Handle polynomials opened at \kappa
         for (size_t idx_table = 0; idx_table < 3; idx_table++) {
@@ -181,24 +181,24 @@ class MergeProver {
                 FF challenge = shplonk_batching_challenges[(idx_table * NUM_WIRES) + idx];
                 FF eval = evals[(idx_table * NUM_WIRES) + idx];
                 if (idx_table == 0) {
-                    // Q' -= L_i * \beta_i
-                    shplonk_partially_evaluated_batched_quotient.add_scaled(left_table[idx], -challenge);
+                    // Q' += L_i * \beta_i
+                    shplonk_partially_evaluated_batched_quotient.add_scaled(left_table[idx], challenge);
                 } else if (idx_table == 1) {
-                    // Q' -= R_i * \beta_i
-                    shplonk_partially_evaluated_batched_quotient.add_scaled(right_table[idx], -challenge);
+                    // Q' += R_i * \beta_i
+                    shplonk_partially_evaluated_batched_quotient.add_scaled(right_table[idx], challenge);
                 } else {
-                    // Q' -= M_i * \beta_i
-                    shplonk_partially_evaluated_batched_quotient.add_scaled(merged_table[idx], -challenge);
+                    // Q' += M_i * \beta_i
+                    shplonk_partially_evaluated_batched_quotient.add_scaled(merged_table[idx], challenge);
                 }
-                // Q' += eval * \beta_i
-                shplonk_partially_evaluated_batched_quotient.at(0) += challenge * eval;
+                // Q' -= eval * \beta_i
+                shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
             }
         }
 
-        // Q' -= (G - g) / (z - \kappa^{-1}) * (z - \kappa) * \beta_i
+        // Q' += (G - g) / (z - \kappa^{-1}) * (z - \kappa) * \beta_i
         reversed_batched_left_tables.at(0) -= evals.back();
         shplonk_partially_evaluated_batched_quotient.add_scaled(reversed_batched_left_tables,
-                                                                -shplonk_batching_challenges.back() *
+                                                                shplonk_batching_challenges.back() *
                                                                     (shplonk_opening_challenge - kappa) *
                                                                     (shplonk_opening_challenge - kappa_inv).invert());
 
