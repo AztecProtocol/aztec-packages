@@ -257,7 +257,7 @@ template <class Curve> class EcdsaTests : public ::testing::Test {
         EXPECT_EQ(signature_result.get_value(), signature_verification_result);
 
         // Log data
-        size_t finalized_num_gates = builder.get_estimated_num_finalized_gates();
+        size_t finalized_num_gates = builder.get_num_finalized_gates_inefficient();
         info("num gates = ", finalized_num_gates);
         benchmark_info(Builder::NAME_STRING, "ECDSA", "Signature Verification Test", "Gate Count", finalized_num_gates);
 
@@ -371,8 +371,8 @@ TYPED_TEST(EcdsaTests, VerifySignature)
 
     size_t finalized_num_gates =
         TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
-    static constexpr size_t NUM_GATES_SECP256K1 = 41827;
-    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 71534 : 71532;
+    static constexpr size_t NUM_GATES_SECP256K1 = 41581;
+    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 70994 : 70992;
     BB_ASSERT_EQ(finalized_num_gates,
                  Curve::type == bb::CurveType::SECP256K1 ? NUM_GATES_SECP256K1 : NUM_GATES_SECP256R1,
                  "There has been a change in the number of gates for ECDSA verification");

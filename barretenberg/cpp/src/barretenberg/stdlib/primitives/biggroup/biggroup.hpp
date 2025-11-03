@@ -27,6 +27,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
   public:
     using Builder = Builder_;
     using bool_ct = stdlib::bool_t<Builder>;
+    using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using biggroup_tag = element; // Facilitates a constexpr check IsBigGroup
     using BaseField = Fq;
@@ -34,10 +35,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = BIGGROUP_PUBLIC_INPUTS_SIZE;
     struct secp256k1_wnaf {
-        std::vector<field_t<Builder>> wnaf;
+        std::vector<field_ct> wnaf;
         bool_ct positive_skew;
         bool_ct negative_skew;
-        field_t<Builder> least_significant_wnaf_fragment;
+        field_ct least_significant_wnaf_fragment;
         bool has_wnaf_fragment = false;
     };
     struct secp256k1_wnaf_pair {
@@ -378,7 +379,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     }
 
     static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
-                                                                        const std::vector<Fr>& _scalars);
+                                                                        const std::vector<Fr>& _scalars,
+                                                                        const Fr& masking_scalar = Fr(1));
 
     static std::pair<std::vector<element>, std::vector<Fr>> handle_points_at_infinity(
         const std::vector<element>& _points, const std::vector<Fr>& _scalars);
@@ -386,7 +388,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     static element batch_mul(const std::vector<element>& points,
                              const std::vector<Fr>& scalars,
                              const size_t max_num_bits = 0,
-                             const bool with_edgecases = false);
+                             const bool with_edgecases = false,
+                             const Fr& masking_scalar = Fr(1));
 
     template <typename X = NativeGroup, typename = typename std::enable_if_t<std::is_same<X, secp256k1::g1>::value>>
     static element secp256k1_ecdsa_mul(const element& pubkey, const Fr& u1, const Fr& u2);
@@ -396,32 +399,11 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     template <size_t wnaf_size, size_t staggered_lo_offset = 0, size_t staggered_hi_offset = 0>
     static secp256k1_wnaf_pair compute_secp256k1_endo_wnaf(const Fr& scalar, const bool range_constrain_wnaf = true);
 
-    Builder* get_context() const
-    {
-        if (_x.context != nullptr) {
-            return _x.context;
-        }
-        if (_y.context != nullptr) {
-            return _y.context;
-        }
-        return nullptr;
-    }
+    Builder* get_context() const { return validate_context<Builder>(_x.get_context(), _y.get_context()); }
 
     Builder* get_context(const element& other) const
     {
-        if (_x.context != nullptr) {
-            return _x.context;
-        }
-        if (_y.context != nullptr) {
-            return _y.context;
-        }
-        if (other._x.context != nullptr) {
-            return other._x.context;
-        }
-        if (other._y.context != nullptr) {
-            return other._y.context;
-        }
-        return nullptr;
+        return validate_context<Builder>(get_context(), other.get_context());
     }
 
     // Coordinate accessors (non-owning, const reference)
@@ -525,18 +507,18 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @param wnaf_values
      * @param is_negative
      * @param rounds
-     * @return std::vector<field_t<Builder>>
+     * @return std::vector<field_ct>
      *
      * @details For 4-bit window, each wNAF value is in the range [-15, 15]. We convert these to the range [0, 30] by
      * adding 15 if `is_negative = false` and by subtracting from 15 if `is_negative = true`. This ensures that all
      * values are non-negative, which is required for the ROM table lookup.
      */
     template <size_t wnaf_size>
-    static std::vector<field_t<Builder>> convert_wnaf_values_to_witnesses(Builder* builder,
-                                                                          const uint64_t* wnaf_values,
-                                                                          bool is_negative,
-                                                                          size_t rounds,
-                                                                          const bool range_constrain_wnaf = true);
+    static std::vector<field_ct> convert_wnaf_values_to_witnesses(Builder* builder,
+                                                                  const uint64_t* wnaf_values,
+                                                                  bool is_negative,
+                                                                  size_t rounds,
+                                                                  const bool range_constrain_wnaf = true);
 
     /**
      * @brief Reconstruct a scalar from its wNAF representation in circuit
@@ -551,10 +533,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      */
     template <size_t wnaf_size>
     static Fr reconstruct_bigfield_from_wnaf(Builder* builder,
-                                             const std::vector<field_t<Builder>>& wnaf,
+                                             const std::vector<field_ct>& wnaf,
                                              const bool_ct& positive_skew,
                                              const bool_ct& negative_skew,
-                                             const field_t<Builder>& stagger_fragment,
+                                             const field_ct& stagger_fragment,
                                              const size_t stagger,
                                              const size_t rounds);
 
@@ -564,7 +546,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
 
     template <size_t num_elements>
     static element read_group_element_rom_tables(const std::array<twin_rom_table<Builder>, Fq::NUM_LIMBS + 1>& tables,
-                                                 const field_t<Builder>& index,
+                                                 const field_ct& index,
                                                  const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max);
 
     static std::pair<element, element> compute_offset_generators(const size_t num_rounds);
@@ -585,7 +567,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         four_bit_table_plookup& operator=(four_bit_table_plookup&& other) noexcept = default;
         ~four_bit_table_plookup() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
         element operator[](const size_t idx) const { return element_table[idx]; }
         std::array<element, 16> element_table;
 
@@ -613,7 +595,7 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         eight_bit_fixed_base_table& operator=(eight_bit_fixed_base_table&& other) noexcept = default;
         ~eight_bit_fixed_base_table() = default;
 
-        element operator[](const field_t<Builder>& index) const;
+        element operator[](const field_ct& index) const;
 
         element operator[](const size_t index) const;
 
@@ -775,35 +757,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
         }
 
-        element get_initial_entry() const
-        {
-            std::vector<element> add_accumulator;
-            for (size_t i = 0; i < num_sixes; ++i) {
-                add_accumulator.push_back(six_tables[i][0]);
-            }
-            for (size_t i = 0; i < num_fives; ++i) {
-                add_accumulator.push_back(five_tables[i][0]);
-            }
-            if (has_quad) {
-                add_accumulator.push_back(quad_tables[0][0]);
-            }
-            if (has_twin) {
-                add_accumulator.push_back(twin_tables[0][0]);
-            }
-            if (has_triple) {
-                add_accumulator.push_back(triple_tables[0][0]);
-            }
-            if (has_singleton) {
-                add_accumulator.push_back(singletons[0]);
-            }
-
-            element accumulator = add_accumulator[0];
-            for (size_t i = 1; i < add_accumulator.size(); ++i) {
-                accumulator = accumulator + add_accumulator[i];
-            }
-            return accumulator;
-        }
-
         chain_add_accumulator get_chain_initial_entry() const
         {
             std::vector<element> add_accumulator;
@@ -873,7 +826,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
                 round_accumulator.push_back(singletons[0].conditional_negate(naf_entries[num_points - 1]));
             }
 
-            element::chain_add_accumulator accumulator;
             if (round_accumulator.size() == 1) {
                 return element::chain_add_accumulator(round_accumulator[0]);
             }
@@ -883,7 +835,8 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
             }
 
             // Use chain add for at least 3 elements
-            accumulator = element::chain_add_start(round_accumulator[0], round_accumulator[1]);
+            element::chain_add_accumulator accumulator =
+                element::chain_add_start(round_accumulator[0], round_accumulator[1]);
             for (size_t j = 2; j < round_accumulator.size(); ++j) {
                 accumulator = element::chain_add(round_accumulator[j], accumulator);
             }
@@ -965,6 +918,10 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
     };
 
     using batch_lookup_table = batch_lookup_table_plookup;
+
+    static element process_strauss_msm_rounds(const std::vector<element>& points,
+                                              const std::vector<Fr>& scalars,
+                                              const size_t max_num_bits);
 };
 
 // For testing purposes only

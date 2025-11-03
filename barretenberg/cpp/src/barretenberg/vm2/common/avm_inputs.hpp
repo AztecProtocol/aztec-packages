@@ -6,6 +6,7 @@
 #include <ostream>
 #include <vector>
 
+#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -36,8 +37,8 @@ struct PublicInputs {
     AztecAddress feePayer;
     FF proverId;
     PublicCallRequestArrayLengths publicCallRequestArrayLengths;
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests;
-    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests;
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicSetupCallRequests{};
+    std::array<PublicCallRequest, MAX_ENQUEUED_CALLS_PER_TX> publicAppLogicCallRequests{};
     PublicCallRequest publicTeardownCallRequest;
     PrivateToAvmAccumulatedDataArrayLengths previousNonRevertibleAccumulatedDataArrayLengths;
     PrivateToAvmAccumulatedDataArrayLengths previousRevertibleAccumulatedDataArrayLengths;
@@ -387,6 +388,34 @@ struct AvmProvingInputs {
     bool operator==(const AvmProvingInputs& other) const = default;
 
     MSGPACK_FIELDS(publicInputs, hints);
+};
+
+////////////////////////////////////////////////////////////////////////////
+// Tx Simulation Result
+////////////////////////////////////////////////////////////////////////////
+struct TxSimulationResult {
+    /**
+     * TODO(fcarreiro): This is what we want it to be.
+     *
+     * avmProvingRequest: AvmProvingRequest;
+     * gasUsed: GasUsed;
+     * revertCode: RevertCode;
+     * revertReason?: SimulationError;
+     * processedPhases: ProcessedPhase[];
+     * logs: DebugLog[];
+     */
+    // Proving request data.
+    PublicInputs public_inputs;
+    std::optional<ExecutionHints> execution_hints;
+    // The rest.
+    Gas gas_used;
+    std::vector<DebugLog> debug_logs;
+    // TODO(fcarreiro): To enable the fuzzer. The format might change.
+    std::optional<std::vector<FF>> app_logic_output;
+    bool reverted;
+
+    bool operator==(const TxSimulationResult& other) const = default;
+    MSGPACK_FIELDS(public_inputs, execution_hints, gas_used, debug_logs);
 };
 
 } // namespace bb::avm2

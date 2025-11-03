@@ -75,33 +75,33 @@ pub contract AppSubscription {
 
         // This function takes a generic argument that corresponds to the number of params
         // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
-        assert_current_call_valid_authwit::<2>(&mut context, user_address);
+        assert_current_call_valid_authwit::<2>(self.context, user_address);
 
-        let emission = storage.subscriptions.at(user_address).replace(|mut note| {
+        let emission = self.storage.subscriptions.at(user_address).replace(|mut note| {
             assert(note.remaining_txs > 0, "you're out of txs");
             note.remaining_txs -= 1;
             note
         });
         emission.emit(user_address, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        context.set_as_fee_payer();
+        self.context.set_as_fee_payer();
 
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
         let _gas_limit = config.fee_juice_limit_per_tx;
 
-        context.end_setup();
+        self.context.end_setup();
 
         // We check that the note is not expired. We do that via the router contract to conceal which contract
         // is performing the check.
         privately_check_block_number(
             Comparator.LT,
             emission.content.note.expiry_block_number,
-            &mut context,
+            self.context,
         );
 
-        payload.execute_calls(&mut context, config.target_address);
+        payload.execute_calls(self.context, config.target_address);
     }
 
     #[external("public")]
@@ -113,7 +113,7 @@ pub contract AppSubscription {
         subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
-        storage.config.initialize(
+        self.storage.config.initialize(
             Config {
                 target_address,
                 subscription_recipient_address,
@@ -133,26 +133,27 @@ pub contract AppSubscription {
     ) {
         assert(tx_count <= SUBSCRIPTION_TXS);
 
-        let config = storage.config.read();
+        let config = self.storage.config.read();
 
         Token::at(config.subscription_token_address)
             .transfer_in_private(
-                context.msg_sender().unwrap(),
+                self.msg_sender().unwrap(),
                 config.subscription_recipient_address,
                 config.subscription_price,
                 authwit_nonce,
             )
-            .call(&mut context);
+            .call(self.context);
 
         // Assert that the `current_block_number > expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS`.
         // --> We do that via the router contract to conceal which contract is performing the check.
         privately_check_block_number(
             Comparator.GT,
             expiry_block_number - SUBSCRIPTION_DURATION_IN_BLOCKS,
-            &mut context,
+            self.context,
         );
 
-        storage
+        self
+            .storage
             .subscriptions
             .at(subscriber)
             .initialize_or_replace(|_| {
@@ -163,6 +164,6 @@ pub contract AppSubscription {
 
     #[external("utility")]
     unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
-        storage.subscriptions.at(subscriber).is_initialized()
+        self.storage.subscriptions.at(subscriber).is_initialized()
     }
 }

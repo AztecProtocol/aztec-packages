@@ -46,8 +46,7 @@ class PublicDataTreeCheck : public PublicDataTreeCheckInterface, public Checkpoi
     void on_checkpoint_committed() override;
     void on_checkpoint_reverted() override;
 
-    // Sort public data writes by leaf slot between index 0 and of size publicDataWritesLength.
-    void generate_ff_gt_events_for_squashing(std::vector<PublicDataWrite>& public_data_writes);
+    void generate_ff_gt_events_for_squashing(const std::vector<FF>& written_leaf_slots);
 
   private:
     EventEmitterInterface<PublicDataTreeCheckEvent>& events;

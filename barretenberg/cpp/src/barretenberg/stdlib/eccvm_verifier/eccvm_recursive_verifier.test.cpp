@@ -96,7 +96,7 @@ class ECCVMRecursiveTests : public ::testing::Test {
         auto [opening_claim, ipa_transcript] = verifier.verify_proof(proof);
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
 
-        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -162,7 +162,8 @@ class ECCVMRecursiveTests : public ::testing::Test {
         RecursiveVerifier verifier{ &outer_circuit, verification_key, stdlib_verifier_transcript };
         [[maybe_unused]] auto output = verifier.verify_proof(proof);
         stdlib::recursion::honk::DefaultIO<OuterBuilder>::add_default(outer_circuit);
-        info("Recursive Verifier: estimated num finalized gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: estimated num finalized gates = ",
+             outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_FALSE(CircuitChecker::check(outer_circuit));

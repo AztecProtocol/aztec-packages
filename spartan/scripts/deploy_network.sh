@@ -108,9 +108,14 @@ DESTROY_CHAOS_MESH=${DESTROY_CHAOS_MESH:-false}
 CREATE_CHAOS_MESH=${CREATE_CHAOS_MESH:-false}
 
 
-# Compute validator addresses
-VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
-log "VALIDATOR_ADDRESSES: ${VALIDATOR_ADDRESSES}"
+# Compute validator addresses (skip if no validators)
+if [[ $VALIDATOR_REPLICAS -gt 0 ]]; then
+  VALIDATOR_ADDRESSES=$(echo "$VALIDATOR_INDICES" | tr ',' '\n' | xargs -I{} cast wallet address --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index {} | tr '\n' ',' | sed 's/,$//')
+  log "VALIDATOR_ADDRESSES: ${VALIDATOR_ADDRESSES}"
+else
+  VALIDATOR_ADDRESSES=""
+  log "VALIDATOR_ADDRESSES: (none - no validators)"
+fi
 
 # Compute and include publisher indices in prefunding list
 # Uses env overrides when provided, otherwise falls back to values.yaml defaults

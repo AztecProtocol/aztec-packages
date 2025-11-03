@@ -3,7 +3,6 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/ultra_honk/merge_prover.hpp"
 #include "barretenberg/ultra_honk/merge_verifier.hpp"
@@ -24,9 +23,9 @@ namespace bb::stdlib::recursion::goblin {
 template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : public testing::Test {
 
     // Types for recursive verifier circuit
-    using RecursiveMergeVerifier = MergeRecursiveVerifier_<RecursiveBuilder>;
-    using RecursiveTableCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::TableCommitments;
-    using RecursiveMergeCommitments = MergeRecursiveVerifier_<RecursiveBuilder>::InputCommitments;
+    using RecursiveMergeVerifier = MergeRecursiveVerifier<RecursiveBuilder>;
+    using RecursiveTableCommitments = MergeRecursiveVerifier<RecursiveBuilder>::TableCommitments;
+    using RecursiveMergeCommitments = MergeRecursiveVerifier<RecursiveBuilder>::InputCommitments;
 
     // Define types relevant for inner circuit
     using InnerFlavor = MegaFlavor;
@@ -89,10 +88,10 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         }
 
         // Create a recursive merge verification circuit for the merge proof
-        RecursiveMergeVerifier verifier{ &outer_circuit, settings };
-        verifier.transcript->enable_manifest();
+        auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
+        RecursiveMergeVerifier verifier{ settings, merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        [[maybe_unused]] auto [pairing_points, recursive_merged_table_commitments] =
+        [[maybe_unused]] auto [pairing_points, recursive_merged_table_commitments, degree_check_verified] =
             verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit

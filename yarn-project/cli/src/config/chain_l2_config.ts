@@ -362,59 +362,61 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   aztecEpochDuration: 32,
   /** The target validator committee size. */
   aztecTargetCommitteeSize: 24,
-  /** The number of epochs after an epoch ends that proofs are still accepted. */
-  aztecProofSubmissionEpochs: 1,
-  /** How many sequencers must agree with a slash for it to be executed. */
-  slashingQuorum: 65,
-
   /** The number of epochs to lag behind the current epoch for validator selection. */
   lagInEpochs: 2,
+  /** The number of epochs after an epoch ends that proofs are still accepted. */
+  aztecProofSubmissionEpochs: 1,
 
   localEjectionThreshold: 196_000n * 10n ** 18n,
-  slashingDisableDuration: 5 * 24 * 60 * 60,
-
+  /** How many sequencers must agree with a slash for it to be executed. */
+  slashingQuorum: 65,
   slashingRoundSizeInEpochs: 4,
-  slashingLifetimeInRounds: 40,
   slashingExecutionDelayInRounds: 28,
-  slashAmountSmall: 2_000n * 10n ** 18n,
-  slashAmountMedium: 10_000n * 10n ** 18n,
-  slashAmountLarge: 50_000n * 10n ** 18n,
-  slashingOffsetInRounds: 2,
-  slasherFlavor: 'tally',
+  slashingLifetimeInRounds: 34,
   slashingVetoer: EthAddress.ZERO, // TODO TMNT-329
+  slashingOffsetInRounds: 2,
+
+  slashingDisableDuration: 259_200, // 3 days
+  slasherFlavor: 'tally',
+
+  slashAmountSmall: 2_000n * 10n ** 18n,
+  slashAmountMedium: 2_000n * 10n ** 18n,
+  slashAmountLarge: 2_000n * 10n ** 18n,
 
   /** The mana target for the rollup */
   manaTarget: 0n,
 
-  exitDelaySeconds: 5 * 24 * 60 * 60,
-
   /** The proving cost per mana */
   provingCostPerMana: 0n,
 
-  ejectionThreshold: 100_000n * 10n ** 18n,
-  activationThreshold: 200_000n * 10n ** 18n,
+  exitDelaySeconds: 4 * 24 * 60 * 60, // 4 days
 
-  governanceProposerRoundSize: 300, // TODO TMNT-322
-  governanceProposerQuorum: 151, // TODO TMNT-322
+  activationThreshold: 200_000n * 10n ** 18n,
+  ejectionThreshold: 100_000n * 10n ** 18n,
+
+  governanceProposerRoundSize: 1000,
+  governanceProposerQuorum: 600,
 
   // Node slashing config
   // TODO TMNT-330
-  slashMinPenaltyPercentage: 0.5,
-  slashMaxPenaltyPercentage: 2.0,
-  slashInactivityTargetPercentage: 0.7,
+  slashInactivityTargetPercentage: 0.8,
   slashInactivityConsecutiveEpochThreshold: 2,
   slashInactivityPenalty: 2_000n * 10n ** 18n,
   slashPrunePenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for prune offenses right now
   slashDataWithholdingPenalty: 0n, // 2_000n * 10n ** 18n, We disable slashing for data withholding offenses right now
-  slashProposeInvalidAttestationsPenalty: 50_000n * 10n ** 18n,
-  slashAttestDescendantOfInvalidPenalty: 50_000n * 10n ** 18n,
+  slashProposeInvalidAttestationsPenalty: 2_000n * 10n ** 18n,
+  slashAttestDescendantOfInvalidPenalty: 2_000n * 10n ** 18n,
   slashUnknownPenalty: 2_000n * 10n ** 18n,
-  slashBroadcastedInvalidBlockPenalty: 0n, // 10_000n * 10n ** 18n, Disabled for now until further testing
-  slashMaxPayloadSize: 50,
-  slashGracePeriodL2Slots: 32 * 4, // One round from genesis
+  slashBroadcastedInvalidBlockPenalty: 2_000n * 10n ** 18n, // 10_000n * 10n ** 18n, Disabled for now until further testing
+  slashGracePeriodL2Slots: 1_200, // One day from deployment
   slashOffenseExpirationRounds: 8,
-  sentinelEnabled: true,
+
+  slashMinPenaltyPercentage: 0.5,
+  slashMaxPenaltyPercentage: 2.0,
+  slashMaxPayloadSize: 50,
   slashExecuteRoundsLookBack: 4,
+
+  sentinelEnabled: true,
 
   ...DefaultNetworkDBMapSizeConfig,
 };

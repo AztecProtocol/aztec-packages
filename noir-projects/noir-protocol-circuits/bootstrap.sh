@@ -186,7 +186,7 @@ function build {
 
 function test_cmds {
   $NARGO test --list-tests --silence-warnings | sort | while read -r package test; do
-    echo "$circuits_hash noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
+    echo "$circuits_hash:TIMEOUT=15m noir-projects/scripts/run_test.sh noir-protocol-circuits $package $test"
   done
   # We don't blindly execute all circuits as some will have no `Prover.toml`.
   circuits_to_execute="

@@ -63,9 +63,9 @@ DeciderRecursiveVerifier_<Flavor>::PairingPoints DeciderRecursiveVerifier_<Flavo
                                                                       transcript,
                                                                       Flavor::REPEATED_COMMITMENTS,
                                                                       Flavor::HasZK);
-    auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
+    PairingPoints pairing_points(PCS::reduce_verify_batch_opening_claim(opening_claim, transcript));
 
-    return { pairing_points[0], pairing_points[1] };
+    return pairing_points;
 }
 
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;

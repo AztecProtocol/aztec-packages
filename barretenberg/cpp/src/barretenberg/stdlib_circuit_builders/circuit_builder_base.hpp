@@ -12,8 +12,10 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "pairing_points_tagging.hpp"
 #include <utility>
 
+#include <algorithm>
 #include <unordered_map>
 
 namespace bb {
@@ -88,6 +90,12 @@ template <typename FF_> class CircuitBuilderBase {
 
   public:
     /**
+     * @brief PairingPoints tagging tool, used to ensure that all pairing points created in this circuit are aggregated
+     * together. This is not related to circuit logic.
+     */
+    mutable PairingPointsTagging pairing_points_tagging;
+
+    /**
      * @brief Map from witness index to real variable index
      * @details The "real_variable_index" acts as a map from a "witness index" (e.g. the one stored by a stdlib
      * object) to an index into the variables array. This extra layer of indirection is used to support copy
@@ -112,8 +120,6 @@ template <typename FF_> class CircuitBuilderBase {
     bool operator==(const CircuitBuilderBase& other) const = default;
 
     virtual size_t get_num_finalized_gates() const;
-    virtual size_t get_estimated_num_finalized_gates() const;
-    virtual void print_num_estimated_finalized_gates() const;
     virtual size_t get_num_variables() const;
 
     // Get the current number of gates in the circuit

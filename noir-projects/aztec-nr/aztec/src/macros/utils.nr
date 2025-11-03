@@ -17,8 +17,8 @@ pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute("view")
 }
 
-pub(crate) comptime fn is_fn_internal(f: FunctionDefinition) -> bool {
-    f.has_named_attribute("internal")
+pub(crate) comptime fn is_fn_only_self(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("only_self")
 }
 
 pub(crate) comptime fn is_fn_initializer(f: FunctionDefinition) -> bool {

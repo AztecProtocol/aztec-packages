@@ -127,7 +127,7 @@ pub comptime global PRIVATE_KERNEL_RESET_INDEX: u32 = 24;
 pub global FUNCTION_SELECTOR_NUM_BYTES: Field = 4;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
-pub global BLOBS_PER_BLOCK: u32 = 3;
+pub global BLOBS_PER_BLOCK: u32 = 6;
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
 pub global MAX_INCLUDE_BY_TIMESTAMP_DURATION: u64 = 86400; // 1 day
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees

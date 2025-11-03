@@ -110,13 +110,20 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
+add_subdirectory(barretenberg/world_state)
+add_subdirectory(barretenberg/lmdblib)
+
+# NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
+if(NOT WASM)
+    add_subdirectory(barretenberg/vm2)
+    if(FUZZING)
+        add_subdirectory(barretenberg/avm_fuzzer)
+    endif()
+endif()
 
 if(NOT FUZZING AND NOT WASM)
     add_subdirectory(barretenberg/ipc)
-    add_subdirectory(barretenberg/lmdblib)
     add_subdirectory(barretenberg/nodejs_module)
-    add_subdirectory(barretenberg/world_state)
-    add_subdirectory(barretenberg/vm2)
 endif()
 
 if(SMT)
@@ -170,7 +177,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_circuit_builders_objects>
     $<TARGET_OBJECTS:stdlib_chonk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_eccvm_verifier_objects>
-    $<TARGET_OBJECTS:stdlib_merge_verifier_objects>
     $<TARGET_OBJECTS:stdlib_honk_verifier_objects>
     $<TARGET_OBJECTS:stdlib_goblin_verifier_objects>
     $<TARGET_OBJECTS:stdlib_keccak_objects>
@@ -178,7 +184,6 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:stdlib_pedersen_hash_objects>
     $<TARGET_OBJECTS:stdlib_poseidon2_objects>
     $<TARGET_OBJECTS:stdlib_primitives_objects>
-    $<TARGET_OBJECTS:stdlib_schnorr_objects>
     $<TARGET_OBJECTS:stdlib_sha256_objects>
     $<TARGET_OBJECTS:stdlib_translator_vm_verifier_objects>
     $<TARGET_OBJECTS:sumcheck_objects>

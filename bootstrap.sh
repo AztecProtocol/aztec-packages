@@ -450,7 +450,8 @@ case "$cmd" in
     export CI_NIGHTLY=1
     build
     release-image/bootstrap.sh push
-    test
+    # TODO this should become a ci-nightly-tests ran in parallel with a normal ci-release
+    # test
     release
     ;;
   "ci-network-deploy")

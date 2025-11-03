@@ -53,27 +53,27 @@ The contract function must return information about the execution back to the ke
 
 This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
 
-**Hashing the function inputs.**
-#include_code context-example-hasher /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
-_What is the hasher and why is it needed?_
+**Creating the function's `self.`**
+#include_code contract_self_creation /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
-Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. The hasher abstraction that allows us to create an array of all of the inputs that can be reduced to a single value.
-
-**Creating the function's context.**
-#include_code context-example-context /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
-
-Each Aztec function has access to a [context](context) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
+Each Aztec function has access to a `self` object. Upon creation it accepts storage and context. Context is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
 #include_code context-example-context-return /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 We use the kernel to pass information between circuits. This means that the return values of functions must also be passed to the kernel (where they can be later passed on to another function).
 We achieve this by pushing return values to the execution context, which we then pass to the kernel.
 
-**Making the contract's storage available**
-#include_code storage-example-context /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
+**Hashing the function inputs.**
 
-When a `Storage` struct is declared within a contract, the `storage` keyword is made available. As shown in the macro expansion above, this calls the init function on the storage struct with the current function's context.
+Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. Hashing the inputs allows to reduce all of the inputs to a single value.
+
+**Making the contract's storage available**
+
+Each `self` has a `storage` variable exposed on it.
+When a `Storage` struct is declared within a contract, the `self.storage` contains real variables.
+
+If Storage is note defined `self.storage` contains only a placeholder value.
 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
@@ -173,12 +173,21 @@ When a function is annotated with `#[noinitcheck]`:
 - The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-initializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
-## `Internal` functions #[internal]
+## #[only_self]
+
+External functions marked with #[only_self] attribute can only be called by the contract itself - if other contracts try to make the call it will fail.
+
+This attribute is commonly used when an action starts in private but needs to be completed in public. The public
+function must be marked with #[only_self] to restrict access to only the contract itself. A typical example is a private
+token mint operation that needs to enqueue a call to a public function to update the publicly tracked total token
+supply.
+
+It is also useful in private functions when dealing with tasks of an unknown size but with a large upper bound (e.g. when needing to process an unknown amount of notes or nullifiers) as they allow splitting the work in multiple circuits, possibly resulting in performance improvements for low-load scenarios.
 
 This macro inserts a check at the beginning of the function to ensure that the caller is the contract itself. This is done by adding the following assertion:
 
 ```rust
-assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
+assert(self.msg_sender() == self.address, "Function can only be called by the same contract");
 ```
 
 ## Implementing notes

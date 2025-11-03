@@ -171,10 +171,7 @@ impl TestEnvironment {
     ///   state_var.read()
     /// });
     /// ```
-    pub unconstrained fn public_context<Env, T>(
-        self: Self,
-        f: fn[Env](&mut PublicContext) -> T,
-    ) -> T {
+    pub unconstrained fn public_context<Env, T>(self: Self, f: fn[Env](PublicContext) -> T) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::none() }, f)
     }
 
@@ -183,7 +180,7 @@ impl TestEnvironment {
     pub unconstrained fn public_context_at<Env, T>(
         self: Self,
         addr: AztecAddress,
-        f: fn[Env](&mut PublicContext) -> T,
+        f: fn[Env](PublicContext) -> T,
     ) -> T {
         self.public_context_opts(PublicContextOptions { contract_address: Option::some(addr) }, f)
     }
@@ -191,12 +188,12 @@ impl TestEnvironment {
     unconstrained fn public_context_opts<Env, T>(
         _self: Self,
         opts: PublicContextOptions,
-        f: fn[Env](&mut PublicContext) -> T,
+        f: fn[Env](PublicContext) -> T,
     ) -> T {
         txe_oracles::set_public_txe_context(opts.contract_address);
 
         let mut context = PublicContext::new(|| 0);
-        let ret_value = f(&mut context);
+        let ret_value = f(context);
 
         txe_oracles::set_top_level_txe_context();
 

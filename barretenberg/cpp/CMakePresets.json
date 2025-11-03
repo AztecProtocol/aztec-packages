@@ -274,6 +274,20 @@
       }
     },
     {
+      "name": "fuzzing-avm",
+      "displayName": "Build with fuzzing and AVM",
+      "description": "Build default preset but with fuzzing and AVM enabled",
+      "inherits": "clang20",
+      "binaryDir": "build-fuzzing-avm",
+      "cacheVariables": {
+        "FUZZING": "ON",
+        "DISABLE_ASM": "OFF",
+        "AVM_TRANSPILER_LIB": "",
+        "CMAKE_BUILD_TYPE": "RelWithAssert",
+        "MULTITHREADING": "ON"
+      }
+    },
+    {
       "name": "smt-verification",
       "displayName": "Build with smt verification",
       "description": "Build default preset but with smt library included",
@@ -579,6 +593,11 @@
       "name": "fuzzing-coverage",
       "inherits": "clang20",
       "configurePreset": "fuzzing-coverage"
+    },
+    {
+      "name": "fuzzing-avm",
+      "inherits": "clang20",
+      "configurePreset": "fuzzing-avm"
     },
     {
       "name": "gperftools",

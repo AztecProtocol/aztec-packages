@@ -8,10 +8,10 @@
 set -euo pipefail
 
 dir=$(dirname $0)
-BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
+BB_BINARY_PATH=${BB_BINARY_PATH:-"$dir/../barretenberg/cpp/build/bin/bb"}
 
 # No arguments provided - let bb auto-discover and process all artifacts
 echo "Searching for contract artifacts in target/ directories..."
-$BB aztec_process
+$BB_BINARY_PATH aztec_process
 
 echo "Contract postprocessing complete!"

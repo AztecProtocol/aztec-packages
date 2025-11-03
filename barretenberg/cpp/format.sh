@@ -10,7 +10,7 @@ if [ "$1" == "staged" ]; then
   files=$(git diff-index --diff-filter=d --relative --cached --name-only HEAD | grep -e '\.\(cpp\|hpp\|tcc\)$')
   format_files "$files"
   if [ -n "$files" ]; then
-    echo "$files" | xargs git add
+    echo "$files" | xargs -r git add
   fi
 elif [ "$1" == "changed" ]; then
   echo Formatting barretenberg changed files...

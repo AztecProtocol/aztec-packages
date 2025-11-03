@@ -59,12 +59,12 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             inputs_native.emplace_back(element);
             inputs.emplace_back(field_ct(witness_ct(&builder, element)));
         }
-        size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+        size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
         auto result = stdlib::poseidon2<Builder>::hash(inputs);
         auto expected = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>::hash(inputs_native);
 
-        EXPECT_EQ(gate_count(num_inputs), builder.get_estimated_num_finalized_gates() - num_gates_start);
+        EXPECT_EQ(gate_count(num_inputs), builder.get_num_finalized_gates_inefficient() - num_gates_start);
 
         EXPECT_EQ(result.get_value(), expected);
 
@@ -94,7 +94,7 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         left.set_public();
 
-        info("num gates = ", builder.get_estimated_num_finalized_gates());
+        info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);

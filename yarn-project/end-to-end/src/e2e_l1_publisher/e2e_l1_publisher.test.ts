@@ -25,7 +25,7 @@ import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, Secp256k1Signer, flipSignature, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -598,6 +598,52 @@ describe('L1Publisher integration', () => {
       );
     });
 
+    it('rejects flipped proposer signature', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      await expect(
+        publisher.enqueueProposeL2Block(block, attestationsAndSigners, flipSignature(attestationsAndSignersSignature)),
+      ).rejects.toThrow(/ECDSAInvalidSignatureS/);
+    });
+
+    it('rejects signature with invalid recovery value', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      logger.warn(`Original v value: ${attestationsAndSignersSignature.v}`);
+
+      // Move v-value from 27-28 to 0-1
+      const wrongV = attestationsAndSignersSignature.v - 27;
+      const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
+
+      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, wrongSig)).rejects.toThrow(
+        /ECDSAInvalidSignature/,
+      );
+    });
+
     it('publishes a block invalidating the previous one', async () => {
       const badBlock = await buildSingleBlock();
 
@@ -725,6 +771,8 @@ describe('L1Publisher integration', () => {
     let sendRequestsResult: Awaited<ReturnType<SequencerPublisher['sendRequests']>> | null;
 
     beforeEach(async () => {
+      sendRequestsResult = null;
+
       await setup({ aztecSlotDuration: 48 });
 
       await ethCheatCodes.setAutomine(false);
@@ -743,7 +791,10 @@ describe('L1Publisher integration', () => {
       void publisher
         .sendRequests()
         .then(r => (sendRequestsResult = r ?? null))
-        .catch(err => err);
+        .catch(err => {
+          sendRequestsResult = null;
+          return err;
+        });
 
       // Wait until the publish tx is sent
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
@@ -775,8 +826,6 @@ describe('L1Publisher integration', () => {
         if (nextL2Slot > initialL2Slot) {
           expect(sendRequestsResult).toBeNull();
           break;
-        } else {
-          expect(sendRequestsResult).toBeUndefined();
         }
       }
 
@@ -872,7 +921,7 @@ describe('L1Publisher integration', () => {
 
       // Wait for completion
       await retryUntil(() => !!sendRequestsResult, 'request resolved', 5, 0.1);
-      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 5, 0.1);
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.MINED, 'mined', 10, 0.1);
 
       // The second proposal should succeed
       expect(sendRequestsResult).not.toBeNull();

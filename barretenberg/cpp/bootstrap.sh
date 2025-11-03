@@ -256,19 +256,23 @@ function test_cmds {
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # We only want to sanity check that we haven't broken wasm ecc in merge queue.
     echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
-    # Mostly arbitrary set that touches lots of the code.
-    declare -A asan_tests=(
-      ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
-      ["chonk_tests"]="ChonkTests.Basic"
-      ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
-      ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
-    )
-    # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
-    for bin_name in "${!asan_tests[@]}"; do
-      local filter=${asan_tests[$bin_name]}
-      local prefix="$hash:CPUS=4:MEM=8g"
-      echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
-    done
+
+    # only run ASAN tests if not building a release
+    if ! semver check "$REF_NAME"; then
+      # Mostly arbitrary set that touches lots of the code.
+      declare -A asan_tests=(
+        ["commitment_schemes_recursion_tests"]="IPARecursiveTests.AccumulationAndFullRecursiveVerifier"
+        ["chonk_tests"]="ChonkTests.Basic"
+        ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
+        ["dsl_tests"]="AcirHonkRecursionConstraint/1.TestBasicDoubleHonkRecursionConstraints"
+      )
+      # If in amd64 CI, iterate asan_tests, creating a gtest invocation for each.
+      for bin_name in "${!asan_tests[@]}"; do
+        local filter=${asan_tests[$bin_name]}
+        local prefix="$hash:CPUS=4:MEM=8g"
+        echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+      done
+    fi
   fi
 
   # Run the SMT compatibility tests
@@ -301,8 +305,10 @@ function build_bench {
 function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk build/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk build/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk build/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
+  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
   prefix="$hash:CPUS=1"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify build/bin/chonk_bench VerificationOnly$"

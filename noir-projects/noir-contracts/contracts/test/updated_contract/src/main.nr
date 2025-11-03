@@ -20,14 +20,14 @@ contract Updated {
 
     #[external("public")]
     fn set_public_value() {
-        storage.public_value.write(27);
+        self.storage.public_value.write(27);
     }
 
     #[external("private")]
     fn set_private_value() {
-        let owner = context.msg_sender().unwrap();
+        let owner = self.msg_sender().unwrap();
 
-        storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
+        self.storage.private_value.replace(|_old| ValueNote::new(27, owner)).emit(
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
@@ -37,17 +37,17 @@ contract Updated {
     fn get_update_delay() -> u64 {
         ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
             .get_update_delay()
-            .view(&mut context)
+            .view(self.context)
     }
 
     #[external("utility")]
     unconstrained fn get_private_value() -> Field {
-        storage.private_value.view_note().value()
+        self.storage.private_value.view_note().value()
     }
 
     #[external("utility")]
     unconstrained fn get_public_value() -> Field {
-        storage.public_value.read()
+        self.storage.public_value.read()
     }
 
 }

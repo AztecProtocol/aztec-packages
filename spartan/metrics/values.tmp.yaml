@@ -117,13 +117,13 @@ grafana:
       domain:
   env:
     PRODUCTION_NAMESPACES_REGEX: "v2-testnet|staging-public|staging-ignition"
-    NIGHTLY_NAMESPACES_REGEX: "next-rc-1"
     STAGING_PUBLIC_REGEX: "staging-public"
     STAGING_IGNITION_REGEX: "staging-ignition|ignition-fisherman-sepolia"
     NEXT_SCENARIO_REGEX: "v[0-9]+-scenario|next-scenario"
-    NEXT_NEXT_REGEX: "next-net"
+    NEXT_NET_REGEX: "next-net"
     TESTNET_NAMESPACES_REGEX: "testnet|v[0-9]+-testnet"
     MAINNET_NAMESPACES_REGEX: "mainnet|v[0-9]+-mainnet|ignition"
+    DEVNET_NAMESPACES_REGEX: "devnet"
     SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
     SLACK_WEBHOOK_STAGING_PUBLIC_URL: "http://127.0.0.1" # dummy value
     SLACK_WEBHOOK_STAGING_IGNITION_URL: "http://127.0.0.1" # dummy value
@@ -131,6 +131,7 @@ grafana:
     SLACK_WEBHOOK_NEXT_NET_URL: "http://127.0.0.1" # dummy value
     SLACK_WEBHOOK_TESTNET_URL: "http://127.0.0.1" # dummy value
     SLACK_WEBHOOK_MAINNET_URL: "http://127.0.0.1" # dummy value
+    SLACK_WEBHOOK_DEVNET_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:
       apiVersion: 1
