@@ -13,42 +13,23 @@ namespace bb {
 
 /**
  * @brief Verify proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge wants to convince the verifier that the
- * polynomials l_j, r_j, m_j for which they have sent commitments [l_j], [r_j], [m_j] satisfy
- *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
- *      - deg(l_j(X)) < k                   (2)
+ * @details Let \f$L_j\f$, \f$R_j\f$, \f$M_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
+ * for j = 1, 2, 3, 4:
+ *      - \f$M_j(X) = L_j(X) + X^l R_j(X)\f$      (1)
+ *      - \f$deg(L_j(X)) < k\f$                   (2)
  * where k = shift_size.
  *
- * To check condition (1), the verifier samples a challenge kappa and request from the prover a proof that
- * the polynomial
- *      p_j(X) = l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa)
- * opens to 0 at kappa.
+ * 1. The prover commits to \f$L_i, R_j, M_j\f$ and receives from the verifier batching challenges \f$alpha_1, \dots,
+ *    \alpha_4\f$
+ * 2. The prover computes \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X))\f$ and commits to it.
+ * 3. The prover receives from the verifier an evaluation challenge \f$\kappa\f$ and sends evaluations
+ *    \f$l_j = L_j(\kappa), r_j = R_j(\kappa), m_j = M_j(\kappa), g = G(\kappa^{-1}\f$.
+ * 4. The prover uses Shplonk to open the commitments to the relevant points.
  *
- * To check condition (2), the verifier requests from the prover the commitment to a polynomial g_j, and
- * then requests proofs that
- *      l_j(1/kappa) = c     g_j(kappa) = d
- * Then, they verify c * kappa^{k-1} = d, which implies, up to negligible probability, that
- * g_j(X) = X^{l-1} l_j(1/X), which means that deg(l_j(X)) < l.
- *
- * The verifier must therefore check 12 opening claims: p_j(kappa) = 0, l_j(1/kappa), g_j(kappa)
- * We use Shplonk to verify the claims with a single MSM (instead of computing [p_j] from [l_j], [r_j], [m_j]
- * and then open it). We initialize the Shplonk verifier with the following commitments:
- *      [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
- * Then, we verify the various claims:
- *     - p_j(kappa) = 0:     The commitment to p_j is constructed from the commitments to l_j, r_j, m_j, so
- *                           the claim passed to the Shplonk verifier specifies the indices of these commitments in
- *                           the above vector: {4 * (j-1), 4 * (j-1) + 1, 4 * (j-1) + 2}, the coefficients
- *                           reconstructing p_j from l_j, r_j, m_j: {1, kappa^k, -1}, and the claimed
- *                           evaluation: 0.
- *     - l_j(1/kappa) = v_j: The index in this case is {4 * (j-1)}, the coefficient is { 1 }, and the evaluation is
- *                           v_j.
- *     - g_j(kappa) = w_j:   The index is {3 + 4 * (j-1)}, the coefficient is { 1 }, and the evaluation is w_j.
- * The claims are passed in the following order:
- *   {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0}, {1/kappa, v_1}, {kappa, w_1}, .., {1/kappa, v_4}, {kappa, w_4}
- *
- * In the Goblin scenario, we have:
- * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
- * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
+ * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds
+ * the present circuit, and therefore t_j has already been added to the transcript by HN. Similarly, it doesn't commit
+ * to T_{prev, j} because the transcript is shared by entire recursive verification and therefore T_{prev, j} has been
+ * added to the transcript in the previous round of Merge verification.
  *
  * @tparam Curve_
  * @param proof
