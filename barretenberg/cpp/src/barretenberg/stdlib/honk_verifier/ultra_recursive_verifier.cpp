@@ -49,7 +49,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     const size_t num_public_inputs =
         static_cast<uint32_t>(verifier_instance->vk_and_hash->vk->num_public_inputs.get_value());
-    vinfo("now running the ultra recursive verifier");
     BB_ASSERT_EQ(proof.size(),
                  Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS(virtual_log_n) + num_public_inputs);
 
