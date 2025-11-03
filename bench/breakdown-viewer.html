@@ -179,15 +179,6 @@
 
     <div class="controls">
       <div class="control-group">
-        <label for="level">Hierarchy Level:</label>
-        <select id="level">
-          <option value="root">Root (Level 0)</option>
-          <option value="children">Children (Level 1)</option>
-          <option value="grandchildren" selected>Grandchildren (Level 2)</option>
-        </select>
-      </div>
-
-      <div class="control-group">
         <label for="runtime">Runtime:</label>
         <select id="runtime">
           <option value="native">Native</option>
@@ -229,10 +220,13 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script>
     let currentChart = null;
+    let benchmarkData = null; // Store the full data for drill-down
+    let expandedComponents = new Set(); // Track which components are expanded
+    let currentSha = null; // Store current SHA for URL encoding
 
     // GitHub configuration
     const GITHUB_OWNER = "AztecProtocol";
-    const GITHUB_REPO = "aztec-packages";
+    const GITHUB_REPO = "barretenberg";
 
     // Fetch the latest commit SHA for a branch
     async function getLatestCommitSha(branch) {
@@ -280,11 +274,69 @@
       return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
+    // Get children of a specific component
+    function getChildren(parentName) {
+      const children = [];
+      for (const [name, value] of Object.entries(benchmarkData)) {
+        const valueArray = Array.isArray(value) ? value : [value];
+        const hasThisParent = valueArray.some(obj => obj.parent === parentName);
+        if (hasThisParent) {
+          const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+          const totalTimeSec = totalTimeNs / 1000000000;
+          children.push({ name, time: totalTimeSec });
+        }
+      }
+      return children;
+    }
+
+    // Get total time for a component
+    function getComponentTime(componentName) {
+      const value = benchmarkData[componentName];
+      if (!value) return 0;
+      const valueArray = Array.isArray(value) ? value : [value];
+      const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+      return totalTimeNs / 1000000000;
+    }
+
+    // Build current view based on expanded components
+    function buildCurrentView() {
+      const componentsToShow = {};
+
+      // Start with root components
+      const rootComponents = getChildren('_root');
+      let rootTotalTime = 0;
+
+      for (const component of rootComponents) {
+        rootTotalTime += component.time;
+
+        if (expandedComponents.has(component.name)) {
+          // Show children of this expanded component
+          const children = getChildren(component.name);
+          let childrenTotalTime = 0;
+
+          for (const child of children) {
+            componentsToShow[child.name] = child.time;
+            childrenTotalTime += child.time;
+          }
+
+          // Add "Other" for this expanded component if there's unaccounted time
+          const otherTime = component.time - childrenTotalTime;
+          if (otherTime > 0.01) {
+            componentsToShow[`${component.name}::Other`] = otherTime;
+          }
+        } else {
+          // Show the component as-is (collapsed)
+          componentsToShow[component.name] = component.time;
+        }
+      }
+
+      return { componentsToShow, rootTotalTime };
+    }
+
     // Update URL with current parameters (only non-default values)
     function updateUrl(params) {
       const url = new URL(window.location);
       const defaults = {
-        level: 'grandchildren',
         runtime: 'native',
         flow: 'ecdsar1+transfer_0_recursions+sponsored_fpc'
       };
@@ -303,30 +355,170 @@
       window.history.replaceState({}, '', url);
     }
 
+    // Render the chart with current view
+    function renderChart() {
+      const { componentsToShow, rootTotalTime } = buildCurrentView();
+      const entries = Object.entries(componentsToShow);
+
+      // Sort by value (descending) and calculate percentages
+      const sorted = entries
+        .map(([name, value]) => ({
+          name,
+          value,
+          percentage: (value / rootTotalTime * 100).toFixed(2)
+        }))
+        .sort((a, b) => b.value - a.value);
+
+      // Update statistics
+      const statsDiv = document.getElementById('stats');
+      const topComponents = sorted.slice(0, 5);
+      const allComponentCount = Object.keys(benchmarkData).length;
+
+      statsDiv.innerHTML = `
+        <div class="stats">
+          <div class="stat-item">
+            <div class="stat-label">Total Time</div>
+            <div class="stat-value">${rootTotalTime.toFixed(2)} s</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Displayed Components</div>
+            <div class="stat-value">${entries.length}</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">Largest Component</div>
+            <div class="stat-value">${topComponents[0].percentage}%</div>
+          </div>
+        </div>
+      `;
+
+      // Destroy old chart
+      if (currentChart) {
+        currentChart.destroy();
+      }
+
+      // Create new chart
+      const chartContainer = document.getElementById('chartContainer');
+      const runtime = document.getElementById('runtime').value;
+      const flow = document.getElementById('flow').value;
+
+      chartContainer.innerHTML = `
+        <div class="chart-container">
+          <h2 class="chart-title">${runtime.toUpperCase()} - ${flow}</h2>
+          <h3 style="text-align: center; color: #7f8c8d; font-size: 1rem; margin-bottom: 20px;">Click on a slice to drill down (${currentSha})</h3>
+          <div class="chart-wrapper">
+            <canvas id="pieChart"></canvas>
+          </div>
+        </div>
+      `;
+
+      const ctx = document.getElementById('pieChart').getContext('2d');
+      const colors = generateColors(sorted.length);
+
+      currentChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+          labels: sorted.map(item => item.name),
+          datasets: [{
+            data: sorted.map(item => item.value),
+            backgroundColor: colors,
+            borderColor: '#fff',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          onClick: (event, elements) => {
+            if (elements.length > 0) {
+              const index = elements[0].index;
+              const clickedComponent = sorted[index].name;
+
+              // Don't expand "Other" slices
+              if (clickedComponent.endsWith('::Other')) {
+                return;
+              }
+
+              // Toggle expansion
+              if (expandedComponents.has(clickedComponent)) {
+                expandedComponents.delete(clickedComponent);
+              } else {
+                expandedComponents.add(clickedComponent);
+              }
+
+              // Re-render chart
+              renderChart();
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                boxWidth: 15,
+                padding: 10,
+                font: {
+                  size: 11
+                },
+                generateLabels: function(chart) {
+                  const data = chart.data;
+                  return data.labels.map((label, i) => {
+                    const percentage = sorted[i].percentage;
+                    const isExpanded = expandedComponents.has(label);
+                    const expandIcon = isExpanded ? '[-] ' : '[+] ';
+                    const displayLabel = label.endsWith('::Other') ? label : expandIcon + label;
+
+                    return {
+                      text: `${displayLabel}: ${percentage}%`,
+                      fillStyle: data.datasets[0].backgroundColor[i],
+                      hidden: false,
+                      index: i
+                    };
+                  });
+                }
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  const item = sorted[context.dataIndex];
+                  return [
+                    `${item.name}`,
+                    `Time: ${item.value.toFixed(2)} s`,
+                    `Percentage: ${item.percentage}%`
+                  ];
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
     // Load and visualize breakdown data
     async function loadBreakdown() {
-      const level = document.getElementById('level').value;
       const runtime = document.getElementById('runtime').value;
       const flow = document.getElementById('flow').value.trim();
       const manualSha = document.getElementById('sha').value.trim();
       const messageDiv = document.getElementById('message');
-      const statsDiv = document.getElementById('stats');
-      const chartContainer = document.getElementById('chartContainer');
 
       if (!flow) {
         messageDiv.innerHTML = '<div class="error">Please provide a flow name</div>';
         return;
       }
 
+      // Reset expansion state
+      expandedComponents.clear();
+
       // Update URL with current parameters
       updateUrl({
-        level: level,
         runtime: runtime,
         flow: flow,
         sha: manualSha
       });
 
       // Clear previous state
+      const statsDiv = document.getElementById('stats');
+      const chartContainer = document.getElementById('chartContainer');
+
       statsDiv.innerHTML = '';
       chartContainer.innerHTML = '';
       if (currentChart) {
@@ -365,194 +557,17 @@
           throw new Error(`Failed to fetch data (${response.status}). The breakdown might not exist for this commit.`);
         }
 
-        const data = await response.json();
+        benchmarkData = await response.json();
+        currentSha = shortSha;
 
         // Clear loading message
         messageDiv.innerHTML = '';
 
-        // Build hierarchy based on selected level
-        // Each component is an array of objects with {time, parent, count, etc.}
-        const componentsToShow = {};
-
-        // First, find all top-level components (parent is "_root") and get root total time
-        const topLevelNames = [];
-        let rootTotalTimeSec = 0;
-        for (const [name, value] of Object.entries(data)) {
-          const valueArray = Array.isArray(value) ? value : [value];
-          const hasRootParent = valueArray.some(obj => obj.parent === "_root");
-          if (hasRootParent) {
-            topLevelNames.push(name);
-            // Sum up the root component's time
-            const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
-            const totalTimeSec = totalTimeNs / 1000000000;
-            rootTotalTimeSec += totalTimeSec;
-
-            // If showing root level, add it to components
-            if (level === 'root') {
-              componentsToShow[name] = totalTimeSec;
-            }
-          }
-        }
-
-        let childNames = [];
-        let displayedTimeSec = 0;
-
-        if (level === 'children' || level === 'grandchildren') {
-          // Find children of root (one level down)
-          for (const [name, value] of Object.entries(data)) {
-            const valueArray = Array.isArray(value) ? value : [value];
-            const hasTopLevelParent = valueArray.some(obj => topLevelNames.includes(obj.parent));
-            if (hasTopLevelParent) {
-              childNames.push(name);
-
-              if (level === 'children') {
-                const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
-                const totalTimeSec = totalTimeNs / 1000000000;
-                componentsToShow[name] = totalTimeSec;
-                displayedTimeSec += totalTimeSec;
-              }
-            }
-          }
-        }
-
-        if (level === 'grandchildren') {
-          // Show grandchildren (two levels down from root)
-          for (const [name, value] of Object.entries(data)) {
-            const valueArray = Array.isArray(value) ? value : [value];
-            const hasChildParent = valueArray.some(obj => childNames.includes(obj.parent));
-            if (hasChildParent) {
-              const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
-              const totalTimeSec = totalTimeNs / 1000000000;
-              componentsToShow[name] = totalTimeSec;
-              displayedTimeSec += totalTimeSec;
-            }
-          }
-        } else if (level === 'children' || level === 'root') {
-          displayedTimeSec = Object.values(componentsToShow).reduce((sum, val) => sum + val, 0);
-        }
-
-        // Add "Other" for missing time (only if not showing root level)
-        if (level !== 'root') {
-          const otherTimeSec = rootTotalTimeSec - displayedTimeSec;
-          if (otherTimeSec > 0.01) { // Only show if significant (> 10ms)
-            componentsToShow['Other'] = otherTimeSec;
-          }
-        }
-
-        // Calculate total and prepare data for pie chart
-        const entries = Object.entries(componentsToShow);
-        const total = rootTotalTimeSec; // Use root total time for percentages
-        const allComponentCount = Object.keys(data).length;
-
-        // Sort by value (descending) and calculate percentages
-        const sorted = entries
-          .map(([name, value]) => ({
-            name,
-            value,
-            percentage: (value / total * 100).toFixed(2)
-          }))
-          .sort((a, b) => b.value - a.value);
-
-        // Show statistics
-        const topComponents = sorted.slice(0, 5);
-        const levelLabels = {
-          'root': 'Root Components',
-          'children': 'Child Components',
-          'grandchildren': 'Grandchild Components'
-        };
-        statsDiv.innerHTML = `
-          <div class="stats">
-            <div class="stat-item">
-              <div class="stat-label">Total Time</div>
-              <div class="stat-value">${total.toFixed(2)} s</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">${levelLabels[level]}</div>
-              <div class="stat-value">${entries.length}</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-label">Largest Component</div>
-              <div class="stat-value">${topComponents[0].percentage}%</div>
-            </div>
-          </div>
-        `;
-
-        // Create pie chart
-        const levelTitles = {
-          'root': 'Root Level',
-          'children': 'Children Level (Level 1)',
-          'grandchildren': 'Grandchildren Level (Level 2)'
-        };
-        chartContainer.innerHTML = `
-          <div class="chart-container">
-            <h2 class="chart-title">${runtime.toUpperCase()} - ${flow}</h2>
-            <h3 style="text-align: center; color: #7f8c8d; font-size: 1rem; margin-bottom: 20px;">${levelTitles[level]} (${shortSha})</h3>
-            <div class="chart-wrapper">
-              <canvas id="pieChart"></canvas>
-            </div>
-          </div>
-        `;
-
-        const ctx = document.getElementById('pieChart').getContext('2d');
-        const colors = generateColors(sorted.length);
-
-        currentChart = new Chart(ctx, {
-          type: 'pie',
-          data: {
-            labels: sorted.map(item => item.name),
-            datasets: [{
-              data: sorted.map(item => item.value),
-              backgroundColor: colors,
-              borderColor: '#fff',
-              borderWidth: 2
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: 'right',
-                labels: {
-                  boxWidth: 15,
-                  padding: 10,
-                  font: {
-                    size: 11
-                  },
-                  generateLabels: function(chart) {
-                    const data = chart.data;
-                    return data.labels.map((label, i) => {
-                      const value = data.datasets[0].data[i];
-                      const percentage = sorted[i].percentage;
-                      return {
-                        text: `${label}: ${percentage}%`,
-                        fillStyle: data.datasets[0].backgroundColor[i],
-                        hidden: false,
-                        index: i
-                      };
-                    });
-                  }
-                }
-              },
-              tooltip: {
-                callbacks: {
-                  label: function(context) {
-                    const item = sorted[context.dataIndex];
-                    return [
-                      `${item.name}`,
-                      `Time: ${item.value.toFixed(2)} s`,
-                      `Percentage: ${item.percentage}%`
-                    ];
-                  }
-                }
-              }
-            }
-          }
-        });
-
-        messageDiv.innerHTML = `<div class="info">✓ Loaded breakdown from <strong>${source}</strong> at commit <strong>${shortSha}</strong></div>`;
+        // Render initial chart (showing root level)
+        renderChart();
 
       } catch (error) {
+        const messageDiv = document.getElementById('message');
         messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
         console.error('Error loading breakdown:', error);
       }
@@ -568,7 +583,7 @@
     document.getElementById('loadBtn').addEventListener('click', loadBreakdown);
 
     // Allow Enter key to trigger load
-    ['flow', 'sha'].forEach(id => {
+    ['sha'].forEach(id => {
       document.getElementById(id).addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadBreakdown();
       });
@@ -576,15 +591,11 @@
 
     // Initialize from URL query parameters on page load
     window.addEventListener('DOMContentLoaded', () => {
-      const levelParam = getQueryParam('level');
       const runtimeParam = getQueryParam('runtime');
       const flowParam = getQueryParam('flow');
       const shaParam = getQueryParam('sha');
 
       // Set form values from URL parameters
-      if (levelParam) {
-        document.getElementById('level').value = levelParam;
-      }
       if (runtimeParam) {
         document.getElementById('runtime').value = runtimeParam;
       }
@@ -596,14 +607,15 @@
       }
 
       // Auto-load if any parameters are present
-      if (levelParam || runtimeParam || flowParam || shaParam) {
+      if (runtimeParam || flowParam || shaParam) {
         loadBreakdown();
       } else {
         // Show info message on load
-        document.getElementById('message').innerHTML = `
+        const messageDiv = document.getElementById('message');
+        messageDiv.innerHTML = `
           <div class="info">
             Leave SHA empty to load the latest commit from <strong>next</strong>, or enter a specific commit SHA for testing.
-            Data is fetched from the gh-pages branch via GitHub raw URLs.
+            Data is fetched from the gh-pages branch via GitHub raw URLs. Click on slices to drill down into children.
           </div>
         `;
       }
