@@ -451,7 +451,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     barretenberg/cpp/bootstrap.sh ci
     ;;
-  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun|build|build_and_test)
+  test|test_cmds|build_bench|bench|bench_cmds|bench_merge|release|release_dryrun|build|build_and_test|prep)
     $cmd "$@"
     ;;
   *)

@@ -239,6 +239,10 @@ bb-docs:
 bb-sol: bb-cpp-native
 	$(call build,$@,barretenberg/sol)
 
+#==============================================================================
+# Barretenberg Tests
+#==============================================================================
+
 bb-cpp-tests: bb-cpp-native
 	$(call test,$@,barretenberg/cpp)
 
@@ -255,9 +259,9 @@ bb-docs-tests: bb-docs
 	$(call test,$@,barretenberg/docs)
 
 bb-bbup-tests: bb-bbup
-	$(call test,$@,barretenberg/docs)
+	$(call test,$@,barretenberg/bbup)
 
-bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests
+bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
 
 #==============================================================================
 # Noir Projects
