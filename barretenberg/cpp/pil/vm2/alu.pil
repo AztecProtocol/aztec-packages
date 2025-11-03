@@ -217,7 +217,7 @@ pol SEL_MUL_U128 = sel_op_mul * sel_is_u128 * (1 - sel_err);
 pol SEL_DIV_U128 = sel_div_no_err * sel_is_u128;
 
 /******************************************************************************
-* BIT DECOMPOSITION
+* BIT DECOMPOSITION (Common helper for MUL, DIV, SHL, SHR)
 ******************************************************************************/
 // We use the below to prove correct decomposition of some values into limbs. Currently used by MUL, DIV, SHL, and SHR.
 pol commit sel_decompose_a;
@@ -262,7 +262,6 @@ sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel_alu { range_check.valu
 
 #[RANGE_CHECK_DECOMPOSITION_B_HI]
 sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
-
 
 /******************************************************************************
 * Opcode Computations
@@ -331,12 +330,10 @@ sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value,
 // ------------------------------------------------------------
 // DIV & FDIV
 // ------------------------------------------------------------
-// We need to show that remainder < b (remainder stored in helper1)
-// TODO(MW): Reuse #[INT_GT] by setting lt_ops_input_a = b, lt_ops_input_b = helper1, lt_ops_result_c = 1 (gated by div_0_err).
 pol commit sel_div_no_err; // @boolean
 sel_div_no_err = sel_op_div * (1 - sel_err);
-#[GT_DIV_REMAINDER]
-sel_div_no_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
+// We need to show that remainder < b (remainder stored in helper1)
+// We use #[INT_GT] below (see LT/LTE) by setting gt_input_a = b, gt_input_b = helper1, gt_result_c = 1 (gated by sel_div_no_err).
 
 // DIV - u128
 
@@ -401,43 +398,42 @@ pol commit ab_diff_inv; // Helper column for inverting DIFF.
 sel_op_eq * (1 - sel_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
 
 // ------------------------------------------------------------
-// LT & LTE
+// LT & LTE + Greater Than helper for DIV
 // ------------------------------------------------------------
-pol commit sel_lt_ops;
-sel_lt_ops = (1 - sel_err) * (sel_op_lt + sel_op_lte);
+pol SEL_LT_OPS = (1 - sel_err) * (sel_op_lt + sel_op_lte);
 
-pol commit sel_ff_lt_ops;
-// sel_is_ff & sel_lt_ops:
-sel_ff_lt_ops = sel_is_ff * sel_lt_ops;
+pol commit sel_ff_gt;
+// sel_is_ff & SEL_LT_OPS:
+sel_ff_gt = sel_is_ff * SEL_LT_OPS;
 
-pol commit sel_int_lt_ops;
-// !sel_is_ff & sel_lt_ops:
-sel_int_lt_ops = IS_NOT_FF * sel_lt_ops;
+pol commit sel_int_gt;
+// (!sel_is_ff & SEL_LT_OPS) || sel_div_no_err:
+sel_int_gt = IS_NOT_FF * SEL_LT_OPS + sel_div_no_err;
 
-// To perform LT or LTE ops, we redirect to the GT gadget where we check lt_ops_input_a > lt_ops_input_b ? lt_ops_result_c:
+// To perform LT or LTE ops, we redirect to the GT gadget where we check gt_input_a > gt_input_b ? gt_result_c:
 //  For LT, we want to show that: a < b ? c, so we use GT with swapped inputs and check: b > a ? c
-//      LT: lt_ops_input_a = ib, lt_ops_input_b = ia, lt_ops_result_c = ic
+//      LT: gt_input_a = ib, gt_input_b = ia, gt_result_c = ic
 //  For LTE, we want to show that: a <= b ? c, so we use GT with values as they are input and negate the result: a > b ? !c
-//      LTE: lt_ops_input_a = ia, lt_ops_input_b = ib, lt_ops_result_c = !ic
-pol commit lt_ops_input_a, lt_ops_input_b;
-pol commit lt_ops_result_c; // @boolean (guaranteed by gt and ff_gt gadget return value)
-                            // Unconstrained if sel_lt_ops == 0.
+//      LTE: gt_input_a = ia, gt_input_b = ib, gt_result_c = !ic
+pol commit gt_input_a, gt_input_b;
+pol commit gt_result_c; // @boolean (guaranteed by gt and ff_gt gadget return value)
+                        // Unconstrained if SEL_LT_OPS == 0 or sel_div_no_err == 0.
 
-#[LT_SWAP_INPUTS_A]
-sel_op_lt * (lt_ops_input_a - ib) + sel_op_lte * (lt_ops_input_a - ia) = 0;
+#[GT_INPUT_A]
+gt_input_a = (sel_op_lt + sel_div_no_err) * ib + sel_op_lte * ia;
 
-#[LT_SWAP_INPUTS_B]
-sel_op_lt * (lt_ops_input_b - ia) + sel_op_lte * (lt_ops_input_b - ib) = 0;
+#[GT_INPUT_B]
+gt_input_b = sel_op_lt * ia + sel_op_lte * ib + sel_div_no_err * helper1;
 
-#[LTE_NEGATE_RESULT_C]
-(1 - sel_err) * (sel_op_lt * (lt_ops_result_c - ic) + sel_op_lte * ((1 - lt_ops_result_c) - ic)) = 0;
+#[GT_ASSIGN_RESULT_C]
+(1 - sel_err) * (sel_div_no_err + sel_op_lt * ic + sel_op_lte * (1 - ic) - gt_result_c) = 0;
 
 #[FF_GT]
-sel_ff_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
+sel_ff_gt { gt_input_a, gt_input_b, gt_result_c }
 in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
 #[INT_GT]
-sel_int_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
+sel_int_gt { gt_input_a, gt_input_b, gt_result_c }
 in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // ------------------------------------------------------------

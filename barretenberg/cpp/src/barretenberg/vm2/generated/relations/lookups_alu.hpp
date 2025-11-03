@@ -148,41 +148,19 @@ using lookup_alu_range_check_mul_c_hi_settings = lookup_settings<lookup_alu_rang
 template <typename FF_>
 using lookup_alu_range_check_mul_c_hi_relation = lookup_relation_base<FF_, lookup_alu_range_check_mul_c_hi_settings>;
 
-/////////////////// lookup_alu_gt_div_remainder ///////////////////
-
-struct lookup_alu_gt_div_remainder_settings_ {
-    static constexpr std::string_view NAME = "LOOKUP_ALU_GT_DIV_REMAINDER";
-    static constexpr std::string_view RELATION_NAME = "alu";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_div_no_err;
-    static constexpr Column DST_SELECTOR = Column::gt_sel_alu;
-    static constexpr Column COUNTS = Column::lookup_alu_gt_div_remainder_counts;
-    static constexpr Column INVERSES = Column::lookup_alu_gt_div_remainder_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_ib,
-                                                                                    ColumnAndShifts::alu_helper1,
-                                                                                    ColumnAndShifts::alu_sel_op_div };
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
-                                                                                    ColumnAndShifts::gt_input_b,
-                                                                                    ColumnAndShifts::gt_res };
-};
-
-using lookup_alu_gt_div_remainder_settings = lookup_settings<lookup_alu_gt_div_remainder_settings_>;
-template <typename FF_>
-using lookup_alu_gt_div_remainder_relation = lookup_relation_base<FF_, lookup_alu_gt_div_remainder_settings>;
-
 /////////////////// lookup_alu_ff_gt ///////////////////
 
 struct lookup_alu_ff_gt_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_FF_GT";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_ff_lt_ops;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_ff_gt;
     static constexpr Column DST_SELECTOR = Column::ff_gt_sel_gt;
     static constexpr Column COUNTS = Column::lookup_alu_ff_gt_counts;
     static constexpr Column INVERSES = Column::lookup_alu_ff_gt_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_result_c
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_gt_input_a,
+                                                                                    ColumnAndShifts::alu_gt_input_b,
+                                                                                    ColumnAndShifts::alu_gt_result_c };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::ff_gt_a,
                                                                                     ColumnAndShifts::ff_gt_b,
                                                                                     ColumnAndShifts::ff_gt_result };
@@ -197,13 +175,13 @@ struct lookup_alu_int_gt_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ALU_INT_GT";
     static constexpr std::string_view RELATION_NAME = "alu";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
-    static constexpr Column SRC_SELECTOR = Column::alu_sel_int_lt_ops;
+    static constexpr Column SRC_SELECTOR = Column::alu_sel_int_gt;
     static constexpr Column DST_SELECTOR = Column::gt_sel_alu;
     static constexpr Column COUNTS = Column::lookup_alu_int_gt_counts;
     static constexpr Column INVERSES = Column::lookup_alu_int_gt_inv;
-    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::alu_lt_ops_input_a, ColumnAndShifts::alu_lt_ops_input_b, ColumnAndShifts::alu_lt_ops_result_c
-    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { ColumnAndShifts::alu_gt_input_a,
+                                                                                    ColumnAndShifts::alu_gt_input_b,
+                                                                                    ColumnAndShifts::alu_gt_result_c };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::gt_input_a,
                                                                                     ColumnAndShifts::gt_input_b,
                                                                                     ColumnAndShifts::gt_res };

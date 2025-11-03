@@ -797,6 +797,10 @@ class AluDivConstrainingTest : public AluConstrainingTest,
                 { C::alu_sel_decompose_a, is_u128 ? 1 : 0 },
                 { C::alu_sel_div_0_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_div_no_err, div_0_error ? 0 : 1 },
+                { C::alu_sel_int_gt, div_0_error ? 0 : 1 },
+                { C::alu_gt_input_a, b.as_ff() },
+                { C::alu_gt_input_b, div_0_error ? 0 : remainder.as_ff() },
+                { C::alu_gt_result_c, div_0_error ? 0 : 1 },
                 { C::alu_sel_err, div_0_error ? 1 : 0 },
                 { C::alu_sel_is_u128, is_u128 ? 1 : 0 },
                 { C::alu_sel_mul_div_u128, is_u128 ? 1 : 0 },
@@ -941,11 +945,12 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivUnderflow)
 
     trace.set(Column::alu_ic, 0, c);
     trace.set(Column::alu_helper1, 0, wrong_remainder);
+    trace.set(Column::alu_gt_input_b, 0, wrong_remainder);
 
     // All relations will pass...
     check_relation<alu>(trace);
     // ... but now r > b, so the gt lookup will fail:
-    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_GT_DIV_REMAINDER");
+    EXPECT_THROW_WITH_MESSAGE(check_all_interactions<AluTraceBuilder>(trace), "LOOKUP_ALU_INT_GT");
 }
 
 TEST_F(AluDivConstrainingTest, NegativeAluDivU128Carry)
@@ -1005,6 +1010,10 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZero)
         EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "ERR_CHECK");
         // ...the overall sel_err:
         trace.set(Column::alu_sel_err, 0, 1);
+        trace.set(Column::alu_sel_int_gt, 0, 0);
+        trace.set(Column::alu_gt_input_a, 0, 0);
+        trace.set(Column::alu_gt_input_b, 0, 0);
+        trace.set(Column::alu_gt_result_c, 0, 0);
         check_relation<alu>(trace);
 
         // If we try and have div_0_err on without doing a div, the below should fail:
@@ -1036,6 +1045,10 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivFF)
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
     trace.set(Column::alu_sel_div_no_err, 0, 0);
+    trace.set(Column::alu_sel_int_gt, 0, 0);
+    trace.set(Column::alu_gt_input_a, 0, 0);
+    trace.set(Column::alu_gt_input_b, 0, 0);
+    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     check_all_interactions<AluTraceBuilder>(trace);
     check_interaction<ExecutionTraceBuilder, lookup_execution_dispatch_to_alu_settings>(trace);
@@ -1051,6 +1064,10 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFF)
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
     trace.set(Column::alu_sel_div_no_err, 0, 0);
+    trace.set(Column::alu_sel_int_gt, 0, 0);
+    trace.set(Column::alu_gt_input_a, 0, 0);
+    trace.set(Column::alu_gt_input_b, 0, 0);
+    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     // Set b, b_inv to 0 with dividing by 0 errors:
     trace.set(Column::alu_ib, 0, 0);
@@ -1072,6 +1089,10 @@ TEST_F(AluDivConstrainingTest, NegativeAluDivByZeroFFTagMismatch)
     trace.set(Column::alu_sel_tag_err, 0, 1);
     trace.set(Column::alu_sel_err, 0, 1);
     trace.set(Column::alu_sel_div_no_err, 0, 0);
+    trace.set(Column::alu_sel_int_gt, 0, 0);
+    trace.set(Column::alu_gt_input_a, 0, 0);
+    trace.set(Column::alu_gt_input_b, 0, 0);
+    trace.set(Column::alu_gt_result_c, 0, 0);
     check_relation<alu>(trace);
     // Setting b to u8 also creates a tag mismatch:
     trace.set(Column::alu_ib_tag, 0, static_cast<uint8_t>(MemoryTag::U8));
@@ -1436,17 +1457,16 @@ class AluLTConstrainingTest : public AluConstrainingTest, public ::testing::With
                 { C::alu_ib_tag, tag },
                 { C::alu_ic, c },
                 { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
-                { C::alu_lt_ops_input_a, b },
-                { C::alu_lt_ops_input_b, a },
-                { C::alu_lt_ops_result_c, c },
+                { C::alu_gt_input_a, b },
+                { C::alu_gt_input_b, a },
+                { C::alu_gt_result_c, c },
                 { C::alu_max_bits, get_tag_bits(mem_tag) },
                 { C::alu_max_value, get_tag_max_value(mem_tag) },
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LT },
                 { C::alu_sel, 1 },
-                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_ff_gt, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_gt, static_cast<uint8_t>(!is_ff) },
                 { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lt, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
                 { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
@@ -1534,8 +1554,8 @@ TEST_P(AluLTConstrainingTest, NegativeAluLT)
     bool c = trace.get(Column::alu_ic, 0) == 1;
     // Swap the result bool:
     trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "LTE_NEGATE_RESULT_C");
-    trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(!c));
+    EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
+    trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(!c));
 
     if (is_ff) {
         EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
@@ -1570,17 +1590,16 @@ class AluLTEConstrainingTest : public AluConstrainingTest,
                 { C::alu_ib_tag, tag },
                 { C::alu_ic, c },
                 { C::alu_ic_tag, static_cast<uint8_t>(MemoryTag::U1) },
-                { C::alu_lt_ops_input_a, a },
-                { C::alu_lt_ops_input_b, b },
-                { C::alu_lt_ops_result_c, c.as_ff() == 0 ? 1 : 0 },
+                { C::alu_gt_input_a, a },
+                { C::alu_gt_input_b, b },
+                { C::alu_gt_result_c, c.as_ff() == 0 ? 1 : 0 },
                 { C::alu_max_bits, get_tag_bits(mem_tag) },
                 { C::alu_max_value, get_tag_max_value(mem_tag) },
                 { C::alu_op_id, AVM_EXEC_OP_ID_ALU_LTE },
                 { C::alu_sel, 1 },
-                { C::alu_sel_ff_lt_ops, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_int_lt_ops, static_cast<uint8_t>(!is_ff) },
+                { C::alu_sel_ff_gt, static_cast<uint8_t>(is_ff) },
+                { C::alu_sel_int_gt, static_cast<uint8_t>(!is_ff) },
                 { C::alu_sel_is_ff, static_cast<uint8_t>(is_ff) },
-                { C::alu_sel_lt_ops, 1 },
                 { C::alu_sel_op_lte, 1 },
                 { C::alu_tag_ff_diff_inv, is_ff ? 0 : FF(tag - static_cast<uint8_t>(MemoryTag::FF)).invert() },
                 { C::alu_sel_is_u128, tag == static_cast<uint8_t>(MemoryTag::U128) ? 1 : 0 },
@@ -1687,8 +1706,8 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEResult)
         bool c = trace.get(Column::alu_ic, 0) == 1;
         // Swap the result bool:
         trace.set(Column::alu_ic, 0, static_cast<uint8_t>(!c));
-        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "LTE_NEGATE_RESULT_C");
-        trace.set(Column::alu_lt_ops_result_c, 0, static_cast<uint8_t>(c));
+        EXPECT_THROW_WITH_MESSAGE(check_relation<alu>(trace), "GT_ASSIGN_RESULT_C");
+        trace.set(Column::alu_gt_result_c, 0, static_cast<uint8_t>(c));
 
         if (is_ff) {
             EXPECT_THROW_WITH_MESSAGE((check_interaction<AluTraceBuilder, lookup_alu_ff_gt_settings>(trace)),
@@ -1714,7 +1733,7 @@ TEST_P(AluLTEConstrainingTest, NegativeAluLTEInput)
         auto a = trace.get(Column::alu_ia, 0);
         auto wrong_b = c ? a - 1 : a + 1;
         trace.set(Column::alu_ib, 0, wrong_b);
-        trace.set(Column::alu_lt_ops_input_b, 0, wrong_b);
+        trace.set(Column::alu_gt_input_b, 0, wrong_b);
         // We rely on lookups, so we expect the relations to still pass...
         check_relation<alu>(trace);
 

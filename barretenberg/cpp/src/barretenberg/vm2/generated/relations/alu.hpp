@@ -14,9 +14,9 @@ template <typename FF_> class aluImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 66> SUBRELATION_PARTIAL_LENGTHS = {
+    static constexpr std::array<size_t, 65> SUBRELATION_PARTIAL_LENGTHS = {
         3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 3, 3, 5, 5, 3, 3, 3, 4, 5, 3, 5, 3, 3, 4, 3, 6, 6, 3, 3,
-        5, 6, 6, 6, 3, 3, 4, 5, 5, 5, 6, 3, 3, 3, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
+        5, 6, 6, 6, 3, 3, 4, 5, 5, 5, 6, 4, 4, 3, 3, 4, 4, 6, 6, 5, 3, 3, 5, 3, 3, 3, 2, 2, 3, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -59,20 +59,20 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
     static constexpr size_t SR_ALU_DIV_U128 = 41;
     static constexpr size_t SR_ALU_FDIV_DIV_NON_U128 = 42;
     static constexpr size_t SR_EQ_OP_MAIN = 43;
-    static constexpr size_t SR_LT_SWAP_INPUTS_A = 47;
-    static constexpr size_t SR_LT_SWAP_INPUTS_B = 48;
-    static constexpr size_t SR_LTE_NEGATE_RESULT_C = 49;
-    static constexpr size_t SR_NOT_OP_MAIN = 50;
-    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 51;
-    static constexpr size_t SR_ALU_SHL = 52;
-    static constexpr size_t SR_ALU_SHR = 53;
-    static constexpr size_t SR_SHIFTS_LO_BITS = 56;
-    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 60;
-    static constexpr size_t SR_SEL_TRUNCATE = 61;
-    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 62;
-    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 63;
-    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 64;
-    static constexpr size_t SR_TRUNC_MID_BITS = 65;
+    static constexpr size_t SR_GT_INPUT_A = 46;
+    static constexpr size_t SR_GT_INPUT_B = 47;
+    static constexpr size_t SR_GT_ASSIGN_RESULT_C = 48;
+    static constexpr size_t SR_NOT_OP_MAIN = 49;
+    static constexpr size_t SR_SHL_TWO_POW_SHIFT = 50;
+    static constexpr size_t SR_ALU_SHL = 51;
+    static constexpr size_t SR_ALU_SHR = 52;
+    static constexpr size_t SR_SHIFTS_LO_BITS = 55;
+    static constexpr size_t SR_SEL_TRUNC_NON_TRIVIAL = 59;
+    static constexpr size_t SR_SEL_TRUNCATE = 60;
+    static constexpr size_t SR_TRUNC_TRIVIAL_CASE = 61;
+    static constexpr size_t SR_SMALL_TRUNC_VAL_IS_LO = 62;
+    static constexpr size_t SR_TRUNC_LO_128_DECOMPOSITION = 63;
+    static constexpr size_t SR_TRUNC_MID_BITS = 64;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -119,12 +119,12 @@ template <typename FF> class alu : public Relation<aluImpl<FF>> {
             return "ALU_FDIV_DIV_NON_U128";
         case SR_EQ_OP_MAIN:
             return "EQ_OP_MAIN";
-        case SR_LT_SWAP_INPUTS_A:
-            return "LT_SWAP_INPUTS_A";
-        case SR_LT_SWAP_INPUTS_B:
-            return "LT_SWAP_INPUTS_B";
-        case SR_LTE_NEGATE_RESULT_C:
-            return "LTE_NEGATE_RESULT_C";
+        case SR_GT_INPUT_A:
+            return "GT_INPUT_A";
+        case SR_GT_INPUT_B:
+            return "GT_INPUT_B";
+        case SR_GT_ASSIGN_RESULT_C:
+            return "GT_ASSIGN_RESULT_C";
         case SR_NOT_OP_MAIN:
             return "NOT_OP_MAIN";
         case SR_SHL_TWO_POW_SHIFT:
