@@ -337,7 +337,7 @@ class UltraFlavor {
       public:
         using Base = BaseTranscript<Codec, HashFunction>;
 
-        using Base = ::Base;
+        using Base::Base; // Inherit base class constructors
 
         // Transcript objects defined as public member variables for easy access and modification
         std::vector<FF> public_inputs;
