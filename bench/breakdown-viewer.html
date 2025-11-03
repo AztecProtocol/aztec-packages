@@ -41,7 +41,7 @@
 
     .controls {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 15px;
       margin-bottom: 30px;
       padding: 20px;
@@ -113,7 +113,13 @@
     .chart-wrapper {
       position: relative;
       height: 500px;
+      max-width: 100%;
       margin: 0 auto;
+    }
+
+    canvas {
+      max-width: 100% !important;
+      height: auto !important;
     }
 
     .error {
@@ -173,6 +179,15 @@
 
     <div class="controls">
       <div class="control-group">
+        <label for="level">Hierarchy Level:</label>
+        <select id="level">
+          <option value="root">Root (Level 0)</option>
+          <option value="children">Children (Level 1)</option>
+          <option value="grandchildren" selected>Grandchildren (Level 2)</option>
+        </select>
+      </div>
+
+      <div class="control-group">
         <label for="runtime">Runtime:</label>
         <select id="runtime">
           <option value="native">Native</option>
@@ -182,12 +197,27 @@
 
       <div class="control-group">
         <label for="flow">Flow Name:</label>
-        <input type="text" id="flow" placeholder="e.g., ecdsar1+transfer_0_recursions+sponsored_fpc"
-               value="ecdsar1+transfer_0_recursions+sponsored_fpc" />
+        <select id="flow">
+          <option value="ecdsar1+transfer_1_recursions+sponsored_fpc">ecdsar1+transfer_1_recursions+sponsored_fpc</option>
+          <option value="ecdsar1+transfer_0_recursions+sponsored_fpc" selected>ecdsar1+transfer_0_recursions+sponsored_fpc</option>
+          <option value="ecdsar1+token_bridge_claim_private+sponsored_fpc">ecdsar1+token_bridge_claim_private+sponsored_fpc</option>
+          <option value="deploy_ecdsar1+sponsored_fpc">deploy_ecdsar1+sponsored_fpc</option>
+          <option value="ecdsar1+transfer_1_recursions+private_fpc">ecdsar1+transfer_1_recursions+private_fpc</option>
+          <option value="ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc">ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc</option>
+          <option value="ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc">ecdsar1+deploy_tokenContract_with_registration+sponsored_fpc</option>
+          <option value="schnorr+deploy_tokenContract_with_registration+sponsored_fpc">schnorr+deploy_tokenContract_with_registration+sponsored_fpc</option>
+          <option value="deploy_schnorr+sponsored_fpc">deploy_schnorr+sponsored_fpc</option>
+          <option value="ecdsar1+transfer_0_recursions+private_fpc">ecdsar1+transfer_0_recursions+private_fpc</option>
+        </select>
       </div>
 
       <div class="control-group">
-        <button id="loadBtn">Load Latest from 'next'</button>
+        <label for="sha">Commit SHA (optional):</label>
+        <input type="text" id="sha" placeholder="Leave empty for latest from 'next'" />
+      </div>
+
+      <div class="control-group">
+        <button id="loadBtn">Load Breakdown</button>
       </div>
     </div>
 
@@ -252,9 +282,10 @@
 
     // Load and visualize breakdown data
     async function loadBreakdown() {
-      const branch = 'next'; // Always use next branch
+      const level = document.getElementById('level').value;
       const runtime = document.getElementById('runtime').value;
       const flow = document.getElementById('flow').value.trim();
+      const manualSha = document.getElementById('sha').value.trim();
       const messageDiv = document.getElementById('message');
       const statsDiv = document.getElementById('stats');
       const chartContainer = document.getElementById('chartContainer');
@@ -265,7 +296,6 @@
       }
 
       // Clear previous state
-      messageDiv.innerHTML = '<div class="loading">Fetching latest commit from ' + branch + '...</div>';
       statsDiv.innerHTML = '';
       chartContainer.innerHTML = '';
       if (currentChart) {
@@ -274,9 +304,22 @@
       }
 
       try {
-        // Get the latest commit SHA for the selected branch
-        const sha = await getLatestCommitSha(branch);
-        const shortSha = sha.substring(0, 7);
+        let sha, shortSha, source;
+
+        if (manualSha) {
+          // Use manual SHA
+          sha = manualSha.length === 7 ? manualSha : manualSha.substring(0, 40);
+          shortSha = sha.substring(0, 7);
+          source = 'manual SHA';
+          messageDiv.innerHTML = '<div class="loading">Loading benchmark data for commit ' + shortSha + '...</div>';
+        } else {
+          // Fetch latest from next branch
+          messageDiv.innerHTML = '<div class="loading">Fetching latest commit from next...</div>';
+          sha = await getLatestCommitSha('next');
+          shortSha = sha.substring(0, 7);
+          source = 'next branch';
+          messageDiv.innerHTML = '<div class="loading">Loading benchmark data for commit ' + shortSha + '...</div>';
+        }
 
         messageDiv.innerHTML = '<div class="loading">Loading benchmark data for commit ' + shortSha + '...</div>';
 
@@ -296,19 +339,78 @@
         // Clear loading message
         messageDiv.innerHTML = '';
 
-        // Filter to show only top-level components (no :: in the name means no parent)
-        const topLevelComponents = {};
+        // Build hierarchy based on selected level
+        // Each component is an array of objects with {time, parent, count, etc.}
+        const componentsToShow = {};
 
+        // First, find all top-level components (parent is "_root") and get root total time
+        const topLevelNames = [];
+        let rootTotalTimeSec = 0;
         for (const [name, value] of Object.entries(data)) {
-          // Top-level components don't have "::" in their name
-          if (!name.includes('::')) {
-            topLevelComponents[name] = value;
+          const valueArray = Array.isArray(value) ? value : [value];
+          const hasRootParent = valueArray.some(obj => obj.parent === "_root");
+          if (hasRootParent) {
+            topLevelNames.push(name);
+            // Sum up the root component's time
+            const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+            const totalTimeSec = totalTimeNs / 1000000000;
+            rootTotalTimeSec += totalTimeSec;
+
+            // If showing root level, add it to components
+            if (level === 'root') {
+              componentsToShow[name] = totalTimeSec;
+            }
+          }
+        }
+
+        let childNames = [];
+        let displayedTimeSec = 0;
+
+        if (level === 'children' || level === 'grandchildren') {
+          // Find children of root (one level down)
+          for (const [name, value] of Object.entries(data)) {
+            const valueArray = Array.isArray(value) ? value : [value];
+            const hasTopLevelParent = valueArray.some(obj => topLevelNames.includes(obj.parent));
+            if (hasTopLevelParent) {
+              childNames.push(name);
+
+              if (level === 'children') {
+                const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+                const totalTimeSec = totalTimeNs / 1000000000;
+                componentsToShow[name] = totalTimeSec;
+                displayedTimeSec += totalTimeSec;
+              }
+            }
+          }
+        }
+
+        if (level === 'grandchildren') {
+          // Show grandchildren (two levels down from root)
+          for (const [name, value] of Object.entries(data)) {
+            const valueArray = Array.isArray(value) ? value : [value];
+            const hasChildParent = valueArray.some(obj => childNames.includes(obj.parent));
+            if (hasChildParent) {
+              const totalTimeNs = valueArray.reduce((sum, obj) => sum + (obj.time || 0), 0);
+              const totalTimeSec = totalTimeNs / 1000000000;
+              componentsToShow[name] = totalTimeSec;
+              displayedTimeSec += totalTimeSec;
+            }
+          }
+        } else if (level === 'children' || level === 'root') {
+          displayedTimeSec = Object.values(componentsToShow).reduce((sum, val) => sum + val, 0);
+        }
+
+        // Add "Other" for missing time (only if not showing root level)
+        if (level !== 'root') {
+          const otherTimeSec = rootTotalTimeSec - displayedTimeSec;
+          if (otherTimeSec > 0.01) { // Only show if significant (> 10ms)
+            componentsToShow['Other'] = otherTimeSec;
           }
         }
 
         // Calculate total and prepare data for pie chart
-        const entries = Object.entries(topLevelComponents);
-        const total = entries.reduce((sum, [_, value]) => sum + value, 0);
+        const entries = Object.entries(componentsToShow);
+        const total = rootTotalTimeSec; // Use root total time for percentages
         const allComponentCount = Object.keys(data).length;
 
         // Sort by value (descending) and calculate percentages
@@ -322,14 +424,19 @@
 
         // Show statistics
         const topComponents = sorted.slice(0, 5);
+        const levelLabels = {
+          'root': 'Root Components',
+          'children': 'Child Components',
+          'grandchildren': 'Grandchild Components'
+        };
         statsDiv.innerHTML = `
           <div class="stats">
             <div class="stat-item">
-              <div class="stat-label">Total Operations</div>
-              <div class="stat-value">${formatNumber(total)}</div>
+              <div class="stat-label">Total Time</div>
+              <div class="stat-value">${total.toFixed(2)} s</div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">Top-Level Components</div>
+              <div class="stat-label">${levelLabels[level]}</div>
               <div class="stat-value">${entries.length}</div>
             </div>
             <div class="stat-item">
@@ -344,10 +451,15 @@
         `;
 
         // Create pie chart
+        const levelTitles = {
+          'root': 'Root Level',
+          'children': 'Children Level (Level 1)',
+          'grandchildren': 'Grandchildren Level (Level 2)'
+        };
         chartContainer.innerHTML = `
           <div class="chart-container">
-            <h2 class="chart-title">${branch} - ${runtime.toUpperCase()} - ${flow}</h2>
-            <h3 style="text-align: center; color: #7f8c8d; font-size: 1rem; margin-bottom: 20px;">Top-Level Components (${shortSha})</h3>
+            <h2 class="chart-title">${runtime.toUpperCase()} - ${flow}</h2>
+            <h3 style="text-align: center; color: #7f8c8d; font-size: 1rem; margin-bottom: 20px;">${levelTitles[level]} (${shortSha})</h3>
             <div class="chart-wrapper">
               <canvas id="pieChart"></canvas>
             </div>
@@ -401,7 +513,7 @@
                     const item = sorted[context.dataIndex];
                     return [
                       `${item.name}`,
-                      `Value: ${formatNumber(item.value)}`,
+                      `Time: ${item.value.toFixed(2)} s`,
                       `Percentage: ${item.percentage}%`
                     ];
                   }
@@ -411,7 +523,7 @@
           }
         });
 
-        messageDiv.innerHTML = `<div class="info">✓ Loaded breakdown for <strong>${branch}</strong> branch at commit <strong>${shortSha}</strong></div>`;
+        messageDiv.innerHTML = `<div class="info">✓ Loaded breakdown from <strong>${source}</strong> at commit <strong>${shortSha}</strong></div>`;
 
       } catch (error) {
         messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
@@ -423,7 +535,7 @@
     document.getElementById('loadBtn').addEventListener('click', loadBreakdown);
 
     // Allow Enter key to trigger load
-    ['flow'].forEach(id => {
+    ['flow', 'sha'].forEach(id => {
       document.getElementById(id).addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadBreakdown();
       });
@@ -432,8 +544,8 @@
     // Show info message on load
     document.getElementById('message').innerHTML = `
       <div class="info">
-        Click "Load Latest from 'next'" to visualize benchmark data from the latest commit on the <strong>next</strong> branch.
-        Data is fetched via <code>ci.aztec-labs.com</code>.
+        Leave SHA empty to load the latest commit from <strong>next</strong>, or enter a specific commit SHA for testing.
+        Data is fetched from the gh-pages branch via GitHub raw URLs.
       </div>
     `;
   </script>
