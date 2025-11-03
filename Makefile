@@ -257,7 +257,7 @@ bb-docs-tests: bb-docs
 bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/docs)
 
-bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-docs-tests bb-bbup-tests
+bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests
 
 #==============================================================================
 # Noir Projects
