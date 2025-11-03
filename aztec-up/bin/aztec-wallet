@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export AZTEC_PATH="${AZTEC_PATH:-$HOME/.aztec}"
+DEFAULT_VERSION=$(cat "$AZTEC_PATH/default_version" 2> /dev/null || echo latest)
+export VERSION="${VERSION:-$DEFAULT_VERSION}"
+export DOCKER_REPO="${DOCKER_REPO:-"aztecprotocol/aztec"}"
+
 export ENV_VARS_TO_INJECT="SSH_AUTH_SOCK PXE_PROVER LOG_LEVEL"
 
 # Appends 8 char hex to avoid container name clashes
