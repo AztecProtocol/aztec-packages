@@ -247,7 +247,7 @@ bb-cpp-tests: bb-cpp-native
 	$(call test,$@,barretenberg/cpp)
 
 bb-acir-tests: bb-acir
-	$(call test,$@,barretenberg/acir_test)
+	$(call test,$@,barretenberg/acir_tests)
 
 bb-ts-tests: bb-ts
 	$(call test,$@,barretenberg/ts)
