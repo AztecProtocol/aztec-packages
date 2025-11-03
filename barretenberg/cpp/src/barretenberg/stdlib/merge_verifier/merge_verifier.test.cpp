@@ -108,8 +108,10 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         recursive_transcript->enable_manifest();
         RecursiveMergeVerifier verifier{ settings, recursive_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
-        auto [pairing_points, recursive_merged_table_commitments, recursive_degree_check] =
-            verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
+        auto [pairing_points,
+              recursive_merged_table_commitments,
+              recursive_degree_check,
+              recursive_concatenation_check] = verifier.verify_proof(stdlib_merge_proof, recursive_merge_commitments);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), !expected) << outer_circuit.err();
@@ -119,12 +121,13 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         auto native_transcript = std::make_shared<NativeTranscript>();
         native_transcript->enable_manifest();
         MergeVerifier native_verifier{ settings, native_transcript };
-        auto [native_pairing_points, merged_table_commitments, native_degree_check] =
+        auto [native_pairing_points, merged_table_commitments, native_degree_check, native_concatenation_check] =
             native_verifier.verify_proof(merge_proof, merge_commitments);
-        bool verified_native = native_pairing_points.check() && native_degree_check;
+        bool verified_native = native_pairing_points.check() && native_degree_check && native_concatenation_check;
         VerifierCommitmentKey pcs_verification_key;
         bool verified_recursive =
-            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+            pcs_verification_key.pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value()) &&
+            recursive_degree_check && recursive_concatenation_check;
         EXPECT_EQ(verified_native, verified_recursive);
         EXPECT_EQ(verified_recursive, expected);
 

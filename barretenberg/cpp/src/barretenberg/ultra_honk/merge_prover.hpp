@@ -152,7 +152,7 @@ class MergeProver {
      *      - (\sum_i \beta_i (L_i - l_i) + \sum_i \beta_i (R_i - r_i) + \sum_i \beta_i (M_i - m_i))
      *      - (z - \kappa) / (z - \kappa^{-1}) * \beta_i (G - g)
      * \f]
-     * and return the opening claim \f$\{ Q', (\kappa, 0) \}\f$.
+     * and return the opening claim \f$\{ Q', (z, 0) \}\f$.
      *
      */
     static OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
@@ -202,7 +202,7 @@ class MergeProver {
                                                                     (shplonk_opening_challenge - kappa) *
                                                                     (shplonk_opening_challenge - kappa_inv).invert());
 
-        OpeningClaim shplonk_opening_claim = { .polynomial = shplonk_partially_evaluated_batched_quotient,
+        OpeningClaim shplonk_opening_claim = { .polynomial = std::move(shplonk_partially_evaluated_batched_quotient),
                                                .opening_pair = { shplonk_opening_challenge, FF(0) } };
 
         return shplonk_opening_claim;

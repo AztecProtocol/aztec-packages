@@ -77,22 +77,13 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     }
 
     // Generate degree check batching challenges
-    std::array<std::string, NUM_WIRES> labels_degree_check;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        labels_degree_check[idx] = "LEFT_TABLE_DEGREE_CHECK_" + std::to_string(idx);
-    }
-    std::array<FF, NUM_WIRES> degree_check_challenges =
-        transcript->template get_challenges<FF, NUM_WIRES>(labels_degree_check);
+    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
 
     // Receive commitment to reversed batched left table
     table_commitments.emplace_back(
         transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
 
     // Compute batching challenges
-    std::vector<std::string> labels_shplonk_batching_challenges((3 * NUM_WIRES) + 1);
-    for (size_t idx = 0; idx < 3 * NUM_WIRES + 1; idx++) {
-        labels_shplonk_batching_challenges[idx] = "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx);
-    }
     std::vector<FF> shplonk_batching_challenges =
         transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
@@ -119,32 +110,10 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
     // Check concatenation identities
-    bool concatenation_verified = true;
-    FF concatenation_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-        concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
-        if constexpr (IsRecursive) {
-            concatenation_diff.assert_equal(FF(0),
-                                            "assert_equal: merge concatenation identity failed in Merge Verifier");
-            concatenation_verified &= concatenation_diff.get_value() == 0;
-        } else {
-            concatenation_verified &= concatenation_diff == 0;
-        }
-    }
+    bool concatenation_verified = check_concatenation_identities(evals, pow_kappa);
 
     // Check degree identity
-    bool degree_check_verified = true;
-    FF degree_check_diff(0);
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        degree_check_diff += evals[idx] * degree_check_challenges[idx];
-    }
-    degree_check_diff -= evals.back() * pow_kappa_minus_one;
-    if constexpr (IsRecursive) {
-        degree_check_diff.assert_equal(FF(0), "assert_equal: merge degree identity failed in Merge Verifier");
-        degree_check_verified &= degree_check_diff.get_value() == 0;
-    } else {
-        degree_check_verified &= degree_check_diff == 0;
-    }
+    bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =
@@ -154,54 +123,18 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
 
     // Prepare batched opening claim to be passed to KZG
-    BatchOpeningClaim<Curve> batch_opening_claim;
+    BatchOpeningClaim<Curve> batch_opening_claim = compute_shplonk_opening_claim(table_commitments,
+                                                                                 shplonk_batched_quotient,
+                                                                                 shplonk_opening_challenge,
+                                                                                 shplonk_batching_challenges,
+                                                                                 kappa,
+                                                                                 kappa_inv,
+                                                                                 evals);
 
-    batch_opening_claim.commitments = { shplonk_batched_quotient };
-    for (auto& commitment : table_commitments) {
-        batch_opening_claim.commitments.emplace_back(-std::move(commitment));
-    }
-    if constexpr (IsRecursive) {
-        batch_opening_claim.commitments.emplace_back(Commitment::one(kappa.get_context()));
-    } else {
-        batch_opening_claim.commitments.emplace_back(Commitment::one());
-    }
-
-    batch_opening_claim.scalars = { (shplonk_opening_challenge - kappa) };
-    for (auto& scalar : shplonk_batching_challenges) {
-        batch_opening_claim.scalars.emplace_back(std::move(scalar));
-    }
-    batch_opening_claim.scalars.back() *=
-        (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
-
-    batch_opening_claim.scalars.emplace_back(FF(0));
-    for (size_t idx = 0; idx < evals.size(); idx++) {
-        if (idx < evals.size() - 1) {
-            batch_opening_claim.scalars.back() += evals[idx] * shplonk_batching_challenges[idx];
-        } else {
-            batch_opening_claim.scalars.back() += shplonk_batching_challenges.back() * evals.back() *
-                                                  (shplonk_opening_challenge - kappa) *
-                                                  (shplonk_opening_challenge - kappa_inv).invert();
-        }
-    }
-
-    batch_opening_claim.evaluation_point = { shplonk_opening_challenge };
-
-    size_t num_rows = 0;
-    if constexpr (IsRecursive) {
-        if constexpr (IsMegaBuilder<typename Curve::Builder>) {
-            num_rows = kappa.get_context()->op_queue->get_num_rows();
-        }
-    };
     // KZG verifier - returns PairingPoints directly
     PairingPoints pairing_points = PCS::reduce_verify_batch_opening_claim(batch_opening_claim, transcript);
 
-    if constexpr (IsRecursive) {
-        if constexpr (IsMegaBuilder<typename Curve::Builder>) {
-            info("NUM ROWS ADDED: ", kappa.get_context()->op_queue->get_num_rows() - num_rows);
-        }
-    };
-
-    return { pairing_points, merged_table_commitments, degree_check_verified };
+    return { pairing_points, merged_table_commitments, degree_check_verified, concatenation_verified };
 }
 
 // Explicit template instantiations
