@@ -82,11 +82,9 @@ SimulatorResult CppSimulator::simulate(const std::vector<uint8_t>& bytecode, con
 
 JsSimulator* JsSimulator::instance = nullptr;
 JsSimulator::JsSimulator(std::string& simulator_path)
-    : simulator_path(simulator_path), process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
+    : simulator_path(simulator_path)
+    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
 {}
-
-
-
 
 void JsSimulator::restart_simulator()
 {
