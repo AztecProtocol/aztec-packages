@@ -121,8 +121,7 @@ template <typename FF> class ProofSurgeon {
 
         // Append key, proof, and public inputs while storing the associated witness indices
         std::vector<uint32_t> key_indices = add_to_witness_and_track_indices<FF>(witness, key_witnesses);
-        uint32_t key_hash_index = static_cast<uint32_t>(witness.size());
-        witness.emplace_back(key_hash_witness);
+        uint32_t key_hash_index = add_to_witness_and_track_indices<FF>(witness, { key_hash_witness });
         std::vector<uint32_t> proof_indices = add_to_witness_and_track_indices<FF>(witness, proof_witnesses);
         std::vector<uint32_t> public_input_indices =
             add_to_witness_and_track_indices<FF>(witness, public_input_witnesses);

@@ -148,13 +148,9 @@ template <class Curve> class EcdsaTestingFunctions {
         std::array<uint32_t, 32> s_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.s));
 
-        uint32_t result_index = static_cast<uint32_t>(witness_values.size());
-        bb::fr result = bb::fr::one();
-        witness_values.emplace_back(result);
+        uint32_t result_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
 
-        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-        bb::fr predicate = bb::fr::one();
-        witness_values.emplace_back(predicate);
+        uint32_t predicate_index = add_to_witness_and_track_indices(witness_values, bb::fr(1));
 
         // Restructure vectors into array
         std::array<uint32_t, 64> signature_indices;
