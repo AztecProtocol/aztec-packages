@@ -15,10 +15,6 @@ namespace bb {
  * to recursively verify. `Outer*` describes the arithmetisation of the recursive verifier circuit and the types
  * required to ensure the recursive verifier circuit is correct (i.e. by producing a proof and verifying it).
  */
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/980): Add failing tests after we have a proper shared
-// transcript interface between ECCVM and Translator and we are able to deserialise and serialise the transcript
-// correctly.
 class TranslatorRecursiveTests : public ::testing::Test {
   public:
     using RecursiveFlavor = TranslatorRecursiveFlavor;
