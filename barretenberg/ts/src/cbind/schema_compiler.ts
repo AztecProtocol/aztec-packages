@@ -303,6 +303,9 @@ export class SchemaCompiler {
     switch (type) {
       case 'array': {
         const [subtype, size] = args[0];
+        if (subtype === 'unsigned char') {
+          return { typeName: 'Uint8Array' };
+        }
         const subtypeInfo = this.processSchema(subtype);
         return {
           typeName: `Tuple<${subtypeInfo.typeName}, ${size}>`,
@@ -546,7 +549,7 @@ ${conversions}
     }
 
     // Handle custom types
-    if (typeInfo.declaration) {
+    if (typeInfo.declaration && typeInfo.typeName !== 'Fr' && typeInfo.typeName !== 'Fq' && typeInfo.typeName !== 'Field2') {
       return `${direction}${typeInfo.typeName}(${value})`;
     }
 

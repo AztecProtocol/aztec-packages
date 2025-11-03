@@ -16,9 +16,6 @@ export { BBApiException } from './bbapi_exception.js';
 export type {
   Bn254G1Point,
   Bn254G2Point,
-  GrumpkinPoint,
-  Secp256k1Point,
-  Secp256r1Point,
   Field2,
 } from './cbind/generated/api_types.js';
 
