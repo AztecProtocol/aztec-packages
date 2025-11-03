@@ -37,7 +37,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     using TableCommitments = MergeVerifier::TableCommitments;
     using MergeCommitments = MergeVerifier::InputCommitments;
 
-    enum class TamperProofMode { None, Shift, MCommitment, LEval };
+    enum class TamperProofMode : uint8_t { None, Shift, MCommitment, LEval };
 
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -46,7 +46,7 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     {
         const size_t shift_idx = 0;        // Index of shift_size in the merge proof
         const size_t m_commitment_idx = 1; // Index of first commitment to merged table in merge proof
-        const size_t l_eval_idx = 21;      // Index of first evaluation of l(1/kappa) in merge proof
+        const size_t l_eval_idx = 22;      // Index of first evaluation of l(1/kappa) in merge proof
 
         switch (tampering_mode) {
         case TamperProofMode::Shift:
