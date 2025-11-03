@@ -112,14 +112,14 @@
 
     .chart-wrapper {
       position: relative;
-      height: 500px;
-      max-width: 100%;
+      height: 600px;
+      width: 100%;
       margin: 0 auto;
     }
 
     canvas {
       max-width: 100% !important;
-      height: auto !important;
+      max-height: 100% !important;
     }
 
     .error {
@@ -280,6 +280,29 @@
       return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
+    // Update URL with current parameters (only non-default values)
+    function updateUrl(params) {
+      const url = new URL(window.location);
+      const defaults = {
+        level: 'grandchildren',
+        runtime: 'native',
+        flow: 'ecdsar1+transfer_0_recursions+sponsored_fpc'
+      };
+
+      // Clear existing params
+      url.search = '';
+
+      // Add non-default parameters
+      for (const [key, value] of Object.entries(params)) {
+        if (value && value !== defaults[key]) {
+          url.searchParams.set(key, value);
+        }
+      }
+
+      // Update URL without reloading
+      window.history.replaceState({}, '', url);
+    }
+
     // Load and visualize breakdown data
     async function loadBreakdown() {
       const level = document.getElementById('level').value;
@@ -294,6 +317,14 @@
         messageDiv.innerHTML = '<div class="error">Please provide a flow name</div>';
         return;
       }
+
+      // Update URL with current parameters
+      updateUrl({
+        level: level,
+        runtime: runtime,
+        flow: flow,
+        sha: manualSha
+      });
 
       // Clear previous state
       statsDiv.innerHTML = '';
@@ -440,10 +471,6 @@
               <div class="stat-value">${entries.length}</div>
             </div>
             <div class="stat-item">
-              <div class="stat-label">All Components</div>
-              <div class="stat-value">${allComponentCount}</div>
-            </div>
-            <div class="stat-item">
               <div class="stat-label">Largest Component</div>
               <div class="stat-value">${topComponents[0].percentage}%</div>
             </div>
@@ -482,7 +509,7 @@
           },
           options: {
             responsive: true,
-            maintainAspectRatio: true,
+            maintainAspectRatio: false,
             plugins: {
               legend: {
                 position: 'right',
@@ -531,6 +558,12 @@
       }
     }
 
+    // Get URL query parameter
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
     // Event listeners
     document.getElementById('loadBtn').addEventListener('click', loadBreakdown);
 
@@ -541,13 +574,40 @@
       });
     });
 
-    // Show info message on load
-    document.getElementById('message').innerHTML = `
-      <div class="info">
-        Leave SHA empty to load the latest commit from <strong>next</strong>, or enter a specific commit SHA for testing.
-        Data is fetched from the gh-pages branch via GitHub raw URLs.
-      </div>
-    `;
+    // Initialize from URL query parameters on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const levelParam = getQueryParam('level');
+      const runtimeParam = getQueryParam('runtime');
+      const flowParam = getQueryParam('flow');
+      const shaParam = getQueryParam('sha');
+
+      // Set form values from URL parameters
+      if (levelParam) {
+        document.getElementById('level').value = levelParam;
+      }
+      if (runtimeParam) {
+        document.getElementById('runtime').value = runtimeParam;
+      }
+      if (flowParam) {
+        document.getElementById('flow').value = flowParam;
+      }
+      if (shaParam) {
+        document.getElementById('sha').value = shaParam;
+      }
+
+      // Auto-load if any parameters are present
+      if (levelParam || runtimeParam || flowParam || shaParam) {
+        loadBreakdown();
+      } else {
+        // Show info message on load
+        document.getElementById('message').innerHTML = `
+          <div class="info">
+            Leave SHA empty to load the latest commit from <strong>next</strong>, or enter a specific commit SHA for testing.
+            Data is fetched from the gh-pages branch via GitHub raw URLs.
+          </div>
+        `;
+      }
+    });
   </script>
 </body>
 </html>
