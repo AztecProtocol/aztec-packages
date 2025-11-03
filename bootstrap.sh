@@ -13,6 +13,8 @@ export DENOISE=${DENOISE:-1}
 # Number of TXE servers to run when testing.
 export NUM_TXES=8
 
+export MAKEFLAGS="-j${MAKE_JOBS:-$(get_num_cpus)}"
+
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
@@ -192,7 +194,7 @@ function test_engine_start {
 export -f test_engine_start
 
 function build_and_test {
-  echo_header "test"
+  echo_header "build and test"
 
   # If no specific targets given, build everything (all), run all tests (tests).
   if [ "$#" -eq 0 ]; then
@@ -225,8 +227,7 @@ function build {
   corepack enable
 
   echo_header "build"
-  local make_flags="-j${MAKE_JOBS:-$(get_num_cpus)}"
-  make $make_flags BUILD_MODE=${1:-} $@
+  make BUILD_MODE=${1:-} $@
 }
 
 function test {
