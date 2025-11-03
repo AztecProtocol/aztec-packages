@@ -183,6 +183,8 @@ template <typename Curve> class MergeVerifier_ {
         }
 
         batch_opening_claim.evaluation_point = { shplonk_opening_challenge };
+
+        return batch_opening_claim;
     };
 };
 
