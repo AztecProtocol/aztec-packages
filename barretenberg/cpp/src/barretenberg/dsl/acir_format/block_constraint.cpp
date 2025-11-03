@@ -50,17 +50,17 @@ void create_block_constraints(UltraCircuitBuilder& builder,
     }
 
     switch (constraint.type) {
-    // Note: CallData/ReturnData not supported by Ultra; interpreted as ROM ops instead
+    case BlockType::ROM:
+        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
+        break;
+    case BlockType::RAM:
+        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
+        break;
+    // Note: CallData/ReturnData require DataBus, which is only available in Mega and in particular is _not_ supported
+    // by Ultra.
     case BlockType::CallData:
     case BlockType::ReturnData:
-    case BlockType::ROM: {
-        process_ROM_operations(builder, constraint, has_valid_witness_assignments, init);
-    } break;
-    case BlockType::RAM: {
-        process_RAM_operations(builder, constraint, has_valid_witness_assignments, init);
-    } break;
-    default:
-        throw_or_abort("Unexpected block constraint type.");
+        throw_or_abort("CallData/ReturnData are not supported in the Ultra arithmetization. Use Mega instead.");
         break;
     }
 }
@@ -111,12 +111,13 @@ void process_ROM_operations(Builder& builder,
     using rom_table_ct = stdlib::rom_table<Builder>;
 
     rom_table_ct table(init);
-    for (auto& op : constraint.trace) {
+    for (const auto& op : constraint.trace) {
         BB_ASSERT_EQ(op.access_type, 0);
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
-        // For a ROM table, constant read should be optimized out:
-        // The rom_table won't work with a constant read because the table may not be initialized
+        // For a ROM table, constant read should be already optimized out by the Noir compiler. Note that the
+        // `rom_table` indeed can perform constant reads, so this assert is present just to make sure the Noir compiler
+        // is acting as-it-should.
         BB_ASSERT(op.index.q_l != 0);
 
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
@@ -138,7 +139,7 @@ void process_RAM_operations(Builder& builder,
     using ram_table_ct = stdlib::ram_table<Builder>;
 
     ram_table_ct table(init);
-    for (auto& op : constraint.trace) {
+    for (const auto& op : constraint.trace) {
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
         // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
