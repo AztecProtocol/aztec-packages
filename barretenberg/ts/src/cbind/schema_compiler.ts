@@ -823,6 +823,7 @@ export function createSharedTypesCompiler(): SchemaCompiler {
 }
 
 export function createSyncApiCompiler(): SchemaCompiler {
+
   return new SchemaCompiler({
     mode: 'sync',
     imports: [
@@ -850,7 +851,7 @@ export function createNativeApiCompiler(): SchemaCompiler {
     imports: [
       `import { spawn, ChildProcess } from 'child_process';`,
       `import { Decoder, Encoder } from 'msgpackr';`,
-      `import { BBApiException } from '../../bbapi_exception.js';`,`
+      `import { BBApiException } from '../../bbapi_exception.js';`
     ],
   });
 }
