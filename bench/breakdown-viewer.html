@@ -298,7 +298,7 @@
       return totalTimeNs / 1000000000;
     }
 
-    // Build current view based on expanded components
+    // Build current view based on expanded components (recursive)
     function buildCurrentView() {
       const componentsToShow = {};
 
@@ -308,26 +308,35 @@
 
       for (const component of rootComponents) {
         rootTotalTime += component.time;
+      }
 
-        if (expandedComponents.has(component.name)) {
+      // Recursively process components
+      function processComponent(componentName, componentTime) {
+        if (expandedComponents.has(componentName)) {
           // Show children of this expanded component
-          const children = getChildren(component.name);
+          const children = getChildren(componentName);
           let childrenTotalTime = 0;
 
           for (const child of children) {
-            componentsToShow[child.name] = child.time;
             childrenTotalTime += child.time;
+            // Recursively process each child
+            processComponent(child.name, child.time);
           }
 
           // Add "Other" for this expanded component if there's unaccounted time
-          const otherTime = component.time - childrenTotalTime;
+          const otherTime = componentTime - childrenTotalTime;
           if (otherTime > 0.01) {
-            componentsToShow[`${component.name}::Other`] = otherTime;
+            componentsToShow[`${componentName}::Other`] = otherTime;
           }
         } else {
           // Show the component as-is (collapsed)
-          componentsToShow[component.name] = component.time;
+          componentsToShow[componentName] = componentTime;
         }
+      }
+
+      // Process all root components
+      for (const component of rootComponents) {
+        processComponent(component.name, component.time);
       }
 
       return { componentsToShow, rootTotalTime };
@@ -546,9 +555,9 @@
 
         messageDiv.innerHTML = '<div class="loading">Loading benchmark data for commit ' + shortSha + '...</div>';
 
-        // Try to fetch from GitHub raw (gh-pages branch stores the files)
-        // Path: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
-        const url = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/gh-pages/bench/barretenberg-breakdowns/${flow}/${runtime}-${shortSha}.json`;
+        // Fetch from local path (relative to this page on gh-pages)
+        // Path: barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
+        const url = `barretenberg-breakdowns/${flow}/${runtime}-${shortSha}.json`;
 
         // Fetch the data
         const response = await fetch(url);
