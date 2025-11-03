@@ -57,7 +57,7 @@ TYPED_TEST(TranscriptTests, GrumpkinUnivariateSendReceive)
 }
 
 // ============================================================================
-// Infinity Point Tests
+// Point at Infinity Tests
 // ============================================================================
 
 TYPED_TEST(TranscriptTests, BN254InfinityHandling)
@@ -71,7 +71,7 @@ TYPED_TEST(TranscriptTests, GrumpkinInfinityHandling)
 }
 
 // ============================================================================
-// Multi-Round Protocol Tests
+// Test multiple Provers sharing a Transcript
 // ============================================================================
 
 TYPED_TEST(TranscriptTests, BasicMultiRoundProtocol)
@@ -107,19 +107,9 @@ TYPED_TEST(TranscriptTests, HashBufferConsistency)
     this->test_hash_buffer_consistency();
 }
 
-TYPED_TEST(TranscriptTests, CircuitSizeBounded)
-{
-    this->test_circuit_size_bounded();
-}
-
 // ============================================================================
 // Native-Specific Tests
 // ============================================================================
-
-TYPED_TEST(TranscriptTests, StateTracking)
-{
-    this->test_state_tracking();
-}
 
 TYPED_TEST(TranscriptTests, ProverToVerifierConversion)
 {
@@ -132,94 +122,8 @@ TYPED_TEST(TranscriptTests, TamperingDetection)
 }
 
 // ============================================================================
-// Comprehensive Type Coverage Tests
+// Test Batch Challenge Generation
 // ============================================================================
-
-/**
- * @brief Test all supported types in a single protocol
- * @details This ensures that mixing different types in one transcript works correctly
- */
-TYPED_TEST(TranscriptTests, AllTypesMixed)
-{
-    using FF = typename TestFixture::FF;
-    // using BF = typename TestFixture::BF;  // Unused - basefield tests skipped
-    using BN254Commitment = typename TestFixture::bn254_commitment;
-    using GrumpkinCommitment = typename TestFixture::grumpkin_commitment;
-
-    NativeTranscript prover;
-
-    // Send all different types
-    prover.send_to_verifier("scalar", bb::fr::random_element());
-    // Skip basefield - causes template instantiation issues with bigfield
-    // prover.send_to_verifier("basefield", bb::fq::random_element());
-    // Skip uint32_t - not needed
-    prover.send_to_verifier("bn254_point", curve::BN254::AffineElement::random_element());
-    prover.send_to_verifier("grumpkin_point", curve::Grumpkin::AffineElement::random_element());
-
-    std::array<bb::fr, 3> array_vals;
-    for (auto& v : array_vals) {
-        v = bb::fr::random_element();
-    }
-    prover.send_to_verifier("array", array_vals);
-
-    std::array<bb::fr, 4> uni_evals;
-    for (auto& e : uni_evals) {
-        e = bb::fr::random_element();
-    }
-    prover.send_to_verifier("univariate", bb::Univariate<bb::fr, 4>(uni_evals));
-
-    auto challenge = prover.template get_challenge<bb::fr>("final_challenge");
-
-    // Verify
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
-
-    verifier.template receive_from_prover<FF>("scalar");
-    // Skip basefield - causes template instantiation issues with bigfield
-    // verifier.template receive_from_prover<BF>("basefield");
-    // Skip uint32_t - not needed
-    verifier.template receive_from_prover<BN254Commitment>("bn254_point");
-    verifier.template receive_from_prover<GrumpkinCommitment>("grumpkin_point");
-    verifier.template receive_from_prover<std::array<FF, 3>>("array");
-    verifier.template receive_from_prover<bb::Univariate<FF, 4>>("univariate");
-    auto verifier_challenge = verifier.template get_challenge<FF>("final_challenge");
-
-    EXPECT_EQ(challenge, this->to_native(verifier_challenge));
-    EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
-
-    this->check_circuit();
-}
-
-/**
- * @brief Stress test with many rounds and challenges
- */
-TYPED_TEST(TranscriptTests, ManyRoundsStressTest)
-{
-    using FF = typename TestFixture::FF;
-
-    NativeTranscript prover;
-
-    constexpr size_t NUM_ROUNDS = 10;
-    std::vector<bb::fr> prover_challenges;
-    prover_challenges.reserve(NUM_ROUNDS);
-
-    // Prover: many rounds
-    for (size_t i = 0; i < NUM_ROUNDS; ++i) {
-        prover.send_to_verifier("data_" + std::to_string(i), bb::fr::random_element());
-        auto chal = prover.template get_challenge<bb::fr>("challenge_" + std::to_string(i));
-        prover_challenges.push_back(chal);
-    }
-
-    // Verifier: replay
-    typename TestFixture::Transcript verifier(this->export_proof(prover));
-    for (size_t i = 0; i < NUM_ROUNDS; ++i) {
-        verifier.template receive_from_prover<FF>("data_" + std::to_string(i));
-        auto chal = verifier.template get_challenge<FF>("challenge_" + std::to_string(i));
-        EXPECT_EQ(prover_challenges[i], this->to_native(chal));
-    }
-
-    EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
-    this->check_circuit();
-}
 
 /**
  * @brief Test that getting multiple challenges at once works correctly

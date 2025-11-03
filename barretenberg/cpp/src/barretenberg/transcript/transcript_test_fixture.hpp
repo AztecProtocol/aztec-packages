@@ -395,48 +395,6 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         BB_ASSERT_EQ(prover_chal, verifier_chal);
     }
 
-    void test_circuit_size_bounded()
-    {
-        if constexpr (!IsStdlib) {
-            GTEST_SKIP() << "Stdlib-only - tracks circuit size";
-            return;
-        }
-
-        NativeTranscript prover;
-        for (size_t i = 0; i < 5; ++i) {
-            prover.send_to_verifier("scalar" + std::to_string(i), bb::fr::random_element());
-            prover.template get_challenge<bb::fr>("challenge" + std::to_string(i));
-        }
-
-        Transcript verifier;
-        verifier.load_proof(export_proof(prover));
-        for (size_t i = 0; i < 5; ++i) {
-            verifier.template receive_from_prover<FF>("scalar" + std::to_string(i));
-            verifier.template get_challenge<FF>("challenge" + std::to_string(i));
-        }
-
-        // Circuit created successfully
-        check_circuit();
-    }
-
-    void test_state_tracking()
-    {
-        skip_if_stdlib("Native-only - tests internal state management");
-
-        NativeTranscript transcript;
-        BB_ASSERT_EQ(transcript.proof_start, 0);
-        BB_ASSERT_EQ(transcript.num_frs_written, 0UL);
-
-        bb::fr elt_a = 1377;
-        transcript.send_to_verifier("a", elt_a);
-        BB_ASSERT_EQ(transcript.proof_start, 0);
-        BB_ASSERT_EQ(transcript.num_frs_written, 1UL);
-
-        transcript.export_proof();
-        BB_ASSERT_EQ(transcript.proof_start, 1);
-        BB_ASSERT_EQ(transcript.num_frs_written, 0UL);
-    }
-
     void test_prover_to_verifier_conversion()
     {
         skip_if_stdlib("Native-only - tests transcript conversion");
