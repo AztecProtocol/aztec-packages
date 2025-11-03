@@ -193,7 +193,19 @@ function test_engine_start {
 }
 export -f test_engine_start
 
+function prep {
+  echo_header "pull submodules"
+  denoise "git submodule update --init --recursive"
+
+  check_toolchains
+
+  # Ensure we have yarn set up.
+  corepack enable
+}
+
 function build_and_test {
+  prep
+
   echo_header "build and test"
 
   # If no specific targets given, build everything (all), run all tests (tests).
@@ -218,14 +230,7 @@ function build_and_test {
 }
 
 function build {
-  echo_header "pull submodules"
-  denoise "git submodule update --init --recursive"
-
-  check_toolchains
-
-  # Ensure we have yarn set up.
-  corepack enable
-
+  prep
   echo_header "build"
   make BUILD_MODE=${1:-} $@
 }
