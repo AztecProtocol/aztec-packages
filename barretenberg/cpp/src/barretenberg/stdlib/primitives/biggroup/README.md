@@ -784,7 +784,7 @@ $$
 > $$\textsf{msub\_div}([\ell_1, \ell_2, \dots], [r_1, r_2, \dots], [a_1, a_2, \dots], d) := -\frac{\sum_i \ell_i \cdot r_i + \sum_j a_j}{d}$$
 > Notice that this function outputs the negation of the fraction. The benefit of using this function is that it allows us to combine multiple terms in the numerator before performing a single division, reducing the number of non-native field reductions.
 
-Now lets compute the coordinates of the resulting point $(x_3, y_3)$:
+Now let's compute the coordinates of the resulting point $(x_3, y_3)$:
 
 $$
 x_3 = \lambda_1^2 - x_q - x_a
@@ -898,7 +898,7 @@ $$
     [\lambda_c, \textcolor{pink}{\lambda_2^{(1)}}, \textcolor{pink}{\lambda_2}], \
     [(x_{c_{\textsf{prev}}} - x_c), \textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
     [-y_{c_{\textsf{prev}}} , \textcolor{pink}{-y_q}], \
-    (x_c - x_4^{(1)})
+    (x_4^{(1)} - x_c)
 )}
 \end{aligned}
 $$
