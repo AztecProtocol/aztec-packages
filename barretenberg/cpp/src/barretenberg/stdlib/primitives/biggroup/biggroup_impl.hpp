@@ -329,7 +329,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
                                                                                        const chain_add_accumulator& acc)
 {
     // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
-    if (acc.is_element) {
+    if (acc.is_full_element) {
         return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev));
     }
     // validate we can use incomplete addition formulae
@@ -376,7 +376,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
 {
-    if (acc.is_element) {
+    if (acc.is_full_element) {
         return element(acc.x3_prev, acc.y3_prev);
     }
     auto& x3 = acc.x3_prev;
@@ -465,7 +465,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add)
 {
-    if (to_add.is_element) {
+    if (to_add.is_full_element) {
         throw_or_abort("An accumulator expected");
     }
     _x.assert_is_not_equal(to_add.x3_prev);
@@ -524,104 +524,164 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         bool is_negative = false;
     };
 
-    Fq previous_x = _x;
-    composite_y previous_y{ std::vector<Fq>(), std::vector<Fq>(), std::vector<Fq>(), false };
-    for (size_t i = 0; i < add.size(); ++i) {
+    // Handle edge case of empty input
+    if (add.empty()) {
+        return *this;
+    }
+
+    // Let A = (x, y) and P = (x₁, y₁)
+    // For the first point P, we want to compute: (2A + P) = (A + P) + A
+    // We first need to check if x ≠ x₁.
+    x().assert_is_not_equal(add[0].x3_prev);
+
+    // Compute λ₁ for computing the first addition: (A + P)
+    Fq lambda1;
+    if (!add[0].is_full_element) {
+        // Case 1: P is an accumulator (i.e., it lacks a y-coordinate)
+        //         λ₁ = (y - y₁) / (x - x₁)
+        //            = -(y₁ - y) / (x - x₁)
+        //            = -(λ₁_ₚᵣₑᵥ * (x₁_ₚᵣₑᵥ - x₁) - y₁_ₚᵣₑᵥ - y) / (x - x₁)
+        //
+        // NOTE: msub_div computes -(∑ᵢ aᵢ * bᵢ + ∑ⱼcⱼ) / d
+        lambda1 = Fq::msub_div({ add[0].lambda_prev },              // numerator left multiplicands: λ₁_ₚᵣₑᵥ
+                               { add[0].x1_prev - add[0].x3_prev }, // numerator right multiplicands: (x₁_ₚᵣₑᵥ - x₁)
+                               (x() - add[0].x3_prev),              // denominator: (x - x₁)
+                               { -add[0].y1_prev, -y() },           // numerator additions: -y₁_ₚᵣₑᵥ - y
+                               /*enable_divisor_nz_check*/ false);  // divisor check is not needed as x ≠ x₁ is enforced
+    } else {
+        // Case 2: P is a full element (i.e., it has a y-coordinate)
+        //         λ₁ = (y - y₁) / (x - x₁)
+        //
+        lambda1 = Fq::div_without_denominator_check({ y() - add[0].y3_prev }, (x() - add[0].x3_prev));
+    }
+
+    // Using λ₁, compute x₃ for (A + P):
+    // x₃ = λ₁.λ₁ - x₁ - x
+    Fq x_3 = lambda1.madd(lambda1, { -add[0].x3_prev, -x() });
+
+    // Compute λ₂ for the addition (A + P) + A:
+    // λ₂ = (y - y₃) / (x - x₃)
+    //    = (y - (λ₁ * (x - x₃) - y)) / (x - x₃)    (substituting y₃)
+    //    = (2y) / (x - x₃) - λ₁
+    //
+    x().assert_is_not_equal(x_3);
+    Fq lambda2 = Fq::div_without_denominator_check({ y() + y() }, (x() - x_3)) - lambda1;
+
+    // Using λ₂, compute x₄ for the final result:
+    // x₄ = λ₂.λ₂ - x₃ - x
+    Fq x_4 = lambda2.sqradd({ -x_3, -x() });
+
+    // Compute y₄ for the final result:
+    // y₄ = λ₂ * (x - x₄) - y
+    //
+    // However, we don't actually compute y₄ here. Instead, we build a "composite" y value that contains
+    // the components needed to compute y₄ later. This is done to avoid the explicit multiplication here.
+    //
+    // We store the result as either y₄ or -y₄, depending on whether the number of points added
+    // is even or odd. This sign adjustment simplifies the handling of subsequent additions in the loop below.
+    // +y₄ = λ₂ * (x - x₄) - y
+    // -y₄ = λ₂ * (x₄ - x) + y
+    const bool num_points_even = ((add.size() & 1ULL) == 0);
+    composite_y previous_y;
+    previous_y.add.emplace_back(num_points_even ? y() : -y());
+    previous_y.mul_left.emplace_back(lambda2);
+    previous_y.mul_right.emplace_back(num_points_even ? x_4 - x() : x() - x_4);
+    previous_y.is_negative = num_points_even;
+
+    // Handle remaining iterations (i > 0) in a loop
+    Fq previous_x = x_4;
+    for (size_t i = 1; i < add.size(); ++i) {
+        // Let x = previous_x, y = previous_y
+        // Let P = (xᵢ, yᵢ) be the next point to add (represented by add[i])
+        // Ensure x-coordinates are distinct: x ≠ xᵢ
         previous_x.assert_is_not_equal(add[i].x3_prev);
 
-        // composite_y add_y;
-        bool negate_add_y = (i > 0) && !previous_y.is_negative;
-        std::vector<Fq> lambda1_left;
-        std::vector<Fq> lambda1_right;
-        std::vector<Fq> lambda1_add;
+        // Determine sign adjustment based on previous y's sign
+        // If the previous y was positive, we need to negate the y-component from add[i]
+        const bool negate_add_y = !previous_y.is_negative;
 
-        if (i == 0) {
-            lambda1_add.emplace_back(-_y);
-        } else {
-            lambda1_left = previous_y.mul_left;
-            lambda1_right = previous_y.mul_right;
-            lambda1_add = previous_y.add;
-        }
+        // Build λ₁ numerator components from previous composite y and current accumulator
+        std::vector<Fq> lambda1_left = previous_y.mul_left;
+        std::vector<Fq> lambda1_right = previous_y.mul_right;
+        std::vector<Fq> lambda1_add = previous_y.add;
 
-        if (!add[i].is_element) {
+        if (!add[i].is_full_element) {
+            // Case 1: add[i] is an accumulator (lacks y-coordinate)
+            //         λ₁ = (y - yᵢ) / (x - xᵢ)
+            //            = -(yᵢ - y) / (x - xᵢ)
+            //            = -(λᵢ_ₚᵣₑᵥ * (xᵢ_ₚᵣₑᵥ - xᵢ) - yᵢ_ₚᵣₑᵥ - y) / (x - xᵢ)
+            //
+            // If (previous) y is stored as positive, we compute λ₁ as:
+            //         λ₁ = -(λᵢ_ₚᵣₑᵥ * (xᵢ - xᵢ_ₚᵣₑᵥ) + yᵢ_ₚᵣₑᵥ + y) / (xᵢ - x)
+            //
             lambda1_left.emplace_back(add[i].lambda_prev);
             lambda1_right.emplace_back(negate_add_y ? add[i].x3_prev - add[i].x1_prev
                                                     : add[i].x1_prev - add[i].x3_prev);
             lambda1_add.emplace_back(negate_add_y ? add[i].y1_prev : -add[i].y1_prev);
-        } else if (i > 0) {
+        } else {
+            // Case 2: add[i] is a full element (has y-coordinate)
+            //         λ₁ = (yᵢ - y) / (xᵢ - x)
+            //
+            // If previous y is positive, we compute λ₁ as:
+            //         λ₁ = -(y - yᵢ) / (xᵢ - x)
+            //
             lambda1_add.emplace_back(negate_add_y ? -add[i].y3_prev : add[i].y3_prev);
         }
-        // if previous_y is negated then add stays positive
-        // if previous_y is positive then add stays negated
-        // | add.y is negated | previous_y is negated | output of msub_div is -lambda |
-        // | --- | --- | --- |
-        // | no  | yes | yes |
-        // | yes | no  | no  |
 
-        Fq lambda1;
-        if (!add[i].is_element || i > 0) {
-            bool flip_lambda1_denominator = !negate_add_y;
-            Fq denominator = flip_lambda1_denominator ? previous_x - add[i].x3_prev : add[i].x3_prev - previous_x;
-            lambda1 = Fq::msub_div(
-                lambda1_left,
-                lambda1_right,
-                denominator,
-                lambda1_add,
-                /*enable_divisor_nz_check*/ false); // divisor is non-zero as previous_x != add[i].x3_prev is enforced
-        } else {
-            lambda1 = Fq::div_without_denominator_check({ add[i].y3_prev - _y }, (add[i].x3_prev - _x));
-        }
+        // Compute λ₁
+        Fq denominator = negate_add_y ? add[i].x3_prev - previous_x : previous_x - add[i].x3_prev;
+        Fq lambda1 =
+            Fq::msub_div(lambda1_left, lambda1_right, denominator, lambda1_add, /*enable_divisor_nz_check*/ false);
 
+        // Using λ₁, compute x₃ for (previous + P):
+        // x₃ = λ₁.λ₁ - xᵢ - x
+        // y₃ = λ₁ * (x - x₃) - y (we don't compute this explicitly)
         Fq x_3 = lambda1.madd(lambda1, { -add[i].x3_prev, -previous_x });
 
-        // We can avoid computing y_4, instead substituting the expression `minus_lambda_2 * (x_4 - x) - y`
-        // where needed. This is cheaper, because we can evaluate two field multiplications (or a field
-        // multiplication + a field division) with only one non-native field reduction. E.g. evaluating (a * b)
-        // + (c * d) = e mod p only requires 1 quotient and remainder, which is the major cost of a non-native
-        // field multiplication
-        Fq lambda2;
-        if (i == 0) {
-            lambda2 = Fq::div_without_denominator_check({ _y + _y }, (previous_x - x_3)) - lambda1;
-        } else {
-            Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
-            // TODO(): analyse if l2_denominator can be zero.
-            Fq partial_lambda2 = Fq::msub_div(previous_y.mul_left,
-                                              previous_y.mul_right,
-                                              l2_denominator,
-                                              previous_y.add,
-                                              /*enable_divisor_nz_check*/ false);
-            partial_lambda2 = partial_lambda2 + partial_lambda2;
-            lambda2 = partial_lambda2 - lambda1;
-        }
+        // Compute λ₂ using previous composite y
+        // λ₂ = (y - y₃) / (x - x₃)
+        //    = (y - (λ₁ * (x - x₃) - y)) / (x - x₃)    (substituting y₃)
+        //    = (2y) / (x - x₃) - λ₁
+        //    = -2(y / (x₃ - x)) - λ₁
+        //
+        previous_x.assert_is_not_equal(x_3);
+        Fq l2_denominator = previous_y.is_negative ? previous_x - x_3 : x_3 - previous_x;
+        Fq partial_lambda2 = Fq::msub_div(previous_y.mul_left,
+                                          previous_y.mul_right,
+                                          l2_denominator,
+                                          previous_y.add,
+                                          /*enable_divisor_nz_check*/ false);
+        partial_lambda2 = partial_lambda2 + partial_lambda2;
+        lambda2 = partial_lambda2 - lambda1;
 
-        Fq x_4 = lambda2.sqradd({ -x_3, -previous_x });
+        // Using λ₂, compute x₄ for the final result of this iteration:
+        // x₄ = λ₂.λ₂ - x₃ - x
+        x_4 = lambda2.sqradd({ -x_3, -previous_x });
+
+        // Build composite y for this iteration
+        // y₄ = λ₂ * (x - x₄) - y
+        // However, we don't actually compute y₄ explicitly, we rather store components to compute it later.
+        // We store the result as either y₄ or -y₄, depending on the sign of previous_y.
+        // +y₄ = λ₂ * (x - x₄) - y
+        // -y₄ = λ₂ * (x₄ - x) + y
         composite_y y_4;
-        if (i == 0) {
-            // We want to make sure that at the final iteration, `y_previous.is_negative = false`
-            // Each iteration flips the sign of y_previous.is_negative.
-            // i.e. whether we store y_4 or -y_4 depends on the number of points we have
-            bool num_points_even = ((add.size() & 0x01UL) == 0);
-            y_4.add.emplace_back(num_points_even ? _y : -_y);
-            y_4.mul_left.emplace_back(lambda2);
-            y_4.mul_right.emplace_back(num_points_even ? x_4 - previous_x : previous_x - x_4);
-            y_4.is_negative = num_points_even;
-        } else {
-            y_4.is_negative = !previous_y.is_negative;
-            y_4.mul_left.emplace_back(lambda2);
-            y_4.mul_right.emplace_back(previous_y.is_negative ? previous_x - x_4 : x_4 - previous_x);
-            // append terms in previous_y to y_4. We want to make sure the terms above are added into the start
-            // of y_4. This is to ensure they are cached correctly when
-            // `builder::evaluate_partial_non_native_field_multiplication` is called.
-            // (the 1st mul_left, mul_right elements will trigger
-            // builder::evaluate_non_native_field_multiplication
-            //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
-            std::copy(previous_y.mul_left.begin(), previous_y.mul_left.end(), std::back_inserter(y_4.mul_left));
-            std::copy(previous_y.mul_right.begin(), previous_y.mul_right.end(), std::back_inserter(y_4.mul_right));
-            std::copy(previous_y.add.begin(), previous_y.add.end(), std::back_inserter(y_4.add));
-        }
+        y_4.is_negative = !previous_y.is_negative;
+        y_4.mul_left.emplace_back(lambda2);
+        y_4.mul_right.emplace_back(previous_y.is_negative ? previous_x - x_4 : x_4 - previous_x);
+
+        // Append terms from previous_y to y_4. We want to make sure the terms above are added into the start
+        // of y_4. This is to ensure they are cached correctly when
+        // `builder::evaluate_partial_non_native_field_multiplication` is called. (the 1st mul_left, mul_right elements
+        // will trigger builder::evaluate_non_native_field_multiplication
+        //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
+        std::copy(previous_y.mul_left.begin(), previous_y.mul_left.end(), std::back_inserter(y_4.mul_left));
+        std::copy(previous_y.mul_right.begin(), previous_y.mul_right.end(), std::back_inserter(y_4.mul_right));
+        std::copy(previous_y.add.begin(), previous_y.add.end(), std::back_inserter(y_4.add));
+
         previous_x = x_4;
         previous_y = y_4;
     }
+
     Fq x_out = previous_x;
 
     BB_ASSERT(!previous_y.is_negative);

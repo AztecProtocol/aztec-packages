@@ -729,3 +729,228 @@ A &= \sum_{j=1}^{m+1} \left( -\mathfrak{s}_{j} + \sum_{i=0}^{n-1} \windex{2^{i}}
 $$
 
 Thus, we need to subtract the term $\windex{2^{n-1}} \cdot \windex{G_{\textsf{offset}}}$ from the final MSM result to account for the offset generator added to the first NAF column output. This ensures that the final MSM result is correct and unaffected by the offset generator used to prevent points at infinity during intermediate computations.
+
+---
+
+## Primitive ECC Functions
+
+#### Multiple Montgomery Ladder
+
+We will now illustrate how the `multiple_montgomery_ladder` function computes the result using an example with three accumulators $A, B, C$. Let $Q$ be the accumulator:
+
+$$
+Q.\textsf{multiple\_montgomery\_ladder}([A, B, C])
+:=
+2 \cdot \overbrace{(2 \cdot \underbrace{(2 \cdot Q + A)}_{R_0} + B)}^{R_1} + C
+$$
+
+Lets compute the first term as a single montgomery ladder step:
+
+$$
+R_0 = 2 \cdot Q + A = (Q + A) + Q
+$$
+
+We first want to compute $(Q + A)$. The slope $\lambda_1$ is computed as:
+
+$$
+\lambda_1 = \frac{y_a - y_q}{x_a -x_q}
+$$
+
+Suppose the $y$-coordinate of accumulator $A$ is given by:
+
+$$
+y_a = \lambda_a \cdot (x_{a_{\textsf{prev}}} - x_a) - y_{a_{\textsf{prev}}}
+$$
+
+So we substitute this into the equation for $\lambda_1$:
+
+$$
+\begin{aligned}
+\lambda_1 &= \frac{\lambda_a \cdot (x_{a_{\textsf{prev}}} - x_a) - y_{a_{\textsf{prev}}} - y_q}{x_a - x_q} \\
+&= -\frac{\lambda_a \cdot (x_{a_{\textsf{prev}}} - x_a) - y_{a_{\textsf{prev}}} - y_q}{x_q - x_a}
+\\[10pt]
+&= \ \textcolor{skyblue}{\small
+\textsf{msub\_div}(
+    [\lambda_a], \
+    [(x_{a_{\textsf{prev}}} - x_a)], \
+    [-y_{a_{\textsf{prev}}}, -y_q], \
+    (x_q - x_a)
+)}
+\\
+\end{aligned}
+$$
+
+> The function `msub_div` computes the numerator as a combination of multiplications and additions/subtractions, followed by a division by the denominator. Given lists of multipliers and addends, it computes:
+> $$\textsf{msub\_div}([\ell_1, \ell_2, \dots], [r_1, r_2, \dots], [a_1, a_2, \dots], d) := -\frac{\sum_i \ell_i \cdot r_i + \sum_j a_j}{d}$$
+> Notice that this function outputs the negation of the fraction. The benefit of using this function is that it allows us to combine multiple terms in the numerator before performing a single division, reducing the number of non-native field reductions.
+
+Now let's compute the coordinates of the resulting point $(x_3, y_3)$:
+
+$$
+x_3 = \lambda_1^2 - x_q - x_a
+$$
+
+$$
+y_3 = \lambda_1 \cdot (x_q - x_3) - y_q
+$$
+
+Note that we do not explicitly compute $y_3$ here, as we will substitute it in the next step. Now we want to compute $R_0 = ((Q + A) + Q)$. The slope $\lambda_2$ is computed as:
+
+$$
+\begin{aligned}
+\lambda_2 &= \frac{y_q - y_3}{x_q - x_3} \\
+&= \frac{y_q - \lambda_1 \cdot (x_q - x_3) + y_q}{x_q - x_3} \\
+&= \frac{2y_q}{x_q - x_3}-\lambda_1
+\\[10pt]
+&= \ \textcolor{skyblue}{\small
+2 \cdot \textsf{div}(
+    [y_q], \
+    (x_q - x_3)
+)- \lambda_1}
+\end{aligned}
+$$
+
+The coordinates of the resulting point $R_1 = (x_4, y_4)$ are computed as:
+
+$$
+x_4 = \lambda_2^2 - x_3 - x_q
+$$
+
+$$
+y_4 = \lambda_2 \cdot (x_q - x_4) - y_q
+$$
+
+Again, we do not explicitly compute $y_4$ here. Instead we store it as a composite expression for use in the next iteration. We continue this process for the next accumulator $B$ to compute $R_1 = 2 \cdot R_0 + B$. First we compute the slope $\lambda_1^{(1)}$ for $(R_0 + B)$:
+
+$$
+\begin{aligned}
+\lambda_1^{(1)} &= \frac{y_b - y_4}{x_b - x_4} \\
+&= \frac{\lambda_b \cdot (x_{b_{\textsf{prev}}} - x_b) - y_{b_{\textsf{prev}}} - y_4}{x_b - x_4} \\
+&= \frac{\lambda_b \cdot (x_{b_{\textsf{prev}}} - x_b) - y_{b_{\textsf{prev}}} - \lambda_2 \cdot (x_q - x_4) + y_q}{x_b - x_4} \\
+&= - \frac{\lambda_b \cdot (x_b - x_{b_{\textsf{prev}}}) + y_{b_{\textsf{prev}}} + \lambda_2 \cdot (x_q - x_4) - y_q}{x_b - x_4} \\[10pt]
+&= \ \textcolor{skyblue}{\small
+\textsf{msub\_div}(
+    [\lambda_b, \textcolor{pink}{\lambda_2}], \
+    [(x_b - x_{b_{\textsf{prev}}}), \textcolor{pink}{(x_q - x_4)}], \
+    [y_{b_{\textsf{prev}}}, \textcolor{pink}{-y_q}], \
+    (x_b - x_4)
+)}
+\\
+\end{aligned}
+$$
+
+The pink terms indicate that we are reusing previously computed values from composite y-coordinate. Using this $\lambda_1^{(1)}$, we can compute the coordinates of the resulting point $(R_0 + B) \equiv (x_3^{(1)}, y_3^{(1)})$:
+
+$$
+x_3^{(1)} = \lambda_1^{(1)} \cdot \lambda_1^{(1)} - x_4 - x_b
+$$
+
+$$
+y_3^{(1)} = \lambda_1^{(1)} \cdot (x_4 - x_3^{(1)}) - y_4
+$$
+
+Next, we compute the slope $\lambda_2^{(1)}$ for $R_1 = (R_0 + B) + R_0$:
+
+$$
+\begin{aligned}
+\lambda_2^{(1)} &= \frac{y_4 - y_3^{(1)}}{x_4 - x_3^{(1)}} \\
+&= \frac{y_4 - \lambda_1^{(1)} \cdot (x_4 - x_3^{(1)}) + y_4}{x_4 - x_3^{(1)}} \\
+&= \frac{2y_4}{x_4 - x_3^{(1)}} - \lambda_1^{(1)} \\
+&= 2 \cdot \left(-\frac{\lambda_2 \cdot (x_q - x_4) - y_q}{x_3^{(1)} - x_4}\right) - \lambda_1^{(1)}
+\\[10pt]
+&= \ \textcolor{skyblue}{\small
+2 \cdot \textsf{msub\_div}(
+    [\textcolor{pink}{\lambda_2}], \
+    [\textcolor{pink}{(x_q - x_4)}], \
+    [\textcolor{pink}{(-y_q)}], \
+    (x_3^{(1)} - x_4)
+) - \lambda_1^{(1)}}
+\end{aligned}
+$$
+
+Using this, we can compute the coordinates of the resulting point $(R_0 + B) + R_0 \equiv (x_4^{(1)}, y_4^{(1)})$:
+
+$$
+x_4^{(1)} = \lambda_2^{(1)} \cdot \lambda_2^{(1)} - x_3^{(1)} - x_4
+$$
+
+$$
+\begin{aligned}
+y_4^{(1)} &= \lambda_2^{(1)} \cdot (x_4 - x_4^{(1)}) - y_4 \\
+&= -(\lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + y_4)
+\end{aligned}
+$$
+
+And again, we do not explicitly compute $y_4^{(1)}$ here, but store it as a composite expression for use in the next iteration. Since we stored the previous $y_4$ as positive, we now store $y_4^{(1)}$ as negative, i.e., we store $(x_4^{(1)} - x_4)$ in right multiplicands.
+We can continue this process for the next point $C$ in the accumulator list to compute $R_2 = 2 \cdot R_1 + C$. First we compute the slope $\lambda_1^{(2)}$ for $(R_1 + C)$:
+
+$$
+\begin{aligned}
+\lambda_1^{(2)} &= \frac{y_c - y_4^{(1)}}{x_c - x_4^{(1)}} \\
+&= \frac{\lambda_c \cdot (x_{c_{\textsf{prev}}} - x_c) - y_{c_{\textsf{prev}}} - y_4^{(1)}}{x_c - x_4^{(1)}} \\
+&= \frac{\lambda_c \cdot (x_{c_{\textsf{prev}}} - x_c) - y_{c_{\textsf{prev}}} - \lambda_2^{(1)} \cdot (x_4 - x_4^{(1)}) + y_4}{x_c - x_4^{(1)}} \\
+&= \frac{\lambda_c \cdot (x_{c_{\textsf{prev}}} - x_c) - y_{c_{\textsf{prev}}} - \lambda_2^{(1)} \cdot (x_4 - x_4^{(1)}) + \lambda_2 \cdot (x_q - x_4) - y_q}{x_c - x_4^{(1)}} \\
+&= \frac{\lambda_c \cdot (x_{c_{\textsf{prev}}} - x_c) - y_{c_{\textsf{prev}}} + \lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q}{x_c - x_4^{(1)}} \\
+&= -\frac{\lambda_c \cdot (x_{c_{\textsf{prev}}} - x_c) - y_{c_{\textsf{prev}}} + \lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q}{x_4^{(1)} - x_c}
+\\[10pt]
+&= \ \textcolor{skyblue}{\small
+\textsf{msub\_div}(
+    [\lambda_c, \textcolor{pink}{\lambda_2^{(1)}}, \textcolor{pink}{\lambda_2}], \
+    [(x_{c_{\textsf{prev}}} - x_c), \textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
+    [-y_{c_{\textsf{prev}}} , \textcolor{pink}{-y_q}], \
+    (x_4^{(1)} - x_c)
+)}
+\end{aligned}
+$$
+
+Using this, we can compute the coordinates of the resulting point $(R_1 + C) = (x_3^{(2)}, y_3^{(2)})$
+
+$$
+x_3^{(2)} = \lambda_1^{(2)} \cdot \lambda_1^{(2)} - x_4^{(1)} - x_c
+$$
+
+$$
+y_3^{(2)} = \lambda_1^{(2)} \cdot (x_4^{(1)} - x_3^{(2)}) - y_4^{(1)}
+$$
+
+Next, we compute the slope $\lambda_2^{(2)}$ for $R_2 = (R_1 + C) + R_1$:
+
+$$
+\begin{aligned}
+\lambda_2^{(2)} &= \frac{y_4^{(1)} - y_3^{(2)}}{x_4^{(1)} - x_3^{(2)}} \\
+&= \frac{y_4^{(1)} - \lambda_1^{(2)} \cdot (x_4^{(1)} - x_3^{(2)}) + y_4^{(1)}}{x_4^{(1)} - x_3^{(2)}} \\
+&= \frac{2y_4^{(1)}}{x_4^{(1)} - x_3^{(2)}} - \lambda_1^{(2)} \\
+&= 2 \cdot \frac{\lambda_2^{(1)} \cdot (x_4 - x_4^{(1)}) - y_4}{x_4^{(1)} - x_3^{(2)}} - \lambda_1^{(2)} \\
+&= 2 \cdot \left(- \frac{\lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q}{x_4^{(1)} - x_3^{(2)}} \right) - \lambda_1^{(2)}
+\\[10pt]
+&= \ \textcolor{skyblue}{\small
+2 \cdot \textsf{msub\_div}(
+    [\textcolor{pink}{\lambda_2^{(1)}}, \textcolor{pink}{\lambda_2}], \
+    [\textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
+    [\textcolor{pink}{-y_q}], \
+    (x_4^{(1)} - x_3^{(2)})
+) - \lambda_1^{(2)}}
+\end{aligned}
+$$
+
+Clearly, we see a pattern of reusing previously computed values in the composite y-coordinates to minimize non-native field reductions. Finally, we compute the coordinates of the resulting point $(R_1 + C) + R_1 \equiv (x_4^{(2)}, y_4^{(2)})$:
+
+$$
+x_4^{(2)} = \lambda_2^{(2)} \cdot \lambda_2^{(2)} - x_3^{(2)} - x_4^{(1)}
+$$
+
+$$
+\begin{aligned}
+y_4^{(2)} &= \lambda_2^{(2)} \cdot (x_4^{(1)} - x_4^{(2)}) - y_4^{(1)} \\
+&= \lambda_2^{(2)} \cdot (x_4^{(2)} - x_4^{(1)}) + \lambda_2^{(1)} \cdot (x_4^{(1)} - x_4) + \lambda_2 \cdot (x_q - x_4) - y_q
+\\[5pt]
+&= \ \textcolor{skyblue}{\small
+\textsf{madd}(
+    [\textcolor{pink}{\lambda_2^{(2)}}, \textcolor{pink}{\lambda_2^{(1)}}, \textcolor{pink}{\lambda_2}], \
+    [\textcolor{pink}{(x_4^{(2)} - x_4^{(1)})}, \textcolor{pink}{(x_4^{(1)} - x_4)}, \textcolor{pink}{(x_q - x_4)}], \
+    [\textcolor{pink}{-y_q}]
+)}.
+\end{aligned}
+$$
+
+In total, we end up using only 4 non-native field reductions (each non-native field reduction implies one non-native field multiplication operation) for each accumulator, compared to 6 non-native field reductions if we had computed each addition and doubling separately with explicit y-coordinate calculations. This demonstrates the efficiency of the `multiple_montgomery_ladder` approach in minimizing expensive field operations while correctly computing the final result.
