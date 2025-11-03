@@ -195,6 +195,10 @@ function test_cmds {
   if [[ "${TARGET_BRANCH:-}" =~ ^v[0-9]+$ ]]; then
     echo "$hash yarn-project/scripts/run_test.sh aztec/src/testnet_compatibility.test.ts"
   fi
+
+  if [[ "${TARGET_BRANCH:-}" = "devnet" ]; then
+    echo "$hash yarn-project/scripts/run_test.sh aztec/src/devnet_compatibility.test.ts"
+  fi
 }
 
 function test {
