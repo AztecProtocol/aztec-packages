@@ -56,7 +56,7 @@ void create_multi_scalar_mul_constraint(Builder& builder,
     MsmInputs input = reconstruct_msm_inputs(builder, constraint_input, has_valid_witness_assignments);
 
     // Step 2: Compute result and connect it to the expected result reconstructed from inputs
-    auto result = cycle_group_ct::batch_mul(input.points, input.scalars).get_standard_form();
+    auto result = cycle_group_ct::batch_mul(input.points, input.scalars);
     cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(input.predicate, input.result, result);
     result.assert_equal(to_be_asserted_equal);
 }
