@@ -329,7 +329,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
                                                                                        const chain_add_accumulator& acc)
 {
     // use `chain_add_start` to start an addition chain (i.e. if acc has a y-coordinate)
-    if (acc.is_element) {
+    if (acc.is_full_element) {
         return chain_add_start(p1, element(acc.x3_prev, acc.y3_prev));
     }
     // validate we can use incomplete addition formulae
@@ -376,7 +376,7 @@ typename element<C, Fq, Fr, G>::chain_add_accumulator element<C, Fq, Fr, G>::cha
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accumulator& acc)
 {
-    if (acc.is_element) {
+    if (acc.is_full_element) {
         return element(acc.x3_prev, acc.y3_prev);
     }
     auto& x3 = acc.x3_prev;
@@ -465,7 +465,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& ot
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add)
 {
-    if (to_add.is_element) {
+    if (to_add.is_full_element) {
         throw_or_abort("An accumulator expected");
     }
     _x.assert_is_not_equal(to_add.x3_prev);
@@ -536,7 +536,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
 
     // Compute λ₁ for computing the first addition: (A + P)
     Fq lambda1;
-    if (!add[0].is_element) {
+    if (!add[0].is_full_element) {
         // Case 1: P is an accumulator (i.e., it lacks a y-coordinate)
         //         λ₁ = (y - y₁) / (x - x₁)
         //            = -(y₁ - y) / (x - x₁)
@@ -605,7 +605,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         std::vector<Fq> lambda1_right = previous_y.mul_right;
         std::vector<Fq> lambda1_add = previous_y.add;
 
-        if (!add[i].is_element) {
+        if (!add[i].is_full_element) {
             // Case 1: add[i] is an accumulator (lacks y-coordinate)
             //         λ₁ = (y - yᵢ) / (x - xᵢ)
             //            = -(yᵢ - y) / (x - xᵢ)

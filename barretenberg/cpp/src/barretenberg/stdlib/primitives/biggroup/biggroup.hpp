@@ -341,13 +341,13 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         Fq lambda_prev;
         Fq x3_prev;
         Fq y3_prev;
-        bool is_element = false;
+        bool is_full_element = false;
 
         chain_add_accumulator() = default;
         explicit chain_add_accumulator(const element& input)
             : x3_prev(input._x)
             , y3_prev(input._y)
-            , is_element(true)
+            , is_full_element(true)
         {}
         chain_add_accumulator(const chain_add_accumulator& other) = default;
         chain_add_accumulator(chain_add_accumulator&& other) noexcept = default;
