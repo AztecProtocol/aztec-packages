@@ -21,9 +21,8 @@ namespace bb::avm2::simulation {
 
 class HintingContractsDB final : public ContractDBInterface {
   public:
-    HintingContractsDB(ContractDBInterface& db, MappedContractHints& contract_hints)
+    HintingContractsDB(ContractDBInterface& db)
         : db(db)
-        , contract_hints(contract_hints)
     {}
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
@@ -34,16 +33,13 @@ class HintingContractsDB final : public ContractDBInterface {
 
   private:
     ContractDBInterface& db;
-    // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters
-    MappedContractHints& contract_hints;
+    mutable MappedContractHints contract_hints;
 };
 
 class HintingRawDB final : public LowLevelMerkleDBInterface {
   public:
-    HintingRawDB(LowLevelMerkleDBInterface& db, MappedMerkleHints& merkle_hints)
+    HintingRawDB(LowLevelMerkleDBInterface& db)
         : db(db)
-        , merkle_hints(
-              merkle_hints) // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters
     {}
 
     TreeSnapshots get_tree_roots() const override { return db.get_tree_roots(); }
@@ -75,9 +71,7 @@ class HintingRawDB final : public LowLevelMerkleDBInterface {
     LowLevelMerkleDBInterface& db;
     uint32_t checkpoint_action_counter = 0;
 
-    // Query hints.
-    // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters:
-    MappedMerkleHints& merkle_hints;
+    mutable MappedMerkleHints merkle_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;

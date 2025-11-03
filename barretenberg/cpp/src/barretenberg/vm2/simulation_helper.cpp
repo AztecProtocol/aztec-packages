@@ -489,12 +489,9 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_without_hinted_dbs(const E
     // Note: we currently only have hinted raw dbs, TODO eventually replace with raw db:
     HintedRawContractDB base_contract_db(hints);
     HintedRawMerkleDB base_merkle_db(hints);
-    // TODO(MW): Just here so we can use a ref to query hints and not remove const from getters:
-    MappedContractHints contract_hints;
-    MappedMerkleHints merkle_hints;
 
-    HintingContractsDB raw_contract_db(base_contract_db, contract_hints);
-    HintingRawDB raw_merkle_db(base_merkle_db, merkle_hints);
+    HintingContractsDB raw_contract_db(base_contract_db);
+    HintingRawDB raw_merkle_db(base_merkle_db);
     auto result =
         simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 

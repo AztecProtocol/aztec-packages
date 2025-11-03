@@ -86,16 +86,17 @@ std::optional<ContractClass> HintingContractsDB::get_contract_class(const Contra
 
 void HintingContractsDB::dump_hints(ExecutionHints& hints)
 {
-    // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& contract_instance : contract_hints.contract_instances) {
-        hints.contractInstances.push_back(contract_instance.second);
-    }
-    for (const auto& contract_class : contract_hints.contract_classes) {
-        hints.contractClasses.push_back(contract_class.second);
-    }
-    for (const auto& bytecode_commitment : contract_hints.bytecode_commitments) {
-        hints.bytecodeCommitments.push_back(bytecode_commitment.second);
-    }
+    std::ranges::transform(contract_hints.contract_instances,
+                           std::back_inserter(hints.contractInstances),
+                           [](const auto& mapped_contract_instance) { return mapped_contract_instance.second; });
+
+    std::ranges::transform(contract_hints.contract_classes,
+                           std::back_inserter(hints.contractClasses),
+                           [](const auto& mapped_contract_class) { return mapped_contract_class.second; });
+
+    std::ranges::transform(contract_hints.bytecode_commitments,
+                           std::back_inserter(hints.bytecodeCommitments),
+                           [](const auto& mapped_bytecode_commitment) { return mapped_bytecode_commitment.second; });
 }
 
 // Hinting MerkleDB starts.
@@ -128,21 +129,18 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
         .alreadyPresent = resp.is_already_present,
     };
 
-    // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
+    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, resp.index);
 
     if (tree_id == world_state::MerkleTreeId::NULLIFIER_TREE) {
-        // TODO(MW): We may need a GetLeafPreimageHint for the nullifier tree when calling nullifier_exists, so collect
-        // it
-        // in case.
-        // NB: The PureMerkleDB does not perform this, but the nullifier check gadget requires a leaf preimage. Ts
-        // gathers the hint: (state_manager -> checkNullifierExists() -> doMerkleOperations -> public_db_sources ->
+        // Note: We may need a GetLeafPreimageHint for the nullifier tree when calling nullifier_exists, so collect it
+        // in case. NB: The PureMerkleDB does not perform this, but the nullifier check gadget requires a leaf preimage.
+        // Ts gathers the hint: (state_manager -> checkNullifierExists() -> doMerkleOperations -> public_db_sources ->
         // checkNullifierExists())
         get_leaf_preimage_nullifier_tree(resp.index);
     } else if ((tree_id == world_state::MerkleTreeId::PUBLIC_DATA_TREE) && (!resp.is_already_present)) {
-        // TODO(MW): We may need a GetLeafPreimageHint for the public data tree when calling storage_read, so collect it
-        // in case.
-        // NB: The PureMerkleDB does not perform this if !is_already_present, but MerkleDB and ts perform it
+        // Note: We may need a GetLeafPreimageHint for the public data tree when calling storage_read, so collect it in
+        // case. NB: The PureMerkleDB does not perform this if !is_already_present, but MerkleDB and ts perform it
         // unconditionally. Ts gathers the hint: (public_db_sources -> storageRead())
         get_leaf_preimage_public_data_tree(resp.index);
     }
@@ -156,7 +154,7 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
     merkle_hints.get_leaf_value_hints[key] =
         GetLeafValueHint{ .hintKey = tree_info, .treeId = tree_id, .index = leaf_index, .value = value };
-    // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
+    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(tree_id, leaf_index);
     return value;
 }
@@ -170,7 +168,7 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
     merkle_hints.get_leaf_preimage_hints_public_data_tree[key] = GetLeafPreimageHint<PublicDataTreeLeafPreimage>{
         .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
     };
-    // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
+    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
     return preimage;
 }
@@ -183,7 +181,7 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
     merkle_hints.get_leaf_preimage_hints_nullifier_tree[key] = GetLeafPreimageHint<NullifierTreeLeafPreimage>{
         .hintKey = tree_info, .index = leaf_index, .leafPreimage = preimage
     };
-    // TODO(MW): We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
+    // Note: We may need a sibling path hint so must collect it in case - see comments in public_db_sources.ts
     get_sibling_path(world_state::MerkleTreeId::NULLIFIER_TREE, leaf_index);
     return preimage;
 }
@@ -335,40 +333,59 @@ AppendOnlyTreeSnapshot HintingRawDB::appendLeafInternal(AppendOnlyTreeSnapshot s
 
 void HintingRawDB::dump_hints(ExecutionHints& hints)
 {
-    // TODO(MW): better way than to iterate? do we want push_back?
-    for (const auto& get_sibling_path_hint : merkle_hints.get_sibling_path_hints) {
-        hints.getSiblingPathHints.push_back(get_sibling_path_hint.second);
-    }
-    for (const auto& get_previous_value_index_hint : merkle_hints.get_previous_value_index_hints) {
-        hints.getPreviousValueIndexHints.push_back(get_previous_value_index_hint.second);
-    }
-    for (const auto& get_leaf_preimage_hint : merkle_hints.get_leaf_preimage_hints_public_data_tree) {
-        hints.getLeafPreimageHintsPublicDataTree.push_back(get_leaf_preimage_hint.second);
-    }
-    for (const auto& get_leaf_preimage_hint : merkle_hints.get_leaf_preimage_hints_nullifier_tree) {
-        hints.getLeafPreimageHintsNullifierTree.push_back(get_leaf_preimage_hint.second);
-    }
-    for (const auto& get_leaf_value_hint : merkle_hints.get_leaf_value_hints) {
-        hints.getLeafValueHints.push_back(get_leaf_value_hint.second);
-    }
-    for (const auto& sequential_insert_hint : merkle_hints.sequential_insert_hints_public_data_tree) {
-        hints.sequentialInsertHintsPublicDataTree.push_back(sequential_insert_hint.second);
-    }
-    for (const auto& sequential_insert_hint : merkle_hints.sequential_insert_hints_nullifier_tree) {
-        hints.sequentialInsertHintsNullifierTree.push_back(sequential_insert_hint.second);
-    }
-    for (const auto& append_leaves_hint : merkle_hints.append_leaves_hints) {
-        hints.appendLeavesHints.push_back(append_leaves_hint.second);
-    }
-    for (const auto& create_checkpoint_hint : create_checkpoint_hints) {
-        hints.createCheckpointHints.push_back(create_checkpoint_hint.second);
-    }
-    for (const auto& commit_checkpoint_hint : commit_checkpoint_hints) {
-        hints.commitCheckpointHints.push_back(commit_checkpoint_hint.second);
-    }
-    for (const auto& revert_checkpoint_hint : revert_checkpoint_hints) {
-        hints.revertCheckpointHints.push_back(revert_checkpoint_hint.second);
-    }
+
+    std::ranges::transform(
+        merkle_hints.get_sibling_path_hints,
+        std::back_inserter(hints.getSiblingPathHints),
+        [](const auto& mapped_get_sibling_path_hint) { return mapped_get_sibling_path_hint.second; });
+
+    std::ranges::transform(
+        merkle_hints.get_previous_value_index_hints,
+        std::back_inserter(hints.getPreviousValueIndexHints),
+        [](const auto& mapped_get_previous_value_index_hint) { return mapped_get_previous_value_index_hint.second; });
+
+    std::ranges::transform(
+        merkle_hints.get_leaf_preimage_hints_public_data_tree,
+        std::back_inserter(hints.getLeafPreimageHintsPublicDataTree),
+        [](const auto& mapped_get_leaf_preimage_hint) { return mapped_get_leaf_preimage_hint.second; });
+
+    std::ranges::transform(
+        merkle_hints.get_leaf_preimage_hints_nullifier_tree,
+        std::back_inserter(hints.getLeafPreimageHintsNullifierTree),
+        [](const auto& mapped_get_leaf_preimage_hint) { return mapped_get_leaf_preimage_hint.second; });
+
+    std::ranges::transform(merkle_hints.get_leaf_value_hints,
+                           std::back_inserter(hints.getLeafValueHints),
+                           [](const auto& mapped_get_leaf_value_hint) { return mapped_get_leaf_value_hint.second; });
+
+    std::ranges::transform(
+        merkle_hints.sequential_insert_hints_public_data_tree,
+        std::back_inserter(hints.sequentialInsertHintsPublicDataTree),
+        [](const auto& mapped_sequential_insert_hint) { return mapped_sequential_insert_hint.second; });
+
+    std::ranges::transform(
+        merkle_hints.sequential_insert_hints_nullifier_tree,
+        std::back_inserter(hints.sequentialInsertHintsNullifierTree),
+        [](const auto& mapped_sequential_insert_hint) { return mapped_sequential_insert_hint.second; });
+
+    std::ranges::transform(merkle_hints.append_leaves_hints,
+                           std::back_inserter(hints.appendLeavesHints),
+                           [](const auto& mapped_append_leaves_hint) { return mapped_append_leaves_hint.second; });
+
+    std::ranges::transform(
+        create_checkpoint_hints,
+        std::back_inserter(hints.createCheckpointHints),
+        [](const auto& mapped_create_checkpoint_hint) { return mapped_create_checkpoint_hint.second; });
+
+    std::ranges::transform(
+        commit_checkpoint_hints,
+        std::back_inserter(hints.commitCheckpointHints),
+        [](const auto& mapped_commit_checkpoint_hint) { return mapped_commit_checkpoint_hint.second; });
+
+    std::ranges::transform(
+        revert_checkpoint_hints,
+        std::back_inserter(hints.revertCheckpointHints),
+        [](const auto& mapped_revert_checkpoint_hint) { return mapped_revert_checkpoint_hint.second; });
 }
 
 } // namespace bb::avm2::simulation
