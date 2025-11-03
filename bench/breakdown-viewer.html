@@ -213,6 +213,20 @@
     </div>
 
     <div id="message"></div>
+
+    <div id="searchContainer" style="display: none; margin: 20px 0; padding: 20px; background: #f8f9fa; border-radius: 6px;">
+      <label for="componentSearch" style="display: block; font-weight: 600; margin-bottom: 8px; color: #2c3e50;">Search Component:</label>
+      <input type="text" id="componentSearch" list="componentSuggestions" placeholder="Type to search components..."
+             style="width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 4px; font-size: 0.95rem;" />
+      <datalist id="componentSuggestions"></datalist>
+      <button id="searchBtn" style="margin-top: 10px; padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+        Find & Expand
+      </button>
+      <button id="clearSearchBtn" style="margin-top: 10px; margin-left: 10px; padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;">
+        Clear
+      </button>
+    </div>
+
     <div id="stats"></div>
     <div id="chartContainer"></div>
   </div>
@@ -575,6 +589,18 @@
         // Clear loading message
         messageDiv.innerHTML = '';
 
+        // Populate search autocomplete
+        const datalist = document.getElementById('componentSuggestions');
+        datalist.innerHTML = '';
+        Object.keys(benchmarkData).forEach(name => {
+          const option = document.createElement('option');
+          option.value = name;
+          datalist.appendChild(option);
+        });
+
+        // Show search container
+        document.getElementById('searchContainer').style.display = 'block';
+
         // Render initial chart (showing root level)
         renderChart();
 
@@ -591,14 +617,67 @@
       return urlParams.get(param);
     }
 
+    // Helper function to find parent chain for a component
+    function getParentChain(componentName) {
+      const chain = [];
+      let current = componentName;
+
+      while (current) {
+        const component = benchmarkData[current];
+        if (!component) break;
+
+        const valueArray = Array.isArray(component) ? component : [component];
+        const parent = valueArray[0]?.parent;
+
+        if (parent === '_root') break;
+        chain.unshift(parent);
+        current = parent;
+      }
+
+      return chain;
+    }
+
     // Event listeners
     document.getElementById('loadBtn').addEventListener('click', loadBreakdown);
+
+    // Search button handler
+    document.getElementById('searchBtn').addEventListener('click', () => {
+      const searchTerm = document.getElementById('componentSearch').value.trim();
+      if (!searchTerm || !benchmarkData[searchTerm]) {
+        alert('Component not found: ' + searchTerm);
+        return;
+      }
+
+      // Expand all parents
+      const parentChain = getParentChain(searchTerm);
+      parentChain.forEach(parent => expandedComponents.add(parent));
+
+      // Also expand the component itself to show its children
+      expandedComponents.add(searchTerm);
+
+      // Re-render to show the component
+      renderChart();
+    });
+
+    // Clear search button handler
+    document.getElementById('clearSearchBtn').addEventListener('click', () => {
+      document.getElementById('componentSearch').value = '';
+      expandedComponents.clear();
+      renderChart();
+    });
 
     // Allow Enter key to trigger load
     ['sha'].forEach(id => {
       document.getElementById(id).addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadBreakdown();
       });
+    });
+
+    // Allow Enter key to trigger search
+    document.getElementById('componentSearch').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        document.getElementById('searchBtn').click();
+      }
     });
 
     // Initialize from URL query parameters on page load
