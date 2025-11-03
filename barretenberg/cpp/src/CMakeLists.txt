@@ -110,20 +110,21 @@ add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/world_state)
 add_subdirectory(barretenberg/lmdblib)
 
-# NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
-if(NOT WASM)
-    add_subdirectory(barretenberg/vm2)
-    if(FUZZING)
-        add_subdirectory(barretenberg/avm_fuzzer)
-    endif()
-endif()
-
 if(NOT FUZZING AND NOT WASM)
+    # Fuzzing preset cannot be built with world_state as world_state cannot compile with MULTITHREADING=OFF
+    add_subdirectory(barretenberg/world_state)
+    # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
+    add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/nodejs_module)
+endif()
+
+if(FUZZING_AVM)
+    add_subdirectory(barretenberg/world_state)
+    add_subdirectory(barretenberg/vm2)
+    add_subdirectory(barretenberg/avm_fuzzer)
 endif()
 
 if(SMT)
