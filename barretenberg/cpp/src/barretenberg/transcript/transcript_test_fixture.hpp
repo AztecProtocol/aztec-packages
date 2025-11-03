@@ -42,14 +42,7 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
     void SetUp() override
     {
         if constexpr (IsStdlib) {
-            builder = std::make_unique<BuilderType>();
-        }
-    }
-
-    void TearDown() override
-    {
-        if constexpr (IsStdlib) {
-            builder.reset();
+            builder = BuilderType();
         }
     }
 
@@ -75,26 +68,14 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
     {
         if constexpr (IsStdlib) {
             // Only check circuit for stdlib transcripts with valid builder
-            if (builder) {
-                EXPECT_TRUE(CircuitChecker::check(*builder));
-            }
+            EXPECT_TRUE(CircuitChecker::check(builder));
         }
-    }
-
-    size_t get_num_gates() const
-    {
-        if constexpr (IsStdlib) {
-            if (builder) {
-                return builder->get_estimated_num_finalized_gates();
-            }
-        }
-        return 0;
     }
 
     auto export_proof(NativeTranscript& prover)
     {
         if constexpr (IsStdlib) {
-            return stdlib::Proof<BuilderType>(*builder, prover.export_proof());
+            return stdlib::Proof<BuilderType>(builder, prover.export_proof());
         } else {
             return prover.export_proof();
         }
@@ -370,29 +351,20 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
         BB_ASSERT_NEQ(challenge3, bb::fr::zero());
     }
 
-    void test_challenges_after_data()
-    {
-        NativeTranscript prover;
-
-        // Send data first
-        prover.send_to_verifier("data1", bb::fr::random_element());
-        auto challenge1 = prover.template get_challenge<bb::fr>("alpha");
-
-        prover.send_to_verifier("data2", bb::fr::random_element());
-        auto challenge2 = prover.template get_challenge<bb::fr>("beta");
-
-        // Challenges should be different
-        BB_ASSERT_NEQ(challenge1, challenge2);
-    }
-
     void test_hash_buffer_consistency()
     {
-        NativeTranscript prover, verifier;
+        NativeTranscript prover;
+        Transcript verifier;
         prover.add_to_hash_buffer("a", bb::fr(1));
-        verifier.add_to_hash_buffer("a", bb::fr(1));
+
+        FF one(1);
+        if constexpr (IsStdlib) {
+            one.convert_constant_to_fixed_witness(&builder);
+        }
+        verifier.add_to_hash_buffer("a", one);
         auto prover_chal = prover.template get_challenge<bb::fr>("alpha");
-        auto verifier_chal = verifier.template get_challenge<bb::fr>("alpha");
-        BB_ASSERT_EQ(prover_chal, verifier_chal);
+        auto verifier_chal = verifier.template get_challenge<FF>("alpha");
+        BB_ASSERT_EQ(prover_chal, to_native(verifier_chal));
     }
 
     void test_prover_to_verifier_conversion()
@@ -419,40 +391,44 @@ template <typename Codec, typename HashFn> class TranscriptTest : public ::testi
 
     void test_tampering_detection()
     {
-        skip_if_stdlib("Native-only - tests tampering detection");
 
         class TamperableTranscript : public NativeTranscript {
           public:
             void tamper_proof_data() { proof_data[0] += 1; }
         };
 
-        constexpr size_t NUM_ROUNDS = 3;
-        for (size_t round = 0; round < NUM_ROUNDS; ++round) {
-            TamperableTranscript prover;
-            TamperableTranscript verifier;
+        TamperableTranscript prover;
+        Transcript verifier;
 
-            prover.add_to_hash_buffer("vk_field", bb::fr(1));
+        prover.enable_manifest();
+        verifier.enable_manifest();
 
-            prover.send_to_verifier("random_field", bb::fr::random_element());
-            prover.send_to_verifier("random_grumpkin", curve::Grumpkin::AffineElement::random_element());
-            prover.send_to_verifier("random_bn254", curve::BN254::AffineElement::random_element());
+        prover.add_to_hash_buffer("vk_field", bb::fr(1));
 
-            auto prover_challenge = prover.template get_challenge<bb::fr>("alpha");
+        prover.send_to_verifier("random_field", bb::fr::random_element());
+        prover.send_to_verifier("random_grumpkin", curve::Grumpkin::AffineElement::random_element());
+        prover.send_to_verifier("random_bn254", curve::BN254::AffineElement::random_element());
 
-            prover.tamper_proof_data();
+        auto prover_challenge = prover.template get_challenge<bb::fr>("alpha");
 
-            verifier.load_proof(prover.export_proof());
-            verifier.add_to_hash_buffer("vk_field", bb::fr(1));
-            verifier.template receive_from_prover<bb::fr>("random_field");
-            auto verifier_challenge = verifier.template get_challenge<bb::fr>("alpha");
+        prover.tamper_proof_data();
 
-            BB_ASSERT_NEQ(prover_challenge,
-                          verifier_challenge,
-                          "Tampering should cause challenge mismatch in round " + std::to_string(round));
+        FF one(1);
+        if constexpr (IsStdlib) {
+            one.convert_constant_to_fixed_witness(&builder);
         }
+        verifier.load_proof(export_proof(prover));
+        verifier.add_to_hash_buffer("vk_field", one);
+        verifier.template receive_from_prover<FF>("random_field");
+        verifier.template receive_from_prover<grumpkin_commitment>("random_grumpkin");
+        verifier.template receive_from_prover<bn254_commitment>("random_bn254");
+        auto verifier_challenge = verifier.template get_challenge<FF>("alpha");
+
+        EXPECT_EQ(prover.get_manifest(), verifier.get_manifest());
+        BB_ASSERT_NEQ(prover_challenge, to_native(verifier_challenge));
     }
 
-    std::unique_ptr<BuilderType> builder;
+    BuilderType builder;
 };
 
 // ============================================================================

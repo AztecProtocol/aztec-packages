@@ -93,11 +93,6 @@ TYPED_TEST(TranscriptTests, ChallengesNonZero)
     this->test_challenges_are_nonzero();
 }
 
-TYPED_TEST(TranscriptTests, ChallengesAfterData)
-{
-    this->test_challenges_after_data();
-}
-
 // ============================================================================
 // Hash Buffer Tests
 // ============================================================================

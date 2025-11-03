@@ -45,7 +45,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
 
     // Detects whether the transcript is in-circuit or not
     static constexpr bool in_circuit = InCircuit<DataType>;
-    // A DataType challenge is split into two limbs that consitute challenge buffer
+    // A `DataType` challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
     // The unique index of the transcript
@@ -66,6 +66,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
         }
     }
 
+    // Verifier-specific constructor.
     BaseTranscript(const Proof& proof) { load_proof(proof); }
 
     std::ptrdiff_t proof_start = 0;
@@ -200,7 +201,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     };
 
     /**
-     * @brief
+     * @brief Verifier-specific method. The verifier needs to load a proof or its segment before the verification.
      *
      * @param proof
      */
@@ -311,7 +312,7 @@ template <typename Codec_, typename HashFunction> class BaseTranscript {
     }
 
     /**
-     * @brief Get a challenge and compute its powers [δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))].
+     * @brief Get a challenge and compute its dyadic powers [δ, δ², δ⁴, ..., δ^(2^(num_challenges-1))].
      * @details Generates num_challenges elements where each element is the square of the previous one.
      * This is Step 2 of the protocol as written in the Protogalaxy paper.
      * @param label Human-readable name for the challenge
