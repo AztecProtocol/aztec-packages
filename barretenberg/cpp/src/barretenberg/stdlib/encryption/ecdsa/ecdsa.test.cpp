@@ -371,8 +371,8 @@ TYPED_TEST(EcdsaTests, VerifySignature)
 
     size_t finalized_num_gates =
         TestFixture::test_verify_signature(/*random_signature=*/false, TestFixture::TamperingMode::None);
-    static constexpr size_t NUM_GATES_SECP256K1 = 41581;
-    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 70994 : 70992;
+    static constexpr size_t NUM_GATES_SECP256K1 = 41965;
+    static constexpr size_t NUM_GATES_SECP256R1 = IsMegaBuilder<typename Curve::Builder> ? 72014 : 72012;
     BB_ASSERT_EQ(finalized_num_gates,
                  Curve::type == bb::CurveType::SECP256K1 ? NUM_GATES_SECP256K1 : NUM_GATES_SECP256R1,
                  "There has been a change in the number of gates for ECDSA verification");

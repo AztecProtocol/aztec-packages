@@ -193,7 +193,7 @@ EOF
 #   - Use a volume on /var/lib/docker for docker-in-docker as overlayfs trashes performance (in fact it just breaks).
 #   - The volume has the devbox image preloaded within it in the ami_update.sh script.
 #   - Use a volume for the actual working directory in /home/aztec-dev/aztec-packages.
-#   - Copy the CRS into a 3G tmpfs and mount that into the container.
+#   - Mount the CRS directly from the host into the container.
 #   - Mount the hosts /tmp into the container.
 # We mount in aws credentials to leverage the s3 cache.
 # We enable the test cache, which uses a redis instance for tracking test runs.
@@ -228,11 +228,6 @@ function run {
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
-    echo Loading CRS into tmpfs...
-    sudo mkdir /mnt/bb-crs
-    sudo mount -t tmpfs -o size=3G tmpfs /mnt/bb-crs
-    sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
-    echo Done in \$SECONDS seconds.
 
     aws_token=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600')
 
@@ -273,7 +268,7 @@ function run {
         -v bootstrap_ci_repo:/home/aztec-dev/aztec-packages \
         -v \$HOME/.aws:/home/aztec-dev/.aws:ro \
         -v \$HOME/.ssh:/home/aztec-dev/.ssh:ro \
-        -v /mnt/bb-crs:/home/aztec-dev/.bb-crs \
+        -v \$HOME/.bb-crs:/home/aztec-dev/.bb-crs \
         -v /dev/kmsg:/dev/kmsg \
         -v /tmp:/tmp \
         -v ${GOOGLE_APPLICATION_CREDENTIALS}:${GOOGLE_APPLICATION_CREDENTIALS}:ro \

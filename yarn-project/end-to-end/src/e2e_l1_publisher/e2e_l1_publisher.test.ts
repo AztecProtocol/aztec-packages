@@ -25,7 +25,7 @@ import { range } from '@aztec/foundation/array';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
-import { SHA256Trunc, Secp256k1Signer, sha256ToField } from '@aztec/foundation/crypto';
+import { SHA256Trunc, Secp256k1Signer, flipSignature, sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -595,6 +595,52 @@ describe('L1Publisher integration', () => {
 
       await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, Signature.empty())).rejects.toThrow(
         /ValidatorSelection__InvalidCommitteeCommitment/,
+      );
+    });
+
+    it('rejects flipped proposer signature', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      await expect(
+        publisher.enqueueProposeL2Block(block, attestationsAndSigners, flipSignature(attestationsAndSignersSignature)),
+      ).rejects.toThrow(/ECDSAInvalidSignatureS/);
+    });
+
+    it('rejects signature with invalid recovery value', async () => {
+      const block = await buildSingleBlock();
+      const blockAttestations = validators.map(v => makeBlockAttestationFromBlock(block, v));
+      const attestations = orderAttestations(blockAttestations, committee!);
+
+      const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
+      expect(canPropose?.slot).toEqual(block.header.getSlot());
+      await publisher.validateBlockHeader(block.getCheckpointHeader());
+
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+        attestationsAndSigners,
+        validators.find(v => v.address.equals(proposer!))!,
+      );
+
+      logger.warn(`Original v value: ${attestationsAndSignersSignature.v}`);
+
+      // Move v-value from 27-28 to 0-1
+      const wrongV = attestationsAndSignersSignature.v - 27;
+      const wrongSig = new Signature(attestationsAndSignersSignature.r, attestationsAndSignersSignature.s, wrongV);
+
+      await expect(publisher.enqueueProposeL2Block(block, attestationsAndSigners, wrongSig)).rejects.toThrow(
+        /ECDSAInvalidSignature/,
       );
     });
 

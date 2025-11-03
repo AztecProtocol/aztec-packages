@@ -4,13 +4,24 @@ import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { TxHash } from '@aztec/stdlib/tx';
+import { L2BlockHash } from '@aztec/stdlib/block';
+import { TxHash } from '@aztec/stdlib/tx';
 
 interface PrivateEventEntry {
   msgContent: Buffer;
   blockNumber: number;
+  blockHash: Buffer;
   eventCommitmentIndex: number;
+  txHash: Buffer;
 }
+
+export type PrivateEvent = {
+  msgContent: Fr[];
+  blockNumber: number;
+  blockHash: L2BlockHash;
+  txHash: TxHash;
+  recipient: AztecAddress;
+};
 
 /**
  * Stores decrypted private event logs.
@@ -51,6 +62,7 @@ export class PrivateEventDataProvider {
     txHash: TxHash,
     eventCommitmentIndex: number,
     blockNumber: number,
+    blockHash: L2BlockHash,
   ): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
@@ -68,7 +80,9 @@ export class PrivateEventDataProvider {
       await this.#eventLogs.push({
         msgContent: serializeToBuffer(msgContent),
         blockNumber,
+        blockHash: blockHash.toBuffer(),
         eventCommitmentIndex,
+        txHash: txHash.toBuffer(),
       });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
@@ -94,8 +108,8 @@ export class PrivateEventDataProvider {
     numBlocks: number,
     recipients: AztecAddress[],
     eventSelector: EventSelector,
-  ): Promise<Fr[][]> {
-    const events: Array<{ msgContent: Fr[]; blockNumber: number; eventCommitmentIndex: number }> = [];
+  ): Promise<PrivateEvent[]> {
+    const events: Array<{ eventCommitmentIndex: number; event: PrivateEvent }> = [];
 
     for (const recipient of recipients) {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
@@ -111,18 +125,24 @@ export class PrivateEventDataProvider {
         const reader = BufferReader.asReader(entry.msgContent);
         const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
         const msgContent = reader.readArray(numFields, Fr);
+        const txHash = TxHash.fromBuffer(entry.txHash);
+        const blockHash = L2BlockHash.fromBuffer(entry.blockHash);
 
         events.push({
-          msgContent,
-          blockNumber: entry.blockNumber,
           eventCommitmentIndex: entry.eventCommitmentIndex,
+          event: {
+            msgContent,
+            blockNumber: entry.blockNumber,
+            recipient,
+            txHash,
+            blockHash,
+          },
         });
       }
     }
 
     // Sort by eventCommitmentIndex only
     events.sort((a, b) => a.eventCommitmentIndex - b.eventCommitmentIndex);
-
-    return events.map(e => e.msgContent);
+    return events.map(ev => ev.event);
   }
 }

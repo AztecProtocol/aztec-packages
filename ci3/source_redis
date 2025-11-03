@@ -71,4 +71,14 @@ function redis_getz {
   fi
 }
 
-export -f redis_cli redis_setexz redis_getz
+# Publish a message to a Redis channel for pub/sub.
+# Usage: redis_publish <channel> <message>
+function redis_publish {
+  local channel=$1
+  local message=$2
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    redis_cli PUBLISH "$channel" "$message" &>/dev/null
+  fi
+}
+
+export -f redis_cli redis_setexz redis_getz redis_publish

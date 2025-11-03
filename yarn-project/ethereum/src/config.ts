@@ -156,6 +156,21 @@ const StagingIgnitionGovernanceConfiguration = {
   minimumVotes: 1250n * 200_000n * 10n ** 18n,
 };
 
+const MainnetGovernanceConfiguration = {
+  proposeConfig: {
+    lockDelay: 90n * 24n * 60n * 60n,
+    lockAmount: 258_750_000n * 10n ** 18n,
+  },
+
+  votingDelay: 3n * 24n * 60n * 60n,
+  votingDuration: 7n * 24n * 60n * 60n,
+  executionDelay: 7n * 24n * 60n * 60n,
+  gracePeriod: 7n * 24n * 60n * 60n,
+  quorum: 2n * 10n ** 17n, // 20%
+  requiredYeaMargin: 33n * 10n ** 16n, // 33%
+  minimumVotes: 1000n * 200_000n * 10n ** 18n,
+};
+
 export const getGovernanceConfiguration = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
@@ -170,6 +185,8 @@ export const getGovernanceConfiguration = (networkName: NetworkNames) => {
       return TestnetGovernanceConfiguration;
     case 'staging-ignition':
       return StagingIgnitionGovernanceConfiguration;
+    case 'mainnet':
+      return MainnetGovernanceConfiguration;
     default:
       throw new Error(`Unrecognized network name: ${networkName}`);
   }
@@ -186,6 +203,13 @@ const DefaultRewardConfig = {
   blockReward: 500n * 10n ** 18n,
 };
 
+const MainnetRewardConfig = {
+  sequencerBps: 7_000,
+  rewardDistributor: EthAddress.ZERO.toString(),
+  booster: EthAddress.ZERO.toString(),
+  blockReward: 400n * 10n ** 18n,
+};
+
 export const getRewardConfig = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
@@ -195,6 +219,8 @@ export const getRewardConfig = (networkName: NetworkNames) => {
     case 'testnet':
     case 'staging-ignition':
       return DefaultRewardConfig;
+    case 'mainnet':
+      return MainnetRewardConfig;
     default:
       throw new Error(`Unrecognized network name: ${networkName}`);
   }
@@ -204,11 +230,11 @@ export const getRewardBoostConfig = () => {
   // The reward configuration is specified with a precision of 1e5, and we use the same across
   // all networks.
   return {
-    increment: 125000, // 1.25
-    maxScore: 15000000, // 150
-    a: 1000, // 0.01
-    k: 1000000, // 10
-    minimum: 100000, // 1
+    increment: 125_000, // 1.25
+    maxScore: 15_000_000, // 150
+    a: 1_000, // 0.01
+    k: 1_000_000, // 10
+    minimum: 100_000, // 1
   };
 };
 
@@ -245,6 +271,14 @@ const StagingIgnitionEntryQueueConfig = {
   maxQueueFlushSize: 24n,
 };
 
+const MainnetEntryQueueConfig = {
+  bootstrapValidatorSetSize: 1_000n,
+  bootstrapFlushSize: 1_000n,
+  normalFlushSizeMin: 1n,
+  normalFlushSizeQuotient: 2_048n,
+  maxQueueFlushSize: 8n,
+};
+
 export const getEntryQueueConfig = (networkName: NetworkNames) => {
   switch (networkName) {
     case 'local':
@@ -259,6 +293,8 @@ export const getEntryQueueConfig = (networkName: NetworkNames) => {
       return TestnetEntryQueueConfig;
     case 'staging-ignition':
       return StagingIgnitionEntryQueueConfig;
+    case 'mainnet':
+      return MainnetEntryQueueConfig;
     default:
       throw new Error(`Unrecognized network name: ${networkName}`);
   }
