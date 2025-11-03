@@ -243,7 +243,8 @@ bb-sol: bb-cpp-native
 # Barretenberg Tests
 #==============================================================================
 
-bb-cpp-tests: bb-cpp-native
+# TODO: Each group of tests could be triggered as build completes, rather than need to wait for all.
+bb-cpp-tests: bb-cpp-native bb-cpp-smt bb-cpp-asan bb-cpp-smt
 	$(call test,$@,barretenberg/cpp)
 
 bb-acir-tests: bb-acir
