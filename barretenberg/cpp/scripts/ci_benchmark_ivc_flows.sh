@@ -134,6 +134,31 @@ if [[ "${CI:-}" == "1" ]] && [[ "${CI_ENABLE_DISK_LOGS:-0}" == "1" ]]; then
       fi
     } &
 
+    # Also commit to gh-pages for public access via GitHub raw URLs
+    {
+      gh auth setup-git &>/dev/null || true
+
+      # Clone gh-pages (shallow)
+      git clone --depth 1 --branch gh-pages "$(git config --get remote.origin.url)" /tmp/gh-pages-$$
+
+      # Create directory structure: bench/barretenberg-breakdowns/<flow>/<runtime>-<sha>.json
+      mkdir -p "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}"
+      cp "$benchmark_breakdown_file" "/tmp/gh-pages-$$/bench/barretenberg-breakdowns/${flow_name}/${runtime}-${current_sha:0:7}.json"
+
+      cd "/tmp/gh-pages-$$"
+      git config user.name "Aztec Bot"
+      git config user.email "bot@aztec.network"
+      git add "bench/barretenberg-breakdowns/"
+
+      if ! git diff --staged --quiet; then
+        git commit -m "Add ${runtime} benchmark breakdown for ${flow_name} at ${current_sha:0:7}"
+        git push || echo "Failed to push to gh-pages (may be race condition)"
+      fi
+
+      cd - > /dev/null
+      rm -rf "/tmp/gh-pages-$$"
+    } &
+
     echo "Uploaded benchmark breakdown: http://ci.aztec-labs.com/$cache_key"
   else
     echo "Warning: benchmark breakdown file not found at $benchmark_breakdown_file"
