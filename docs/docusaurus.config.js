@@ -75,7 +75,7 @@ const config = {
               ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
             [versions[1]]: {
-              label: "Devnet (v3.0.0-devnet.2)",
+              label: "Devnet (v3.0.0-devnet.4)",
               path: "devnet",
             },
             "v2.0.4": {

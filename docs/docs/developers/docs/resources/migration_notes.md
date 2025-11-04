@@ -170,7 +170,7 @@ fn withdraw(amount: u128, recipient: AztecAddress) {
 }
 ```
 
-## 3.0.0-devnet.2
+## 3.0.0-devnet.4
 
 ## [aztec.js] Removal of barrel export
 

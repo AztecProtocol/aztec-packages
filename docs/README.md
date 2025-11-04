@@ -112,6 +112,7 @@ Browser Request to localhost:8888
 ```
 
 **When to use each:**
+
 - `yarn start` → Fast docs development (requires dev server restart for changes)
 - `yarn dev:netlify` → Testing email subscriptions, functions, full production-like environment
 
@@ -220,7 +221,7 @@ This value may be different from the `#include_aztec_version` macro, since the t
 
 ### `#include_devnet_version`
 
-This macro will be replaced inline with the provided devnet version. This value is sourced from the `DEVNET_TAG` environment variable when running `yarn build` (e.g. `DEVNET_TAG=3.0.0-devnet.2 yarn build`). If not specified, it defaults to `3.0.0-devnet.2`.
+This macro will be replaced inline with the provided devnet version. This value is sourced from the `DEVNET_TAG` environment variable when running `yarn build` (e.g. `DEVNET_TAG=3.0.0-devnet.4 yarn build`). If not specified, it defaults to `3.0.0-devnet.4`.
 This value may be different from both `#include_aztec_version` and `#include_testnet_version` macros, since the devnet version represents a separate development network release.
 
 ## Viewing (outdated) protocol specs
@@ -264,6 +265,7 @@ When documentation references source code files, the CI system can automatically
 **How it works:**
 
 1. **Mark Referenced Files**: Add a `references` field to your documentation frontmatter with paths to source files (from repository root):
+
    ```yaml
    ---
    title: Node JSON RPC API reference
@@ -272,6 +274,7 @@ When documentation references source code files, the CI system can automatically
    ```
 
 2. **Automatic Detection**: During CI builds (`bootstrap.sh`), the system:
+
    - Extracts all referenced files from documentation frontmatter
    - Checks if any referenced files changed in the current PR
    - Automatically requests `@AztecProtocol/devrel` as reviewers if:
