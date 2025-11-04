@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/stdlib/primitives/bool/bool.hpp"
 
 #include <cstddef>
@@ -26,7 +27,7 @@ template <typename FF> struct GateSeparatorPolynomial {
      * identified with the integers \f$\ell = 0,\ldots, 2^d-1\f$
      *
      */
-    std::vector<FF> beta_products;
+    Polynomial<FF> beta_products;
     /**
      * @brief In Round \f$ i\f$ of Sumcheck, it points to the \f$ i \f$-th element in \f$ \vec \beta \f$
      *
@@ -76,8 +77,10 @@ template <typename FF> struct GateSeparatorPolynomial {
     GateSeparatorPolynomial(const std::vector<FF>& betas, const std::vector<FF>& challenge)
         : betas(betas)
     {
-        for (const auto& u_k : challenge) {
-            partially_evaluate(u_k);
+        if (!betas.empty()) {
+            for (const auto& u_k : challenge) {
+                partially_evaluate(u_k);
+            }
         }
     }
 
@@ -87,13 +90,19 @@ template <typename FF> struct GateSeparatorPolynomial {
      * @param idx
      * @return FF const&
      */
-    FF const& operator[](size_t idx) const { return beta_products[idx]; }
+    FF const& operator[](size_t idx) const { return beta_products.at(idx); }
     /**
      * @brief Computes the component  at index #current_element_idx in #betas.
      *
      * @return FF
      */
-    FF current_element() const { return betas[current_element_idx]; }
+    FF current_element() const
+    {
+        if (betas.empty()) {
+            return FF(1);
+        };
+        return betas[current_element_idx];
+    }
 
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
@@ -108,10 +117,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(FF challenge)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        partial_evaluation_result *= current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            partial_evaluation_result *= current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
@@ -124,12 +135,14 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     void partially_evaluate(const FF& challenge, const FF& indicator)
     {
-        FF current_univariate_eval = univariate_eval(challenge);
-        // If dummy round, make no update to the partial_evaluation_result
-        partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
-                                    indicator * partial_evaluation_result * current_univariate_eval;
-        current_element_idx++;
-        periodicity *= 2;
+        if (!betas.empty()) {
+            FF current_univariate_eval = univariate_eval(challenge);
+            // If dummy round, make no update to the partial_evaluation_result
+            partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
+                                        indicator * partial_evaluation_result * current_univariate_eval;
+            current_element_idx++;
+            periodicity *= 2;
+        }
     }
 
     /**
@@ -140,12 +153,18 @@ template <typename FF> struct GateSeparatorPolynomial {
      * when we generate CONST_SIZE_PROOF_LOG_N, currently 28, challenges but the real circuit size is less than 1 <<
      * CONST_SIZE_PROOF_LOG_N, we should compute unnecessarily a vector of beta_products of length 1 << 28 )
      */
-    BB_PROFILE static std::vector<FF> compute_beta_products(const std::vector<FF>& betas,
-                                                            const size_t log_num_monomials)
+    BB_PROFILE static Polynomial<FF> compute_beta_products(const std::vector<FF>& betas,
+                                                           const size_t log_num_monomials,
+                                                           const FF& scaling_factor = FF(1))
     {
+        if (betas.empty()) {
+            Polynomial<FF> out(1);
+            return out;
+        }
 
+        BB_BENCH_NAME("GateSeparatorPolynomial::compute_beta_products");
         size_t pow_size = 1 << log_num_monomials;
-        std::vector<FF> beta_products(pow_size);
+        Polynomial<FF> beta_products(pow_size, Polynomial<FF>::DontZeroMemory::FLAG);
 
         // Determine number of threads for multithreading.
         // Note: Multithreading is "on" for every round but we reduce the number of threads from the max available based
@@ -157,94 +176,140 @@ template <typename FF> struct GateSeparatorPolynomial {
         size_t num_threads = std::min(desired_num_threads, max_num_threads); // fewer than max if justified
         num_threads = num_threads > 0 ? num_threads : 1;                     // ensure num threads is >= 1
         size_t iterations_per_thread = pow_size / num_threads;               // actual iterations per thread
+        const size_t num_betas_per_thread = numeric::get_msb(iterations_per_thread);
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/864): This computation is asymtotically slow as it
-        // does pow_size * log(pow_size) work. However, in practice, its super efficient because its trivially
-        // parallelizable and only takes 45ms for the whole 6 iter IVC benchmark. Its also very readable, so we're
-        // leaving it unoptimized for now.
+        // Explanations of the algorithm:
+        // The product of the betas at index i (beta_products[i]) contains the multiplicative factor betas[j] if and
+        // only if the jth bit of i is 1 (j starting with 0 for the least significant bit). For instance, i = 13 = 1101
+        // in binary, so the product is betas[0] * betas[2] * betas[3]. Observe that if we toggle the kth bit of i (0 to
+        // 1), i.e., we add 2^k to i, then the product is multiplied by betas[k]: beta_products[i + 2^k] =
+        // beta_products[i] * betas[k]. If we know the products for the interval of indices [0, 2^k), we can compute all
+        // the products for the interval of indices [2^k, 2^(k+1)) by multiplying each element by betas[k]. Iteratively,
+        // starting with beta_products[0] = 1, we can double the number of computed products at each iteration by
+        // multiplying the previous products by betas[k]. We first multiply beta_products[0] = 1 by betas[0], then we
+        // multiply beta_products[0] and beta_products[1] by betas[1], etc...
+        //
+        // We distribute the computation of the beta_products evenly across threads, i.e., thread number
+        // thread_idx will handle the interval of indices [thread_idx * iterations_per_thread, (thread_idx + 1) *
+        // iterations_per_thread). Note that for a given thread, all the processed indices have the same
+        // prefix in binary. Therefore, each beta_product of the thread is a multiple of this "prefix product". The
+        // successive products are then populated by the above algorithm whereby we double the interval at each
+        // iteration and multiply by the new beta to process the suffix bits. The difference is that we initialize the
+        // first product with this "prefix product" instead of 1.
+
+        // Compute the prefix products for each thread
+        std::vector<FF> thread_prefix_beta_products(num_threads);
+        thread_prefix_beta_products.at(0) = scaling_factor;
+
+        // Same algorithm applies for the prefix products. The difference is that we start at a beta which is not the
+        // first one (index 0), but the one at index num_betas_per_thread. We process the high bits only.
+        // Example: If num_betas_per_thread = 3, we compute after the first iteration:
+        //          (1, beta_3)
+        // 2nd iteration: (1, beta_3, beta_4, beta_3 * beta_4)
+        // 3nd iteration: (1, beta_3, beta_4, beta_3 * beta_4, beta_5, beta_3 * beta_5, beta_4 * beta_5, beta_3 * beta_4
+        // * beta_5)
+        // etc ....
+        for (size_t beta_idx = num_betas_per_thread, window_size = 1; beta_idx < log_num_monomials;
+             beta_idx++, window_size <<= 1) {
+            const auto& beta = betas.at(beta_idx);
+            for (size_t j = 0; j < window_size; j++) {
+                thread_prefix_beta_products.at(window_size + j) = beta * thread_prefix_beta_products.at(j);
+            }
+        }
+
         parallel_for(num_threads, [&](size_t thread_idx) {
             size_t start = thread_idx * iterations_per_thread;
-            size_t end = (thread_idx + 1) * iterations_per_thread;
-            for (size_t i = start; i < end; i++) {
-                auto res = FF(1);
-                for (size_t j = i, beta_idx = 0; j > 0; j >>= 1, beta_idx++) {
-                    if ((j & 1) == 1) {
-                        res *= betas[beta_idx];
-                    }
+            beta_products.at(start) = thread_prefix_beta_products.at(thread_idx);
+
+            // Compute the suffix products for each thread
+            // Example: Assume we start with the prefix product = beta_3 * beta_5
+            // After the first iteration, we get: (beta_3 * beta_5, beta_0 * beta_3 * beta_5)
+            // 2nd iteration: (beta_3 * beta_5, beta_0 * beta_3 * beta_5, beta_1 * beta_3 * beta_5, beta_0 * beta_1 *
+            // beta_3 * beta_5)
+            // etc ...
+            for (size_t beta_idx = 0, window_size = 1; beta_idx < num_betas_per_thread; beta_idx++, window_size <<= 1) {
+                const auto& beta = betas.at(beta_idx);
+                for (size_t j = 0; j < window_size; j++) {
+                    beta_products.at(start + window_size + j) = beta * beta_products.at(start + j);
                 }
-                beta_products[i] = res;
             }
         });
 
         return beta_products;
     }
 };
-/**<
+/**
  * @struct GateSeparatorPolynomial
- * @brief Implementation of the methods for the \f$pow_{\ell}\f$-polynomials used in Protogalaxy and
-\f$pow_{\beta}\f$-polynomials used in Sumcheck.
+ * @brief Implementation of the methods for the \f$pow_{\beta}\f$-polynomials used in  in Sumcheck.
  *
  * @details
- * ## GateSeparatorPolynomial in Protogalaxy
  *
- * \todo Expand this while completing PG docs.
- *
- * For \f$0\leq \ell \leq 2^d-1 \f$, the \f$pow_{\ell} \f$-polynomials used in Protogalaxy is a multilinear polynomial
-defined by the formula
+ * For \f$0\leq \ell \leq 2^d-1 \f$, the \f$pow_{\ell} \f$-polynomials are multilinear polynomials
+ * defined by
  * \f{align} pow_{\ell}(X_0,\ldots, X_{d-1})
-          =    \prod_{k=0}^{d-1} ( ( 1-\ell_k ) + \ell_k \cdot X_k )
-          =      \prod_{k=0}^{d-1} X_{k}^{ \ell_k }
-     \f}
- *where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
+ *         =    \prod_{k=0}^{d-1} ( ( 1-\ell_k ) + \ell_k \cdot X_k )
+ *         =      \prod_{k=0}^{d-1} X_{k}^{ \ell_k }
+ *    \f}
+ * where \f$(\ell_0,\ldots, \ell_{d-1})\f$ is the binary representation of \f$\ell \f$.
  *
+ * ## Special Case: Empty Betas (No Gate Separation)
  *
-  ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
+ * When `betas` is empty, the GateSeparatorPolynomial represents the constant polynomial equal to 1, meaning no gate
+ * separation is applied. This is useful for flavors where all subrelations are linearly **dependent** (not linearly
+ * independent), meaning they do not need to be scaled by the \f$ pow_{\beta} \f$-polynomial.
+ *
+ * **Behavior when `betas` is empty:**
+ * - #beta_products is a size-1 polynomial containing only \f$ [0] \f$
+ * - #periodicity is unused
+ * - #current_element() returns \f$ 1 \f$
+ * - #partially_evaluate() becomes a no-op (no updates to #partial_evaluation_result)
+ * - #partial_evaluation_result remains \f$ 1 \f$ throughout
+ *
+ * This optimization avoids unnecessary multiplications by 1 in MultilinearBatchingFlavor, where
+ * gate separation is not needed.
+ *
+ * ## Pow-contributions to Round Univariates in Sumcheck {#PowContributions}
  * For a fixed \f$ \vec \beta \in \mathbb{F}^d\f$, the map \f$ \ell \mapsto pow_{\ell} (\vec \beta)\f$ defines a
- polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k)
- \f}
-such that \f$ pow_{\beta} (\vec \ell) = pow_{\ell} (\vec \beta) \f$ for any \f$0\leq \ell \leq 2^d-1 \f$ and any vector
-\f$(\beta_0,\ldots, \beta_{d-1})  \in \mathbb{F} ^d\f$.
-
+ * polynomial \f{align}{ pow_{\beta} (X_0,\ldots, X_{d-1}) = \prod_{k=0}^{d-1} (1- X_k + X_k \cdot \beta_k) \f} such
+ *that
+ *\f$ pow_{\beta} (\vec \ell) = pow_{\ell} (\vec \beta) \f$ for any \f$0\leq \ell \leq 2^d-1 \f$ and any vector
+ *\f$(\beta_0,\ldots, \beta_{d-1})  \in \mathbb{F} ^d\f$.
+ *
  * Let \f$ i \f$ be the current Sumcheck round, \f$ i \in \{0, …, d-1\}\f$ and \f$ u_{0}, ..., u_{i-1} \f$ be the
-challenges generated in Rounds \f$ 0 \f$ to \f$ i-1\f$.
+ * challenges generated in Rounds \f$ 0 \f$ to \f$ i-1\f$.
  *
- * In Round \f$ i \f$, we iterate over the points \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in
-\{0,1\}^{d-1-i}\f$.
-Define a univariate polynomial \f$pow_{\beta}^i(X_i, \vec \ell) \f$  as follows
+ * In Round \f$ i \f$, we iterate over the points \f$ (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1-i}\f$. Define a
+ * univariate polynomial \f$pow_{\beta}^i(X_i, \vec \ell) \f$  as follows
  *   \f{align}{  pow_{\beta}^i(X_i, \vec \ell) =   pow_{\beta} ( u_{0}, ..., u_{i-1}, X_i, \ell_{i+1}, \ldots,
-\ell_{d-1})            = c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot
-\beta_{d-1}^{\ell_{d-1}}, \f} where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$. It will be used below
-to simplify the computation of Sumcheck round univariates.
-
- ### Computing Sumcheck Round Univariates
- * We identify \f$ \vec \ell = (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1 - i}\f$ with the binary representation
-of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
+ * \ell_{d-1})            = c_i \cdot ( (1−X_i) + X_i \cdot \beta_i ) \cdot \beta_{i+1}^{\ell_{i+1}}\cdot \cdots \cdot
+ * \beta_{d-1}^{\ell_{d-1}}, \f} where \f$ c_i = \prod_{k=0}^{i-1} (1- u_k + u_k \cdot \beta_k) \f$. It will be used
+ * below to simplify the computation of Sumcheck round univariates.
  *
- * Set
-  \f{align}{S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ), \f}
+ * ### Computing Sumcheck Round Univariates
+ * We identify \f$ \vec \ell = (\ell_{i+1}, \ldots, \ell_{d-1}) \in \{0,1\}^{d-1 - i}\f$ with the binary representation
+ * of the integer \f$ \ell \in \{0,\ldots, 2^{d-1-i}-1 \}\f$.
+ *
+ * Set \f{align}{S^i_{\ell}( X_i ) = F( u_{0}, ..., u_{i-1}, X_{i},  \vec \ell ), \f}
  * i.e. \f$ S^{i}_{\ell}( X_i ) \f$  is the univariate of the full relation \f$ F \f$ defined by its partial evaluation
-at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
+ * at \f$(u_0,\ldots,u_{i-1},  \ell_{i+1},\ldots, \ell_{d-1}) \f$
  * which  is an alpha-linear-combination of the subrelations evaluated at this point.
  *
  * In Round \f$i\f$, the prover
  * \ref bb::SumcheckProverRound< Flavor >::compute_univariate "computes the univariate polynomial" for the relation
-defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\f$, namely
+ * defined by \f$ \tilde{F} (X_0,\ldots, X_{d-1}) = pow_{\beta}(X_0,\ldots, X_{d-1}) \cdot F\f$, namely
  * \f{align}{
-    \tilde{S}^{i}(X_i) = \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} )
-S^i_{\ell}( X_i )
+ *    \tilde{S}^{i}(X_i) = \sum_{ \ell = 0} ^{2^{d-i-1}-1}  pow^i_\beta ( X_i, \ell_{i+1}, \ldots, \ell_{d-1} )
+ * S^i_{\ell}( X_i )
  *        =  c_i \cdot ( (1−X_i) + X_i\cdot \beta_i )  \cdot \sum_{ \ell = 0} ^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}}
-\cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i ) \f}
+ * \cdot \ldots \cdot \beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i ) \f}
  *
- * Define
- \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
-\beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$.
- ### Features of GateSeparatorPolynomial used by Sumcheck Prover
- - The factor \f$ c_i \f$ is the #partial_evaluation_result, it is updated by \ref partially_evaluate.
- - The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$ are recorded in #betas.
- - The consecutive evaluations \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$ identified
-with the integers \f$\ell = 0,\ldots, 2^d-1\f$ represented in binary are pre-computed by \ref compute_values and stored
-in #beta_products.
+ * Define \f{align} T^{i}( X_i ) =  \sum_{\ell = 0}^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
+ * \beta_{d-1}^{\ell_{d-1}} \cdot S^{i}_{\ell}( X_i ) \f} then \f$ \deg_{X_i} (T^i) \leq \deg_{X_i} S^i \f$.
+ * ### Features of GateSeparatorPolynomial used by Sumcheck Prover
+ * - The factor \f$ c_i \f$ is the #partial_evaluation_result, it is updated by \ref partially_evaluate.
+ * - The challenges \f$(\beta_0,\ldots, \beta_{d-1}) \f$ are recorded in #betas.
+ * - The coefficients \f$ pow_{\ell}(\vec \beta) = pow_{\beta}(\vec \ell) \f$ for \f$\vec \ell\f$ identified
+ * with the integers \f$\ell = 0,\ldots, 2^d-1\f$ are pre-computed by \ref compute_betas.
  *
  */
-
 } // namespace bb

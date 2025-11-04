@@ -10,7 +10,7 @@ pub trait IndexedTreeLeafPreimage<Value>: Empty + LeafPreimage {
 
     fn points_to_infinity(self) -> bool;
 
-    fn update_pointers(self, next_key: Field, next_index: u32) -> Self;
+    fn update_pointers(self, next_key: Field, next_index: Field) -> Self;
 
     fn update_value(self, value: Value) -> Self;
 

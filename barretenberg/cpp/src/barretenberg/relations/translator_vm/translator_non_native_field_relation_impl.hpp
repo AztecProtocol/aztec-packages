@@ -63,7 +63,9 @@ namespace bb {
  * which we need to calculate non-permutation relations). All other indices are set to zero. Each EccOpQueue entry
  * (operation) occupies 2 rows in bn254 transcripts. So the Translator VM has a 2-row cycle and we need to
  * switch the checks being performed depending on which row we are at right now. We have half a cycle of
- * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data.
+ * accumulation, where we perform this computation, and half a cycle where we just copy accumulator data. They also get
+ * multiplied by the op because the no-op range within the trace (if one exits) should imply the accumulator doesn't
+ * change (fully enforced by the AccumulatorTransferRelation and OpcodeRelation )
  *
  * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
  * @param in an std::array containing the fully extended Univariate edges.
@@ -183,7 +185,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on low 136-bit limb
     tmp -= relation_wide_limbs * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<0>(accumulators) += tmp;
 
@@ -236,7 +238,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
     // clang-format on
     // subtract large value; vanishing shows the desired relation holds on high 136-bit limb
     tmp -= relation_wide_limbs_shift * shiftx2;
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<1>(accumulators) += tmp;
 
@@ -278,7 +280,7 @@ void TranslatorNonNativeFieldRelationImpl<FF>::accumulate(ContainerOverSubrelati
                      + reconstructed_quotient * NEGATIVE_MODULUS_LIMBS[4]
                      - reconstructed_current_accumulator;
     // clang-format on
-    tmp *= lagrange_even_in_minicircuit;
+    tmp *= lagrange_even_in_minicircuit * op;
     tmp *= scaling_factor;
     std::get<2>(accumulators) += tmp;
 };

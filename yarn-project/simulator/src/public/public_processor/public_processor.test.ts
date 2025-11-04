@@ -13,6 +13,7 @@ import { type MerkleTreeWriteOperations, PublicDataTreeLeaf, PublicDataTreeLeafP
 import { GlobalVariables, StateReference, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { strict as assert } from 'assert';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { PublicContractsDB } from '../public_db_sources.js';
@@ -59,6 +60,7 @@ describe('public_processor', () => {
       },
       revertCode: RevertCode.OK,
       processedPhases: [],
+      logs: [],
     };
 
     merkleTree.getPreviousValueIndex.mockResolvedValue({
@@ -125,7 +127,7 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxSimulator.simulate.mockRejectedValue(new SimulationError(`Failed`, []));
+      publicTxSimulator.simulate.mockRejectedValue(new Error(`Failed`));
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
@@ -133,7 +135,22 @@ describe('public_processor', () => {
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
       expect(failed[0].tx).toEqual(tx);
-      expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
+      expect(failed[0].error).toEqual(new Error(`Failed`));
+
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
+    it('if a tx errors with assertion failure, public processor returns failed tx with its assertion message', async function () {
+      publicTxSimulator.simulate.mockImplementation(() => assert(false, 'Forced assertion failure') as never);
+
+      const tx = await mockTxWithPublicCalls();
+      const [processed, failed] = await processor.process([tx]);
+
+      expect(processed).toEqual([]);
+      expect(failed.length).toBe(1);
+      expect(failed[0].tx).toEqual(tx);
+      expect(failed[0].error.message).toMatch(/Forced assertion failure/);
 
       expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
       expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
@@ -145,6 +162,28 @@ describe('public_processor', () => {
       // We are passing 3 txs but only 2 can fit in the block
       const [processed, failed] = await processor.process(txs, { maxTransactions: 2 });
 
+      expect(processed.length).toBe(2);
+      expect(processed[0].hash).toEqual(txs[0].getTxHash());
+      expect(processed[1].hash).toEqual(txs[1].getTxHash());
+      expect(failed).toEqual([]);
+    });
+
+    it('does not exceed max blob fields limit', async function () {
+      // Create 3 private-only transactions
+      const txs = await Promise.all(Array.from([1, 2, 3], seed => mockPrivateOnlyTx({ seed })));
+
+      // First, let's process one transaction to see how many blob fields it actually has
+      const [testProcessed] = await processor.process([txs[0]]);
+      const actualBlobFields = testProcessed[0].txEffect.toBlobFields().length;
+
+      // Set the limit to allow only 2 transactions
+      // If each tx has `actualBlobFields` fields, we set limit to allow 2 but not 3
+      const maxBlobFields = actualBlobFields * 2;
+
+      // Process all 3 transactions with the blob field limit
+      const [processed, failed] = await processor.process(txs, { maxBlobFields });
+
+      // Should only process 2 transactions due to blob field limit
       expect(processed.length).toBe(2);
       expect(processed[0].hash).toEqual(txs[0].getTxHash());
       expect(processed[1].hash).toEqual(txs[1].getTxHash());

@@ -1,17 +1,7 @@
-import {
-  AztecAddress,
-  DefaultWaitOpts,
-  Fr,
-  type PXE,
-  SignerlessWallet,
-  SponsoredFeePaymentMethod,
-  type WaitForProvenOpts,
-  getContractInstanceFromInstantiationParams,
-  waitForProven,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
-import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
-import type { LogFn } from '@aztec/foundation/log';
 
 async function getSponsoredFPCContract() {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -20,39 +10,10 @@ async function getSponsoredFPCContract() {
   return SponsoredFPCContract;
 }
 
-export async function getSponsoredFPCAddress() {
+export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
   const SponsoredFPCContract = await getSponsoredFPCContract();
   const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(SponsoredFPCContract.artifact, {
     salt: new Fr(SPONSORED_FPC_SALT),
   });
   return sponsoredFPCInstance.address;
-}
-
-export async function setupSponsoredFPC(
-  pxe: PXE,
-  log: LogFn,
-  waitOpts = DefaultWaitOpts,
-  waitForProvenOptions?: WaitForProvenOpts,
-) {
-  const SponsoredFPCContract = await getSponsoredFPCContract();
-  const address = await getSponsoredFPCAddress();
-  const paymentMethod = new SponsoredFeePaymentMethod(address);
-  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
-
-  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
-
-  const deployTx = SponsoredFPCContract.deploy(deployer).send({
-    from: AztecAddress.ZERO,
-    contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
-    universalDeploy: true,
-    fee: { paymentMethod },
-  });
-
-  const deployed = await deployTx.deployed(waitOpts);
-
-  if (waitForProvenOptions !== undefined) {
-    await waitForProven(pxe, await deployTx.getReceipt(), waitForProvenOptions);
-  }
-
-  log(`SponsoredFPC: ${deployed.address}`);
 }

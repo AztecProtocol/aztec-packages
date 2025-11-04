@@ -3,14 +3,14 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
-import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
-import { ENR, type SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
+import { Discv5, type Discv5EventEmitter } from '@nethermindeth/discv5';
+import { ENR, type SignableENR } from '@nethermindeth/enr';
 
 import type { BootnodeConfig } from '../config.js';
 import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
-import { convertToMultiaddr, getPeerIdPrivateKey } from '../util.js';
+import { convertToMultiaddr, getPeerIdPrivateKey, getPublicIp } from '../util.js';
 
 /**
  * Encapsulates a 'Bootstrap' node, used for the purpose of assisting new joiners in acquiring peers.
@@ -31,7 +31,18 @@ export class BootstrapNode implements P2PBootstrapApi {
    * @returns An empty promise.
    */
   public async start(config: BootnodeConfig) {
-    const { p2pIp, p2pPort, listenAddress, p2pBroadcastPort } = config;
+    const { p2pPort, listenAddress, p2pBroadcastPort, queryForIp } = config;
+    let p2pIp = config.p2pIp;
+    this.logger.info(`Starting bootstrap node with config: ${JSON.stringify(config)}`);
+    if (!p2pIp) {
+      if (queryForIp) {
+        this.logger.info('Querying for public IP address...');
+        const publicIp = await getPublicIp();
+        p2pIp = publicIp;
+        this.logger.info(`Found public IP address: ${publicIp}`);
+      }
+    }
+
     if (!p2pIp) {
       throw new Error('You need to provide a P2P IP address.');
     }

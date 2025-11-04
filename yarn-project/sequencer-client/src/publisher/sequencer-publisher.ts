@@ -1,16 +1,15 @@
-import type { L2Block } from '@aztec/aztec.js';
-import { Blob } from '@aztec/blob-lib';
+import { L2Block } from '@aztec/aztec.js/block';
+import { Blob, getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-lib';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import type { EpochCache } from '@aztec/epoch-cache';
 import {
   type EmpireSlashingProposerContract,
   FormattedViemError,
-  type GasPrice,
   type GovernanceProposerContract,
   type IEmpireBase,
   type L1BlobInputs,
   type L1ContractsConfig,
-  type L1GasConfig,
+  type L1TxConfig,
   type L1TxRequest,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
@@ -27,20 +26,20 @@ import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs'
 import { sumBigint } from '@aztec/foundation/bigint';
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import type { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
-import { CommitteeAttestation, type ValidateBlockResult } from '@aztec/stdlib/block';
+import { CommitteeAttestation, CommitteeAttestationsAndSigners, type ValidateBlockResult } from '@aztec/stdlib/block';
 import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
-import { ConsensusPayload, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
+import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishBlockStats } from '@aztec/stdlib/stats';
-import { type ProposedBlockHeader, StateReference, TxHash } from '@aztec/stdlib/tx';
+import { StateReference } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import pick from 'lodash.pick';
 import { type TransactionReceipt, type TypedDataDefinition, encodeFunctionData, toHex } from 'viem';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
@@ -49,23 +48,18 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 /** Arguments to the process method of the rollup contract */
 type L1ProcessArgs = {
   /** The L2 block header. */
-  header: ProposedBlockHeader;
+  header: CheckpointHeader;
   /** A root of the archive tree after the L2 block is applied. */
   archive: Buffer;
   /** State reference after the L2 block is applied. */
   stateReference: StateReference;
   /** L2 block blobs containing all tx effects. */
   blobs: Blob[];
-  /** L2 block tx hashes */
-  txHashes: TxHash[];
   /** Attestations */
-  attestations?: CommitteeAttestation[];
+  attestationsAndSigners: CommitteeAttestationsAndSigners;
+  /** Attestations and signers signature */
+  attestationsAndSignersSignature: Signature;
 };
-
-export enum SignalType {
-  GOVERNANCE,
-  SLASHING,
-}
 
 export const Actions = [
   'invalidate-by-invalid-attestation',
@@ -78,7 +72,10 @@ export const Actions = [
   'vote-offenses',
   'execute-slash',
 ] as const;
+
 export type Action = (typeof Actions)[number];
+
+type GovernanceSignalAction = Extract<Action, 'governance-signal' | 'empire-slashing-signal'>;
 
 // Sorting for actions such that invalidations go before proposals, and proposals go before votes
 export const compareActions = (a: Action, b: Action) => Actions.indexOf(a) - Actions.indexOf(b);
@@ -95,11 +92,11 @@ interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: bigint;
-  gasConfig?: Pick<L1GasConfig, 'txTimeoutAt' | 'gasLimit'>;
+  gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
   checkSuccess: (
     request: L1TxRequest,
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice; stats?: TransactionStats; errorMsg?: string },
+    result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
   ) => boolean;
 }
 
@@ -111,12 +108,9 @@ export class SequencerPublisher {
   protected governanceLog = createLogger('sequencer:publisher:governance');
   protected slashingLog = createLogger('sequencer:publisher:slashing');
 
-  private myLastSignals: Record<SignalType, bigint> = {
-    [SignalType.GOVERNANCE]: 0n,
-    [SignalType.SLASHING]: 0n,
-  };
+  protected lastActions: Partial<Record<Action, bigint>> = {};
 
-  protected log = createLogger('sequencer:publisher');
+  protected log: Logger;
   protected ethereumSlotDuration: bigint;
 
   private blobSinkClient: BlobSinkClientInterface;
@@ -152,10 +146,14 @@ export class SequencerPublisher {
       epochCache: EpochCache;
       dateProvider: DateProvider;
       metrics: SequencerPublisherMetrics;
+      lastActions: Partial<Record<Action, bigint>>;
+      log?: Logger;
     },
   ) {
+    this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.epochCache = deps.epochCache;
+    this.lastActions = deps.lastActions;
 
     this.blobSinkClient =
       deps.blobSinkClient ?? createBlobSinkClient(config, { logger: createLogger('sequencer:blob-sink:client') });
@@ -249,18 +247,21 @@ export class SequencerPublisher {
     const gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
     const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
-    const gasConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+    const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
     // Sort the requests so that proposals always go first
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
-      this.log.debug('Forwarding transactions', { validRequests: validRequests.map(request => request.action) });
+      this.log.debug('Forwarding transactions', {
+        validRequests: validRequests.map(request => request.action),
+        txConfig,
+      });
       const result = await Multicall3.forward(
         validRequests.map(request => request.request),
         this.l1TxUtils,
-        gasConfig,
+        txConfig,
         blobConfig,
         this.rollupContract.address,
         this.log,
@@ -285,7 +286,7 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result?: { receipt: TransactionReceipt; gasPrice: GasPrice } | FormattedViemError,
+    result?: { receipt: TransactionReceipt } | FormattedViemError,
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
     if (result instanceof FormattedViemError) {
@@ -338,16 +339,14 @@ export class SequencerPublisher {
    *          It will throw if the block header is invalid.
    * @param header - The block header to validate
    */
-  public async validateBlockHeader(
-    header: ProposedBlockHeader,
-    opts?: { forcePendingBlockNumber: number | undefined },
-  ) {
+  public async validateBlockHeader(header: CheckpointHeader, opts?: { forcePendingBlockNumber: number | undefined }) {
     const flags = { ignoreDA: true, ignoreSignatures: true };
 
     const args = [
       header.toViem(),
-      RollupContract.packAttestations([]),
+      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
       [], // no signers
+      Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
       header.contentCommitment.blobsHash.toString(),
       flags,
@@ -385,11 +384,11 @@ export class SequencerPublisher {
     }
 
     const { reason, block } = validationResult;
-    const blockNumber = block.block.number;
-    const logData = { ...block.block.toBlockInfo(), reason };
+    const blockNumber = block.blockNumber;
+    const logData = { ...block, reason };
 
     const currentBlockNumber = await this.rollupContract.getBlockNumber();
-    if (currentBlockNumber < validationResult.block.block.number) {
+    if (currentBlockNumber < validationResult.block.blockNumber) {
       this.log.verbose(
         `Skipping block ${blockNumber} invalidation since it has already been removed from the pending chain`,
         { currentBlockNumber, ...logData },
@@ -398,7 +397,7 @@ export class SequencerPublisher {
     }
 
     const request = this.buildInvalidateBlockRequest(validationResult);
-    this.log.debug(`Simulating invalidate block ${blockNumber}`, logData);
+    this.log.debug(`Simulating invalidate block ${blockNumber}`, { ...logData, request });
 
     try {
       const { gasUsed } = await this.l1TxUtils.simulate(request, undefined, undefined, ErrorsAbi);
@@ -443,20 +442,24 @@ export class SequencerPublisher {
     }
 
     const { block, committee, reason } = validationResult;
-    const logData = { ...block.block.toBlockInfo(), reason };
-    this.log.debug(`Simulating invalidate block ${block.block.number}`, logData);
+    const logData = { ...block, reason };
+    this.log.debug(`Simulating invalidate block ${block.blockNumber}`, logData);
+
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
+      validationResult.attestations,
+    ).getPackedAttestations();
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
-        block.block.number,
-        block.attestations.map(a => a.toViem()),
+        block.blockNumber,
+        attestationsAndSigners,
         committee,
         validationResult.invalidIndex,
       );
     } else if (reason === 'insufficient-attestations') {
       return this.rollupContract.buildInvalidateInsufficientAttestationsRequest(
-        block.block.number,
-        block.attestations.map(a => a.toViem()),
+        block.blockNumber,
+        attestationsAndSigners,
         committee,
       );
     } else {
@@ -476,48 +479,42 @@ export class SequencerPublisher {
    */
   public async validateBlockForSubmission(
     block: L2Block,
-    attestationData: { digest: Buffer; attestations: CommitteeAttestation[] } = {
-      digest: Buffer.alloc(32),
-      attestations: [],
-    },
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    attestationsAndSignersSignature: Signature,
     options: { forcePendingBlockNumber?: number },
   ): Promise<bigint> {
     const ts = BigInt((await this.l1TxUtils.getBlock()).timestamp + this.ethereumSlotDuration);
 
     // If we have no attestations, we still need to provide the empty attestations
     // so that the committee is recalculated correctly
-    const ignoreSignatures = attestationData.attestations.length === 0;
+    const ignoreSignatures = attestationsAndSigners.attestations.length === 0;
     if (ignoreSignatures) {
       const { committee } = await this.epochCache.getCommittee(block.header.globalVariables.slotNumber.toBigInt());
       if (!committee) {
         this.log.warn(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
         throw new Error(`No committee found for slot ${block.header.globalVariables.slotNumber.toBigInt()}`);
       }
-      attestationData.attestations = committee.map(committeeMember =>
+      attestationsAndSigners.attestations = committee.map(committeeMember =>
         CommitteeAttestation.fromAddress(committeeMember),
       );
     }
 
-    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
-    const blobInput = Blob.getPrefixedEthBlobCommitments(blobs);
-
-    const formattedAttestations = attestationData.attestations.map(attest => attest.toViem());
-    const signers = attestationData.attestations
-      .filter(attest => !attest.signature.isEmpty())
-      .map(attest => attest.address.toString());
+    const blobFields = block.getCheckpointBlobFields();
+    const blobs = getBlobsPerL1Block(blobFields);
+    const blobInput = getPrefixedEthBlobCommitments(blobs);
 
     const args = [
       {
-        header: block.header.toPropose().toViem(),
+        header: block.getCheckpointHeader().toViem(),
         archive: toHex(block.archive.root.toBuffer()),
         stateReference: block.header.state.toViem(),
-        txHashes: block.body.txEffects.map(txEffect => txEffect.txHash.toString()),
         oracleInput: {
           feeAssetPriceModifier: 0n,
         },
       },
-      RollupContract.packAttestations(formattedAttestations),
-      signers,
+      attestationsAndSigners.getPackedAttestations(),
+      attestationsAndSigners.getSigners().map(signer => signer.toString()),
+      attestationsAndSignersSignature.toViemSignature(),
       blobInput,
     ] as const;
 
@@ -528,13 +525,14 @@ export class SequencerPublisher {
   private async enqueueCastSignalHelper(
     slotNumber: bigint,
     timestamp: bigint,
-    signalType: SignalType,
+    signalType: GovernanceSignalAction,
     payload: EthAddress,
     base: IEmpireBase,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
-    if (this.myLastSignals[signalType] >= slotNumber) {
+    if (this.lastActions[signalType] && this.lastActions[signalType] === slotNumber) {
+      this.log.debug(`Skipping duplicate vote cast signal ${signalType} for slot ${slotNumber}`);
       return false;
     }
     if (payload.equals(EthAddress.ZERO)) {
@@ -551,10 +549,9 @@ export class SequencerPublisher {
       return false;
     }
 
-    const cachedLastVote = this.myLastSignals[signalType];
-    this.myLastSignals[signalType] = slotNumber;
-
-    const action = signalType === SignalType.GOVERNANCE ? 'governance-signal' : 'empire-slashing-signal';
+    const cachedLastVote = this.lastActions[signalType];
+    this.lastActions[signalType] = slotNumber;
+    const action = signalType;
 
     const request = await base.createSignalRequestWithSignature(
       payload.toString(),
@@ -597,7 +594,7 @@ export class SequencerPublisher {
             `Signaling in [${action}] for ${payload} at slot ${slotNumber} in round ${round} failed`,
             logData,
           );
-          this.myLastSignals[signalType] = cachedLastVote;
+          this.lastActions[signalType] = cachedLastVote;
           return false;
         } else {
           this.log.info(
@@ -627,7 +624,7 @@ export class SequencerPublisher {
     return this.enqueueCastSignalHelper(
       slotNumber,
       timestamp,
-      SignalType.GOVERNANCE,
+      'governance-signal',
       governancePayload,
       this.govProposerContract,
       signerAddress,
@@ -661,7 +658,7 @@ export class SequencerPublisher {
           await this.enqueueCastSignalHelper(
             slotNumber,
             timestamp,
-            SignalType.SLASHING,
+            'empire-slashing-signal',
             action.payload,
             this.slashingProposerContract,
             signerAddress,
@@ -766,24 +763,23 @@ export class SequencerPublisher {
    */
   public async enqueueProposeL2Block(
     block: L2Block,
-    attestations?: CommitteeAttestation[],
-    txHashes?: TxHash[],
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    attestationsAndSignersSignature: Signature,
     opts: { txTimeoutAt?: Date; forcePendingBlockNumber?: number } = {},
   ): Promise<boolean> {
-    const proposedBlockHeader = block.header.toPropose();
+    const checkpointHeader = block.getCheckpointHeader();
 
-    const consensusPayload = ConsensusPayload.fromBlock(block);
-    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const blobFields = block.getCheckpointBlobFields();
+    const blobs = getBlobsPerL1Block(blobFields);
 
-    const blobs = await Blob.getBlobsPerBlock(block.body.toBlobFields());
     const proposeTxArgs = {
-      header: proposedBlockHeader,
+      header: checkpointHeader,
       archive: block.archive.root.toBuffer(),
       stateReference: block.header.state,
       body: block.body.toBuffer(),
       blobs,
-      attestations,
-      txHashes: txHashes ?? [],
+      attestationsAndSigners,
+      attestationsAndSignersSignature,
     };
 
     let ts: bigint;
@@ -793,9 +789,8 @@ export class SequencerPublisher {
       //        This means that we can avoid the simulation issues in later checks.
       //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
       //        make time consistency checks break.
-      const attestationData = { digest: digest.toBuffer(), attestations: attestations ?? [] };
       // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      ts = await this.validateBlockForSubmission(block, attestationData, opts);
+      ts = await this.validateBlockForSubmission(block, attestationsAndSigners, attestationsAndSignersSignature, opts);
     } catch (err: any) {
       this.log.error(`Block validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
         ...block.getStats(),
@@ -818,7 +813,8 @@ export class SequencerPublisher {
     // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
     const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
 
-    const logData = { ...pick(request, 'gasUsed', 'blockNumber'), gasLimit, opts };
+    const { gasUsed, blockNumber } = request;
+    const logData = { gasUsed, blockNumber, gasLimit, opts };
     this.log.verbose(`Enqueuing invalidate block request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
@@ -842,16 +838,24 @@ export class SequencerPublisher {
   }
 
   private async simulateAndEnqueueRequest(
-    action: RequestWithExpiry['action'],
+    action: Action,
     request: L1TxRequest,
     checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
     slotNumber: bigint,
     timestamp: bigint,
   ) {
     const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
-    let gasUsed: bigint;
+    if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
+      this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
+      return false;
+    }
 
-    this.log.debug(`Simulating ${action}`, logData);
+    const cachedLastActionSlot = this.lastActions[action];
+    this.lastActions[action] = slotNumber;
+
+    this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
+
+    let gasUsed: bigint;
     try {
       ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], ErrorsAbi)); // TODO(palla/slash): Check the timestamp logic
       this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
@@ -875,6 +879,7 @@ export class SequencerPublisher {
         const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
         if (!success) {
           this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+          this.lastActions[action] = cachedLastActionSlot;
         } else {
           this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
         }
@@ -907,7 +912,7 @@ export class SequencerPublisher {
     options: { forcePendingBlockNumber?: number },
   ) {
     const kzg = Blob.getViemKzgInstance();
-    const blobInput = Blob.getPrefixedEthBlobCommitments(encodedData.blobs);
+    const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
@@ -932,12 +937,7 @@ export class SequencerPublisher {
         throw new Error('Failed to validate blobs');
       });
 
-    const attestations = encodedData.attestations ? encodedData.attestations.map(attest => attest.toViem()) : [];
-    const txHashes = encodedData.txHashes ? encodedData.txHashes.map(txHash => txHash.toString()) : [];
-
-    const signers = encodedData.attestations
-      ?.filter(attest => !attest.signature.isEmpty())
-      .map(attest => attest.address.toString());
+    const signers = encodedData.attestationsAndSigners.getSigners().map(signer => signer.toString());
 
     const args = [
       {
@@ -948,10 +948,10 @@ export class SequencerPublisher {
           // We are currently not modifying these. See #9963
           feeAssetPriceModifier: 0n,
         },
-        txHashes,
       },
-      RollupContract.packAttestations(attestations),
-      signers ?? [],
+      encodedData.attestationsAndSigners.getPackedAttestations(),
+      signers,
+      encodedData.attestationsAndSignersSignature.toViemSignature(),
       blobInput,
     ] as const;
 
@@ -972,13 +972,13 @@ export class SequencerPublisher {
         readonly header: ViemHeader;
         readonly archive: `0x${string}`;
         readonly stateReference: ViemStateReference;
-        readonly txHashes: `0x${string}`[];
         readonly oracleInput: {
           readonly feeAssetPriceModifier: 0n;
         };
       },
       ViemCommitteeAttestations,
-      `0x${string}`[],
+      `0x${string}`[], // Signers
+      ViemSignature,
       `0x${string}`,
     ],
     timestamp: bigint,
@@ -1084,13 +1084,16 @@ export class SequencerPublisher {
         if (success) {
           const endBlock = receipt.blockNumber;
           const inclusionBlocks = Number(endBlock - startBlock);
+          const { calldataGas, calldataSize, sender } = stats!;
           const publishStats: L1PublishBlockStats = {
             gasPrice: receipt.effectiveGasPrice,
             gasUsed: receipt.gasUsed,
             blobGasUsed: receipt.blobGasUsed ?? 0n,
             blobDataGas: receipt.blobGasPrice ?? 0n,
             transactionHash: receipt.transactionHash,
-            ...pick(stats!, 'calldataGas', 'calldataSize', 'sender'),
+            calldataGas,
+            calldataSize,
+            sender,
             ...block.getStats(),
             eventName: 'rollup-published-to-l1',
             blobCount: encodedData.blobs.length,

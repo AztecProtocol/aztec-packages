@@ -1,6 +1,6 @@
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
-    hash::{ArgsHasher, hash_args_array, hash_calldata_array},
+    hash::{hash_args_array, hash_calldata_array},
     keys::constants::{NULLIFIER_INDEX, NUM_KEY_TYPES, OUTGOING_INDEX, sk_generators},
     messaging::process_l1_to_l2_message,
     oracle::{
@@ -29,8 +29,6 @@ use dep::protocol_types::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
         private_log::{PrivateLog, PrivateLogData},
         public_call_request::PublicCallRequest,
-        read_request::ReadRequest,
-        side_effect::Counted,
         validation_requests::{KeyValidationRequest, KeyValidationRequestAndGenerator},
     },
     address::{AztecAddress, EthAddress},
@@ -41,24 +39,25 @@ use dep::protocol_types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
         MAX_NULLIFIER_READ_REQUESTS_PER_CALL, MAX_NULLIFIERS_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     hash::poseidon2_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::Counted,
     traits::{Empty, Hash, ToField},
     utils::arrays::{ClaimedLengthArray, trimmed_array_length_hint},
 };
 
 /// # PrivateContext
 ///
-/// The **main interface** between a #[private] function and the Aztec blockchain.
+/// The **main interface** between an #[external("private")] function and the Aztec blockchain.
 ///
 /// An instance of the PrivateContext is initialized automatically at the outset
-/// of every private function, within the #[private] macro, so you'll never
+/// of every private function, within the #[external("private")] macro, so you'll never
 /// need to consciously instantiate this yourself.
 ///
 /// The instance is always named `context`, and it is always be available within
-/// the body of every #[private] function in your smart contract.
+/// the body of every #[external("private")] function in your smart contract.
 ///
 /// > For those used to "vanilla" Noir, it might be jarring to have access to
 /// > `context` without seeing a declaration `let context = PrivateContext::new(...)`
@@ -109,9 +108,9 @@ use dep::protocol_types::{
 ///   - New nullifiers
 ///   - Private logs (for sending encrypted note contents or encrypted events)
 ///   - New L2->L1 messages.
-/// - Provides args to the private function (handled by the #[private] macro).
+/// - Provides args to the private function (handled by the #[external("private")] macro).
 /// - Returns the return values of this private function (handled by the
-///   #[private] macro).
+///   #[external("private")] macro).
 /// - Makes Key Validation Requests.
 ///   - Private functions are not allowed to see master secret keys, because we
 ///     do not trust them. They are instead given "app-siloed" secret keys with
@@ -179,12 +178,12 @@ pub struct PrivateContext {
 
     pub include_by_timestamp: u64,
 
-    pub note_hash_read_requests: BoundedVec<ReadRequest, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
-    pub nullifier_read_requests: BoundedVec<ReadRequest, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
+    pub note_hash_read_requests: BoundedVec<Counted<Field>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
+    pub nullifier_read_requests: BoundedVec<Counted<Field>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_generators: BoundedVec<KeyValidationRequestAndGenerator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    pub note_hashes: BoundedVec<NoteHash, MAX_NOTE_HASHES_PER_CALL>,
-    pub nullifiers: BoundedVec<Nullifier, MAX_NULLIFIERS_PER_CALL>,
+    pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
+    pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
 
     pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
     pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
@@ -193,9 +192,9 @@ pub struct PrivateContext {
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub historical_header: BlockHeader,
+    pub anchor_block_header: BlockHeader,
 
-    pub private_logs: BoundedVec<PrivateLogData, MAX_PRIVATE_LOGS_PER_CALL>,
+    pub private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
     pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
@@ -206,8 +205,8 @@ pub struct PrivateContext {
 
 impl PrivateContext {
     pub fn new(inputs: PrivateContextInputs, args_hash: Field) -> PrivateContext {
-        let max_allowed_include_by_timestamp =
-            inputs.historical_header.global_variables.timestamp + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
+        let max_allowed_include_by_timestamp = inputs.anchor_block_header.global_variables.timestamp
+            + MAX_INCLUDE_BY_TIMESTAMP_DURATION;
         PrivateContext {
             inputs,
             side_effect_counter: inputs.start_side_effect_counter + 1,
@@ -221,7 +220,7 @@ impl PrivateContext {
             key_validation_requests_and_generators: BoundedVec::new(),
             note_hashes: BoundedVec::new(),
             nullifiers: BoundedVec::new(),
-            historical_header: inputs.historical_header,
+            anchor_block_header: inputs.anchor_block_header,
             private_call_requests: BoundedVec::new(),
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
@@ -237,23 +236,33 @@ impl PrivateContext {
     /// This is similar to `msg.sender` in Solidity (hence the name).
     ///
     /// Important Note: Since Aztec doesn't have a concept of an EoA (
-    /// Externally-owned Account), the msg_sender is "undefined" for the first
-    /// function call of every transaction. A value of `-1` is returned in such
-    /// cases.
+    /// Externally-owned Account), the msg_sender is "null" for the first
+    /// function call of every transaction.
     /// The first function call of a tx is likely to be a call to the user's
     /// account contract, so this quirk will most often be handled by account
     /// contract developers.
     ///
-    /// TODO(https://github.com/AztecProtocol/aztec-packages/issues/14025) - we
-    /// are considering making msg_sender: Option<AztecAddress>, since
-    /// a returned value of `Option:none` will be clearer to developers.
-    ///
     /// # Returns
-    /// * `AztecAddress` - The address of the smart contract that called
+    /// * `Option<AztecAddress>` - The address of the smart contract that called
     ///   this function (be it an app contract or a user's account contract).
-    ///   Returns `-1` for the first function call of the tx.
+    ///   Returns `Option<AztecAddress>::none` for the first function call of
+    ///   the tx. No other _private_ function calls in the tx will have a `none`
+    ///   msg_sender, but _public_ function calls might (see the PublicContext).
     ///
-    pub fn msg_sender(self) -> AztecAddress {
+    pub fn msg_sender(self) -> Option<AztecAddress> {
+        let maybe_msg_sender = self.inputs.call_context.msg_sender;
+        if maybe_msg_sender == NULL_MSG_SENDER_CONTRACT_ADDRESS {
+            Option::none()
+        } else {
+            Option::some(maybe_msg_sender)
+        }
+    }
+
+    /// "Unsafe" versus calling `context.msg_sender()`, because it doesn't
+    /// translate `NULL_MSG_SENDER_CONTRACT_ADDRESS` as
+    /// `Option<AztecAddress>::none`.
+    /// Used by some internal aztecnr functions.
+    pub fn msg_sender_unsafe(self) -> AztecAddress {
         self.inputs.call_context.msg_sender
     }
 
@@ -330,7 +339,7 @@ impl PrivateContext {
     /// * `FunctionSelector` - The 4-byte function identifier
     ///
     /// # Advanced
-    /// Only #[private] functions have a function selector as a protocol-
+    /// Only #[external("private")] functions have a function selector as a protocol-
     /// enshrined concept. The function selectors of private functions are
     /// baked into the preimage of the contract address, and are used by the
     /// protocol's kernel circuits to identify each private function and ensure
@@ -344,7 +353,7 @@ impl PrivateContext {
 
     /// Returns the hash of the arguments passed to the current function.
     ///
-    /// Very low-level function: You shouldn't need to call this. The #[private]
+    /// Very low-level function: You shouldn't need to call this. The #[external("private")]
     /// macro calls this, and it makes the arguments neatly available to the
     /// body of your private function.
     ///
@@ -394,7 +403,7 @@ impl PrivateContext {
     /// > that new functionality should be added to aztec-nr.
     ///
     pub fn push_note_hash(&mut self, note_hash: Field) {
-        self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
+        self.note_hashes.push(Counted::new(note_hash, self.next_counter()));
     }
 
     /// Pushes a new nullifier to the Aztec blockchain's global Nullifier Tree
@@ -443,9 +452,7 @@ impl PrivateContext {
     ///
     pub fn push_nullifier(&mut self, nullifier: Field) {
         notify_created_nullifier(nullifier);
-        self.nullifiers.push(
-            Nullifier { value: nullifier, note_hash: 0, counter: self.next_counter() },
-        );
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: 0 }.count(self.next_counter()));
     }
 
     /// Pushes a nullifier that corresponds to a specific note hash.
@@ -476,20 +483,16 @@ impl PrivateContext {
     pub fn push_nullifier_for_note_hash(&mut self, nullifier: Field, nullified_note_hash: Field) {
         let nullifier_counter = self.next_counter();
         notify_nullified_note(nullifier, nullified_note_hash, nullifier_counter);
-        self.nullifiers.push(
-            Nullifier {
-                value: nullifier,
-                note_hash: nullified_note_hash,
-                counter: nullifier_counter,
-            },
-        );
+        self.nullifiers.push(Nullifier { value: nullifier, note_hash: nullified_note_hash }.count(
+            nullifier_counter,
+        ));
     }
 
     /// Returns the anchor block header - the historical block header that this
     /// private function is reading from.
     ///
     /// A private function CANNOT read from the "current" block header,
-    /// but must read from some historical block header, because as soon as
+    /// but must read from some older block header, because as soon as
     /// private function execution begins (asynchronously, on a user's device),
     /// the public state of the chain (the "current state") will have progressed
     /// forward.
@@ -505,8 +508,8 @@ impl PrivateContext {
     ///   from the mempool. Therefore, the chosen block header _must_ be one
     ///   from within the last 24 hours.
     ///
-    pub fn get_block_header(self) -> BlockHeader {
-        self.historical_header
+    pub fn get_anchor_block_header(self) -> BlockHeader {
+        self.anchor_block_header
     }
 
     /// Returns the header of any historical block at or before the anchor
@@ -556,21 +559,22 @@ impl PrivateContext {
 
     /// Sets the hash of the return values for this private function.
     ///
-    /// Very low-level function: this is called by the #[private] macro.
+    /// Very low-level function: this is called by the #[external("private")] macro.
     ///
     /// # Arguments
-    /// * `returns_hasher` - A hasher containing the return values to hash
+    /// * `serialized_return_values` - The serialized return values as a field array
     ///
-    pub fn set_return_hash(&mut self, returns_hasher: ArgsHasher) {
-        self.return_hash = returns_hasher.hash();
-        execution_cache::store(returns_hasher.fields, self.return_hash);
+    pub fn set_return_hash<let N: u32>(&mut self, serialized_return_values: [Field; N]) {
+        let return_hash = hash_args_array(serialized_return_values);
+        self.return_hash = return_hash;
+        execution_cache::store(serialized_return_values, return_hash);
     }
 
     /// Builds the PrivateCircuitPublicInputs for this private function, to
     /// ensure compatibility with the protocol's kernel circuits.
     ///
     /// Very low-level function: This function is automatically called by the
-    /// #[private] macro.
+    /// #[external("private")] macro.
     pub fn finish(self) -> PrivateCircuitPublicInputs {
         PrivateCircuitPublicInputs {
             call_context: self.inputs.call_context,
@@ -600,7 +604,7 @@ impl PrivateContext {
             contract_class_logs_hashes: ClaimedLengthArray::from_bounded_vec(
                 self.contract_class_logs_hashes,
             ),
-            historical_header: self.historical_header,
+            anchor_block_header: self.anchor_block_header,
             tx_context: self.inputs.tx_context,
         }
     }
@@ -760,7 +764,7 @@ impl PrivateContext {
     /// to be included, to ensure the note is included in the tree).
     ///
     pub fn push_note_hash_read_request(&mut self, note_hash: Field) {
-        let side_effect = ReadRequest { value: note_hash, counter: self.next_counter() };
+        let side_effect = Counted::new(note_hash, self.next_counter());
         self.note_hash_read_requests.push(side_effect);
     }
 
@@ -790,7 +794,7 @@ impl PrivateContext {
     /// earlier tx to be included, to ensure the note is included in the tree).
     ///
     pub fn push_nullifier_read_request(&mut self, nullifier: Field) {
-        let request = ReadRequest { value: nullifier, counter: self.next_counter() };
+        let request = Counted::new(nullifier, self.next_counter());
         self.nullifier_read_requests.push(request);
     }
 
@@ -945,7 +949,6 @@ impl PrivateContext {
     ///               This content has a very specific layout.
     /// docs:start:context_message_portal
     pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
-        // docs:end:context_message_portal
         let message = L2ToL1Message { recipient, content };
         self.l2_to_l1_msgs.push(message.count(self.next_counter()));
     }
@@ -982,8 +985,6 @@ impl PrivateContext {
     /// Validates message existence in the L1-to-L2 message tree and nullifies
     /// the message to prevent double-consumption.
     ///
-    // docs:start:context_consume_l1_to_l2_message
-    // docs:start:consume_l1_to_l2_message
     pub fn consume_l1_to_l2_message(
         &mut self,
         content: Field,
@@ -991,9 +992,8 @@ impl PrivateContext {
         sender: EthAddress,
         leaf_index: Field,
     ) {
-        // docs:end:context_consume_l1_to_l2_message
         let nullifier = process_l1_to_l2_message(
-            self.historical_header.state.l1_to_l2_message_tree.root,
+            self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),
             sender,
             self.chain_id(),
@@ -1006,7 +1006,6 @@ impl PrivateContext {
         // Push nullifier (and the "commitment" corresponding to this can be "empty")
         self.push_nullifier(nullifier)
     }
-    // docs:end:consume_l1_to_l2_message
 
     /// Emits a private log (an array of Fields) that will be published to an
     /// Ethereum blob.
@@ -1069,8 +1068,8 @@ impl PrivateContext {
     ///
     pub fn emit_private_log(&mut self, log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS], length: u32) {
         let counter = self.next_counter();
-        let private_log =
-            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0, counter };
+        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter: 0 }
+            .count(counter);
         self.private_logs.push(private_log);
     }
 
@@ -1102,9 +1101,8 @@ impl PrivateContext {
         note_hash_counter: u32,
     ) {
         let counter = self.next_counter();
-        let private_log =
-            PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter, counter };
-        self.private_logs.push(private_log);
+        let private_log = PrivateLogData { log: PrivateLog::new(log, length), note_hash_counter };
+        self.private_logs.push(private_log.count(counter));
     }
 
     pub fn emit_contract_class_log<let N: u32>(&mut self, log: [Field; N]) {
@@ -1115,6 +1113,7 @@ impl PrivateContext {
             log.concat([0; CONTRACT_CLASS_LOG_SIZE_IN_FIELDS - N]);
         // Note: the length is not always N, it is the number of fields we want to broadcast, omitting trailing zeros to save blob space.
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond length are zero.
+        // However, it won't be able to check that we didn't add extra padding (trailing zeroes) or that we cut trailing zeroes from the end.
         let length = unsafe { trimmed_array_length_hint(log_to_emit) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter bytecode.
         let log_hash = poseidon2_hash(log_to_emit);
@@ -1176,7 +1175,7 @@ impl PrivateContext {
     ///     - Padding the lengths of note & nullifier arrays
     ///     - Padding private logs with random fields, up to some standardised
     ///       size.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Advanced
     /// * The call is added to the private call stack and executed by kernel
@@ -1204,8 +1203,8 @@ impl PrivateContext {
     /// Makes a read-only call to a private function on another contract.
     ///
     /// This is similar to Solidity's `staticcall`. The called function
-    /// cannot modify state or emit events. Any nested calls are constrained to
-    /// also be staticcalls.
+    /// cannot modify state, emit L2->L2 messages, nor emit events. Any nested
+    /// calls are constrained to also be staticcalls.
     ///
     /// See `call_private_function` for more general info on private function
     /// calls.
@@ -1370,23 +1369,31 @@ impl PrivateContext {
     /// calls sparingly, and carefully.
     /// _Internal_ public function calls are especially leaky, because they
     /// completely leak which private contract made the call.
-    /// See also: https://docs.aztec.network/developers/reference/considerations/privacy_considerations
+    /// See also: https://docs.aztec.network/developers/resources/considerations/privacy_considerations
     ///
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
     /// * `args` - Array of arguments to pass to the public function
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a read-only call to a public function.
@@ -1402,17 +1409,25 @@ impl PrivateContext {
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
     /// * `args` - Array of arguments to pass to the public function
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn static_call_public_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            true,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a call to a public function that takes no arguments.
@@ -1424,14 +1439,22 @@ impl PrivateContext {
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
+        hide_msg_sender: bool,
     ) {
         let calldata_hash = hash_calldata_array([function_selector.to_field()]);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Enqueues a read-only call to a public function with no arguments.
@@ -1442,14 +1465,22 @@ impl PrivateContext {
     /// # Arguments
     /// * `contract_address` - Address of the contract containing the function
     /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn static_call_public_function_no_args(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
+        hide_msg_sender: bool,
     ) {
         let calldata_hash = hash_calldata_array([function_selector.to_field()]);
-        self.call_public_function_with_calldata_hash(contract_address, calldata_hash, true)
+        self.call_public_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            true,
+            hide_msg_sender,
+        )
     }
 
     /// Low-level public function call.
@@ -1466,12 +1497,15 @@ impl PrivateContext {
     /// * `contract_address` - Address of the contract containing the function
     /// * `calldata_hash` - Hash of the function calldata
     /// * `is_static_call` - Whether this should be a read-only call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn call_public_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
         calldata_hash: Field,
         is_static_call: bool,
+        hide_msg_sender: bool,
     ) {
         let counter = self.next_counter();
 
@@ -1484,12 +1518,14 @@ impl PrivateContext {
             is_static_call,
         );
 
-        let call_request = PublicCallRequest {
-            msg_sender: self.this_address(),
-            contract_address,
-            is_static_call,
-            calldata_hash,
+        let msg_sender = if hide_msg_sender {
+            NULL_MSG_SENDER_CONTRACT_ADDRESS
+        } else {
+            self.this_address()
         };
+
+        let call_request =
+            PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
 
         self.public_call_requests.push(Counted::new(call_request, counter));
     }
@@ -1515,19 +1551,32 @@ impl PrivateContext {
     /// tx side-effects) might exceed the refund amount. For app logic with
     /// fairly stable and predictable gas consumption, a material refund amount
     /// is unlikely. For app logic with unpredictable gas consumption, a
-    /// refund might be important to the user (e.g. if a heft function reverts
+    /// refund might be important to the user (e.g. if a hefty function reverts
     /// very early). Wallet/FPC/Paymaster developers should be mindful of this.
     ///
+    /// # Arguments
+    /// * `contract_address` - Address of the contract containing the teardown
+    ///                        function
+    /// * `function_selector` - 4-byte identifier of the function to call
+    /// * `args` - An array of fields to pass to the function.
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     pub fn set_public_teardown_function<let ArgsCount: u32>(
         &mut self,
         contract_address: AztecAddress,
         function_selector: FunctionSelector,
         args: [Field; ArgsCount],
+        hide_msg_sender: bool,
     ) {
         let calldata = [function_selector.to_field()].concat(args);
         let calldata_hash = hash_calldata_array(calldata);
         execution_cache::store(calldata, calldata_hash);
-        self.set_public_teardown_function_with_calldata_hash(contract_address, calldata_hash, false)
+        self.set_public_teardown_function_with_calldata_hash(
+            contract_address,
+            calldata_hash,
+            false,
+            hide_msg_sender,
+        )
     }
 
     /// Low-level function to set the public teardown function.
@@ -1544,12 +1593,15 @@ impl PrivateContext {
     ///                        function
     /// * `calldata_hash` - Hash of the function calldata
     /// * `is_static_call` - Whether this should be a read-only call
+    /// * `hide_msg_sender` - the called function will see a "null" value for
+    ///                       `msg_sender` if set to `true`
     ///
     pub fn set_public_teardown_function_with_calldata_hash(
         &mut self,
         contract_address: AztecAddress,
         calldata_hash: Field,
         is_static_call: bool,
+        hide_msg_sender: bool,
     ) {
         let counter = self.next_counter();
 
@@ -1562,12 +1614,14 @@ impl PrivateContext {
             is_static_call,
         );
 
-        self.public_teardown_call_request = PublicCallRequest {
-            msg_sender: self.this_address(),
-            contract_address,
-            is_static_call,
-            calldata_hash,
+        let msg_sender = if hide_msg_sender {
+            NULL_MSG_SENDER_CONTRACT_ADDRESS
+        } else {
+            self.this_address()
         };
+
+        self.public_teardown_call_request =
+            PublicCallRequest { msg_sender, contract_address, is_static_call, calldata_hash };
     }
 
     /// Increments the side-effect counter.
@@ -1698,7 +1752,7 @@ impl Empty for PrivateContext {
             public_call_requests: BoundedVec::new(),
             public_teardown_call_request: PublicCallRequest::empty(),
             l2_to_l1_msgs: BoundedVec::new(),
-            historical_header: BlockHeader::empty(),
+            anchor_block_header: BlockHeader::empty(),
             private_logs: BoundedVec::new(),
             contract_class_logs_hashes: BoundedVec::new(),
             last_key_validation_requests: [Option::none(); NUM_KEY_TYPES],

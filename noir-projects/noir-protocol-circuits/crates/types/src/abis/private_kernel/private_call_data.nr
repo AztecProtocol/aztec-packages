@@ -1,22 +1,16 @@
 use crate::{
-    abis::{
-        private_circuit_public_inputs::PrivateCircuitPublicInputs,
-        protocol_contract_leaf_preimage::ProtocolContractLeafPreimage,
-    },
+    abis::private_circuit_public_inputs::PrivateCircuitPublicInputs,
     address::SaltedInitializationHash,
-    constants::{
-        FUNCTION_TREE_HEIGHT, PROOF_TYPE_OINK, PROOF_TYPE_PG, PROTOCOL_CONTRACT_TREE_HEIGHT,
-        PUBLIC_DATA_TREE_HEIGHT,
-    },
+    constants::{FUNCTION_TREE_HEIGHT, PROOF_TYPE_HN, PROOF_TYPE_OINK, PUBLIC_DATA_TREE_HEIGHT},
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::membership::MembershipWitness,
-    proof::verification_key::ClientIVCVerificationKey,
+    merkle_tree::MembershipWitness,
+    proof::verification_key::ChonkVerificationKey,
     public_keys::PublicKeys,
 };
 
 pub struct PrivateCallData {
     pub public_inputs: PrivateCircuitPublicInputs,
-    pub vk: ClientIVCVerificationKey,
+    pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 
@@ -27,10 +21,10 @@ impl PrivateCallData {
         let proof_type = if is_first_app {
             PROOF_TYPE_OINK
         } else {
-            PROOF_TYPE_PG
+            PROOF_TYPE_HN
         };
 
-        // Client IVC public inputs are linked in the backend via the databus.
+        // CHONK public inputs are linked in the backend via the databus.
         //
         // Seeing empty args being passed to verify_proof is quite jarring, so I think it could do with more explanation about exactly what's happening behind the scenes, so that a reader can gain confidence in what's being done "magically" by bberg.
         // How does bb know the locations of the proof and public inputs in the databus?
@@ -51,15 +45,13 @@ pub struct PrivateVerificationKeyHints {
     pub contract_class_artifact_hash: Field,
     pub contract_class_public_bytecode_commitment: Field,
     pub function_leaf_membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
-    pub protocol_contract_membership_witness: MembershipWitness<PROTOCOL_CONTRACT_TREE_HEIGHT>,
-    pub protocol_contract_leaf: ProtocolContractLeafPreimage,
     pub updated_class_id_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
     pub updated_class_id_leaf: PublicDataTreeLeafPreimage,
     pub updated_class_id_delayed_public_mutable_values: [Field; 3],
 }
 
 pub struct PrivateCallDataWithoutPublicInputs {
-    pub vk: ClientIVCVerificationKey,
+    pub vk: ChonkVerificationKey,
     pub verification_key_hints: PrivateVerificationKeyHints,
 }
 

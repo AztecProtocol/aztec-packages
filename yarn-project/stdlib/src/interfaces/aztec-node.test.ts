@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { timesAsync } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -23,7 +24,7 @@ import type { InBlock } from '../block/in_block.js';
 import { CommitteeAttestation, L2BlockHash, type L2BlockNumber } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
-import type { PublishedL2Block } from '../block/published_l2_block.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -52,6 +53,7 @@ import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
+import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
@@ -118,6 +120,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([1n, expect.any(SiblingPath)]);
   });
 
+  it('getL1ToL2MessageBlock', async () => {
+    const response = await context.client.getL1ToL2MessageBlock(Fr.random());
+    expect(response).toEqual(5);
+  });
+
   it('isL1ToL2MessageSynced', async () => {
     const response = await context.client.isL1ToL2MessageSynced(Fr.random());
     expect(response).toBe(true);
@@ -166,6 +173,26 @@ describe('AztecNodeApiSchema', () => {
   it('getBlock', async () => {
     const response = await context.client.getBlock(1);
     expect(response).toBeInstanceOf(L2Block);
+  });
+
+  it('getBlockByHash', async () => {
+    const response = await context.client.getBlockByHash(Fr.random());
+    expect(response).toBeInstanceOf(L2Block);
+  });
+
+  it('getBlockByArchive', async () => {
+    const response = await context.client.getBlockByArchive(Fr.random());
+    expect(response).toBeInstanceOf(L2Block);
+  });
+
+  it('getBlockHeaderByHash', async () => {
+    const response = await context.client.getBlockHeaderByHash(Fr.random());
+    expect(response).toBeInstanceOf(BlockHeader);
+  });
+
+  it('getBlockHeaderByArchive', async () => {
+    const response = await context.client.getBlockHeaderByArchive(Fr.random());
+    expect(response).toBeInstanceOf(BlockHeader);
   });
 
   it('getCurrentBaseFees', async () => {
@@ -322,11 +349,13 @@ describe('AztecNodeApiSchema', () => {
           missedAttestations: {
             currentStreak: 1,
             count: 1,
+            total: 1,
           },
           missedProposals: {
             currentStreak: 1,
             rate: 1,
             count: 1,
+            total: 1,
           },
           history: [{ slot: 1n, status: 'block-mined' }],
         },
@@ -373,8 +402,8 @@ describe('AztecNodeApiSchema', () => {
       validator: {
         address: validatorAddress,
         totalSlots: 5,
-        missedAttestations: { currentStreak: 0, count: 0 },
-        missedProposals: { currentStreak: 0, count: 0 },
+        missedAttestations: { currentStreak: 0, count: 0, total: 1 },
+        missedProposals: { currentStreak: 0, count: 0, total: 1 },
         history: [{ slot: 1n, status: 'block-mined' }],
       },
       allTimeProvenPerformance: [],
@@ -398,8 +427,8 @@ describe('AztecNodeApiSchema', () => {
       validator: {
         address: validatorAddress,
         totalSlots: 3,
-        missedAttestations: { currentStreak: 0, count: 0 },
-        missedProposals: { currentStreak: 0, count: 0 },
+        missedAttestations: { currentStreak: 0, count: 0, total: 0 },
+        missedProposals: { currentStreak: 0, count: 0, total: 0 },
         history: [{ slot: 5n, status: 'attestation-sent' }],
       },
       allTimeProvenPerformance: [],
@@ -454,6 +483,11 @@ describe('AztecNodeApiSchema', () => {
   it('getEncodedEnr', async () => {
     const response = await context.client.getEncodedEnr();
     expect(response).toBe('enr:-');
+  });
+
+  it('getAllowedPublicSetup', async () => {
+    const response = await context.client.getAllowedPublicSetup();
+    expect(response).toEqual([]);
   });
 
   it('getWorldStateSyncStatus', async () => {
@@ -531,6 +565,10 @@ class MockAztecNode implements AztecNode {
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
   }
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    expect(l1ToL2Message).toBeInstanceOf(Fr);
+    return Promise.resolve(5);
+  }
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(true);
@@ -573,6 +611,18 @@ class MockAztecNode implements AztecNode {
   getBlock(number: number): Promise<L2Block | undefined> {
     return Promise.resolve(L2Block.random(number));
   }
+  getBlockByHash(_blockHash: Fr): Promise<L2Block | undefined> {
+    return Promise.resolve(L2Block.random(1));
+  }
+  getBlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
+    return Promise.resolve(L2Block.random(1));
+  }
+  getBlockHeaderByHash(_blockHash: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
+  }
+  getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
+  }
   getCurrentBaseFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
@@ -608,14 +658,12 @@ class MockAztecNode implements AztecNode {
     );
   }
   getPublishedBlocks(from: number, limit: number): Promise<PublishedL2Block[]> {
-    return Promise.all(
-      Array(limit)
-        .fill(0)
-        .map(async i => ({
-          block: await L2Block.random(from + i),
-          attestations: [CommitteeAttestation.random()],
-          l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
-        })),
+    return timesAsync(limit, async i =>
+      PublishedL2Block.fromFields({
+        block: await L2Block.random(from + i),
+        attestations: [CommitteeAttestation.random()],
+        l1: { blockHash: Buffer32.random().toString(), blockNumber: 1n, timestamp: 1n },
+      }),
     );
   }
   getNodeVersion(): Promise<string> {
@@ -748,5 +796,8 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
+  }
+  getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return Promise.resolve([]);
   }
 }

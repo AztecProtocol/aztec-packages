@@ -5,8 +5,8 @@ use aztec::macros::aztec;
 #[aztec]
 contract EventOnly {
     use aztec::{
-        event::event_interface::{emit_event_in_private, MessageDelivery},
-        macros::{events::event, functions::private},
+        macros::{events::event, functions::external},
+        messages::message_delivery::MessageDelivery,
     };
 
     #[event]
@@ -14,14 +14,9 @@ contract EventOnly {
         value: Field,
     }
 
-    #[private]
+    #[external("private")]
     fn emit_event_for_msg_sender(value: Field) {
-        let sender = context.msg_sender();
-        emit_event_in_private(
-            TestEvent { value },
-            &mut context,
-            sender,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
-        );
+        let sender = self.msg_sender().unwrap();
+        self.emit(TestEvent { value }, sender, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 }

@@ -11,14 +11,12 @@ import {
 } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import {
-  type EthSigner,
   type L1ContractAddresses,
   RegistryContract,
   RollupContract,
   createEthereumChain,
   getPublicClient,
 } from '@aztec/ethereum';
-import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { compactArray, pick } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -30,6 +28,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
+import { createL1TxUtilsWithBlobsFromEthSigner } from '@aztec/node-lib/factories';
 import { type P2P, type P2PClientDeps, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -74,6 +73,7 @@ import {
   type GetPublicLogsResponse,
 } from '@aztec/stdlib/interfaces/client';
 import {
+  type AllowedElement,
   type ClientProtocolCircuitVerifier,
   type L2LogsSource,
   type Service,
@@ -82,7 +82,7 @@ import {
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Offense, SlashPayloadRound } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
@@ -108,7 +108,12 @@ import {
   getTelemetryClient,
   trackSpan,
 } from '@aztec/telemetry-client';
-import { NodeKeystoreAdapter, ValidatorClient, createValidatorClient } from '@aztec/validator-client';
+import {
+  NodeKeystoreAdapter,
+  ValidatorClient,
+  createBlockProposalHandler,
+  createValidatorClient,
+} from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient, fallback, http } from 'viem';
@@ -212,6 +217,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       }
     }
 
+    await keyStoreManager?.validateSigners();
+
     // If we are a validator, verify our configuration before doing too much more.
     if (!config.disableValidator) {
       if (keyStoreManager === undefined) {
@@ -222,7 +229,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
           'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
         );
       }
-      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager);
+      ValidatorClient.validateKeyStoreConfiguration(keyStoreManager, log);
     }
 
     // validate that the actual chain id matches that specified in configuration
@@ -270,7 +277,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const archiver = await createArchiver(
       config,
       { blobSinkClient, epochCache, telemetry, dateProvider },
-      { blockUntilSync: true },
+      { blockUntilSync: !config.skipArchiverInitialSync },
     );
 
     // now create the merkle trees and the world state synchronizer
@@ -300,12 +307,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       deps.p2pClientDeps,
     );
 
-    // Start world state and wait for it to sync to the archiver.
-    await worldStateSynchronizer.start();
-
-    // Start p2p. Note that it depends on world state to be running.
-    await p2pClient.start();
-
+    // We should really not be modifying the config object
     config.txPublicSetupAllowList = config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
 
     const blockBuilder = new BlockBuilder(
@@ -316,15 +318,55 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
+    // We'll accumulate sentinel watchers here
     const watchers: Watcher[] = [];
 
-    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
-    if (validatorsSentinel) {
-      // we can run a sentinel without trying to slash.
-      await validatorsSentinel.start();
-      if (config.slashInactivityPenalty > 0n) {
-        watchers.push(validatorsSentinel);
+    // Create validator client if required
+    const validatorClient = createValidatorClient(config, {
+      p2pClient,
+      telemetry,
+      dateProvider,
+      epochCache,
+      blockBuilder,
+      blockSource: archiver,
+      l1ToL2MessageSource: archiver,
+      keyStoreManager,
+    });
+
+    // If we have a validator client, register it as a source of offenses for the slasher,
+    // and have it register callbacks on the p2p client *before* we start it, otherwise messages
+    // like attestations or auths will fail.
+    if (validatorClient) {
+      watchers.push(validatorClient);
+      if (!options.dontStartSequencer) {
+        await validatorClient.registerHandlers();
       }
+    }
+
+    // If there's no validator client but alwaysReexecuteBlockProposals is enabled,
+    // create a BlockProposalHandler to reexecute block proposals for monitoring
+    if (!validatorClient && config.alwaysReexecuteBlockProposals) {
+      log.info('Setting up block proposal reexecution for monitoring');
+      createBlockProposalHandler(config, {
+        blockBuilder,
+        epochCache,
+        blockSource: archiver,
+        l1ToL2MessageSource: archiver,
+        p2pClient,
+        dateProvider,
+        telemetry,
+      }).registerForReexecution(p2pClient);
+    }
+
+    // Start world state and wait for it to sync to the archiver.
+    await worldStateSynchronizer.start();
+
+    // Start p2p. Note that it depends on world state to be running.
+    await p2pClient.start();
+
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    if (validatorsSentinel && config.slashInactivityPenalty > 0n) {
+      watchers.push(validatorsSentinel);
     }
 
     let epochPruneWatcher: EpochPruneWatcher | undefined;
@@ -337,7 +379,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
         blockBuilder,
         config,
       );
-      await epochPruneWatcher.start();
       watchers.push(epochPruneWatcher);
     }
 
@@ -345,31 +386,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
     if (config.slashProposeInvalidAttestationsPenalty > 0n || config.slashAttestDescendantOfInvalidPenalty > 0n) {
       attestationsBlockWatcher = new AttestationsBlockWatcher(archiver, epochCache, config);
-      await attestationsBlockWatcher.start();
       watchers.push(attestationsBlockWatcher);
     }
 
-    const validatorClient = createValidatorClient(config, {
-      p2pClient,
-      telemetry,
-      dateProvider,
-      epochCache,
-      blockBuilder,
-      blockSource: archiver,
-      l1ToL2MessageSource: archiver,
-      keyStoreManager,
-    });
-
-    if (validatorClient) {
-      watchers.push(validatorClient);
-    }
-
-    log.verbose(`All Aztec Node subsystems synced`);
+    // Start p2p-related services once the archiver has completed sync
+    void archiver
+      .waitForInitialSync()
+      .then(async () => {
+        await p2pClient.start();
+        await validatorsSentinel?.start();
+        await epochPruneWatcher?.start();
+        await attestationsBlockWatcher?.start();
+        log.info(`All p2p services started`);
+      })
+      .catch(err => log.error('Failed to start p2p services after archiver sync', err));
 
     // Validator enabled, create/start relevant service
     let sequencer: SequencerClient | undefined;
     let slasherClient: SlasherClientInterface | undefined;
-
     if (!config.disableValidator) {
       // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
       // as they are executed when the node is selected as proposer.
@@ -389,13 +423,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       );
       await slasherClient.start();
 
-      const l1TxUtils = keyStoreManager!.createAllValidatorPublisherSigners().map((signer: EthSigner) => {
-        return createL1TxUtilsWithBlobsFromEthSigner(publicClient, signer, log, dateProvider, config);
-      });
+      const l1TxUtils = await createL1TxUtilsWithBlobsFromEthSigner(
+        publicClient,
+        keyStoreManager!.createAllValidatorPublisherSigners(),
+        { ...config, scope: 'sequencer' },
+        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+      );
 
+      // Create and start the sequencer client
       sequencer = await SequencerClient.new(config, {
-        // if deps were provided, they should override the defaults,
-        // or things that we created in this function
         ...deps,
         epochCache,
         l1TxUtils,
@@ -416,6 +452,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (!options.dontStartSequencer && sequencer) {
       await sequencer.start();
       log.verbose(`Sequencer started`);
+    } else if (sequencer) {
+      log.warn(`Sequencer created but not started`);
     }
 
     return new AztecNodeService(
@@ -473,6 +511,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return Promise.resolve(this.p2pClient.getEnr()?.encodeTxt());
   }
 
+  public async getAllowedPublicSetup(): Promise<AllowedElement[]> {
+    return this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions());
+  }
+
   /**
    * Method to determine if the node is ready to accept transactions.
    * @returns - Flag indicating the readiness for tx submission.
@@ -508,8 +550,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param number - The block number being requested.
    * @returns The requested block.
    */
-  public async getBlock(number: number): Promise<L2Block | undefined> {
-    return await this.blockSource.getBlock(number);
+  public async getBlock(number: L2BlockNumber): Promise<L2Block | undefined> {
+    const blockNumber = number === 'latest' ? await this.getBlockNumber() : number;
+    return await this.blockSource.getBlock(blockNumber);
+  }
+
+  /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByHash(blockHash: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByHash(blockHash);
+    return publishedBlock?.block;
+  }
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  public async getBlockByArchive(archive: Fr): Promise<L2Block | undefined> {
+    const publishedBlock = await this.blockSource.getPublishedBlockByArchive(archive);
+    return publishedBlock?.block;
   }
 
   /**
@@ -858,13 +921,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return [witness.index, witness.path];
   }
 
+  public async getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined> {
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex ? InboxLeaf.l2BlockFromIndex(messageIndex) : undefined;
+  }
+
   /**
    * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
    * @param l1ToL2Message - The L1 to L2 message to check.
    * @returns Whether the message is synced and ready to be included in a block.
    */
   public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return (await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message)) !== undefined;
+    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
+    return messageIndex !== undefined;
   }
 
   /**
@@ -1015,6 +1084,24 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByHash(blockHash);
+  }
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  public async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    return await this.blockSource.getBlockHeaderByArchive(archive);
+  }
+
+  /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    **/
@@ -1062,12 +1149,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
-      const processor = publicProcessorFactory.create(
-        merkleTreeFork,
-        newGlobalVariables,
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, {
         skipFeeEnforcement,
-        /*clientInitiatedSimulation*/ true,
-      );
+        clientInitiatedSimulation: true,
+        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+      });
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, _usedTxs, returns] = await processor.process([tx]);
@@ -1122,12 +1208,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public async setConfig(config: Partial<AztecNodeAdminConfig>): Promise<void> {
     const newConfig = { ...this.config, ...config };
-    this.sequencer?.updateSequencerConfig(config);
+    this.sequencer?.updateConfig(config);
     this.slasherClient?.updateConfig(config);
     this.validatorsSentinel?.updateConfig(config);
-    // this.blockBuilder.updateConfig(config); // TODO: Spyros has a PR to add the builder to `this`, so we can do this
     await this.p2pClient.updateP2PConfig(config);
-
+    const archiver = this.blockSource as Archiver;
+    if ('updateConfig' in archiver) {
+      archiver.updateConfig(config);
+    }
     if (newConfig.realProofs !== this.config.realProofs) {
       this.proofVerifier = config.realProofs ? await BBCircuitVerifier.new(newConfig) : new TestCircuitVerifier();
     }
@@ -1165,32 +1253,39 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     // We break support for archiver running remotely to the node
     const archiver = this.blockSource as Archiver;
     if (!('backupTo' in archiver)) {
+      this.metrics.recordSnapshotError();
       throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
     }
 
     // Test that the archiver has done an initial sync.
     if (!archiver.isInitialSyncComplete()) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
     }
 
     // And it has an L2 block hash
     const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
     if (!l2BlockHash) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
     }
 
     if (this.isUploadingSnapshot) {
+      this.metrics.recordSnapshotError();
       throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
     }
 
     // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
     this.isUploadingSnapshot = true;
+    const timer = new Timer();
     void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
       .then(() => {
         this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshot(timer.ms());
       })
       .catch(err => {
         this.isUploadingSnapshot = false;
+        this.metrics.recordSnapshotError();
         this.log.error(`Error uploading snapshot: ${err}`);
       });
 

@@ -81,7 +81,7 @@ TEST(boomerang_stdlib_aes, test_graph_for_aes_64_bytes)
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
@@ -135,6 +135,6 @@ TEST(boomerang_stdlib_aes, test_variable_gates_count_for_aes128cbc)
     StaticAnalyzer graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
-    std::unordered_set<uint32_t> variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    std::unordered_set<uint32_t> variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
 }

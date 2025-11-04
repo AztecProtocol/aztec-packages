@@ -12,7 +12,7 @@
 namespace bb {
 template <typename FF_>
 CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
-    : has_dummy_witnesses(has_dummy_witnesses)
+    : _has_dummy_witnesses(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -24,17 +24,7 @@ CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_wit
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_finalized_gates() const
 {
-    return num_gates;
-}
-
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_estimated_num_finalized_gates() const
-{
-    return num_gates;
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::print_num_estimated_finalized_gates() const
-{
-    std::cout << num_gates << std::endl;
+    return _num_gates;
 }
 
 template <typename FF_> size_t CircuitBuilderBase<FF_>::get_num_variables() const
@@ -60,26 +50,6 @@ void CircuitBuilderBase<FF_>::update_real_variable_indices(uint32_t index, uint3
     } while (cur_index != REAL_VARIABLE);
 }
 
-template <typename FF_> uint32_t CircuitBuilderBase<FF_>::get_public_input_index(const uint32_t witness_index) const
-{
-    uint32_t result = static_cast<uint32_t>(-1);
-    for (size_t i = 0; i < num_public_inputs(); ++i) {
-        if (real_variable_index[public_inputs_[i]] == real_variable_index[witness_index]) {
-            result = static_cast<uint32_t>(i);
-            break;
-        }
-    }
-    ASSERT(result != static_cast<uint32_t>(-1));
-    return result;
-}
-
-template <typename FF_>
-typename CircuitBuilderBase<FF_>::FF CircuitBuilderBase<FF_>::get_public_input(const uint32_t index) const
-{
-    BB_ASSERT_LT(index, public_inputs_.size(), "Index out of bounds for public inputs.");
-    return get_variable(public_inputs_[index]);
-}
-
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF& in)
 {
     variables.emplace_back(in);
@@ -91,9 +61,10 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_variable(const FF&
     return index;
 }
 
+// AUDITTODO: is this used?
 template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t index, const std::string& name)
 {
-    BB_ASSERT_GT(variables.size(), index);
+    BB_ASSERT_DEBUG(variables.size() > index);
     uint32_t first_idx = get_first_variable_in_class(index);
 
     if (variable_names.contains(first_idx)) {
@@ -103,35 +74,10 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_variable_name(uint32_t
     variable_names.insert({ first_idx, name });
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::update_variable_names(uint32_t index)
+template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t _num_gates) const
 {
-    uint32_t first_idx = get_first_variable_in_class(index);
-
-    uint32_t cur_idx = next_var_index[first_idx];
-    while (cur_idx != REAL_VARIABLE && !variable_names.contains(cur_idx)) {
-        cur_idx = next_var_index[cur_idx];
-    }
-
-    if (variable_names.contains(first_idx)) {
-        if (cur_idx != REAL_VARIABLE) {
-            variable_names.extract(cur_idx);
-        }
-        return;
-    }
-
-    if (cur_idx != REAL_VARIABLE) {
-        std::string var_name = variable_names.find(cur_idx)->second;
-        variable_names.erase(cur_idx);
-        variable_names.insert({ first_idx, var_name });
-        return;
-    }
-    failure("No previously assigned names found");
-}
-
-template <typename FF_> size_t CircuitBuilderBase<FF_>::get_circuit_subgroup_size(const size_t num_gates) const
-{
-    auto log2_n = static_cast<size_t>(numeric::get_msb(num_gates));
-    if ((1UL << log2_n) != (num_gates)) {
+    auto log2_n = static_cast<size_t>(numeric::get_msb(_num_gates));
+    if ((1UL << log2_n) != (_num_gates)) {
         ++log2_n;
     }
     return 1UL << log2_n;
@@ -146,8 +92,8 @@ template <typename FF_> msgpack::sbuffer CircuitBuilderBase<FF_>::export_circuit
 template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(const FF& in)
 {
     const uint32_t index = add_variable(in);
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(index);
     return index;
 }
 
@@ -162,8 +108,8 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const
         }
     }
     uint32_t public_input_index = static_cast<uint32_t>(num_public_inputs());
-    BB_ASSERT_EQ(public_inputs_finalized_, false, "Cannot add to public inputs after they have been finalized.");
-    public_inputs_.emplace_back(witness_index);
+    BB_ASSERT_EQ(_public_inputs_finalized, false, "Cannot add to public inputs after they have been finalized.");
+    _public_inputs.emplace_back(witness_index);
 
     return public_input_index;
 }
@@ -210,11 +156,13 @@ void CircuitBuilderBase<FF>::assert_equal(const uint32_t a_variable_idx,
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>& variable_indices)
+void CircuitBuilderBase<FF_>::assert_valid_variables([[maybe_unused]] const std::vector<uint32_t>& variable_indices)
 {
+#ifndef NDEBUG
     for (const auto& variable_index : variable_indices) {
         BB_ASSERT_LT(variable_index, variables.size());
     }
+#endif
 }
 
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const
@@ -227,20 +175,15 @@ template <typename FF_> const std::string& CircuitBuilderBase<FF_>::err() const
     return _err;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
-{
-    _err = std::move(msg);
-}
-
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
 #ifndef FUZZING_DISABLE_WARNINGS
-    if (!has_dummy_witnesses) {
+    if (!_has_dummy_witnesses) {
         // Not a catch-all error log. We have a builder failure when we have real witnesses which is a mistake.
         info("(Experimental) WARNING: Builder failure when we have real witnesses! Ignore if writing vk.");
     }
 #endif
     _failed = true;
-    set_err(std::move(msg));
+    _err = msg;
 }
 } // namespace bb

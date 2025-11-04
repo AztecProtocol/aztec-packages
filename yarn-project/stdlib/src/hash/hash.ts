@@ -109,10 +109,6 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
  * @returns Hash of the calldata.
  */
 export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
-  if (calldata.length === 0) {
-    return Promise.resolve(Fr.ZERO);
-  }
-
   return poseidon2HashWithSeparator(calldata, GeneratorIndex.PUBLIC_CALLDATA);
 }
 

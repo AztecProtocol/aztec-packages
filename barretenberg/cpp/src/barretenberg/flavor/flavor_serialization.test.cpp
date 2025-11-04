@@ -5,6 +5,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
@@ -20,7 +21,7 @@ using namespace bb;
 template <typename Flavor> class FlavorSerializationTests : public ::testing::Test {
   public:
     using Builder = typename Flavor::CircuitBuilder;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
 
   protected:
@@ -38,7 +39,7 @@ TYPED_TEST_SUITE(FlavorSerializationTests, FlavorTypes);
 TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
 {
     using Builder = typename TestFixture::Builder;
-    using DeciderProvingKey = typename TestFixture::DeciderProvingKey;
+    using ProverInstance = typename TestFixture::ProverInstance;
     using VerificationKey = typename TestFixture::VerificationKey;
 
     Builder builder;
@@ -46,9 +47,9 @@ TYPED_TEST(FlavorSerializationTests, VerificationKeySerialization)
     // Add some arbitrary arithmetic gates that utilize public inputs
     MockCircuits::add_arithmetic_gates_with_public_inputs(builder, /*num_gates=*/100);
 
-    stdlib::recursion::PairingPoints<Builder>::add_default_to_public_inputs(builder);
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    VerificationKey original_vkey{ proving_key->get_precomputed() };
+    stdlib::recursion::honk::DefaultIO<Builder>::add_default(builder);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    VerificationKey original_vkey{ prover_instance->get_precomputed() };
 
     // Serialize and deserialize the verification key
     std::vector<uint8_t> vkey_buffer = to_buffer(original_vkey);

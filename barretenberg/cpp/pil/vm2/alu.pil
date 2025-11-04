@@ -1,5 +1,4 @@
 include "constants_gen.pil";
-include "execution.pil";
 include "ff_gt.pil";
 include "gt.pil";
 include "precomputed.pil";
@@ -82,15 +81,8 @@ op_id = sel_op_add * constants.AVM_EXEC_OP_ID_ALU_ADD
 
 // Note: sel captures sel_op_truncate which is dispatched differently (see #[EXEC_DISPATCHING_CAST]). This is not an issue because
 // sel_alu never selects an op_id = AVM_EXEC_OP_ID_ALU_TRUNCATE as prescribed by SUBTRACE_INFO_MAP.
-#[REGISTER_TAG_VALUE]
-execution.sel_execute_alu {
-    execution.register[0], execution.mem_tag_reg[0], execution.register[1],
-    execution.mem_tag_reg[1], execution.register[2], execution.mem_tag_reg[2], execution.subtrace_operation_id, execution.sel_opcode_error
-} in sel {
-    ia, ia_tag, ib, ib_tag, ic, ic_tag, op_id, sel_err
-};
 
-// MW Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
+// Note: No need to range check values fit in their tag's max bits. Inputs a and b are reads (already checked), and c is checked in memory.
 // Though in this circuit we could incorrectly set cf = false when we would overflow, the memory range check would catch that c is too large.
 
 // IS_FF CHECKING
@@ -185,16 +177,16 @@ a_lo_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * shift_lo_bits = 0;
 a_hi_bits - sel_mul_div_u128 * constant_64 - sel_shift_ops * SHIFT_HI_BITS = 0;
 
 #[RANGE_CHECK_DECOMPOSITION_A_LO]
-sel_decompose_a { a_lo, a_lo_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_decompose_a { a_lo, a_lo_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_A_HI]
-sel_decompose_a { a_hi, a_hi_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_decompose_a { a_hi, a_hi_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_B_LO]
-sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_div_u128 { b_lo, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 #[RANGE_CHECK_DECOMPOSITION_B_HI]
-sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 
 // ADD
@@ -252,7 +244,7 @@ sel_mul_u128 * (1 - sel_tag_err)
 // up max_value. i.e. we cannot provide a malicious c, c_hi such that a + b - c_hi * 2^n = c passes for n < 128.
 // No need to range_check c_lo = ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_MUL_U128_C_HI]
-sel_mul_u128 { c_hi, constant_64 } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_mul_u128 { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
 
 // DIV
 
@@ -264,7 +256,7 @@ sel_op_div * (1 - sel_op_div) = 0;
 pol commit sel_div_no_0_err;
 sel_div_no_0_err = sel_op_div * (1 - sel_div_0_err);
 #[GT_DIV_REMAINDER]
-sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel { gt.input_a, gt.input_b, gt.res };
+sel_div_no_0_err { ib, helper1, sel_op_div } in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // DIV - u128
 
@@ -343,14 +335,13 @@ DIV_OPS_NON_U128 * (ib * ic - (ia - sel_op_div * helper1)) = 0;
 
 sel_op_eq * (1 - sel_op_eq) = 0;
 pol DIFF = ia - ib;
-
-// Use helper1 to invert DIFF.
+pol commit ab_diff_inv; // Helper column for inverting DIFF.
 // ic is a boolean output and ic == 1 <==> a == b.
 // Important: ic boolean constraint is enforced as part of write to memory due to ic_tag == U1 as enforced by #[C_TAG_CHECK].
 
 // sel_op_eq == 1 => [ic == 1 <==> DIFF == 0]
 #[EQ_OP_MAIN]
-sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - helper1) + helper1) - 1 + ic) = 0;
+sel_op_eq * (1 - sel_tag_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
 
 // LT
 
@@ -395,7 +386,7 @@ in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
 #[INT_GT]
 sel_int_lt_ops { lt_ops_input_a, lt_ops_input_b, lt_ops_result_c }
-in gt.sel { gt.input_a, gt.input_b, gt.res };
+in gt.sel_alu { gt.input_a, gt.input_b, gt.res };
 
 // NOT
 // Input is sent to ia, ia_tag and output is sent to ib, ib_tag.
@@ -496,49 +487,6 @@ sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precompute
 
 sel_op_truncate * (1 - sel_op_truncate) = 0;
 
-
-// CAST DISPATCHING
-// Serialization layout is: src_addr, dst_addr, dst_tag
-// src_addr --> register[0], dst_addr --> register[1], dst_tag --> rop[2] (immediate and therefore not sent to register)
-// Reminder: mem_tag_reg[0] is ignored and might be different than ia_tag.
-
-// Inputs are:
-// - register[0] (ia: value (as FF) to truncate)
-// - rop[2] (ia_tag: destination tag)
-// - subtrace_operation_id (op_id)
-
-// Outputs are:
-// - register[1] (ic: truncated value)
-// - mem_tag_reg[1] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
-// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
-#[EXEC_DISPATCHING_CAST]
-execution.sel_execute_cast {
-    execution.register[0], execution.rop[2], execution.subtrace_operation_id, execution.register[1], execution.mem_tag_reg[1], execution.sel_opcode_error
-} in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ia_tag, /*sel_opcode_error=*/ precomputed.zero
-};
-
-// SET DISPATCHING
-// Serialization layout is: dst_addr, dst_tag, value (immediate)
-// dst_addr --> register[0], dst_tag --> rop[1], value --> rop[2] (dst_tag and value are
-// immediate and therefore not sent to register)
-
-// Inputs are:
-// - rop[2] (ia: value (as FF) to truncate)
-// - rop[1] (ia_tag: destination tag)
-// - subtrace_operation_id (op_id)
-
-// Outputs are:
-// - register[0] (ic: truncated value)
-// - mem_tag_reg[0] (ic_tag: write tag == ia_tag as enforced by #[C_TAG_CHECK])
-// Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
-#[EXEC_DISPATCHING_SET]
-execution.sel_execute_set {
-    execution.rop[2], execution.rop[1], execution.subtrace_operation_id, execution.register[0], execution.mem_tag_reg[0], execution.sel_opcode_error
-} in sel_op_truncate {
-    ia, ia_tag, op_id, ic, ic_tag, /*sel_opcode_error=*/ precomputed.zero
-};
-
 // 3 cases for truncation:
 // - No truncation required (ia <= max_value)
 // - truncation for ia >= 2^128
@@ -598,4 +546,4 @@ mid_bits = sel_trunc_non_trivial * (128 - max_bits);
 // is supported by our range_check gadget.
 // No need to range_check ic because the memory write will ensure ic <= max_value.
 #[RANGE_CHECK_TRUNC_MID]
-sel_trunc_non_trivial { mid, mid_bits } in range_check.sel { range_check.value, range_check.rng_chk_bits };
+sel_trunc_non_trivial { mid, mid_bits } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };

@@ -17,7 +17,7 @@ struct perm_public_data_check_squashing_settings_ {
     static constexpr std::string_view NAME = "PERM_PUBLIC_DATA_CHECK_SQUASHING";
     static constexpr std::string_view RELATION_NAME = "public_data_check";
     static constexpr size_t COLUMNS_PER_SET = 5;
-    static constexpr Column SRC_SELECTOR = Column::public_data_check_nondiscaded_write;
+    static constexpr Column SRC_SELECTOR = Column::public_data_check_non_discarded_write;
     static constexpr Column DST_SELECTOR = Column::public_data_squash_sel;
     static constexpr Column INVERSES = Column::perm_public_data_check_squashing_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

@@ -1,5 +1,5 @@
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/get_bytecode.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 

@@ -1,6 +1,8 @@
 import {
   CoinIssuerAbi,
   CoinIssuerBytecode,
+  DateGatedRelayerAbi,
+  DateGatedRelayerBytecode,
   EmpireSlasherDeploymentExtLibAbi,
   EmpireSlasherDeploymentExtLibBytecode,
   EmpireSlashingProposerAbi,
@@ -31,10 +33,10 @@ import {
   RegisterNewRollupVersionPayloadBytecode,
   RegistryAbi,
   RegistryBytecode,
-  RewardDeploymentExtLibAbi,
-  RewardDeploymentExtLibBytecode,
   RewardDistributorAbi,
   RewardDistributorBytecode,
+  RewardExtLibAbi,
+  RewardExtLibBytecode,
   RollupAbi,
   RollupBytecode,
   RollupLinkReferences,
@@ -100,10 +102,10 @@ export const RollupArtifact = {
         contractAbi: ValidatorOperationsExtLibAbi,
         contractBytecode: ValidatorOperationsExtLibBytecode as Hex,
       },
-      RewardDeploymentExtLib: {
-        name: 'RewardDeploymentExtLib',
-        contractAbi: RewardDeploymentExtLibAbi,
-        contractBytecode: RewardDeploymentExtLibBytecode as Hex,
+      RewardExtLib: {
+        name: 'RewardExtLib',
+        contractAbi: RewardExtLibAbi,
+        contractBytecode: RewardExtLibBytecode as Hex,
       },
       TallySlasherDeploymentExtLib: {
         name: 'TallySlasherDeploymentExtLib',
@@ -147,6 +149,12 @@ export const CoinIssuerArtifact = {
   name: 'CoinIssuer',
   contractAbi: CoinIssuerAbi,
   contractBytecode: CoinIssuerBytecode as Hex,
+};
+
+export const DateGatedRelayerArtifact = {
+  name: 'DateGatedRelayer',
+  contractAbi: DateGatedRelayerAbi,
+  contractBytecode: DateGatedRelayerBytecode as Hex,
 };
 
 export const GovernanceProposerArtifact = {

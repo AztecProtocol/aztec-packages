@@ -5,9 +5,11 @@ import { z } from 'zod';
 import type { ApiSchemaFor } from '../schemas/schemas.js';
 import { type Offense, OffenseSchema, type SlashPayloadRound, SlashPayloadRoundSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+import { type ArchiverSpecificConfig, ArchiverSpecificConfigSchema } from './archiver.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import { type SlasherConfig, SlasherConfigSchema } from './slasher.js';
+import { type ValidatorClientFullConfig, ValidatorClientFullConfigSchema } from './validator.js';
 
 /**
  * Aztec node admin API.
@@ -50,10 +52,24 @@ export interface AztecNodeAdmin {
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
 }
 
-export type AztecNodeAdminConfig = SequencerConfig & ProverConfig & SlasherConfig & { maxTxPoolSize: number };
+export type AztecNodeAdminConfig = ValidatorClientFullConfig &
+  SequencerConfig &
+  ProverConfig &
+  SlasherConfig &
+  Pick<ArchiverSpecificConfig, 'archiverPollingIntervalMS' | 'skipValidateBlockAttestations' | 'archiverBatchSize'> & {
+    maxTxPoolSize: number;
+  };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
+  .merge(ValidatorClientFullConfigSchema)
+  .merge(
+    ArchiverSpecificConfigSchema.pick({
+      archiverPollingIntervalMS: true,
+      skipValidateBlockAttestations: true,
+      archiverBatchSize: true,
+    }),
+  )
   .merge(z.object({ maxTxPoolSize: z.number() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {

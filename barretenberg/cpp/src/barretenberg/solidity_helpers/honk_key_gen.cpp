@@ -4,6 +4,7 @@
 
 #include "barretenberg/honk/utils/honk_key_gen.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -15,7 +16,7 @@
 
 using namespace bb;
 
-using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
+using ProverInstance = ProverInstance_<UltraKeccakFlavor>;
 using VerificationKey = UltraKeccakFlavor::VerificationKey;
 
 template <typename Circuit> void generate_keys_honk(const std::string& output_path, std::string circuit_name)
@@ -24,12 +25,12 @@ template <typename Circuit> void generate_keys_honk(const std::string& output_pa
     UltraCircuitBuilder builder = Circuit::generate(public_inputs);
 
     if constexpr (!std::same_as<Circuit, RecursiveCircuit>) {
-        stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+        stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
     }
 
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    UltraKeccakProver prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    UltraKeccakProver prover(prover_instance, verification_key);
 
     // Make verification key file upper case
     circuit_name.at(0) = static_cast<char>(std::toupper(static_cast<unsigned char>(circuit_name.at(0))));

@@ -2,19 +2,22 @@
 
 #include <cstdint>
 
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/addressing.hpp"
-#include "barretenberg/vm2/simulation/alu.hpp"
-#include "barretenberg/vm2/simulation/bitwise.hpp"
-#include "barretenberg/vm2/simulation/bytecode_manager.hpp"
-#include "barretenberg/vm2/simulation/calldata_hashing.hpp"
-#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
-#include "barretenberg/vm2/simulation/context.hpp"
-#include "barretenberg/vm2/simulation/contract_instance_manager.hpp"
-#include "barretenberg/vm2/simulation/ecc.hpp"
+
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
+#include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
+#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
+#include "barretenberg/vm2/simulation/lib/public_inputs_builder.hpp"
+#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracking_db.hpp"
+
+// Events.
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
@@ -38,89 +41,97 @@
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
 #include "barretenberg/vm2/simulation/events/tx_events.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
-#include "barretenberg/vm2/simulation/execution.hpp"
-#include "barretenberg/vm2/simulation/execution_components.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
-#include "barretenberg/vm2/simulation/get_contract_instance.hpp"
-#include "barretenberg/vm2/simulation/gt.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
-#include "barretenberg/vm2/simulation/lib/execution_id_manager.hpp"
-#include "barretenberg/vm2/simulation/lib/instruction_info.hpp"
-#include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
-#include "barretenberg/vm2/simulation/memory.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/range_check.hpp"
-#include "barretenberg/vm2/simulation/sha256.hpp"
-#include "barretenberg/vm2/simulation/siloing.hpp"
-#include "barretenberg/vm2/simulation/to_radix.hpp"
-#include "barretenberg/vm2/simulation/tx_execution.hpp"
-#include "barretenberg/vm2/simulation/update_check.hpp"
-#include "barretenberg/vm2/simulation/written_public_data_slots_tree_check.hpp"
+
+// Gadgets.
+#include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
+#include "barretenberg/vm2/simulation/gadgets/alu.hpp"
+#include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
+#include "barretenberg/vm2/simulation/gadgets/bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/gadgets/calldata_hashing.hpp"
+#include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/gadgets/context.hpp"
+#include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/gadgets/ecc.hpp"
+#include "barretenberg/vm2/simulation/gadgets/execution.hpp"
+#include "barretenberg/vm2/simulation/gadgets/execution_components.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/get_contract_instance.hpp"
+#include "barretenberg/vm2/simulation/gadgets/gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/memory.hpp"
+#include "barretenberg/vm2/simulation/gadgets/merkle_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/range_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/sha256.hpp"
+#include "barretenberg/vm2/simulation/gadgets/siloing.hpp"
+#include "barretenberg/vm2/simulation/gadgets/to_radix.hpp"
+#include "barretenberg/vm2/simulation/gadgets/tx_execution.hpp"
+#include "barretenberg/vm2/simulation/gadgets/update_check.hpp"
+#include "barretenberg/vm2/simulation/gadgets/written_public_data_slots_tree_check.hpp"
+
+// Standalone.
+#include "barretenberg/vm2/simulation/standalone/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/standalone/debug_log.hpp"
+#include "barretenberg/vm2/simulation/standalone/hybrid_execution.hpp"
+#include "barretenberg/vm2/simulation/standalone/noop_update_check.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_alu.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_bitwise.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_bytecode_manager.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_execution_components.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_gt.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_poseidon2.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_to_radix.hpp"
+#include "barretenberg/vm2/simulation/standalone/written_public_data_slots_tree_check.hpp"
 
 namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
-namespace {
-
-// Configuration for full simulation (for proving).
-struct ProvingSettings {
-    template <typename E> using DefaultEventEmitter = EventEmitter<E>;
-    template <typename E> using DefaultDeduplicatingEventEmitter = DeduplicatingEventEmitter<E>;
-};
-
-// Configuration for fast simulation.
-struct FastSettings {
-    template <typename E> using DefaultEventEmitter = NoopEventEmitter<E>;
-    template <typename E> using DefaultDeduplicatingEventEmitter = NoopEventEmitter<E>;
-};
-
-} // namespace
-
-template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
+EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)
 {
-    typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
-    typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
-    typename S::template DefaultEventEmitter<DataCopyEvent> data_copy_emitter;
-    typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
-    typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
-    typename S::template DefaultEventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
-    typename S::template DefaultEventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
-    typename S::template DefaultEventEmitter<AddressDerivationEvent> address_derivation_emitter;
-    typename S::template DefaultEventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
-    typename S::template DefaultEventEmitter<SiloingEvent> siloing_emitter;
-    typename S::template DefaultEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
-    typename S::template DefaultEventEmitter<EccAddEvent> ecc_add_emitter;
-    typename S::template DefaultEventEmitter<ScalarMulEvent> scalar_mul_emitter;
-    typename S::template DefaultEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
-    typename S::template DefaultEventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
-    typename S::template DefaultEventEmitter<KeccakF1600Event> keccakf1600_emitter;
-    typename S::template DefaultEventEmitter<ToRadixEvent> to_radix_emitter;
-    typename S::template DefaultEventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
-    typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
-    typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
-    typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
-    typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
-    typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
-    typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
-    typename S::template DefaultEventEmitter<TxEvent> tx_event_emitter;
-    typename S::template DefaultEventEmitter<CalldataEvent> calldata_emitter;
-    typename S::template DefaultEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
-    typename S::template DefaultEventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
-    typename S::template DefaultEventEmitter<WrittenPublicDataSlotsTreeCheckEvent>
-        written_public_data_slots_tree_check_emitter;
-    typename S::template DefaultDeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
-    typename S::template DefaultEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
-    typename S::template DefaultEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
-    typename S::template DefaultEventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
-    typename S::template DefaultEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
-    typename S::template DefaultEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_for_witgen");
+
+    EventEmitter<ExecutionEvent> execution_emitter;
+    DeduplicatingEventEmitter<AluEvent> alu_emitter;
+    DeduplicatingEventEmitter<BitwiseEvent> bitwise_emitter;
+    EventEmitter<DataCopyEvent> data_copy_emitter;
+    EventEmitter<MemoryEvent> memory_emitter;
+    EventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
+    EventEmitter<BytecodeHashingEvent> bytecode_hashing_emitter;
+    EventEmitter<BytecodeDecompositionEvent> bytecode_decomposition_emitter;
+    DeduplicatingEventEmitter<InstructionFetchingEvent> instruction_fetching_emitter;
+    EventEmitter<AddressDerivationEvent> address_derivation_emitter;
+    EventEmitter<ClassIdDerivationEvent> class_id_derivation_emitter;
+    EventEmitter<SiloingEvent> siloing_emitter;
+    EventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    EventEmitter<EccAddEvent> ecc_add_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    EventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
+    EventEmitter<Poseidon2HashEvent> poseidon2_hash_emitter;
+    EventEmitter<Poseidon2PermutationEvent> poseidon2_perm_emitter;
+    EventEmitter<Poseidon2PermutationMemoryEvent> poseidon2_perm_mem_emitter;
+    EventEmitter<KeccakF1600Event> keccakf1600_emitter;
+    EventEmitter<ToRadixEvent> to_radix_emitter;
+    EventEmitter<ToRadixMemoryEvent> to_radix_memory_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    EventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    DeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
+    EventEmitter<ContextStackEvent> context_stack_emitter;
+    EventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
+    EventEmitter<UpdateCheckEvent> update_check_emitter;
+    EventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
+    EventEmitter<TxEvent> tx_event_emitter;
+    EventEmitter<CalldataEvent> calldata_emitter;
+    EventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    EventEmitter<NoteHashTreeCheckEvent> note_hash_tree_check_emitter;
+    EventEmitter<WrittenPublicDataSlotsTreeCheckEvent> written_public_data_slots_tree_check_emitter;
+    DeduplicatingEventEmitter<GreaterThanEvent> greater_than_emitter;
+    EventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    EventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    EventEmitter<L1ToL2MessageTreeCheckEvent> l1_to_l2_msg_tree_check_emitter;
+    EventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
 
     ExecutionIdManager execution_id_manager(1);
     RangeCheck range_check(range_check_emitter);
@@ -154,18 +165,25 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
-    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
 
-    MerkleDB merkle_db(raw_merkle_db,
-                       public_data_tree_check,
-                       nullifier_tree_check,
-                       note_hash_tree_check,
-                       written_public_data_slots_tree_check,
-                       l1_to_l2_msg_tree_check);
-    merkle_db.add_checkpoint_listener(note_hash_tree_check);
-    merkle_db.add_checkpoint_listener(nullifier_tree_check);
-    merkle_db.add_checkpoint_listener(public_data_tree_check);
-    merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+    ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation, hints.protocolContracts);
+
+    MerkleDB base_merkle_db(raw_merkle_db,
+                            public_data_tree_check,
+                            nullifier_tree_check,
+                            note_hash_tree_check,
+                            written_public_data_slots_tree_check,
+                            l1_to_l2_msg_tree_check);
+    base_merkle_db.add_checkpoint_listener(note_hash_tree_check);
+    base_merkle_db.add_checkpoint_listener(nullifier_tree_check);
+    base_merkle_db.add_checkpoint_listener(public_data_tree_check);
+    // This one is only needed for events.
+    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+
+    // Side effect tracking is only strictly needed for logs and L2-to-L1 messages.
+    SideEffectTracker side_effect_tracker;
+    SideEffectTrackingDB merkle_db(
+        hints.tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
 
     UpdateCheck update_check(
         poseidon2, range_check, greater_than, merkle_db, update_check_emitter, hints.globalVariables);
@@ -175,7 +193,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     InstructionInfoDB instruction_info_db;
 
     ContractInstanceManager contract_instance_manager(
-        contract_db, merkle_db, update_check, contract_instance_retrieval_emitter);
+        contract_db, merkle_db, update_check, field_gt, hints.protocolContracts, contract_instance_retrieval_emitter);
 
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
@@ -186,7 +204,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(range_check, instruction_info_db);
+    ExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
 
     MemoryProvider memory_provider(range_check, execution_id_manager, memory_emitter);
     CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
@@ -198,12 +216,15 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                      merkle_db,
                                      written_public_data_slots_tree_check,
                                      retrieved_bytecodes_tree_check,
+                                     side_effect_tracker,
                                      hints.globalVariables);
     DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
 
     // Create GetContractInstance opcode component
     GetContractInstance get_contract_instance(
         execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
+
+    NoopDebugLogger debug_log_component;
 
     Execution execution(alu,
                         bitwise,
@@ -222,17 +243,23 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                         greater_than,
                         get_contract_instance,
                         emit_unencrypted_log_component,
+                        debug_log_component,
                         merkle_db);
+
     TxExecution tx_execution(execution,
                              context_provider,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
+                             side_effect_tracker,
                              field_gt,
                              poseidon2,
                              tx_event_emitter);
 
     tx_execution.simulate(hints.tx);
+
+    public_data_tree_check.generate_ff_gt_events_for_squashing(
+        side_effect_tracker.get_side_effects().storage_writes_slots_by_insertion);
 
     return {
         tx_event_emitter.dump_events(),
@@ -278,14 +305,314 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     };
 }
 
-EventsContainer AvmSimulationHelper::simulate()
+TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_contract_db,
+                                                      LowLevelMerkleDBInterface& raw_merkle_db,
+                                                      const Tx& tx,
+                                                      const GlobalVariables& global_variables,
+                                                      const ProtocolContracts& protocol_contracts)
 {
-    return simulate_with_settings<ProvingSettings>();
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_fast");
+
+    // TODO(fcarreiro): These should come from the simulate call.
+    bool user_requested_simulation = false;
+    DebugLogLevel debug_log_level = DebugLogLevel::INFO;
+    uint32_t max_debug_log_memory_reads = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS;
+    FF prover_id = 1;
+
+    NoopEventEmitter<ExecutionEvent> execution_emitter;
+    NoopEventEmitter<DataCopyEvent> data_copy_emitter;
+    NoopEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    NoopEventEmitter<EccAddEvent> ecc_add_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
+    NoopEventEmitter<KeccakF1600Event> keccakf1600_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    NoopEventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    NoopEventEmitter<ContextStackEvent> context_stack_emitter;
+    NoopEventEmitter<TxEvent> tx_event_emitter;
+    NoopEventEmitter<CalldataEvent> calldata_emitter;
+    NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+
+    ExecutionIdManager execution_id_manager(1);
+    RangeCheck range_check(range_check_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
+    PureGreaterThan greater_than;
+    PureToRadix to_radix;
+    PurePoseidon2 poseidon2;
+    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
+    PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
+        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
+    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    PureAlu alu;
+    PureBitwise bitwise;
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
+
+    Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
+
+    SideEffectTracker side_effect_tracker;
+    PureContractDB contract_db(raw_contract_db);
+
+    PureMerkleDB base_merkle_db(
+        tx.nonRevertibleAccumulatedData.nullifiers[0], raw_merkle_db, written_public_data_slots_tree_check);
+    SideEffectTrackingDB merkle_db(tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
+
+    NoopUpdateCheck update_check;
+
+    InstructionInfoDB instruction_info_db;
+
+    ContractInstanceManager contract_instance_manager(
+        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
+
+    PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
+    PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
+
+    PureMemoryProvider memory_provider;
+    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
+    ContextProvider context_provider(bytecode_manager,
+                                     memory_provider,
+                                     calldata_hashing_provider,
+                                     internal_call_stack_manager_provider,
+                                     merkle_db,
+                                     written_public_data_slots_tree_check,
+                                     retrieved_bytecodes_tree_check,
+                                     side_effect_tracker,
+                                     global_variables);
+    DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
+
+    // Create GetContractInstance opcode component
+    GetContractInstance get_contract_instance(
+        execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
+
+    std::unique_ptr<DebugLoggerInterface> debug_log_component;
+    if (user_requested_simulation) {
+        debug_log_component = std::make_unique<DebugLogger>(
+            debug_log_level, max_debug_log_memory_reads, [](const std::string& message) { info(message); });
+    } else {
+        debug_log_component = std::make_unique<NoopDebugLogger>();
+    }
+
+    HybridExecution execution(alu,
+                              bitwise,
+                              data_copy,
+                              poseidon2,
+                              ecc,
+                              to_radix,
+                              sha256,
+                              execution_components,
+                              context_provider,
+                              instruction_info_db,
+                              execution_id_manager,
+                              execution_emitter,
+                              context_stack_emitter,
+                              keccakf1600,
+                              greater_than,
+                              get_contract_instance,
+                              emit_unencrypted_log_component,
+                              *debug_log_component,
+                              merkle_db);
+    TxExecution tx_execution(execution,
+                             context_provider,
+                             merkle_db,
+                             written_public_data_slots_tree_check,
+                             retrieved_bytecodes_tree_check,
+                             side_effect_tracker,
+                             field_gt,
+                             poseidon2,
+                             tx_event_emitter);
+
+    PublicInputsBuilder public_inputs_builder;
+    public_inputs_builder.extract_inputs(tx, global_variables, protocol_contracts, prover_id, raw_merkle_db);
+
+    // This triggers all the work.
+    TxExecutionResult tx_execution_result = tx_execution.simulate(tx);
+
+    // TODO(fcarreiro): get these values from somewhere.
+    FF transaction_fee = 0;
+    public_inputs_builder.extract_outputs(raw_merkle_db,
+                                          tx_execution_result.gas_used,
+                                          transaction_fee,
+                                          tx_execution_result.reverted,
+                                          side_effect_tracker.get_side_effects());
+
+    return {
+        .public_inputs = public_inputs_builder.build(),
+        .execution_hints = std::nullopt, // TODO: add execution hints, optionally.
+        .gas_used = tx_execution_result.gas_used,
+        .debug_logs = debug_log_component->dump_logs(),
+        .app_logic_output = tx_execution_result.app_logic_output,
+        .reverted = tx_execution_result.reverted,
+    };
 }
 
-void AvmSimulationHelper::simulate_fast()
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)
 {
-    simulate_with_settings<FastSettings>();
+    HintedRawContractDB raw_contract_db(hints);
+    HintedRawMerkleDB raw_merkle_db(hints);
+    return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
+}
+
+EnqueuedCallResult AvmSimulationHelper::simulate_bytecode(const AztecAddress& address,
+                                                          const AztecAddress& sender,
+                                                          const FF& transaction_fee,
+                                                          const GlobalVariables& globals,
+                                                          bool is_static_call,
+                                                          const std::vector<FF>& calldata,
+                                                          const Gas& gas_limit,
+                                                          const std::vector<uint8_t>& bytecode)
+{
+    BB_BENCH_NAME("AvmSimulationHelper::simulate_bytecode");
+
+    NoopEventEmitter<ExecutionEvent> execution_emitter;
+    NoopEventEmitter<DataCopyEvent> data_copy_emitter;
+    NoopEventEmitter<Sha256CompressionEvent> sha256_compression_emitter;
+    NoopEventEmitter<EccAddEvent> ecc_add_emitter;
+    NoopEventEmitter<ScalarMulEvent> scalar_mul_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_emitter;
+    NoopEventEmitter<KeccakF1600Event> keccakf1600_emitter;
+    NoopEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
+    NoopEventEmitter<MerkleCheckEvent> merkle_check_emitter;
+    NoopEventEmitter<RangeCheckEvent> range_check_emitter;
+    NoopEventEmitter<ContextStackEvent> context_stack_emitter;
+    NoopEventEmitter<TxEvent> tx_event_emitter;
+    NoopEventEmitter<CalldataEvent> calldata_emitter;
+    NoopEventEmitter<InternalCallStackEvent> internal_call_stack_emitter;
+    NoopEventEmitter<ContractInstanceRetrievalEvent> contract_instance_retrieval_emitter;
+    NoopEventEmitter<GetContractInstanceEvent> get_contract_instance_emitter;
+    NoopEventEmitter<EmitUnencryptedLogEvent> emit_unencrypted_log_emitter;
+    NoopEventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_check_emitter;
+
+    ExecutionIdManager execution_id_manager(1);
+    RangeCheck range_check(range_check_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
+    PureGreaterThan greater_than;
+    PureToRadix to_radix;
+    PurePoseidon2 poseidon2;
+    MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
+    PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(
+        poseidon2, merkle_check, field_gt, build_retrieved_bytecodes_tree(), retrieved_bytecodes_tree_check_emitter);
+    EmitUnencryptedLog emit_unencrypted_log_component(execution_id_manager, greater_than, emit_unencrypted_log_emitter);
+    PureAlu alu;
+    PureBitwise bitwise;
+    Sha256 sha256(execution_id_manager, bitwise, greater_than, sha256_compression_emitter);
+    KeccakF1600 keccakf1600(execution_id_manager, keccakf1600_emitter, bitwise, range_check, greater_than);
+
+    Ecc ecc(execution_id_manager, greater_than, to_radix, ecc_add_emitter, scalar_mul_emitter, ecc_add_memory_emitter);
+
+    ExecutionHints empty_hints; // leave empty
+    HintedRawContractDB raw_contract_db(empty_hints);
+    HintedRawMerkleDB raw_merkle_db(empty_hints);
+
+    PureContractDB contract_db(raw_contract_db);
+
+    const FF first_nullifier = 42000; // just choose some arbitrary first nullifier
+    SideEffectTracker side_effect_tracker;
+    PureMerkleDB base_merkle_db(
+        /*first_nullifier=*/first_nullifier, raw_merkle_db, written_public_data_slots_tree_check);
+    SideEffectTrackingDB merkle_db(first_nullifier, base_merkle_db, side_effect_tracker);
+    base_merkle_db.add_checkpoint_listener(emit_unencrypted_log_component);
+
+    NoopUpdateCheck update_check;
+
+    InstructionInfoDB instruction_info_db;
+
+    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derived_addresses; // leave empty / 0s
+    ProtocolContracts protocol_contracts(derived_addresses);
+
+    ContractInstanceManager contract_instance_manager(
+        contract_db, merkle_db, update_check, field_gt, protocol_contracts, contract_instance_retrieval_emitter);
+
+    PureTxBytecodeManager bytecode_manager(contract_db, contract_instance_manager);
+    PureExecutionComponentsProvider execution_components(greater_than, instruction_info_db);
+
+    PureMemoryProvider memory_provider;
+    CalldataHashingProvider calldata_hashing_provider(poseidon2, calldata_emitter);
+    InternalCallStackManagerProvider internal_call_stack_manager_provider(internal_call_stack_emitter);
+    ContextProvider context_provider(bytecode_manager,
+                                     memory_provider,
+                                     calldata_hashing_provider,
+                                     internal_call_stack_manager_provider,
+                                     merkle_db,
+                                     written_public_data_slots_tree_check,
+                                     retrieved_bytecodes_tree_check,
+                                     side_effect_tracker,
+                                     globals);
+    DataCopy data_copy(execution_id_manager, greater_than, data_copy_emitter);
+
+    // Create GetContractInstance opcode component
+    GetContractInstance get_contract_instance(
+        execution_id_manager, merkle_db, get_contract_instance_emitter, contract_instance_manager);
+
+    std::unique_ptr<DebugLoggerInterface> debug_log_component;
+    debug_log_component = std::make_unique<NoopDebugLogger>();
+
+    HybridExecution execution(alu,
+                              bitwise,
+                              data_copy,
+                              poseidon2,
+                              ecc,
+                              to_radix,
+                              sha256,
+                              execution_components,
+                              context_provider,
+                              instruction_info_db,
+                              execution_id_manager,
+                              execution_emitter,
+                              context_stack_emitter,
+                              keccakf1600,
+                              greater_than,
+                              get_contract_instance,
+                              emit_unencrypted_log_component,
+                              *debug_log_component,
+                              merkle_db);
+
+    // Create a simple bytecode manager that wraps the raw bytecode
+    auto shared_bytecode = std::make_shared<std::vector<uint8_t>>(bytecode);
+    class RawBytecodeManager : public BytecodeManagerInterface {
+      public:
+        RawBytecodeManager(std::shared_ptr<std::vector<uint8_t>> bytecode_ptr)
+            : bytecode_ptr(bytecode_ptr)
+        {}
+
+        Instruction read_instruction(uint32_t pc) override { return deserialize_instruction(*bytecode_ptr, pc); }
+
+        BytecodeId get_bytecode_id() override { return BytecodeId{ 1 }; }
+
+        std::optional<BytecodeId> get_retrieved_bytecode_id() override { return BytecodeId{ 1 }; }
+
+      private:
+        std::shared_ptr<std::vector<uint8_t>> bytecode_ptr;
+    };
+
+    auto enqueued_call_context = std::make_unique<EnqueuedCallContext>(
+        /*context_id=*/0,
+        address,
+        sender,
+        transaction_fee,
+        is_static_call,
+        gas_limit,
+        /*gas_used=*/Gas{ 0, 0 },
+        globals,
+        std::make_unique<RawBytecodeManager>(shared_bytecode),
+        memory_provider.make_memory(/*space_id=*/0),
+        /*internal_call_stack_manager=*/
+        internal_call_stack_manager_provider.make_internal_call_stack_manager(/*context_id=*/0),
+        merkle_db,
+        written_public_data_slots_tree_check,
+        retrieved_bytecodes_tree_check,
+        side_effect_tracker,
+        /*phase=*/TransactionPhase::APP_LOGIC,
+        calldata);
+
+    return execution.execute(std::move(enqueued_call_context));
 }
 
 } // namespace bb::avm2

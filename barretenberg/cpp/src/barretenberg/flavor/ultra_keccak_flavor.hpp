@@ -6,39 +6,19 @@
 
 // TODO: the only change should be making honk generic over the transcript
 #pragma once
-#include "barretenberg/commitment_schemes/kzg/kzg.hpp"
-#include "barretenberg/ecc/curves/bn254/g1.hpp"
-#include "barretenberg/ecc/fields/field_conversion.hpp"
-#include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/honk/library/grand_product_delta.hpp"
-#include "barretenberg/honk/library/grand_product_library.hpp"
-#include "barretenberg/polynomials/barycentric.hpp"
-#include "barretenberg/polynomials/evaluation_domain.hpp"
-#include "barretenberg/polynomials/univariate.hpp"
-#include "barretenberg/relations/delta_range_constraint_relation.hpp"
-#include "barretenberg/relations/elliptic_relation.hpp"
-#include "barretenberg/relations/logderiv_lookup_relation.hpp"
-#include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
-#include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/relations/ultra_arithmetic_relation.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
-#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb {
 
 class UltraKeccakFlavor : public bb::UltraFlavor {
   public:
-    using Transcript = UltraKeccakFlavor::Transcript_<KeccakTranscriptParams>;
+    using Transcript = UltraKeccakFlavor::Transcript_<U256Codec, bb::crypto::Keccak>;
 
     static constexpr bool USE_PADDING = false;
 
     // Override as proof length is different
-    static constexpr size_t num_elements_comm = bb::field_conversion::calc_num_uint256_ts<Commitment>();
-    static constexpr size_t num_elements_fr = bb::field_conversion::calc_num_uint256_ts<FF>();
+    static constexpr size_t num_elements_comm = U256Codec::calc_num_fields<Commitment>();
+    static constexpr size_t num_elements_fr = U256Codec::calc_num_fields<FF>();
 
     // Proof length formula methods
     static constexpr size_t OINK_PROOF_LENGTH_WITHOUT_PUB_INPUTS =

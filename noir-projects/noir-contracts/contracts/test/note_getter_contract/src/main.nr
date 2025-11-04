@@ -5,10 +5,10 @@ use aztec::macros::aztec;
 pub contract NoteGetter {
     use aztec::{
         // Core functionality
-        messages::logs::note::encode_and_encrypt_note,
+        messages::message_delivery::MessageDelivery,
         note::note_interface::NoteProperties,
         // Macros
-        macros::{functions::{private, utility}, storage::storage},
+        macros::{functions::external, storage::storage},
         note::note_viewer_options::NoteViewerOptions,
         state_vars::PrivateSet,
     };
@@ -20,16 +20,19 @@ pub contract NoteGetter {
         set: PrivateSet<ValueNote, Context>,
     }
 
-    #[private]
+    #[external("private")]
     fn insert_note(value: Field) {
-        let note = ValueNote::new(value, context.msg_sender());
+        let note = ValueNote::new(value, self.msg_sender().unwrap());
 
-        storage.set.insert(note).emit(encode_and_encrypt_note(&mut context, context.msg_sender()));
+        self.storage.set.insert(note).emit(
+            self.msg_sender().unwrap(),
+            MessageDelivery.CONSTRAINED_ONCHAIN,
+        );
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn read_note_values(comparator: u8, value: Field) -> BoundedVec<Field, 10> {
-        let notes = storage.set.view_notes(NoteViewerOptions::new().select(
+        let notes = self.storage.set.view_notes(NoteViewerOptions::new().select(
             ValueNote::properties().value,
             comparator,
             value,

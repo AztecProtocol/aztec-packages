@@ -45,14 +45,14 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
         { C::execution_rw_reg_3_, 1 },
         { C::execution_sel_op_reg_effective_3_, 0 },
     } });
+
     check_relation<registers>(trace,
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
                               registers::SR_SEL_OP_REG_EFFECTIVE_3,
                               registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_6);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -95,14 +95,14 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
         { C::execution_rw_reg_3_, 1 },
         { C::execution_sel_op_reg_effective_3_, 0 }, // Correct.
     } });
+
     check_relation<registers>(trace,
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
                               registers::SR_SEL_OP_REG_EFFECTIVE_3,
                               registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_6);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -145,14 +145,14 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
         { C::execution_rw_reg_3_, 1 },
         { C::execution_sel_op_reg_effective_3_, 0 }, // Correct.
     } });
+
     check_relation<registers>(trace,
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
                               registers::SR_SEL_OP_REG_EFFECTIVE_3,
                               registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_6);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
 
     // Mismatch in effective selector should fail.
     trace.set(0,

@@ -21,6 +21,14 @@ provider "google" {
   region  = var.region
 }
 
+data "terraform_remote_state" "ssl" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "ssl/terraform.tfstate"
+  }
+}
+
 resource "google_compute_address" "grafana_ip" {
   provider     = google
   name         = "grafana-ip"
@@ -67,6 +75,41 @@ data "google_secret_manager_secret_version" "slack_webhook" {
   project = var.project
 }
 
+data "google_secret_manager_secret_version" "slack_webhook_staging_public" {
+  secret  = var.SLACK_WEBHOOK_STAGING_PUBLIC_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_staging_ignition" {
+  secret  = var.SLACK_WEBHOOK_STAGING_IGNITION_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_next_scenario" {
+  secret  = var.SLACK_WEBHOOK_NEXT_SCENARIO_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_next_net" {
+  secret  = var.SLACK_WEBHOOK_NEXT_NET_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_devnet" {
+  secret  = var.SLACK_WEBHOOK_DEVNET_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_testnet" {
+  secret  = var.SLACK_WEBHOOK_TESTNET_SECRET_NAME
+  project = var.project
+}
+
+data "google_secret_manager_secret_version" "slack_webhook_mainnet" {
+  secret  = var.SLACK_WEBHOOK_MAINNET_SECRET_NAME
+  project = var.project
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider          = helm.gke-cluster
@@ -83,7 +126,26 @@ resource "helm_release" "aztec-gke-cluster" {
   # base values file
   values = [
     file("../../metrics/values.yaml"),
-    file("../../metrics/values/${var.VALUES_FILE}")
+    file("../../metrics/values/${var.VALUES_FILE}"),
+    yamlencode({
+      grafana = {
+        service = {
+          annotations = {
+            "cloud.google.com/neg" = jsonencode({ ingress = true })
+          }
+        }
+        ingress = {
+          enabled = true
+          hosts   = [data.terraform_remote_state.ssl.outputs.grafana_host]
+          annotations = {
+            "kubernetes.io/ingress.class"                 = "gce"
+            "kubernetes.io/ingress.allow-http"            = "false"
+            "kubernetes.io/ingress.global-static-ip-name" = data.terraform_remote_state.ssl.outputs.grafana_ip_name
+            "ingress.gcp.kubernetes.io/pre-shared-cert"   = data.terraform_remote_state.ssl.outputs.grafana_cert_name
+          }
+        }
+      }
+    })
   ]
 
   set {
@@ -93,7 +155,7 @@ resource "helm_release" "aztec-gke-cluster" {
 
   set {
     name  = "grafana.grafana\\.ini.server.root_url"
-    value = "http://${google_compute_address.grafana_ip.address}"
+    value = "https://${data.terraform_remote_state.ssl.outputs.grafana_host}"
   }
 
   set {
@@ -104,6 +166,41 @@ resource "helm_release" "aztec-gke-cluster" {
   set {
     name  = "grafana.env.SLACK_WEBHOOK_URL"
     value = data.google_secret_manager_secret_version.slack_webhook.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_STAGING_PUBLIC_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_staging_public.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_STAGING_IGNITION_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_staging_ignition.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_NEXT_SCENARIO_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_next_scenario.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_NEXT_NET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_next_net.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_DEVNET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_devnet.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_TESTNET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_testnet.secret_data
+  }
+
+  set {
+    name  = "grafana.env.SLACK_WEBHOOK_MAINNET_URL"
+    value = data.google_secret_manager_secret_version.slack_webhook_mainnet.secret_data
   }
 
   set {

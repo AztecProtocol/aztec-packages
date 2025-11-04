@@ -1,4 +1,7 @@
-import { type AztecAddress, BatchCall, type Logger, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import chunk from 'lodash.chunk';
@@ -104,7 +107,7 @@ export class TokenSimulator {
 
     const results = (
       await Promise.all(
-        chunk(calls, 4).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
+        chunk(calls, 5).map(batch => new BatchCall(this.defaultWallet, batch).simulate({ from: this.defaultAddress })),
       )
     ).flat();
     expect(results[0]).toEqual(this.totalSupply);

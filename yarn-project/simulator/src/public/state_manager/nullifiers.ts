@@ -1,6 +1,7 @@
 import type { Fr } from '@aztec/foundation/fields';
 
 import type { PublicTreesDB } from '../public_db_sources.js';
+import { NullifierCollisionError } from '../side_effect_errors.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
@@ -98,12 +99,5 @@ export class NullifierManager {
       }
     }
     this.cache = new Set([...this.cache, ...incomingNullifiers.cache]);
-  }
-}
-
-export class NullifierCollisionError extends Error {
-  constructor(message: string, ...rest: any[]) {
-    super(message, ...rest);
-    this.name = 'NullifierCollisionError';
   }
 }

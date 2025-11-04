@@ -83,34 +83,4 @@ using perm_ecc_mem_write_mem_2_settings = permutation_settings<perm_ecc_mem_writ
 template <typename FF_>
 using perm_ecc_mem_write_mem_2_relation = permutation_relation_base<FF_, perm_ecc_mem_write_mem_2_settings>;
 
-/////////////////// perm_ecc_mem_dispatch_exec_ecc_add ///////////////////
-
-struct perm_ecc_mem_dispatch_exec_ecc_add_settings_ {
-    static constexpr std::string_view NAME = "PERM_ECC_MEM_DISPATCH_EXEC_ECC_ADD";
-    static constexpr std::string_view RELATION_NAME = "ecc_mem";
-    static constexpr size_t COLUMNS_PER_SET = 10;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_ecc_add;
-    static constexpr Column DST_SELECTOR = Column::ecc_add_mem_sel;
-    static constexpr Column INVERSES = Column::perm_ecc_mem_dispatch_exec_ecc_add_inv;
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,       ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_register_0_, ColumnAndShifts::execution_register_1_,
-        ColumnAndShifts::execution_register_2_, ColumnAndShifts::execution_register_3_,
-        ColumnAndShifts::execution_register_4_, ColumnAndShifts::execution_register_5_,
-        ColumnAndShifts::execution_rop_6_,      ColumnAndShifts::execution_sel_opcode_error
-    };
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::ecc_add_mem_execution_clk, ColumnAndShifts::ecc_add_mem_space_id,
-        ColumnAndShifts::ecc_add_mem_p_x,           ColumnAndShifts::ecc_add_mem_p_y,
-        ColumnAndShifts::ecc_add_mem_p_is_inf,      ColumnAndShifts::ecc_add_mem_q_x,
-        ColumnAndShifts::ecc_add_mem_q_y,           ColumnAndShifts::ecc_add_mem_q_is_inf,
-        ColumnAndShifts::ecc_add_mem_dst_addr_0_,   ColumnAndShifts::ecc_add_mem_err
-    };
-};
-
-using perm_ecc_mem_dispatch_exec_ecc_add_settings = permutation_settings<perm_ecc_mem_dispatch_exec_ecc_add_settings_>;
-template <typename FF_>
-using perm_ecc_mem_dispatch_exec_ecc_add_relation =
-    permutation_relation_base<FF_, perm_ecc_mem_dispatch_exec_ecc_add_settings>;
-
 } // namespace bb::avm2

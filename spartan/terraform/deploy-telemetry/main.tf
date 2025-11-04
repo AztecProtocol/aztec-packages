@@ -62,9 +62,7 @@ resource "kubernetes_manifest" "otel_ingress_certificate" {
       "namespace" = kubernetes_namespace.ns.metadata[0].name
     }
     "spec" = {
-      "domains" = [
-        var.HOSTNAME
-      ]
+      "domains" = var.HOSTS
     }
   }
 }
@@ -92,8 +90,8 @@ resource "kubernetes_manifest" "otel_ingress_backend" {
 }
 
 locals {
-  prefixes   = jsondecode(file("../../../yarn-project/aztec/public_include_metric_prefixes.json"))
-  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309"]
+  prefixes   = jsondecode(file("../../../yarn-project/cli/public_include_metric_prefixes.json"))
+  registries = ["0xec4156431d0f3df66d4e24ba3d30dcb4c85fa309", "0xf299347e765cfb27f913bde8e4983fd0f195676f", "0x2e48addca360da61e4d6c21ff2b1961af56eb83b", "0xc2f24280f5c7f4897370dfdeb30f79ded14f1c81"]
   roles      = ["sequencer"]
 
   otel_metric_allowlist   = join(" or ", formatlist("HasPrefix(name, %q)", local.prefixes))
@@ -118,6 +116,22 @@ resource "helm_release" "otel_collector" {
   # base values file
   values = [
     file("./values/public-otel-collector.yaml"),
+    yamlencode({
+      ingress = {
+        hosts = [
+          for index, host in var.HOSTS : ({
+            host = host
+            paths = [
+              {
+                path     = "/"
+                pathType = "Prefix"
+                port     = 4318
+              }
+            ]
+          })
+        ]
+      }
+    }),
     # have to use a heredoc because of quotation issues with OTTL
     <<-EOF
 config:
@@ -139,11 +153,6 @@ EOF
   set {
     name  = "ingress.annotations.networking\\.gke\\.io\\/managed-certificates"
     value = "otel-ingress-cert"
-  }
-
-  set {
-    name  = "ingress.hosts[0].host"
-    value = var.HOSTNAME
   }
 
   timeout         = 300

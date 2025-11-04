@@ -5,7 +5,7 @@ authors = [""]
 compiler_version = ">=0.30.0"
 
 [dependencies]
-bigint = { tag = "v0.8.0", git = "https://github.com/noir-lang/noir-bignum" }
+bignum = { tag = "v0.8.0", git = "https://github.com/noir-lang/noir-bignum" }
 bigcurve = { tag = "v0.11.0", git = "https://github.com/noir-lang/noir_bigcurve" }
 types = { path = "../types" }
 poseidon = { tag = "v0.1.1", git = "https://github.com/noir-lang/poseidon" }

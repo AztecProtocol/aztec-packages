@@ -52,8 +52,10 @@ function mockTxPool(): TxPool {
     getTxStatus: () => Promise.resolve(TxStatus.PENDING),
     getTxsByHash: () => Promise.resolve([]),
     hasTxs: () => Promise.resolve([]),
+    hasTx: () => Promise.resolve(false),
     updateConfig: () => {},
     markTxsAsNonEvictable: () => Promise.resolve(),
+    cleanupDeletedMinedTxs: () => Promise.resolve(0),
   };
   return Object.assign(new EventEmitter(), pool);
 }
@@ -70,6 +72,8 @@ function mockAttestationPool(): AttestationPool {
     getAttestationsForSlotAndProposal: () => Promise.resolve([]),
     addBlockProposal: () => Promise.resolve(),
     getBlockProposal: () => Promise.resolve(undefined),
+    hasBlockProposal: () => Promise.resolve(false),
+    hasAttestation: () => Promise.resolve(false),
   };
 }
 

@@ -6,6 +6,15 @@ namespace memory;
 
 // Link to design document: https://docs.google.com/document/d/1NM5zU39NG5xJReOjSObwWllbpqTCO4flr9v8kdRDK3E
 
+// Usage:
+// sel {
+//   clk, space_id, address, value, tag, rw
+// } is memory.sel_XXX {
+//   memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
+// };
+//
+// sel_XXX is one of the selectors appearing in #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
+
 // Main memory values directly derived from the memory events.
 pol commit value;
 pol commit tag;
@@ -53,7 +62,7 @@ pol commit max_bits; // Number of bits corresponding to the tag. (Retrieved from
 // +-----+-----------+-------+-----+-------------+----------------------+----------+--------------+-------------+
 
 #[skippable_if]
-sel + precomputed.first_row = 0;
+sel = 0;
 
 // Permutation selectors (execution/addressing.pil).
 pol commit sel_addressing_base;
@@ -135,7 +144,6 @@ sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 // Permutation consistency.
 // TODO(#16759): Enable the following relation ensuring that each memory entry is associated with a valid permutation selector.
 //               DebugLog opcode is generating some memory entries which should not be triggered.
-/*
 #[ACTIVE_ROW_NEEDS_PERM_SELECTOR]
 sel = // Addressing.
       sel_addressing_base
@@ -165,7 +173,6 @@ sel = // Addressing.
     + sel_ecc_write[0] + sel_ecc_write[1] + sel_ecc_write[2]
     // To Radix.
     + sel_to_radix_write;
-*/
 
 // Other boolean constraints.
 sel * (1 - sel) = 0; // Ensure mutual exclusivity of the permutation selectors.
@@ -257,4 +264,4 @@ precomputed.sel_tag_parameters { precomputed.clk, precomputed.tag_max_bits };
 #[RANGE_CHECK_WRITE_TAGGED_VALUE]
 sel_rng_write {value, max_bits}
 in
-range_check.sel { range_check.value, range_check.rng_chk_bits };
+range_check.sel_memory { range_check.value, range_check.rng_chk_bits };

@@ -1,6 +1,5 @@
-import { FunctionType, emptyContractArtifact, emptyFunctionArtifact } from '@aztec/stdlib/abi';
 import { AvmCircuitInputs } from '@aztec/stdlib/avm';
-import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { ProtocolContracts } from '@aztec/stdlib/tx';
 
 import avmMinimalCircuitInputsJson from '../../../artifacts/avm_minimal_inputs.json' with { type: 'json' };
 import { TypeTag } from '../avm/avm_memory_types.js';
@@ -8,13 +7,10 @@ import { Add, Return, Set } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import { Opcode } from '../avm/serialization/instruction_serialization.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
+import { testCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
-export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
-  const deployer = AztecAddress.fromNumber(42);
-
-  const simTester = await PublicTxSimulationTester.create();
-
+export async function executeAvmMinimalPublicTx(tester: PublicTxSimulationTester): Promise<PublicTxResult> {
   const minimalBytecode = encodeToBytecode([
     new Set(/*indirect*/ 0, /*dstOffset*/ 0, TypeTag.UINT32, /*value*/ 1).as(Opcode.SET_8, Set.wireFormat8),
     new Set(/*indirect*/ 0, /*dstOffset*/ 1, TypeTag.UINT32, /*value*/ 2).as(Opcode.SET_8, Set.wireFormat8),
@@ -22,32 +18,13 @@ export async function createAvmMinimalPublicTx(): Promise<PublicTxResult> {
     new Return(/*indirect=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 2),
   ]);
 
-  const minimalContractArtifact = emptyContractArtifact();
-  minimalContractArtifact.name = 'MinimalContract';
-  minimalContractArtifact.functions = [emptyFunctionArtifact()];
-  minimalContractArtifact.functions[0].name = 'public_dispatch';
-  minimalContractArtifact.functions[0].functionType = FunctionType.PUBLIC;
-  minimalContractArtifact.functions[0].bytecode = minimalBytecode;
+  const result = await testCustomBytecode(minimalBytecode, tester, 'MinimalTx', 'AvmMinimalContract');
 
-  const minimalTestContract = await simTester.registerAndDeployContract(
-    /*constructorArgs=*/ [],
-    deployer,
-    /*contractArtifact=*/ minimalContractArtifact,
-  );
+  // Modify the protocol contracts to be all zeros
+  result.avmProvingRequest.inputs.hints.protocolContracts = ProtocolContracts.empty();
+  result.avmProvingRequest.inputs.publicInputs.protocolContracts = ProtocolContracts.empty();
 
-  return await simTester.simulateTx(
-    /*sender=*/ deployer,
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        address: minimalTestContract.address,
-        fnName: 'public_dispatch',
-        args: [],
-      },
-    ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ deployer,
-  );
+  return result;
 }
 
 /**

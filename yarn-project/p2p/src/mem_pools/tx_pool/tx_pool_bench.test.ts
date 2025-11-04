@@ -5,12 +5,13 @@ import { Timer } from '@aztec/foundation/timer';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { TxHash } from '@aztec/stdlib/tx';
 import { ServerWorldStateSynchronizer, worldStateConfigMappings } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
+import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 import fs, { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -20,7 +21,10 @@ import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import type { TxPool } from './tx_pool.js';
 
-const RUNS = 50;
+const TEST_TIMEOUT = 150_000;
+jest.setTimeout(TEST_TIMEOUT);
+
+const RUNS = 10;
 const batchSizes = [
   // regular gossip
   1,
@@ -142,7 +146,7 @@ describe('TxPool: Benchmarks', () => {
     dataDirectory = await mkdtemp(path.join(tmpdir(), 'tx-bench-'));
     store = await createStore('tx', 1, {
       dataDirectory,
-      dataStoreMapSizeKB: 10 * 1024 * 1024,
+      dataStoreMapSizeKb: 10 * 1024 * 1024,
     });
 
     ws = await NativeWorldStateService.tmp();
@@ -177,7 +181,7 @@ describe('TxPool: Benchmarks', () => {
 
   it.each(batchSizes)('add txs in batches of %d', async batchSize => {
     for (let i = 0; i < RUNS; i++) {
-      const txs = await timesAsync(batchSize, seed => mockTx(seed, { clientIvcProof: ClientIvcProof.random() }));
+      const txs = await timesAsync(batchSize, seed => mockTx(seed, { chonkProof: ChonkProof.random() }));
       const timer = new Timer();
       await pool.addTxs(txs);
       addHistogram[batchSize].record(Math.max(1, Math.ceil(timer.ms())));
@@ -188,7 +192,7 @@ describe('TxPool: Benchmarks', () => {
   });
 
   it.each(batchSizes)('get txs in batches of %d', async batchSize => {
-    const txs = await timesAsync(2 * batchSize, seed => mockTx(seed, { clientIvcProof: ClientIvcProof.random() }));
+    const txs = await timesAsync(2 * batchSize, seed => mockTx(seed, { chonkProof: ChonkProof.random() }));
     await pool.addTxs(txs);
     const allHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     for (let i = 0; i < RUNS; i++) {
@@ -205,7 +209,7 @@ describe('TxPool: Benchmarks', () => {
 
     for (let i = 0; i < RUNS / 2; i++) {
       const txs = await timesAsync(batchSize, seed =>
-        mockTx(i * batchSize + seed, { clientIvcProof: ClientIvcProof.random() }),
+        mockTx(i * batchSize + seed, { chonkProof: ChonkProof.random() }),
       );
       await pool.addTxs(txs);
       allHashes.push(...(await Promise.all(txs.map(tx => tx.getTxHash()))));

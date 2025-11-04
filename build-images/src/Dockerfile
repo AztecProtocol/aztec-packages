@@ -1,7 +1,7 @@
 # cspell: disable
 
 ########################################################################################################################
-# Base build. Used as base in subsequent builds of foundry, wasi-sdk, osxcross, etc.
+# Base build. Used as base in subsequent builds of foundry, wasi-sdk, etc.
 FROM ubuntu:noble AS base-build
 RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt update && apt install --no-install-recommends -y \
@@ -32,41 +32,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --de
 
 
 ########################################################################################################################
-# Build osxcross.
-FROM base-build AS osxcross
-RUN apt update && apt-get install --no-install-recommends -y \
-        binutils-multiarch-dev \
-        libbz2-dev \
-        libmpc-dev \
-        libmpfr-dev \
-        libgmp-dev \
-        liblzma-dev \
-        libpsi3-dev \
-        libssl-dev \
-        libxml2-dev \
-        libz-dev \
-        lzma-dev \
-        patch \
-        uuid-dev \
-        xz-utils \
-        zlib1g-dev \
-    && apt-get -y autoremove \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-RUN git clone https://github.com/tpoechtrager/osxcross.git \
-    && cd /osxcross \
-    && git reset --hard ff8d100f3f026b4ffbe4ce96d8aac4ce06f1278b \
-    && export OSX_SDK="MacOSX14.0.sdk" \
-    && export OSX_SDK_URL="https://github.com/joseluisq/macosx-sdks/releases/download/14.0/${OSX_SDK}.tar.xz" \
-    && curl -sSL "$OSX_SDK_URL" -o "./tarballs/$OSX_SDK.tar.xz" \
-    && OSX_VERSION_MIN=14.0 UNATTENDED=1 ENABLE_COMPILER_RT_INSTALL=1 TARGET_DIR=/opt/osxcross ./build.sh \
-    && rm -rf /osxcross /opt/osxcross/SDK/$OSX_SDK
-
-
-########################################################################################################################
 # Build foundry.
 FROM base-build AS foundry
-ENV FOUNDRY_VERSION=v1.3.3
+ENV FOUNDRY_VERSION=v1.4.1
 ENV FOUNDRY_BIN_DIR="/root/.foundry/bin"
 ENV RUSTUP_HOME=/opt/rust/rustup
 ENV CARGO_HOME=/opt/rust/cargo
@@ -130,6 +98,9 @@ RUN apt update && \
         # C++ stack trace support
         libdw-dev \
         libelf-dev \
+        # Rust
+        pkg-config \
+        libssl-dev \
         # Node
         # WARNING: Need to downgrade to this version in the basebox below as well.
         nodejs=22.16.0-1nodesource1 \
@@ -190,6 +161,13 @@ RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v2
     && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
     && rm -rf wasmtime*
 
+# Install zig.
+RUN arch=$(uname -m) && \
+    zig_version=0.15.1 && \
+    curl -fsSL https://ziglang.org/download/${zig_version}/zig-${arch}-linux-${zig_version}.tar.xz | tar xJ && \
+    mv zig-${arch}-linux-${zig_version} /opt/zig && \
+    ln -s /opt/zig/zig /usr/local/bin/zig
+
 # Install yq
 RUN curl -sL https://github.com/mikefarah/yq/releases/download/v4.42.1/yq_linux_$(dpkg --print-architecture) \
         -o /usr/local/bin/yq && chmod +x /usr/local/bin/yq
@@ -238,12 +216,12 @@ RUN apt update && \
         inotify-tools \
         # Annoyingly unminimize upgrades nodejs.
         nodejs=22.16.0-1nodesource1 \
+        # smt_verification dependencies
+        python3-venv \
+        python3-pip \
+        m4 \
+        bison \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
-
-# Install osxcross. Requires developer to mount SDK from their mac host.
-COPY --from=osxcross /opt/osxcross /opt/osxcross
-ENV PATH="/opt/osxcross/bin:$PATH"
-ENV LD_LIBRARY_PATH="/opt/osxcross/lib:$LD_LIBRARY_PATH"
 
 # Install gh (github cli).
 RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg > /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -254,6 +232,10 @@ RUN mkdir -p -m 755 /etc/apt/keyrings && wget -qO- https://cli.github.com/packag
 
 # Install gt (graphite).
 RUN npm install -g @withgraphite/graphite-cli@stable
+
+# Install ldid for mac cross-compile signing.
+RUN curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursus7/ldid_linux_x86_64 -o /usr/local/bin/ldid \
+    && chmod +x /usr/local/bin/ldid
 
 # fzf seems to not install this file for some reason.
 COPY ./key-bindings.zsh /usr/share/doc/fzf/examples/key-bindings.zsh
@@ -385,8 +367,6 @@ RUN curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh \
     # Add user "ubuntu" to the Docker group
     && usermod -a -G docker ubuntu
 RUN curl -fsSL https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker -o /etc/bash_completion.d/docker.sh
-# Temp hack to downgrade containerd.io: https://github.com/opencontainers/runc/issues/4542
-RUN apt install containerd.io=1.6.33-1 --allow-downgrades -y
 
 # Install sshd.
 RUN apt install --no-install-recommends -y openssh-server \
@@ -405,5 +385,12 @@ RUN apt update && apt install -y libpam-google-authenticator
 # Sets RUSTUP_HOME.
 # Adds foundry and cargo bin dirs to PATH.
 COPY environment /etc/environment
+
+# Bump thread limits in line with whatever the container is launched with.
+RUN sed -i 's/^#\?DefaultTasksMax=.*/DefaultTasksMax=infinity/' /etc/systemd/system.conf
+RUN mkdir -p /etc/systemd/user.conf.d /etc/systemd/user/user.slice.d /etc/systemd/system/user-.slice.d && \
+    printf "[Manager]\nDefaultTasksMax=infinity\n" > /etc/systemd/user.conf.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/user/user.slice.d/override.conf && \
+    printf "[Slice]\nTasksMax=infinity\n" > /etc/systemd/system/user-.slice.d/override.conf
 
 EXPOSE 22

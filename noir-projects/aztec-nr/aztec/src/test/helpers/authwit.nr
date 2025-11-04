@@ -2,7 +2,6 @@ use crate::{
     authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
     context::call_interfaces::{CallInterface, PublicCallInterface},
     hash::hash_args,
-    oracle::execution::{get_chain_id, get_version},
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
@@ -12,6 +11,7 @@ use protocol_types::{
 };
 
 pub unconstrained fn add_private_authwit_from_call_interface<C, let M: u32>(
+    env: TestEnvironment,
     on_behalf_of: AztecAddress,
     caller: AztecAddress,
     call_interface: C,
@@ -19,9 +19,14 @@ pub unconstrained fn add_private_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
+    // The creation of this utility context results in the TXE session needing to keep track of authwits over its
+    // lifetime, as we'd otherwise be unable to store more than one authwit due to them getting reset when restoring the
+    // top-level TXE context.
+    // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
+    let (chain_id, version) =
+        env.utility_context(|context| (context.chain_id(), context.version()));
+
     let target = call_interface.get_contract_address();
-    let chain_id = get_chain_id();
-    let version = get_version();
     let args_hash = hash_args(call_interface.get_args());
     let selector = call_interface.get_selector();
     let inner_hash =
@@ -39,9 +44,10 @@ pub unconstrained fn add_public_authwit_from_call_interface<C, let M: u32>(
 where
     C: CallInterface<M>,
 {
+    let (chain_id, version) =
+        env.utility_context(|context| (context.chain_id(), context.version()));
+
     let target = call_interface.get_contract_address();
-    let chain_id = get_chain_id();
-    let version = get_version();
     let args_hash = hash_args(call_interface.get_args());
     let selector = call_interface.get_selector();
     let inner_hash =

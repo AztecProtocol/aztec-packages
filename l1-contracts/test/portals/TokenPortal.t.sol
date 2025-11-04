@@ -1,5 +1,6 @@
 pragma solidity >=0.8.27;
 
+/// forge-lint: disable-next-item(unaliased-plain-import)
 import "forge-std/Test.sol";
 
 // Rollup Processor
@@ -74,10 +75,6 @@ contract TokenPortalTest is Test {
 
     tokenPortal = new TokenPortal();
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
-
-    // Modify the proven block count
-    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
-    assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     vm.deal(address(this), 100 ether);
   }
@@ -209,6 +206,10 @@ contract TokenPortalTest is Test {
     // Insert messages into the outbox (impersonating the rollup contract)
     vm.prank(address(rollup));
     outbox.insert(_l2BlockNumber, treeRoot);
+
+    // Modify the proven block count
+    stdstore.enable_packed_slots().target(address(rollup)).sig("getProvenBlockNumber()").checked_write(l2BlockNumber);
+    assertEq(rollup.getProvenBlockNumber(), l2BlockNumber);
 
     return (l2ToL1Message, siblingPath, treeRoot);
   }

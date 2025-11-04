@@ -5,9 +5,10 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib/translator_vm_verifier/translator_recursive_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 #include <gtest/gtest.h>
 
@@ -16,16 +17,6 @@ using namespace bb;
 template <typename Flavor> class StdlibVerificationKeyTests : public ::testing::Test {
   public:
     using NativeFlavor = typename Flavor::NativeFlavor;
-    void set_default_pairing_points_and_ipa_claim_and_proof(typename NativeFlavor::CircuitBuilder& builder)
-    {
-        stdlib::recursion::PairingPoints<typename NativeFlavor::CircuitBuilder>::add_default_to_public_inputs(builder);
-        if constexpr (HasIPAAccumulator<NativeFlavor>) {
-            auto [stdlib_opening_claim, ipa_proof] =
-                IPA<stdlib::grumpkin<typename NativeFlavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            stdlib_opening_claim.set_public();
-            builder.ipa_proof = ipa_proof;
-        }
-    }
 
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
@@ -59,13 +50,17 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     if constexpr (IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {
         native_vk = std::make_shared<NativeVerificationKey>();
     } else {
-        using DeciderProvingKey = DeciderProvingKey_<NativeFlavor>;
+        using ProverInstance = ProverInstance_<NativeFlavor>;
         using InnerBuilder = typename NativeFlavor::CircuitBuilder;
 
         InnerBuilder builder;
-        TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        native_vk = std::make_shared<NativeVerificationKey>(proving_key->get_precomputed());
+        if constexpr (HasIPAAccumulator<NativeFlavor>) {
+            stdlib::recursion::honk::RollupIO::add_default(builder);
+        } else {
+            stdlib::recursion::honk::DefaultIO<typename NativeFlavor::CircuitBuilder>::add_default(builder);
+        }
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
     }
 
     OuterBuilder outer_builder;
@@ -79,7 +74,7 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     }
     FF vk_hash_1 = transcript.hash_independent_buffer();
     // Second method of hashing: using hash().
-    FF vk_hash_2 = vk.hash(outer_builder);
+    FF vk_hash_2 = vk.hash();
     EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
     // Third method of hashing: using hash_through_transcript.
     if constexpr (!IsAnyOf<Flavor, TranslatorRecursiveFlavor, ECCVMRecursiveFlavor>) {

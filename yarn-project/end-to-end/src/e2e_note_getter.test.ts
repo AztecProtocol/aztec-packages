@@ -1,4 +1,6 @@
-import { type AztecAddress, Comparator, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Comparator } from '@aztec/aztec.js/note';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { NoteGetterContract } from '@aztec/noir-test-contracts.js/NoteGetter';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
@@ -51,9 +53,7 @@ describe('e2e_note_getter', () => {
         contract.methods.read_note_values(Comparator.LT, 5).simulate({ from: defaultAddress }),
         contract.methods.read_note_values(Comparator.GT, 5).simulate({ from: defaultAddress }),
         contract.methods.read_note_values(Comparator.LTE, 5).simulate({ from: defaultAddress }),
-        // docs:start:state_vars-NoteGetterOptionsComparatorExampleTs
         contract.methods.read_note_values(Comparator.GTE, 5).simulate({ from: defaultAddress }),
-        // docs:end:state_vars-NoteGetterOptionsComparatorExampleTs
       ]);
 
       expect(boundedVecToArray(returnEq).sort()).toStrictEqual([5n, 5n].sort());
@@ -79,7 +79,7 @@ describe('e2e_note_getter', () => {
 
     beforeAll(async () => {
       contract = await TestContract.deploy(wallet).send({ from: defaultAddress }).deployed();
-      owner = wallet.getCompleteAddress().address;
+      owner = defaultAddress;
     });
 
     const VALUE = 5;

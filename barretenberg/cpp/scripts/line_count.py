@@ -21,7 +21,7 @@ weights = {"acir_formal_proofs": 0,
            "benchmark": 0,
            "boomerang_value_detection": 0,
            "circuit_checker": 1,
-           "client_ivc": 1,
+           "chonk": 1,
            "commitment_schemes": 1,
            "commitment_schemes_recursion": 1,
            "common": 0,
@@ -40,7 +40,6 @@ weights = {"acir_formal_proofs": 0,
            "nodejs_module": 0,
            "numeric": 1,
            "polynomials": 1,
-           "protogalaxy": 1,
            "relations": 1,
            "serialize": 1,
            "smt_verification": 0,
@@ -93,10 +92,9 @@ def count_weighted_lines():
 print(
     f"Total number of unweighted code lines to be audited: {count_weighted_lines()}")
 
-weights["client_ivc"] = 1.5
+weights["chonk"] = 1.5
 weights["eccvm"] = 2
 weights["goblin"] = 1.5
-weights["protogalaxy"] = 1.5
 weights["relations"] = 2
 weights["stdlib"] = 1  # partially audited so not reweighting for complexity
 weights["stdlib_circuit_builders"]

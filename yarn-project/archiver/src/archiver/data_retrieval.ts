@@ -1,4 +1,4 @@
-import { Blob, BlobDeserializationError } from '@aztec/blob-lib';
+import { BlobDeserializationError, SpongeBlob, getBlobFieldsInCheckpoint } from '@aztec/blob-lib';
 import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type {
   EpochProofPublicInputArgs,
@@ -11,13 +11,15 @@ import type {
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { Body, CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { Body, CommitteeAttestation, L2Block, L2BlockHeader, PublishedL2Block } from '@aztec/stdlib/block';
 import { Proof } from '@aztec/stdlib/proofs';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, ProposedBlockHeader, StateReference } from '@aztec/stdlib/tx';
+import { GlobalVariables, StateReference } from '@aztec/stdlib/tx';
 
 import {
   type GetContractEventsReturnType,
@@ -32,27 +34,27 @@ import {
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { InboxMessage } from './structs/inbox_message.js';
-import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
+import type { L1PublishedData } from './structs/published.js';
 
 export type RetrievedL2Block = {
   l2BlockNumber: number;
   archiveRoot: Fr;
   stateReference: StateReference;
-  header: ProposedBlockHeader;
-  body: Body;
+  header: CheckpointHeader;
+  blobFields: Fr[];
   l1: L1PublishedData;
   chainId: Fr;
   version: Fr;
   attestations: CommitteeAttestation[];
 };
 
-export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): PublishedL2Block {
+export async function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Block): Promise<PublishedL2Block> {
   const {
     l2BlockNumber,
     archiveRoot,
     stateReference,
-    header: proposedHeader,
-    body,
+    header: checkpointHeader,
+    blobFields,
     l1,
     chainId,
     version,
@@ -68,29 +70,37 @@ export function retrievedBlockToPublishedL2Block(retrievedBlock: RetrievedL2Bloc
     chainId,
     version,
     blockNumber: l2BlockNumber,
-    slotNumber: proposedHeader.slotNumber,
-    timestamp: proposedHeader.timestamp,
-    coinbase: proposedHeader.coinbase,
-    feeRecipient: proposedHeader.feeRecipient,
-    gasFees: proposedHeader.gasFees,
+    slotNumber: checkpointHeader.slotNumber,
+    timestamp: checkpointHeader.timestamp,
+    coinbase: checkpointHeader.coinbase,
+    feeRecipient: checkpointHeader.feeRecipient,
+    gasFees: checkpointHeader.gasFees,
   });
 
-  const header = BlockHeader.from({
-    lastArchive: new AppendOnlyTreeSnapshot(proposedHeader.lastArchiveRoot, l2BlockNumber),
-    contentCommitment: proposedHeader.contentCommitment,
+  // TODO(#17027)
+  // This works when there's only one block in the checkpoint.
+  // If there's more than one block, we need to build the spongeBlob from the endSpongeBlob of the previous block.
+  const spongeBlob = await SpongeBlob.init(blobFields.length);
+  // Skip the first field which is the checkpoint prefix indicating the number of total blob fields in a checkpoint.
+  const blockBlobFields = blobFields.slice(1);
+  await spongeBlob.absorb(blockBlobFields);
+  const spongeBlobHash = await spongeBlob.squeeze();
+
+  const body = Body.fromBlobFields(blockBlobFields);
+
+  const header = L2BlockHeader.from({
+    lastArchive: new AppendOnlyTreeSnapshot(checkpointHeader.lastArchiveRoot, l2BlockNumber),
+    contentCommitment: checkpointHeader.contentCommitment,
     state: stateReference,
     globalVariables,
     totalFees: body.txEffects.reduce((accum, txEffect) => accum.add(txEffect.transactionFee), Fr.ZERO),
-    totalManaUsed: proposedHeader.totalManaUsed,
+    totalManaUsed: checkpointHeader.totalManaUsed,
+    spongeBlobHash,
   });
 
   const block = new L2Block(archive, header, body);
 
-  return {
-    block,
-    l1,
-    attestations,
-  };
+  return PublishedL2Block.fromFields({ block, l1, attestations });
 }
 
 /**
@@ -323,6 +333,7 @@ async function getBlockFromRollupTx(
     },
     ViemCommitteeAttestations,
     Hex[],
+    ViemSignature,
     Hex,
   ];
 
@@ -339,17 +350,19 @@ async function getBlockFromRollupTx(
     targetCommitteeSize,
   });
 
-  // TODO(md): why is the proposed block header different to the actual block header?
-  // This is likely going to be a footgun
-  const header = ProposedBlockHeader.fromViem(decodedArgs.header);
+  const header = CheckpointHeader.fromViem(decodedArgs.header);
   const blobBodies = await blobSinkClient.getBlobSidecar(blockHash, blobHashes);
   if (blobBodies.length === 0) {
     throw new NoBlobBodiesFoundError(l2BlockNumber);
   }
 
-  let blockFields: Fr[];
+  let blobFields: Fr[];
   try {
-    blockFields = Blob.toEncodedFields(blobBodies.map(b => b.blob));
+    // Get the fields that were actually added in the checkpoint. And check the encoding of the fields.
+    blobFields = getBlobFieldsInCheckpoint(
+      blobBodies.map(b => b.blob),
+      true /* checkEncoding */,
+    );
   } catch (err: any) {
     if (err instanceof BlobDeserializationError) {
       logger.fatal(err.message);
@@ -358,9 +371,6 @@ async function getBlockFromRollupTx(
     }
     throw err;
   }
-
-  // The blob source gives us blockFields, and we must construct the body from them:
-  const body = Body.fromBlobFields(blockFields);
 
   const archiveRoot = new Fr(Buffer.from(hexToBytes(decodedArgs.archive)));
 
@@ -371,7 +381,7 @@ async function getBlockFromRollupTx(
     archiveRoot,
     stateReference,
     header,
-    body,
+    blobFields,
     attestations,
   };
 }

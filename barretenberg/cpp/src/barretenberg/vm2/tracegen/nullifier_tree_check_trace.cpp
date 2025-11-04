@@ -30,14 +30,13 @@ void NullifierTreeCheckTraceBuilder::process(
         }
 
         bool exists = event.low_leaf_preimage.leaf.nullifier == siloed_nullifier;
-        FF nullifier_low_leaf_nullifier_diff_inv =
-            exists ? 0 : (siloed_nullifier - event.low_leaf_preimage.leaf.nullifier).invert();
+        FF nullifier_low_leaf_nullifier_diff = siloed_nullifier - event.low_leaf_preimage.leaf.nullifier;
 
         bool next_nullifier_is_nonzero = false;
-        FF next_nullifier_inv = 0;
+        FF next_nullifier = 0;
         if (!exists) {
             next_nullifier_is_nonzero = event.low_leaf_preimage.nextKey != 0;
-            next_nullifier_inv = next_nullifier_is_nonzero ? event.low_leaf_preimage.nextKey.invert() : 0;
+            next_nullifier = event.low_leaf_preimage.nextKey;
         }
 
         uint64_t updated_low_leaf_next_index = 0;
@@ -55,42 +54,46 @@ void NullifierTreeCheckTraceBuilder::process(
             intermediate_root = event.append_data->intermediate_root;
         }
 
-        trace.set(
-            row,
-            { { { C::nullifier_check_sel, 1 },
-                { C::nullifier_check_write, event.write },
-                { C::nullifier_check_nullifier, nullifier },
-                { C::nullifier_check_root, event.prev_snapshot.root },
-                { C::nullifier_check_exists, exists },
-                { C::nullifier_check_write_root, event.next_snapshot.root },
-                { C::nullifier_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
-                { C::nullifier_check_discard, discard },
-                { C::nullifier_check_nullifier_index, event.nullifier_counter },
-                { C::nullifier_check_should_silo, event.siloing_data.has_value() },
-                { C::nullifier_check_address, address },
-                { C::nullifier_check_low_leaf_nullifier, event.low_leaf_preimage.leaf.nullifier },
-                { C::nullifier_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
-                { C::nullifier_check_low_leaf_next_nullifier, event.low_leaf_preimage.nextKey },
-                { C::nullifier_check_updated_low_leaf_next_index, updated_low_leaf_next_index },
-                { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
-                { C::nullifier_check_low_leaf_index, event.low_leaf_index },
-                { C::nullifier_check_siloed_nullifier, siloed_nullifier },
-                { C::nullifier_check_siloing_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
-                { C::nullifier_check_should_insert, append },
-                { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
-                { C::nullifier_check_intermediate_root, intermediate_root },
-                { C::nullifier_check_updated_low_leaf_hash, updated_low_leaf_hash },
-                { C::nullifier_check_tree_height, NULLIFIER_TREE_HEIGHT },
-                { C::nullifier_check_leaf_not_exists, !exists },
-                { C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv, nullifier_low_leaf_nullifier_diff_inv },
-                { C::nullifier_check_next_nullifier_is_nonzero, next_nullifier_is_nonzero },
-                { C::nullifier_check_next_nullifier_inv, next_nullifier_inv },
-                { C::nullifier_check_new_leaf_hash, new_leaf_hash },
-                { C::nullifier_check_should_write_to_public_inputs, event.append_data.has_value() && !discard },
-                { C::nullifier_check_public_inputs_index,
-                  AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + event.nullifier_counter } } });
+        trace.set(row,
+                  { { { C::nullifier_check_sel, 1 },
+                      { C::nullifier_check_write, event.write },
+                      { C::nullifier_check_nullifier, nullifier },
+                      { C::nullifier_check_root, event.prev_snapshot.root },
+                      { C::nullifier_check_exists, exists },
+                      { C::nullifier_check_write_root, event.next_snapshot.root },
+                      { C::nullifier_check_tree_size_before_write, event.prev_snapshot.nextAvailableLeafIndex },
+                      { C::nullifier_check_discard, discard },
+                      { C::nullifier_check_nullifier_index, event.nullifier_counter },
+                      { C::nullifier_check_should_silo, event.siloing_data.has_value() },
+                      { C::nullifier_check_address, address },
+                      { C::nullifier_check_low_leaf_nullifier, event.low_leaf_preimage.leaf.nullifier },
+                      { C::nullifier_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
+                      { C::nullifier_check_low_leaf_next_nullifier, event.low_leaf_preimage.nextKey },
+                      { C::nullifier_check_updated_low_leaf_next_index, updated_low_leaf_next_index },
+                      { C::nullifier_check_updated_low_leaf_next_nullifier, updated_low_leaf_next_key },
+                      { C::nullifier_check_low_leaf_index, event.low_leaf_index },
+                      { C::nullifier_check_siloed_nullifier, siloed_nullifier },
+                      { C::nullifier_check_siloing_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                      { C::nullifier_check_should_insert, append },
+                      { C::nullifier_check_low_leaf_hash, event.low_leaf_hash },
+                      { C::nullifier_check_intermediate_root, intermediate_root },
+                      { C::nullifier_check_updated_low_leaf_hash, updated_low_leaf_hash },
+                      { C::nullifier_check_tree_height, NULLIFIER_TREE_HEIGHT },
+                      { C::nullifier_check_leaf_not_exists, !exists },
+                      { C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv,
+                        nullifier_low_leaf_nullifier_diff }, // Will be inverted in batch later
+                      { C::nullifier_check_next_nullifier_is_nonzero, next_nullifier_is_nonzero },
+                      { C::nullifier_check_next_nullifier_inv, next_nullifier }, // Will be inverted in batch later
+                      { C::nullifier_check_new_leaf_hash, new_leaf_hash },
+                      { C::nullifier_check_should_write_to_public_inputs, event.append_data.has_value() && !discard },
+                      { C::nullifier_check_public_inputs_index,
+                        AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + event.nullifier_counter } } });
         row++;
     });
+
+    // Batch invert the columns.
+    trace.invert_columns(
+        { { C::nullifier_check_nullifier_low_leaf_nullifier_diff_inv, C::nullifier_check_next_nullifier_inv } });
 }
 
 const InteractionDefinition NullifierTreeCheckTraceBuilder::interactions =

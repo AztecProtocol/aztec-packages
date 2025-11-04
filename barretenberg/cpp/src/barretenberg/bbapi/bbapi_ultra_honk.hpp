@@ -41,7 +41,8 @@ struct CircuitComputeVk {
  * @struct CircuitProve
  * @brief Represents a request to generate a proof.
  * Currently, UltraHonk is the only proving system supported by BB (after plonk was deprecated and removed).
- * This is used for one-shot proving, not our "IVC" scheme, ClientIVC-honk. For that, use the ClientIVC* commands.
+ * This is used for one-shot proving, not our "IVC" scheme, Chonk. For that, use the Chonk*
+ * commands.
  */
 struct CircuitProve {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "CircuitProve";
@@ -142,6 +143,28 @@ struct VkAsFields {
     MSGPACK_FIELDS(verification_key);
     Response execute(const BBApiRequest& request = {}) &&;
     bool operator==(const VkAsFields&) const = default;
+};
+
+/**
+ * @struct MegaVkAsFields
+ * @brief Convert a MegaFlavor verification key to field elements representation.
+ * Used for private function verification keys which use MegaFlavor (127 fields).
+ */
+struct MegaVkAsFields {
+    static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaVkAsFields";
+
+    struct Response {
+        static constexpr const char MSGPACK_SCHEMA_NAME[] = "MegaVkAsFieldsResponse";
+
+        std::vector<bb::fr> fields;
+        MSGPACK_FIELDS(fields);
+        bool operator==(const Response&) const = default;
+    };
+
+    std::vector<uint8_t> verification_key;
+    MSGPACK_FIELDS(verification_key);
+    Response execute(const BBApiRequest& request = {}) &&;
+    bool operator==(const MegaVkAsFields&) const = default;
 };
 
 /**

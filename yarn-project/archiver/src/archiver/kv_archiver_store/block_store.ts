@@ -6,7 +6,15 @@ import { BufferReader } from '@aztec/foundation/serialize';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Body, CommitteeAttestation, L2Block, L2BlockHash } from '@aztec/stdlib/block';
+import {
+  Body,
+  CommitteeAttestation,
+  L2Block,
+  L2BlockHash,
+  PublishedL2Block,
+  type ValidateBlockResult,
+} from '@aztec/stdlib/block';
+import { L2BlockHeader, deserializeValidateBlockResult, serializeValidateBlockResult } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
@@ -19,7 +27,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import { BlockNumberNotSequentialError, InitialBlockNumberNotSequentialError } from '../errors.js';
-import type { L1PublishedData, PublishedL2Block } from '../structs/published.js';
+import type { L1PublishedData } from '../structs/published.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
 
@@ -52,8 +60,17 @@ export class BlockStore {
   /** Stores l2 block number of the last proven block */
   #lastProvenL2Block: AztecAsyncSingleton<number>;
 
+  /** Stores the pending chain validation status */
+  #pendingChainValidationStatus: AztecAsyncSingleton<Buffer>;
+
   /** Index mapping a contract's address (as a string) to its location in a block */
   #contractIndex: AztecAsyncMap<string, BlockIndexValue>;
+
+  /** Index mapping block hash to block number */
+  #blockHashIndex: AztecAsyncMap<string, number>;
+
+  /** Index mapping block archive to block number */
+  #blockArchiveIndex: AztecAsyncMap<string, number>;
 
   #log = createLogger('archiver:block_store');
 
@@ -62,8 +79,11 @@ export class BlockStore {
     this.#blockTxs = db.openMap('archiver_block_txs');
     this.#txEffects = db.openMap('archiver_tx_effects');
     this.#contractIndex = db.openMap('archiver_contract_index');
+    this.#blockHashIndex = db.openMap('archiver_block_hash_index');
+    this.#blockArchiveIndex = db.openMap('archiver_block_archive_index');
     this.#lastSynchedL1Block = db.openSingleton('archiver_last_synched_l1_block');
     this.#lastProvenL2Block = db.openSingleton('archiver_last_proven_l2_block');
+    this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
   }
 
   /**
@@ -120,6 +140,10 @@ export class BlockStore {
           blockHash.toString(),
           Buffer.concat(block.block.body.txEffects.map(tx => tx.txHash.toBuffer())),
         );
+
+        // Update indices for block hash and archive
+        await this.#blockHashIndex.set(blockHash.toString(), block.block.number);
+        await this.#blockArchiveIndex.set(block.block.archive.root.toString(), block.block.number);
       }
 
       await this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -158,6 +182,11 @@ export class BlockStore {
         await Promise.all(block.block.body.txEffects.map(tx => this.#txEffects.delete(tx.txHash.toString())));
         const blockHash = (await block.block.hash()).toString();
         await this.#blockTxs.delete(blockHash);
+
+        // Clean up indices
+        await this.#blockHashIndex.delete(blockHash);
+        await this.#blockArchiveIndex.delete(block.block.archive.root.toString());
+
         this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
       }
 
@@ -194,6 +223,66 @@ export class BlockStore {
   }
 
   /**
+   * Gets an L2 block by its hash.
+   * @param blockHash - The hash of the block to return.
+   * @returns The requested L2 block.
+   */
+  async getBlockByHash(blockHash: L2BlockHash): Promise<PublishedL2Block | undefined> {
+    const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlock(blockNumber);
+  }
+
+  /**
+   * Gets an L2 block by its archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested L2 block.
+   */
+  async getBlockByArchive(archive: Fr): Promise<PublishedL2Block | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    return this.getBlock(blockNumber);
+  }
+
+  /**
+   * Gets a block header by its hash.
+   * @param blockHash - The hash of the block to return.
+   * @returns The requested block header.
+   */
+  async getBlockHeaderByHash(blockHash: L2BlockHash): Promise<BlockHeader | undefined> {
+    const blockNumber = await this.#blockHashIndex.getAsync(blockHash.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
+  }
+
+  /**
+   * Gets a block header by its archive root.
+   * @param archive - The archive root of the block to return.
+   * @returns The requested block header.
+   */
+  async getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
+    const blockNumber = await this.#blockArchiveIndex.getAsync(archive.toString());
+    if (blockNumber === undefined) {
+      return undefined;
+    }
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    return L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
+  }
+
+  /**
    * Gets the headers for a sequence of L2 blocks.
    * @param start - Number of the first block to return (inclusive).
    * @param limit - The number of blocks to return.
@@ -201,7 +290,7 @@ export class BlockStore {
    */
   async *getBlockHeaders(start: number, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
-      const header = BlockHeader.fromBuffer(blockStorage.header);
+      const header = L2BlockHeader.fromBuffer(blockStorage.header).toBlockHeader();
       if (header.getBlockNumber() !== blockNumber) {
         throw new Error(
           `Block number mismatch when retrieving block header from archive (expected ${blockNumber} but got ${header.getBlockNumber()})`,
@@ -224,8 +313,11 @@ export class BlockStore {
     }
   }
 
-  private async getBlockFromBlockStorage(blockNumber: number, blockStorage: BlockStorage) {
-    const header = BlockHeader.fromBuffer(blockStorage.header);
+  private async getBlockFromBlockStorage(
+    blockNumber: number,
+    blockStorage: BlockStorage,
+  ): Promise<PublishedL2Block | undefined> {
+    const header = L2BlockHeader.fromBuffer(blockStorage.header);
     const archive = AppendOnlyTreeSnapshot.fromBuffer(blockStorage.archive);
     const blockHash = blockStorage.blockHash;
     const blockHashString = bufferToHex(blockHash);
@@ -257,7 +349,7 @@ export class BlockStore {
       );
     }
     const attestations = blockStorage.attestations.map(CommitteeAttestation.fromBuffer);
-    return { block, l1: blockStorage.l1, attestations };
+    return PublishedL2Block.fromFields({ block, l1: blockStorage.l1, attestations });
   }
 
   /**
@@ -360,5 +452,30 @@ export class BlockStore {
     }
 
     return { start, limit };
+  }
+
+  /**
+   * Gets the pending chain validation status.
+   * @returns The validation status or undefined if not set.
+   */
+  async getPendingChainValidationStatus(): Promise<ValidateBlockResult | undefined> {
+    const buffer = await this.#pendingChainValidationStatus.getAsync();
+    if (!buffer) {
+      return undefined;
+    }
+    return deserializeValidateBlockResult(buffer);
+  }
+
+  /**
+   * Sets the pending chain validation status.
+   * @param status - The validation status to store.
+   */
+  async setPendingChainValidationStatus(status: ValidateBlockResult | undefined): Promise<void> {
+    if (status) {
+      const buffer = serializeValidateBlockResult(status);
+      await this.#pendingChainValidationStatus.set(buffer);
+    } else {
+      await this.#pendingChainValidationStatus.delete();
+    }
   }
 }

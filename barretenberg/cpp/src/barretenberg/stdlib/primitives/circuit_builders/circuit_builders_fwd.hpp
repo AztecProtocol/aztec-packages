@@ -37,6 +37,8 @@ class ECCVMFlavor;
 class TranslatorFlavor;
 class TranslatorRecursiveFlavor;
 class ECCVMRecursiveFlavor;
+class MultilinearBatchingFlavor;
+class MultilinearBatchingRecursiveFlavor;
 class AvmRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;

@@ -152,7 +152,8 @@ Instruction random_instruction(WireOpCode w_opcode)
 
 TestTraceContainer empty_trace()
 {
-    return TestTraceContainer::from_rows({ { .precomputed_first_row = 1 }, { .precomputed_clk = 1 } });
+    using C = Column;
+    return TestTraceContainer({ { { C::precomputed_first_row, 1 } }, { { C::precomputed_clk, 1 } } });
 }
 
 ContractInstance random_contract_instance()
@@ -185,12 +186,11 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
     auto data = read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
     AvmProvingInputs inputs = AvmProvingInputs::from(data);
 
-    AvmSimulationHelper simulation_helper(inputs.hints);
+    AvmSimulationHelper simulation_helper;
 
-    auto events = simulation_helper.simulate();
+    auto events = simulation_helper.simulate_for_witgen(inputs.hints);
 
     AvmTraceGenHelper trace_gen_helper;
-
     auto trace = trace_gen_helper.generate_trace(std::move(events), inputs.publicInputs);
 
     return { std::move(trace), inputs.publicInputs };
@@ -198,7 +198,7 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 
 bool skip_slow_tests()
 {
-    return std::getenv("AVM_SLOW_TESTS") == nullptr;
+    return std::getenv("AVM_SKIP_SLOW_TESTS") != nullptr;
 }
 
 } // namespace bb::avm2::testing

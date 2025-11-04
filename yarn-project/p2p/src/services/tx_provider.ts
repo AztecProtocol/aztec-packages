@@ -1,7 +1,7 @@
 import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
-import type { BlockInfo, L2Block } from '@aztec/stdlib/block';
+import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -45,7 +45,7 @@ export class TxProvider implements ITxProvider {
       if (tx === undefined) {
         missingTxs.push(txHashes[i]);
       } else {
-        txs.push(tx.setTxHash(txHashes[i]));
+        txs.push(tx);
       }
     }
 
@@ -55,11 +55,12 @@ export class TxProvider implements ITxProvider {
   /** Gathers txs from the tx pool, proposal body, remote rpc nodes, and reqresp. */
   public getTxsForBlockProposal(
     blockProposal: BlockProposal,
+    blockNumber: number,
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ): Promise<{ txs: Tx[]; missingTxs: TxHash[] }> {
     return this.getOrderedTxsFromAllSources(
-      { type: 'proposal', blockProposal },
-      blockProposal.toBlockInfo(),
+      { type: 'proposal', blockProposal, blockNumber },
+      { ...blockProposal.toBlockInfo(), blockNumber },
       blockProposal.txHashes,
       { ...opts, pinnedPeer: opts.pinnedPeer },
     );
@@ -77,7 +78,7 @@ export class TxProvider implements ITxProvider {
 
   private async getOrderedTxsFromAllSources(
     request: FastCollectionRequestInput,
-    blockInfo: BlockInfo,
+    blockInfo: L2BlockInfo,
     txHashes: TxHash[],
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ) {
@@ -114,7 +115,7 @@ export class TxProvider implements ITxProvider {
 
   private async getTxsFromAllSources(
     request: FastCollectionRequestInput,
-    blockInfo: BlockInfo,
+    blockInfo: L2BlockInfo,
     txHashes: TxHash[],
     opts: { pinnedPeer: PeerId | undefined; deadline: Date },
   ) {

@@ -8,12 +8,19 @@ namespace bb {
 // permutation argument polynomials (sigmas, ids) are unique, e.g. id[i][j] == id[m][n] iff (i == m && j == n)
 constexpr uint32_t PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
 
+// The fixed size of the Translator trace where each accumulation gate, corresponding to one UltraOp, will occupy two
+// rows.
+static constexpr uint32_t CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE = 14;
+
+// -1 as each op occupies two rows in Translator trace
+static constexpr uint32_t CONST_OP_QUEUE_LOG_SIZE = CONST_TRANSLATOR_MINI_CIRCUIT_LOG_SIZE - 1;
+
 // The log of the max circuit size assumed in order to achieve constant sized Honk proofs
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1046): Remove the need for const sized proofs
 static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 28;
 
-// The log of the max circuit size of circuits being folded. This size is assumed by the PG prover and verifier in order
-// to ensure a constant PG proof size and a PG recursive verifier circuit that is independent of the size of the
+// The log of the max circuit size of circuits being folded. This size is assumed by the HN prover and verifier in order
+// to ensure a constant HN proof size and a HN recursive verifier circuit that is independent of the size of the
 // circuits being folded.
 static constexpr uint32_t CONST_PG_LOG_N = 21;
 
@@ -21,11 +28,6 @@ static constexpr uint32_t CONST_PG_LOG_N = 21;
 static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
-// static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;
-
-static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
 // The number of last rows in ProverPolynomials that are randomized to mask
 // 1) witness commitments,

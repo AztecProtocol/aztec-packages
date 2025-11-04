@@ -39,10 +39,10 @@ describe('buildTransientDataHints', () => {
       new NoteHash(new Fr(50), 375).scope(contractAddress),
     ];
     nullifiers = [
-      new Nullifier(new Fr(55), 400, new Fr(0)).scope(contractAddress),
-      new Nullifier(new Fr(66), 500, new Fr(33)).scope(contractAddress),
-      new Nullifier(new Fr(77), 600, new Fr(44)).scope(contractAddress),
-      new Nullifier(new Fr(88), 700, new Fr(11)).scope(contractAddress),
+      new Nullifier(new Fr(55), new Fr(0), 400).scope(contractAddress),
+      new Nullifier(new Fr(66), new Fr(33), 500).scope(contractAddress),
+      new Nullifier(new Fr(77), new Fr(44), 600).scope(contractAddress),
+      new Nullifier(new Fr(88), new Fr(11), 700).scope(contractAddress),
     ];
     nadaIndexHint = new TransientDataSquashingHint(nullifiers.length, noteHashes.length);
     futureNoteHashReads = [new ScopedReadRequest(new ReadRequest(new Fr(44), 351), contractAddress)];

@@ -1,6 +1,6 @@
 use super::find_index_of_first_fully_revertible_private_call_request::find_index_of_first_fully_revertible_private_call_request;
 use dep::types::{
-    abis::side_effect::{Ordered, RangeOrdered},
+    side_effect::{Ordered, RangeOrdered},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };

@@ -7,6 +7,9 @@
   "pull-request-header": "Pending Aztec Packages v2 release",
   "versioning": "always-bump-patch",
   "include-component-in-tag": false,
+  "release-search-depth": 50,
+  "commit-search-depth": 150,
+  "sequential-calls": true,
   "changelog-sections": [
     { "type": "feat", "section": "Features", "hidden": false },
     { "type": "fix", "section": "Bug Fixes", "hidden": false },

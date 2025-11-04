@@ -155,28 +155,4 @@ using perm_registers_mem_op_5_settings = permutation_settings<perm_registers_mem
 template <typename FF_>
 using perm_registers_mem_op_5_relation = permutation_relation_base<FF_, perm_registers_mem_op_5_settings>;
 
-/////////////////// perm_registers_mem_op_6 ///////////////////
-
-struct perm_registers_mem_op_6_settings_ {
-    static constexpr std::string_view NAME = "PERM_REGISTERS_MEM_OP_6";
-    static constexpr std::string_view RELATION_NAME = "registers";
-    static constexpr size_t COLUMNS_PER_SET = 6;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_op_reg_effective_6_;
-    static constexpr Column DST_SELECTOR = Column::memory_sel_register_op_6_;
-    static constexpr Column INVERSES = Column::perm_registers_mem_op_6_inv;
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,          ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_6_,         ColumnAndShifts::execution_register_6_,
-        ColumnAndShifts::execution_mem_tag_reg_6_, ColumnAndShifts::execution_rw_reg_6_
-    };
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::memory_clk,   ColumnAndShifts::memory_space_id, ColumnAndShifts::memory_address,
-        ColumnAndShifts::memory_value, ColumnAndShifts::memory_tag,      ColumnAndShifts::memory_rw
-    };
-};
-
-using perm_registers_mem_op_6_settings = permutation_settings<perm_registers_mem_op_6_settings_>;
-template <typename FF_>
-using perm_registers_mem_op_6_relation = permutation_relation_base<FF_, perm_registers_mem_op_6_settings>;
-
 } // namespace bb::avm2

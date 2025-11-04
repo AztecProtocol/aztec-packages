@@ -3,6 +3,7 @@ use crate::{
     constants::{
         MAX_ENQUEUED_CALLS_PER_TX, NUM_PUBLIC_CALL_REQUEST_ARRAYS, PUBLIC_CALL_REQUEST_LENGTH,
     },
+    side_effect::Counted,
     traits::{Deserialize, Empty, FromField, Serialize},
     utils::arrays::array_length,
 };
@@ -23,6 +24,12 @@ impl Empty for PublicCallRequest {
             is_static_call: false,
             calldata_hash: 0,
         }
+    }
+}
+
+impl Counted<PublicCallRequest> {
+    pub fn expose_to_public(self) -> PublicCallRequest {
+        self.inner
     }
 }
 

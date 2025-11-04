@@ -35,47 +35,6 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "ff_gt";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 5:
-            return "A_DECOMPOSITION";
-        case 7:
-            return "P_SUB_A_LO";
-        case 8:
-            return "P_SUB_A_HI";
-        case 9:
-            return "B_DECOMPOSITION";
-        case 11:
-            return "P_SUB_B_LO";
-        case 12:
-            return "P_SUB_B_HI";
-        case 13:
-            return "RES_LO";
-        case 14:
-            return "RES_HI";
-        case 15:
-            return "RNG_CTR_GT_INIT";
-        case 16:
-            return "RNG_CTR_DEC_INIT";
-        case 17:
-            return "RNG_CTR_DECREMENT";
-        case 19:
-            return "RNG_CTR_NON_ZERO";
-        case 20:
-            return "SHIFT_0";
-        case 22:
-            return "SHIFT_1";
-        case 24:
-            return "SHIFT_2";
-        case 26:
-            return "SHIFT_3";
-        case 28:
-            return "SEL_CONSISTENCY";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
     static constexpr size_t SR_A_DECOMPOSITION = 5;
     static constexpr size_t SR_P_SUB_A_LO = 7;
@@ -94,6 +53,47 @@ template <typename FF> class ff_gt : public Relation<ff_gtImpl<FF>> {
     static constexpr size_t SR_SHIFT_2 = 24;
     static constexpr size_t SR_SHIFT_3 = 26;
     static constexpr size_t SR_SEL_CONSISTENCY = 28;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_A_DECOMPOSITION:
+            return "A_DECOMPOSITION";
+        case SR_P_SUB_A_LO:
+            return "P_SUB_A_LO";
+        case SR_P_SUB_A_HI:
+            return "P_SUB_A_HI";
+        case SR_B_DECOMPOSITION:
+            return "B_DECOMPOSITION";
+        case SR_P_SUB_B_LO:
+            return "P_SUB_B_LO";
+        case SR_P_SUB_B_HI:
+            return "P_SUB_B_HI";
+        case SR_RES_LO:
+            return "RES_LO";
+        case SR_RES_HI:
+            return "RES_HI";
+        case SR_RNG_CTR_GT_INIT:
+            return "RNG_CTR_GT_INIT";
+        case SR_RNG_CTR_DEC_INIT:
+            return "RNG_CTR_DEC_INIT";
+        case SR_RNG_CTR_DECREMENT:
+            return "RNG_CTR_DECREMENT";
+        case SR_RNG_CTR_NON_ZERO:
+            return "RNG_CTR_NON_ZERO";
+        case SR_SHIFT_0:
+            return "SHIFT_0";
+        case SR_SHIFT_1:
+            return "SHIFT_1";
+        case SR_SHIFT_2:
+            return "SHIFT_2";
+        case SR_SHIFT_3:
+            return "SHIFT_3";
+        case SR_SEL_CONSISTENCY:
+            return "SEL_CONSISTENCY";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

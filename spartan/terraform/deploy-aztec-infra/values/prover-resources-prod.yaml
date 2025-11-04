@@ -3,12 +3,13 @@ node:
   node:
     resources:
       requests:
-        cpu: "3"
-        memory: "12Gi"
+        cpu: "1.6"
+        memory: "5Gi"
 
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
+    cores: "2"
 
   affinity:
     podAntiAffinity:
@@ -40,6 +41,7 @@ broker:
   nodeSelector:
     local-ssd: "false"
     node-type: "network"
+    cores: "2"
 
   persistence:
     enabled: true
@@ -60,15 +62,15 @@ broker:
         memory: "5Gi"
 
 agent:
-  replicaCount: 2
+  replicaCount: 4
 
   node:
     env:
-      HARDWARE_CONCURRENCY: "15"
+      HARDWARE_CONCURRENCY: "31"
     resources:
       requests:
-        memory: "60Gi"
-        cpu: "15"
+        memory: "115Gi"
+        cpu: "31"
 
   affinity:
     nodeAffinity:

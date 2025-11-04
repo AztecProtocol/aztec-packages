@@ -6,6 +6,7 @@ use aztec::{
     },
 };
 
+// DEPRECATED: Having this functionality in the value note package is incorrect and will be removed in the future.
 pub fn filter_notes_min_sum(
     notes: [Option<RetrievedNote<ValueNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_sum: Field,

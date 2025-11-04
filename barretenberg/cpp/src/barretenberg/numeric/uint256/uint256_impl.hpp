@@ -290,6 +290,7 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
  */
 constexpr uint256_t uint256_t::slice(const uint64_t start, const uint64_t end) const
 {
+    assert(start < end);
     const uint64_t range = end - start;
     const uint256_t mask = (range == 256) ? -uint256_t(1) : (uint256_t(1) << range) - 1;
     return ((*this) >> start) & mask;
@@ -317,7 +318,6 @@ constexpr uint256_t uint256_t::pow(const uint256_t& exponent) const
 
 constexpr bool uint256_t::get_bit(const uint64_t bit_index) const
 {
-    ASSERT_IN_CONSTEXPR(bit_index < 256);
     if (bit_index > 255) {
         return static_cast<bool>(0);
     }

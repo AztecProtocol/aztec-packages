@@ -79,8 +79,8 @@ inline BasicTable generate_and_rotate_table(BasicTableId id, const size_t table_
 template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTableId id)
 {
     // uint_size must be one of 8, 16, 32, or 64.
-    ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
-           "unsupported uint size for XOR table generation");
+    BB_ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
+              "unsupported uint size for XOR table generation");
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;
@@ -113,8 +113,8 @@ template <size_t uint_size> inline MultiTable get_uint_xor_table(const MultiTabl
 template <size_t uint_size> inline MultiTable get_uint_and_table(const MultiTableId id)
 {
     // uint_size must be one of 8, 16, 32, or 64.
-    ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
-           "unsupported uint size for AND table generation");
+    BB_ASSERT(uint_size == 8 || uint_size == 16 || uint_size == 32 || uint_size == 64,
+              "unsupported uint size for AND table generation");
 
     const size_t TABLE_BIT_SIZE = 6;
     const size_t num_entries = uint_size / TABLE_BIT_SIZE;

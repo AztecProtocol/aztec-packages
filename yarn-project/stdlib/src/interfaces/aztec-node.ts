@@ -52,6 +52,7 @@ import {
 import { SingleValidatorStatsSchema, ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
+import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 import { MAX_RPC_BLOCKS_LEN, MAX_RPC_LEN, MAX_RPC_TXS_LEN } from './api_limit.js';
 import {
   type GetContractClassLogsResponse,
@@ -199,10 +200,14 @@ export interface AztecNode
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined>;
 
+  /** Returns the L2 block number in which this L1 to L2 message becomes available, or undefined if not found. */
+  getL1ToL2MessageBlock(l1ToL2Message: Fr): Promise<number | undefined>;
+
   /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
+   * Returns whether an L1 to L2 message is synced by archiver.
    * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
+   * @returns Whether the message is synced.
+   * @deprecated Use `getL1ToL2MessageBlock` instead. This method may return true even if the message is not ready to use.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
 
@@ -219,6 +224,20 @@ export interface AztecNode
    * @returns The requested block.
    */
   getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
+
+  /**
+   * Get a block specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block.
+   */
+  getBlockByHash(blockHash: Fr): Promise<L2Block | undefined>;
+
+  /**
+   * Get a block specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block.
+   */
+  getBlockByArchive(archive: Fr): Promise<L2Block | undefined>;
 
   /**
    * Method to fetch the latest block number synchronized by the node.
@@ -395,6 +414,20 @@ export interface AztecNode
    */
   getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
+  /**
+   * Get a block header specified by its hash.
+   * @param blockHash - The block hash being requested.
+   * @returns The requested block header.
+   */
+  getBlockHeaderByHash(blockHash: Fr): Promise<BlockHeader | undefined>;
+
+  /**
+   * Get a block header specified by its archive root.
+   * @param archive - The archive root being requested.
+   * @returns The requested block header.
+   */
+  getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined>;
+
   /** Returns stats for validators if enabled. */
   getValidatorsStats(): Promise<ValidatorsStats>;
 
@@ -438,6 +471,12 @@ export interface AztecNode
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
+
+  /**
+   * Returns the list of allowed public setup elements configured for this node.
+   * @returns The list of allowed elements.
+   */
+  getAllowedPublicSetup(): Promise<AllowedElement[]>;
 }
 
 export const MAX_LOGS_PER_TAG = 10;
@@ -501,6 +540,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)]).optional()),
 
+  getL1ToL2MessageBlock: z.function().args(schemas.Fr).returns(z.number().optional()),
+
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
 
   getL2ToL1Messages: z
@@ -509,6 +550,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .returns(z.array(z.array(schemas.Fr)).optional()),
 
   getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
+
+  getBlockByHash: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
+
+  getBlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(z.number()),
 
@@ -583,6 +628,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
+  getBlockHeaderByHash: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+
+  getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
+
   getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
 
   getValidatorStats: z
@@ -605,6 +654,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
   getEncodedEnr: z.function().returns(z.string().optional()),
+
+  getAllowedPublicSetup: z.function().args().returns(z.array(AllowedElementSchema)),
 };
 
 export function createAztecNodeClient(

@@ -1,5 +1,7 @@
-import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, AztecAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
@@ -16,9 +18,9 @@ const { E2E_DATA_PATH: dataPath } = process.env;
 export class NestedContractTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
-  wallet!: AccountWallet;
+  wallet!: Wallet;
   defaultAccountAddress!: AztecAddress;
-  pxe!: PXE;
+  aztecNode!: AztecNode;
 
   parentContract!: ParentContract;
   childContract!: ChildContract;
@@ -40,12 +42,11 @@ export class NestedContractTest {
     await this.snapshotManager.snapshot(
       'accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
-        const wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
-        wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-        [this.wallet] = wallets;
-        this.defaultAccountAddress = this.wallet.getAddress();
-        this.pxe = pxe;
+      ({ deployedAccounts }, { wallet, aztecNode }) => {
+        this.wallet = wallet;
+        [{ address: this.defaultAccountAddress }] = deployedAccounts;
+        this.aztecNode = aztecNode;
+        return Promise.resolve();
       },
     );
 

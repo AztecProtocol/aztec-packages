@@ -78,6 +78,15 @@ template <typename TraceBuilder, typename... Setting> inline void check_interact
     (TraceBuilder::interactions.template get_test_job<Setting>()->process(trace), ...);
 }
 
+// Warning: The below requires ALL permutation settings as defined in InteractionDefinition.add():
+template <typename TraceBuilder, typename... Setting>
+inline void check_multipermutation_interaction(tracegen::TestTraceContainer& trace)
+{
+    // Concatenates the names of given permutation interactions:
+    std::string name = (std::string(Setting::NAME) + ...);
+    TraceBuilder::interactions.get_test_job(name)->process(trace);
+}
+
 template <typename TraceBuilder> inline void check_all_interactions(tracegen::TestTraceContainer& trace)
 {
     for (auto& job : TraceBuilder::interactions.get_all_test_jobs()) {

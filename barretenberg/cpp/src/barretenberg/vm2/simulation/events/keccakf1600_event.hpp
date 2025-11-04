@@ -37,7 +37,7 @@ struct KeccakF1600Event {
     MemoryAddress dst_addr;
     MemoryAddress src_addr;
     KeccakF1600StateMemValues src_mem_values;
-    uint32_t space_id;
+    uint16_t space_id;
     std::array<KeccakF1600RoundData, AVM_KECCAKF1600_NUM_ROUNDS> rounds;
     bool dst_out_of_range = false;
     bool src_out_of_range = false;

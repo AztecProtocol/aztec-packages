@@ -35,30 +35,21 @@ spec:
   {{- if .Values.initContainers }}
     {{- tpl (toYaml .Values.initContainers | nindent 4) $ }}
   {{- end }}
-  {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
+  {{- if .Values.service.p2p.nodePortEnabled }}
     - name: init-nodeport
-      image: bitnami/kubectl
+      image: registry.suse.com/suse/kubectl:1.33
       securityContext:
         runAsNonRoot: false
         runAsUser: 0
       command:
-        - sh
+        - /bin/bash
         - -c
         - |
           export POD_INDEX=$(echo ${POD_NAME} | awk -F'-' '{print $NF}');
-
-          # If running host network, we don't need to get the node port from the service
-          {{- if not .Values.hostNetwork }}
           export EXTERNAL_PORT=$(kubectl get services -l "pod-index in (${POD_INDEX}), type in (p2p)" -o jsonpath='{.items[0].spec.ports[0].nodePort}');
-          echo "export EXTERNAL_PORT=$EXTERNAL_PORT" >  /shared/init-nodeport;
-          echo "export P2P_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
-          {{- end }}
 
-          # Get the external IP of the node
-          export EXTERNAL_IP=$(kubectl get nodes "${NODE_NAME}" -o jsonpath='{.status.addresses[?(@.type=="ExternalIP")].address}');
+          echo "export P2P_BROADCAST_PORT=$EXTERNAL_PORT"      >> /shared/init-nodeport;
 
-          echo "export EXTERNAL_IP=$EXTERNAL_IP" >> /shared/init-nodeport;
-          echo "export P2P_IP=$EXTERNAL_IP"      >> /shared/init-nodeport;
           cat /shared/init-nodeport;
       env:
         - name: POD_NAME
@@ -82,7 +73,10 @@ spec:
         - -c
         - |
           {{- if or .Values.service.p2p.nodePortEnabled .Values.hostNetwork }}
-          source /shared/init-nodeport;
+          if [ -f /shared/init-nodeport ]; then
+            source /shared/init-nodeport;
+          fi
+          export P2P_QUERY_FOR_IP=true
           {{- else }}
           export P2P_IP=$(hostname -i)
           {{- end }}
@@ -93,7 +87,6 @@ spec:
           {{- if .Values.node.preStartScript }}
           {{ .Values.node.preStartScript | nindent 10 }}
           {{- end }}
-
           "${start_cmd[@]}"
       startupProbe:
         httpGet:
@@ -101,14 +94,6 @@ spec:
           port: {{ .Values.service.rpc.port }}
         periodSeconds: {{ .Values.node.startupProbe.periodSeconds }}
         failureThreshold: {{ .Values.node.startupProbe.failureThreshold }}
-      livenessProbe:
-        httpGet:
-          path: /status
-          port: {{ .Values.service.rpc.port }}
-        initialDelaySeconds: 30
-        periodSeconds: 5
-        timeoutSeconds: 30
-        failureThreshold: 3
       volumeMounts:
         - name: shared
           mountPath: /shared
@@ -152,16 +137,23 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        {{- if .Values.global.customAztecNetwork.enabled }}
+        {{- if .Values.global.customAztecNetwork.l1ChainId }}
         - name: L1_CHAIN_ID
           value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.registryContractAddress }}
         - name: REGISTRY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.slashFactoryContractAddress }}
         - name: SLASH_FACTORY_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.slashFactoryContractAddress }}"
+        {{- end }}
+        {{- if .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}
         - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
           value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
-        {{- else if .Values.global.aztecNetwork }}
+        {{- end }}
+        {{- if .Values.global.aztecNetwork }}
         - name: NETWORK
           value: "{{ .Values.global.aztecNetwork }}"
         {{- end }}
@@ -263,6 +255,10 @@ spec:
           value: {{ .Values.node.storage.worldStateMapSize | quote }}
         - name: USE_GCLOUD_LOGGING
           value: {{ .Values.global.useGcloudLogging | quote }}
+        - name: SPONSORED_FPC
+          value: {{ .Values.global.sponsoredFPC | quote }}
+        - name: TEST_ACCOUNTS
+          value: {{ .Values.global.testAccounts | quote }}
         {{- if .Values.global.otelCollectorEndpoint }}
         - name: OTEL_EXCLUDE_METRICS
           value: {{ .Values.node.otelExcludeMetrics | quote }}

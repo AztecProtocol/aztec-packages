@@ -22,7 +22,10 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {
-  ManaBaseFeeComponentsModel, L1FeesModel, L1GasOracleValuesModel, FeeHeaderModel
+  ManaBaseFeeComponentsModel,
+  L1FeesModel,
+  L1GasOracleValuesModel,
+  FeeHeaderModel
 } from "./FeeModelTestPoints.t.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -63,7 +66,7 @@ contract MinimalFeeModel {
     TimeLib.initialize(block.timestamp, _slotDuration, _epochDuration, _proofSubmissionEpochs);
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
     STFLib.initialize(
-      GenesisState({vkTreeRoot: bytes32(0), protocolContractTreeRoot: bytes32(0), genesisArchiveRoot: bytes32(0)})
+      GenesisState({vkTreeRoot: bytes32(0), protocolContractsHash: bytes32(0), genesisArchiveRoot: bytes32(0)})
     );
   }
 

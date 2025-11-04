@@ -1,17 +1,15 @@
-import {
-  type AccountWalletWithSecretKey,
-  type AztecAddress,
-  type AztecNode,
-  type Fr,
-  PublicKeys,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys } from '@aztec/aztec.js/keys';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { getContractArtifact } from '@aztec/cli/cli-utils';
 import type { LogFn } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 
 export async function registerContract(
-  wallet: AccountWalletWithSecretKey,
+  wallet: Wallet,
   node: AztecNode,
   address: AztecAddress,
   artifactPath: string,
@@ -32,14 +30,14 @@ export async function registerContract(
       constructorArtifact,
       publicKeys: publicKeys ?? PublicKeys.default(),
       constructorArgs: rawArgs,
-      salt,
+      salt: salt ?? Fr.ZERO,
       deployer,
     });
   }
   if (!contractInstance.address.equals(address)) {
     throw new Error(`Contract address mismatch: expected ${address}, got ${contractInstance.address}`);
   }
-  await wallet.registerContract({ instance: contractInstance, artifact: contractArtifact });
+  await wallet.registerContract(contractInstance, contractArtifact);
   log(`Contract registered: at ${contractInstance.address}`);
   return contractInstance;
 }

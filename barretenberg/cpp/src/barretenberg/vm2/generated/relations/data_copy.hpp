@@ -14,17 +14,15 @@ template <typename FF_> class data_copyImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 35> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 4, 3, 3, 3,
-                                                                            3, 3, 3, 3, 3, 4, 5, 4, 7, 3, 5, 4,
-                                                                            4, 5, 4, 5, 5, 7, 6, 6, 7, 3, 3 };
+    static constexpr std::array<size_t, 42> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 4, 3, 3, 3, 4, 3, 3, 3, 3, 4, 3, 3,
+                                                                            3, 3, 3, 3, 5, 4, 6, 4, 5, 3, 4, 4, 3, 3,
+                                                                            3, 3, 4, 5, 5, 3, 6, 4, 3, 5, 6, 3, 6, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        const auto data_copy_SEL = in.get(C::data_copy_sel_rd_copy) + in.get(C::data_copy_sel_cd_copy);
-
-        return (data_copy_SEL).is_zero();
+        return (in.get(C::data_copy_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
@@ -38,46 +36,10 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "data_copy";
 
-    static std::string get_subrelation_label(size_t index)
-    {
-        switch (index) {
-        case 6:
-            return "TOP_LEVEL_COND";
-        case 17:
-            return "START_AFTER_END";
-        case 18:
-            return "ZERO_SIZED_WRITE";
-        case 19:
-            return "END_IF_WRITE_IS_ZERO";
-        case 20:
-            return "END_WRITE_CONDITION";
-        case 21:
-            return "END_ON_ERR";
-        case 22:
-            return "INIT_READS_LEFT";
-        case 24:
-            return "DECR_COPY_SIZE";
-        case 25:
-            return "INCR_WRITE_ADDR";
-        case 26:
-            return "INIT_READ_ADDR";
-        case 27:
-            return "INCR_READ_ADDR";
-        case 28:
-            return "DECR_READ_COUNT";
-        case 29:
-            return "PADDING_CONDITION";
-        case 31:
-            return "PAD_VALUE";
-        case 32:
-            return "CD_COPY_COLUMN";
-        }
-        return std::to_string(index);
-    }
-
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_TOP_LEVEL_COND = 6;
-    static constexpr size_t SR_START_AFTER_END = 17;
+    static constexpr size_t SR_TRACE_CONTINUITY = 2;
+    static constexpr size_t SR_COMPUTATION_FINISH_AT_END = 6;
+    static constexpr size_t SR_START_AFTER_LATCH = 7;
     static constexpr size_t SR_ZERO_SIZED_WRITE = 18;
     static constexpr size_t SR_END_IF_WRITE_IS_ZERO = 19;
     static constexpr size_t SR_END_WRITE_CONDITION = 20;
@@ -85,12 +47,69 @@ template <typename FF> class data_copy : public Relation<data_copyImpl<FF>> {
     static constexpr size_t SR_INIT_READS_LEFT = 22;
     static constexpr size_t SR_DECR_COPY_SIZE = 24;
     static constexpr size_t SR_INCR_WRITE_ADDR = 25;
-    static constexpr size_t SR_INIT_READ_ADDR = 26;
-    static constexpr size_t SR_INCR_READ_ADDR = 27;
-    static constexpr size_t SR_DECR_READ_COUNT = 28;
-    static constexpr size_t SR_PADDING_CONDITION = 29;
-    static constexpr size_t SR_PAD_VALUE = 31;
-    static constexpr size_t SR_CD_COPY_COLUMN = 32;
+    static constexpr size_t SR_SRC_CONTEXT_ID_PROPAGATION = 26;
+    static constexpr size_t SR_DST_CONTEXT_ID_PROPAGATION = 27;
+    static constexpr size_t SR_CLK_PROPAGATION = 28;
+    static constexpr size_t SR_SEL_CD_COPY_PROPAGATION = 29;
+    static constexpr size_t SR_INIT_READ_ADDR = 30;
+    static constexpr size_t SR_INCR_READ_ADDR = 31;
+    static constexpr size_t SR_DECR_READ_COUNT = 32;
+    static constexpr size_t SR_PADDING_CONDITION = 34;
+    static constexpr size_t SR_PADDING_PROPAGATION = 35;
+    static constexpr size_t SR_TOP_LEVEL_COND = 37;
+    static constexpr size_t SR_PAD_VALUE = 39;
+    static constexpr size_t SR_CD_COPY_COLUMN = 40;
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        switch (index) {
+        case SR_TRACE_CONTINUITY:
+            return "TRACE_CONTINUITY";
+        case SR_COMPUTATION_FINISH_AT_END:
+            return "COMPUTATION_FINISH_AT_END";
+        case SR_START_AFTER_LATCH:
+            return "START_AFTER_LATCH";
+        case SR_ZERO_SIZED_WRITE:
+            return "ZERO_SIZED_WRITE";
+        case SR_END_IF_WRITE_IS_ZERO:
+            return "END_IF_WRITE_IS_ZERO";
+        case SR_END_WRITE_CONDITION:
+            return "END_WRITE_CONDITION";
+        case SR_END_ON_ERR:
+            return "END_ON_ERR";
+        case SR_INIT_READS_LEFT:
+            return "INIT_READS_LEFT";
+        case SR_DECR_COPY_SIZE:
+            return "DECR_COPY_SIZE";
+        case SR_INCR_WRITE_ADDR:
+            return "INCR_WRITE_ADDR";
+        case SR_SRC_CONTEXT_ID_PROPAGATION:
+            return "SRC_CONTEXT_ID_PROPAGATION";
+        case SR_DST_CONTEXT_ID_PROPAGATION:
+            return "DST_CONTEXT_ID_PROPAGATION";
+        case SR_CLK_PROPAGATION:
+            return "CLK_PROPAGATION";
+        case SR_SEL_CD_COPY_PROPAGATION:
+            return "SEL_CD_COPY_PROPAGATION";
+        case SR_INIT_READ_ADDR:
+            return "INIT_READ_ADDR";
+        case SR_INCR_READ_ADDR:
+            return "INCR_READ_ADDR";
+        case SR_DECR_READ_COUNT:
+            return "DECR_READ_COUNT";
+        case SR_PADDING_CONDITION:
+            return "PADDING_CONDITION";
+        case SR_PADDING_PROPAGATION:
+            return "PADDING_PROPAGATION";
+        case SR_TOP_LEVEL_COND:
+            return "TOP_LEVEL_COND";
+        case SR_PAD_VALUE:
+            return "PAD_VALUE";
+        case SR_CD_COPY_COLUMN:
+            return "CD_COPY_COLUMN";
+        }
+        return std::to_string(index);
+    }
 };
 
 } // namespace bb::avm2

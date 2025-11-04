@@ -73,10 +73,10 @@ template <class Builder> class goblin_field {
         return result;
     }
 
-    void assert_equal(const goblin_field& other) const
+    void assert_equal(const goblin_field& other, const std::string& msg = "goblin_field::assert_equal") const
     {
-        limbs[0].assert_equal(other.limbs[0]);
-        limbs[1].assert_equal(other.limbs[1]);
+        limbs[0].assert_equal(other.limbs[0], msg);
+        limbs[1].assert_equal(other.limbs[1], msg);
     }
     static goblin_field zero() { return goblin_field{ 0, 0 }; }
 
@@ -85,8 +85,8 @@ template <class Builder> class goblin_field {
         uint256_t converted(input);
         uint256_t lo_v = converted.slice(0, NUM_LIMB_BITS * 2);
         uint256_t hi_v = converted.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS);
-        field_ct lo = field_ct::from_witness(ctx, lo_v);
-        field_ct hi = field_ct::from_witness(ctx, hi_v);
+        field_ct lo = field_ct::from_witness(ctx, bb::fr(lo_v));
+        field_ct hi = field_ct::from_witness(ctx, bb::fr(hi_v));
         auto result = goblin_field(lo, hi);
         result.set_free_witness_tag();
         return result;

@@ -1,12 +1,9 @@
 import { Fr } from '@aztec/foundation/fields';
-import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { DataProvider } from '../data_provider.js';
-
-export class CapsuleDataProvider implements DataProvider {
+export class CapsuleDataProvider {
   #store: AztecAsyncKVStore;
 
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
@@ -138,13 +135,6 @@ export class CapsuleDataProvider implements DataProvider {
         await this.deleteCapsule(contractAddress, arraySlot(baseSlot, i));
       }
     });
-  }
-
-  public async getSize() {
-    return (await toArray(this.#capsules.valuesAsync())).reduce(
-      (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,
-      0,
-    );
   }
 }
 

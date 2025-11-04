@@ -7,6 +7,7 @@ import type { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import type { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import type { BlockHeader } from '../tx/block_header.js';
 import type { StateReference } from '../tx/state_reference.js';
+import type { WorldStateRevision } from '../world-state/world_state_revision.js';
 
 /**
  * Type alias for the nullifier tree ID.
@@ -131,6 +132,11 @@ export interface MerkleTreeReadOperations {
    * Gets the initial header.
    */
   getInitialHeader(): BlockHeader;
+
+  /**
+   * Gets the current revision.
+   */
+  getRevision(): WorldStateRevision;
 
   /**
    * Gets sibling path for a leaf.

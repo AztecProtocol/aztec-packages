@@ -8,7 +8,7 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ff_gt.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
 #include "barretenberg/vm2/simulation/lib/uint_decomposition.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -28,6 +28,7 @@ using tracegen::FieldGreaterThanTraceBuilder;
 using tracegen::RangeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
 
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -87,13 +88,13 @@ TEST_P(GtBasicTest, BasicComparison)
     const auto& param = GetParam();
 
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -111,13 +112,13 @@ TEST_P(DecBasicTest, BasicDecomposition)
     const auto& param = GetParam();
 
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -136,13 +137,13 @@ TEST_P(GtInteractionTests, InteractionsWithRangeCheck)
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.ff_gt(param.a, param.b), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -168,13 +169,13 @@ TEST_P(DecInteractionTests, InteractionsWithRangeCheck)
 
     EventEmitter<RangeCheckEvent> range_check_event_emitter;
     RangeCheck range_check(range_check_event_emitter);
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     EXPECT_EQ(field_gt_simulator.canon_dec(param.a), param.expected_result);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -197,13 +198,13 @@ INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -220,13 +221,13 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -257,13 +258,13 @@ TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedComparisonsWithP)
 TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -280,13 +281,13 @@ TEST(FieldGreaterThanConstrainingTest, NegativeLessRangeChecks)
 TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.canon_dec(0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -303,13 +304,13 @@ TEST(FieldGreaterThanConstrainingTest, NegativeRangeCheckCtrInitInDec)
 TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(0, 0);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;
@@ -325,13 +326,13 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
 TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)
 {
     NiceMock<MockRangeCheck> range_check;
-    EventEmitter<FieldGreaterThanEvent> event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> event_emitter;
     FieldGreaterThan field_gt_simulator(range_check, event_emitter);
 
     field_gt_simulator.ff_gt(42, 27);
 
-    TestTraceContainer trace = TestTraceContainer::from_rows({
-        { .precomputed_first_row = 1 },
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
     });
 
     FieldGreaterThanTraceBuilder builder;

@@ -4,7 +4,7 @@
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/l1_to_l2_message_tree_check.hpp"
+#include "barretenberg/vm2/simulation/interfaces/l1_to_l2_message_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 

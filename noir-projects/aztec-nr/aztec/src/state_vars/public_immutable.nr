@@ -62,18 +62,16 @@ use protocol_types::{
 /// }
 /// ```
 ///
-// docs:start:public_immutable_struct
 pub struct PublicImmutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
-// docs:end:public_immutable_struct
 
-/// `WithHash<T>` stores both the packed value (using O fields) and its hash (1 field), requiring O = M + 1 total
+/// `PublicImmutable` stores both the packed value (using M fields) and its hash (1 field), requiring M + 1 total
 /// fields.
-impl<T, Context, let M: u32, let O: u32> HasStorageSlot<O> for PublicImmutable<T, Context>
+impl<T, Context, let M: u32> HasStorageSlot<M + 1> for PublicImmutable<T, Context>
 where
-    WithHash<T, M>: Packable<N = O>,
+    T: Packable<N = M>,
 {
     fn get_storage_slot(self) -> Field {
         self.storage_slot
@@ -106,7 +104,6 @@ impl<T, Context> PublicImmutable<T, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicImmutable { context, storage_slot }
     }
-    // docs:end:public_immutable_struct_new
 
     pub fn compute_initialization_nullifier(self) -> Field {
         poseidon2_hash_with_separator(
@@ -116,7 +113,7 @@ impl<T, Context> PublicImmutable<T, Context> {
     }
 }
 
-impl<T> PublicImmutable<T, &mut PublicContext> {
+impl<T> PublicImmutable<T, PublicContext> {
     /// Initializes a PublicImmutable state variable instance with a permanent value.
     ///
     /// This function sets the immutable value for this state variable. It can only
@@ -149,7 +146,6 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
 
         self.context.storage_write(self.storage_slot, WithHash::new(value));
     }
-    // docs:end:public_immutable_struct_write
 
     /// Reads the permanent value stored in this PublicImmutable state variable.
     ///
@@ -175,9 +171,8 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
         T: Packable + Eq,
     {
         assert(self.is_initialized(), "Trying to read from uninitialized PublicImmutable");
-        WithHash::public_storage_read(*self.context, self.storage_slot)
+        WithHash::public_storage_read(self.context, self.storage_slot)
     }
-    // docs:end:public_immutable_struct_read
 
     /// Reads the value stored in this PublicImmutable without checking if the value
     /// is initialized.
@@ -198,7 +193,7 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     where
         T: Packable + Eq,
     {
-        WithHash::public_storage_read(*self.context, self.storage_slot)
+        WithHash::public_storage_read(self.context, self.storage_slot)
     }
 
     fn is_initialized(self) -> bool {
@@ -249,10 +244,10 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     /// only the hash instead of the full packed value.
     ///
     /// The historical read mechanism:
-    /// - Uses an oracle to obtain the value from the historical block
+    /// - Uses an oracle to obtain the value from the anchor block
     /// - Proves inclusion of the value's hash in the public data tree
     /// - Proves that the root of this public data tree is correct, relative to the
-    ///   historical block header that is being referenced by this private function.
+    ///   anchor block header.
     /// - Verifies that the oracle-provided value matches the stored hash
     ///
     pub fn read(self) -> T
@@ -261,7 +256,7 @@ impl<T> PublicImmutable<T, &mut PrivateContext> {
     {
         // TODO(#15703): this fn should fail if the variable is not initialized
         WithHash::historical_public_storage_read(
-            self.context.get_block_header(),
+            self.context.get_anchor_block_header(),
             self.context.this_address(),
             self.storage_slot,
         )

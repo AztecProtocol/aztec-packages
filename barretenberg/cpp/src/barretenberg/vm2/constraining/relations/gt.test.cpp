@@ -39,14 +39,14 @@ TEST_P(GreaterThanTest, GreaterThan)
     auto [a, b, num_bits] = GetParam();
     bool res = a > b;
     uint128_t abs_diff = res ? a - b - 1 : b - a;
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .gt_abs_diff = abs_diff,
-            .gt_input_a = a,
-            .gt_input_b = b,
-            .gt_num_bits = num_bits,
-            .gt_res = static_cast<uint8_t>(res),
-            .gt_sel = 1,
+            { C::gt_abs_diff, abs_diff },
+            { C::gt_input_a, a },
+            { C::gt_input_b, b },
+            { C::gt_num_bits, num_bits },
+            { C::gt_res, static_cast<uint8_t>(res) },
+            { C::gt_sel, 1 },
         },
     });
     range_check_builder.process({ { .value = abs_diff, .num_bits = static_cast<uint8_t>(num_bits) } }, trace);
@@ -82,14 +82,14 @@ TEST(GreaterThanConstrainingTest, NegativeGT)
     uint128_t b = 1;
     bool res = a > b;
     uint128_t abs_diff = res ? a - b - 1 : b - a;
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .gt_abs_diff = abs_diff,
-            .gt_input_a = a,
-            .gt_input_b = b,
-            .gt_num_bits = 16,
-            .gt_res = static_cast<uint8_t>(res),
-            .gt_sel = 1,
+            { C::gt_abs_diff, abs_diff },
+            { C::gt_input_a, a },
+            { C::gt_input_b, b },
+            { C::gt_num_bits, 16 },
+            { C::gt_res, static_cast<uint8_t>(res) },
+            { C::gt_sel, 1 },
         },
     });
     range_check_builder.process({ { .value = abs_diff, .num_bits = 16 } }, trace);
@@ -117,14 +117,14 @@ TEST(GreaterThanConstrainingTest, NegativeGTResult)
     uint128_t b = 1;
     bool res = a > b;
     uint128_t abs_diff = res ? a - b - 1 : b - a;
-    auto trace = TestTraceContainer::from_rows({
+    auto trace = TestTraceContainer({
         {
-            .gt_abs_diff = abs_diff,
-            .gt_input_a = a,
-            .gt_input_b = b,
-            .gt_num_bits = 16,
-            .gt_res = static_cast<uint8_t>(res),
-            .gt_sel = 1,
+            { C::gt_abs_diff, abs_diff },
+            { C::gt_input_a, a },
+            { C::gt_input_b, b },
+            { C::gt_num_bits, 16 },
+            { C::gt_res, static_cast<uint8_t>(res) },
+            { C::gt_sel, 1 },
         },
     });
     range_check_builder.process({ { .value = abs_diff, .num_bits = 16 } }, trace);

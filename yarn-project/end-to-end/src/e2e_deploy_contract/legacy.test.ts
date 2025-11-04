@@ -1,31 +1,26 @@
-import {
-  AztecAddress,
-  ContractDeployer,
-  type DeployOptions,
-  Fr,
-  type Logger,
-  type PXE,
-  TxStatus,
-  type Wallet,
-  getContractInstanceFromInstantiationParams,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { type DeployOptions, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { ContractDeployer } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { DeployTest } from './deploy_test.js';
 
 describe('e2e_deploy_contract legacy', () => {
   const t = new DeployTest('legacy');
 
-  let pxe: PXE;
   let logger: Logger;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, defaultAccountAddress } = await t.setup());
+    ({ logger, wallet, defaultAccountAddress } = await t.setup());
   });
 
   afterAll(() => t.teardown());
@@ -36,20 +31,18 @@ describe('e2e_deploy_contract legacy', () => {
    */
   it('should deploy a test contract', async () => {
     const salt = Fr.random();
-    const publicKeys = wallet.getCompleteAddress().publicKeys;
     const deploymentData = await getContractInstanceFromInstantiationParams(TestContractArtifact, {
       salt,
-      publicKeys,
-      deployer: wallet.getAddress(),
+      deployer: defaultAccountAddress,
     });
-    const deployer = new ContractDeployer(TestContractArtifact, wallet, publicKeys);
+    const deployer = new ContractDeployer(TestContractArtifact, wallet);
     const receipt = await deployer
       .deploy()
       .send({ from: defaultAccountAddress, contractAddressSalt: salt })
       .wait({ wallet });
     expect(receipt.contract.address).toEqual(deploymentData.address);
-    expect((await pxe.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
-    expect((await pxe.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
+    expect((await wallet.getContractMetadata(deploymentData.address)).contractInstance).toBeDefined();
+    expect((await wallet.getContractMetadata(deploymentData.address)).isContractPublished).toBeTrue();
   });
 
   /**
@@ -78,7 +71,7 @@ describe('e2e_deploy_contract legacy', () => {
         .wait({ wallet });
       logger.info(`Sending TX to contract ${index + 1}...`);
       await receipt.contract.methods
-        .get_master_incoming_viewing_public_key(wallet.getAddress())
+        .get_master_incoming_viewing_public_key(defaultAccountAddress)
         .send({ from: defaultAccountAddress })
         .wait();
     }
@@ -102,7 +95,7 @@ describe('e2e_deploy_contract legacy', () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
-    const goodDeploy = StatefulTestContract.deploy(wallet, wallet.getAddress(), 42);
+    const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
     const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
@@ -114,8 +107,7 @@ describe('e2e_deploy_contract legacy', () => {
       from: defaultAccountAddress,
     };
 
-    await Promise.all([goodDeploy.prove(firstOpts), badDeploy.prove(secondOpts)]);
-    const [goodTx, badTx] = [goodDeploy.send(firstOpts), badDeploy.send(secondOpts)];
+    const [goodTx, badTx] = await Promise.all([goodDeploy.send(firstOpts), badDeploy.send(secondOpts)]);
     const [goodTxPromiseResult, badTxReceiptResult] = await Promise.allSettled([
       goodTx.wait(),
       badTx.wait({ dontThrowOnRevert: true }),
@@ -132,7 +124,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     expect(badTxReceipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
 
-    const { isContractClassPubliclyRegistered } = await pxe.getContractClassMetadata(
+    const { isContractClassPubliclyRegistered } = await wallet.getContractClassMetadata(
       (await badDeploy.getInstance()).currentContractClassId,
     );
     // But the bad tx did not deploy

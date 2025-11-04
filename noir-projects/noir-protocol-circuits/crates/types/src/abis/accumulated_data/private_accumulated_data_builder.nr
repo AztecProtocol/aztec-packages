@@ -1,13 +1,8 @@
 use crate::{
     abis::{
-        accumulated_data::private_accumulated_data::PrivateAccumulatedData,
-        log_hash::LogHash,
-        note_hash::ScopedNoteHash,
-        nullifier::ScopedNullifier,
-        private_call_request::PrivateCallRequest,
-        private_log::PrivateLogData,
-        public_call_request::PublicCallRequest,
-        side_effect::{Counted, scoped::Scoped},
+        accumulated_data::private_accumulated_data::PrivateAccumulatedData, log_hash::LogHash,
+        note_hash::NoteHash, nullifier::Nullifier, private_call_request::PrivateCallRequest,
+        private_log::PrivateLogData, public_call_request::PublicCallRequest,
     },
     constants::{
         MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_ENQUEUED_CALLS_PER_TX, MAX_L2_TO_L1_MSGS_PER_TX,
@@ -15,17 +10,18 @@ use crate::{
         MAX_PRIVATE_LOGS_PER_TX,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
 };
 
 #[derive(Eq)]
 pub struct PrivateAccumulatedDataBuilder {
-    pub note_hashes: ClaimedLengthArray<ScopedNoteHash, MAX_NOTE_HASHES_PER_TX>,
-    pub nullifiers: ClaimedLengthArray<ScopedNullifier, MAX_NULLIFIERS_PER_TX>,
+    pub note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX>,
+    pub nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     pub l2_to_l1_msgs: ClaimedLengthArray<Scoped<Counted<L2ToL1Message>>, MAX_L2_TO_L1_MSGS_PER_TX>,
 
-    pub private_logs: ClaimedLengthArray<Scoped<PrivateLogData>, MAX_PRIVATE_LOGS_PER_TX>,
+    pub private_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX>,
     pub contract_class_logs_hashes: ClaimedLengthArray<Scoped<Counted<LogHash>>, MAX_CONTRACT_CLASS_LOGS_PER_TX>,
 
     pub public_call_requests: ClaimedLengthArray<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_TX>,

@@ -14,17 +14,16 @@ template <typename FF_> class addressingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 72> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 4, 3, 3, 3, 3, 3, 3, 3, 4, 5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-        3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 5, 4, 4
+    static constexpr std::array<size_t, 62> SUBRELATION_PARTIAL_LENGTHS = {
+        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5,
+        5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 5, 5, 5, 5, 5, 5, 5, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 3
     };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         using C = ColumnAndShifts;
 
-        const auto execution_SEL_SHOULD_RESOLVE_ADDRESS =
-            in.get(C::execution_sel_bytecode_retrieval_success) * in.get(C::execution_sel_instruction_fetching_success);
+        const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
         return (execution_SEL_SHOULD_RESOLVE_ADDRESS).is_zero();
     }
@@ -40,134 +39,113 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
   public:
     static constexpr const std::string_view NAME = "addressing";
 
+    // Subrelation indices constants, to be used in tests.
+    static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
+    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 18;
+    static constexpr size_t SR_BASE_ADDRESS_CHECK = 20;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0 = 21;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1 = 22;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2 = 23;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3 = 24;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4 = 25;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5 = 26;
+    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6 = 27;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 28;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 29;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 30;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 31;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 32;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 33;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 34;
+    static constexpr size_t SR_INDIRECT_GATING_0 = 43;
+    static constexpr size_t SR_INDIRECT_GATING_1 = 44;
+    static constexpr size_t SR_INDIRECT_GATING_2 = 45;
+    static constexpr size_t SR_INDIRECT_GATING_3 = 46;
+    static constexpr size_t SR_INDIRECT_GATING_4 = 47;
+    static constexpr size_t SR_INDIRECT_GATING_5 = 48;
+    static constexpr size_t SR_INDIRECT_GATING_6 = 49;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 50;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 51;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 52;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 53;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 54;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_5 = 55;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 56;
+    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 58;
+    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 60;
+
     static std::string get_subrelation_label(size_t index)
     {
         switch (index) {
-        case 16:
+        case SR_INDIRECT_RECONSTRUCTION:
             return "INDIRECT_RECONSTRUCTION";
-        case 24:
+        case SR_NUM_RELATIVE_INV_CHECK:
             return "NUM_RELATIVE_INV_CHECK";
-        case 25:
+        case SR_BASE_ADDRESS_CHECK:
             return "BASE_ADDRESS_CHECK";
-        case 33:
-            return "NOT_RELATIVE_NO_OVERFLOW_0";
-        case 34:
-            return "NOT_RELATIVE_NO_OVERFLOW_1";
-        case 35:
-            return "NOT_RELATIVE_NO_OVERFLOW_2";
-        case 36:
-            return "NOT_RELATIVE_NO_OVERFLOW_3";
-        case 37:
-            return "NOT_RELATIVE_NO_OVERFLOW_4";
-        case 38:
-            return "NOT_RELATIVE_NO_OVERFLOW_5";
-        case 39:
-            return "NOT_RELATIVE_NO_OVERFLOW_6";
-        case 40:
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5";
+        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6:
+            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6";
+        case SR_RELATIVE_RESOLUTION_0:
             return "RELATIVE_RESOLUTION_0";
-        case 41:
+        case SR_RELATIVE_RESOLUTION_1:
             return "RELATIVE_RESOLUTION_1";
-        case 42:
+        case SR_RELATIVE_RESOLUTION_2:
             return "RELATIVE_RESOLUTION_2";
-        case 43:
+        case SR_RELATIVE_RESOLUTION_3:
             return "RELATIVE_RESOLUTION_3";
-        case 44:
+        case SR_RELATIVE_RESOLUTION_4:
             return "RELATIVE_RESOLUTION_4";
-        case 45:
+        case SR_RELATIVE_RESOLUTION_5:
             return "RELATIVE_RESOLUTION_5";
-        case 46:
+        case SR_RELATIVE_RESOLUTION_6:
             return "RELATIVE_RESOLUTION_6";
-        case 48:
-            return "RELATIVE_OVERFLOW_RESULT_0";
-        case 49:
-            return "RELATIVE_OVERFLOW_RESULT_1";
-        case 50:
-            return "RELATIVE_OVERFLOW_RESULT_2";
-        case 51:
-            return "RELATIVE_OVERFLOW_RESULT_3";
-        case 52:
-            return "RELATIVE_OVERFLOW_RESULT_4";
-        case 53:
-            return "RELATIVE_OVERFLOW_RESULT_5";
-        case 54:
-            return "RELATIVE_OVERFLOW_RESULT_6";
-        case 55:
+        case SR_INDIRECT_GATING_0:
             return "INDIRECT_GATING_0";
-        case 56:
+        case SR_INDIRECT_GATING_1:
             return "INDIRECT_GATING_1";
-        case 57:
+        case SR_INDIRECT_GATING_2:
             return "INDIRECT_GATING_2";
-        case 58:
+        case SR_INDIRECT_GATING_3:
             return "INDIRECT_GATING_3";
-        case 59:
+        case SR_INDIRECT_GATING_4:
             return "INDIRECT_GATING_4";
-        case 60:
+        case SR_INDIRECT_GATING_5:
             return "INDIRECT_GATING_5";
-        case 61:
+        case SR_INDIRECT_GATING_6:
             return "INDIRECT_GATING_6";
-        case 62:
+        case SR_INDIRECT_PROPAGATION_0:
             return "INDIRECT_PROPAGATION_0";
-        case 63:
+        case SR_INDIRECT_PROPAGATION_1:
             return "INDIRECT_PROPAGATION_1";
-        case 64:
+        case SR_INDIRECT_PROPAGATION_2:
             return "INDIRECT_PROPAGATION_2";
-        case 65:
+        case SR_INDIRECT_PROPAGATION_3:
             return "INDIRECT_PROPAGATION_3";
-        case 66:
+        case SR_INDIRECT_PROPAGATION_4:
             return "INDIRECT_PROPAGATION_4";
-        case 67:
+        case SR_INDIRECT_PROPAGATION_5:
             return "INDIRECT_PROPAGATION_5";
-        case 68:
+        case SR_INDIRECT_PROPAGATION_6:
             return "INDIRECT_PROPAGATION_6";
-        case 69:
+        case SR_BATCHED_TAGS_DIFF_CHECK:
             return "BATCHED_TAGS_DIFF_CHECK";
-        case 70:
+        case SR_ADDRESSING_COLLECTION_INV_CHECK:
             return "ADDRESSING_COLLECTION_INV_CHECK";
         }
         return std::to_string(index);
     }
-
-    // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_INDIRECT_RECONSTRUCTION = 16;
-    static constexpr size_t SR_NUM_RELATIVE_INV_CHECK = 24;
-    static constexpr size_t SR_BASE_ADDRESS_CHECK = 25;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_0 = 33;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_1 = 34;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_2 = 35;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_3 = 36;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_4 = 37;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_5 = 38;
-    static constexpr size_t SR_NOT_RELATIVE_NO_OVERFLOW_6 = 39;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 40;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 41;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 42;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 43;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 44;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 45;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 46;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_0 = 48;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_1 = 49;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_2 = 50;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_3 = 51;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_4 = 52;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_5 = 53;
-    static constexpr size_t SR_RELATIVE_OVERFLOW_RESULT_6 = 54;
-    static constexpr size_t SR_INDIRECT_GATING_0 = 55;
-    static constexpr size_t SR_INDIRECT_GATING_1 = 56;
-    static constexpr size_t SR_INDIRECT_GATING_2 = 57;
-    static constexpr size_t SR_INDIRECT_GATING_3 = 58;
-    static constexpr size_t SR_INDIRECT_GATING_4 = 59;
-    static constexpr size_t SR_INDIRECT_GATING_5 = 60;
-    static constexpr size_t SR_INDIRECT_GATING_6 = 61;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 62;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 63;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 64;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 65;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 66;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_5 = 67;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 68;
-    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 69;
-    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 70;
 };
 
 } // namespace bb::avm2

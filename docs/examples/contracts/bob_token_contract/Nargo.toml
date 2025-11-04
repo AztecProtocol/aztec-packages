@@ -1,0 +1,7 @@
+[package]
+name = "bob_token_contract"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../noir-projects/aztec-nr/aztec" }
+easy_private_state = { path = "../../../../noir-projects/aztec-nr/easy-private-state" }

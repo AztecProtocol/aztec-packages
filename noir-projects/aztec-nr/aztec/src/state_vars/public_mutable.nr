@@ -5,7 +5,7 @@ use dep::protocol_types::traits::Packable;
 /// # PublicMutable
 ///
 /// PublicMutable is a public state variable type for values that can be read
-/// and written within #[public] functions of your smart contract.
+/// and written within #[external("public")] functions of your smart contract.
 ///
 /// You can declare a state variable of type PublicMutable within your contract's
 /// #[storage] struct:
@@ -42,7 +42,6 @@ pub struct PublicMutable<T, Context> {
     context: Context,
     storage_slot: Field,
 }
-// docs:end:public_mutable_struct
 
 impl<T, Context, let M: u32> HasStorageSlot<M> for PublicMutable<T, Context>
 where
@@ -79,10 +78,9 @@ impl<T, Context> PublicMutable<T, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PublicMutable { context, storage_slot }
     }
-    // docs:end:public_mutable_struct_new
 }
 
-impl<T> PublicMutable<T, &mut PublicContext> {
+impl<T> PublicMutable<T, PublicContext> {
     /// Reads the current value stored in this PublicMutable state variable.
     ///
     /// # Returns
@@ -96,7 +94,6 @@ impl<T> PublicMutable<T, &mut PublicContext> {
     {
         self.context.storage_read(self.storage_slot)
     }
-    // docs:end:public_mutable_struct_read
 
     /// Writes a new value to this PublicMutable state variable.
     ///
@@ -117,7 +114,6 @@ impl<T> PublicMutable<T, &mut PublicContext> {
     {
         self.context.storage_write(self.storage_slot, value);
     }
-    // docs:end:public_mutable_struct_write
 }
 
 impl<T> PublicMutable<T, UtilityContext> {

@@ -87,6 +87,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       txGatheringMaxParallelRequestsPerNode: 100,
       txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
+      proverNodeEpochProvingDelayMs: undefined,
       ...compact(config),
     };
 
@@ -143,6 +144,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async start() {
     this.epochsMonitor.start(this);
+    await this.publisherFactory.start();
     this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
     this.l1Metrics.start();
@@ -158,6 +160,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.prover.stop();
     await tryStop(this.p2pClient);
     await tryStop(this.l2BlockSource);
+    await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
@@ -366,7 +369,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     publisher: ProverNodePublisher,
     opts: { skipEpochCheck?: boolean } = {},
   ) {
-    const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit } = this.config;
+    const { proverNodeMaxParallelBlocksPerEpoch: parallelBlockLimit, proverNodeDisableProofPublish } = this.config;
     return new EpochProvingJob(
       data,
       this.worldState,
@@ -376,7 +379,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.l2BlockSource,
       this.jobMetrics,
       deadline,
-      { parallelBlockLimit, ...opts },
+      { parallelBlockLimit, skipSubmitProof: proverNodeDisableProofPublish, ...opts },
     );
   }
 

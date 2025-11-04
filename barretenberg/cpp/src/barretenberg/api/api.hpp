@@ -24,6 +24,7 @@ class API {
         bool slow_low_memory{ false };          // use file backed memory for polynomials
         std::string storage_budget;             // storage budget for file backed memory (e.g. "500m", "2g")
         bool update_inputs{ false };            // update inputs when check fails
+        std::string vk_policy{ "default" };     // policy for handling VKs during IVC accumulation
 
         bool optimized_solidity_verifier{ false }; // should we use the optimized sol verifier? (temp)
 
@@ -42,6 +43,7 @@ class API {
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "  slow_low_memory " << flags.slow_low_memory << "\n"
                << "  storage_budget " << flags.storage_budget << "\n"
+               << "  vk_policy " << flags.vk_policy << "\n"
                << "]" << std::endl;
             return os;
         }

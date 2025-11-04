@@ -1,4 +1,4 @@
-// import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
+// import { type PXE, createCompatibleClient } from '@aztec/aztec.js/wallet';
 // import { RegistryContract, createEthereumChain, createExtendedL1Client } from '@aztec/ethereum';
 // import { createLogger } from '@aztec/foundation/log';
 
@@ -52,7 +52,7 @@
 //   it(
 //     'should be able to get node enr',
 //     async () => {
-//       const info = await pxe.getNodeInfo();
+//       const info = await aztecNode.getNodeInfo();
 
 //       const chain = createEthereumChain([ETHEREUM_HOSTS], info.l1ChainId);
 //       const l1Client = createExtendedL1Client([ETHEREUM_HOSTS], MNEMONIC, chain.chainInfo);

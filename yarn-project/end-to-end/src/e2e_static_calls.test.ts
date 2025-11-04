@@ -1,4 +1,5 @@
-import type { AztecAddress, Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { StaticChildContract } from '@aztec/noir-test-contracts.js/StaticChild';
 import { StaticParentContract } from '@aztec/noir-test-contracts.js/StaticParent';
 

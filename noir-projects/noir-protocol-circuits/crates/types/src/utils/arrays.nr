@@ -6,6 +6,7 @@ pub mod assert_sorted_transformed_padded_array;
 pub mod assert_split_sorted_transformed_value_arrays;
 pub mod assert_split_transformed_padded_arrays;
 pub mod assert_split_transformed_value_arrays;
+pub mod assert_trailing_zeros;
 pub mod find_index;
 pub mod get_sorted_result;
 pub mod get_sorted_tuple;
@@ -16,8 +17,7 @@ pub mod sort_by_counter;
 pub use assert_array_appended::{
     assert_array_appended, assert_array_appended_and_scoped,
     assert_array_appended_reversed_to_empty_dest, assert_array_appended_reversed_up_to_some_length,
-    assert_array_appended_scoped, assert_array_appended_to_empty_dest,
-    assert_array_appended_to_empty_dest_and_scoped, assert_array_appended_to_empty_dest_scoped,
+    assert_array_appended_to_empty_dest, assert_array_appended_to_empty_dest_and_scoped,
 };
 pub use assert_array_prepended::{assert_array_prepended, assert_array_prepended_up_to_some_length};
 pub use assert_exposed_sorted_transformed_value_array::{
@@ -27,13 +27,14 @@ pub use assert_exposed_sorted_transformed_value_array::{
 pub use assert_sorted_array::assert_sorted_array;
 pub use assert_sorted_transformed_padded_array::{
     assert_sorted_transformed_i_padded_array_capped_size,
-    assert_sorted_transformed_padded_array_capped_size, validate_padded_items,
+    assert_sorted_transformed_padded_array_capped_size, check_padded_items,
 };
 pub use assert_split_sorted_transformed_value_arrays::{
     assert_split_sorted_transformed_value_arrays_asc,
     get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
 };
 pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
+pub use assert_trailing_zeros::assert_trailing_zeros;
 pub use find_index::{find_first_index, find_last_index};
 pub use get_sorted_result::{get_sorted_result, SortedResult};
 pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};
@@ -47,22 +48,8 @@ use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
 //**********************************************************************************
 
 // TODO: Consider making this a part of the noir stdlib.
-pub fn subarray<let SrcLen: u32, let DstLen: u32>(
-    src: [Field; SrcLen],
-    offset: u32,
-) -> [Field; DstLen] {
-    let mut dst: [Field; DstLen] = std::mem::zeroed();
-    for i in 0..DstLen {
-        dst[i] = src[i + offset];
-    }
-
-    dst
-}
-
-// Helper fn to create a subarray from a given array
-// TODO: rename to `slice`. This is not a splice.
-// TODO: looks very similar to `subarray` above.
-pub fn array_splice<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
+/// Helper fn to create a subarray from a given array.
+pub fn subarray<T, let N: u32, let M: u32>(array: [T; N], offset: u32) -> [T; M]
 where
     T: Empty,
 {
@@ -153,14 +140,15 @@ where
     let maybe_length = unsafe { find_index_hint(array, |elem: T| elem.is_empty()) };
 
     let mut length = N;
+
     if maybe_length.is_some() {
         length = maybe_length.unwrap_unchecked();
 
         array[length].assert_empty("Expected array empty");
+    }
 
-        if length != 0 {
-            assert(!array[length - 1].is_empty());
-        }
+    if length != 0 {
+        assert(!array[length - 1].is_empty());
     }
 
     length
@@ -260,7 +248,7 @@ pub fn check_permutation<T, let N: u32>(
     original_indexes: [u32; N],
 )
 where
-    T: Empty,
+    T: Eq,
 {
     let mut seen_value = [false; N];
     for i in 0..N {

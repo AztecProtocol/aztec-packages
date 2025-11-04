@@ -105,7 +105,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
     {
         for (size_t num_bytes = 1; num_bytes < 32; num_bytes++) {
             Builder builder;
-            size_t num_gates_start = builder.get_estimated_num_finalized_gates();
+            size_t num_gates_start = builder.get_num_finalized_gates_inefficient();
 
             uint256_t raw_val = engine.get_random_uint256();
             fr expected_val = slice_to_n_bytes(raw_val, num_bytes);
@@ -124,7 +124,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
             EXPECT_EQ(reconstructed_field.get_origin_tag(), submitted_value_origin_tag);
 
             // Make sure no gates are added
-            EXPECT_TRUE(builder.get_estimated_num_finalized_gates() - num_gates_start == 0);
+            EXPECT_TRUE(builder.get_num_finalized_gates_inefficient() - num_gates_start == 0);
         }
     }
 
@@ -172,7 +172,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
     {
 
         Builder builder;
-        size_t gates_start = builder.get_estimated_num_finalized_gates();
+        size_t gates_start = builder.get_num_finalized_gates_inefficient();
         field_ct test_val(&builder, fr::random_element());
 
         byte_array_ct arr(test_val, 32);
@@ -196,7 +196,7 @@ template <class Builder> class ByteArrayTest : public ::testing::Test {
                                   "byte_array: y_hi doesn't fit in 128 bits");
         }
         // Make sure no gates are added
-        EXPECT_TRUE(gates_start == builder.get_estimated_num_finalized_gates());
+        EXPECT_TRUE(gates_start == builder.get_num_finalized_gates_inefficient());
     }
 
     void test_byte_array_input_output_consistency()

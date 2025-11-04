@@ -25,6 +25,7 @@
     "awsvpc",
     "aztecprotocol",
     "barretenberg",
+    "batchable",
     "bbfree",
     "bbmalloc",
     "benesjan",
@@ -65,6 +66,7 @@
     "cimg",
     "ciphertext",
     "ciphertexts",
+    "chonk",
     "clonedeep",
     "clonedeepwith",
     "cmd",
@@ -187,6 +189,7 @@
     "merkleizing",
     "messagebox",
     "mimc",
+    "mintable",
     "mktemp",
     "mload",
     "mockify",
@@ -252,6 +255,7 @@
     "prestat",
     "prevrandao",
     "println",
+    "privateland",
     "productionify",
     "protobuf",
     "protogalaxy",
@@ -262,6 +266,7 @@
     "proxify",
     "pseudocode",
     "pubkey",
+    "publicland",
     "pxes",
     "quickstart",
     "Quickstarts",
@@ -301,6 +306,7 @@
     "starknet",
     "staticcall",
     "stdlib",
+    "stringifying",
     "struct",
     "structs",
     "subarray",
@@ -319,6 +325,7 @@
     "tldr",
     "tload",
     "tmpfs",
+    "tonelli",
     "toplevel",
     "tparam",
     "transferables",
@@ -397,6 +404,9 @@
   "flagWords": [
     "anonymous",
     "offence",
-    "offences"
+    "offences",
+    "on-chain",
+    "off-chain",
+    "out-of-band"
   ]
 }

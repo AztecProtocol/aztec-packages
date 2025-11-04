@@ -25,8 +25,7 @@
 // clang-format on
 #include <utility>
 
-#include "barretenberg/honk/execution_trace/execution_trace_usage_tracker.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 
 namespace bb {
 /**
@@ -40,31 +39,28 @@ namespace bb {
 template <IsUltraOrMegaHonk Flavor> class OinkProver {
     using CommitmentKey = typename Flavor::CommitmentKey;
     using HonkVK = typename Flavor::VerificationKey;
-    using DeciderPK = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using Transcript = typename Flavor::Transcript;
     using FF = typename Flavor::FF;
     using Proof = typename Transcript::Proof;
 
   public:
-    std::shared_ptr<DeciderPK> proving_key;
+    std::shared_ptr<ProverInstance> prover_instance;
     std::shared_ptr<HonkVK> honk_vk;
     std::shared_ptr<Transcript> transcript;
     std::string domain_separator;
-    ExecutionTraceUsageTracker trace_usage_tracker;
 
     typename Flavor::CommitmentLabels commitment_labels;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
+    using SubrelationSeparator = typename Flavor::SubrelationSeparator;
 
-    OinkProver(std::shared_ptr<DeciderPK> proving_key,
+    OinkProver(std::shared_ptr<ProverInstance> prover_instance,
                std::shared_ptr<HonkVK> honk_vk,
                const std::shared_ptr<typename Flavor::Transcript>& transcript = std::make_shared<Transcript>(),
-               std::string domain_separator = "",
-               const ExecutionTraceUsageTracker& trace_usage_tracker = ExecutionTraceUsageTracker{})
-        : proving_key(proving_key)
+               std::string domain_separator = "")
+        : prover_instance(prover_instance)
         , honk_vk(honk_vk)
         , transcript(transcript)
         , domain_separator(std::move(domain_separator))
-        , trace_usage_tracker(trace_usage_tracker)
     {}
 
     void prove();
@@ -74,10 +70,8 @@ template <IsUltraOrMegaHonk Flavor> class OinkProver {
     void execute_sorted_list_accumulator_round();
     void execute_log_derivative_inverse_round();
     void execute_grand_product_computation_round();
-    SubrelationSeparators generate_alphas_round();
-    void commit_to_witness_polynomial(Polynomial<FF>& polynomial,
-                                      const std::string& label,
-                                      const CommitmentKey::CommitType type = CommitmentKey::CommitType::Default);
+    SubrelationSeparator generate_alpha_round();
+    Flavor::Commitment commit_to_witness_polynomial(Polynomial<FF>& polynomial, const std::string& label);
 };
 
 using MegaOinkProver = OinkProver<MegaFlavor>;

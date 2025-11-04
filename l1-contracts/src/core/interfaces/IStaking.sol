@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {Exit, Status, AttesterView} from "@aztec/core/libraries/rollup/StakingLib.sol";
+import {DepositArgs} from "@aztec/core/libraries/StakingQueue.sol";
 import {AttesterConfig, GSE} from "@aztec/governance/GSE.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {Timestamp, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
@@ -11,6 +12,9 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 interface IStakingCore {
   event SlasherUpdated(address indexed oldSlasher, address indexed newSlasher);
+  event LocalEjectionThresholdUpdated(
+    uint256 indexed oldLocalEjectionThreshold, uint256 indexed newLocalEjectionThreshold
+  );
   event ValidatorQueued(address indexed attester, address indexed withdrawer);
   event Deposit(
     address indexed attester,
@@ -33,6 +37,7 @@ interface IStakingCore {
   event StakingQueueConfigUpdated(StakingQueueConfig config);
 
   function setSlasher(address _slasher) external;
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external;
   function deposit(
     address _attester,
     address _withdrawer,
@@ -42,6 +47,7 @@ interface IStakingCore {
     bool _moveWithLatestRollup
   ) external;
   function flushEntryQueue() external;
+  function flushEntryQueue(uint256 _toAdd) external;
   function initiateWithdraw(address _attester, address _recipient) external returns (bool);
   function finalizeWithdraw(address _attester) external;
   function slash(address _attester, uint256 _amount) external returns (bool);
@@ -57,6 +63,7 @@ interface IStaking is IStakingCore {
   function getExit(address _attester) external view returns (Exit memory);
   function getAttesterAtIndex(uint256 _index) external view returns (address);
   function getSlasher() external view returns (address);
+  function getLocalEjectionThreshold() external view returns (uint256);
   function getStakingAsset() external view returns (IERC20);
   function getActivationThreshold() external view returns (uint256);
   function getEjectionThreshold() external view returns (uint256);
@@ -66,4 +73,7 @@ interface IStaking is IStakingCore {
   function getStatus(address _attester) external view returns (Status);
   function getNextFlushableEpoch() external view returns (Epoch);
   function getEntryQueueLength() external view returns (uint256);
+  function getEntryQueueAt(uint256 _index) external view returns (DepositArgs memory);
+  function getAvailableValidatorFlushes() external view returns (uint256);
+  function getIsBootstrapped() external view returns (bool);
 }

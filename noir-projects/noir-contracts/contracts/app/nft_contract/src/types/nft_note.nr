@@ -22,7 +22,6 @@ use dep::aztec::{
 // #[custom_note] macro to implement it manually, resulting in some boilerplate. This is expected to be unnecessary once
 // macro support is expanded.
 
-// docs:start:nft_note
 /// A private note representing a token id associated to an account.
 #[derive(Eq, Serialize, Packable)]
 #[custom_note]
@@ -39,7 +38,6 @@ pub struct NFTNote {
     /// The ID of the token represented by this note.
     token_id: Field,
 }
-// docs:end:nft_note
 
 impl NoteHash for NFTNote {
     fn compute_note_hash(self, storage_slot: Field) -> Field {
@@ -68,23 +66,26 @@ impl NoteHash for NFTNote {
     fn compute_nullifier(
         self,
         context: &mut PrivateContext,
-        note_hash_for_nullify: Field,
+        note_hash_for_nullification: Field,
     ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = context.request_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
 
-    unconstrained fn compute_nullifier_unconstrained(self, note_hash_for_nullify: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(
+        self,
+        note_hash_for_nullification: Field,
+    ) -> Field {
         let owner_npk_m = get_public_keys(self.owner).npk_m;
         let owner_npk_m_hash = owner_npk_m.hash();
         let secret = get_nsk_app(owner_npk_m_hash);
         poseidon2_hash_with_separator(
-            [note_hash_for_nullify, secret],
+            [note_hash_for_nullification, secret],
             GENERATOR_INDEX__NOTE_NULLIFIER,
         )
     }
@@ -140,14 +141,14 @@ impl NFTNote {
         //  - the commitment is already public information, so we're not revealing anything else
         //  - we don't need to create any additional information, private or public, for the tag
         //  - other contracts cannot impersonate us and emit logs with the same tag due to public log siloing
-        let private_log_content = PrivateNFTPartialNotePrivateLogContent {
-            owner,
-            randomness,
-            public_log_tag: commitment,
-        };
+        let private_log_content =
+            NFTPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
 
-        let encrypted_log =
-            note::compute_partial_note_log(private_log_content, storage_slot, recipient);
+        let encrypted_log = note::compute_partial_note_private_content_log(
+            private_log_content,
+            storage_slot,
+            recipient,
+        );
         // Regardless of the original content size, the log is padded with random bytes up to
         // `PRIVATE_LOG_SIZE_IN_FIELDS` to prevent leaking information about the actual size.
         let length = encrypted_log.len();
@@ -186,7 +187,7 @@ impl NFTPartialNotePrivateContent {
 }
 
 #[derive(Packable)]
-struct PrivateNFTPartialNotePrivateLogContent {
+struct NFTPartialNotePrivateLogContent {
     // The ordering of these fields is important given that it must:
     //   a) match that of NFTNote, and
     //   b) have the public log tag at the beginning
@@ -196,7 +197,7 @@ struct PrivateNFTPartialNotePrivateLogContent {
     randomness: Field,
 }
 
-impl NoteType for PrivateNFTPartialNotePrivateLogContent {
+impl NoteType for NFTPartialNotePrivateLogContent {
     fn get_id() -> Field {
         NFTNote::get_id()
     }
@@ -213,7 +214,7 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
-    pub fn complete(self, context: &mut PublicContext, completer: AztecAddress, token_id: Field) {
+    pub fn complete(self, context: PublicContext, completer: AztecAddress, token_id: Field) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
@@ -266,8 +267,7 @@ impl PartialNFTNote {
 
 mod test {
     use super::{
-        NFTNote, NFTPartialNotePrivateContent, PartialNFTNote,
-        PrivateNFTPartialNotePrivateLogContent,
+        NFTNote, NFTPartialNotePrivateContent, NFTPartialNotePrivateLogContent, PartialNFTNote,
     };
     use dep::aztec::{
         note::note_interface::NoteHash,
@@ -310,11 +310,8 @@ mod test {
         let partial_note_private_content = NFTPartialNotePrivateContent { owner, randomness };
         let commitment = partial_note_private_content.compute_partial_commitment(storage_slot);
 
-        let private_log_content = PrivateNFTPartialNotePrivateLogContent {
-            owner,
-            randomness,
-            public_log_tag: commitment,
-        };
+        let private_log_content =
+            NFTPartialNotePrivateLogContent { owner, randomness, public_log_tag: commitment };
         // The following is a misuse of the `deserialize` function, but this is just a test and it's better than
         // letting devs manually construct it when they shouldn't be able to.
         let partial_note = PartialNFTNote::deserialize([commitment]);

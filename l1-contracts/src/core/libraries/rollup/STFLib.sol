@@ -47,7 +47,7 @@ import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/Compre
  *      - Rationale for pruning is that an epoch may contain a block that provers cannot prove. Pruning allows us to
  *        trade a large reorg for chain liveness, by removing potential unprovable blocks so we can continue.
  *      - A prover may not be able to prove a block if the transaction data for that block is not available. Transaction
- *        data is NOT posted to DA since transactions (along with their ClientIVC proofs) are big, and it would be too
+ *        data is NOT posted to DA since transactions (along with their Chonk proofs) are big, and it would be too
  *        costly to submit everything to blocks. So we count on the committee to attest to the availability of that
  *        data, but if for some reason the data does not reach provers via p2p, then provers will not be able to prove.
  *
@@ -97,14 +97,14 @@ library STFLib {
    *
    * @param _genesisState The initial state configuration containing:
    *        - vkTreeRoot: Root of the verification key tree for circuit verification
-   *        - protocolContractTreeRoot: Root containing protocol contract addresses and configurations
+   *        - protocolContractsHash: Root containing protocol contract addresses and configurations
    *        - genesisArchiveRoot: Initial archive root representing the genesis state
    */
   function initialize(GenesisState memory _genesisState) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.vkTreeRoot = _genesisState.vkTreeRoot;
-    rollupStore.config.protocolContractTreeRoot = _genesisState.protocolContractTreeRoot;
+    rollupStore.config.protocolContractsHash = _genesisState.protocolContractsHash;
 
     rollupStore.archives[0] = _genesisState.genesisArchiveRoot;
   }
@@ -179,7 +179,11 @@ library STFLib {
   }
 
   /**
-   * @notice Determines if a temporary block log is stale (no longer accessible in circular storage)
+   * @notice Returns a storage reference to a compressed temporary block log
+   * @dev Provides direct access to the compressed block log in storage without decompression.
+   *      Reverts if the block number is stale (no longer accessible in circular storage) or if
+   *      the block have not happened yet.
+   *
    * @dev A temporary block log is stale if it can no longer be accessed in the circular storage buffer.
    *      The staleness is determined by the relationship between the block number, current pending
    *      block, and the buffer size.
@@ -187,28 +191,20 @@ library STFLib {
    *      Example with roundabout size 5 and pending block 7:
    *      Circular buffer state: [block5, block6, block7, block3, block4]
    *
-   *      Block 2 and below are stale because:
-   *      - blockNumber + size <= pending
-   *      - 2 + 5 <= 7 (stale)
-   *      - 3 + 5 <= 7 (not stale)
+   *      A block is available if:
+   *      - blockNumber <= pending  (it is not in the future)
+   *      - pending < blockNumber + size (the override is in the future)
+   *      Together as a span:
+   *      - blockNumber <= pending < blockNumber + size
+   *
+   *      For example, block 2 is unavailable since the override has happened:
+   *      - 2 <= 7 (true) && 7 < 2 + 5 (false)
+   *      But block 3 is available as it in the past, but not overridden yet
+   *      - 3 <= 7 (true) && 7 < 3 + 5 (true)
    *
    *      This ensures that only blocks within the current "window" of the circular buffer
    *      are considered valid and accessible.
    *
-   * @param _blockNumber The block number to check for staleness
-   * @return isStale True if the block is stale and no longer accessible
-   */
-  function isTempStale(uint256 _blockNumber) internal view returns (bool) {
-    uint256 pending = getStorage().tips.getPendingBlockNumber();
-    uint256 size = roundaboutSize();
-
-    return _blockNumber + size <= pending;
-  }
-
-  /**
-   * @notice Returns a storage reference to a compressed temporary block log
-   * @dev Provides direct access to the compressed block log in storage without decompression.
-   *      Reverts if the block number is stale.
    * @param _blockNumber The block number to get the storage reference for
    * @return A storage reference to the compressed temporary block log
    */
@@ -216,9 +212,9 @@ library STFLib {
     uint256 pending = getStorage().tips.getPendingBlockNumber();
     uint256 size = roundaboutSize();
 
-    bool isStale = _blockNumber + size <= pending;
-
-    require(!isStale, Errors.Rollup__StaleTempBlockLog(_blockNumber, pending, size));
+    uint256 upperLimit = _blockNumber + size;
+    bool available = _blockNumber <= pending && pending < upperLimit;
+    require(available, Errors.Rollup__UnavailableTempBlockLog(_blockNumber, pending, upperLimit));
 
     return getStorage().tempBlockLogs[_blockNumber % size];
   }

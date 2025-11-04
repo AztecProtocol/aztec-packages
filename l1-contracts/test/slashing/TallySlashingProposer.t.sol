@@ -83,14 +83,11 @@ contract TallySlashingProposerTest is TestBase {
       });
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(
-      COMMITTEE_SIZE
-    ).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE).setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS)
-      .setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS).setEpochDuration(EPOCH_DURATION).setSlashAmountSmall(
-      SLASHING_UNIT
-    ).setSlashAmountMedium(SLASHING_UNIT * 2).setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherFlavor(
-      SlasherFlavor.TALLY
-    );
+    RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators)
+      .setTargetCommitteeSize(COMMITTEE_SIZE).setSlashingQuorum(QUORUM).setSlashingRoundSize(ROUND_SIZE)
+      .setSlashingLifetimeInRounds(LIFETIME_IN_ROUNDS).setSlashingExecutionDelayInRounds(EXECUTION_DELAY_IN_ROUNDS)
+      .setEpochDuration(EPOCH_DURATION).setSlashAmountSmall(SLASHING_UNIT).setSlashAmountMedium(SLASHING_UNIT * 2)
+      .setSlashAmountLarge(SLASHING_UNIT * 3).setSlasherFlavor(SlasherFlavor.TALLY);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -128,7 +125,11 @@ contract TallySlashingProposerTest is TestBase {
     return voteData;
   }
 
-  function _createSignature(uint256 privateKey, Slot slot, bytes memory votes) internal view returns (Signature memory) {
+  function _createSignature(uint256 privateKey, Slot slot, bytes memory votes)
+    internal
+    view
+    returns (Signature memory)
+  {
     // Get the EIP-712 signature digest from the contract
     bytes32 digest = slashingProposer.getVoteSignatureDigest(votes, slot);
 
@@ -184,12 +185,12 @@ contract TallySlashingProposerTest is TestBase {
 
   function _assertVoteCount(uint256 expectedCount) internal view {
     SlashRound slashRound = slashingProposer.getCurrentRound();
-    (,, uint256 voteCount) = slashingProposer.getRound(slashRound);
+    (, uint256 voteCount) = slashingProposer.getRound(slashRound);
     assertEq(voteCount, expectedCount, "Unexpected vote count");
   }
 
   function _assertVoteCount(SlashRound slashRound, uint256 expectedCount) internal view {
-    (,, uint256 voteCount) = slashingProposer.getRound(slashRound);
+    (, uint256 voteCount) = slashingProposer.getRound(slashRound);
     assertEq(voteCount, expectedCount, "Unexpected vote count");
   }
 
@@ -216,8 +217,9 @@ contract TallySlashingProposerTest is TestBase {
     // Verify round data was updated
     SlashRound currentSlashRound = slashingProposer.getCurrentRound();
     assertEq(SlashRound.unwrap(currentSlashRound), FIRST_SLASH_ROUND, "Unexpected current slash round");
-    (bool isExecuted, bool readyToExecute, uint256 voteCount) = slashingProposer.getRound(currentSlashRound);
+    (bool isExecuted, uint256 voteCount) = slashingProposer.getRound(currentSlashRound);
     assertFalse(isExecuted, "Round should not be executed yet");
+    bool readyToExecute = slashingProposer.isRoundReadyToExecute(currentSlashRound, rollup.getCurrentSlot());
     assertFalse(readyToExecute, "Should not be ready to execute until after execution delay");
     assertEq(voteCount, 1, "Unexpected vote count after casting vote");
   }
@@ -388,7 +390,7 @@ contract TallySlashingProposerTest is TestBase {
     assertEq(finalView.effectiveBalance, initialBalance - (3 * SLASHING_UNIT));
 
     // Verify round is marked as executed
-    (bool isExecuted,,) = slashingProposer.getRound(targetSlashRound);
+    (bool isExecuted,) = slashingProposer.getRound(targetSlashRound);
     assertTrue(isExecuted);
   }
 
@@ -452,7 +454,7 @@ contract TallySlashingProposerTest is TestBase {
     }
 
     // Verify round is marked as executed
-    (bool isExecuted,,) = slashingProposer.getRound(targetSlashRound);
+    (bool isExecuted,) = slashingProposer.getRound(targetSlashRound);
     assertTrue(isExecuted);
   }
 
@@ -490,8 +492,9 @@ contract TallySlashingProposerTest is TestBase {
     SlashRound targetSlashRound = slashingProposer.getCurrentRound();
 
     // Initially no votes, not ready to execute
-    (bool isExecuted, bool readyToExecute, uint256 voteCount) = slashingProposer.getRound(targetSlashRound);
+    (bool isExecuted, uint256 voteCount) = slashingProposer.getRound(targetSlashRound);
     assertFalse(isExecuted);
+    bool readyToExecute = slashingProposer.isRoundReadyToExecute(targetSlashRound, rollup.getCurrentSlot());
     assertFalse(readyToExecute);
     assertEq(voteCount, 0);
 
@@ -499,8 +502,9 @@ contract TallySlashingProposerTest is TestBase {
     _castVote();
 
     // After vote, should have vote count
-    (isExecuted, readyToExecute, voteCount) = slashingProposer.getRound(targetSlashRound);
+    (isExecuted, voteCount) = slashingProposer.getRound(targetSlashRound);
     assertFalse(isExecuted);
+    readyToExecute = slashingProposer.isRoundReadyToExecute(targetSlashRound, rollup.getCurrentSlot());
     assertFalse(readyToExecute); // Still not ready due to execution delay
     assertEq(voteCount, 1);
 
@@ -509,8 +513,9 @@ contract TallySlashingProposerTest is TestBase {
     timeCheater.cheat__jumpToSlot(targetSlot);
 
     // Now should be ready to execute
-    (isExecuted, readyToExecute, voteCount) = slashingProposer.getRound(targetSlashRound);
+    (isExecuted, voteCount) = slashingProposer.getRound(targetSlashRound);
     assertFalse(isExecuted);
+    readyToExecute = slashingProposer.isRoundReadyToExecute(targetSlashRound, rollup.getCurrentSlot());
     assertTrue(readyToExecute);
     assertEq(voteCount, 1);
   }
@@ -765,7 +770,7 @@ contract TallySlashingProposerTest is TestBase {
 
     // Verify vote count
     SlashRound currentRound = slashingProposer.getCurrentRound();
-    (,, uint256 voteCount) = slashingProposer.getRound(currentRound);
+    (, uint256 voteCount) = slashingProposer.getRound(currentRound);
     assertEq(voteCount, maxVotes, "Vote count incorrect");
 
     // Jump to execution time
@@ -862,6 +867,31 @@ contract TallySlashingProposerTest is TestBase {
         // 3 votes for 1 unit -> reaches quorum at 1 unit
         assertEq(actions[i].slashAmount, 1 * SLASHING_UNIT, "Validator 2 should be slashed for 1 unit");
       }
+    }
+  }
+
+  function test_getSlashTargetCommitteesEarlyEpochs() public {
+    // Test that getSlashTargetCommittees handles epochs 0 and 1 without throwing
+    // when ValidatorSelection__InsufficientValidatorSetSize is thrown
+
+    // Use a very early slash round that would target epochs 0 and 1
+    // With SLASH_OFFSET_IN_ROUNDS = 2, round 2 targets epochs starting from (2-2)*ROUND_SIZE_IN_EPOCHS = 0
+    SlashRound earlyRound = SlashRound.wrap(SLASH_OFFSET_IN_ROUNDS);
+
+    // This should not revert and should return empty committees for early epochs
+    address[][] memory committees = slashingProposer.getSlashTargetCommittees(earlyRound);
+
+    // Verify we get the expected number of committees
+    assertEq(committees.length, ROUND_SIZE_IN_EPOCHS, "Should return correct number of committees");
+
+    // For very early rounds, we expect empty committees for epochs 0 and 1
+    // Since ROUND_SIZE_IN_EPOCHS = 2, both epochs should be empty
+    for (uint256 i = 0; i < ROUND_SIZE_IN_EPOCHS; i++) {
+      Epoch targetEpoch = slashingProposer.getSlashTargetEpoch(earlyRound, i);
+      if (Epoch.unwrap(targetEpoch) <= 1) {
+        assertEq(committees[i].length, 0, "Committee for early epochs should be empty");
+      }
+      // For epochs > 1, we might get actual committees, but that depends on the test setup
     }
   }
 }

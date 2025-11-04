@@ -727,34 +727,19 @@ contract HonkVerifier is IVerifier {
 
                 mcopy(0x20, LOOKUP_INVERSES_X_LOC, 0x80)
 
+                // Generate single alpha challenge and compute its powers
                 prev_challenge := mod(keccak256(0x00, 0xa0), p)
                 mstore(0x00, prev_challenge)
-                let alpha_0 := and(prev_challenge, LOWER_128_MASK)
-                let alpha_1 := shr(128, prev_challenge)
-                mstore(ALPHA_CHALLENGE_0, alpha_0)
-                mstore(ALPHA_CHALLENGE_1, alpha_1)
+                let alpha := and(prev_challenge, LOWER_128_MASK)
+                mstore(ALPHA_CHALLENGE_0, alpha)
 
-                // For number of alphas / 2 ( 26 /2 )
-                let alpha_off_set := ALPHA_CHALLENGE_2
-                for {} lt(alpha_off_set, ALPHA_CHALLENGE_26) {} {
-                    prev_challenge := mod(keccak256(0x00, 0x20), p)
-                    mstore(0x00, prev_challenge)
-
-                    let alpha_even := and(prev_challenge, LOWER_128_MASK)
-                    let alpha_odd := shr(128, prev_challenge)
-
-                    mstore(alpha_off_set, alpha_even)
-                    mstore(add(alpha_off_set, 0x20), alpha_odd)
-
-                    alpha_off_set := add(alpha_off_set, 0x40)
+                // Compute powers of alpha: alpha^2, alpha^3, ..., alpha^26
+                let alpha_off_set := ALPHA_CHALLENGE_1
+                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_26, 0x20)) {} {
+                    let prev_alpha := mload(sub(alpha_off_set, 0x20))
+                    mstore(alpha_off_set, mulmod(prev_alpha, alpha, p))
+                    alpha_off_set := add(alpha_off_set, 0x20)
                 }
-
-                // The final alpha challenge
-                prev_challenge := mod(keccak256(0x00, 0x20), p)
-                mstore(0x00, prev_challenge)
-
-                let alpha_26 := and(prev_challenge, LOWER_128_MASK)
-                mstore(ALPHA_CHALLENGE_26, alpha_26)
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
                 /*                       GATE CHALLENGES                      */

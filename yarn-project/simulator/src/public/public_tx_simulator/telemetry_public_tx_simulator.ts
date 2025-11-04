@@ -10,6 +10,7 @@ import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
+import type { PublicTxSimulatorConfig } from './public_tx_simulator.js';
 
 /**
  * A public tx simulator that tracks runtime/production metrics with telemetry.
@@ -22,21 +23,11 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean = false,
-    skipFeeEnforcement: boolean = false,
-    clientInitiatedSimulation: boolean = false,
     telemetryClient: TelemetryClient = getTelemetryClient(),
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(
-      merkleTree,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      clientInitiatedSimulation,
-      metrics,
-    );
+    super(merkleTree, contractsDB, globalVariables, metrics, config);
     this.tracer = metrics.tracer;
   }
 

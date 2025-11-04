@@ -2,42 +2,39 @@ import { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 
-import { getFeeJuice } from '../contract/protocol_contracts.js';
 import type { L2AmountClaim } from '../ethereum/portal_manager.js';
-import type { Wallet } from '../wallet/index.js';
-import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
+import type { FeePaymentMethod } from './fee_payment_method.js';
 
 /**
- * Pay fee directly with Fee Juice claimed on the same tx.
+ * Pay fee directly with Fee Juice claimed in the same tx. Claiming consumes an L1 to L2 message that "contains"
+ * the fee juice bridged from L1.
  */
-export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
+export class FeeJuicePaymentMethodWithClaim implements FeePaymentMethod {
   constructor(
-    private senderWallet: Wallet,
+    private sender: AztecAddress,
     private claim: Pick<L2AmountClaim, 'claimAmount' | 'claimSecret' | 'messageLeafIndex'>,
-  ) {
-    super(senderWallet.getAddress());
-  }
+  ) {}
 
   /**
    * Creates an execution payload to pay the fee in Fee Juice.
-   * @returns An execution payload that just contains the claim function call.
+   * @returns An execution payload that just contains the `claim_and_end_setup` function call.
    */
-  override async getExecutionPayload(): Promise<ExecutionPayload> {
-    const canonicalFeeJuice = await getFeeJuice(this.senderWallet);
-    const selector = await FunctionSelector.fromNameAndParameters(
-      canonicalFeeJuice.artifact.functions.find(f => f.name === 'claim')!,
-    );
+  async getExecutionPayload(): Promise<ExecutionPayload> {
+    const selector = await FunctionSelector.fromSignature('claim_and_end_setup((Field),u128,Field,Field)');
 
     return new ExecutionPayload(
       [
         {
           to: ProtocolContractAddress.FeeJuice,
-          name: 'claim',
+          name: 'claim_and_end_setup',
           selector,
+          hideMsgSender: false,
           isStatic: false,
           args: [
-            this.senderWallet.getAddress().toField(),
+            this.sender.toField(),
             new Fr(this.claim.claimAmount),
             this.claim.claimSecret,
             new Fr(this.claim.messageLeafIndex),
@@ -49,5 +46,17 @@ export class FeeJuicePaymentMethodWithClaim extends FeeJuicePaymentMethod {
       [],
       [],
     );
+  }
+
+  getAsset() {
+    return Promise.resolve(ProtocolContractAddress.FeeJuice);
+  }
+
+  getFeePayer(): Promise<AztecAddress> {
+    return Promise.resolve(this.sender);
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return;
   }
 }

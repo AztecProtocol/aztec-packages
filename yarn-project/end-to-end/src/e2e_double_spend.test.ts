@@ -1,10 +1,14 @@
-import { type AccountWallet, AztecAddress, Fr, type Logger, TxStatus } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
 
 describe('e2e_double_spend', () => {
-  let wallet: AccountWallet;
+  let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
 
   let logger: Logger;

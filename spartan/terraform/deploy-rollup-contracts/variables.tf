@@ -18,10 +18,11 @@ variable "AZTEC_DOCKER_IMAGE" {
 variable "L1_RPC_URLS" {
   description = "Comma-separated list of L1 RPC URLs"
   type        = string
+  sensitive   = true
 }
 
-variable "MNEMONIC" {
-  description = "Mnemonic for deployment"
+variable "PRIVATE_KEY" {
+  description = "Private key for deployment"
   type        = string
   sensitive   = true
 }
@@ -46,6 +47,11 @@ variable "VALIDATORS" {
 
 variable "SPONSORED_FPC" {
   description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
   type        = bool
 }
 
@@ -85,8 +91,20 @@ variable "AZTEC_ACTIVATION_THRESHOLD" {
   nullable    = true
 }
 
+variable "AZTEC_LAG_IN_EPOCHS" {
+  description = "Aztec lag in epochs"
+  type        = string
+  nullable    = true
+}
+
 variable "AZTEC_EJECTION_THRESHOLD" {
   description = "Aztec ejection threshold"
+  type        = string
+  nullable    = true
+}
+
+variable "AZTEC_LOCAL_EJECTION_THRESHOLD" {
+  description = "Aztec local ejection threshold"
   type        = string
   nullable    = true
 }
@@ -181,6 +199,12 @@ variable "AZTEC_PROVING_COST_PER_MANA" {
   nullable    = true
 }
 
+variable "AZTEC_EXIT_DELAY_SECONDS" {
+  description = "Aztec exit delay seconds"
+  type        = string
+  nullable    = true
+}
+
 variable "JOB_NAME" {
   description = "Name for the Kubernetes job"
   type        = string
@@ -198,3 +222,10 @@ variable "JOB_TTL_SECONDS_AFTER_FINISHED" {
   type        = number
   default     = 3600
 }
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+

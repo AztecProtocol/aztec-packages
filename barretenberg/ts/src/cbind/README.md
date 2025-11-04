@@ -1,1 +1,1 @@
-Derive bindings from the reported scheme of msgpack from bb. Currently redundant with bindgen, until that is supplanted.
+Derives bindings from the reported msgpack schema from bb.

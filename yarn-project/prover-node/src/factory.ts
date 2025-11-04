@@ -2,20 +2,14 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, QueuedIVCVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
-import {
-  type EthSigner,
-  L1TxUtils,
-  PublisherManager,
-  RollupContract,
-  createEthereumChain,
-  createL1TxUtilsFromEthSigner,
-} from '@aztec/ethereum';
+import { L1TxUtils, PublisherManager, RollupContract, createEthereumChain } from '@aztec/ethereum';
 import { pick } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
+import { createL1TxUtilsFromEthSignerWithStore } from '@aztec/node-lib/factories';
 import { NodeRpcTxSource, createP2PClient } from '@aztec/p2p';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
@@ -73,6 +67,8 @@ export async function createProverNode(
     }
   }
 
+  await keyStoreManager?.validateSigners();
+
   // Extract the prover signers from the key store and verify that we have one.
   const proverSigners = keyStoreManager?.createProverSigners();
 
@@ -85,6 +81,8 @@ export async function createProverNode(
       'KEY STORE CREATED FROM ENVIRONMENT, IT IS RECOMMENDED TO USE A FILE-BASED KEY STORE IN PRODUCTION ENVIRONMENTS',
     );
   }
+
+  log.info(`Creating prover with publishers ${proverSigners.signers.map(signer => signer.address.toString()).join()}`);
 
   // Only consider user provided config if it is valid
   const proverIdInUserConfig = config.proverId === undefined || config.proverId.isZero() ? undefined : config.proverId;
@@ -133,15 +131,18 @@ export async function createProverNode(
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]
-    : proverSigners.signers.map((signer: EthSigner) => {
-        return createL1TxUtilsFromEthSigner(publicClient, signer, log, dateProvider, config);
-      });
+    : await createL1TxUtilsFromEthSignerWithStore(
+        publicClient,
+        proverSigners.signers,
+        { ...config, scope: 'prover' },
+        { telemetry, logger: log.createChild('l1-tx-utils'), dateProvider },
+      );
 
   const publisherFactory =
     deps.publisherFactory ??
     new ProverPublisherFactory(config, {
       rollupContract,
-      publisherManager: new PublisherManager(l1TxUtils),
+      publisherManager: new PublisherManager(l1TxUtils, config),
       telemetry,
     });
 
@@ -175,10 +176,12 @@ export async function createProverNode(
       'proverNodeMaxPendingJobs',
       'proverNodeMaxParallelBlocksPerEpoch',
       'proverNodePollingIntervalMs',
+      'proverNodeEpochProvingDelayMs',
       'txGatheringMaxParallelRequests',
       'txGatheringIntervalMs',
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
+      'proverNodeDisableProofPublish',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',
@@ -187,7 +190,7 @@ export async function createProverNode(
 
   const epochMonitor = await EpochMonitor.create(
     archiver,
-    { pollingIntervalMs: config.proverNodePollingIntervalMs },
+    { pollingIntervalMs: config.proverNodePollingIntervalMs, provingDelayMs: config.proverNodeEpochProvingDelayMs },
     telemetry,
   );
 

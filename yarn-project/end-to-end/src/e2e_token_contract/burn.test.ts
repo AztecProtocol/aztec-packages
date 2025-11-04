@@ -1,18 +1,19 @@
-import { Fr, computeAuthWitMessageHash } from '@aztec/aztec.js';
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
+import { Fr } from '@aztec/aztec.js/fields';
 
 import { DUPLICATE_NULLIFIER_ERROR, U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract burn', () => {
   const t = new TokenContractTest('burn');
-  let { asset, tokenSim, admin, adminAddress, account1, account1Address, account2, account2Address } = t;
+  let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, admin, adminAddress, tokenSim, adminAddress, account1, account1Address, account2, account2Address } = t);
+    ({ asset, wallet, adminAddress, tokenSim, adminAddress, account1Address, account2Address } = t);
   });
 
   afterAll(async () => {
@@ -40,19 +41,20 @@ describe('e2e_token_contract burn', () => {
       const authwitNonce = Fr.random();
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(account1).methods.burn_public(adminAddress, amount, authwitNonce);
-      const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
-      await validateActionInteraction.send({ from: adminAddress }).wait();
+      const action = asset.methods.burn_public(adminAddress, amount, authwitNonce);
+      const validateActionInteraction = await wallet.setPublicAuthWit(
+        adminAddress,
+        { caller: account1Address, action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       await action.send({ from: account1Address }).wait();
 
       tokenSim.burnPublic(adminAddress, amount);
 
       await expect(
-        asset
-          .withWallet(account1)
-          .methods.burn_public(adminAddress, amount, authwitNonce)
-          .simulate({ from: account1Address }),
+        asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: account1Address }),
       ).rejects.toThrow(/unauthorized/);
     });
 
@@ -83,10 +85,7 @@ describe('e2e_token_contract burn', () => {
         const amount = balance0 + 1n;
         const authwitNonce = Fr.random();
         await expect(
-          asset
-            .withWallet(account1)
-            .methods.burn_public(adminAddress, amount, authwitNonce)
-            .simulate({ from: account1Address }),
+          asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: account1Address }),
         ).rejects.toThrow(/unauthorized/);
       });
 
@@ -97,9 +96,13 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(account1).methods.burn_public(adminAddress, amount, authwitNonce);
-        const validateActionInteraction = await admin.setPublicAuthWit({ caller: account1Address, action }, true);
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        const action = asset.methods.burn_public(adminAddress, amount, authwitNonce);
+        const validateActionInteraction = await wallet.setPublicAuthWit(
+          adminAddress,
+          { caller: account1Address, action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(action.simulate({ from: account1Address })).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -111,15 +114,16 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(account1).methods.burn_public(adminAddress, amount, authwitNonce);
-        const validateActionInteraction = await admin.setPublicAuthWit({ caller: adminAddress, action }, true);
-        await validateActionInteraction.send({ from: adminAddress }).wait();
+        const action = asset.methods.burn_public(adminAddress, amount, authwitNonce);
+        const validateActionInteraction = await wallet.setPublicAuthWit(
+          adminAddress,
+          { caller: adminAddress, action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(
-          asset
-            .withWallet(account1)
-            .methods.burn_public(adminAddress, amount, authwitNonce)
-            .simulate({ from: account1Address }),
+          asset.methods.burn_public(adminAddress, amount, authwitNonce).simulate({ from: account1Address }),
         ).rejects.toThrow(/unauthorized/);
       });
     });
@@ -141,23 +145,21 @@ describe('e2e_token_contract burn', () => {
       expect(amount).toBeGreaterThan(0n);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.withWallet(account1).methods.burn_private(adminAddress, amount, authwitNonce);
+      const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
 
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
-      const witness = await admin.createAuthWit({ caller: account1Address, action });
+      const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
-      await asset
-        .withWallet(account1)
-        .methods.burn_private(adminAddress, amount, authwitNonce)
+      await asset.methods
+        .burn_private(adminAddress, amount, authwitNonce)
         .send({ from: account1Address, authWitnesses: [witness] })
         .wait();
       tokenSim.burnPrivate(adminAddress, amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset
-        .withWallet(account1)
-        .methods.burn_private(adminAddress, amount, authwitNonce)
+      const txReplay = asset.methods
+        .burn_private(adminAddress, amount, authwitNonce)
         .send({ from: account1Address, authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
@@ -190,11 +192,11 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(account1).methods.burn_private(adminAddress, amount, authwitNonce);
+        const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
 
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
-        const witness = await admin.createAuthWit({ caller: account1Address, action });
+        const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
         await expect(action.simulate({ from: account1Address, authWitnesses: [witness] })).rejects.toThrow(
           'Assertion failed: Balance too low',
@@ -208,10 +210,10 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(account1).methods.burn_private(adminAddress, amount, authwitNonce);
+        const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
         const messageHash = await computeAuthWitMessageHash(
-          { caller: account1Address, action },
-          { chainId: admin.getChainId(), version: admin.getVersion() },
+          { caller: account1Address, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
         await expect(action.simulate({ from: account1Address })).rejects.toThrow(
@@ -226,13 +228,13 @@ describe('e2e_token_contract burn', () => {
         expect(amount).toBeGreaterThan(0n);
 
         // We need to compute the message we want to sign and add it to the wallet as approved
-        const action = asset.withWallet(account2).methods.burn_private(adminAddress, amount, authwitNonce);
+        const action = asset.methods.burn_private(adminAddress, amount, authwitNonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
-          { caller: account2Address, action },
-          { chainId: admin.getChainId(), version: admin.getVersion() },
+          { caller: account2Address, call: await action.getFunctionCall() },
+          await wallet.getChainInfo(),
         );
 
-        const witness = await admin.createAuthWit({ caller: account1Address, action });
+        const witness = await wallet.createAuthWit(adminAddress, { caller: account1Address, action });
 
         await expect(action.simulate({ from: account2Address, authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,

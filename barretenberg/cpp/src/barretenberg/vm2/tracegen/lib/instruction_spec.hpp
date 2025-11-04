@@ -11,21 +11,23 @@
 
 namespace bb::avm2::tracegen {
 
+// Follows the order of the subtrace IDs (AVM_SUBTRACE_ID_*) in the constants_gen.pil file
 enum class SubtraceSel : uint8_t {
+    EXECUTION,
     ALU,
-    CAST,
-    SET,
     BITWISE,
-    TORADIXBE,
-    POSEIDON2PERM,
-    ECC,
+    CAST,
     CALLDATACOPY,
     RETURNDATACOPY,
-    EXECUTION,
-    KECCAKF1600,
+    SET,
     GETCONTRACTINSTANCE,
     EMITUNENCRYPTEDLOG,
-    SHA256COMPRESSION
+    POSEIDON2PERM,
+    SHA256COMPRESSION,
+    KECCAKF1600,
+    ECC,
+    TORADIXBE,
+    MAX = TORADIXBE, // Keep this at the end. Serves looping over all values.
 };
 
 struct SubtraceInfo {

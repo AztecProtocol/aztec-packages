@@ -4,9 +4,12 @@
  * work well for content-centric websites.
  */
 
+/* Import Geist font from Google Fonts */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap");
+
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-font-family-base: "Oracle";
+  --ifm-font-family-base: "Geist", sans-serif;
   --ifm-color-primary: #1a1400;
   --ifm-color-primary-dark: #171200;
   --ifm-color-primary-darker: #161100;
@@ -177,11 +180,6 @@ ul li::marker {
   margin: 0 calc(-1 * var(--ifm-pre-padding));
   padding: 0 var(--ifm-pre-padding);
   border-left: 3px solid #ff000080;
-}
-
-@font-face {
-  font-family: "Oracle";
-  src: url("../../static/font/ABCOracle-Book.otf");
 }
 
 .sidebar-divider {

@@ -5,10 +5,10 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
+import type { IDiscv5CreateOptions } from '@nethermindeth/discv5';
 
 import { BootstrapNode } from '../../bootstrap/bootstrap.js';
 import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../config.js';
@@ -44,8 +44,9 @@ describe('Discv5Service', () => {
     p2pPort: basePort + 100,
     listenAddress: '127.0.0.1',
     dataDirectory: undefined,
-    dataStoreMapSizeKB: 0,
+    dataStoreMapSizeKb: 0,
     bootstrapNodes: [],
+    queryForIp: false,
     ...emptyChainConfig,
   };
 

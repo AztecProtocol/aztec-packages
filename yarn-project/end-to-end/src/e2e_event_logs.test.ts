@@ -1,4 +1,9 @@
-import { type AccountWalletWithSecretKey, AztecAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { getDecodedPublicEvents } from '@aztec/aztec.js/events';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { makeTuple } from '@aztec/foundation/array';
 import { timesParallel } from '@aztec/foundation/collection';
 import type { Tuple } from '@aztec/foundation/serialize';
@@ -14,24 +19,29 @@ describe('Logs', () => {
   let testLogContract: TestLogContract;
   jest.setTimeout(TIMEOUT);
 
-  let wallet1: AccountWalletWithSecretKey;
-  let wallet2: AccountWalletWithSecretKey;
+  let wallet: Wallet;
+  let aztecNode: AztecNode;
 
   let account1Address: AztecAddress;
   let account2Address: AztecAddress;
 
+  let log: Logger;
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
     ({
       teardown,
-      wallets: [wallet1, wallet2],
+      wallet,
       accounts: [account1Address, account2Address],
+      aztecNode,
+      logger: log,
     } = await setup(2));
 
-    await ensureAccountContractsPublished(wallet1, [wallet1, wallet2]);
+    log.warn(`Setup complete, checking account contracts published`);
+    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
 
-    testLogContract = await TestLogContract.deploy(wallet1).send({ from: account1Address }).deployed();
+    log.warn(`Deploying test contract`);
+    testLogContract = await TestLogContract.deploy(wallet).send({ from: account1Address }).deployed();
   });
 
   afterAll(() => teardown());
@@ -55,7 +65,7 @@ describe('Logs', () => {
 
       // Each emit_encrypted_events call emits 2 ExampleEvent0s and 1 ExampleEvent1
       // So with 5 calls we expect 10 ExampleEvent0s and 5 ExampleEvent1s
-      const collectedEvent0s = await wallet1.getPrivateEvents<ExampleEvent0>(
+      const collectedEvent0s = await wallet.getPrivateEvents<ExampleEvent0>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent0,
         firstBlockNumber,
@@ -63,7 +73,7 @@ describe('Logs', () => {
         [account1Address, account2Address],
       );
 
-      const collectedEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
+      const collectedEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
@@ -74,7 +84,7 @@ describe('Logs', () => {
       expect(collectedEvent0s.length).toBe(10); // 2 events per tx * 5 txs
       expect(collectedEvent1s.length).toBe(5); // 1 event per tx * 5 txs
 
-      const emptyEvent1s = await wallet1.getPrivateEvents<ExampleEvent1>(
+      const emptyEvent1s = await wallet.getPrivateEvents<ExampleEvent1>(
         testLogContract.address,
         TestLogContract.events.ExampleEvent1,
         firstBlockNumber,
@@ -120,13 +130,15 @@ describe('Logs', () => {
         .send({ from: account1Address })
         .wait();
 
-      const collectedEvent0s = await wallet1.getPublicEvents<ExampleEvent0>(
+      const collectedEvent0s = await getDecodedPublicEvents<ExampleEvent0>(
+        aztecNode,
         TestLogContract.events.ExampleEvent0,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
       );
 
-      const collectedEvent1s = await wallet1.getPublicEvents<ExampleEvent1>(
+      const collectedEvent1s = await getDecodedPublicEvents<ExampleEvent1>(
+        aztecNode,
         TestLogContract.events.ExampleEvent1,
         firstTx.blockNumber!,
         lastTx.blockNumber! - firstTx.blockNumber! + 1,
@@ -152,6 +164,64 @@ describe('Logs', () => {
           }))
           .sort(exampleEvent1Sort),
       );
+    });
+
+    // This test verifies that tags remain unique:
+    // 1. Across nested calls within the same contract, confirming proper propagation of the ExecutionTaggingIndexCache
+    //    between calls,
+    // 2. across separate transactions that interact with the same contract function, confirming proper persistence
+    //    of the cache contents in the database (TaggingDataProvider) after transaction proving completes.
+    it('produces unique tags for encrypted logs across nested calls and different transactions', async () => {
+      let tx1Tags: string[];
+      // With 4 nestings we have 5 total calls, each emitting 2 logs => 10 logs
+      const tx1NumLogs = 10;
+      {
+        // Call the private function that emits two encrypted logs per call and recursively nests 4 times
+        const tx = await testLogContract.methods
+          .emit_encrypted_events_nested(account2Address, 4)
+          .send({ from: account1Address })
+          .wait();
+
+        const blockNumber = tx.blockNumber!;
+
+        // Fetch raw private logs for that block and check tag uniqueness
+        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
+        const logs = privateLogs.filter(l => !l.isEmpty());
+
+        expect(logs.length).toBe(tx1NumLogs);
+
+        const tags = logs.map(l => l.fields[0].toString());
+        expect(new Set(tags).size).toBe(tx1NumLogs);
+        tx1Tags = tags;
+      }
+
+      let tx2Tags: string[];
+      // With 2 nestings we have 3 total calls, each emitting 2 logs => 6 logs
+      const tx2NumLogs = 6;
+      {
+        // Call the private function that emits two encrypted logs per call and recursively nests 2 times
+        const tx = await testLogContract.methods
+          .emit_encrypted_events_nested(account2Address, 2)
+          .send({ from: account1Address })
+          .wait();
+
+        const blockNumber = tx.blockNumber!;
+
+        // Fetch raw private logs for that block and check tag uniqueness
+        const privateLogs = await aztecNode.getPrivateLogs(blockNumber, 1);
+        const logs = privateLogs.filter(l => !l.isEmpty());
+
+        expect(logs.length).toBe(tx2NumLogs);
+
+        const tags = logs.map(l => l.fields[0].toString());
+        expect(new Set(tags).size).toBe(tx2NumLogs);
+        tx2Tags = tags;
+      }
+
+      // Now we create a set from both tx1Tags and tx2Tags and expect it to be the same size as the sum of the number
+      // of logs in both transactions
+      const allTags = new Set([...tx1Tags, ...tx2Tags]);
+      expect(allTags.size).toBe(tx1NumLogs + tx2NumLogs);
     });
   });
 });

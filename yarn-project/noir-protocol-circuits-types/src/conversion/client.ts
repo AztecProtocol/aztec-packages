@@ -1,26 +1,13 @@
-import {
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_ENQUEUED_CALLS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  MEGA_VK_LENGTH_IN_FIELDS,
-  type NOTE_HASH_TREE_HEIGHT,
-  type NULLIFIER_TREE_HEIGHT,
-  UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN,
-} from '@aztec/constants';
+import { MEGA_VK_LENGTH_IN_FIELDS, UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { assertLength, mapTuple } from '@aztec/foundation/serialize';
+import { type Bufferable, assertLength, mapTuple } from '@aztec/foundation/serialize';
 import {
   CountedPublicCallRequest,
   KeyValidationHint,
   KeyValidationRequest,
   KeyValidationRequestAndGenerator,
   NoteHash,
-  type NoteHashReadRequestHints,
   Nullifier,
-  type NullifierReadRequestHints,
   PaddedSideEffectAmounts,
   PaddedSideEffects,
   PartialPrivateTailPublicInputsForPublic,
@@ -35,11 +22,11 @@ import {
   PrivateKernelResetHints,
   PrivateKernelTailCircuitPublicInputs,
   PrivateLogData,
-  PrivateToPublicAccumulatedData,
   PrivateValidationRequests,
   type PrivateVerificationKeyHints,
   ReadRequest,
   ReadRequestAction,
+  ReadRequestResetHints,
   ScopedKeyValidationRequestAndGenerator,
   ScopedNoteHash,
   ScopedNullifier,
@@ -49,8 +36,7 @@ import {
   TransientDataSquashingHint,
 } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { NullifierLeafPreimage } from '@aztec/stdlib/trees';
-import { CallContext, FunctionData, TxConstantData, TxRequest } from '@aztec/stdlib/tx';
+import { CallContext, FunctionData, TxRequest } from '@aztec/stdlib/tx';
 
 import type {
   CallContext as CallContextNoir,
@@ -60,13 +46,9 @@ import type {
   KeyValidationHint as KeyValidationHintNoir,
   KeyValidationRequestAndGenerator as KeyValidationRequestAndGeneratorNoir,
   KeyValidationRequest as KeyValidationRequestsNoir,
+  Field as NoirField,
   NoteHashLeafPreimage as NoteHashLeafPreimageNoir,
-  NoteHash as NoteHashNoir,
-  NoteHashReadRequestHints as NoteHashReadRequestHintsNoir,
-  NoteHashSettledReadHint as NoteHashSettledReadHintNoir,
   Nullifier as NullifierNoir,
-  NullifierReadRequestHints as NullifierReadRequestHintsNoir,
-  NullifierSettledReadHint as NullifierSettledReadHintNoir,
   PaddedSideEffectAmounts as PaddedSideEffectAmountsNoir,
   PaddedSideEffects as PaddedSideEffectsNoir,
   PendingReadHint as PendingReadHintNoir,
@@ -78,7 +60,6 @@ import type {
   PrivateKernelDataWithoutPublicInputs as PrivateKernelDataWithoutPublicInputsNoir,
   PrivateKernelResetHints as PrivateKernelResetHintsNoir,
   PrivateLogData as PrivateLogDataNoir,
-  PrivateToPublicAccumulatedData as PrivateToPublicAccumulatedDataNoir,
   PrivateToPublicKernelCircuitPublicInputs as PrivateToPublicKernelCircuitPublicInputsNoir,
   PrivateToRollupKernelCircuitPublicInputs as PrivateToRollupKernelCircuitPublicInputsNoir,
   PrivateValidationRequests as PrivateValidationRequestsNoir,
@@ -86,20 +67,17 @@ import type {
   PublicCallRequest as PublicCallRequestNoir,
   PublicKeys as PublicKeysNoir,
   ReadRequestAction as ReadRequestActionNoir,
-  ReadRequest as ReadRequestNoir,
+  ReadRequestHints as ReadRequestHintsNoir,
   Scoped,
-  ScopedKeyValidationRequestAndGenerator as ScopedKeyValidationRequestAndGeneratorNoir,
-  ScopedNoteHash as ScopedNoteHashNoir,
-  ScopedNullifier as ScopedNullifierNoir,
-  ScopedReadRequest as ScopedReadRequestNoir,
+  SettledReadHint as SettledReadHintNoir,
   TransientDataSquashingHint as TransientDataSquashingHintNoir,
-  TxConstantData as TxConstantDataNoir,
   TxRequest as TxRequestNoir,
 } from '../types/index.js';
 import {
   mapAztecAddressFromNoir,
   mapAztecAddressToNoir,
   mapBigIntFromNoir,
+  mapBlockHeaderToNoir,
   mapClaimedLengthArrayFromNoir,
   mapClaimedLengthArrayToNoir,
   mapCountedL2ToL1MessageToNoir,
@@ -110,8 +88,6 @@ import {
   mapFunctionSelectorToNoir,
   mapGasFromNoir,
   mapGrumpkinScalarToNoir,
-  mapHeaderFromNoir,
-  mapHeaderToNoir,
   mapMembershipWitnessToNoir,
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
@@ -122,8 +98,10 @@ import {
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,
+  mapPrivateToPublicAccumulatedDataFromNoir,
   mapPrivateToRollupAccumulatedDataFromNoir,
-  mapProtocolContractLeafPreimageToNoir,
+  mapPrivateTxConstantDataFromNoir,
+  mapPrivateTxConstantDataToNoir,
   mapPublicCallRequestFromNoir,
   mapPublicCallRequestToNoir,
   mapPublicDataTreePreimageToNoir,
@@ -131,10 +109,7 @@ import {
   mapScopedCountedL2ToL1MessageToNoir,
   mapScopedCountedLogHashFromNoir,
   mapScopedCountedLogHashToNoir,
-  mapScopedL2ToL1MessageFromNoir,
-  mapScopedLogHashFromNoir,
-  mapTupleFromNoir,
-  mapTxContextFromNoir,
+  mapTxConstantDataFromNoir,
   mapTxContextToNoir,
   mapU64FromNoir,
   mapU64ToNoir,
@@ -172,117 +147,112 @@ export function mapTxRequestToNoir(txRequest: TxRequest): TxRequestNoir {
   };
 }
 
-function mapNoteHashToNoir(noteHash: NoteHash): NoteHashNoir {
+function mapNoteHashToNoir(noteHash: NoteHash): Counted<NoirField> {
   return {
-    value: mapFieldToNoir(noteHash.value),
+    inner: mapFieldToNoir(noteHash.value),
     counter: mapNumberToNoir(noteHash.counter),
   };
 }
 
-function mapNoteHashFromNoir(noteHash: NoteHashNoir) {
-  return new NoteHash(mapFieldFromNoir(noteHash.value), mapNumberFromNoir(noteHash.counter));
+function mapNoteHashFromNoir(noteHash: Counted<NoirField>) {
+  return new NoteHash(mapFieldFromNoir(noteHash.inner), mapNumberFromNoir(noteHash.counter));
 }
 
-function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): ScopedNoteHashNoir {
+function mapScopedNoteHashToNoir(noteHash: ScopedNoteHash): Scoped<Counted<NoirField>> {
   return {
-    note_hash: mapNoteHashToNoir(noteHash.noteHash),
+    inner: mapNoteHashToNoir(noteHash.noteHash),
     contract_address: mapAztecAddressToNoir(noteHash.contractAddress),
   };
 }
 
-function mapScopedNoteHashFromNoir(noteHash: ScopedNoteHashNoir) {
-  return new ScopedNoteHash(
-    mapNoteHashFromNoir(noteHash.note_hash),
-    mapAztecAddressFromNoir(noteHash.contract_address),
-  );
+function mapScopedNoteHashFromNoir(noteHash: Scoped<Counted<NoirField>>) {
+  return new ScopedNoteHash(mapNoteHashFromNoir(noteHash.inner), mapAztecAddressFromNoir(noteHash.contract_address));
 }
 
-function mapNullifierToNoir(nullifier: Nullifier): NullifierNoir {
+function mapNullifierToNoir(nullifier: Nullifier): Counted<NullifierNoir> {
   return {
-    value: mapFieldToNoir(nullifier.value),
+    inner: {
+      value: mapFieldToNoir(nullifier.value),
+      note_hash: mapFieldToNoir(nullifier.noteHash),
+    },
     counter: mapNumberToNoir(nullifier.counter),
-    note_hash: mapFieldToNoir(nullifier.noteHash),
   };
 }
 
-function mapNullifierFromNoir(nullifier: NullifierNoir) {
+function mapNullifierFromNoir(nullifier: Counted<NullifierNoir>) {
   return new Nullifier(
-    mapFieldFromNoir(nullifier.value),
+    mapFieldFromNoir(nullifier.inner.value),
+    mapFieldFromNoir(nullifier.inner.note_hash),
     mapNumberFromNoir(nullifier.counter),
-    mapFieldFromNoir(nullifier.note_hash),
   );
 }
 
-function mapScopedNullifierToNoir(nullifier: ScopedNullifier): ScopedNullifierNoir {
+function mapScopedNullifierToNoir(nullifier: ScopedNullifier): Scoped<Counted<NullifierNoir>> {
   return {
-    nullifier: mapNullifierToNoir(nullifier.nullifier),
+    inner: mapNullifierToNoir(nullifier.nullifier),
     contract_address: mapAztecAddressToNoir(nullifier.contractAddress),
   };
 }
 
-function mapScopedNullifierFromNoir(nullifier: ScopedNullifierNoir) {
+function mapScopedNullifierFromNoir(nullifier: Scoped<Counted<NullifierNoir>>) {
   return new ScopedNullifier(
-    mapNullifierFromNoir(nullifier.nullifier),
+    mapNullifierFromNoir(nullifier.inner),
     mapAztecAddressFromNoir(nullifier.contract_address),
   );
 }
 
-function mapPrivateLogDataToNoir(data: PrivateLogData): PrivateLogDataNoir {
+function mapPrivateLogDataToNoir(data: PrivateLogData): Counted<PrivateLogDataNoir> {
   return {
-    log: mapPrivateLogToNoir(data.log),
-    note_hash_counter: mapNumberToNoir(data.noteHashCounter),
+    inner: {
+      log: mapPrivateLogToNoir(data.log),
+      note_hash_counter: mapNumberToNoir(data.noteHashCounter),
+    },
     counter: mapNumberToNoir(data.counter),
   };
 }
 
-function mapPrivateLogDataFromNoir(data: PrivateLogDataNoir) {
+function mapPrivateLogDataFromNoir(data: Counted<PrivateLogDataNoir>) {
   return new PrivateLogData(
-    mapPrivateLogFromNoir(data.log),
-    mapNumberFromNoir(data.note_hash_counter),
+    mapPrivateLogFromNoir(data.inner.log),
+    mapNumberFromNoir(data.inner.note_hash_counter),
     mapNumberFromNoir(data.counter),
   );
 }
 
-function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): Scoped<PrivateLogDataNoir> {
+function mapScopedPrivateLogDataToNoir(data: ScopedPrivateLogData): Scoped<Counted<PrivateLogDataNoir>> {
   return {
     inner: mapPrivateLogDataToNoir(data.inner),
     contract_address: mapAztecAddressToNoir(data.contractAddress),
   };
 }
 
-function mapScopedPrivateLogDataFromNoir(data: Scoped<PrivateLogDataNoir>) {
+function mapScopedPrivateLogDataFromNoir(data: Scoped<Counted<PrivateLogDataNoir>>) {
   return new ScopedPrivateLogData(
     mapPrivateLogDataFromNoir(data.inner),
     mapAztecAddressFromNoir(data.contract_address),
   );
 }
 
-/**
- * Maps a noir ReadRequest to ReadRequest.
- * @param readRequest - The noir ReadRequest.
- * @returns The TS ReadRequest.
- */
-function mapReadRequestFromNoir(readRequest: ReadRequestNoir): ReadRequest {
-  return new ReadRequest(mapFieldFromNoir(readRequest.value), mapNumberFromNoir(readRequest.counter));
+function mapReadRequestToNoir(readRequest: ReadRequest): Counted<NoirField> {
+  return {
+    inner: mapFieldToNoir(readRequest.value),
+    counter: mapNumberToNoir(readRequest.counter),
+  };
 }
 
-function mapScopedReadRequestToNoir(scopedReadRequest: ScopedReadRequest): ScopedReadRequestNoir {
+function mapReadRequestFromNoir(readRequest: Counted<NoirField>) {
+  return new ReadRequest(mapFieldFromNoir(readRequest.inner), mapNumberFromNoir(readRequest.counter));
+}
+
+function mapScopedReadRequestToNoir(scopedReadRequest: ScopedReadRequest): Scoped<Counted<NoirField>> {
   return {
-    read_request: mapReadRequestToNoir(scopedReadRequest.readRequest),
+    inner: mapReadRequestToNoir(scopedReadRequest.readRequest),
     contract_address: mapAztecAddressToNoir(scopedReadRequest.contractAddress),
   };
 }
 
-/**
- * Maps a noir ReadRequest to ReadRequest.
- * @param readRequest - The noir ReadRequest.
- * @returns The TS ReadRequest.
- */
-export function mapScopedReadRequestFromNoir(scoped: ScopedReadRequestNoir): ScopedReadRequest {
-  return new ScopedReadRequest(
-    mapReadRequestFromNoir(scoped.read_request),
-    mapAztecAddressFromNoir(scoped.contract_address),
-  );
+function mapScopedReadRequestFromNoir(scoped: Scoped<Counted<NoirField>>): ScopedReadRequest {
+  return new ScopedReadRequest(mapReadRequestFromNoir(scoped.inner), mapAztecAddressFromNoir(scoped.contract_address));
 }
 
 /**
@@ -326,18 +296,18 @@ function mapKeyValidationRequestAndGeneratorFromNoir(
 
 function mapScopedKeyValidationRequestAndGeneratorToNoir(
   request: ScopedKeyValidationRequestAndGenerator,
-): ScopedKeyValidationRequestAndGeneratorNoir {
+): Scoped<KeyValidationRequestAndGeneratorNoir> {
   return {
-    request: mapKeyValidationRequestAndGeneratorToNoir(request.request),
+    inner: mapKeyValidationRequestAndGeneratorToNoir(request.request),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
   };
 }
 
 function mapScopedKeyValidationRequestAndGeneratorFromNoir(
-  request: ScopedKeyValidationRequestAndGeneratorNoir,
+  request: Scoped<KeyValidationRequestAndGeneratorNoir>,
 ): ScopedKeyValidationRequestAndGenerator {
   return new ScopedKeyValidationRequestAndGenerator(
-    mapKeyValidationRequestAndGeneratorFromNoir(request.request),
+    mapKeyValidationRequestAndGeneratorFromNoir(request.inner),
     mapAztecAddressFromNoir(request.contract_address),
   );
 }
@@ -398,18 +368,6 @@ function mapCountedPublicCallRequestToNoir(request: CountedPublicCallRequest): C
   return {
     inner: mapPublicCallRequestToNoir(request.inner),
     counter: mapNumberToNoir(request.counter),
-  };
-}
-
-/**
- * Maps a ReadRequest to a noir ReadRequest.
- * @param readRequest - The read request.
- * @returns The noir ReadRequest.
- */
-function mapReadRequestToNoir(readRequest: ReadRequest): ReadRequestNoir {
-  return {
-    value: mapFieldToNoir(readRequest.value),
-    counter: mapNumberToNoir(readRequest.counter),
   };
 }
 
@@ -509,7 +467,7 @@ export function mapPrivateCircuitPublicInputsToNoir(
     ),
     start_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.startSideEffectCounter),
     end_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.endSideEffectCounter),
-    historical_header: mapHeaderToNoir(privateCircuitPublicInputs.historicalHeader),
+    anchor_block_header: mapBlockHeaderToNoir(privateCircuitPublicInputs.anchorBlockHeader),
     tx_context: mapTxContextToNoir(privateCircuitPublicInputs.txContext),
     min_revertible_side_effect_counter: mapFieldToNoir(privateCircuitPublicInputs.minRevertibleSideEffectCounter),
     is_fee_payer: privateCircuitPublicInputs.isFeePayer,
@@ -561,10 +519,6 @@ export function mapPrivateVerificationKeyHintsToNoir(
     ),
     public_keys: mapPublicKeysToNoir(privateVerificationKeyHints.publicKeys),
     salted_initialization_hash: mapWrappedFieldToNoir(privateVerificationKeyHints.saltedInitializationHash),
-    protocol_contract_membership_witness: mapMembershipWitnessToNoir(
-      privateVerificationKeyHints.protocolContractMembershipWitness,
-    ),
-    protocol_contract_leaf: mapProtocolContractLeafPreimageToNoir(privateVerificationKeyHints.protocolContractLeaf),
     updated_class_id_witness: mapMembershipWitnessToNoir(
       privateVerificationKeyHints.updatedClassIdHints.updatedClassIdWitness,
     ),
@@ -590,29 +544,11 @@ export function mapPrivateCallDataToNoir(privateCallData: PrivateCallData): Priv
   };
 }
 
-function mapTxConstantDataFromNoir(data: TxConstantDataNoir) {
-  return new TxConstantData(
-    mapHeaderFromNoir(data.historical_header),
-    mapTxContextFromNoir(data.tx_context),
-    mapFieldFromNoir(data.vk_tree_root),
-    mapFieldFromNoir(data.protocol_contract_tree_root),
-  );
-}
-
-function mapTxConstantDataToNoir(data: TxConstantData): TxConstantDataNoir {
-  return {
-    historical_header: mapHeaderToNoir(data.historicalHeader),
-    tx_context: mapTxContextToNoir(data.txContext),
-    vk_tree_root: mapFieldToNoir(data.vkTreeRoot),
-    protocol_contract_tree_root: mapFieldToNoir(data.protocolContractTreeRoot),
-  };
-}
-
 export function mapPrivateKernelCircuitPublicInputsFromNoir(
   inputs: PrivateKernelCircuitPublicInputsNoir,
 ): PrivateKernelCircuitPublicInputs {
   return new PrivateKernelCircuitPublicInputs(
-    mapTxConstantDataFromNoir(inputs.constants),
+    mapPrivateTxConstantDataFromNoir(inputs.constants),
     mapFieldFromNoir(inputs.min_revertible_side_effect_counter),
     mapPrivateValidationRequestsFromNoir(inputs.validation_requests),
     mapPrivateAccumulatedDataFromNoir(inputs.end),
@@ -628,7 +564,7 @@ export function mapPrivateKernelCircuitPublicInputsToNoir(
   inputs: PrivateKernelCircuitPublicInputs,
 ): PrivateKernelCircuitPublicInputsNoir {
   return {
-    constants: mapTxConstantDataToNoir(inputs.constants),
+    constants: mapPrivateTxConstantDataToNoir(inputs.constants),
     validation_requests: mapPrivateValidationRequestsToNoir(inputs.validationRequests),
     end: mapPrivateAccumulatedDataToNoir(inputs.end),
     min_revertible_side_effect_counter: mapFieldToNoir(inputs.minRevertibleSideEffectCounter),
@@ -664,17 +600,6 @@ export function mapPrivateKernelTailCircuitPublicInputsForRollupFromNoir(
     mapBigIntFromNoir(inputs.include_by_timestamp),
     undefined,
     forRollup,
-  );
-}
-
-export function mapPrivateToPublicAccumulatedDataFromNoir(data: PrivateToPublicAccumulatedDataNoir) {
-  return new PrivateToPublicAccumulatedData(
-    mapTupleFromNoir(data.note_hashes, MAX_NOTE_HASHES_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(data.nullifiers, MAX_NULLIFIERS_PER_TX, mapFieldFromNoir),
-    mapTupleFromNoir(data.l2_to_l1_msgs, MAX_L2_TO_L1_MSGS_PER_TX, mapScopedL2ToL1MessageFromNoir),
-    mapTupleFromNoir(data.private_logs, MAX_PRIVATE_LOGS_PER_TX, mapPrivateLogFromNoir),
-    mapTupleFromNoir(data.contract_class_logs_hashes, MAX_CONTRACT_CLASS_LOGS_PER_TX, mapScopedLogHashFromNoir),
-    mapTupleFromNoir(data.public_call_requests, MAX_ENQUEUED_CALLS_PER_TX, mapPublicCallRequestFromNoir),
   );
 }
 
@@ -743,56 +668,50 @@ function mapNoteHashLeafPreimageToNoir(noteHashLeafValue: Fr): NoteHashLeafPreim
   };
 }
 
-function mapNoteHashSettledReadHintToNoir(
-  hint: SettledReadHint<typeof NOTE_HASH_TREE_HEIGHT, Fr>,
-): NoteHashSettledReadHintNoir {
+function mapSettledReadHintToNoir<TREE_HEIGHT extends number, LEAF_PREIMAGE extends Bufferable, LEAF_PREIMAGE_NOIR>(
+  hint: SettledReadHint<TREE_HEIGHT, LEAF_PREIMAGE>,
+  mapLeafPreimageToNoir: (preimage: LEAF_PREIMAGE) => LEAF_PREIMAGE_NOIR,
+): SettledReadHintNoir<LEAF_PREIMAGE_NOIR> {
   return {
     read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
-    leaf_preimage: mapNoteHashLeafPreimageToNoir(hint.leafPreimage),
+    // Hard code the size to 40 because it's only used in noir for trees of height 40, so it's not generated with a generic.
+    membership_witness: mapMembershipWitnessToNoir(
+      hint.membershipWitness,
+    ) as SettledReadHintNoir<LEAF_PREIMAGE_NOIR>['membership_witness'],
+    leaf_preimage: mapLeafPreimageToNoir(hint.leafPreimage),
   };
 }
 
-function mapNullifierSettledReadHintToNoir(
-  hint: SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
-): NullifierSettledReadHintNoir {
+function mapReadRequestHintsToNoir<
+  READ_REQUEST_LEN extends number,
+  PENDING_READ_HINTS_LEN extends number,
+  SETTLED_READ_HINTS_LEN extends number,
+  TREE_HEIGHT extends number,
+  LEAF_PREIMAGE extends Bufferable,
+  LEAF_PREIMAGE_NOIR,
+>(
+  hints: ReadRequestResetHints<
+    READ_REQUEST_LEN,
+    PENDING_READ_HINTS_LEN,
+    SETTLED_READ_HINTS_LEN,
+    TREE_HEIGHT,
+    LEAF_PREIMAGE
+  >,
+  mapLeafPreimageToNoir: (preimage: LEAF_PREIMAGE) => LEAF_PREIMAGE_NOIR,
+): ReadRequestHintsNoir<PENDING_READ_HINTS_LEN, SETTLED_READ_HINTS_LEN, LEAF_PREIMAGE_NOIR> {
   return {
-    read_request_index: mapNumberToNoir(hint.readRequestIndex),
-    membership_witness: mapMembershipWitnessToNoir(hint.membershipWitness),
-    leaf_preimage: mapNullifierLeafPreimageToNoir(hint.leafPreimage),
-  };
-}
-
-function mapNoteHashReadRequestHintsToNoir<PENDING extends number, SETTLED extends number>(
-  hints: NoteHashReadRequestHints<PENDING, SETTLED>,
-): NoteHashReadRequestHintsNoir<PENDING, SETTLED> {
-  return {
-    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
+    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir) as ReadRequestHintsNoir<
+      READ_REQUEST_LEN,
+      PENDING_READ_HINTS_LEN,
+      LEAF_PREIMAGE_NOIR
+    >['read_request_actions'],
     pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
       PendingReadHintNoir,
-      PENDING
+      PENDING_READ_HINTS_LEN
     >,
-    settled_read_hints: hints.settledReadHints.map(mapNoteHashSettledReadHintToNoir) as FixedLengthArray<
-      NoteHashSettledReadHintNoir,
-      SETTLED
-    >,
-  };
-}
-
-function mapNullifierReadRequestHintsToNoir<PENDING extends number, SETTLED extends number>(
-  hints: NullifierReadRequestHints<PENDING, SETTLED>,
-): NullifierReadRequestHintsNoir<PENDING, SETTLED> {
-  return {
-    read_request_actions: mapTuple(hints.readRequestActions, mapReadRequestActionToNoir),
-    pending_read_hints: hints.pendingReadHints.map(mapPendingReadHintToNoir) as FixedLengthArray<
-      PendingReadHintNoir,
-      PENDING
-    >,
-    settled_read_hints: hints.settledReadHints.map(settledHint =>
-      mapNullifierSettledReadHintToNoir(
-        settledHint as SettledReadHint<typeof NULLIFIER_TREE_HEIGHT, NullifierLeafPreimage>,
-      ),
-    ) as FixedLengthArray<NullifierSettledReadHintNoir, SETTLED>,
+    settled_read_hints: hints.settledReadHints.map(h =>
+      mapSettledReadHintToNoir(h, mapLeafPreimageToNoir),
+    ) as FixedLengthArray<SettledReadHintNoir<LEAF_PREIMAGE_NOIR>, SETTLED_READ_HINTS_LEN>,
   };
 }
 
@@ -832,8 +751,14 @@ export function mapPrivateKernelResetHintsToNoir<
   TRANSIENT_DATA_HINTS_LEN
 > {
   return {
-    note_hash_read_request_hints: mapNoteHashReadRequestHintsToNoir(inputs.noteHashReadRequestHints),
-    nullifier_read_request_hints: mapNullifierReadRequestHintsToNoir(inputs.nullifierReadRequestHints),
+    note_hash_read_request_hints: mapReadRequestHintsToNoir(
+      inputs.noteHashReadRequestHints,
+      mapNoteHashLeafPreimageToNoir,
+    ),
+    nullifier_read_request_hints: mapReadRequestHintsToNoir(
+      inputs.nullifierReadRequestHints,
+      mapNullifierLeafPreimageToNoir,
+    ),
     key_validation_hints: mapTuple(inputs.keyValidationHints, mapKeyValidationHintToNoir) as FixedLengthArray<
       KeyValidationHintNoir,
       KEY_VALIDATION_HINTS_LEN
@@ -841,6 +766,6 @@ export function mapPrivateKernelResetHintsToNoir<
     transient_data_squashing_hints: inputs.transientDataSquashingHints.map(
       mapTransientDataSquashingHintToNoir,
     ) as FixedLengthArray<TransientDataSquashingHintNoir, TRANSIENT_DATA_HINTS_LEN>,
-    validation_requests_split_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
+    min_revertible_side_effect_counter: mapNumberToNoir(inputs.validationRequestsSplitCounter),
   };
 }

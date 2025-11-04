@@ -163,7 +163,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
             const auto& x2 = points[point_idx++].x;
 
             // It is assumed that the input points are random and thus w/h/p do not share an x-coordinate
-            ASSERT(x1 != x2);
+            BB_ASSERT(x1 != x2);
 
             auto diff = x2 - x1;
             differences[pair_idx] = diff;

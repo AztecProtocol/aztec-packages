@@ -31,9 +31,9 @@ class TranslatorProvingKey {
     // hiding of polynomial commitments and evaluation). Bound to change, but it has to be even as translator works two
     // rows at a time
     static constexpr size_t dyadic_mini_circuit_size_without_masking =
-        mini_circuit_dyadic_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
+        mini_circuit_dyadic_size - Flavor::NUM_MASKED_ROWS_END;
     static constexpr size_t dyadic_circuit_size_without_masking =
-        dyadic_circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE;
+        dyadic_circuit_size - Flavor::NUM_MASKED_ROWS_END * Flavor::INTERLEAVING_GROUP_SIZE;
 
     std::shared_ptr<ProvingKey> proving_key;
 
@@ -49,7 +49,7 @@ class TranslatorProvingKey {
         BB_BENCH_NAME("TranslatorProvingKey(TranslatorCircuit&)");
         // Check that the Translator Circuit does not exceed the fixed upper bound, the current value amounts to
         // a number of EccOps sufficient for 10 rounds of folding (so 20 circuits)
-        if (circuit.num_gates > Flavor::MINI_CIRCUIT_SIZE - NUM_DISABLED_ROWS_IN_SUMCHECK) {
+        if (circuit.num_gates() > Flavor::MINI_CIRCUIT_SIZE) {
             throw_or_abort("The Translator circuit size has exceeded the fixed upper bound");
         }
 
@@ -59,7 +59,7 @@ class TranslatorProvingKey {
             auto& wire_poly = wire_poly_;
             const auto& wire = wire_;
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1383)
-            parallel_for_range(circuit.num_gates, [&](size_t start, size_t end) {
+            parallel_for_range(circuit.num_gates(), [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; i++) {
                     if (i >= wire_poly.start_index() && i < wire_poly.end_index()) {
                         wire_poly.at(i) = circuit.get_variable(wire[i]);
@@ -79,21 +79,20 @@ class TranslatorProvingKey {
             }
         }
 
-        // First and last lagrange polynomials (in the full circuit size)
-        // Construct polynomials with odd and even indices set to 1 up to the minicircuit margin + lagrange
-        // polynomials at second and second to last indices in the minicircuit
         compute_lagrange_polynomials();
 
-        // Construct the extra range constraint numerator which contains all the additional values in the ordered range
+        // Construct the extra range constraint numerator which contains all the additional values in ordered range
         // constraints not present in the interleaved polynomials
         // NB this will always have a fixed size unless we change the allowed range
         compute_extra_range_constraint_numerator();
 
-        // Construct the polynomials resulted from interleaving the small polynomials in each group
+        // Construct the polynomials resulted from interleaving the small range constraints polynomials in each group
+        // to be interleaved
         compute_interleaved_polynomials();
 
         // Construct the ordered polynomials, containing the values of the interleaved polynomials + enough values to
-        // bridge the range from 0 to 3 (3 is the maximum allowed range defined by the range constraint).
+        // bridge the range from 0 to 3 (3 is the maximum difference between two consecutive values in the ordered range
+        // constraint).
         compute_translator_range_constraint_ordered_polynomials();
     };
 

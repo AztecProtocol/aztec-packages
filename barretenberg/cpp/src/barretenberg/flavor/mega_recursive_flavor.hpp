@@ -17,7 +17,6 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 namespace bb {
@@ -46,7 +45,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using Commitment = typename Curve::Element;
     using NativeFlavor = MegaFlavor;
 
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
+    using Transcript = StdlibTranscript<CircuitBuilder>;
     static constexpr size_t VIRTUAL_LOG_N = MegaFlavor::VIRTUAL_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
@@ -75,7 +74,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using Relations = MegaFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
-    static constexpr size_t MAX_TOTAL_RELATION_LENGTH = compute_max_total_relation_length<Relations>();
 
     // BATCHED_RELATION_PARTIAL_LENGTH = algebraic degree of sumcheck relation *after* multiplying by the `pow_zeta`
     // random polynomial e.g. For \sum(x) [A(x) * B(x) + C(x)] * PowZeta(X), relation length = 2 and random relation
@@ -86,11 +84,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    // For instances of this flavour, used in folding, we need a unique sumcheck batching challenge for each
-    // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
-    // combiner) to much.
+    // A challenge whose powers are used to batch subrelation contributions during Sumcheck
     static constexpr size_t NUM_SUBRELATIONS = MegaFlavor::NUM_SUBRELATIONS;
-    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    using SubrelationSeparator = FF;
 
     /**
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
@@ -101,6 +97,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         using Base = MegaFlavor::AllEntities<FF>;
         using Base::Base;
     };
+
     /**
      * @brief The verification key is responsible for storing the commitments to the precomputed (non-witnessk)
      * polynomials used by the verifier.
@@ -124,9 +121,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          */
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
-            this->log_circuit_size = FF::from_witness(builder, native_key->log_circuit_size);
-            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
+            this->log_circuit_size = FF::from_witness(builder, typename FF::native(native_key->log_circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, typename FF::native(native_key->num_public_inputs));
+            this->pub_inputs_offset = FF::from_witness(builder, typename FF::native(native_key->pub_inputs_offset));
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -140,18 +137,18 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(std::span<FF> elements)
         {
-            using namespace bb::stdlib::field_conversion;
+            using Codec = stdlib::StdlibCodec<FF>;
 
             size_t num_frs_read = 0;
 
-            this->log_circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
-            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->log_circuit_size = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->num_public_inputs = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
+            this->pub_inputs_offset = Codec::template deserialize_from_frs<FF>(elements, num_frs_read);
 
             for (Commitment& commitment : this->get_all()) {
-                commitment = deserialize_from_frs<Commitment>(builder, elements, num_frs_read);
+                commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
             }
 
             if (num_frs_read != elements.size()) {
@@ -174,7 +171,7 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
             for (const auto& idx : witness_indices) {
                 vk_fields.emplace_back(FF::from_witness_index(&builder, idx));
             }
-            return VerificationKey(builder, vk_fields);
+            return VerificationKey(vk_fields);
         }
 
         /**

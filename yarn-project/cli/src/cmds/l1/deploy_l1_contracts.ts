@@ -1,5 +1,6 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { type EthAddress, Fr } from '@aztec/aztec.js';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { SecretValue } from '@aztec/foundation/config';
 import type { LogFn, Logger } from '@aztec/foundation/log';
@@ -22,12 +23,13 @@ export async function deployL1Contracts(
   createVerificationJson: string | false,
   initialValidators: EthAddress[],
   realVerifier: boolean,
+  existingToken: EthAddress | undefined,
   log: LogFn,
   debugLogger: Logger,
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccountsData() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
@@ -50,6 +52,7 @@ export async function deployL1Contracts(
     fundingNeeded,
     acceleratedTestDeployments,
     config,
+    existingToken,
     realVerifier,
     createVerificationJson,
     debugLogger,

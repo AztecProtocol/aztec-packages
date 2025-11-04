@@ -1,14 +1,14 @@
 #include "api_ultra_honk.hpp"
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
-#include "barretenberg/client_ivc/acir_bincode_mocks.hpp"
+#include "barretenberg/chonk/acir_bincode_mocks.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/flavor/ultra_rollup_flavor.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>

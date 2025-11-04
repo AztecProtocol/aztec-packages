@@ -8,14 +8,9 @@ validator:
   validator:
     disabled: false
 
-pxe:
-  enabled: true
-
 bootNode:
   enabled: false
 
 bot:
   enabled: false
 
-faucet:
-  enabled: false

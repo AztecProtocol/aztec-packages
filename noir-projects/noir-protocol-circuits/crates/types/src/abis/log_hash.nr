@@ -1,7 +1,7 @@
 use crate::{
-    abis::side_effect::{counted::Counted, scoped::Scoped},
     address::AztecAddress,
     constants::LOG_HASH_LENGTH,
+    side_effect::{Counted, Scoped},
     traits::{Deserialize, Empty, Serialize},
 };
 

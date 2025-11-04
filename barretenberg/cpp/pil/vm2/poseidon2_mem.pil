@@ -1,7 +1,6 @@
 include "poseidon2_perm.pil";
 include "constants_gen.pil";
 include "precomputed.pil";
-include "execution.pil";
 include "gt.pil";
 
 /**
@@ -50,10 +49,8 @@ namespace poseidon2_perm_mem;
     ////////////////////////////////////////////////
     // Error Handling - Out of Range Memory Access
     ////////////////////////////////////////////////
-    pol commit sel_src_out_of_range_err;
-    sel_src_out_of_range_err * (1 - sel_src_out_of_range_err) = 0;
-    pol commit sel_dst_out_of_range_err;
-    sel_dst_out_of_range_err * (1 - sel_dst_out_of_range_err) = 0;
+    pol commit sel_src_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
+    pol commit sel_dst_out_of_range_err; // Constrained to be boolean by the lookup into gt. (provided that sel == 1).
 
     // Use the comparison gadget to check that the max addresses are within range
     // The comparison gadget provides the ability to test GreaterThan so we check
@@ -64,12 +61,12 @@ namespace poseidon2_perm_mem;
     #[CHECK_SRC_ADDR_IN_RANGE]
     sel { read_address[3], max_mem_addr, sel_src_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     #[CHECK_DST_ADDR_IN_RANGE]
     sel { write_address[3], max_mem_addr, sel_dst_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     ////////////////////////////////////////////////
     // Read from memory into input columns
@@ -131,6 +128,7 @@ namespace poseidon2_perm_mem;
     // Error Handling - Invalid Input Tag (not FF)
     ////////////////////////////////////////////////
     pol commit sel_invalid_tag_err;
+    sel_invalid_tag_err * (1 - sel_invalid_tag_err) = 0;
     pol INPUT_TAG_DIFF_0 = input_tag[0] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_1 = input_tag[1] - constants.MEM_TAG_FF;
     pol INPUT_TAG_DIFF_2 = input_tag[2] - constants.MEM_TAG_FF;
@@ -217,23 +215,3 @@ namespace poseidon2_perm_mem;
         memory.address,                  memory.value,
         memory.tag,                      memory.rw
     };
-
-    ////////////////////////////////////////////////
-    // Dispatch from execution trace
-    ////////////////////////////////////////////////
-    #[DISPATCH_EXEC_POS2]
-    execution.sel_execute_poseidon2_perm {
-        precomputed.clk,
-        execution.context_id,
-        execution.rop[0],
-        execution.rop[1],
-        execution.sel_opcode_error
-    } is
-    sel {
-        execution_clk,
-        space_id,
-        read_address[0],
-        write_address[0],
-        err
-    };
-

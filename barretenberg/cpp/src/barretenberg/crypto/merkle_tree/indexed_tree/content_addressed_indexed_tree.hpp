@@ -552,8 +552,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
     bool capture_witness)
 {
     // We first take a copy of the leaf values and their locations within the set given to us
-    std::shared_ptr<std::vector<std::pair<LeafValueType, size_t>>> values_to_be_sorted =
-        std::make_shared<std::vector<std::pair<LeafValueType, size_t>>>(values.size());
+    std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>> values_to_be_sorted =
+        std::make_shared<std::vector<std::pair<LeafValueType, index_t>>>(values.size());
     for (size_t i = 0; i < values.size(); ++i) {
         (*values_to_be_sorted)[i] = std::make_pair(values[i], i);
     }
@@ -958,8 +958,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                                                     max_size_));
                 }
                 for (size_t i = 0; i < values.size(); ++i) {
-                    std::pair<LeafValueType, size_t>& value_pair = values[i];
-                    size_t index_into_appended_leaves = value_pair.second;
+                    std::pair<LeafValueType, index_t>& value_pair = values[i];
+                    index_t index_into_appended_leaves = value_pair.second;
                     index_t index_of_new_leaf = static_cast<index_t>(index_into_appended_leaves) + meta.size;
                     if (value_pair.first.is_empty()) {
                         continue;

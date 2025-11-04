@@ -1,5 +1,7 @@
 import { ArchiverStoreHelper, KVArchiverDataStore, type PublishedL2Block } from '@aztec/archiver';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSource, L2Tips, ValidateBlockResult } from '@aztec/stdlib/block';
@@ -63,8 +65,8 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
    * @param number - The block number to return (inclusive).
    * @returns The requested L2 block.
    */
-  public getBlock(number: number): Promise<L2Block | undefined> {
-    return this.getPublishedBlock(number).then(block => block?.block);
+  public getBlock(number: number | 'latest'): Promise<L2Block | undefined> {
+    return this.getPublishedBlock(number != 'latest' ? number : -1).then(block => block?.block);
   }
 
   /**
@@ -115,6 +117,10 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     throw new Error('TXE Archiver does not implement "getL2Constants"');
   }
 
+  public getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
+  }
+
   public syncImmediate(): Promise<void> {
     throw new Error('TXE Archiver does not implement "syncImmediate"');
   }
@@ -139,7 +145,7 @@ export class TXEArchiver extends ArchiverStoreHelper implements L2BlockSource {
     return Promise.resolve(false);
   }
 
-  public getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
+  public override getPendingChainValidationStatus(): Promise<ValidateBlockResult> {
     return Promise.resolve({ valid: true });
   }
 }

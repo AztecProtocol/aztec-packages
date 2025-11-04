@@ -1,23 +1,47 @@
-import { createPXEClient, PXE } from '@aztec/aztec.js';
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing/lazy';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
+import { getPXEConfig } from '@aztec/pxe/client/lazy';
+import { TestWallet } from '@aztec/test-wallet/client/lazy';
 
 export class PrivateEnv {
-  private constructor(private pxe: PXE) {}
+  private wallet!: Wallet;
+  private defaultAccountAddress!: AztecAddress;
 
-  static async create(pxeURL: string) {
-    const pxe = createPXEClient(pxeURL);
-    return new PrivateEnv(pxe);
+  constructor() {}
+
+  async init() {
+    const nodeURL = process.env.AZTEC_NODE_URL ?? 'http://localhost:8080';
+
+    const aztecNode = await createAztecNodeClient(nodeURL);
+    const config = getPXEConfig();
+    config.dataDirectory = 'pxe';
+    config.proverEnabled = false;
+    const wallet = await TestWallet.create(aztecNode, config);
+
+    const [accountData] = await getInitialTestAccountsData();
+    if (!accountData) {
+      console.error(
+        'Account not found. Please connect the app to a testing environment with deployed and funded test accounts.',
+      );
+    }
+
+    await wallet.createSchnorrAccount(accountData.secret, accountData.salt, accountData.signingKey);
+    this.wallet = wallet;
+    this.defaultAccountAddress = accountData.address;
   }
 
   async getWallet() {
-    const wallet = (await getDeployedTestAccountsWallets(this.pxe))[0];
-    if (!wallet) {
-      console.error(
-        'Wallet not found. Please connect the app to a testing environment with deployed and funded test accounts.',
-      );
+    if (!this.wallet) {
+      await this.init();
     }
-    return wallet;
+    return this.wallet;
+  }
+
+  getDefaultAccountAddress() {
+    return this.defaultAccountAddress;
   }
 }
 
-export const deployerEnv = await PrivateEnv.create(process.env.PXE_URL || 'http://localhost:8080');
+export const deployerEnv = new PrivateEnv();

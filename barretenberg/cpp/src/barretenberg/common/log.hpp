@@ -2,6 +2,7 @@
 #include "barretenberg/env/logstr.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
 #include <algorithm>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -10,10 +11,11 @@
 #define BENCHMARK_INFO_SEPARATOR "#"
 #define BENCHMARK_INFO_SUFFIX "##BENCHMARK_INFO_SUFFIX##"
 
-#define BENCH_GATE_COUNT_START(builder, op_name) uint64_t __bench_before = builder.get_estimated_num_finalized_gates();
+#define BENCH_GATE_COUNT_START(builder, op_name)                                                                       \
+    uint64_t __bench_before = builder.get_num_finalized_gates_inefficient();
 
 #define BENCH_GATE_COUNT_END(builder, op_name)                                                                         \
-    uint64_t __bench_after = builder.get_estimated_num_finalized_gates();                                              \
+    uint64_t __bench_after = builder.get_num_finalized_gates_inefficient();                                            \
     std::cerr << "num gates with " << op_name << " = " << __bench_after - __bench_before << std::endl;                 \
     benchmark_info(Builder::NAME_STRING, "Bigfield", op_name, "Gate Count", __bench_after - __bench_before);
 
@@ -55,28 +57,33 @@ template <typename... Args> std::string benchmark_format(Args... args)
 }
 
 extern bool debug_logging;
+// In release mode (e.g., NDEBUG is defined), we don't compile debug logs.
 #ifndef NDEBUG
-template <typename... Args> inline void debug(Args... args)
+#define debug(...) debug_([&]() { return format(__VA_ARGS__); })
+#else
+#define debug(...) (void)0
+#endif
+
+// We take a function so that evaluation is lazy.
+inline void debug_(std::function<std::string()> func)
 {
-    // NDEBUG is used to turn off asserts, so we want this flag to prevent debug log spamming.
     if (debug_logging) {
-        logstr(format(args...).c_str());
+        logstr(func().c_str());
     }
 }
-#else
-template <typename... Args> inline void debug(Args... /*unused*/) {}
-#endif
 
 template <typename... Args> inline void info(Args... args)
 {
     logstr(format(args...).c_str());
 }
 
+#define vinfo(...) vinfo_([&]() { return format(__VA_ARGS__); })
+
 extern bool verbose_logging;
-template <typename... Args> inline void vinfo(Args... args)
+inline void vinfo_(std::function<std::string()> func)
 {
     if (verbose_logging) {
-        info(args...);
+        info(func());
     }
 }
 

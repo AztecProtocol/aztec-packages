@@ -704,6 +704,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u1_val2 = TaggedValue::from<uint1_t>(1);
     auto u1_val3 = TaggedValue::from<uint1_t>(0);
     EXPECT_TRUE(u1_val1 < u1_val2);
+    EXPECT_TRUE(u1_val2 > u1_val1);
     EXPECT_TRUE(u1_val1 == u1_val3);
     EXPECT_TRUE(u1_val1 <= u1_val3);
     EXPECT_TRUE(u1_val1 != u1_val2);
@@ -712,6 +713,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u8_val2 = TaggedValue::from<uint8_t>(100);
     auto u8_val3 = TaggedValue::from<uint8_t>(42);
     EXPECT_TRUE(u8_val1 < u8_val2);
+    EXPECT_TRUE(u8_val2 > u8_val1);
     EXPECT_TRUE(u8_val1 == u8_val3);
     EXPECT_TRUE(u8_val1 <= u8_val3);
     EXPECT_TRUE(u8_val1 != u8_val2);
@@ -720,6 +722,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u16_val2 = TaggedValue::from<uint16_t>(2000);
     auto u16_val3 = TaggedValue::from<uint16_t>(1000);
     EXPECT_TRUE(u16_val1 < u16_val2);
+    EXPECT_TRUE(u16_val2 > u16_val1);
     EXPECT_TRUE(u16_val1 == u16_val3);
     EXPECT_TRUE(u16_val1 <= u16_val3);
     EXPECT_TRUE(u16_val1 != u16_val2);
@@ -728,6 +731,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u32_val2 = TaggedValue::from<uint32_t>(200000);
     auto u32_val3 = TaggedValue::from<uint32_t>(100000);
     EXPECT_TRUE(u32_val1 < u32_val2);
+    EXPECT_TRUE(u32_val2 > u32_val1);
     EXPECT_TRUE(u32_val1 == u32_val3);
     EXPECT_TRUE(u32_val1 <= u32_val3);
     EXPECT_TRUE(u32_val1 != u32_val2);
@@ -736,6 +740,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u64_val2 = TaggedValue::from<uint64_t>(1ULL << 41);
     auto u64_val3 = TaggedValue::from<uint64_t>(1ULL << 40);
     EXPECT_TRUE(u64_val1 < u64_val2);
+    EXPECT_TRUE(u64_val2 > u64_val1);
     EXPECT_TRUE(u64_val1 == u64_val3);
     EXPECT_TRUE(u64_val1 <= u64_val3);
     EXPECT_TRUE(u64_val1 != u64_val2);
@@ -744,6 +749,7 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto u128_val2 = TaggedValue::from<uint128_t>(static_cast<uint128_t>(1) << 101);
     auto u128_val3 = TaggedValue::from<uint128_t>(static_cast<uint128_t>(1) << 100);
     EXPECT_TRUE(u128_val1 < u128_val2);
+    EXPECT_TRUE(u128_val2 > u128_val1);
     EXPECT_TRUE(u128_val1 == u128_val3);
     EXPECT_TRUE(u128_val1 <= u128_val3);
     EXPECT_TRUE(u128_val1 != u128_val2);
@@ -752,13 +758,18 @@ TEST(TaggedValueTest, ComparisonOperations)
     auto ff_val2 = TaggedValue::from<FF>(FF(100));
     auto ff_val3 = TaggedValue::from<FF>(FF(42));
     EXPECT_TRUE(ff_val1 < ff_val2);
+    EXPECT_TRUE(ff_val2 > ff_val1);
     EXPECT_TRUE(ff_val1 == ff_val3);
     EXPECT_TRUE(ff_val1 <= ff_val3);
     EXPECT_TRUE(ff_val1 != ff_val2);
 
     // Comparisons on different types should return false
     EXPECT_FALSE(u1_val1 < u8_val1);
+    EXPECT_FALSE(u8_val1 > u1_val1);
     EXPECT_FALSE(u8_val1 <= u16_val1);
+    EXPECT_FALSE(u16_val1 > u8_val1);
+    EXPECT_FALSE(u32_val1 > u16_val1);
+    EXPECT_FALSE(u64_val1 > u32_val1);
     EXPECT_FALSE(u16_val1 == u32_val1);
     EXPECT_FALSE(u32_val1 != u64_val1);
 }

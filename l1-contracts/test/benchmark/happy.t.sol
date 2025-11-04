@@ -52,7 +52,10 @@ import {
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {
-  FeeModelTestPoints, TestPoint, FeeHeaderModel, ManaBaseFeeComponentsModel
+  FeeModelTestPoints,
+  TestPoint,
+  FeeHeaderModel,
+  ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
@@ -115,6 +118,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     bytes blobInputs;
     CommitteeAttestation[] attestations;
     address[] signers;
+    Signature attestationsAndSignersSignature;
   }
 
   enum TestSlash {
@@ -175,12 +179,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     StakingQueueConfig memory stakingQueueConfig = TestConstants.getStakingQueueConfig();
     stakingQueueConfig.normalFlushSizeMin = _validatorCount == 0 ? 1 : _validatorCount;
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost).setManaTarget(
-      MANA_TARGET
-    ).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30).setValidators(
-      initialValidators
-    ).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE).setStakingQueueConfig(stakingQueueConfig)
-      .setSlashingQuorum(VOTING_ROUND_SIZE).setSlashingRoundSize(VOTING_ROUND_SIZE);
+    RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
+      .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
+      .setValidators(initialValidators).setTargetCommitteeSize(_noValidators ? 0 : TARGET_COMMITTEE_SIZE)
+      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
+      .setSlashingRoundSize(VOTING_ROUND_SIZE);
 
     if (_slashing == TestSlash.TALLY) {
       // For tally slashing, we need a round size that's a multiple of epoch duration
@@ -351,11 +354,20 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       }
     }
 
+    Signature memory attestationsAndSignersSignature;
+    if (proposer != address(0)) {
+      attestationsAndSignersSignature = createAttestation(
+        proposer,
+        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+      ).signature;
+    }
+
     return Block({
       proposeArgs: proposeArgs,
       blobInputs: full.block.blobCommitments,
       attestations: attestations,
-      signers: signers
+      signers: signers,
+      attestationsAndSignersSignature: attestationsAndSignersSignature
     });
   }
 
@@ -453,7 +465,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     Multicall3.Call3[] memory calls = new Multicall3.Call3[](2);
     calls[0] = Multicall3.Call3({
       target: address(rollup),
-      callData: abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs)),
+      callData: abi.encodeCall(
+        rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+      ),
       allowFailure: false
     });
     calls[1] = Multicall3.Call3({
@@ -509,7 +523,13 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             target: address(rollup),
             callData: abi.encodeCall(
               rollup.propose,
-              (b.proposeArgs, AttestationLibHelper.packAttestations(b.attestations), b.signers, b.blobInputs)
+              (
+                b.proposeArgs,
+                AttestationLibHelper.packAttestations(b.attestations),
+                b.signers,
+                b.attestationsAndSignersSignature,
+                b.blobInputs
+              )
             ),
             allowFailure: false
           });
@@ -530,18 +550,19 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
             // Before slash offset, just propose normally
             CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
             vm.prank(proposer);
-            rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+            rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
           }
         } else {
           CommitteeAttestations memory attestations = AttestationLibHelper.packAttestations(b.attestations);
 
           // Emit calldata size for propose
-          bytes memory proposeCalldata =
-            abi.encodeCall(rollup.propose, (b.proposeArgs, attestations, b.signers, b.blobInputs));
+          bytes memory proposeCalldata = abi.encodeCall(
+            rollup.propose, (b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs)
+          );
           emit log_named_uint("propose_calldata_size", proposeCalldata.length);
 
           vm.prank(proposer);
-          rollup.propose(b.proposeArgs, attestations, b.signers, b.blobInputs);
+          rollup.propose(b.proposeArgs, attestations, b.signers, b.attestationsAndSignersSignature, b.blobInputs);
         }
 
         nextSlot = nextSlot + Slot.wrap(1);

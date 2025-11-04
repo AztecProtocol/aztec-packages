@@ -1,4 +1,4 @@
-use protocol_types::traits::{Packable, Serialize};
+use protocol_types::traits::{Deserialize, Packable, Serialize};
 
 // There's temporarily quite a bit of boilerplate here because Noir does not yet support enums. This file will
 // eventually be simplified into something closer to:
@@ -40,7 +40,7 @@ global NoteStage: NoteStageEnum =
 /// This represents a note in any of the three valid stages (pending same phase, pending previous phase, or settled). In
 /// order to access the underlying fields callers must first find the appropriate stage (e.g. via `is_settled()`) and
 /// then convert this into the appropriate type (e.g. via `to_settled()`).
-#[derive(Eq, Serialize, Packable)]
+#[derive(Deserialize, Eq, Serialize, Packable)]
 pub struct NoteMetadata {
     stage: u8,
     maybe_note_nonce: Field,

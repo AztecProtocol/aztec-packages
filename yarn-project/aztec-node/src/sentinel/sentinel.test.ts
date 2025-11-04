@@ -1,17 +1,18 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import { times } from '@aztec/foundation/collection';
+import { compactArray, times } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
-import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
 import type { SlasherConfig } from '@aztec/slasher/config';
 import {
+  CommitteeAttestation,
   type L2BlockSource,
   type L2BlockStream,
   type L2BlockStreamEvent,
-  type PublishedL2Block,
-  getAttestationsFromPublishedL2Block,
+  PublishedL2Block,
+  getAttestationInfoFromPublishedL2Block,
 } from '@aztec/stdlib/block';
 import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { BlockAttestation } from '@aztec/stdlib/p2p';
@@ -24,7 +25,7 @@ import type {
 } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
-import { type MockProxy, mock, mockDeep } from 'jest-mock-extended';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { Sentinel } from './sentinel.js';
 import { SentinelStore } from './store.js';
@@ -60,7 +61,7 @@ describe('sentinel', () => {
     blockStream = mock<L2BlockStream>();
 
     kvStore = await openTmpStore('sentinel-test');
-    store = new SentinelStore(kvStore, { historyLength: 10 });
+    store = new SentinelStore(kvStore, { historyLength: 10, historicProvenPerformanceLength: 5 });
 
     slot = 10n;
     epoch = 0n;
@@ -124,7 +125,13 @@ describe('sentinel', () => {
 
     it('identifies attestors from p2p and archiver', async () => {
       block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
-      const attestorsFromBlock = getAttestationsFromPublishedL2Block(block).map(att => att.getSender());
+      const attestorsFromBlock = compactArray(
+        getAttestationInfoFromPublishedL2Block(block).map(info =>
+          info.status === 'recovered-from-signature' || info.status === 'provided-as-address'
+            ? info.address
+            : undefined,
+        ),
+      );
       expect(attestorsFromBlock.map(a => a.toString())).toEqual(signers.slice(0, 2).map(a => a.address.toString()));
 
       await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
@@ -133,6 +140,44 @@ describe('sentinel', () => {
       const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
       expect(activity[committee[1].toString()]).toEqual('attestation-sent');
       expect(activity[committee[2].toString()]).toEqual('attestation-sent');
+      expect(activity[committee[3].toString()]).toEqual('attestation-missed');
+    });
+
+    it('only counts recovered-from-signature attestations, not placeholder attestations', async () => {
+      // Create a block with only 2 signers (validators 0 and 1), plus placeholders for 2 and 3
+      block = await randomPublishedL2Block(Number(slot), { signers: signers.slice(0, 2) });
+
+      // Add placeholder attestations for the missing validators (no signature)
+      const placeholderAttestations = validators.slice(2).map(addr => CommitteeAttestation.fromAddress(addr));
+
+      // Append placeholders to the existing attestations
+      const allAttestations = [...block.attestations, ...placeholderAttestations];
+      block = new PublishedL2Block(block.block, block.l1, allAttestations);
+
+      // Verify that getAttestationInfoFromPublishedL2Block returns 4 entries total:
+      // - 2 with status 'recovered-from-signature' (actual attestations with valid signatures)
+      // - 2 with status 'provided-as-address' (placeholders for missing validators)
+      const attestationInfo = getAttestationInfoFromPublishedL2Block(block);
+      expect(attestationInfo).toHaveLength(4);
+      const recoveredSignatures = attestationInfo.filter(info => info.status === 'recovered-from-signature');
+      const placeholders = attestationInfo.filter(info => info.status === 'provided-as-address');
+      expect(recoveredSignatures).toHaveLength(2);
+      expect(placeholders).toHaveLength(2);
+
+      // After processing the block, only the validators with actual signatures should be recorded as attestors
+      await sentinel.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+
+      // No additional attestations from p2p
+      p2p.getAttestationsForSlot.mockResolvedValue([]);
+
+      const activity = await sentinel.getSlotActivity(slot, epoch, proposer, committee);
+
+      // Validators 0 and 1 should be marked as having sent attestations (proposer is validator 0, so block-mined)
+      expect(activity[committee[0].toString()]).toEqual('block-mined');
+      expect(activity[committee[1].toString()]).toEqual('attestation-sent');
+
+      // Validators 2 and 3 should be marked as having missed attestations (not counted as sent despite placeholders)
+      expect(activity[committee[2].toString()]).toEqual('attestation-missed');
       expect(activity[committee[3].toString()]).toEqual('attestation-missed');
     });
 
@@ -287,8 +332,8 @@ describe('sentinel', () => {
         jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 2,
-          missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-          missedAttestations: { count: 0, currentStreak: 0, rate: 0 },
+          missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
           history: mockHistory,
         });
 
@@ -298,8 +343,8 @@ describe('sentinel', () => {
           validator: {
             address: validator,
             totalSlots: 2,
-            missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-            missedAttestations: { count: 0, currentStreak: 0, rate: 0 },
+            missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+            missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
             history: mockHistory,
           },
           allTimeProvenPerformance: mockProvenPerformance,
@@ -316,8 +361,8 @@ describe('sentinel', () => {
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 1,
-          missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-          missedAttestations: { count: 0, currentStreak: 0, rate: 0 },
+          missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
           history: mockHistory,
         });
 
@@ -333,8 +378,8 @@ describe('sentinel', () => {
         const computeStatsSpy = jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 1,
-          missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-          missedAttestations: { count: 0, currentStreak: 0, rate: 0 },
+          missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
           history: mockHistory,
         });
 
@@ -357,8 +402,8 @@ describe('sentinel', () => {
         jest.spyOn(sentinel, 'computeStatsForValidator').mockReturnValue({
           address: validator,
           totalSlots: 1,
-          missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-          missedAttestations: { count: 0, currentStreak: 0, rate: 0 },
+          missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+          missedAttestations: { count: 0, currentStreak: 0, rate: 0, total: 0 },
           history: mockHistory,
         });
 
@@ -379,65 +424,52 @@ describe('sentinel', () => {
       const epochNumber = getEpochAtSlot(slot, l1Constants);
       const validator1 = EthAddress.random();
       const validator2 = EthAddress.random();
-      const headerSlots = times(5, i => slot - BigInt(i));
-      const mockHeaders = headerSlots.map(s => {
-        const header = mockDeep<PublishedL2Block['block']['header']>();
-        header.getSlot.mockReturnValue(s);
-        return header;
-      });
+      const validator3 = EthAddress.random();
+      const headerSlots = times(l1Constants.epochDuration, i => slot - BigInt(i)).reverse();
 
       epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: epochNumber, slot, ts, now: ts });
       archiver.getBlock.calledWith(blockNumber).mockResolvedValue(mockBlock.block);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
-
-      archiver.getBlockHeadersForEpoch.calledWith(epochNumber).mockResolvedValue(mockHeaders as any);
+      epochCache.getL1Constants.mockReturnValue(l1Constants);
 
       epochCache.getCommittee.mockResolvedValue({
-        committee: [validator1, validator2],
+        committee: [validator1, validator2, validator3],
         seed: 0n,
         epoch: epochNumber,
       });
-      const statsResult = {
+
+      const statsResult: ValidatorsStats = {
         stats: {
+          // Validator 1 missed 1 attestation only, we won't slash them
           [validator1.toString()]: {
             address: validator1,
             totalSlots: headerSlots.length,
-            missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-            missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 5 },
-            history: [
-              { slot: headerSlots[0], status: 'attestation-sent' },
-              { slot: headerSlots[1], status: 'attestation-missed' },
-              { slot: headerSlots[2], status: 'attestation-sent' },
-              { slot: headerSlots[3], status: 'attestation-sent' },
-              { slot: headerSlots[4], status: 'attestation-sent' },
-            ],
-          } as ValidatorStats,
+            missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+            missedAttestations: { count: 1, currentStreak: 0, rate: 1 / 8, total: 8 },
+            history: [],
+          },
+          // Validator 2 missed 7 out of 8, we will slash them
           [validator2.toString()]: {
             address: validator2,
             totalSlots: headerSlots.length,
-            missedProposals: { count: 0, currentStreak: 0, rate: 0 },
-            // We should only count the slots that are in the proven epoch (0, 1, 2)!!
-            missedAttestations: { count: 4, currentStreak: 3, rate: 4 / 5 },
-            history: [
-              { slot: headerSlots[0], status: 'attestation-missed' },
-              { slot: headerSlots[1], status: 'attestation-sent' },
-              { slot: headerSlots[2], status: 'attestation-missed' },
-              { slot: headerSlots[3], status: 'attestation-missed' },
-              { slot: headerSlots[4], status: 'attestation-missed' },
-            ],
-          } as ValidatorStats,
-          '0xNotAnAddress': {
-            address: EthAddress.ZERO, // Placeholder
-            totalSlots: 0,
-            missedProposals: { count: 0, currentStreak: 0, rate: undefined },
-            missedAttestations: { count: 0, currentStreak: 0, rate: undefined },
+            missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+            missedAttestations: { count: 7, currentStreak: 3, rate: 7 / 8, total: 8 },
             history: [],
-          } as ValidatorStats, // To test filtering
+          },
+          // Validator 3 missed 4 attestations out of 4, so we will slash them even though the epoch has 8 slots
+          // This difference happens because we don't count attestations for a slot where there was no proposal
+          [validator3.toString()]: {
+            address: validator3,
+            totalSlots: headerSlots.length,
+            missedProposals: { count: 0, currentStreak: 0, rate: 0, total: 0 },
+            missedAttestations: { count: 4, currentStreak: 4, rate: 4 / 4, total: 4 },
+            history: [],
+          },
         },
         lastProcessedSlot: slot,
         initialSlot: 0n,
         slotWindow: 15,
-      } as ValidatorsStats;
+      };
       const computeStatsSpy = jest.spyOn(sentinel, 'computeStats').mockResolvedValue(statsResult);
       const emitSpy = jest.spyOn(sentinel, 'emit');
 
@@ -446,20 +478,20 @@ describe('sentinel', () => {
       expect(computeStatsSpy).toHaveBeenCalledWith({
         fromSlot: headerSlots[0],
         toSlot: headerSlots[headerSlots.length - 1],
+        validators: [validator1, validator2, validator3],
+      });
+      const makeInactivitySlash = (validator: EthAddress): WantToSlashArgs => ({
+        validator,
+        amount: config.slashInactivityPenalty,
+        offenseType: OffenseType.INACTIVITY,
+        epochOrSlot: 1n,
       });
 
       expect(emitSpy).toHaveBeenCalledTimes(1);
-      expect(emitSpy).toHaveBeenCalledWith(
-        WANT_TO_SLASH_EVENT,
-        expect.arrayContaining([
-          expect.objectContaining({
-            validator: validator2,
-            amount: config.slashInactivityPenalty,
-            offenseType: OffenseType.INACTIVITY,
-            epochOrSlot: epochNumber,
-          }),
-        ]),
-      );
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_SLASH_EVENT, [
+        makeInactivitySlash(validator2),
+        makeInactivitySlash(validator3),
+      ]);
     });
   });
 
@@ -671,10 +703,6 @@ class TestSentinel extends Sentinel {
 
   public override handleProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
     return super.handleProvenPerformance(epoch, performance);
-  }
-
-  public override updateProvenPerformance(epoch: bigint, performance: ValidatorsEpochPerformance) {
-    return super.updateProvenPerformance(epoch, performance);
   }
 
   public override getValidatorStats(validatorAddress: EthAddress, fromSlot?: bigint, toSlot?: bigint) {

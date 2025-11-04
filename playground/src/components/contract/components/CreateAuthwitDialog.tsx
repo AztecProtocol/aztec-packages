@@ -1,14 +1,17 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import { AztecAddress, Contract, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash, SetPublicAuthwitContractInteraction } from '@aztec/aztec.js/authorization';
+import { type SendInteractionOptions, Contract, ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormGroup from '@mui/material/FormGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useContext, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import { FunctionParameter } from '../../common/FnParameter';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import { INFO_TEXT } from '../../../constants';
@@ -31,7 +34,6 @@ const authwitData = css({
   margin: 0,
 });
 
-
 interface CreateAuthwitDialogProps {
   open: boolean;
   contract: Contract;
@@ -39,7 +41,7 @@ interface CreateAuthwitDialogProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any[];
   isPrivate: boolean;
-  onClose: (isPublic?: boolean, interaction?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
+  onClose: (isPublic?: boolean, interaction?: ContractFunctionInteraction, opts?: SendInteractionOptions) => void;
 }
 
 export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, onClose }: CreateAuthwitDialogProps) {
@@ -50,7 +52,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
 
-  const { wallet, walletDB } = useContext(AztecContext);
+  const { wallet, node, playgroundDB, from } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -58,22 +60,20 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
 
   const createAuthwit = async () => {
     setCreating(true);
+    const call = await contract.methods[fnName](...args).getFunctionCall();
+    const intent = {
+      caller: AztecAddress.fromString(caller),
+      call,
+    };
     try {
-      const action = contract.methods[fnName](...args);
       let witness;
       if (isPrivate) {
-        witness = await wallet.createAuthWit({
-          caller: AztecAddress.fromString(caller),
-          action,
-        });
-        await walletDB.storeAuthwitness(witness, undefined, alias);
+        witness = await wallet.createAuthWit(from, intent);
+        await playgroundDB.storeAuthwitness(witness, undefined, alias);
         onClose();
       } else {
-        const validateActionInteraction = await wallet.setPublicAuthWit(
-          { caller: AztecAddress.fromString(caller), action },
-          true,
-        );
-        const opts: SendMethodOptions = { from: wallet.getAddress(), fee: { paymentMethod: feePaymentMethod } };
+        const validateActionInteraction = await SetPublicAuthwitContractInteraction.create(wallet, from, intent, true);
+        const opts: SendInteractionOptions = { from, fee: { paymentMethod: feePaymentMethod } };
         onClose(true, validateActionInteraction, opts);
       }
     } catch (e) {
@@ -130,8 +130,8 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
           <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
             <Typography css={fixedText}>to call</Typography>
             <Typography css={authwitData}>
-            {fnName}(
-            {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
+              {fnName}(
+              {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', flexDirection: 'row', gap: '1rem' }}>
@@ -168,7 +168,6 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
           </Button>
         </DialogActions>
       </DialogContent>
-
     </Dialog>
   );
 }

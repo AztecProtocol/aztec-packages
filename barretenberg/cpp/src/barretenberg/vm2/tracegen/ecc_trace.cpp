@@ -7,7 +7,6 @@
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ecc_mem.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
-#include "barretenberg/vm2/generated/relations/perms_ecc_mem.hpp"
 #include "barretenberg/vm2/simulation/events/ecc_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
@@ -99,13 +98,15 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
                       // Check coordinates to detect edge cases (double, add and infinity)
                       { C::ecc_x_match, x_match },
-                      { C::ecc_inv_x_diff, x_match ? FF::zero() : (q.x() - p.x()).invert() },
+                      { C::ecc_inv_x_diff, q.x() - p.x() }, // Will be inverted in batch later
                       { C::ecc_y_match, y_match },
-                      { C::ecc_inv_y_diff, y_match ? FF::zero() : (q.y() - p.y()).invert() },
+                      { C::ecc_inv_y_diff, q.y() - p.y() }, // Will be inverted in batch later
 
                       // Witness for doubling operation
                       { C::ecc_double_op, double_predicate },
-                      { C::ecc_inv_2_p_y, !result_is_infinity && double_predicate ? (p.y() * 2).invert() : FF::zero() },
+                      { C::ecc_inv_2_p_y,
+                        !result_is_infinity && double_predicate ? (p.y() * 2)
+                                                                : FF::zero() }, // Will be inverted in batch later
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
@@ -118,6 +119,9 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::ecc_inv_x_diff, C::ecc_inv_y_diff, C::ecc_inv_2_p_y } });
 }
 
 void EccTraceBuilder::process_scalar_mul(
@@ -190,6 +194,7 @@ void EccTraceBuilder::process_add_with_memory(
         bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error handling, check if the points are on the curve.
+        // We do not use batch inversions as we do not need to invert in the happy path.
         bool p_is_on_curve = event.p.on_curve();
         FF p_is_on_curve_eqn = compute_curve_eqn_diff(event.p);
         FF p_is_on_curve_eqn_inv = p_is_on_curve ? FF::zero() : p_is_on_curve_eqn.invert();
@@ -248,10 +253,8 @@ const InteractionDefinition EccTraceBuilder::interactions =
         .add<lookup_scalar_mul_to_radix_settings, InteractionType::LookupGeneric>()
         // Memory Aware Interactions
         // Comparison
-        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>()
+        .add<lookup_ecc_mem_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
         // Lookup into ECC Add Subtrace
-        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>()
-        // Dispatch Permutation
-        .add<perm_ecc_mem_dispatch_exec_ecc_add_settings, InteractionType::Permutation>();
+        .add<lookup_ecc_mem_input_output_ecc_add_settings, InteractionType::LookupGeneric>();
 
 } // namespace bb::avm2::tracegen

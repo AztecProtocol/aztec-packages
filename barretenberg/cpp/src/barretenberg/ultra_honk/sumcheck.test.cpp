@@ -7,6 +7,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/witness_computation.hpp"
@@ -32,7 +33,6 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     using Flavor = UltraFlavor;
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     // Create a composer and a dummy circuit with a few gates
     auto builder = UltraCircuitBuilder();
@@ -55,7 +55,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     FF e = a + b + c + d;
     uint32_t e_idx = builder.add_variable(e);
 
-    uint32_t zero_idx = builder.zero_idx;
+    uint32_t zero_idx = builder.zero_idx();
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true); // use next row
     builder.create_big_add_gate({ zero_idx, zero_idx, zero_idx, e_idx, 0, 0, 0, 0, 0 }, false);
 
@@ -115,14 +115,14 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         builder.init_RAM_element(ram_id, i, ram_values[i]);
     }
 
-    a_idx = builder.read_RAM_array(ram_id, builder.add_variable(5));
+    a_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(5)));
     EXPECT_EQ(a_idx != ram_values[5], true);
 
-    b_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
-    c_idx = builder.read_RAM_array(ram_id, builder.add_variable(1));
+    b_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(4)));
+    c_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(1)));
 
-    builder.write_RAM_array(ram_id, builder.add_variable(4), builder.add_variable(500));
-    d_idx = builder.read_RAM_array(ram_id, builder.add_variable(4));
+    builder.write_RAM_array(ram_id, builder.add_variable(FF(4)), builder.add_variable(FF(500)));
+    d_idx = builder.read_RAM_array(ram_id, builder.add_variable(FF(4)));
 
     EXPECT_EQ(builder.get_variable(d_idx), 500);
 
@@ -134,9 +134,9 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, -1, -1, -1, -1, 0 }, true);
     builder.create_big_add_gate(
         {
-            builder.zero_idx,
-            builder.zero_idx,
-            builder.zero_idx,
+            builder.zero_idx(),
+            builder.zero_idx(),
+            builder.zero_idx(),
             e_idx,
             0,
             0,
@@ -146,46 +146,40 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         },
         false);
 
-    stdlib::recursion::PairingPoints<UltraCircuitBuilder>::add_default_to_public_inputs(builder);
+    stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
     // Create a prover (it will compute proving key and witness)
-    auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
+    auto prover_inst = std::make_shared<ProverInstance_<Flavor>>(builder);
 
-    WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
+    WitnessComputation<Flavor>::complete_prover_instance_for_test(prover_inst);
 
     auto prover_transcript = Transcript::prover_init_empty();
-    auto circuit_size = decider_pk->dyadic_size();
+    auto circuit_size = prover_inst->dyadic_size();
     auto log_circuit_size = numeric::get_msb(circuit_size);
     const size_t virtual_log_n = log_circuit_size + 2; // arbitrary but larger than genuine log n
 
-    SubrelationSeparators prover_alphas;
-    for (size_t idx = 0; idx < prover_alphas.size(); idx++) {
-        prover_alphas[idx] = prover_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
+    FF prover_alpha = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
     std::vector<FF> prover_gate_challenges(virtual_log_n);
     for (size_t idx = 0; idx < virtual_log_n; idx++) {
         prover_gate_challenges[idx] =
             prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
-    decider_pk->gate_challenges = prover_gate_challenges;
+    prover_inst->gate_challenges = prover_gate_challenges;
 
     SumcheckProver<Flavor> sumcheck_prover(circuit_size,
-                                           decider_pk->polynomials,
+                                           prover_inst->polynomials,
                                            prover_transcript,
-                                           prover_alphas,
+                                           prover_alpha,
                                            prover_gate_challenges,
-                                           decider_pk->relation_parameters,
+                                           prover_inst->relation_parameters,
                                            virtual_log_n);
 
     auto prover_output = sumcheck_prover.prove();
 
     auto verifier_transcript = Transcript::verifier_init_empty(prover_transcript);
 
-    SubrelationSeparators verifier_alphas;
-    for (size_t idx = 0; idx < verifier_alphas.size(); idx++) {
-        verifier_alphas[idx] = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha_" + std::to_string(idx));
-    }
-    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alphas, virtual_log_n);
+    FF verifier_alpha = verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
+    SumcheckVerifier<Flavor> sumcheck_verifier(verifier_transcript, verifier_alpha, virtual_log_n);
 
     std::vector<FF> verifier_gate_challenges(virtual_log_n);
     for (size_t idx = 0; idx < virtual_log_n; idx++) {
@@ -197,7 +191,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
         padding_indicator_array[idx] = 1;
     }
     auto verifier_output =
-        sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        sumcheck_verifier.verify(prover_inst->relation_parameters, verifier_gate_challenges, padding_indicator_array);
 
     auto verified = verifier_output.verified;
 

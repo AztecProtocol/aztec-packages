@@ -61,8 +61,8 @@ namespace update_check;
     pol commit delayed_public_mutable_slot;
 
     #[DELAYED_PUBLIC_MUTABLE_SLOT_POSEIDON2]
-    sel { updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel { sel /* =1 */, updated_class_ids_slot, address, precomputed.zero, delayed_public_mutable_slot }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit delayed_public_mutable_hash_slot;
     sel * (delayed_public_mutable_slot + constants.UPDATES_DELAYED_PUBLIC_MUTABLE_VALUES_LEN - delayed_public_mutable_hash_slot) = 0;
@@ -108,8 +108,8 @@ namespace update_check;
     pol commit update_preimage_post_class_id;
 
     #[UPDATE_HASH_POSEIDON2]
-    hash_not_zero { update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    hash_not_zero { sel /* =1 */, update_preimage_metadata, update_preimage_pre_class_id, update_preimage_post_class_id, update_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     // ======== TIMESTAMP OF CHANGE READ ========
 
@@ -140,13 +140,12 @@ namespace update_check;
     // ======== CLASS ID CHECK ========
     // We are going to use the gt gadget to compare `timestamp` and `timestamp_of_change` and derive
     // the boolean value of `timestamp_is_lt_timestamp_of_change`.
-    pol commit timestamp_is_lt_timestamp_of_change;
-    timestamp_is_lt_timestamp_of_change * (1 - timestamp_is_lt_timestamp_of_change) = 0;
+    pol commit timestamp_is_lt_timestamp_of_change; // Boolean value enforced by gt gadget (under condition hash_not_zero == 1).
 
     // Equivalent to "timestamp_of_change > timestamp"
     #[TIMESTAMP_IS_LT_TIMESTAMP_OF_CHANGE]
     hash_not_zero { timestamp_of_change, timestamp, timestamp_is_lt_timestamp_of_change }
-    in gt.sel { gt.input_a, gt.input_b, gt.res };
+    in gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit update_pre_class_id_is_zero;
     update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;

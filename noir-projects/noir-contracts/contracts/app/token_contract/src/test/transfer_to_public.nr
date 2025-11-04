@@ -46,7 +46,12 @@ unconstrained fn transfer_to_public_on_behalf_of_other() {
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_to_public_call_interface,
+    );
     // transfer_to_public tokens
     env.call_private(recipient, transfer_to_public_call_interface);
     utils::check_private_balance(
@@ -111,7 +116,12 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_more_than_balance
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call_interface(owner, recipient, transfer_to_public_call_interface);
+    add_private_authwit_from_call_interface(
+        env,
+        owner,
+        recipient,
+        transfer_to_public_call_interface,
+    );
 
     // transfer_to_public tokens
     env.call_private(recipient, transfer_to_public_call_interface);
@@ -129,7 +139,7 @@ unconstrained fn transfer_to_public_failure_on_behalf_of_other_invalid_designate
         transfer_to_public_amount,
         0,
     );
-    add_private_authwit_from_call_interface(owner, owner, transfer_to_public_call_interface);
+    add_private_authwit_from_call_interface(env, owner, owner, transfer_to_public_call_interface);
 
     // transfer_to_public tokens
     env.call_private(recipient, transfer_to_public_call_interface);

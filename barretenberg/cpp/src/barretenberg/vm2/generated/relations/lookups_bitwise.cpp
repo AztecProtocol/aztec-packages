@@ -27,6 +27,5 @@ namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_bitwise_integral_tag_length_relation);
 INSTANTIATE_LOOKUP(lookup_bitwise_byte_operations_relation);
-INSTANTIATE_LOOKUP(lookup_bitwise_dispatch_exec_bitwise_relation);
 
 } // namespace bb::avm2

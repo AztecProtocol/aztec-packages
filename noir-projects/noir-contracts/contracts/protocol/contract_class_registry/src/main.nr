@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract ContractClassRegistry {
     use dep::aztec::{
         hash::compute_public_bytecode_commitment,
-        macros::functions::private,
+        macros::functions::external,
         protocol_types::{
             constants::{
                 ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
@@ -29,27 +29,19 @@ pub contract ContractClassRegistry {
         },
     };
 
-    // docs:start:import_capsules
     use dep::aztec::oracle::capsules;
-    // docs:end:import_capsules
 
-    #[private]
+    #[external("private")]
     fn publish(
         artifact_hash: Field,
         private_functions_root: Field,
         public_bytecode_commitment: Field,
     ) {
-        // docs:start:load_capsule
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
         // matches the expected one, we recompute the commitment and assert it matches the one provided by the caller.
         let mut packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
-            capsules::load(
-                context.this_address(),
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            )
-                .unwrap()
+            capsules::load(self.address, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT).unwrap()
         };
-        // docs:end:load_capsule
         // Compute and check the public bytecode commitment
         let computed_public_bytecode_commitment =
             compute_public_bytecode_commitment(packed_public_bytecode);
@@ -65,7 +57,7 @@ pub contract ContractClassRegistry {
         // Emit the contract class id as a nullifier:
         // - to demonstrate that this contract class hasn't been published before
         // - to enable apps to read that this contract class has been published.
-        context.push_nullifier(contract_class_id.to_field());
+        self.context.push_nullifier(contract_class_id.to_field());
 
         // Broadcast class info including public bytecode
         dep::aztec::oracle::debug_log::debug_log_format(
@@ -85,10 +77,10 @@ pub contract ContractClassRegistry {
             private_functions_root,
             packed_public_bytecode,
         };
-        context.emit_contract_class_log(event.serialize_non_standard());
+        self.context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -101,14 +93,10 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for private functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         // 3. Computing the VK for private bytecode in-circuit is not possible, so we can't do better.
         let private_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
-                context.this_address(),
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            )
-                .unwrap()
+            capsules::load(self.address, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT).unwrap()
         };
 
         let event = ClassPrivateFunctionBroadcasted {
@@ -137,10 +125,10 @@ pub contract ContractClassRegistry {
                 function_data.metadata_hash,
             ],
         );
-        context.emit_contract_class_log(event.serialize_non_standard());
+        self.context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn broadcast_utility_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
@@ -151,13 +139,9 @@ pub contract ContractClassRegistry {
     ) {
         // Safety: The bytecode loaded here is unconstrained, which is acceptable since:
         // 1. Unlike public functions, we don't need execution guarantees for utility functions.
-        // 2. This broadcast simply provides convenient bytecode sharing vs off-chain distribution.
+        // 2. This broadcast simply provides convenient bytecode sharing vs offchain distribution.
         let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
-            capsules::load(
-                context.this_address(),
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-            )
-                .unwrap()
+            capsules::load(self.address, CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT).unwrap()
         };
         let event = ClassUtilityFunctionBroadcasted {
             contract_class_id,
@@ -181,11 +165,11 @@ pub contract ContractClassRegistry {
                 function_data.metadata_hash,
             ],
         );
-        context.emit_contract_class_log(event.serialize_non_standard());
+        self.context.emit_contract_class_log(event.serialize_non_standard());
     }
 
-    #[private]
+    #[external("private")]
     fn assert_class_id_is_published(contract_class_id: ContractClassId) {
-        context.push_nullifier_read_request(contract_class_id.to_field());
+        self.context.push_nullifier_read_request(contract_class_id.to_field());
     }
 }

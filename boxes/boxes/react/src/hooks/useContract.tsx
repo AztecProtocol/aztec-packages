@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { deployerEnv } from '../config';
 
-import { Contract, Fr } from '@aztec/aztec.js';
+import { Contract } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
 import { toast } from 'react-toastify';
 
 export function useContract() {
@@ -13,12 +14,13 @@ export function useContract() {
 
     setWait(true);
     const wallet = await deployerEnv.getWallet();
+    const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
     const salt = Fr.random();
 
     const { BoxReactContract } = await import('../../artifacts/BoxReact');
 
-    const tx = await BoxReactContract.deploy(wallet, Fr.random(), wallet.getCompleteAddress().address).send({
-      from: wallet.getAddress(),
+    const tx = await BoxReactContract.deploy(wallet, Fr.random(), defaultAccountAddress).send({
+      from: defaultAccountAddress,
       contractAddressSalt: salt,
     });
     const contract = await toast.promise(tx.deployed(), {

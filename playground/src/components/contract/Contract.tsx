@@ -1,16 +1,9 @@
 import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
-import {
-  Contract,
-  type ContractInstanceWithAddress,
-  getAllFunctionAbis,
-  type FunctionAbi,
-  FunctionType,
-  DeployMethod,
-  type DeployOptions,
-  TxStatus,
-} from '@aztec/aztec.js';
-import { AztecContext } from '../../aztecEnv';
+import { type ContractInstanceWithAddress, type DeployOptions, Contract, DeployMethod } from '@aztec/aztec.js/contracts';
+import { TxStatus } from '@aztec/aztec.js/tx';
+import { type FunctionAbi, getAllFunctionAbis, FunctionType } from '@aztec/stdlib/abi';
+import { AztecContext } from '../../aztecContext';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
@@ -180,7 +173,6 @@ export function ContractComponent() {
     setCurrentContractAddress,
   } = useContext(AztecContext);
 
-
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
@@ -196,14 +188,14 @@ export function ContractComponent() {
         // Temporarily filter out not-yet-published contracts
         if (isContractPublished) {
           const contractInstance = await node.getContract(currentContractAddress);
-          await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
+          await wallet.registerContract(contractInstance, currentContractArtifact);
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
           setCurrentContract(contract);
         }
       }
       setIsLoadingArtifact(false);
     };
-    if (currentContractArtifact) {
+    if (currentContractArtifact && wallet) {
       loadCurrentContract();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -223,12 +215,7 @@ export function ContractComponent() {
   ) => {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
-      const txReceipt = await sendTx(
-        `Deploy ${currentContractArtifact.name}`,
-        interaction,
-        contract.address,
-        opts,
-      );
+      const txReceipt = await sendTx(`Deploy ${currentContractArtifact.name}`, interaction, contract.address, opts);
       // Temporarily ignore undeployed contracts
       if (txReceipt?.status === TxStatus.SUCCESS) {
         setCurrentContractAddress(contract.address);

@@ -1,7 +1,20 @@
 FROM ubuntu:noble AS base-build
 
 RUN apt-get update && \
-    apt-get install -y build-essential python3 wget unzip git cmake clang ninja-build curl && \
+    apt-get install -y \
+        build-essential \
+        python3 \
+        wget \
+        curl \
+        unzip \
+        git \
+        cmake \
+        clang \
+        ninja-build \
+        libdw-dev \
+        binutils-dev \
+        libelf-dev \
+        libdwarf-dev && \
     apt-get -y autoremove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*

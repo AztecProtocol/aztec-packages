@@ -4,7 +4,7 @@
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -18,7 +18,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
   public:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using FF = Flavor::FF;
     /**
      * @brief Construct a manifest for a Mega Honk proof
@@ -41,10 +41,9 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         size_t NUM_PUBLIC_INPUTS =
             stdlib::recursion::honk::DefaultIO<typename Flavor::CircuitBuilder>::PUBLIC_INPUTS_SIZE;
         size_t MAX_PARTIAL_RELATION_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
-        size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
 
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<Commitment>();
+        size_t frs_per_Fr = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<Commitment>();
         size_t frs_per_uni = MAX_PARTIAL_RELATION_LENGTH * frs_per_Fr;
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
 
@@ -70,13 +69,13 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "RETURN_DATA_READ_TAGS", frs_per_G);
-        manifest_expected.add_challenge(round, "eta", "eta_two", "eta_three");
+        manifest_expected.add_challenge(round, std::array{ "eta", "eta_two", "eta_three" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_READ_COUNTS", frs_per_G);
         manifest_expected.add_entry(round, "LOOKUP_READ_TAGS", frs_per_G);
         manifest_expected.add_entry(round, "W_4", frs_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
@@ -85,13 +84,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
 
-        std::array<std::string, Flavor::NUM_SUBRELATIONS - 1> alpha_labels;
-        for (size_t i = 0; i < NUM_SUBRELATIONS - 1; i++) {
-            std::string label = "alpha_" + std::to_string(i);
-            alpha_labels[i] = label;
-        }
-
-        manifest_expected.add_challenge(round, alpha_labels);
+        manifest_expected.add_challenge(round, "alpha");
         round++;
 
         manifest_expected.add_challenge(round, "Sumcheck:gate_challenge");
@@ -149,7 +142,7 @@ template <typename Flavor> class MegaTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
-        manifest_expected.add_challenge(round); // no challenge
+        manifest_expected.add_challenge(round, "KZG:masking_challenge");
 
         return manifest_expected;
     }
@@ -186,7 +179,7 @@ TYPED_TEST_SUITE(MegaTranscriptTests, FlavorTypes);
 TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
 
     using Prover = UltraProver_<Flavor>;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
@@ -194,9 +187,9 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<typename Flavor::VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -225,7 +218,7 @@ TYPED_TEST(MegaTranscriptTests, ProverManifestConsistency)
 TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
@@ -235,9 +228,9 @@ TYPED_TEST(MegaTranscriptTests, VerifierManifestConsistency)
     TestFixture::generate_test_circuit(builder);
 
     // Automatically generate a transcript manifest in the prover by constructing a proof
-    auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-    auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    Prover prover(proving_key, verification_key);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    Prover prover(prover_instance, verification_key);
     prover.transcript->enable_manifest();
     auto proof = prover.construct_proof();
 
@@ -275,7 +268,8 @@ TYPED_TEST(MegaTranscriptTests, ChallengeGenerationTest)
     // initialized with random value sent to verifier
     auto transcript = Flavor::Transcript::prover_init_empty();
     // test a bunch of challenges
-    auto challenges = transcript->template get_challenges<FF>("a", "b", "c", "d", "e", "f");
+    std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
+    auto challenges = transcript->template get_challenges<FF>(challenge_labels);
     // check they are not 0
     for (size_t i = 0; i < challenges.size(); ++i) {
         ASSERT_NE(challenges[i], 0) << "Challenge " << i << " is 0";
@@ -283,16 +277,17 @@ TYPED_TEST(MegaTranscriptTests, ChallengeGenerationTest)
     constexpr uint32_t random_val{ 17 }; // arbitrary
     transcript->send_to_verifier("random val", random_val);
     // test more challenges
-    auto [a, b, c] = transcript->template get_challenges<FF>("a", "b", "c");
-    ASSERT_NE(a, 0) << "Challenge a is 0";
-    ASSERT_NE(b, 0) << "Challenge b is 0";
-    ASSERT_NE(c, 0) << "Challenge c is 0";
+    challenge_labels = { "a", "b", "c" };
+    challenges = transcript->template get_challenges<FF>(challenge_labels);
+    ASSERT_NE(challenges[0], 0) << "Challenge a is 0";
+    ASSERT_NE(challenges[1], 0) << "Challenge b is 0";
+    ASSERT_NE(challenges[2], 0) << "Challenge c is 0";
 }
 
 TYPED_TEST(MegaTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     using FF = Flavor::FF;
     using Commitment = typename Flavor::Commitment;
@@ -309,10 +304,10 @@ TYPED_TEST(MegaTranscriptTests, StructureTest)
         this->generate_test_circuit(builder);
 
         // Automatically generate a transcript manifest by constructing a proof
-        auto proving_key = std::make_shared<DeciderProvingKey>(builder);
-        Prover prover(proving_key);
+        auto prover_instance = std::make_shared<ProverInstance>(builder);
+        Prover prover(prover_instance);
         auto proof = prover.construct_proof();
-        auto verification_key = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+        auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         Verifier verifier(verification_key);
         EXPECT_TRUE(verifier.verify_proof(proof));
 

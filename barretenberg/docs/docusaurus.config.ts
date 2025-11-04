@@ -63,6 +63,10 @@ const config: Config = {
     defaultLocale: "en",
     locales: ["en"],
   },
+
+  customFields: {
+    ENV: process.env.ENV,
+  },
   presets: [
     [
       "classic",
@@ -82,10 +86,21 @@ const config: Config = {
               },
             ],
           ],
+          // Don't show latest since nightlies are published
+          includeCurrentVersion: process.env.ENV === "dev",
+          // There should be 2 versions, nightly and stable
+          // The stable version is second in the list
+          lastVersion: versions[1],
           versions: {
-            current: {
-              label: "dev",
+            [versions[0]]: {
+              ...(versions[0].includes("nightly") && { path: "nightly" }),
             },
+            ...(process.env.ENV === "dev" && {
+              current: {
+                label: "dev",
+                path: "dev",
+              },
+            }),
           },
           editUrl: (params) => {
             return (

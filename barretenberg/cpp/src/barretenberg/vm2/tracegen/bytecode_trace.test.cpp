@@ -11,6 +11,7 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
+#include "barretenberg/vm2/simulation/standalone/pure_memory.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
@@ -20,8 +21,8 @@ namespace bb::avm2::tracegen {
 namespace {
 
 using C = Column;
+using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
-using simulation::BytecodeId;
 using simulation::Instruction;
 using simulation::InstructionFetchingEvent;
 
@@ -59,7 +60,10 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 4).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 4),
-                      ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
+                      ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0)));
 
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(bc_decomposition_sel, 1),
@@ -74,6 +78,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 3).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 3),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(31 - 1).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
     EXPECT_THAT(rows.at(3),
@@ -88,6 +95,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 2).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 2),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(31 - 2).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
     EXPECT_THAT(rows.at(4),
@@ -101,6 +111,9 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(31 - 3).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
 }
 
@@ -143,6 +156,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(-8).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 1),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, 0),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
     // We are interested to inspect the boundary aroud bytes_remaining == windows size
@@ -169,6 +185,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, 1),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE - 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 31),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(31 - 9).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 0)));
 
     // Last row
@@ -182,6 +201,9 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(bc_decomposition_windows_min_remaining_inv, FF(DECOMPOSE_WINDOW_SIZE - 1).invert()),
                       ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, 0),
                       ROW_FIELD_EQ(bc_decomposition_bytes_to_read, 1),
+                      ROW_FIELD_EQ(bc_decomposition_sel_packed, 0),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc, 62),
+                      ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv, FF(62 - (bytecode_size - 1)).invert()),
                       ROW_FIELD_EQ(bc_decomposition_last_of_contract, 1)));
 }
 
@@ -229,6 +251,7 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
 
     size_t row_pos = 1;
     for (uint32_t i = 0; i < 4; i++) {
+        uint32_t next_packed_pc = 0;
         for (uint32_t j = 0; j < bc_sizes[i]; j++) {
             const auto bytes_rem = bc_sizes[i] - j;
             EXPECT_THAT(
@@ -244,8 +267,13 @@ TEST(BytecodeTraceGenTest, MultipleEvents)
                         bytes_rem == DECOMPOSE_WINDOW_SIZE ? 0 : (FF(DECOMPOSE_WINDOW_SIZE) - FF(bytes_rem)).invert()),
                     ROW_FIELD_EQ(bc_decomposition_is_windows_eq_remaining, bytes_rem == DECOMPOSE_WINDOW_SIZE ? 1 : 0),
                     ROW_FIELD_EQ(bc_decomposition_bytes_to_read, std::min(DECOMPOSE_WINDOW_SIZE, bytes_rem)),
+                    ROW_FIELD_EQ(bc_decomposition_sel_packed, j == next_packed_pc ? 1 : 0),
+                    ROW_FIELD_EQ(bc_decomposition_next_packed_pc, next_packed_pc),
+                    ROW_FIELD_EQ(bc_decomposition_next_packed_pc_min_pc_inv,
+                                 j == next_packed_pc ? 0 : FF(next_packed_pc - j).invert()),
                     ROW_FIELD_EQ(bc_decomposition_last_of_contract, j == bc_sizes[i] - 1 ? 1 : 0)));
             row_pos++;
+            next_packed_pc += j % 31 == 0 ? 31 : 0;
         }
     }
 }
@@ -258,9 +286,9 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     builder.process_hashing(
         {
             simulation::BytecodeHashingEvent{
-                .bytecode_id = 0,
-                .bytecode_length = 6,
-                .bytecode_fields = { 10, 20 },
+                .bytecode_id = 1,
+                .bytecode_length = 9,
+                .bytecode_fields = { 10, 20, 30 },
             },
         },
         trace);
@@ -270,20 +298,44 @@ TEST(BytecodeTraceGenTest, BasicHashing)
     EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
                       ROW_FIELD_EQ(bc_hashing_start, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 1),
                       ROW_FIELD_EQ(bc_hashing_latch, 0),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 0),
+                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
                       ROW_FIELD_EQ(bc_hashing_pc_index, 0),
-                      ROW_FIELD_EQ(bc_hashing_packed_field, 10),
-                      ROW_FIELD_EQ(bc_hashing_incremental_hash, 6)));
+                      // We don't increment at start to account for the prepended separator:
+                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 31),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, GENERATOR_INDEX__PUBLIC_BYTECODE),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 10),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 20),
+                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 2),
+                      ROW_FIELD_EQ(bc_hashing_output_hash,
+                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, 10, 20, 30 })),
+                      ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 0)));
 
-    // Latched row (note we leave out the resulting hash in this test)
+    // Latched row
     EXPECT_THAT(rows.at(2),
                 AllOf(ROW_FIELD_EQ(bc_hashing_sel, 1),
                       ROW_FIELD_EQ(bc_hashing_start, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_start, 1),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_sel_not_padding_2, 0),
                       ROW_FIELD_EQ(bc_hashing_latch, 1),
-                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 0),
-                      ROW_FIELD_EQ(bc_hashing_pc_index, 31),
-                      ROW_FIELD_EQ(bc_hashing_packed_field, 20)));
+                      ROW_FIELD_EQ(bc_hashing_bytecode_id, 1),
+                      ROW_FIELD_EQ(bc_hashing_pc_index, 62),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_1, 93),
+                      ROW_FIELD_EQ(bc_hashing_pc_index_2, 124),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_0, 30),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_1, 0),
+                      ROW_FIELD_EQ(bc_hashing_packed_fields_2, 0),
+                      ROW_FIELD_EQ(bc_hashing_input_len, 4),
+                      ROW_FIELD_EQ(bc_hashing_rounds_rem, 1),
+                      ROW_FIELD_EQ(bc_hashing_output_hash,
+                                   RawPoseidon2::hash({ GENERATOR_INDEX__PUBLIC_BYTECODE, 10, 20, 30 })),
+                      ROW_FIELD_EQ(bc_hashing_pc_at_final_field, 62)));
 }
 
 std::vector<Instruction> gen_random_instructions(std::span<const WireOpCode> opcodes)

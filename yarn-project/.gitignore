@@ -54,9 +54,10 @@ noir-test-contracts.js/src
 noir-test-contracts.js/artifacts/
 noir-test-contracts.js/codegenCache.json
 types/fixtures/*.json
+test-wallet/artifacts
 cli-wallet/test/data
 
-.claude
+.claude/settings.local.json
 .yarn/*
 !.yarn/patches
 !.yarn/plugins

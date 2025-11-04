@@ -12,10 +12,10 @@
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/field_gt.hpp"
+#include "barretenberg/vm2/simulation/gadgets/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/gadgets/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
-#include "barretenberg/vm2/simulation/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
@@ -35,6 +35,7 @@ using ::testing::NiceMock;
 
 using simulation::build_retrieved_bytecodes_tree;
 using simulation::ClassIdLeafValue;
+using simulation::DeduplicatingEventEmitter;
 using simulation::EventEmitter;
 using simulation::FieldGreaterThan;
 using simulation::FieldGreaterThanEvent;
@@ -115,7 +116,7 @@ TEST_P(RetrievedBytecodesReadPositiveTests, Positive)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_event_emitter;
@@ -157,7 +158,7 @@ TEST_F(RetrievedBytecodesTreeCheckConstrainingTest, PositiveWriteAppend)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_event_emitter;
@@ -200,7 +201,7 @@ TEST_F(RetrievedBytecodesTreeCheckConstrainingTest, PositiveWriteMembership)
 
     NiceMock<MockRangeCheck> range_check;
 
-    EventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
+    DeduplicatingEventEmitter<FieldGreaterThanEvent> field_gt_event_emitter;
     FieldGreaterThan field_gt(range_check, field_gt_event_emitter);
 
     EventEmitter<RetrievedBytecodesTreeCheckEvent> retrieved_bytecodes_tree_event_emitter;

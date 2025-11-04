@@ -2,14 +2,14 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs, IRollupCore, RollupStore} from "@aztec/core/interfaces/IRollup.sol";
 import {CompressedTempBlockLog} from "@aztec/core/libraries/compressed-data/BlockLog.sol";
+import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/compressed-data/fees/FeeStructs.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {AttestationLib, CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
-import {BlobLib} from "@aztec/core/libraries/rollup/BlobLib.sol";
-import {CompressedFeeHeader, FeeHeaderLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
@@ -38,9 +38,9 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
  *      status.
  *
  *      Attestation Verification:
- *      Before accepting an epoch proof, this library verifies the attestations for the last block in the epoch.
- *      This ensures that the committee has properly validated the final state of the epoch. Note that this is
- *      equivalent to verifying the attestations for every block in the epoch, since the committee should not attest
+ *      Before accepting an epoch proof, this library verifies the attestations for the end block of the proof.
+ *      This ensures that the committee has properly validated the final state of the proof. Note that this is
+ *      equivalent to verifying the attestations for every prior block, since the committee should not attest
  *      to a block unless its ancestors are also valid and have been attested to. This step checks that the committee
  *      have agreed on the same output state of the proven range. For honest nodes, this is done by re-executing the
  *      transactions in the proven range and matching the state root, effectively acting as training wheels for the
@@ -176,7 +176,7 @@ library EpochProofLib {
     //   chain_id: Field,
     //   version: Field,
     //   vk_tree_root: Field,
-    //   protocol_contract_tree_root: Field,
+    //   protocol_contracts_hash: Field,
     //   prover_id: Field,
     //   blob_public_inputs: FinalBlobAccumulatorPublicInputs,
     // }
@@ -213,8 +213,8 @@ library EpochProofLib {
     publicInputs[offset] = rollupStore.config.vkTreeRoot;
     offset += 1;
 
-    // protocol_contract_tree_root
-    publicInputs[offset] = rollupStore.config.protocolContractTreeRoot;
+    // protocol_contracts_hash
+    publicInputs[offset] = rollupStore.config.protocolContractsHash;
     offset += 1;
 
     // prover_id: id of current epoch's prover

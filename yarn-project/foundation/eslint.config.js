@@ -107,6 +107,7 @@ export default [
             '@libp2p/bootstrap',
             // Seems like ignoring l1-artifacts in the eslint call messes up no-unresolved
             '@aztec/l1-artifacts',
+            '@aztec/bb.js',
           ],
         },
       ],

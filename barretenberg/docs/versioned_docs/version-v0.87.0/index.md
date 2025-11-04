@@ -36,7 +36,7 @@ Barretenberg serves as the cryptographic backend for [Noir](https://noir-lang.or
 2. **ACIR Processing**: Barretenberg takes the ACIR instructions and converts them into a circuit representation
 3. **Witness Generation**: Based on actual input values, Barretenberg computes a witness for the circuit
 4. **Proof Generation**: Barretenberg creates a zero-knowledge proof that the computation was performed correctly
-5. **Verification**: The proof can be verified using Barretenberg's verification algorithms, including on-chain via Solidity verifiers
+5. **Verification**: The proof can be verified using Barretenberg's verification algorithms, including onchain via Solidity verifiers
 
 This integration allows Noir developers to focus on writing application logic while Barretenberg handles the complex cryptographic operations underneath.
 
@@ -51,8 +51,8 @@ A versioning tool allowing to install arbitrary versions of Barretenberg, as wel
 The `bb` command line interface is the primary way to interact with Barretenberg directly. It provides commands for operations such as:
 
 - Proving and verifying circuits
-- Generating verification keys 
-- Creating Solidity verifiers for on-chain verification
+- Generating verification keys
+- Creating Solidity verifiers for onchain verification
 - Executing and verifying recursive proofs
 
 ### bb.js
@@ -74,7 +74,7 @@ UltraHonk is an advanced proof system that offers improvements over the legacy U
 
 As the name implies, SNARKs are non-interactive, making them suitable to be verified in smart contracts. This enables applications where:
 
-1. Verification happens on-chain (ensuring trustlessness)
+1. Verification happens onchain (ensuring trustlessness)
 2. Private data remains hidden while correctness is verified
 
 Barretenberg produces Solidity smart contracts meant to be used on several EVM networks, as long as they implement the `ecMul`, `ecAdd`, `ecPairing`, and `modexp` EVM precompiles. For example:
@@ -112,7 +112,7 @@ Barretenberg is organized into several key modules:
 - **Commitment Schemes**: Polynomial commitment methods
 - **DSL (Domain Specific Language)**: Interfaces with ACIR from Noir
 - **Execution**: Witness generation and computation
-- **Verification**: Proof verification both native and on-chain
+- **Verification**: Proof verification both native and onchain
 
 ## Further Resources
 

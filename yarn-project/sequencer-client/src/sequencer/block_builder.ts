@@ -1,10 +1,10 @@
-import { MerkleTreeId, elapsed } from '@aztec/aztec.js';
-import { pick } from '@aztec/foundation/collection';
+import { MerkleTreeId } from '@aztec/aztec.js/trees';
+import { merge, pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import { DateProvider, Timer } from '@aztec/foundation/timer';
+import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightBlockFactory } from '@aztec/prover-client/block-factory';
 import {
@@ -13,12 +13,12 @@ import {
   PublicProcessor,
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
-import type { ChainConfig, SequencerConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type {
   BuildBlockResult,
+  FullNodeBlockBuilderConfig,
   IFullNodeBlockBuilder,
   MerkleTreeWriteOperations,
   PublicProcessorLimits,
@@ -89,9 +89,14 @@ export async function buildBlock(
   return res;
 }
 
-type FullNodeBlockBuilderConfig = Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration'> &
-  Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
-  Pick<SequencerConfig, 'txPublicSetupAllowList' | 'fakeProcessingDelayPerTxMs'>;
+const FullNodeBlockBuilderConfigKeys = [
+  'l1GenesisTime',
+  'slotDuration',
+  'l1ChainId',
+  'rollupVersion',
+  'txPublicSetupAllowList',
+  'fakeProcessingDelayPerTxMs',
+] as const;
 
 export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   constructor(
@@ -103,19 +108,11 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
   ) {}
 
   public getConfig(): FullNodeBlockBuilderConfig {
-    return pick(
-      this.config,
-      'l1GenesisTime',
-      'slotDuration',
-      'l1ChainId',
-      'rollupVersion',
-      'txPublicSetupAllowList',
-      'fakeProcessingDelayPerTxMs',
-    );
+    return pick(this.config, ...FullNodeBlockBuilderConfigKeys);
   }
 
-  public updateConfig(config: FullNodeBlockBuilderConfig) {
-    this.config = config;
+  public updateConfig(config: Partial<FullNodeBlockBuilderConfig>) {
+    this.config = merge(this.config, pick(config, ...FullNodeBlockBuilderConfigKeys));
   }
 
   public async makeBlockBuilderDeps(globalVariables: GlobalVariables, fork: MerkleTreeWriteOperations) {
@@ -127,10 +124,12 @@ export class FullNodeBlockBuilder implements IFullNodeBlockBuilder {
       guardedFork,
       contractsDB,
       globalVariables,
-      /*doMerkleOperations=*/ true,
-      /*skipFeeEnforcement=*/ true,
-      /*clientInitiatedSimulation=*/ false,
       this.telemetryClient,
+      {
+        doMerkleOperations: true,
+        skipFeeEnforcement: true,
+        clientInitiatedSimulation: false,
+      },
     );
 
     const processor = new PublicProcessor(

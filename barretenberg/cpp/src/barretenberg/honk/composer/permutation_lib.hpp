@@ -184,7 +184,7 @@ PermutationMapping<Flavor::NUM_WIRES, generalized> compute_permutation_mapping(
 
                     // TODO(Zac): yikes, std::maps (tau) are expensive. Can we find a way to get rid of this?
                     mapping.sigmas[current_column].row_idx[current_row] =
-                        circuit_constructor.tau.at(real_variable_tags[cycle_idx]);
+                        circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
                 }
             }
         }
@@ -276,12 +276,8 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
 } // namespace
 
 /**
- * @brief Compute Honk style generalized permutation sigmas and ids and add to proving_key
- *
- * @param circuit
- * @param proving_key
- * @param copy_cycles pre-computed sets of wire addresses whose values should be copy constrained
- *
+ * @brief Compute Honk style generalized permutation sigmas and ids and add to prover_instance, where the
+ * copy_cycles are pre-computed sets of wire addresses whose values should be copy constrained.
  */
 template <typename Flavor>
 void compute_permutation_argument_polynomials(const typename Flavor::CircuitBuilder& circuit,

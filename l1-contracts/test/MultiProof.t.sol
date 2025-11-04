@@ -22,6 +22,7 @@ import {Ownable} from "@oz/access/Ownable.sol";
 import {stdStorage, StdStorage} from "forge-std/StdStorage.sol";
 import {RewardBooster, ActivityScore} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {BoostedHelper} from "./boosted_rewards/BoostRewardHelper.sol";
+
 // solhint-disable comprehensive-interface
 
 /**
@@ -188,9 +189,12 @@ contract MultiProofTest is RollupBase {
 
       assertEq(bobRewardsClaimed, bobRewards, "Bob rewards not claimed");
       assertEq(rollup.getSpecificProverRewardsForEpoch(Epoch.wrap(0), bob), 0, "Bob rewards not zeroed");
+      vm.record();
 
-      vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__AlreadyClaimed.selector, bob, Epoch.wrap(0)));
       rollup.claimProverRewards(bob, epochs);
+      (, bytes32[] memory writes) = vm.accesses(address(rollup));
+      // Ensure that there was no writes! We are just doing no-ops if they were already claimed.
+      assertEq(writes.length, 0);
     }
   }
 

@@ -11,17 +11,14 @@ use crate::note::{
 };
 use crate::note::retrieved_note::RetrievedNote;
 use crate::state_vars::storage::HasStorageSlot;
-use dep::protocol_types::{
-    abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-    traits::Packable,
-};
+use dep::protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable};
 
 mod test;
 
 /// # PrivateSet
 ///
 /// PrivateSet is a private state variable type, which enables you to read, mutate,
-/// and write private state within the #[private] functions of your smart contract.
+/// and write private state within the #[external("private")] functions of your smart contract.
 ///
 /// You can declare a state variable of type PrivateSet within your contract's
 /// #[storage] struct:
@@ -151,7 +148,6 @@ pub struct PrivateSet<Note, Context> {
     pub context: Context,
     pub storage_slot: Field,
 }
-// docs:end:struct
 
 impl<T, Context> HasStorageSlot<1> for PrivateSet<T, Context> {
     // Private storage slots are not really 'slots' but rather a value in the note
@@ -188,7 +184,6 @@ impl<Note, Context> PrivateSet<Note, Context> {
         assert(storage_slot != 0, "Storage slot 0 not allowed. Storage slots must start from 1.");
         PrivateSet { context, storage_slot }
     }
-    // docs:end:new
 }
 
 impl<Note> PrivateSet<Note, &mut PrivateContext>
@@ -259,7 +254,6 @@ where
     {
         create_note(self.context, self.storage_slot, note)
     }
-    // docs:end:insert
 
     /// Pops a collection of "current" notes (i.e. not-yet-nullified notes) which
     /// belong to this PrivateSet.
@@ -396,8 +390,7 @@ where
     ///
     pub fn remove(self, retrieved_note: RetrievedNote<Note>) {
         let note_hash = compute_note_hash_for_read_request(retrieved_note, self.storage_slot);
-        let has_been_read =
-            self.context.note_hash_read_requests.any(|r: ReadRequest| r.value == note_hash);
+        let has_been_read = self.context.note_hash_read_requests.any(|r| r.inner == note_hash);
         assert(has_been_read, "Can only remove a note that has been read from the set.");
 
         destroy_note_unsafe(self.context, retrieved_note, note_hash);
@@ -500,5 +493,4 @@ where
     {
         view_notes(self.storage_slot, options)
     }
-    // docs:end:view_notes
 }

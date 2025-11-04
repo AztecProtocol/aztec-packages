@@ -7,11 +7,11 @@
 #pragma once
 #include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/stdlib/honk_verifier/recursive_verifier_instance.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/protogalaxy_verifier/recursive_decider_verification_key.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
 template <typename Flavor> class DeciderRecursiveVerifier_ {
@@ -22,16 +22,17 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
     using VerificationKey = typename Flavor::VerificationKey;
     using VerifierCommitmentKey = typename Flavor::VerifierCommitmentKey;
     using Builder = typename Flavor::CircuitBuilder;
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
-    using RecursiveDeciderVK = RecursiveDeciderVerificationKey_<Flavor>;
-    using NativeDeciderVK = bb::DeciderVerificationKey_<NativeFlavor>;
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Curve = typename Flavor::Curve;
+    using PairingPoints = stdlib::recursion::PairingPoints<Curve>;
+    using RecursiveVerifierInstance = RecursiveVerifierInstance_<Flavor>;
+    using NativeVerifierInstance = bb::VerifierInstance_<NativeFlavor>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = bb::stdlib::Proof<Builder>;
 
   public:
-    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeDeciderVK> accumulator)
+    explicit DeciderRecursiveVerifier_(Builder* builder, std::shared_ptr<NativeVerifierInstance> accumulator)
         : builder(builder)
-        , accumulator(std::make_shared<RecursiveDeciderVK>(builder, accumulator)) {};
+        , accumulator(std::make_shared<RecursiveVerifierInstance>(builder, accumulator)) {};
 
     /**
      * @brief Construct a decider recursive verifier directly from a stdlib accumulator, returned by a prior iteration
@@ -43,7 +44,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
      * @param accumulator
      */
     explicit DeciderRecursiveVerifier_(Builder* builder,
-                                       std::shared_ptr<RecursiveDeciderVK> accumulator,
+                                       std::shared_ptr<RecursiveVerifierInstance> accumulator,
                                        const std::shared_ptr<Transcript>& transcript)
         : builder(builder)
         , transcript(transcript)
@@ -51,8 +52,8 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
         if (this->builder == accumulator->builder) {
             this->accumulator = std::move(accumulator);
         } else {
-            this->accumulator = std::make_shared<RecursiveDeciderVK>(
-                this->builder, std::make_shared<NativeDeciderVK>(accumulator->get_value()));
+            this->accumulator = std::make_shared<RecursiveVerifierInstance>(
+                this->builder, std::make_shared<NativeVerifierInstance>(accumulator->get_value()));
         }
     }
 
@@ -61,7 +62,7 @@ template <typename Flavor> class DeciderRecursiveVerifier_ {
 
     VerifierCommitmentKey pcs_verification_key;
     Builder* builder;
-    std::shared_ptr<RecursiveDeciderVK> accumulator;
+    std::shared_ptr<RecursiveVerifierInstance> accumulator;
     std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>();
 };
 

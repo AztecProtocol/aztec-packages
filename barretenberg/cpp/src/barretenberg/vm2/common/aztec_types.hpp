@@ -1,14 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <stdexcept>
 #include <vector>
 
+#include "barretenberg/common/streams.hpp" // Derives operator<< from MSGPACK_FIELDS.
 #include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 
 namespace bb::avm2 {
 
 using AztecAddress = FF;
+using BytecodeId = FF;
 using ContractClassId = FF;
 using PC = uint32_t;
 using AffinePoint = grumpkin::g1::affine_element;
@@ -96,6 +99,8 @@ struct ContractClass {
     FF private_function_root;
     FF public_bytecode_commitment;
     std::vector<uint8_t> packed_bytecode;
+
+    bool operator==(const ContractClass& other) const = default;
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -121,13 +126,50 @@ struct ScopedL2ToL1Message {
 };
 
 struct PublicLog {
+    std::vector<FF> fields;
     AztecAddress contractAddress;
-    std::array<FF, PUBLIC_LOG_SIZE_IN_FIELDS> fields;
-    uint32_t emittedLength;
 
     bool operator==(const PublicLog& other) const = default;
 
-    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
+    MSGPACK_FIELDS(fields, contractAddress);
+};
+
+struct PublicLogs {
+    uint32_t length = 0;
+    std::array<FF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH> payload{};
+    bool operator==(const PublicLogs& other) const = default;
+
+    PublicLogs() = default;
+    PublicLogs(uint32_t length, const std::array<FF, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH>& payload)
+        : length(length)
+        , payload(payload)
+    {}
+    PublicLogs(const std::vector<PublicLog>& logs)
+        : PublicLogs(from_logs(logs))
+    {}
+
+    void add_log(const PublicLog& log)
+    {
+        // Header
+        payload[length] = log.fields.size();
+        payload[length + 1] = log.contractAddress;
+        // Payload
+        for (size_t i = 0; i < log.fields.size(); ++i) {
+            payload[length + PUBLIC_LOG_HEADER_LENGTH + i] = log.fields[i];
+        }
+        length += log.fields.size() + PUBLIC_LOG_HEADER_LENGTH;
+    }
+
+    static PublicLogs from_logs(const std::vector<PublicLog>& logs)
+    {
+        PublicLogs public_logs;
+        for (const auto& log : logs) {
+            public_logs.add_log(log);
+        }
+        return public_logs;
+    }
+
+    MSGPACK_FIELDS(length, payload);
 };
 
 struct PublicDataWrite {
@@ -204,12 +246,11 @@ struct AvmAccumulatedDataArrayLengths {
     uint32_t noteHashes;
     uint32_t nullifiers;
     uint32_t l2ToL1Msgs;
-    uint32_t publicLogs;
     uint32_t publicDataWrites;
 
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
-    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicLogs, publicDataWrites);
+    MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -227,9 +268,9 @@ struct PrivateToAvmAccumulatedDataArrayLengths {
 };
 
 struct PrivateToAvmAccumulatedData {
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes;
-    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers;
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs;
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes{};
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs{};
 
     bool operator==(const PrivateToAvmAccumulatedData& other) const = default;
 
@@ -237,11 +278,11 @@ struct PrivateToAvmAccumulatedData {
 };
 
 struct AvmAccumulatedData {
-    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes;
-    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers;
-    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs;
-    std::array<PublicLog, MAX_PUBLIC_LOGS_PER_TX> publicLogs;
-    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> publicDataWrites;
+    std::array<FF, MAX_NOTE_HASHES_PER_TX> noteHashes{};
+    std::array<FF, MAX_NULLIFIERS_PER_TX> nullifiers{};
+    std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2ToL1Msgs{};
+    PublicLogs publicLogs;
+    std::array<PublicDataWrite, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX> publicDataWrites{};
 
     bool operator==(const AvmAccumulatedData& other) const = default;
 
@@ -277,11 +318,6 @@ struct AppendOnlyTreeSnapshot {
 
     std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
     bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
-    friend std::ostream& operator<<(std::ostream& os, const AppendOnlyTreeSnapshot& obj)
-    {
-        os << "root: " << obj.root << ", nextAvailableLeafIndex: " << obj.nextAvailableLeafIndex;
-        return os;
-    }
 
     MSGPACK_FIELDS(root, nextAvailableLeafIndex);
 };
@@ -302,6 +338,7 @@ struct TreeState {
     uint32_t counter;
 
     bool operator==(const TreeState& other) const = default;
+    MSGPACK_FIELDS(tree, counter);
 };
 
 struct TreeStates {
@@ -311,13 +348,87 @@ struct TreeStates {
     TreeState publicDataTree;
 
     bool operator==(const TreeStates& other) const = default;
+    MSGPACK_FIELDS(noteHashTree, nullifierTree, l1ToL2MessageTree, publicDataTree);
 };
 
-struct SideEffectStates {
-    uint32_t numUnencryptedLogs;
-    uint32_t numL2ToL1Messages;
+////////////////////////////////////////////////////////////////////////////
+// Misc Types
+////////////////////////////////////////////////////////////////////////////
 
-    bool operator==(const SideEffectStates& other) const = default;
+enum class DebugLogLevel {
+    SILENT = 0,
+    FATAL = 1,
+    ERROR = 2,
+    WARN = 3,
+    INFO = 4,
+    VERBOSE = 5,
+    DEBUG = 6,
+    TRACE = 7,
+    LAST = TRACE
 };
+
+inline bool is_valid_debug_log_level(uint8_t v)
+{
+    return v <= static_cast<uint8_t>(DebugLogLevel::LAST);
+}
+
+inline std::string debug_log_level_to_string(DebugLogLevel lvl)
+{
+    switch (lvl) {
+    case DebugLogLevel::SILENT:
+        return "silent";
+    case DebugLogLevel::FATAL:
+        return "fatal";
+    case DebugLogLevel::ERROR:
+        return "error";
+    case DebugLogLevel::WARN:
+        return "warn";
+    case DebugLogLevel::INFO:
+        return "info";
+    case DebugLogLevel::VERBOSE:
+        return "verbose";
+    case DebugLogLevel::DEBUG:
+        return "debug";
+    case DebugLogLevel::TRACE:
+        return "trace";
+    }
+}
+
+struct DebugLog {
+    AztecAddress contractAddress;
+    // Level is a string since on the TS side is a union type of strings
+    // We could make it a number but we'd need to/from validation and conversion on the TS side.
+    // Consider doing that if it becomes a performance problem.
+    std::string level;
+    std::string message;
+    std::vector<FF> fields;
+
+    bool operator==(const DebugLog& other) const = default;
+    MSGPACK_FIELDS(contractAddress, level, message, fields);
+};
+
+struct ProtocolContracts {
+    std::array<AztecAddress, MAX_PROTOCOL_CONTRACTS> derivedAddresses;
+
+    bool operator==(const ProtocolContracts& other) const = default;
+
+    MSGPACK_FIELDS(derivedAddresses);
+};
+
+inline bool is_protocol_contract_address(const AztecAddress& address)
+{
+    return !address.is_zero() && static_cast<uint256_t>(address) <= MAX_PROTOCOL_CONTRACTS;
+}
+
+inline std::optional<AztecAddress> get_derived_address(const ProtocolContracts& protocol_contracts,
+                                                       const AztecAddress& canonical_address)
+{
+    assert(is_protocol_contract_address(canonical_address) && "Protocol contract canonical address out of bounds");
+    AztecAddress derived_address = protocol_contracts.derivedAddresses.at(static_cast<uint32_t>(canonical_address) - 1);
+    if (derived_address.is_zero()) {
+        return std::nullopt;
+    }
+    return derived_address;
+}
 
 } // namespace bb::avm2

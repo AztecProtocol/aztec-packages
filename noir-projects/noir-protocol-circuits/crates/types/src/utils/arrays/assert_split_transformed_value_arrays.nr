@@ -1,4 +1,4 @@
-use crate::{abis::side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
+use crate::{side_effect::Ordered, traits::Empty, utils::arrays::find_index_hint};
 
 pub fn assert_split_transformed_value_arrays_with_hint<T, S, let N: u32, Env>(
     sorted_array: [T; N],
@@ -117,9 +117,9 @@ mod tests {
                 TestValue { value: 50, counter: 29 },
             ];
 
-            let transformed_value_array_lt = pad_end([40, 30, 80], 0);
+            let transformed_value_array_lt = pad_end([40, 30, 80]);
 
-            let transformed_value_array_gte = pad_end([10, 50], 0);
+            let transformed_value_array_gte = pad_end([10, 50]);
 
             TestBuilder {
                 sorted_array,

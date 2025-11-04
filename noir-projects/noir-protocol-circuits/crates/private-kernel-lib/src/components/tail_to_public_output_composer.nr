@@ -57,7 +57,7 @@ impl TailToPublicOutputComposer {
         );
 
         let mut output = PrivateToPublicKernelCircuitPublicInputs {
-            constants: source.constants,
+            constants: source.constants.to_tx_constant_data(),
             non_revertible_accumulated_data,
             revertible_accumulated_data,
             public_teardown_call_request: source.public_teardown_call_request,

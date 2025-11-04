@@ -1,12 +1,11 @@
-import { type InitialAccountData, getInitialTestAccounts } from '@aztec/accounts/testing';
-import type { Wallet } from '@aztec/aztec.js';
+import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { LogFn } from '@aztec/foundation/log';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { PXE } from '@aztec/stdlib/interfaces/client';
 
 const BANANA_COIN_SALT = new Fr(0);
 const bananaCoinArgs = {
@@ -46,14 +45,14 @@ export async function getBananaFPCAddress(initialAccounts: InitialAccountData[])
   return (await getBananaFPCInstance(initialAccounts)).address;
 }
 
-export async function setupBananaFPC(initialAccounts: InitialAccountData[], deployer: Wallet, log: LogFn) {
+export async function setupBananaFPC(initialAccounts: InitialAccountData[], wallet: Wallet, log: LogFn) {
   const bananaCoinAddress = await getBananaCoinAddress(initialAccounts);
   const admin = getBananaAdmin(initialAccounts);
   const [bananaCoin, fpc] = await Promise.all([
-    TokenContract.deploy(deployer, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal)
+    TokenContract.deploy(wallet, admin, bananaCoinArgs.name, bananaCoinArgs.symbol, bananaCoinArgs.decimal)
       .send({ from: admin, contractAddressSalt: BANANA_COIN_SALT, universalDeploy: true })
       .deployed(),
-    FPCContract.deploy(deployer, bananaCoinAddress, admin)
+    FPCContract.deploy(wallet, bananaCoinAddress, admin)
       .send({ from: admin, contractAddressSalt: BANANA_FPC_SALT, universalDeploy: true })
       .deployed(),
   ]);
@@ -62,22 +61,18 @@ export async function setupBananaFPC(initialAccounts: InitialAccountData[], depl
   log(`FPC: ${fpc.address}`);
 }
 
-export async function getDeployedBananaCoinAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
-  const bananaCoin = await getBananaCoinAddress(initialAccounts);
-  const contracts = await pxe.getContracts();
-  if (!contracts.find(c => c.equals(bananaCoin))) {
-    throw new Error('BananaCoin not deployed.');
-  }
-  return bananaCoin;
+export async function registerDeployedBananaCoinInWalletAndGetAddress(wallet: Wallet) {
+  const initialAccounts = await getInitialTestAccountsData();
+  const bananaCoin = await getBananaCoinInstance(initialAccounts);
+  // The following is no-op if the contract is already registered
+  await wallet.registerContract(bananaCoin, TokenContract.artifact);
+  return bananaCoin.address;
 }
 
-export async function getDeployedBananaFPCAddress(pxe: PXE) {
-  const initialAccounts = await getInitialTestAccounts();
+export async function registerDeployedBananaFPCInWalletAndGetAddress(wallet: Wallet) {
+  const initialAccounts = await getInitialTestAccountsData();
   const fpc = await getBananaFPCInstance(initialAccounts);
-  const contracts = await pxe.getContracts();
-  if (!contracts.find(c => c.equals(fpc.address))) {
-    throw new Error('BananaFPC not deployed.');
-  }
+  // The following is no-op if the contract is already registered
+  await wallet.registerContract(fpc, FPCContract.artifact);
   return fpc.address;
 }

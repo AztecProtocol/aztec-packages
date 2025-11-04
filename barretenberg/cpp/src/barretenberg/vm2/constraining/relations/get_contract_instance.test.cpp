@@ -270,7 +270,7 @@ TEST(GetContractInstanceConstrainingTest, IntegrationTracegenValid)
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = 100;
     const uint8_t deployer_enum = static_cast<uint8_t>(ContractInstanceMember::DEPLOYER);
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF nullifier_tree_root = 0x1234;
     const FF public_data_tree_root = 0x5678;
     const FF deployer_addr = 0x5678;
@@ -315,7 +315,7 @@ TEST(GetContractInstanceConstrainingTest, IntegrationTracegenInvalidEnum)
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = 100;
     const uint8_t invalid_enum = 200;
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF nullifier_tree_root = 0x1234;
     const FF public_data_tree_root = 0x5678;
     const FF deployer_addr = 0x5678;
@@ -360,7 +360,7 @@ TEST(GetContractInstanceConstrainingTest, IntegrationTracegenOutOfBounds)
     const FF contract_address = 0x1234;
     const uint32_t dst_offset = AVM_HIGHEST_MEM_ADDRESS;
     const uint8_t class_id_enum = static_cast<uint8_t>(ContractInstanceMember::CLASS_ID);
-    const uint32_t space_id = 1;
+    const uint16_t space_id = 1;
     const FF nullifier_tree_root = 0x1234;
     const FF public_data_tree_root = 0x5678;
     const FF deployer_addr = 0x5678;

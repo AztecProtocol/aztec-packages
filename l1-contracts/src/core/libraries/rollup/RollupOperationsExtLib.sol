@@ -7,12 +7,17 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-import {BlobLib} from "./BlobLib.sol";
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
-  ProposeLib, ProposeArgs, CommitteeAttestations, ValidateHeaderArgs, ValidatorSelectionLib
+  ProposeLib,
+  ProposeArgs,
+  CommitteeAttestations,
+  ValidateHeaderArgs,
+  ValidatorSelectionLib
 } from "./ProposeLib.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
  * @title RollupOperationsExtLib - External Rollup Library (Proposal and Proof Verification Functions)
@@ -40,7 +45,8 @@ library RollupOperationsExtLib {
   function validateHeaderWithAttestations(
     ValidateHeaderArgs calldata _args,
     CommitteeAttestations calldata _attestations,
-    address[] calldata _signers
+    address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature
   ) external {
     ProposeLib.validateHeader(_args);
     if (_attestations.isEmpty()) {
@@ -50,17 +56,20 @@ library RollupOperationsExtLib {
     Slot slot = _args.header.slotNumber;
     Epoch epoch = slot.epochFromSlot();
     ValidatorSelectionLib.verifyAttestations(slot, epoch, _attestations, _args.digest);
-    ValidatorSelectionLib.verifyProposer(slot, epoch, _attestations, _signers, _args.digest);
+    ValidatorSelectionLib.verifyProposer(
+      slot, epoch, _attestations, _signers, _args.digest, _attestationsAndSignersSignature, false
+    );
   }
 
   function propose(
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput,
     bool _checkBlob
   ) external {
-    ProposeLib.propose(_args, _attestations, _signers, _blobInput, _checkBlob);
+    ProposeLib.propose(_args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, _checkBlob);
   }
 
   function prune() external {

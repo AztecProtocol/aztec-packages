@@ -36,6 +36,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/node-keystore": "workspace:^",
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
@@ -50,9 +51,8 @@
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "lodash.chunk": "^4.2.0",
-    "lodash.pick": "^4.4.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7"
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
   },
   "devDependencies": {
     "@aztec/archiver": "workspace:^",
@@ -64,7 +64,7 @@
     "@types/node": "^22.15.17",
     "concurrently": "^7.6.0",
     "eslint": "^9.26.0",
-    "express": "^4.21.1",
+    "express": "^4.21.2",
     "jest": "^30.0.0",
     "jest-mock-extended": "^4.0.0",
     "prettier": "^3.5.3",

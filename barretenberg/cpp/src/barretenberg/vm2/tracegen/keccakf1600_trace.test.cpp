@@ -6,7 +6,7 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
-#include "barretenberg/vm2/simulation/keccakf1600.hpp"
+#include "barretenberg/vm2/simulation/gadgets/keccakf1600.hpp"
 #include "barretenberg/vm2/testing/keccakf1600_fixture.test.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/keccakf1600_trace.hpp"
@@ -63,24 +63,23 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
     ASSERT_EQ(rows.size(), 2 * AVM_KECCAKF1600_STATE_SIZE + 1); // +1 for the initial empty row
 
     // Check the first row of the read operation
-    EXPECT_THAT(
-        rows.at(1),
-        AllOf(ROW_FIELD_EQ(keccak_memory_sel, 1),
-              ROW_FIELD_EQ(keccak_memory_ctr, 1),
-              ROW_FIELD_EQ(keccak_memory_start_read, 1),
-              ROW_FIELD_EQ(keccak_memory_start_write, 0),
-              ROW_FIELD_EQ(keccak_memory_last, 0),
-              ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
-              ROW_FIELD_EQ(keccak_memory_rw, 0),
-              ROW_FIELD_EQ(keccak_memory_addr, 100),
-              ROW_FIELD_EQ(keccak_memory_space_id, 23),
-              ROW_FIELD_EQ(keccak_memory_val00, 1000),
-              ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
-              ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
-              ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-              ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
-              ROW_FIELD_EQ(keccak_memory_ctr_min_state_size_inv, (FF(1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert()),
-              ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 1)));
+    EXPECT_THAT(rows.at(1),
+                AllOf(ROW_FIELD_EQ(keccak_memory_sel, 1),
+                      ROW_FIELD_EQ(keccak_memory_ctr, 1),
+                      ROW_FIELD_EQ(keccak_memory_start_read, 1),
+                      ROW_FIELD_EQ(keccak_memory_start_write, 0),
+                      ROW_FIELD_EQ(keccak_memory_last, 0),
+                      ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
+                      ROW_FIELD_EQ(keccak_memory_rw, 0),
+                      ROW_FIELD_EQ(keccak_memory_addr, 100),
+                      ROW_FIELD_EQ(keccak_memory_space_id, 23),
+                      ROW_FIELD_EQ(keccak_memory_val00, 1000),
+                      ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
+                      ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
+                      ROW_FIELD_EQ(keccak_memory_tag_error, 0),
+                      ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
+                      ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, (FF(AVM_KECCAKF1600_STATE_SIZE - 1)).invert()),
+                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
     // Check the last row of the read operation
     EXPECT_THAT(rows.at(AVM_KECCAKF1600_STATE_SIZE),
@@ -98,28 +97,27 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_ctr_inv, FF(AVM_KECCAKF1600_STATE_SIZE).invert()),
-                      ROW_FIELD_EQ(keccak_memory_ctr_min_state_size_inv, 1),
-                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 1)));
+                      ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, 0),
+                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
     // Check the first row of the write operation (after read operation)
-    EXPECT_THAT(
-        rows.at(AVM_KECCAKF1600_STATE_SIZE + 1),
-        AllOf(ROW_FIELD_EQ(keccak_memory_sel, 1),
-              ROW_FIELD_EQ(keccak_memory_ctr, 1),
-              ROW_FIELD_EQ(keccak_memory_start_read, 0),
-              ROW_FIELD_EQ(keccak_memory_start_write, 1),
-              ROW_FIELD_EQ(keccak_memory_last, 0),
-              ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
-              ROW_FIELD_EQ(keccak_memory_rw, 1),
-              ROW_FIELD_EQ(keccak_memory_addr, 200),
-              ROW_FIELD_EQ(keccak_memory_space_id, 23),
-              ROW_FIELD_EQ(keccak_memory_val00, 10000),
-              ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
-              ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
-              ROW_FIELD_EQ(keccak_memory_tag_error, 0),
-              ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
-              ROW_FIELD_EQ(keccak_memory_ctr_min_state_size_inv, (FF(1) - FF(AVM_KECCAKF1600_STATE_SIZE)).invert()),
-              ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 1)));
+    EXPECT_THAT(rows.at(AVM_KECCAKF1600_STATE_SIZE + 1),
+                AllOf(ROW_FIELD_EQ(keccak_memory_sel, 1),
+                      ROW_FIELD_EQ(keccak_memory_ctr, 1),
+                      ROW_FIELD_EQ(keccak_memory_start_read, 0),
+                      ROW_FIELD_EQ(keccak_memory_start_write, 1),
+                      ROW_FIELD_EQ(keccak_memory_last, 0),
+                      ROW_FIELD_EQ(keccak_memory_ctr_end, 0),
+                      ROW_FIELD_EQ(keccak_memory_rw, 1),
+                      ROW_FIELD_EQ(keccak_memory_addr, 200),
+                      ROW_FIELD_EQ(keccak_memory_space_id, 23),
+                      ROW_FIELD_EQ(keccak_memory_val00, 10000),
+                      ROW_FIELD_EQ(keccak_memory_tag, static_cast<uint8_t>(MemoryTag::U64)),
+                      ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
+                      ROW_FIELD_EQ(keccak_memory_tag_error, 0),
+                      ROW_FIELD_EQ(keccak_memory_ctr_inv, 1),
+                      ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, (FF(AVM_KECCAKF1600_STATE_SIZE - 1)).invert()),
+                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 
     // Check the last row of the write operation
     EXPECT_THAT(rows.at(2 * AVM_KECCAKF1600_STATE_SIZE),
@@ -137,8 +135,8 @@ TEST(KeccakF1600TraceGenTest, MemorySliceReadAndWrite)
                       ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_tag_error, 0),
                       ROW_FIELD_EQ(keccak_memory_ctr_inv, FF(AVM_KECCAKF1600_STATE_SIZE).invert()),
-                      ROW_FIELD_EQ(keccak_memory_ctr_min_state_size_inv, 1),
-                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 1)));
+                      ROW_FIELD_EQ(keccak_memory_state_size_min_ctr_inv, 0),
+                      ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0)));
 }
 
 // We use simulation to generate the trace of a positive keccakf1600 event.
@@ -148,7 +146,7 @@ TEST(KeccakF1600TraceGenTest, MainKeccakTraceWithSimulation)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace(trace, { dst_addr }, { src_addr }, space_id);
 
@@ -205,7 +203,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
 
     const MemoryAddress src_addr = 0;
     const MemoryAddress dst_addr = 200;
-    const uint32_t space_id = 79;
+    const uint16_t space_id = 79;
 
     // Position (1,2) in the 5x5 matrix corresponds to index 7 in the flattened array
     const size_t error_offset = 7;              // (1 * 5) + 2 = 7
@@ -232,7 +230,7 @@ TEST(KeccakF1600TraceGenTest, TagErrorHandling)
     for (size_t i = 1; i < error_offset + 1; i++) {
         EXPECT_THAT(rows.at(i),
                     AllOf(ROW_FIELD_EQ(keccak_memory_single_tag_error, 0),
-                          ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 1),
+                          ROW_FIELD_EQ(keccak_memory_tag_min_u64_inv, 0),
                           ROW_FIELD_EQ(keccak_memory_last, 0)));
     }
 
@@ -282,7 +280,7 @@ TEST(KeccakF1600TraceGenTest, SrcAddressOutOfBounds)
 
     const MemoryAddress src_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
     const MemoryAddress dst_addr = 456;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 
@@ -325,7 +323,7 @@ TEST(KeccakF1600TraceGenTest, DstAddressOutOfBounds)
 
     const MemoryAddress src_addr = 123;
     const MemoryAddress dst_addr = AVM_HIGHEST_MEM_ADDRESS - AVM_KECCAKF1600_STATE_SIZE + 2;
-    const uint32_t space_id = 23;
+    const uint16_t space_id = 23;
 
     testing::generate_keccak_trace_with_slice_error(trace, dst_addr, src_addr, space_id);
 

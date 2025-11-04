@@ -53,10 +53,8 @@ where
         offset: u32,
     ) -> u128 {
         let mut balance = 0 as u128;
-        // docs:start:view_notes
         let mut options = NoteViewerOptions::new();
         let notes = self.map.at(owner).view_notes(options.set_offset(offset));
-        // docs:end:view_notes
         for i in 0..options.limit {
             if i < notes.len() {
                 balance = balance + notes.get_unchecked(i).get_amount();
@@ -76,15 +74,15 @@ impl<Note> BalancesMap<Note, &mut PrivateContext> {
     where
         Note: NoteType + NoteHash + OwnedNote + Eq + Packable,
     {
-        if addend == 0 as u128 {
-            OuterNoteEmission::new(Option::none())
+        let content_option = if addend == 0 as u128 {
+            Option::none()
         } else {
             let addend_note = Note::new(addend, owner);
 
-            // docs:start:insert
-            OuterNoteEmission::new(Option::some(self.map.at(owner).insert(addend_note)))
-            // docs:end:insert
-        }
+            Option::some(self.map.at(owner).insert(addend_note).content)
+        };
+
+        OuterNoteEmission::new(content_option, self.map.context)
     }
 
     pub fn sub(self: Self, owner: AztecAddress, subtrahend: u128) -> OuterNoteEmission<Note>

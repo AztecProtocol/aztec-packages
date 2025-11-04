@@ -30,16 +30,9 @@ void GetContractInstanceTraceBuilder::process(
     for (const auto& event : events) {
 
         // Bounds checking logic for new constraint
+        // dstOffset+1 out of bounds <==> `DST_OFFSET_DIFF_MAX = 0`
         bool writes_are_in_bounds = event.dst_offset != AVM_HIGHEST_MEM_ADDRESS;
         FF dst_offset_diff_max = FF(AVM_HIGHEST_MEM_ADDRESS) - FF(event.dst_offset);
-        // dstOffset+1 out of bounds <==> `DST_OFFSET_DIFF_MAX = 0`
-        // Generate `dst_offset_diff_max_inv` as `inverse(DST_OFFSET_DIFF_MAX)`
-        FF dst_offset_diff_max_inv;
-        if (dst_offset_diff_max.is_zero()) {
-            dst_offset_diff_max_inv = FF(0);
-        } else {
-            dst_offset_diff_max_inv = dst_offset_diff_max.invert();
-        }
 
         bool is_valid_member_enum = false;
         bool is_deployer = false;
@@ -76,9 +69,11 @@ void GetContractInstanceTraceBuilder::process(
                 { C::get_contract_instance_public_data_tree_root, event.public_data_tree_root },
                 { C::get_contract_instance_nullifier_tree_root, event.nullifier_tree_root },
                 { C::get_contract_instance_sel_error, has_error ? 1 : 0 },
+
                 // Intermediate selectors and error flags
                 { C::get_contract_instance_is_valid_writes_in_bounds, writes_are_in_bounds ? 1 : 0 },
-                { C::get_contract_instance_dst_offset_diff_max_inv, dst_offset_diff_max_inv },
+                { C::get_contract_instance_dst_offset_diff_max_inv, dst_offset_diff_max }, // Will be inverted in batch
+
                 // Columns from precomputed table
                 { C::get_contract_instance_is_valid_member_enum, is_valid_member_enum ? 1 : 0 },
                 { C::get_contract_instance_is_deployer, is_deployer ? 1 : 0 },
@@ -98,6 +93,9 @@ void GetContractInstanceTraceBuilder::process(
 
         row++;
     }
+
+    // Batch invert the columns.
+    trace.invert_columns({ { C::get_contract_instance_dst_offset_diff_max_inv } });
 }
 
 const InteractionDefinition GetContractInstanceTraceBuilder::interactions =

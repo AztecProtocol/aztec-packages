@@ -1,4 +1,8 @@
-use crate::{abis::side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
+pub(crate) mod test_leaf_preimage;
+
+pub use test_leaf_preimage::TestLeafPreimage;
+
+use crate::{side_effect::Ordered, traits::{Deserialize, Empty, Serialize}};
 
 #[derive(Deserialize, Eq, Serialize)]
 pub(crate) struct TestValue {

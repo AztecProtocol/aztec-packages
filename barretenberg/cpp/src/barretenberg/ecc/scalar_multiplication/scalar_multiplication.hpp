@@ -94,7 +94,7 @@ template <typename Curve> class MSM {
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<typename Curve::ScalarField> scalars,
                                                                 std::vector<uint32_t>& consolidated_indices) noexcept;
 
-    static std::vector<ThreadWorkUnits> get_work_units(std::vector<std::span<ScalarField>>& scalars,
+    static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
     static uint32_t get_scalar_slice(const ScalarField& scalar, size_t round, size_t normal_slice_size) noexcept;
     static size_t get_optimal_log_num_buckets(const size_t num_points) noexcept;
@@ -122,8 +122,8 @@ template <typename Curve> class MSM {
                                        size_t num_input_points_processed,
                                        size_t num_queued_affine_points) noexcept;
 
-    static std::vector<AffineElement> batch_multi_scalar_mul(std::vector<std::span<const AffineElement>>& points,
-                                                             std::vector<std::span<ScalarField>>& scalars,
+    static std::vector<AffineElement> batch_multi_scalar_mul(std::span<std::span<const AffineElement>> points,
+                                                             std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
     static AffineElement msm(std::span<const AffineElement> points,
                              PolynomialSpan<const ScalarField> _scalars,
@@ -132,7 +132,7 @@ template <typename Curve> class MSM {
     template <typename BucketType> static Element accumulate_buckets(BucketType& bucket_accumulators) noexcept
     {
         auto& buckets = bucket_accumulators.buckets;
-        BB_ASSERT_GT(buckets.size(), static_cast<size_t>(0));
+        BB_ASSERT_DEBUG(buckets.size() > static_cast<size_t>(0));
         int starting_index = static_cast<int>(buckets.size() - 1);
         Element prefix_sum;
         bool found_start = false;
@@ -149,7 +149,7 @@ template <typename Curve> class MSM {
         if (!found_start) {
             return Curve::Group::point_at_infinity;
         }
-        BB_ASSERT_GT(starting_index, 0);
+        BB_ASSERT_DEBUG(starting_index > 0);
         AffineElement offset_generator = Curve::Group::affine_point_at_infinity;
         if constexpr (std::same_as<typename Curve::Group, bb::g1>) {
             constexpr auto gen = get_precomputed_generators<typename Curve::Group, "ECCVM_OFFSET_GENERATOR", 1>()[0];
@@ -161,7 +161,7 @@ template <typename Curve> class MSM {
         Element sum = prefix_sum + offset_generator;
         for (int i = static_cast<int>(starting_index - 1); i > 0; --i) {
             size_t idx = static_cast<size_t>(i);
-            BB_ASSERT_LT(idx, bucket_accumulators.bucket_exists.size());
+            BB_ASSERT_DEBUG(idx < bucket_accumulators.bucket_exists.size());
             if (bucket_accumulators.bucket_exists.get(idx)) {
 
                 prefix_sum += buckets[idx];

@@ -19,105 +19,104 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy-staging-networks:
+  determine-semver:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    env:
-      NETWORK_ENV_FILE: /tmp/network.env
-      GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
+    outputs:
+      semver: ${{ steps.semver.outputs.value }}
+      major_version: ${{ steps.semver.outputs.major_version }}
+      minor_version: ${{ steps.semver.outputs.minor_version }}
+      should_deploy: ${{ steps.semver.outputs.should_deploy }}
+      branch: ${{ steps.branch.outputs.value }}
     steps:
-      #############
-      # Prepare Env
-      #############
-      - name: Checkout (workflow_run)
-        if: github.event_name == 'workflow_run'
+      - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Checkout (workflow_dispatch)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-        with:
-          ref: refs/tags/v${{ inputs.semver }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Determine semver from tag
-        if: github.event_name == 'workflow_run'
+
+      - name: Determine branch
+        id: branch
         run: |
-          git fetch --tags --force
-          tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
-          if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
-            echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
-            exit 0
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ github.ref }}" ]]; then
+            echo "value=${{ github.ref }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "value=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "value=${{ github.event.workflow_run.head_branch || github.ref_name }}" >> $GITHUB_OUTPUT
           fi
-          semver="${tag#v}"
+
+      - name: Determine semver
+        id: semver
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            git fetch --tags --force
+            tag=$(git tag --points-at "${{ github.event.workflow_run.head_sha }}" | head -n1)
+            if ! echo "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+'; then
+              echo "No semver tag found for head_sha: ${{ github.event.workflow_run.head_sha }}. Skipping."
+              echo "should_deploy=false" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            semver="${tag#v}"
+          else
+            semver="${{ inputs.semver }}"
+          fi
+
           major_version="${semver%%.*}"
-          echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
-      - name: Set semver from input
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          semver="${{ inputs.semver }}"
-          major_version="${semver%%.*}"
-          echo "SEMVER=$semver" >> $GITHUB_ENV
-          echo "MAJOR_VERSION=$major_version" >> $GITHUB_ENV
-      - name: Setup
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          # Ensure we can SSH into the spot instances we request.
-          mkdir -p ~/.ssh
-          echo ${{ secrets.BUILD_INSTANCE_SSH_KEY }} | base64 --decode > ~/.ssh/build_instance_key
-          chmod 600 ~/.ssh/build_instance_key
-          sudo apt install -y --no-install-recommends redis-tools parallel
+          minor_version="${semver#*.}"
+          minor_version="${minor_version%%.*}"
+          echo "value=$semver" >> $GITHUB_OUTPUT
+          echo "major_version=$major_version" >> $GITHUB_OUTPUT
+          echo "minor_version=$minor_version" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
 
-      - name: Store the GCP key in a file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          echo "${{ secrets.GCP_SA_KEY }}" > ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
+  deploy-staging-public:
+    needs: determine-semver
+    # temporarily disabled
+    if: false # needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-public
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
 
-      # note: it is fine to log the mnemonic here. this is an internal,
-      # throwaway test network.
-      - name: Write staging-public network env file
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2'
-        run: |
-          SEMVER_SALT=$(echo "${MAJOR_VERSION}" | md5sum | cut -d' ' -f1)
-          cat > ${{ env.NETWORK_ENV_FILE }} <<EOF
-          CREATE_ETH_DEVNET=false
-          GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-          GCP_REGION=us-west1-a
-          CLUSTER=aztec-gke-private
-          SALT=${SEMVER_SALT}
-          NAMESPACE="v${MAJOR_VERSION}-staging-public"
-          AZTEC_DOCKER_IMAGE="aztecprotocol/aztec:${SEMVER}"
-          ETHEREUM_CHAIN_ID=11155111
-          ETHEREUM_RPC_URLS=${{ secrets.SEPOLIA_RPC_URLS }}
-          ETHEREUM_CONSENSUS_HOST_URLS=${{ secrets.SEPOLIA_CONSENSUS_HOST_URLS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEYS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEYS }}
-          ETHEREUM_CONSENSUS_HOST_API_KEY_HEADERS=${{ secrets.SEPOLIA_CONSENSUS_HOST_API_KEY_HEADERS }}
-          FUNDING_PRIVATE_KEY=${{ secrets.SEPOLIA_FUNDING_PRIVATE_KEY }}
-          LABS_INFRA_MNEMONIC=${{ secrets.SEPOLIA_LABS_INFRA_MNEMONIC }}
-          OTEL_COLLECTOR_ENDPOINT=${{ secrets.OTEL_COLLECTOR_URL }}
-          EOF
+  deploy-staging-ignition:
+    # Depends on staging-public until we are confident in concurrent deployments
+    needs: [determine-semver, deploy-staging-public]
+    # temporarily disabled
+    if: false # needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: staging-ignition
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
 
-      #############
-      # Run
-      #############
-      - name: Run
-        if: env.SEMVER != '' && env.MAJOR_VERSION == '2' && (steps.ci_cache.outputs.cache-hit != 'true' || true)
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          # Pass the base64 encoded strings, and where they should be decoded to
-          NETWORK_ENV_FILE: ${{ env.NETWORK_ENV_FILE }}
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ env.GOOGLE_APPLICATION_CREDENTIALS }}
-        run: |
-          # the network env file and gcp credentials file are mounted into the ec2 instance
-          # see ci3/bootstrap_ec2
-          exec ./ci.sh network-deploy
+  deploy-testnet:
+    # Add deploy-staging-ignition here as a dependency if the version for testnet is the same
+    # needs: [determine-semver, deploy-staging-ignition]
+    needs: [determine-semver]
+    # Only deploy testnet if we are not a pre-release (i.e. semver does not contain a hyphen)
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '0' && !contains(needs.determine-semver.outputs.semver, '-')
+    uses: ./.github/workflows/deploy-staging-network.yml
+    with:
+      network: testnet
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit
+
+  deploy-fisherman:
+    # Switch to deploy-testnet as a dependency if the version for fisherman is the same
+    # needs: [determine-semver, deploy-testnet]
+    needs: [determine-semver, deploy-staging-ignition]
+    if: needs.determine-semver.outputs.should_deploy == 'true' && needs.determine-semver.outputs.major_version == '2' && needs.determine-semver.outputs.minor_version == '1'
+    uses: ./.github/workflows/deploy-fisherman-network.yaml
+    with:
+      l1_network: sepolia
+      semver: ${{ needs.determine-semver.outputs.semver }}
+      ref: ${{ needs.determine-semver.outputs.branch }}
+    secrets: inherit

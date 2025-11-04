@@ -1,7 +1,9 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 use types::{
+    abis::protocol_contracts::ProtocolContracts,
     address::AztecAddress,
+    constants::MAX_PROTOCOL_CONTRACTS,
     contract_class_id::ContractClassId,
     delayed_public_mutable::scheduled_value_change::ScheduledValueChange,
     tests::fixtures,
@@ -15,7 +17,7 @@ impl PrivateCallDataValidatorBuilder {
 
     pub fn new_with_protocol_contract() -> Self {
         let mut builder = PrivateCallDataValidatorBuilder::new();
-        let _ = builder.private_call.use_protocol_contract(1);
+        let _ = builder.private_call.use_protocol_contract(0);
         builder
     }
 
@@ -106,13 +108,15 @@ fn validate_contract_address_protocol_contract_succeeds() {
     builder.validate();
 }
 
-#[test(should_fail)]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
-    // Swap the special address (0x01) with the computed address
-    builder.private_call.contract_address =
-        AztecAddress { inner: builder.private_call.protocol_contract_leaf.address };
-    // Validate may fail with either one of the low leaf membership errors
+
+    // Swap the derived address of the protocol contract (canonical=0x01)
+    let mut derived_addresses = [AztecAddress::zero(); MAX_PROTOCOL_CONTRACTS];
+    derived_addresses[0] = AztecAddress::from_field(42);
+    builder.private_call.protocol_contracts = ProtocolContracts::new(derived_addresses);
+
     builder.validate();
 }
 
@@ -125,29 +129,11 @@ fn validate_contract_address_protocol_contract_wrong_index_fails() {
     builder.validate();
 }
 
-#[test(should_fail_with = "Key does not match the key of the leaf preimage")]
+#[test(should_fail_with = "computed contract address does not match expected one")]
 fn validate_contract_address_protocol_contract_wrong_computed_address_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
 
     builder.private_call.salted_initialization_hash.inner += 1;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "Key does not match the key of the leaf preimage")]
-fn validate_contract_address_protocol_address_wrong_low_leaf_key() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
-
-    builder.private_call.protocol_contract_leaf.address += 1;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "membership check failed")]
-fn validate_contract_address_protocol_address_wrong_low_leaf_next_key() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_with_protocol_contract();
-
-    builder.private_call.protocol_contract_leaf.next_address += 1;
 
     builder.validate();
 }
@@ -157,16 +143,7 @@ fn validate_contract_address_wrong_vk_fails() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
     // Change the vk hash so the address doesn't match anymore
-    builder.private_call.client_ivc_vk.hash += 1;
-
-    builder.validate();
-}
-
-#[test(should_fail_with = "membership check failed")]
-fn validate_contract_address_regular_address_wrong_low_leaf() {
-    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
-
-    builder.private_call.protocol_contract_leaf.address += 1;
+    builder.private_call.vk.hash += 1;
 
     builder.validate();
 }
@@ -177,7 +154,7 @@ fn validate_contract_address_with_updated_contract_succeeds() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.timestamp,
+        builder.private_call.anchor_block_header.global_variables.timestamp,
     );
 
     builder.validate();
@@ -189,7 +166,7 @@ fn validate_contract_address_not_yet_updated_contract_fails() {
 
     builder.compute_updated_contract(
         fixtures::contracts::default_contract.contract_class_id,
-        builder.private_call.historical_header.global_variables.timestamp + 1,
+        builder.private_call.anchor_block_header.global_variables.timestamp + 1,
     );
 
     builder.validate();
@@ -204,7 +181,7 @@ fn validate_contract_address_updated_to_different_class_fails() {
     );
     builder.compute_updated_contract(
         new_class_id,
-        builder.private_call.historical_header.global_variables.timestamp,
+        builder.private_call.anchor_block_header.global_variables.timestamp,
     );
 
     builder.validate();

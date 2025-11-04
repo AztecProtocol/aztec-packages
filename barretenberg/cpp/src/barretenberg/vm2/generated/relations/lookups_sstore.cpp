@@ -26,6 +26,5 @@
 namespace bb::avm2 {
 
 INSTANTIATE_LOOKUP(lookup_sstore_record_written_storage_slot_relation);
-INSTANTIATE_LOOKUP(lookup_sstore_storage_write_relation);
 
 } // namespace bb::avm2

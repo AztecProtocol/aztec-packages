@@ -1,7 +1,9 @@
 /**
  * Tests for keystore duplication check logic and validation integration
  */
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { describe, expect, it } from '@jest/globals';
 import { dirname, join } from 'path';
@@ -9,7 +11,7 @@ import { fileURLToPath } from 'url';
 
 import { KeystoreError, KeystoreManager } from '../src/keystore_manager.js';
 import { KeyStoreLoadError, loadKeystoreFile, mergeKeystores } from '../src/loader.js';
-import type { KeyStore } from '../src/types.js';
+import type { KeyStore, ProverKeyStoreWithId } from '../src/types.js';
 
 // Enable logger output in tests by setting LOG_LEVEL
 const logger = createLogger('node-keystore:validation-test');
@@ -57,6 +59,35 @@ describe('Keystore Duplication Validation', () => {
 
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
     expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Multiple prover configurations found/);
+  });
+
+  it('should reject duplicate ETH attester across keystores even if BLS differs', () => {
+    const eth = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as any;
+    const bls1 = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as any;
+    const bls2 = '0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc' as any;
+
+    const keystore1: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { eth, bls: bls1 } as any,
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    const keystore2: KeyStore = {
+      schemaVersion: 1,
+      validators: [
+        {
+          attester: { eth, bls: bls2 } as any, // same eth, different bls
+          feeRecipient: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as any,
+        },
+      ],
+    };
+
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(KeyStoreLoadError);
+    expect(() => mergeKeystores([keystore1, keystore2])).toThrow(/Duplicate attester address/);
   });
 
   it('should allow unique attester addresses across keystores', () => {
@@ -166,7 +197,10 @@ describe('Keystore Duplication Validation', () => {
       'simple-validator.json',
       'multiple-validators-remote.json',
       'simple-prover.json',
-      'prover-with-publishers.json',
+      'prover-with-single-publisher.json',
+      'prover-with-mnemonic-publisher.json',
+      'validator-null.json',
+      'prover-with-publishers-and-funding-account.json',
       'everything.json',
     ];
 
@@ -191,6 +225,10 @@ describe('Keystore Duplication Validation', () => {
     // File-level remote signer
     expect(ks.remoteSigner).toBeDefined();
 
+    // File-level funding account
+    expect(ks.fundingAccount).toBeDefined();
+    expect(ks.fundingAccount).toBe('0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+
     // Slasher: array with mixed account types (private key, address, remote signer account, mnemonic)
     expect(ks.slasher).toBeDefined();
     expect(Array.isArray(ks.slasher)).toBe(true);
@@ -206,19 +244,29 @@ describe('Keystore Duplication Validation', () => {
     expect(v0.attester).toBeDefined(); // mnemonic config
     expect(v0.coinbase).toBeDefined();
     expect(v0.publisher).toBeDefined(); // array including private key, address, remote signer account, json v3 dir
-    expect(v0.feeRecipient).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(
+      (v0.feeRecipient as AztecAddress).equals(
+        AztecAddress.fromString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+      ),
+    ).toBeTruthy();
     expect(typeof v0.remoteSigner === 'string').toBe(true);
 
     // Validator[1] checks
     const v1 = ks.validators![1] as any;
     expect(Array.isArray(v1.attester)).toBe(true);
     expect(v1.publisher).toBeDefined(); // mnemonic config
-    expect(v1.feeRecipient).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    expect(
+      (v1.feeRecipient as AztecAddress).equals(
+        AztecAddress.fromString('0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd'),
+      ),
+    ).toBeTruthy();
+    expect(v1.fundingAccount).toBeDefined();
+    expect(v1.fundingAccount).toBe('0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 
     // Prover complex type
     expect(ks.prover).toBeDefined();
-    const prover: any = ks.prover;
-    expect(prover.id).toMatch(/^0x[0-9a-fA-F]{40}$/);
+    const prover = ks.prover as ProverKeyStoreWithId;
+    expect(prover.id.equals(EthAddress.fromString('0x1234567890123456789012345678901234567890'))).toBeTruthy();
     expect(Array.isArray(prover.publisher)).toBe(true);
   });
 });

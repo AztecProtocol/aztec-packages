@@ -5,14 +5,21 @@
 #include <barretenberg/numeric/bitop/get_msb.hpp>
 #include <functional>
 #include <iostream>
+#include <ranges>
 #include <vector>
 
 namespace bb {
+#ifdef __wasm__
+// Fixed number of workers in WASM environment
+constexpr size_t PARALLEL_FOR_MAX_NESTING = 1;
+#else
+constexpr size_t PARALLEL_FOR_MAX_NESTING = 2;
+#endif
 
-inline size_t get_num_cpus()
-{
-    return env_hardware_concurrency();
-}
+// Useful for programatically benching different thread counts
+// Note this is threadsafe and affects parallel_for's just in that thread if so.
+void set_parallel_for_concurrency(size_t num_cores);
+size_t get_num_cpus();
 
 // For algorithms that need to be divided amongst power of 2 threads.
 inline size_t get_num_cpus_pow2()
@@ -147,5 +154,40 @@ constexpr size_t FF_COPY_COST = 3;
 // Fine default if something looks 'chunky enough that I don't want to calculate'
 constexpr size_t ALWAYS_MULTITHREAD = 100000;
 } // namespace thread_heuristics
+
+struct ThreadChunk {
+    size_t thread_index;
+    size_t total_threads;
+    auto range(size_t size, size_t offset = 0) const
+    {
+        if (total_threads == 0 || thread_index >= total_threads) {
+            return std::views::iota(size_t{ 0 }, size_t{ 0 });
+        }
+        // Calculate base chunk size and remainder
+        size_t chunk_size = size / total_threads;
+        size_t remainder = size % total_threads;
+
+        if (thread_index < remainder) {
+            // Threads with index < remainder get chunk_size + 1 elements
+            size_t start = thread_index * (chunk_size + 1);
+            size_t end = start + chunk_size + 1;
+            return std::views::iota(start + offset, end + offset);
+        }
+        // Threads with index >= remainder get chunk_size elements
+        size_t start = remainder * (chunk_size + 1) + (thread_index - remainder) * chunk_size;
+        size_t end = start + chunk_size;
+        return std::views::iota(start + offset, end + offset);
+    }
+};
+
+template <typename Func>
+    requires std::invocable<Func, ThreadChunk>
+void parallel_for(const Func& func)
+{
+    size_t total_threads = get_num_cpus();
+    parallel_for(total_threads, [&](size_t thread_index) {
+        func(ThreadChunk{ .thread_index = thread_index, .total_threads = total_threads });
+    });
+}
 
 } // namespace bb

@@ -8,10 +8,10 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/execution.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sstore.hpp"
-#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
+#include "barretenberg/vm2/simulation/gadgets/concrete_dbs.hpp"
+#include "barretenberg/vm2/simulation/gadgets/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
-#include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
@@ -279,8 +279,10 @@ TEST(SStoreConstrainingTest, Interactions)
     check_relation<sstore>(trace);
     check_interaction<ExecutionTraceBuilder,
                       lookup_execution_check_written_storage_slot_settings,
-                      lookup_sstore_record_written_storage_slot_settings,
-                      lookup_sstore_storage_write_settings>(trace);
+                      lookup_sstore_record_written_storage_slot_settings>(trace);
+    check_multipermutation_interaction<PublicDataTreeTraceBuilder,
+                                       perm_sstore_storage_write_settings,
+                                       perm_tx_balance_update_settings>(trace);
 }
 
 } // namespace

@@ -14,7 +14,7 @@ template <typename FF_> class address_derivationImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {

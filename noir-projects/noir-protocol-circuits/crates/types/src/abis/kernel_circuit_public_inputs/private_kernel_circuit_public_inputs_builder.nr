@@ -2,7 +2,7 @@ use crate::{
     abis::{
         accumulated_data::PrivateAccumulatedDataBuilder,
         kernel_circuit_public_inputs::private_kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        public_call_request::PublicCallRequest, tx_constant_data::TxConstantData,
+        private_tx_constant_data::PrivateTxConstantData, public_call_request::PublicCallRequest,
         validation_requests::PrivateValidationRequestsBuilder,
     },
     address::AztecAddress,
@@ -11,7 +11,7 @@ use crate::{
 
 #[derive(Eq)]
 pub struct PrivateKernelCircuitPublicInputsBuilder {
-    pub constants: TxConstantData,
+    pub constants: PrivateTxConstantData,
     pub min_revertible_side_effect_counter: u32,
     pub validation_requests: PrivateValidationRequestsBuilder,
     pub end: PrivateAccumulatedDataBuilder,
@@ -42,7 +42,7 @@ impl PrivateKernelCircuitPublicInputsBuilder {
 impl Empty for PrivateKernelCircuitPublicInputsBuilder {
     fn empty() -> Self {
         PrivateKernelCircuitPublicInputsBuilder {
-            constants: TxConstantData::empty(),
+            constants: PrivateTxConstantData::empty(),
             min_revertible_side_effect_counter: 0,
             validation_requests: PrivateValidationRequestsBuilder::empty(),
             end: PrivateAccumulatedDataBuilder::empty(),

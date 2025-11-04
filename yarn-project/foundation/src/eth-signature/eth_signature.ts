@@ -78,7 +78,7 @@ export class Signature {
   }
 
   static random(): Signature {
-    return new Signature(Buffer32.random(), Buffer32.random(), Math.floor(Math.random() * 2));
+    return new Signature(Buffer32.random(), Buffer32.random(), 1);
   }
 
   static empty(): Signature {
@@ -94,9 +94,7 @@ export class Signature {
   }
 
   toBuffer(): Buffer {
-    const buffer = serializeToBuffer([this.r, this.s, this.v]);
-    this.size = buffer.length;
-    return buffer;
+    return serializeToBuffer([this.r, this.s, this.v]);
   }
 
   getSize(): number {

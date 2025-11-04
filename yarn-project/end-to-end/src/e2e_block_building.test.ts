@@ -1,26 +1,18 @@
-import { deployFundedSchnorrAccount } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
-import {
-  type AccountWallet,
-  type AztecAddress,
-  type AztecNode,
-  BatchCall,
-  ContractDeployer,
-  ContractFunctionInteraction,
-  Fr,
-  type Logger,
-  type PXE,
-  TxStatus,
-  type Wallet,
-  retryUntil,
-  sleep,
-} from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall, ContractFunctionInteraction, type DeployOptions } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times, unique } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
-import { StatefulTestContract, StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockBuilder, SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
@@ -29,6 +21,7 @@ import { type PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server'
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
+import { TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -39,10 +32,8 @@ import { setup } from './fixtures/utils.js';
 describe('e2e_block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
-  let pxe: PXE;
   let logger: Logger;
-  let owner: Wallet;
-  let minter: Wallet;
+  let wallet: TestWallet;
 
   let ownerAddress: AztecAddress;
   let minterAddress: AztecAddress;
@@ -58,18 +49,16 @@ describe('e2e_block_building', () => {
   });
 
   describe('multi-txs block', () => {
-    const artifact = StatefulTestContractArtifact;
-
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
       let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
       ({
         teardown,
-        pxe,
         logger,
         aztecNode,
         aztecNodeAdmin: maybeAztecNodeAdmin,
-        wallets: [owner, minter],
+        wallet,
+        accounts: [ownerAddress, minterAddress],
         sequencer: sequencerClient,
       } = await setup(2, {
         archiverPollingIntervalMS: 200,
@@ -79,8 +68,6 @@ describe('e2e_block_building', () => {
       }));
       sequencer = sequencerClient! as TestSequencerClient;
       aztecNodeAdmin = maybeAztecNodeAdmin!;
-      ownerAddress = owner.getAddress();
-      minterAddress = minter.getAddress();
     });
 
     beforeEach(async () => {
@@ -100,8 +87,7 @@ describe('e2e_block_building', () => {
       // so many so that we don't end up hitting a reorg or timing out the tx wait().
       const TX_COUNT = 16;
 
-      const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1)
         .send({ from: ownerAddress })
         .deployed();
       logger.info(`Deployed stateful test contract at ${contract.address}`);
@@ -132,7 +118,7 @@ describe('e2e_block_building', () => {
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
-      const provenTxs = await asyncMap(methods, method => method.prove({ from: ownerAddress }));
+      const provenTxs = await asyncMap(methods, method => proveInteraction(wallet, method, { from: ownerAddress }));
       logger.info(`Sending ${TX_COUNT} txs to the node`);
       const txs = await Promise.all(provenTxs.map(tx => tx.send()));
       logger.info(`All ${TX_COUNT} txs have been sent`, {
@@ -151,22 +137,23 @@ describe('e2e_block_building', () => {
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
-      const deployer = new ContractDeployer(artifact, owner);
 
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => deployer.deploy(ownerAddress, i + 1));
+      const methods = times(TX_COUNT, i => StatefulTestContract.deploy(wallet, ownerAddress, i + 1));
       const provenTxs = [];
+      const addresses = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        provenTxs.push(
-          await methods[i].prove({
-            from: ownerAddress,
-            contractAddressSalt: new Fr(BigInt(i + 1)),
-            skipClassPublication: true,
-            skipInstancePublication: true,
-          }),
-        );
+        const options: DeployOptions = {
+          from: ownerAddress,
+          contractAddressSalt: new Fr(BigInt(i + 1)),
+          skipClassPublication: true,
+          skipInstancePublication: true,
+        };
+        const instance = await methods[i].getInstance(options);
+        addresses.push(instance.address);
+        provenTxs.push(await proveInteraction(wallet, methods[i], options));
       }
 
       // Send them simultaneously to be picked up by the sequencer
@@ -182,15 +169,14 @@ describe('e2e_block_building', () => {
 
       // Assert all contracts got deployed
       const isContractDeployed = async (address: AztecAddress) =>
-        !!(await pxe.getContractMetadata(address)).contractInstance;
-      const areDeployed = await Promise.all(receipts.map(r => isContractDeployed(r.contract.address)));
+        !!(await wallet.getContractMetadata(address)).contractInstance;
+      const areDeployed = await Promise.all(addresses.map(a => isContractDeployed(a)));
       expect(areDeployed).toEqual(times(TX_COUNT, () => true));
     });
 
     it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
-      const ownerAddress = owner.getCompleteAddress().address;
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1)
         .send({ from: ownerAddress })
         .deployed();
 
@@ -202,7 +188,7 @@ describe('e2e_block_building', () => {
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        provenTxs.push(await methods[i].prove({ from: ownerAddress }));
+        provenTxs.push(await proveInteraction(wallet, methods[i], { from: ownerAddress }));
       }
 
       // Send them simultaneously to be picked up by the sequencer
@@ -221,10 +207,10 @@ describe('e2e_block_building', () => {
     // Skipped since we only use it to manually test number of invocations to world-state.
     it.skip('builds blocks with multiple public fns after multiple nullifier insertions', async () => {
       // First deploy the contracts
-      const contract = await StatefulTestContract.deploy(owner, ownerAddress, 1)
+      const contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1)
         .send({ from: ownerAddress })
         .deployed();
-      const another = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
+      const another = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
 
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
@@ -258,25 +244,21 @@ describe('e2e_block_building', () => {
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
-      const deployer = TokenContract.deploy(owner, ownerAddress, 'TokenName', 'TokenSymbol', 18);
-      await deployer.create({ from: ownerAddress });
+      const deployMethod = TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18);
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
-      const deployerInstance = await deployer.getInstance();
+      const deployerInstance = await deployMethod.getInstance();
       const callInteraction = new ContractFunctionInteraction(
-        owner,
+        wallet,
         deployerInstance.address,
         TokenContract.artifact.functions.find(x => x.name === 'set_minter')!,
         [minterAddress, true],
       );
 
-      const deployerTx = await deployer.prove({ from: ownerAddress });
-      const callInteractionTx = await callInteraction.prove({ from: ownerAddress });
-
       const [deployTxReceipt, callTxReceipt] = await Promise.all([
-        deployerTx.send().wait(),
-        callInteractionTx.send().wait(),
+        deployMethod.send({ from: ownerAddress }).wait(),
+        callInteraction.send({ from: ownerAddress }).wait(),
       ]);
 
       expect(deployTxReceipt.blockNumber).toEqual(callTxReceipt.blockNumber);
@@ -288,9 +270,13 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeAll(async () => {
-      ({ teardown, pxe, logger, wallet: owner } = await setup(1));
-      ownerAddress = owner.getAddress();
-      contract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
+      ({
+        teardown,
+        logger,
+        wallet,
+        accounts: [ownerAddress],
+      } = await setup(1));
+      contract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
       logger.info(`Test contract deployed at ${contract.address}`);
     });
 
@@ -407,20 +393,18 @@ describe('e2e_block_building', () => {
     // This test was originally written for e2e_nested, but it was refactored
     // to not use TestContract.
     let testContract: TestContract;
-    let ownerWallet: AccountWallet;
     let ownerAddress: AztecAddress;
 
     beforeAll(async () => {
       ({
         teardown,
-        pxe,
         logger,
-        wallet: ownerWallet,
+        wallet,
         accounts: [ownerAddress],
       } = await setup(1));
 
       logger.info(`Deploying test contract`);
-      testContract = await TestContract.deploy(ownerWallet).send({ from: ownerAddress }).deployed();
+      testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
     }, 60_000);
 
     afterAll(() => teardown());
@@ -445,7 +429,7 @@ describe('e2e_block_building', () => {
       const valuesAsArray = Object.values(values);
 
       const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, ownerAddress, true);
-      const tx = await action.prove({ from: ownerAddress });
+      const tx = await proveInteraction(wallet, action, { from: ownerAddress });
       const rct = await tx.send().wait();
 
       // compare logs
@@ -454,7 +438,7 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const events = await pxe.getPrivateEvents(
+      const events = await wallet.getPrivateEvents(
         testContract.address,
         TestContract.events.ExampleEvent,
         rct.blockNumber!,
@@ -483,7 +467,7 @@ describe('e2e_block_building', () => {
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
     it('publishes two empty blocks', async () => {
-      ({ teardown, pxe, logger, aztecNode } = await setup(0, {
+      ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
         skipProtocolContracts: true,
       }));
@@ -498,28 +482,35 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
-      ({ teardown, pxe, logger, aztecNode } = context);
+      ({ teardown, logger, aztecNode, wallet } = context);
       await sleep(1000);
 
-      await deployFundedSchnorrAccount(pxe, context.initialFundedAccounts[0]);
+      const [accountData] = context.initialFundedAccounts;
+
+      const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
+      const deployMethod = await accountManager.getDeployMethod();
+      await deployMethod
+        .send({
+          from: AztecAddress.ZERO,
+        })
+        .wait();
     });
 
     it('can simulate public txs while building a block', async () => {
       ({
         teardown,
-        pxe,
         logger,
         aztecNode,
-        wallet: owner,
+        wallet,
+        accounts: [ownerAddress],
       } = await setup(1, {
         minTxsPerBlock: 1,
         skipProtocolContracts: true,
         ethereumSlotDuration: 6,
       }));
-      ownerAddress = owner.getAddress();
 
       logger.info('Deploying token contract');
-      const token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
+      const token = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18)
         .send({ from: ownerAddress })
         .deployed();
 
@@ -529,7 +520,7 @@ describe('e2e_block_building', () => {
       logger.info('Spamming the network with public txs');
       const txs = [];
       for (let i = 0; i < 24; i++) {
-        const tx = token.methods.mint_to_public(owner.getAddress(), 10n);
+        const tx = token.methods.mint_to_public(ownerAddress, 10n);
         txs.push(tx.send({ from: ownerAddress }));
       }
 
@@ -547,17 +538,21 @@ describe('e2e_block_building', () => {
         skipProtocolContracts: true,
         numberOfInitialFundedAccounts: 1,
       });
-      ({ teardown, pxe, logger, aztecNode } = context);
-      owner = context.wallets[0];
-      ownerAddress = context.accounts[0];
+      ({
+        teardown,
+        logger,
+        aztecNode,
+        wallet,
+        accounts: [ownerAddress],
+      } = context);
 
-      const testContract = await TestContract.deploy(owner).send({ from: ownerAddress }).deployed();
+      const testContract = await TestContract.deploy(wallet).send({ from: ownerAddress }).deployed();
       logger.warn(`Test contract deployed at ${testContract.address}`);
 
       // Send two txs that emit two nullifiers each, one from private and one from public.
-      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 2 });
+      context.sequencer?.updateConfig({ minTxsPerBlock: 2 });
       const makeBatch = () =>
-        new BatchCall(context.wallets[0], [
+        new BatchCall(wallet, [
           testContract.methods.emit_nullifier(Fr.random()),
           testContract.methods.emit_nullifier_public(Fr.random()),
         ]);
@@ -573,7 +568,7 @@ describe('e2e_block_building', () => {
       const spy = jest.spyOn(Set.prototype, 'execute').mockImplementation(async function (...args: any[]) {
         setCount++;
         if (setCount === 1) {
-          context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 1 });
+          context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
         } else if (setCount === 48) {
           throw new Error('Simulated failure in AVM opcode SET');
         }
@@ -604,11 +599,18 @@ describe('e2e_block_building', () => {
     let teardown: () => Promise<void>;
 
     beforeEach(async () => {
-      ({ teardown, aztecNode, pxe, logger, wallet: owner, cheatCodes, watcher } = await setup(1));
+      ({
+        teardown,
+        aztecNode,
+        logger,
+        wallet,
+        cheatCodes,
+        watcher,
+        accounts: [ownerAddress],
+      } = await setup(1));
 
-      ownerAddress = owner.getCompleteAddress().address;
-      contract = await StatefulTestContract.deploy(owner, ownerAddress, 1).send({ from: ownerAddress }).deployed();
-      initialBlockNumber = await pxe.getBlockNumber();
+      contract = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }).deployed();
+      initialBlockNumber = await aztecNode.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
       await cheatCodes.rollup.advanceToNextEpoch();

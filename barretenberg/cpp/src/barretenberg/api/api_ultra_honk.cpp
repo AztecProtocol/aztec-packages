@@ -1,9 +1,9 @@
 #include "api_ultra_honk.hpp"
 
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/get_bytecode.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"

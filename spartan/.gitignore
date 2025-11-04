@@ -7,4 +7,12 @@ mnemonic.tmp
 environments/*
 !environments/scenario.local.env
 !environments/staging.local.env
+!environments/staging-public.env
+!environments/staging-ignition.env
+!environments/testnet.env
+!environments/testnet-canary.env
+!environments/devnet.env
+!environments/next-net.env
+!environments/next-scenario.env
+!environments/ignition-fisherman.env
 *.tfvars

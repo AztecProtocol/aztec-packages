@@ -1,31 +1,73 @@
+import { pick } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 
-import { L1TxUtils, TxUtilsState } from './l1_tx_utils.js';
+import { L1TxUtils, TxUtilsState } from './l1_tx_utils/index.js';
 
-const sortOrder = [TxUtilsState.IDLE, TxUtilsState.MINED];
-const invalidStates = [TxUtilsState.SENT, TxUtilsState.SPEED_UP, TxUtilsState.CANCELLED, TxUtilsState.NOT_MINED]; // Cancelled and not mined are states that can be handled by a later iteration
+// Defines the order in which we prioritise publishers based on their state (first is better)
+const sortOrder = [
+  // Always prefer sending from idle publishers
+  TxUtilsState.IDLE,
+  // Then from publishers that have sent a tx and it got mined
+  TxUtilsState.MINED,
+  // Then from publishers that have sent a tx but it's in-flight
+  TxUtilsState.SPEED_UP,
+  TxUtilsState.SENT,
+  // We leave cancelled and not-mined states for last, since these represent failures to mines and could be problematic
+  TxUtilsState.CANCELLED,
+  TxUtilsState.NOT_MINED,
+];
+
+// Which states represent a busy publisher that we should avoid if possible
+const busyStates: TxUtilsState[] = [
+  TxUtilsState.SENT,
+  TxUtilsState.SPEED_UP,
+  TxUtilsState.CANCELLED,
+  TxUtilsState.NOT_MINED,
+];
 
 export type PublisherFilter<UtilsType extends L1TxUtils> = (utils: UtilsType) => boolean;
 
 export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
-  private log = createLogger('PublisherManager');
+  private log = createLogger('publisher:manager');
+  private config: { publisherAllowInvalidStates?: boolean };
 
-  constructor(private publishers: UtilsType[]) {
+  constructor(
+    private publishers: UtilsType[],
+    config: { publisherAllowInvalidStates?: boolean },
+  ) {
     this.log.info(`PublisherManager initialized with ${publishers.length} publishers.`);
     this.publishers = publishers;
+    this.config = pick(config, 'publisherAllowInvalidStates');
+  }
+
+  /** Loads the state of all publishers and resumes monitoring any pending txs */
+  public async loadState(): Promise<void> {
+    await Promise.all(this.publishers.map(pub => pub.loadStateAndResumeMonitoring()));
   }
 
   // Finds and prioritises available publishers based on
   // 1. Validity as per the provided filter function
   // 2. Validity based on the state the publisher is in
-  // 3. Priority based on state as defined bu sortOrder
+  // 3. Priority based on state as defined by sortOrder
   // 4. Then priority based on highest balance
   // 5. Then priority based on least recently used
   public async getAvailablePublisher(filter: PublisherFilter<UtilsType> = () => true): Promise<UtilsType> {
+    this.log.debug(`Getting available publisher`, {
+      publishers: this.publishers.map(p => ({
+        address: p.getSenderAddress(),
+        state: p.state,
+        lastMined: p.lastMinedAtBlockNumber,
+      })),
+    });
+
     // Extract the valid publishers
-    const validPublishers = this.publishers.filter(
-      (pub: UtilsType) => !invalidStates.includes(pub.state) && filter(pub),
-    );
+    let validPublishers = this.publishers.filter((pub: UtilsType) => !busyStates.includes(pub.state) && filter(pub));
+
+    // If none found but we allow invalid (busy) states, try again including them
+    if (validPublishers.length === 0 && this.config.publisherAllowInvalidStates) {
+      this.log.warn(`No valid publishers found. Trying again including invalid states.`);
+      validPublishers = this.publishers.filter(pub => filter(pub));
+    }
 
     // Error if none found
     if (validPublishers.length === 0) {

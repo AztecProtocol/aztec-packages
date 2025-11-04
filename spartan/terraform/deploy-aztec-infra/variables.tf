@@ -1,3 +1,15 @@
+variable "R2_ACCESS_KEY_ID" {
+  description = "Cloudflare R2 access key id for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
+variable "R2_SECRET_ACCESS_KEY" {
+  description = "Cloudflare R2 secret access key for RPC node snapshot uploads"
+  type        = string
+  default     = null
+}
+
 variable "GCP_PROJECT_ID" {
   description = "GCP project id"
   type        = string
@@ -46,6 +58,16 @@ variable "RPC_RESOURCE_PROFILE" {
   validation {
     condition     = contains(["dev", "prod"], var.RPC_RESOURCE_PROFILE)
     error_message = "RPC_RESOURCE_PROFILE must be either 'dev' or 'prod'."
+  }
+}
+
+variable "BOT_RESOURCE_PROFILE" {
+  description = "Resource profile to use for the bots (dev or prod)"
+  type        = string
+  default     = "prod"
+  validation {
+    condition     = contains(["dev", "prod"], var.BOT_RESOURCE_PROFILE)
+    error_message = "BOT_RESOURCE_PROFILE must be either 'dev' or 'prod'."
   }
 }
 
@@ -153,6 +175,18 @@ variable "VALIDATORS_PER_NODE" {
   default     = 12
 }
 
+variable "VALIDATOR_PUBLISHERS_PER_VALIDATOR_KEY" {
+  description = "Number of publisher EOAs per validator key"
+  type        = string
+  default     = 1
+}
+
+variable "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "Mnemonic start index for validator publishers"
+  type        = string
+  default     = 5000
+}
+
 variable "VALIDATOR_REPLICAS" {
   description = "The number of validator replicas"
   type        = string
@@ -165,10 +199,28 @@ variable "PROVER_MNEMONIC" {
   default     = "test test test test test test test test test test test junk"
 }
 
-variable "PROVER_MNEMONIC_START_INDEX" {
-  description = "The prover mnemonic start index"
+variable "PROVER_REPLICAS" {
+  description = "The number of prover replicas"
   type        = string
-  default     = 1000
+  default     = 4
+}
+
+variable "PROVER_PUBLISHERS_PER_PROVER" {
+  description = "Number of publisher keys per prover"
+  type        = string
+  default     = 1
+}
+
+variable "PROVER_PUBLISHER_MNEMONIC_START_INDEX" {
+  description = "The prover publisher mnemonic start index"
+  type        = string
+  default     = 8000
+}
+
+variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
+  description = "Whether to disable proof publishing from the prover node"
+  type        = bool
+  default     = false
 }
 
 variable "OTEL_COLLECTOR_ENDPOINT" {
@@ -176,6 +228,28 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "SPONSORED_FPC" {
+  description = "Enable sponsored FPC"
+  type        = bool
+}
+
+variable "TEST_ACCOUNTS" {
+  description = "Enable test accounts"
+  type        = bool
+}
+
+variable "SEQ_MIN_TX_PER_BLOCK" {
+  description = "Minimum number of sequencer transactions per block"
+  type        = string
+  default     = "0"
+}
+
+variable "SEQ_MAX_TX_PER_BLOCK" {
+  description = "Maximum number of sequencer transactions per block"
+  type        = string
+  default     = "8"
 }
 
 variable "SENTINEL_ENABLED" {
@@ -259,4 +333,164 @@ variable "SLASH_MAX_PAYLOAD_SIZE" {
 variable "PROVER_REAL_PROOFS" {
   description = "Whether to enable prover real proofs"
   type        = string
+}
+
+variable "TRANSACTIONS_DISABLED" {
+  description = "Whether transactions are disabled by the nodes"
+  type        = string
+  nullable    = true
+}
+
+variable "DEPLOY_INTERNAL_BOOTNODE" {
+  description = "Whether to deploy an internal"
+  type        = bool
+  default     = false
+}
+
+variable "EXTERNAL_BOOTNODES" {
+  description = "Whether to use externally deployed bootnodes"
+  type        = list(string)
+  default     = []
+}
+
+variable "DEPLOY_ARCHIVAL_NODE" {
+  description = "Whether to deploy the archival node"
+  type        = bool
+  default     = false
+}
+
+variable "NETWORK" {
+  description = "One of the existing network names to use default config for"
+  type        = string
+  nullable    = true
+}
+
+variable "STORE_SNAPSHOT_URL" {
+  description = "Location to store snapshots in"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "SNAPSHOT_CRON" {
+  description = "Location to store snapshots in"
+  type        = string
+  default     = "0 */12 * * *"
+}
+
+variable "BOT_MNEMONIC" {
+  description = "The bot mnemonic"
+  type        = string
+  default     = "test test test test test test test test test test test junk"
+}
+
+variable "BOT_TRANSFERS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_TRANSFERS_REPLICAS" {
+  description = "Number of transfer bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_TRANSFERS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between transfer bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_TRANSFERS_FOLLOW_CHAIN" {
+  description = "Transfers bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_TRANSFERS_L2_PRIVATE_KEY" {
+  description = "Private key for the transfers bot (hex string starting with 0x)"
+  nullable    = true
+  default     = null
+}
+
+variable "BOT_SWAPS_MNEMONIC_START_INDEX" {
+  description = "The prover mnemonic start index"
+  type        = string
+  default     = ""
+}
+
+variable "BOT_SWAPS_REPLICAS" {
+  description = "Number of AMM swap bot replicas to deploy (0 to disable)"
+  type        = number
+  default     = 0
+}
+
+variable "BOT_SWAPS_TX_INTERVAL_SECONDS" {
+  description = "Interval in seconds between AMM swap bot transactions"
+  type        = number
+  default     = 10
+}
+
+variable "BOT_SWAPS_FOLLOW_CHAIN" {
+  description = "AMM swaps bot follow-chain mode (e.g., NONE)"
+  type        = string
+  default     = "PENDING"
+}
+
+variable "BOT_SWAPS_L2_PRIVATE_KEY" {
+  description = "Private key for the AMM swaps bot (hex string starting with 0x)"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+# RPC ingress configuration (GKE-specific)
+variable "RPC_INGRESS_ENABLED" {
+  description = "Enable GKE ingress for RPC nodes"
+  type        = bool
+  default     = false
+}
+
+variable "RPC_INGRESS_HOST" {
+  description = "Hostname for RPC ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_STATIC_IP_NAME" {
+  description = "Name of the GCP static IP resource for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SSL_CERT_NAME" {
+  description = "Name of the GCP managed SSL certificate for the ingress"
+  type        = string
+  default     = ""
+}
+
+variable "PROVER_FAILED_PROOF_STORE" {
+  description = "Optional GCS/URI to store failed proofs from the prover"
+  type        = string
+  nullable    = false
+  default     = ""
+}
+
+variable "RPC_REPLICAS" {
+  description = "The number of RPC replicas"
+  type        = string
+  default     = 1
+}
+
+variable "P2P_TX_POOL_DELETE_TXS_AFTER_REORG" {
+  description = "Whether to delete transactions from the P2P transaction pool after a reorg"
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_AGENTS_PER_PROVER" {
+  description = "Number of prover agents per prover"
+  type        = string
+  default     = 1
 }

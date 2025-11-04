@@ -2,7 +2,9 @@ import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import { computeFeePayerBalanceStorageSlot, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
+import { getCanonicalInstanceRegistry } from '@aztec/protocol-contracts/instance-registry';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -86,6 +88,36 @@ export abstract class BaseAvmSimulationTester {
     };
     await this.contractDataSource.addNewContract(feeJuice.artifact, feeJuiceContractClassPublic, feeJuice.instance);
     return feeJuice.instance;
+  }
+
+  async registerAuthContract(): Promise<ContractInstanceWithAddress> {
+    const authRegistry = await getCanonicalAuthRegistry();
+    const authRegistryContractClassPublic = {
+      ...authRegistry.contractClass,
+      privateFunctions: [],
+      utilityFunctions: [],
+    };
+    await this.contractDataSource.addNewContract(
+      authRegistry.artifact,
+      authRegistryContractClassPublic,
+      authRegistry.instance,
+    );
+    return authRegistry.instance;
+  }
+
+  async registerInstanceRegistryContract(): Promise<ContractInstanceWithAddress> {
+    const instanceRegistry = await getCanonicalInstanceRegistry();
+    const instanceRegistryContractClassPublic = {
+      ...instanceRegistry.contractClass,
+      privateFunctions: [],
+      utilityFunctions: [],
+    };
+    await this.contractDataSource.addNewContract(
+      instanceRegistry.artifact,
+      instanceRegistryContractClassPublic,
+      instanceRegistry.instance,
+    );
+    return instanceRegistry.instance;
   }
 
   async addContractInstance(contractInstance: ContractInstanceWithAddress, skipNullifierInsertion = false) {

@@ -34,3 +34,17 @@ resource "google_blockchain_node_engine_blockchain_nodes" "default" {
     node_type        = "FULL"
   }
 }
+
+resource "google_blockchain_node_engine_blockchain_nodes" "eth_mainnet_node_1" {
+  location           = var.import_blockchain_node_region
+  blockchain_node_id = "eth-mainnet-node-1"
+  blockchain_type    = "ETHEREUM"
+  ethereum_details {
+    api_enable_admin = false
+    api_enable_debug = false
+    consensus_client = "LIGHTHOUSE"
+    execution_client = "GETH"
+    network          = "MAINNET"
+    node_type        = "FULL"
+  }
+}

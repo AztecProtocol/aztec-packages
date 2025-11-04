@@ -11,10 +11,14 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/bc_retrieval.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/bytecode_trace.hpp"
+#include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
+#include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/retrieved_bytecodes_tree_check.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
@@ -23,11 +27,19 @@ namespace {
 using testing::random_contract_class;
 using testing::random_contract_instance;
 using tracegen::BytecodeTraceBuilder;
+using tracegen::ClassIdDerivationTraceBuilder;
+using tracegen::ContractInstanceRetrievalTraceBuilder;
+using tracegen::RetrievedBytecodesTreeCheckTraceBuilder;
 using tracegen::TestTraceContainer;
+
+using simulation::ClassIdLeafValue;
+using simulation::RetrievedBytecodesTreeCheckEvent;
+using simulation::RetrievedBytecodesTreeLeafPreimage;
 
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using bc_retrieval = bb::avm2::bc_retrieval<FF>;
+using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 void init_trace(TestTraceContainer& trace)
 {
@@ -45,6 +57,9 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     TestTraceContainer trace;
     init_trace(trace);
     BytecodeTraceBuilder builder;
+    ContractInstanceRetrievalTraceBuilder contract_instance_retrieval_builder;
+    ClassIdDerivationTraceBuilder class_id_builder;
+    RetrievedBytecodesTreeCheckTraceBuilder retrieved_bytecodes_tree_check_builder;
 
     FF nullifier_root = FF::random_element();
     FF public_data_tree_root = FF::random_element();
@@ -52,6 +67,24 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
     ContractInstance instance = random_contract_instance();
     uint32_t bytecode_size = 20;
     ContractClass klass = random_contract_class(/*bytecode_size=*/bytecode_size);
+    std::vector<FF> bytecode_fields = simulation::encode_bytecode(klass.packed_bytecode);
+    std::vector<FF> hash_input = { GENERATOR_INDEX__PUBLIC_BYTECODE };
+    hash_input.insert(hash_input.end(), bytecode_fields.begin(), bytecode_fields.end());
+    // random_contract_class() assigns a random FF as the commitment, so we overwrite to ensure the below passes:
+    klass.public_bytecode_commitment = RawPoseidon2::hash(hash_input);
+    builder.process_hashing({ { .bytecode_id = klass.public_bytecode_commitment,
+                                .bytecode_length = bytecode_size,
+                                .bytecode_fields = bytecode_fields } },
+                            trace);
+    contract_instance_retrieval_builder.process({ {
+                                                    .address = instance.deployer_addr,
+                                                    .contract_instance = { instance },
+                                                    .nullifier_tree_root = nullifier_root,
+                                                    .public_data_tree_root = public_data_tree_root,
+                                                    .exists = true,
+                                                } },
+                                                trace);
+    class_id_builder.process({ { .class_id = instance.current_class_id, .klass = klass } }, trace);
 
     AppendOnlyTreeSnapshot snapshot_before = AppendOnlyTreeSnapshot{
         .root = FF(AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT),
@@ -62,6 +95,29 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
         .root = FF(42),
         .nextAvailableLeafIndex = AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE + 1,
     };
+
+    // Read the tree of the retrieved bytecodes
+    retrieved_bytecodes_tree_check_builder.process(
+        { RetrievedBytecodesTreeCheckEvent{
+            .class_id = instance.current_class_id,
+            .prev_snapshot = snapshot_before,
+            .next_snapshot = snapshot_after,
+            .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+            .low_leaf_index = 0,
+        } },
+        trace);
+
+    // Insertion in the retrieved bytecodes tree
+    retrieved_bytecodes_tree_check_builder.process(
+        { RetrievedBytecodesTreeCheckEvent{
+            .class_id = instance.current_class_id,
+            .prev_snapshot = snapshot_before,
+            .next_snapshot = snapshot_after,
+            .low_leaf_preimage = RetrievedBytecodesTreeLeafPreimage(ClassIdLeafValue(0), 0, 0),
+            .low_leaf_index = 0,
+            .write = true,
+        } },
+        trace);
 
     // Build a bytecode retrieval event where instance exists
     builder.process_retrieval({ {
@@ -78,6 +134,11 @@ TEST(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
                               trace);
 
     check_relation<bc_retrieval>(trace);
+    check_interaction<BytecodeTraceBuilder,
+                      lookup_bc_retrieval_class_id_derivation_settings,
+                      lookup_bc_retrieval_contract_instance_retrieval_settings,
+                      lookup_bc_retrieval_is_new_class_check_settings,
+                      lookup_bc_retrieval_retrieved_bytecodes_insertion_settings>(trace);
 }
 
 TEST(BytecodeRetrievalConstrainingTest, TooManyBytecodes)

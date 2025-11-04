@@ -4,7 +4,6 @@
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -26,6 +25,11 @@ template <class Builder> class ShplonkRecursionTest : public CommitmentTest<type
             auto r = Fr::from_witness(builder, opening_claims[idx].opening_pair.challenge);
             auto eval = Fr::from_witness(builder, opening_claims[idx].opening_pair.evaluation);
             auto commit = Commitment::from_witness(builder, opening_claims[idx].commitment);
+            // Removing the free witness tag, since the opening claims in the full scheme are supposed to
+            // be fiat-shamirred or derived from the transcript earlier
+            r.unset_free_witness_tag();
+            eval.unset_free_witness_tag();
+            commit.unset_free_witness_tag();
             stdlib_opening_claims.emplace_back(OpeningClaim<Curve>({ r, eval }, commit));
         }
 
@@ -42,6 +46,11 @@ template <class Builder> class ShplonkRecursionTest : public CommitmentTest<type
             auto r = Fr::from_witness(builder, opening_claim.opening_pair.challenge);
             auto eval = Fr::from_witness(builder, opening_claim.opening_pair.evaluation);
             auto commit = Commitment::from_witness(builder, opening_claim.commitment);
+            // Removing the free witness tag, since the opening pairs and commitments in the full scheme are supposed to
+            // be fiat-shamirred or derived from the transcript earlier
+            r.unset_free_witness_tag();
+            eval.unset_free_witness_tag();
+            commit.unset_free_witness_tag();
             stdlib_opening_pairs.emplace_back(OpeningPair<Curve>(r, eval));
             stdlib_commitments.emplace_back(commit);
         }
@@ -62,7 +71,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
@@ -95,7 +104,7 @@ TYPED_TEST(ShplonkRecursionTest, Simple)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
+TYPED_TEST(ShplonkRecursionTest, LinearlyDependent)
 {
     using Builder = TypeParam;
     using Curve = stdlib::bn254<TypeParam>;
@@ -106,7 +115,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
     using GroupElement = Curve::Element;
     using Commitment = typename Curve::AffineElement;
     using OpeningClaim = OpeningClaim<Curve>;
-    using Transcript = bb::BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     using StdlibProof = stdlib::Proof<Builder>;
 
     // Prover transcript
@@ -136,6 +145,10 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
+        // Removing the free witness tag, since the coefficients in the full scheme are supposed to
+        // be fiat-shamirred or derived from the transcript earlier
+        coeff1.unset_free_witness_tag();
+        coeff2.unset_free_witness_tag();
 
         // Convert opening claims to witnesses
         auto stdlib_opening_claims =
@@ -148,6 +161,10 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
+        // Removing the free witness tag, since the opening pairs in the full scheme are supposed to
+        // be fiat-shamirred or derived from the transcript earlier
+        r.unset_free_witness_tag();
+        eval.unset_free_witness_tag();
 
         // Opening claim for the linear combination
         stdlib_opening_claims.emplace_back(OpeningClaim({ r, eval }, commit));
@@ -161,7 +178,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ", builder.num_gates());
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             info("Num MSM rows MegaCircuitBuilder (non-efficient way: size-5 MSM + size-2 MSM): ",
                  builder.op_queue->get_num_rows());
@@ -176,6 +193,10 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
 
         auto coeff1 = Fr::from_witness(&builder, coefficients[0]);
         auto coeff2 = Fr::from_witness(&builder, coefficients[1]);
+        // Removing the free witness tag, since the coefficients in the full scheme are supposed to
+        // be fiat-shamirred or derived from the transcript earlier
+        coeff1.unset_free_witness_tag();
+        coeff2.unset_free_witness_tag();
 
         // Convert opening claims to witnesses
         auto [stdlib_commitments, stdlib_opening_pairs] = this->native_to_stdlib_pairs_and_commitments(
@@ -184,6 +205,10 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         // Opening pair for the linear combination as it would be received by the Verifier from the Prover
         Fr r = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.challenge);
         Fr eval = Fr::from_witness(&builder, native_opening_claims[2].opening_pair.evaluation);
+        // Removing the free witness tag, since the opening pairs in the full scheme are supposed to
+        // be fiat-shamirred or derived from the transcript earlier
+        r.unset_free_witness_tag();
+        eval.unset_free_witness_tag();
 
         // Update data
         std::vector<typename ShplonkVerifier::LinearCombinationOfClaims> update_data = {
@@ -206,7 +231,7 @@ TYPED_TEST(ShplonkRecursionTest, LineralyDependent)
         EXPECT_TRUE(CircuitChecker::check(builder));
 
         if constexpr (std::is_same_v<Builder, UltraCircuitBuilder>) {
-            info("Num gates UltraCircuitBuilder (efficient way: size-4 MSM): ", builder.num_gates);
+            info("Num gates UltraCircuitBuilder (efficient way: size-4 MSM): ", builder.num_gates());
         } else if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             info("Num MSM rows MegaCircuitBuilder (efficient way: size-4 MSM): ", builder.op_queue->get_num_rows());
         }

@@ -4,8 +4,8 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract StaticChild {
     use dep::aztec::{
-        macros::{functions::{private, public, view}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+        macros::{functions::{external, view}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         protocol_types::address::AztecAddress,
         state_vars::{PrivateSet, PublicMutable},
@@ -21,46 +21,46 @@ pub contract StaticChild {
     }
 
     // Returns base_value + chain_id + version + block_number + timestamp statically
-    #[public]
+    #[external("public")]
     #[view]
     fn pub_get_value(base_value: Field) -> Field {
         let return_value = base_value
-            + context.chain_id()
-            + context.version()
-            + context.block_number() as Field
-            + context.timestamp() as Field;
+            + self.context.chain_id()
+            + self.context.version()
+            + self.context.block_number() as Field
+            + self.context.timestamp() as Field;
 
         return_value
     }
 
     // Sets `current_value` to `new_value`
-    #[public]
+    #[external("public")]
     fn pub_set_value(new_value: Field) -> Field {
-        storage.current_value.write(new_value);
-        context.emit_public_log(new_value);
+        self.storage.current_value.write(new_value);
+        self.context.emit_public_log(new_value);
         new_value
     }
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
-    #[private]
+    #[external("private")]
     #[view]
     fn private_illegal_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
-        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
+        self.storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         new_value
     }
 
     // Modify a note
-    #[private]
+    #[external("private")]
     fn private_set_value(new_value: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let note = ValueNote::new(new_value, owner);
 
-        storage.a_private_value.insert(note).emit(encode_and_encrypt_note(&mut context, owner));
+        self.storage.a_private_value.insert(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
         new_value
     }
 
     // Retrieve note value statically
-    #[private]
+    #[external("private")]
     #[view]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
         let mut options = NoteGetterOptions::new();
@@ -68,26 +68,26 @@ pub contract StaticChild {
             .select(ValueNote::properties().value, Comparator.EQ, amount)
             .select(ValueNote::properties().owner, Comparator.EQ, owner)
             .set_limit(1);
-        let retrieved_notes = storage.a_private_value.get_notes(options);
+        let retrieved_notes = self.storage.a_private_value.get_notes(options);
         retrieved_notes.get(0).note.value()
     }
 
     // Increments `current_value` by `new_value`
-    #[public]
+    #[external("public")]
     fn pub_inc_value(new_value: Field) -> Field {
-        let old_value = storage.current_value.read();
-        storage.current_value.write(old_value + new_value);
-        context.emit_public_log(new_value);
+        let old_value = self.storage.current_value.read();
+        self.storage.current_value.write(old_value + new_value);
+        self.context.emit_public_log(new_value);
         new_value
     }
 
     // View function that attempts to modify state. Should always fail regardless how it's called.
-    #[public]
+    #[external("public")]
     #[view]
     fn pub_illegal_inc_value(new_value: Field) -> Field {
-        let old_value = storage.current_value.read();
-        storage.current_value.write(old_value + new_value);
-        context.emit_public_log(new_value);
+        let old_value = self.storage.current_value.read();
+        self.storage.current_value.write(old_value + new_value);
+        self.context.emit_public_log(new_value);
         new_value
     }
 }

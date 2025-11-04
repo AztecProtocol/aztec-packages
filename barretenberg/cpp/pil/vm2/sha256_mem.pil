@@ -1,7 +1,6 @@
 include "gt.pil";
 include "constants_gen.pil";
 include "sha256.pil";
-include "execution.pil";
 
 /**
  * This handles the memory accesses for the SHA256Compression opcode and is virtual to the sha256_compression subtrace.
@@ -10,7 +9,7 @@ include "execution.pil";
  * that is read from memory. The 65th row contains the output hash state that will be written to memory.
  *
  * USAGE - Permutation
- * sel_execute_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
+ * sel_exec_dispatch_sha256_compression { clk, space_id, output_addr, state_addr, input_addr, err }
  * is
  * sha256.start { sha256.execution_clk, sha256.space_id, sha256.output_addr, sha256.state_addr, sha256.input_addr, sha256.err };
  *
@@ -154,21 +153,21 @@ namespace sha256;
     #[CHECK_STATE_ADDR_IN_RANGE]
     start { max_state_addr, max_mem_addr, sel_state_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_input_addr;
     max_input_addr = start * (input_addr + 15); // We read 16 elements for inputs
     #[CHECK_INPUT_ADDR_IN_RANGE]
     start { max_input_addr, max_mem_addr, sel_input_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit max_output_addr;
     max_output_addr = start * (output_addr + 7); // We write 8 elements for the output
     #[CHECK_OUTPUT_ADDR_IN_RANGE]
     start { max_output_addr, max_mem_addr, sel_output_out_of_range_err }
     in
-    gt.sel { gt.input_a, gt.input_b, gt.res };
+    gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     pol commit mem_out_of_range_err;
     mem_out_of_range_err = 1 - (1 - sel_state_out_of_range_err) * (1 - sel_input_out_of_range_err) * (1 - sel_output_out_of_range_err);
@@ -442,12 +441,4 @@ namespace sha256;
     // This error flag encompasses mem_out_of_range_err, invalid state tag err and the invalid input tag err, the invalid row tag err is excluded as it implies the propagated tag err
     pol commit err;
     err = 1 - (1 - mem_out_of_range_err) * (1 - sel_invalid_state_tag_err) * (1 - sel_invalid_input_tag_err);
-
-    ////////////////////////////////////////////////
-    // Dispatch Permutation
-    ////////////////////////////////////////////////
-    #[DISPATCH_SHA256]
-    execution.sel_execute_sha256_compression { precomputed.clk, execution.context_id, execution.rop[0], execution.rop[1], execution.rop[2], execution.sel_opcode_error }
-    is
-    start { execution_clk, space_id, output_addr, state_addr, input_addr, err };
 

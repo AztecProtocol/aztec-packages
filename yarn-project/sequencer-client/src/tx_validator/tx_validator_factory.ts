@@ -9,10 +9,11 @@ import {
   GasTxValidator,
   MetadataTxValidator,
   PhasesTxValidator,
+  TimestampTxValidator,
   TxPermittedValidator,
   TxProofValidator,
 } from '@aztec/p2p';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractAddress, protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -57,10 +58,12 @@ export function createValidatorForAcceptingTxs(
     new MetadataTxValidator({
       l1ChainId: new Fr(l1ChainId),
       rollupVersion: new Fr(rollupVersion),
+      protocolContractsHash,
+      vkTreeRoot: getVKTreeRoot(),
+    }),
+    new TimestampTxValidator({
       timestamp,
       blockNumber,
-      protocolContractTreeRoot,
-      vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList, timestamp),
@@ -114,10 +117,12 @@ function preprocessValidator(
     new MetadataTxValidator({
       l1ChainId: globalVariables.chainId,
       rollupVersion: globalVariables.version,
+      protocolContractsHash,
+      vkTreeRoot: getVKTreeRoot(),
+    }),
+    new TimestampTxValidator({
       timestamp: globalVariables.timestamp,
       blockNumber: globalVariables.blockNumber,
-      protocolContractTreeRoot,
-      vkTreeRoot: getVKTreeRoot(),
     }),
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.timestamp),

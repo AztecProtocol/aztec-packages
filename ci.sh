@@ -149,6 +149,7 @@ case "$cmd" in
     ;;
   "network-tests")
     export JOB_ID="x-${NAMESPACE}-network-tests"
+    export AWS_SHUTDOWN_TIME=360 # 6 hours for network tests
     bootstrap_ec2 "./bootstrap.sh ci-network-tests"
     ;;
   "nightly")
@@ -320,7 +321,7 @@ case "$cmd" in
     print_usage
     ;;
   "gh-bench")
-    cache_download bench-$COMMIT_HASH.tar.gz
+    cache_download bench-$(git rev-parse HEAD^{tree}).tar.gz
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

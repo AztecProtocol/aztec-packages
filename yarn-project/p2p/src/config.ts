@@ -127,7 +127,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
   /** A list of preferred peers. */
   preferredPeers: string[];
 
-  /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  /** The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb. */
   p2pStoreMapSizeKb?: number;
 
   /** Which calls are allowed in the public setup phase of a tx. */
@@ -161,6 +161,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig, TxCollectionCo
 
   /** The probability that a transaction is discarded. - For testing purposes only */
   dropTransactionsProbability: number;
+
+  /** Whether to delete transactions from the pool after a reorg instead of moving them back to pending. */
+  txPoolDeleteTxsAfterReorg: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -357,7 +360,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.',
+    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowList: {
     env: 'TX_PUBLIC_SETUP_ALLOWLIST',
@@ -412,6 +415,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Whether transactions are disabled for this node. This means transactions will be rejected at the RPC and P2P layers.',
     ...booleanConfigHelper(false),
   },
+  txPoolDeleteTxsAfterReorg: {
+    env: 'P2P_TX_POOL_DELETE_TXS_AFTER_REORG',
+    description: 'Whether to delete transactions from the pool after a reorg instead of moving them back to pending.',
+    ...booleanConfigHelper(false),
+  },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
   ...txCollectionConfigMappings,
@@ -441,9 +449,10 @@ export type BootnodeConfig = Pick<
   | 'peerIdPrivateKeyPath'
   | 'bootstrapNodes'
   | 'listenAddress'
+  | 'queryForIp'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
-  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
+  Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
   Pick<ChainConfig, 'l1ChainId'>;
 
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
@@ -454,9 +463,10 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'peerIdPrivateKey',
   'peerIdPrivateKeyPath',
   'dataDirectory',
-  'dataStoreMapSizeKB',
+  'dataStoreMapSizeKb',
   'bootstrapNodes',
   'l1ChainId',
+  'queryForIp',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(

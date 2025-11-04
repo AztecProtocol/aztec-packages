@@ -1,11 +1,11 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-#include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/chonk/chonk.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
-#include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
+#include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
-#include "barretenberg/ultra_honk/decider_proving_key.hpp"
+#include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "honk_recursion_constraint.hpp"
@@ -183,13 +183,13 @@ TYPED_TEST(MockVerifierInputsTest, MockUltraHonkProofSize)
 }
 
 /**
- * @brief Check that the size of a mock ClientIVC proof matches expectation
+ * @brief Check that the size of a mock Chonk proof matches expectation
  *
  */
-TEST(MockVerifierInputsTest, MockClientIVCProofSize)
+TEST(MockVerifierInputsTest, MockChonkProofSize)
 {
     using Builder = MegaCircuitBuilder;
 
-    HonkProof civc_proof = create_mock_civc_proof<Builder>();
-    EXPECT_EQ(civc_proof.size(), ClientIVC::Proof::PROOF_LENGTH());
+    HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
+    EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
 }

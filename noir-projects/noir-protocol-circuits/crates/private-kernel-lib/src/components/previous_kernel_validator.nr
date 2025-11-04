@@ -1,8 +1,10 @@
 mod previous_kernel_validator_hints;
 
 use dep::types::{
-    abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
+    abis::private_kernel_data::PrivateKernelData,
     address::AztecAddress,
+    constants::{CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS},
+    side_effect::Ordered,
     traits::Empty,
 };
 
@@ -53,13 +55,13 @@ impl PreviousKernelValidator {
     fn validate_first_nullifier(self, tx_can_revert: bool) {
         let first_nullifier = self.previous_kernel.public_inputs.end.nullifiers.array[0];
         assert_eq(
-            first_nullifier.value(),
+            first_nullifier.innermost().value,
             self.previous_kernel.public_inputs.claimed_first_nullifier,
             "First nullifier claim was not satisfied",
         );
         if tx_can_revert {
             assert(
-                first_nullifier.nullifier.counter()
+                first_nullifier.inner.counter
                     < self.previous_kernel.public_inputs.min_revertible_side_effect_counter,
                 "First nullifier must be non revertible",
             );
@@ -71,6 +73,7 @@ impl PreviousKernelValidator {
         self.validate_empty_private_call_stack();
         self.validate_empty_validation_requests();
         self.validate_dense_trimmed_arrays();
+        self.validate_log_lengths();
         self.validate_siloed_values();
         self.validate_no_transient_data();
     }
@@ -82,8 +85,10 @@ impl PreviousKernelValidator {
 
         self.previous_kernel.public_inputs.end.l2_to_l1_msgs.assert_dense_trimmed();
 
+        // TODO(#13915): Check lengths instead of the entire array.
         self.previous_kernel.public_inputs.end.private_logs.assert_dense_trimmed();
 
+        // TODO(#13915): Check lengths instead of the entire array.
         self.previous_kernel.public_inputs.end.contract_class_logs_hashes.assert_dense_trimmed();
 
         // Private call stack is separately validated to be empty.
@@ -189,6 +194,25 @@ impl PreviousKernelValidator {
             .assert_empty("Non empty key validation requests");
     }
 
+    fn validate_log_lengths(self) {
+        let private_logs = self.previous_kernel.public_inputs.end.private_logs.array;
+        for private_log in private_logs {
+            assert(
+                private_log.innermost().log.length <= PRIVATE_LOG_SIZE_IN_FIELDS,
+                "Private log length exceeds max",
+            );
+        }
+
+        let contract_class_logs =
+            self.previous_kernel.public_inputs.end.contract_class_logs_hashes.array;
+        for contract_class_log in contract_class_logs {
+            assert(
+                contract_class_log.innermost().length <= CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+                "Contract class log length exceeds max",
+            );
+        }
+    }
+
     // Ensure that the data has been properly siloed in the reset circuit.
     fn validate_siloed_values(self) {
         // note_hashes
@@ -259,11 +283,11 @@ impl PreviousKernelValidator {
             hints.transient_note_hash_index_for_each_nullifier;
         for i in 0..nullifiers.array.len() {
             let nullifier = nullifiers.array[i];
-            let nullified_note_hash = nullifier.nullifier.note_hash;
+            let nullified_note_hash = nullifier.innermost().note_hash;
             if nullified_note_hash != 0 {
                 let note_hash = note_hashes.array[transient_note_hash_index_for_each_nullifier[i]];
                 assert_eq(
-                    note_hash.value(),
+                    note_hash.innermost(),
                     nullified_note_hash,
                     "Hinted siloed note hash does not match nullified note hash",
                 );
@@ -273,7 +297,7 @@ impl PreviousKernelValidator {
                 );
                 // No need to verify logs linked to a note hash are squashed.
                 // When a note hash is squashed, all associated logs are guaranteed to be removed.
-                // See reset-kernel-lib/src/reset/transient_data.nr for details.
+                // See reset/transient_data/transient_data_validator.nr for details.
             }
         }
     }

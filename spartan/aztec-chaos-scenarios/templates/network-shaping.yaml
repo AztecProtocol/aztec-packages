@@ -4,7 +4,7 @@
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.targetNamespace }}-latency
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-latency
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
@@ -32,7 +32,7 @@ spec:
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.targetNamespace }}-bandwidth
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-bandwidth
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}
@@ -62,7 +62,7 @@ spec:
 apiVersion: chaos-mesh.org/v1alpha1
 kind: NetworkChaos
 metadata:
-  name: {{ .Values.global.targetNamespace }}-packet-loss
+  name: {{ .Release.Name }}-{{ .Values.global.targetNamespace }}-packet-loss
   namespace: {{ .Values.global.chaosMeshNamespace }}
   labels:
     {{- include "aztec-chaos-scenarios.labels" . | nindent 4 }}

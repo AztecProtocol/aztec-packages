@@ -1,6 +1,7 @@
-import { getInitialTestAccounts } from '@aztec/accounts/testing';
-import { Fr } from '@aztec/aztec.js';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { Fr } from '@aztec/aztec.js/fields';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
+import { getL1Config } from '@aztec/cli/config';
 import { getPublicClient } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -16,7 +17,6 @@ import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { getL1Config } from '../get_l1_config.js';
 import { extractRelevantOptions, preloadCrsDataForVerifying, setupUpdateMonitor } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
@@ -37,13 +37,8 @@ export async function startProverNode(
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
   };
 
-  if (!options.archiver && !proverConfig.archiverUrl) {
-    userLog('--archiver.archiverUrl is required to start a Prover Node without --archiver option');
-    process.exit(1);
-  }
-
   if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
-    throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
+    throw new Error('L1 registry address is required to start a Prover Node');
   }
 
   const followsCanonicalRollup = typeof proverConfig.rollupVersion !== 'number';
@@ -57,7 +52,7 @@ export async function startProverNode(
   proverConfig.l1Contracts = addresses;
   proverConfig = { ...proverConfig, ...config };
 
-  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccountsData()).map(a => a.address) : [];
   const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
   const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
 
@@ -76,9 +71,14 @@ export async function startProverNode(
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
-    // at 1TPS we'd enqueue ~1k tube proofs and ~1k AVM proofs immediately
+    // at 1TPS we'd enqueue ~1k chonk verifier proofs and ~1k AVM proofs immediately
     // set a lower connection limit such that we don't overload the server
-    const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 100 })));
+    // Keep retrying up to 30s
+    const fetch = makeTracedFetch(
+      [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+      false,
+      makeUndiciFetch(new Agent({ connections: 100 })),
+    );
     broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig), fetch);
   } else if (options.proverBroker) {
     ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));

@@ -1,18 +1,18 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { withoutHexPrefix } from '@aztec/foundation/string';
 
 import { type Command, Option } from 'commander';
 
+import { getL1RollupAddressFromEnv } from '../../config/get_l1_config.js';
 import {
   ETHEREUM_HOSTS,
   MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
+  nodeOption,
   parseAztecAddress,
   parseBigint,
   parseEthereumAddress,
-  pxeOption,
 } from '../../utils/commands.js';
 
 export { addL1Validator } from './update_l1_validators.js';
@@ -25,6 +25,8 @@ const l1RpcUrlsOption = new Option(
   .default([ETHEREUM_HOSTS])
   .makeOptionMandatory(true)
   .argParser((arg: string) => arg.split(',').map(url => url.trim()));
+
+const networkOption = new Option('--network <string>', 'Network to execute against').env('NETWORK');
 
 export function injectCommands(program: Command, log: LogFn, debugLogger: Logger) {
   program
@@ -46,6 +48,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--accelerated-test-deployments', 'Fire and forget deployment transactions, use in testing only', false)
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--existing-token <address>', 'Use an existing ERC20 for both fee and staking', parseEthereumAddress)
     .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployL1Contracts } = await import('./deploy_l1_contracts.js');
@@ -66,6 +69,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.createVerificationJson,
         initialValidators,
         options.realVerifier,
+        options.existingToken,
         log,
         debugLogger,
       );
@@ -90,6 +94,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
     .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .option('--real-verifier', 'Deploy the real verifier', false)
+    .option('--create-verification-json [path]', 'Create JSON file for etherscan contract verification', false)
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -108,6 +113,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.json,
         initialValidators,
         options.realVerifier,
+        options.createVerificationJson,
         log,
         debugLogger,
       );
@@ -285,8 +291,9 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('add-l1-validator')
-    .description('Adds a validator to the L1 rollup contract.')
+    .description('Adds a validator to the L1 rollup contract via a direct deposit.')
     .addOption(l1RpcUrlsOption)
+    .addOption(networkOption)
     .option('-pk, --private-key <string>', 'The private key to use sending the transaction', PRIVATE_KEY)
     .option(
       '-m, --mnemonic <string>',
@@ -295,32 +302,29 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .addOption(l1ChainIdOption)
     .option('--attester <address>', 'ethereum address of the attester', parseEthereumAddress)
+    .option('--withdrawer <address>', 'ethereum address of the withdrawer', parseEthereumAddress)
     .option(
       '--bls-secret-key <string>',
       'The BN254 scalar field element used as a secret key for BLS signatures. Will be associated with the attester address.',
       parseBigint,
     )
-    .option('--staking-asset-handler <address>', 'ethereum address of the staking asset handler', parseEthereumAddress)
-    .option('--proof <buffer>', 'The proof to use for the attestation', arg =>
-      Buffer.from(withoutHexPrefix(arg), 'hex'),
-    )
-    .option(
-      '--merkle-proof <string>',
-      'The merkle proof to use for the attestation (comma separated list of 32 byte buffers)',
-      arg => arg.split(','),
-    )
+    .option('--move-with-latest-rollup', 'Whether to move with the latest rollup', true)
+    .option('--rollup <string>', 'Rollup contract address', parseEthereumAddress)
     .action(async options => {
-      const { addL1Validator } = await import('./update_l1_validators.js');
-      await addL1Validator({
+      const { addL1ValidatorViaRollup } = await import('./update_l1_validators.js');
+
+      const rollupAddress = options.rollup ?? (await getL1RollupAddressFromEnv(options.l1RpcUrls, options.l1ChainId));
+
+      await addL1ValidatorViaRollup({
         rpcUrls: options.l1RpcUrls,
         chainId: options.l1ChainId,
         privateKey: options.privateKey,
         mnemonic: options.mnemonic,
         attesterAddress: options.attester,
-        stakingAssetHandlerAddress: options.stakingAssetHandler,
-        merkleProof: options.merkleProof,
-        proofParams: options.proof,
         blsSecretKey: options.blsSecretKey,
+        withdrawerAddress: options.withdrawer,
+        rollupAddress,
+        moveWithLatestRollup: options.moveWithLatestRollup,
         log,
         debugLogger,
       });
@@ -507,52 +511,20 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     )
     .argument('[blockNumber]', 'The target block number, defaults to the latest pending block number.', parseBigint)
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async (blockNumber, options) => {
       const { assumeProvenThrough } = await import('./assume_proven_through.js');
-      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.rpcUrl, log);
+      await assumeProvenThrough(blockNumber, options.l1RpcUrls, options.nodeUrl, log);
     });
 
   program
     .command('advance-epoch')
     .description('Use L1 cheat codes to warp time until the next epoch.')
     .addOption(l1RpcUrlsOption)
-    .addOption(pxeOption)
+    .addOption(nodeOption)
     .action(async options => {
       const { advanceEpoch } = await import('./advance_epoch.js');
-      await advanceEpoch(options.l1RpcUrls, options.rpcUrl, log);
-    });
-
-  program
-    .command('prover-stats', { hidden: true })
-    .addOption(l1RpcUrlsOption)
-    .addOption(l1ChainIdOption)
-    .option('--start-block <number>', 'The L1 block number to start from', parseBigint, 1n)
-    .option('--end-block <number>', 'The last L1 block number to query', parseBigint)
-    .option('--batch-size <number>', 'The number of blocks to query in each batch', parseBigint, 100n)
-    .option('--proving-timeout <number>', 'Cutoff for proving time to consider a block', parseBigint)
-    .option('--l1-rollup-address <string>', 'Address of the rollup contract (required if node URL is not set)')
-    .option(
-      '--node-url <string>',
-      'JSON RPC URL of an Aztec node to retrieve the rollup contract address (required if L1 rollup address is not set)',
-    )
-    .option('--raw-logs', 'Output raw logs instead of aggregated stats')
-    .action(async options => {
-      const { proverStats } = await import('./prover_stats.js');
-      const { l1RpcUrls, chainId, l1RollupAddress, startBlock, endBlock, batchSize, nodeUrl, provingTimeout, rawLogs } =
-        options;
-      await proverStats({
-        l1RpcUrls,
-        chainId,
-        l1RollupAddress,
-        startBlock,
-        endBlock,
-        batchSize,
-        nodeUrl,
-        provingTimeout,
-        rawLogs,
-        log,
-      });
+      await advanceEpoch(options.l1RpcUrls, options.nodeUrl, log);
     });
 
   return program;

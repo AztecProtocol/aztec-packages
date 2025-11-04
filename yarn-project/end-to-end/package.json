@@ -58,6 +58,7 @@
     "@aztec/slasher": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
+    "@aztec/test-wallet": "workspace:^",
     "@aztec/validator-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@iarna/toml": "^2.2.5",
@@ -91,12 +92,12 @@
     "snappy": "^7.2.2",
     "stream-browserify": "^3.0.0",
     "string-argv": "^0.3.2",
-    "ts-loader": "^9.4.4",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.1",
     "tslib": "^2.4.0",
     "typescript": "^5.3.3",
     "util": "^0.12.5",
-    "viem": "2.23.7",
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

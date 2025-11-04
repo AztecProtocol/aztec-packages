@@ -1,12 +1,17 @@
-import { AztecAddress, Fr, SentTx, TxReceipt, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { TxReceipt } from '@aztec/aztec.js/tx';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
-import type { AztecNode, AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { BaseBot } from './base_bot.js';
 import type { BotConfig } from './config.js';
 import { BotFactory } from './factory.js';
+import type { BotStore } from './store/index.js';
 
 const TRANSFER_BASE_AMOUNT = 1_000;
 const TRANSFER_VARIANCE = 200;
@@ -15,26 +20,32 @@ type Balances = { token0: bigint; token1: bigint };
 
 export class AmmBot extends BaseBot {
   protected constructor(
-    pxe: PXE,
-    wallet: Wallet,
+    node: AztecNode,
+    wallet: TestWallet,
     defaultAccountAddress: AztecAddress,
     public readonly amm: AMMContract,
     public readonly token0: TokenContract,
     public readonly token1: TokenContract,
     config: BotConfig,
   ) {
-    super(pxe, wallet, defaultAccountAddress, config);
+    super(node, wallet, defaultAccountAddress, config);
   }
 
   static async create(
     config: BotConfig,
-    dependencies: { pxe?: PXE; node?: AztecNode; nodeAdmin?: AztecNodeAdmin },
+    wallet: TestWallet,
+    aztecNode: AztecNode,
+    aztecNodeAdmin: AztecNodeAdmin | undefined,
+    store: BotStore,
   ): Promise<AmmBot> {
-    const { pxe, wallet, defaultAccountAddress, token0, token1, amm } = await new BotFactory(
+    const { defaultAccountAddress, token0, token1, amm } = await new BotFactory(
       config,
-      dependencies,
+      wallet,
+      store,
+      aztecNode,
+      aztecNodeAdmin,
     ).setupAmm();
-    return new AmmBot(pxe, wallet, defaultAccountAddress, amm, token0, token1, config);
+    return new AmmBot(aztecNode, wallet, defaultAccountAddress, amm, token0, token1, config);
   }
 
   protected async createAndSendTx(logCtx: object): Promise<SentTx> {
@@ -53,9 +64,11 @@ export class AmmBot extends BaseBot {
 
     const [tokenIn, tokenOut] = Math.random() < 0.5 ? [token0, token1] : [token1, token0];
 
-    const swapAuthwit = await wallet.createAuthWit({
+    const swapAuthwit = await wallet.createAuthWit(this.defaultAccountAddress, {
       caller: amm.address,
-      action: tokenIn.methods.transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce),
+      call: await tokenIn.methods
+        .transfer_to_public(this.defaultAccountAddress, amm.address, amountIn, authwitNonce)
+        .getFunctionCall(),
     });
 
     const amountOutMin = await amm.methods
@@ -66,22 +79,17 @@ export class AmmBot extends BaseBot {
       )
       .simulate({ from: this.defaultAccountAddress });
 
-    const swapExactTokensInteraction = amm.methods.swap_exact_tokens_for_tokens(
-      tokenIn.address,
-      tokenOut.address,
-      amountIn,
-      amountOutMin,
-      authwitNonce,
-    );
+    const swapExactTokensInteraction = amm.methods
+      .swap_exact_tokens_for_tokens(tokenIn.address, tokenOut.address, amountIn, amountOutMin, authwitNonce)
+      .with({
+        authWitnesses: [swapAuthwit],
+      });
 
-    const opts = this.getSendMethodOpts(swapAuthwit);
+    const opts = await this.getSendMethodOpts(swapExactTokensInteraction);
 
-    this.log.verbose(`Proving transaction`, logCtx);
-    const tx = await swapExactTokensInteraction.prove(opts);
-
+    this.log.verbose(`Sending transaction`, logCtx);
     this.log.info(`Tx. Balances: ${jsonStringify(balances)}`, { ...logCtx, balances });
-
-    return tx.send();
+    return swapExactTokensInteraction.send(opts);
   }
 
   protected override async onTxMined(receipt: TxReceipt, logCtx: object): Promise<void> {
@@ -97,20 +105,20 @@ export class AmmBot extends BaseBot {
     return {
       senderPublic: await this.getPublicBalanceFor(this.defaultAccountAddress),
       senderPrivate: await this.getPrivateBalanceFor(this.defaultAccountAddress),
-      amm: await this.getPublicBalanceFor(this.amm.address),
+      amm: await this.getPublicBalanceFor(this.amm.address, this.defaultAccountAddress),
     };
   }
 
-  private async getPublicBalanceFor(address: AztecAddress): Promise<Balances> {
+  private async getPublicBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_public(address).simulate({ from: address }),
-      token1: await this.token1.methods.balance_of_public(address).simulate({ from: address }),
+      token0: await this.token0.methods.balance_of_public(address).simulate({ from: from ?? address }),
+      token1: await this.token1.methods.balance_of_public(address).simulate({ from: from ?? address }),
     };
   }
-  private async getPrivateBalanceFor(address: AztecAddress): Promise<Balances> {
+  private async getPrivateBalanceFor(address: AztecAddress, from?: AztecAddress): Promise<Balances> {
     return {
-      token0: await this.token0.methods.balance_of_private(address).simulate({ from: address }),
-      token1: await this.token1.methods.balance_of_private(address).simulate({ from: address }),
+      token0: await this.token0.methods.balance_of_private(address).simulate({ from: from ?? address }),
+      token1: await this.token1.methods.balance_of_private(address).simulate({ from: from ?? address }),
     };
   }
 }

@@ -1,11 +1,11 @@
 use crate::{
-    abis::side_effect::scoped::Scoped,
     address::{AztecAddress, EthAddress},
     constants::{
         MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS, PRIVATE_TO_AVM_ACCUMULATED_DATA_LENGTH,
     },
     messaging::l2_to_l1_message::L2ToL1Message,
+    side_effect::Scoped,
     traits::{Deserialize, Empty, FromField, Serialize},
     utils::arrays::array_length,
 };

@@ -22,8 +22,9 @@ UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_cir
 {
     // Create a copy of the input circuit
     UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
-
-    builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
+        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+    }
 
     return builder;
 }
@@ -235,7 +236,7 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
         bool is_calldata_read = (values.q_l == 1);
         bool is_secondary_calldata_read = (values.q_r == 1);
         bool is_return_data_read = (values.q_o == 1);
-        ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
+        BB_ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
 
         // Check that the claimed value is present in the calldata/return data at the corresponding index
         FF bus_value;
@@ -274,7 +275,7 @@ void UltraCircuitChecker::populate_values(
         }
         uint32_t tag_in = builder.real_variable_tags[real_index];
         if (tag_in != DUMMY_TAG) {
-            uint32_t tag_out = builder.tau.at(tag_in);
+            uint32_t tag_out = builder.tau().at(tag_in);
             tag_data.left_product *= value + tag_data.gamma * FF(tag_in);
             tag_data.right_product *= value + tag_data.gamma * FF(tag_out);
             tag_data.encountered_variables.insert(real_index);

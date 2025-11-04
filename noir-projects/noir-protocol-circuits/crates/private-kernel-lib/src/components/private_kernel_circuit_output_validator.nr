@@ -5,16 +5,16 @@ use crate::components::private_kernel_circuit_public_inputs_composer::{
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        private_kernel::private_call_data::PrivateCallData, transaction::tx_request::TxRequest,
+        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
     traits::Empty,
     utils::arrays::{
         assert_array_appended, assert_array_appended_and_scoped,
         assert_array_appended_reversed_to_empty_dest,
-        assert_array_appended_reversed_up_to_some_length, assert_array_appended_scoped,
-        assert_array_appended_to_empty_dest, assert_array_appended_to_empty_dest_and_scoped,
-        assert_array_appended_to_empty_dest_scoped, assert_array_prepended,
+        assert_array_appended_reversed_up_to_some_length, assert_array_appended_to_empty_dest,
+        assert_array_appended_to_empty_dest_and_scoped, assert_array_prepended,
         assert_array_prepended_up_to_some_length,
     },
 };
@@ -33,7 +33,7 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCallData,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field,
+        protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) {
@@ -41,7 +41,7 @@ impl PrivateKernelCircuitOutputValidator {
             tx_request,
             private_call,
             vk_tree_root,
-            protocol_contract_tree_root,
+            protocol_contracts,
             is_private_only,
             first_nullifier_hint,
         );
@@ -76,7 +76,7 @@ impl PrivateKernelCircuitOutputValidator {
         tx_request: TxRequest,
         private_call: PrivateCallData,
         vk_tree_root: Field,
-        protocol_contract_tree_root: Field,
+        protocol_contracts: ProtocolContracts,
         is_private_only: bool,
         first_nullifier_hint: Field,
     ) {
@@ -84,15 +84,15 @@ impl PrivateKernelCircuitOutputValidator {
         assert_eq(self.output.is_private_only, is_private_only, "mismatch is_private_only");
         assert_eq(self.output.constants.tx_context, tx_request.tx_context, "mismatch tx_context");
         assert_eq(
-            self.output.constants.historical_header,
-            private_call.public_inputs.historical_header,
-            "mismatch historical_header",
+            self.output.constants.anchor_block_header,
+            private_call.public_inputs.anchor_block_header,
+            "mismatch anchor_block_header",
         );
         assert_eq(self.output.constants.vk_tree_root, vk_tree_root, "mismatch vk_tree_root");
         assert_eq(
-            self.output.constants.protocol_contract_tree_root,
-            protocol_contract_tree_root,
-            "mismatch protocol_contract_tree_root",
+            self.output.constants.protocol_contracts,
+            protocol_contracts,
+            "mismatch protocol_contracts",
         );
 
         let protocol_nullifier = create_protocol_nullifier(tx_request);
@@ -280,19 +280,19 @@ impl PrivateKernelCircuitOutputValidator {
         previous_kernel_public_inputs: PrivateKernelCircuitPublicInputs,
     ) {
         let contract_address = private_call.public_inputs.call_context.contract_address;
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.validation_requests.note_hash_read_requests,
             private_call.public_inputs.note_hash_read_requests,
             previous_kernel_public_inputs.validation_requests.note_hash_read_requests.length,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.validation_requests.nullifier_read_requests,
             private_call.public_inputs.nullifier_read_requests,
             previous_kernel_public_inputs.validation_requests.nullifier_read_requests.length,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
             private_call.public_inputs.key_validation_requests_and_generators,
             previous_kernel_public_inputs
@@ -301,13 +301,13 @@ impl PrivateKernelCircuitOutputValidator {
                 .length,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.end.note_hashes,
             private_call.public_inputs.note_hashes,
             previous_kernel_public_inputs.end.note_hashes.length,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.end.nullifiers,
             private_call.public_inputs.nullifiers,
             previous_kernel_public_inputs.end.nullifiers.length,
@@ -351,27 +351,27 @@ impl PrivateKernelCircuitOutputValidator {
     ) {
         // TODO: iterate over all the dest arrays and assert that they are empty, but use assert_empty and not is_empty.
         let contract_address = private_call.public_inputs.call_context.contract_address;
-        assert_array_appended_to_empty_dest_scoped(
+        assert_array_appended_to_empty_dest_and_scoped(
             self.output.validation_requests.note_hash_read_requests,
             private_call.public_inputs.note_hash_read_requests,
             contract_address,
         );
-        assert_array_appended_to_empty_dest_scoped(
+        assert_array_appended_to_empty_dest_and_scoped(
             self.output.validation_requests.nullifier_read_requests,
             private_call.public_inputs.nullifier_read_requests,
             contract_address,
         );
-        assert_array_appended_to_empty_dest_scoped(
+        assert_array_appended_to_empty_dest_and_scoped(
             self.output.validation_requests.scoped_key_validation_requests_and_generators,
             private_call.public_inputs.key_validation_requests_and_generators,
             contract_address,
         );
-        assert_array_appended_to_empty_dest_scoped(
+        assert_array_appended_to_empty_dest_and_scoped(
             self.output.end.note_hashes,
             private_call.public_inputs.note_hashes,
             contract_address,
         );
-        assert_array_appended_scoped(
+        assert_array_appended_and_scoped(
             self.output.end.nullifiers,
             private_call.public_inputs.nullifiers,
             nullifier_offset,

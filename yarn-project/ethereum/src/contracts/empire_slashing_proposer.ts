@@ -14,7 +14,7 @@ import {
   getContract,
 } from 'viem';
 
-import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
+import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { FormattedViemError, tryExtractEvent } from '../utils.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
@@ -33,10 +33,14 @@ export class EmpireSlashingProposerContract extends EventEmitter implements IEmp
 
   constructor(
     public readonly client: ViemClient,
-    address: Hex,
+    address: Hex | EthAddress,
   ) {
     super();
-    this.proposer = getContract({ address, abi: EmpireSlashingProposerAbi, client });
+    this.proposer = getContract({
+      address: typeof address === 'string' ? address : address.toString(),
+      abi: EmpireSlashingProposerAbi,
+      client,
+    });
   }
 
   public get address() {

@@ -7,12 +7,14 @@
 #pragma once
 
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
+#include "barretenberg/dsl/acir_format/acir_format_mocks.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <vector>
 
 namespace acir_format {
 
 using namespace bb;
+using namespace bb::stdlib;
 
 /**
  * @brief Generate builder variables from witness indices. This function is useful when receiving the indices of the
@@ -24,16 +26,37 @@ using namespace bb;
  * @return std::vector<stdlib::field_t<Builder>>
  */
 template <typename Builder>
-static std::vector<stdlib::field_t<Builder>> fields_from_witnesses(Builder& builder,
-                                                                   std::span<const uint32_t> witness_indices)
+static std::vector<field_t<Builder>> fields_from_witnesses(Builder& builder, std::span<const uint32_t> witness_indices)
 {
-    std::vector<stdlib::field_t<Builder>> result;
+    std::vector<field_t<Builder>> result;
     result.reserve(witness_indices.size());
     for (const auto& idx : witness_indices) {
-        result.emplace_back(stdlib::field_t<Builder>::from_witness_index(&builder, idx));
+        result.emplace_back(field_t<Builder>::from_witness_index(&builder, idx));
     }
     return result;
 }
+
+/**
+ * @brief Convert a vector of field_t elements to a byte_array enforcing each element to be a boolean
+ *
+ * @tparam Builder
+ * @param builder
+ * @param fields
+ * @return byte_array<Builder>
+ */
+template <typename Builder> byte_array<Builder> fields_to_bytes(Builder& builder, std::vector<field_t<Builder>>& fields)
+{
+    byte_array<Builder> result(&builder);
+    for (auto& field : fields) {
+        // Construct byte array of length 1 from the field element
+        // The constructor enforces that `field` fits in one byte
+        byte_array<Builder> byte_to_append(field, /*num_bytes=*/1);
+        // Append the new byte to the result
+        result.write(byte_to_append);
+    }
+
+    return result;
+};
 
 /**
  * @brief Append values to a witness vector and track their indices.
@@ -79,6 +102,39 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness,
         indices[idx++] = witness_idx++;
     }
     return indices;
+};
+
+/**
+ * @brief Append input to a witness vector and track indices
+ *
+ * @details This function is useful in testing situations, it is meant to be extended to support the types required.
+ */
+template <typename T> std::vector<uint32_t> add_to_witness_and_track_indices(WitnessVector& witness, const T& input)
+{
+    std::vector<uint32_t> indices;
+
+    if constexpr (std::is_same_v<T, bb::grumpkin::g1::affine_element>) {
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.x);
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.y);
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.is_point_at_infinity() ? bb::fr(1) : bb::fr(0));
+    }
+
+    return indices;
+};
+
+/**
+ * @brief Populate fields in the builder with the given values. To be used in mocking situations.
+ *
+ */
+template <typename Builder>
+void populate_fields(Builder& builder, const std::vector<field_t<Builder>>& fields, const std::vector<bb::fr>& values)
+{
+    for (auto [field, value] : zip_view(fields, values)) {
+        builder.set_variable(field.get_witness_index(), value);
+    }
 };
 
 } // namespace acir_format

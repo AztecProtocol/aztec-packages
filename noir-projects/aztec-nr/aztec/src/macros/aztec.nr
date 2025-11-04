@@ -1,6 +1,6 @@
 use crate::macros::{
     dispatch::generate_public_dispatch,
-    functions::{stub_registry, utils::check_each_fn_macroified},
+    functions::{self_call_registry, stub_registry, utils::check_each_fn_macroified},
     notes::NOTES,
     storage::STORAGE_LAYOUT_NAME,
     utils::{get_trait_impl_method, module_has_storage},
@@ -11,9 +11,9 @@ use crate::macros::{
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
+    let self_call_structs = generate_self_call_structs(m);
 
-    // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
-    // allowed in contracts.
+    // Functions that don't have #[external(...)], #[contract_library_method], or #[test] are not allowed in contracts.
     check_each_fn_macroified(m);
 
     // We generate `_compute_note_hash_and_nullifier`, `sync_private_state` and `process_message`
@@ -40,6 +40,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
     quote {
         $interface
+        $self_call_structs
         $contract_library_method_compute_note_hash_and_nullifier
         $public_dispatch
         $sync_private_state
@@ -178,7 +179,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                         // The message discovery process finds settled notes, that is, notes that were created in prior
                         // transactions and are therefore already part of the note hash tree. We therefore compute the
                         // nullification note hash by treating the note as a settled note with the provided note nonce.
-                        let note_hash_for_nullify = aztec::note::utils::compute_note_hash_for_nullify(
+                        let note_hash_for_nullification = aztec::note::utils::compute_note_hash_for_nullification(
                             aztec::note::retrieved_note::RetrievedNote{ 
                                 note, 
                                 contract_address, 
@@ -187,7 +188,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                             storage_slot,
                         );
 
-                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullify);
+                        let inner_nullifier = $compute_nullifier_unconstrained(note, note_hash_for_nullification);
 
                         Option::some(
                             aztec::messages::discovery::NoteHashAndNullifier {
@@ -208,7 +209,7 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
             ///
             /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHashAndNullifier` type,
             /// and so it can be used to call functions from that module such as `discover_new_messages`, 
-            /// `do_process_log` and `attempt_note_discovery`.
+            /// `do_process_message` and `attempt_note_discovery`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
@@ -248,41 +249,108 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
 }
 
 comptime fn generate_sync_private_state() -> Quoted {
-    // We obtain the `utility` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
-    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
-    // to determine whether a function is `private`, `public`, or `utility`.
-    let utility = crate::macros::functions::utility;
+    // We obtain the `external` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
+    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
+    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
+    let external = crate::macros::functions::external;
 
-    // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
+    // All we need to do here is trigger message discovery, but this is already done by the #[external("utility")] macro - we don't
     // need to do anything extra.
     quote {
-        #[$utility]
+        #[$external("utility")]
         unconstrained fn sync_private_state() {
         }
     }
 }
 
 comptime fn generate_process_message() -> Quoted {
-    // We obtain the `utility` function on the next line instead of directly doing
-    // `#[aztec::macros::functions::utility]` in the returned quote because the latter would result in the function
-    // attribute having the full path in the ABI. This is undesirable because we use the information in the ABI only
-    // to determine whether a function is `private`, `public`, or `utility`.
-    let utility = crate::macros::functions::utility;
+    // We obtain the `external` function on the next line instead of directly doing
+    // `#[aztec::macros::functions::external("utility")]` in the returned quote because the latter would result in
+    // the function attribute having the full path in the ABI. This is undesirable because we use the information in
+    // the ABI only to determine whether a function is `external("private")`, `external("public")`, or `external("utility")`.
+    let external = crate::macros::functions::external;
 
-    // TODO(#15012): Here we use PRIVATE_LOG_CIPHERTEXT_LEN for message ciphertext length. Fix message vs log naming.
     quote {
-        #[$utility]
+        #[$external("utility")]
         unconstrained fn process_message(
-            message_ciphertext: BoundedVec<Field, aztec::protocol_types::constants::PRIVATE_LOG_CIPHERTEXT_LEN>,
+            message_ciphertext: BoundedVec<Field, aztec::messages::encoding::MESSAGE_CIPHERTEXT_LEN>,
             message_context: aztec::messages::processing::message_context::MessageContext,
         ) {
-            aztec::messages::discovery::process_message::do_process_message(
-                context.this_address(),
+            aztec::messages::discovery::process_message::process_message_ciphertext(
+                self.address,
                 _compute_note_hash_and_nullifier,
                 message_ciphertext,
                 message_context,
             );
+        }
+    }
+}
+
+/// Generates helper structs for convenient self-invocation of contract functions:
+///
+/// - `CallSelf`: Call your own private or public functions, e.g.:
+///     `self.call_self.some_private_function(args)`
+/// - `CallSelfStatic`: Call your own view (static) functions, e.g.:
+///     `self.call_self_static.some_view_function(args)`
+/// - `EnqueueSelf`: Enqueue your own (non-view) public functions for deferred execution, e.g.:
+///     `self.enqueue_self.some_public_function(args)`
+/// - `EnqueueSelfStatic`: Enqueue your own view public functions, e.g.:
+///     `self.enqueue_self_static.some_view_function(args)`
+comptime fn generate_self_call_structs(m: Module) -> Quoted {
+    let stubs = self_call_registry::get_all_self_call_stubs(m);
+
+    // We need to destructure the stubs here because accessing struct fields in a quote block is not supported.
+    let call_self_private_methods = stubs.call_self_private_methods;
+    let call_self_public_methods = stubs.call_self_public_methods;
+    let enqueue_self_methods = stubs.enqueue_self_methods;
+    let call_self_private_static_methods = stubs.call_self_private_static_methods;
+    let call_self_public_static_methods = stubs.call_self_public_static_methods;
+    let enqueue_self_static_methods = stubs.enqueue_self_static_methods;
+
+    quote {
+        pub struct CallSelf<Context> {
+            pub address: dep::aztec::protocol_types::address::AztecAddress,
+            pub context: Context,
+        }
+
+        impl CallSelf<&mut dep::aztec::context::private_context::PrivateContext> {
+            $call_self_private_methods
+        }
+
+        impl CallSelf<dep::aztec::context::public_context::PublicContext> {
+            $call_self_public_methods
+        }
+
+        pub struct CallSelfStatic<Context> {
+            pub address: dep::aztec::protocol_types::address::AztecAddress,
+            pub context: Context,
+        }
+
+        impl CallSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
+            $call_self_private_static_methods
+        }
+
+        impl CallSelfStatic<dep::aztec::context::public_context::PublicContext> {
+            $call_self_public_static_methods
+        }
+
+        pub struct EnqueueSelf<Context> {
+            pub address: dep::aztec::protocol_types::address::AztecAddress,
+            pub context: Context,
+        }
+
+        impl EnqueueSelf<&mut dep::aztec::context::private_context::PrivateContext> {
+            $enqueue_self_methods
+        }
+
+        pub struct EnqueueSelfStatic<Context> {
+            pub address: dep::aztec::protocol_types::address::AztecAddress,
+            pub context: Context,
+        }
+
+        impl EnqueueSelfStatic<&mut dep::aztec::context::private_context::PrivateContext> {
+            $enqueue_self_static_methods
         }
     }
 }

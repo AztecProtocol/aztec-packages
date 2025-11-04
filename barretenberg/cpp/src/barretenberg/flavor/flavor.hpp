@@ -87,7 +87,6 @@
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/field/field_conversion.hpp"
-#include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 #include <array>
@@ -181,7 +180,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     static size_t calc_num_data_types()
     {
-        using namespace bb::field_conversion;
         // Create a temporary instance to get the number of precomputed entities
         size_t commitments_size =
             PrecomputedCommitments::size() * Transcript::template calc_num_data_types<Commitment>();
@@ -201,7 +199,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<typename Transcript::DataType> to_field_elements() const
     {
-        using namespace bb::field_conversion;
 
         auto serialize = [](const auto& input, std::vector<typename Transcript::DataType>& buffer) {
             std::vector<typename Transcript::DataType> input_fields = Transcript::serialize(input);
@@ -232,7 +229,6 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const typename Transcript::DataType>& elements)
     {
-        using namespace bb::field_conversion;
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -309,7 +305,7 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     using Builder = Builder_;
     using FF = stdlib::field_t<Builder>;
     using Commitment = typename PrecomputedCommitments::DataType;
-    using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
+    using Transcript = StdlibTranscript<Builder>;
     FF log_circuit_size;
     FF num_public_inputs;
     FF pub_inputs_offset = 0;
@@ -330,10 +326,10 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      */
     virtual std::vector<FF> to_field_elements() const
     {
-        using namespace bb::stdlib::field_conversion;
+        using Codec = stdlib::StdlibCodec<FF>;
 
         auto serialize_to_field_buffer = []<typename T>(const T& input, std::vector<FF>& buffer) {
-            std::vector<FF> input_fields = convert_to_bn254_frs<Builder, T>(input);
+            std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
             buffer.insert(buffer.end(), input_fields.begin(), input_fields.end());
         };
 
@@ -356,9 +352,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
      * @param builder
      * @return FF
      */
-    FF hash(Builder& builder)
+    FF hash()
     {
-        FF vk_hash = stdlib::poseidon2<Builder>::hash(builder, to_field_elements());
+        FF vk_hash = stdlib::poseidon2<Builder>::hash(to_field_elements());
         return vk_hash;
     }
 
@@ -430,19 +426,6 @@ template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 }
 
 /**
- * @brief Utility function to find max TOTAL_RELATION_LENGTH among tuples of Relations.
- * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
- * relation are regarded as variables.
- */
-template <typename Tuple> constexpr size_t compute_max_total_relation_length()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-    }(seq);
-}
-
-/**
  * @brief Utility function to find the number of subrelations.
  */
 template <typename Tuple> constexpr size_t compute_number_of_subrelations()
@@ -450,31 +433,6 @@ template <typename Tuple> constexpr size_t compute_number_of_subrelations()
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... I>(std::index_sequence<I...>) {
         return (0 + ... + std::tuple_element_t<I, Tuple>::SUBRELATION_PARTIAL_LENGTHS.size());
-    }(seq);
-}
-
-/**
- * @brief Utility function to construct a container for the subrelation accumulators of Protogalaxy folding.
- * @details The size of the outer tuple is equal to the number of relations. Each relation contributes an inner
- * tuple of univariates whose size is equal to the number of subrelations of the relation. The length of a
- * univariate in an inner tuple is determined by the corresponding subrelation length and the number of keys to be
- * folded.
- * @tparam optimized Enable optimized version with skipping some of the computation
- */
-template <typename Tuple, size_t NUM_KEYS, bool optimized = false>
-constexpr auto create_protogalaxy_tuple_of_tuples_of_univariates()
-{
-    constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
-    return []<size_t... I>(std::index_sequence<I...>) {
-        if constexpr (optimized) {
-            return flat_tuple::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::template ProtogalaxyTupleOfUnivariatesOverSubrelations<
-                    NUM_KEYS>{}...);
-        } else {
-            return flat_tuple::make_tuple(
-                typename std::tuple_element_t<I, Tuple>::
-                    template ProtogalaxyTupleOfUnivariatesOverSubrelationsNoOptimisticSkipping<NUM_KEYS>{}...);
-        }
     }(seq);
 }
 
@@ -494,9 +452,18 @@ template <typename RelationsTuple> constexpr auto create_sumcheck_tuple_of_tuple
 }
 
 /**
- * @brief Construct tuple of arrays
- * @details Container for storing value of each identity in each relation. Each Relation contributes an array of
- * length num-identities.
+ * @brief Create a tuple of arrays
+ *
+ * @details This function is used to declare a type whose instances are containers for the evaluations of the Ultra/Mega
+ * Honk subrelations. More precisely, the function returns a tuple of length equal to the number of relations defined by
+ * RelationsTuple, where the element at index idx in the tuple is an array of FF elements of length equal to the number
+ * of subrelations that made up the the relation at index idx in RelationsTuple.
+ *
+ * @example if RelationsTuple = UltraFlavor::Relations_, then the tuple returned by the function is a tuple of length 9,
+ * where the first element of the tuple is an array of length 2 (as the first relation in UltraFlavor::Relations_ is the
+ * ArithmeticRelation, which is made up by two subrelations).
+ *
+ * @tparam RelationsTuple
  */
 template <typename RelationsTuple> constexpr auto create_tuple_of_arrays_of_values()
 {
@@ -527,6 +494,7 @@ class TranslatorFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
 class AvmRecursiveFlavor;
+class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;

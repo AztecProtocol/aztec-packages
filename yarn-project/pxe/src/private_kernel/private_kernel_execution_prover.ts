@@ -4,9 +4,8 @@ import { createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
 import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { getProtocolContractLeafAndMembershipWitness, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeContractAddressFromInstance } from '@aztec/stdlib/contract';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import {
   HidingKernelToPublicPrivateInputs,
@@ -24,7 +23,7 @@ import {
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
 } from '@aztec/stdlib/kernel';
-import { ClientIvcProof } from '@aztec/stdlib/proofs';
+import { ChonkProof, ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
@@ -54,7 +53,7 @@ export interface PrivateKernelExecutionProverConfig {
 /**
  * The PrivateKernelExecutionProver class is responsible for taking a transaction request and sequencing the
  * the execution of the private functions within, sequenced with private kernel "glue" to check protocol rules.
- * The result can be a client IVC proof of the private transaction portion, or just a simulation that can e.g.
+ * The result can be a chonk proof of the private transaction portion, or just a simulation that can e.g.
  * inform state tree updates.
  */
 export class PrivateKernelExecutionProver {
@@ -168,7 +167,7 @@ export class PrivateKernelExecutionProver {
         const proofInput = new PrivateKernelInitCircuitPrivateInputs(
           txRequest,
           getVKTreeRoot(),
-          protocolContractTreeRoot,
+          ProtocolContractsList,
           privateCallData,
           isPrivateOnlyTx,
           executionResult.firstNullifier,
@@ -268,10 +267,10 @@ export class PrivateKernelExecutionProver {
     // Use the aggregated includeByTimestamp set throughout the tx execution.
     // TODO: Call `computeTxIncludeByTimestamp` to round the value down and reduce precision, improving privacy.
     const includeByTimestampUpperBound = previousKernelData.publicInputs.includeByTimestamp;
-    const blockTimestamp = previousKernelData.publicInputs.constants.historicalHeader.globalVariables.timestamp;
-    if (includeByTimestampUpperBound <= blockTimestamp) {
+    const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
+    if (includeByTimestampUpperBound <= anchorBlockTimestamp) {
       throw new Error(
-        `Include-by timestamp must be greater than the historical block timestamp. Block timestamp: ${blockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
+        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${includeByTimestampUpperBound}.`,
       );
     }
 
@@ -280,8 +279,6 @@ export class PrivateKernelExecutionProver {
       paddedSideEffectAmounts,
       includeByTimestampUpperBound,
     );
-
-    pushTestData('private-kernel-inputs-ordering', privateInputs);
 
     const witgenTimer = new Timer();
     const tailOutput = generateWitnesses
@@ -350,23 +347,51 @@ export class PrivateKernelExecutionProver {
       this.log.info(`Private kernel witness generation took ${timer.ms()}ms`);
     }
 
-    let clientIvcProof: ClientIvcProof;
+    let chonkProof: ChonkProof;
     // TODO(#7368) how do we 'bincode' encode these inputs?
     let provingTime;
     if (!skipProofGeneration) {
       const provingTimer = new Timer();
-      clientIvcProof = await this.proofCreator.createClientIvcProof(executionSteps);
+      const proofWithPublicInputs = await this.proofCreator.createChonkProof(executionSteps);
       provingTime = provingTimer.ms();
+      this.ensurePublicInputsMatch(proofWithPublicInputs, tailOutput.publicInputs);
+      chonkProof = proofWithPublicInputs.removePublicInputs();
     } else {
-      clientIvcProof = ClientIvcProof.random();
+      chonkProof = ChonkProof.random();
     }
 
     return {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
-      clientIvcProof,
+      chonkProof,
       timings: provingTime ? { proving: provingTime } : undefined,
     };
+  }
+
+  /**
+   * Checks that the public inputs of the chonk proof match the public inputs of the tail circuit.
+   * This can only mismatch if there is a circuit / noir / bb bug.
+   * @param chonkProof - The chonk proof with public inputs.
+   * @param tailPublicInputs - The public inputs resulting from witness generation of the tail circuit.
+   */
+  private ensurePublicInputsMatch(
+    chonkProof: ChonkProofWithPublicInputs,
+    tailPublicInputs: PrivateKernelTailCircuitPublicInputs,
+  ) {
+    const serializedChonkProofPublicInputs = chonkProof.getPublicInputs();
+    const serializedTailPublicInputs = tailPublicInputs.publicInputs().toFields();
+    if (serializedChonkProofPublicInputs.length !== serializedTailPublicInputs.length) {
+      throw new Error(
+        `Public inputs length mismatch: ${serializedChonkProofPublicInputs.length} !== ${serializedTailPublicInputs.length}`,
+      );
+    }
+    if (
+      !serializedChonkProofPublicInputs.every((input: Fr, index: number) =>
+        input.equals(serializedTailPublicInputs[index]),
+      )
+    ) {
+      throw new Error(`Public inputs mismatch between kernel and chonk proof`);
+    }
   }
 
   private async getVkData(verificationKey: VerificationKeyData) {
@@ -394,17 +419,6 @@ export class PrivateKernelExecutionProver {
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
-    // This will be the address computed in the kernel by the executed class. We need to provide non membership of it in the protocol contract tree.
-    // This would only be equal to contractAddress if the currentClassId is equal to the original class id (no update happened).
-    const computedAddress = await computeContractAddressFromInstance({
-      originalContractClassId: currentContractClassId,
-      saltedInitializationHash,
-      publicKeys,
-    });
-
-    const { lowLeaf: protocolContractLeaf, witness: protocolContractMembershipWitness } =
-      await getProtocolContractLeafAndMembershipWitness(contractAddress, computedAddress);
-
     const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
     return PrivateCallData.from({
       publicInputs,
@@ -415,8 +429,6 @@ export class PrivateKernelExecutionProver {
         contractClassPublicBytecodeCommitment,
         saltedInitializationHash,
         functionLeafMembershipWitness,
-        protocolContractMembershipWitness,
-        protocolContractLeaf,
         updatedClassIdHints,
       }),
     });

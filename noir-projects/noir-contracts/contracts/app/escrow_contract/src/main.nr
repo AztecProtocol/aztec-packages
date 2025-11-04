@@ -1,18 +1,17 @@
 // Sample escrow contract that stores a balance of a private token on behalf of an owner.
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract Escrow {
-    use dep::aztec::{
-        macros::{functions::{initializer, private}, storage::storage},
-        messages::logs::note::encode_and_encrypt_note,
+    use aztec::{
+        macros::{functions::{external, initializer}, storage::storage},
+        messages::message_delivery::MessageDelivery,
+        protocol_types::address::AztecAddress,
+        state_vars::PrivateImmutable,
     };
-    use dep::aztec::{protocol_types::address::AztecAddress, state_vars::PrivateImmutable};
 
-    // docs:start:addressnote_import
-    use dep::address_note::address_note::AddressNote;
-    // docs:end:addressnote_import
-    use dep::token::Token;
+    use address_note::address_note::AddressNote;
+    use token::Token;
 
     #[storage]
     struct Storage<Context> {
@@ -20,26 +19,20 @@ pub contract Escrow {
     }
 
     // Creates a new instance
-    #[private]
+    #[external("private")]
     #[initializer]
     fn constructor(owner: AztecAddress) {
-        // docs:start:addressnote_new
         let note = AddressNote::new(owner, owner);
-        // docs:end:addressnote_new
-        storage.owner.initialize(note).emit(encode_and_encrypt_note(&mut context, owner));
+        self.storage.owner.initialize(note).emit(owner, MessageDelivery.CONSTRAINED_ONCHAIN);
     }
 
-    // docs:start:withdraw
     // Withdraws balance. Requires that msg.sender is the owner.
-    #[private]
+    #[external("private")]
     fn withdraw(token: AztecAddress, amount: u128, recipient: AztecAddress) {
-        let sender = context.msg_sender();
+        let sender = self.msg_sender().unwrap();
 
-        let note = storage.owner.get_note();
+        let note = self.storage.owner.get_note();
         assert(note.get_address() == sender);
-        // docs:start:call_function
-        Token::at(token).transfer(recipient, amount).call(&mut context);
-        // docs:end:call_function
+        Token::at(token).transfer(recipient, amount).call(self.context);
     }
-    // docs:end:withdraw
 }

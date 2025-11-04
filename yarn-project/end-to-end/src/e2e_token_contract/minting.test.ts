@@ -3,12 +3,12 @@ import { TokenContractTest } from './token_contract_test.js';
 
 describe('e2e_token_contract minting', () => {
   const t = new TokenContractTest('minting');
-  let { asset, tokenSim, adminAddress, account1, account1Address } = t;
+  let { asset, tokenSim, adminAddress, account1Address } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.setup();
-    ({ asset, tokenSim, adminAddress, account1, account1Address } = t);
+    ({ asset, tokenSim, adminAddress, account1Address } = t);
   });
 
   afterAll(async () => {
@@ -35,7 +35,7 @@ describe('e2e_token_contract minting', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
-          asset.withWallet(account1).methods.mint_to_public(adminAddress, amount).simulate({ from: account1Address }),
+          asset.methods.mint_to_public(adminAddress, amount).simulate({ from: account1Address }),
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
@@ -71,7 +71,7 @@ describe('e2e_token_contract minting', () => {
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
-          asset.withWallet(account1).methods.mint_to_private(adminAddress, amount).simulate({ from: account1Address }),
+          asset.methods.mint_to_private(adminAddress, amount).simulate({ from: account1Address }),
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 

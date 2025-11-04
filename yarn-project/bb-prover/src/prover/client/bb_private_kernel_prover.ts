@@ -16,7 +16,11 @@ import {
   getPrivateKernelResetArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
-import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import {
+  type ArtifactProvider,
+  type ClientProtocolArtifact,
+  mapProtocolArtifactNameToCircuitName,
+} from '@aztec/noir-protocol-circuits-types/types';
 import type { Abi, WitnessMap } from '@aztec/noir-types';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
@@ -33,10 +37,8 @@ import type {
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
-import type { ClientIvcProof } from '@aztec/stdlib/proofs';
+import type { ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-
-import { mapProtocolArtifactNameToCircuitName } from '../../stats.js';
 
 export abstract class BBPrivateKernelProver implements PrivateKernelProver {
   constructor(
@@ -261,7 +263,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public createClientIvcProof(_executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
+  public createChonkProof(_executionSteps: PrivateExecutionStep[]): Promise<ChonkProofWithPublicInputs> {
     throw new Error('Not implemented');
   }
 

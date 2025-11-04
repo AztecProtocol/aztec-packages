@@ -25,7 +25,6 @@
 
 namespace bb::avm2 {
 
-INSTANTIATE_LOOKUP(lookup_alu_register_tag_value_relation);
 INSTANTIATE_LOOKUP(lookup_alu_tag_max_bits_value_relation);
 INSTANTIATE_LOOKUP(lookup_alu_range_check_decomposition_a_lo_relation);
 INSTANTIATE_LOOKUP(lookup_alu_range_check_decomposition_a_hi_relation);
@@ -36,8 +35,6 @@ INSTANTIATE_LOOKUP(lookup_alu_gt_div_remainder_relation);
 INSTANTIATE_LOOKUP(lookup_alu_ff_gt_relation);
 INSTANTIATE_LOOKUP(lookup_alu_int_gt_relation);
 INSTANTIATE_LOOKUP(lookup_alu_shifts_two_pow_relation);
-INSTANTIATE_LOOKUP(lookup_alu_exec_dispatching_cast_relation);
-INSTANTIATE_LOOKUP(lookup_alu_exec_dispatching_set_relation);
 INSTANTIATE_LOOKUP(lookup_alu_large_trunc_canonical_dec_relation);
 INSTANTIATE_LOOKUP(lookup_alu_range_check_trunc_mid_relation);
 

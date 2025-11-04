@@ -1,5 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib';
 import { fromEntries, times, timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
@@ -46,9 +47,10 @@ describe('epoch-proving-job', () => {
   const NUM_BLOCKS = 3;
   const TXS_PER_BLOCK = 2;
   const NUM_TXS = NUM_BLOCKS * TXS_PER_BLOCK;
+  const proverId = EthAddress.random();
 
   // Subject factory
-  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number } = {}) => {
+  const createJob = (opts: { deadline?: Date; parallelBlockLimit?: number; skipSubmitProof?: boolean } = {}) => {
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
 
     const data: EpochProvingJobData = {
@@ -68,7 +70,7 @@ describe('epoch-proving-job', () => {
       l2BlockSource,
       metrics,
       opts.deadline,
-      { parallelBlockLimit: opts.parallelBlockLimit ?? 32 },
+      { parallelBlockLimit: opts.parallelBlockLimit ?? 32, skipSubmitProof: opts.skipSubmitProof },
     );
   };
 
@@ -104,11 +106,12 @@ describe('epoch-proving-job', () => {
 
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
     l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.getBlockHeader()));
     l2BlockSource.getPublishedBlocks.mockResolvedValue([{ block: blocks.at(-1)!, attestations } as PublishedL2Block]);
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
+    prover.getProverId.mockReturnValue(proverId);
     prover.startNewBlock.mockImplementation(() => sleep(200));
     prover.finalizeEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     publisher.submitEpochProof.mockResolvedValue(true);
@@ -126,6 +129,14 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('completed');
     expect(db.close).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(publicProcessorFactory.create).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(publicProcessorFactory.create.mock.calls.map(call => /* config */ call[2])).toEqual(
+      new Array(NUM_BLOCKS).fill({
+        skipFeeEnforcement: true,
+        clientInitiatedSimulation: false,
+        proverId: proverId.toField(),
+      }),
+    );
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
     );
@@ -192,7 +203,8 @@ describe('epoch-proving-job', () => {
 
   it('halts if a new block for the epoch is found', async () => {
     const newBlocks = await timesParallel(NUM_BLOCKS + 1, i => L2Block.random(i + 1, TXS_PER_BLOCK));
-    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newBlocks.map(b => b.header));
+    const newHeaders = newBlocks.map(b => b.getBlockHeader());
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newHeaders);
 
     const job = createJob();
     await job.run();
@@ -200,5 +212,14 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('reorg');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
     expect(prover.cancel).toHaveBeenCalled();
+  });
+
+  it('skips publishing when skipSubmitProof is enabled', async () => {
+    const job = createJob({ skipSubmitProof: true });
+    await job.run();
+
+    expect(job.getState()).toEqual('completed');
+    expect(prover.finalizeEpoch).toHaveBeenCalled();
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 });

@@ -5,15 +5,21 @@ set(CVC5_PREFIX "${CMAKE_BINARY_DIR}/_deps/cvc5")
 set(CVC5_BUILD "${CVC5_PREFIX}/src/cvc5-build")
 set(CVC5_LIB "${CVC5_BUILD}/lib/libcvc5.so")
 set(CVC5_INCLUDE "${CVC5_BUILD}/include")
+set(CVC5_STABLE_COMMIT "5fcdb48eb26dee9385e0d0e6377fcc7e4afee85a")
+
+# We need to go through some hoops to do a shallow clone of a fixed commit (as opposed to a tag).
+set(CVC5_DOWNLOAD_COMMAND
+    sh -c "mkdir -p ${CVC5_PREFIX}/src/cvc5 && cd ${CVC5_PREFIX}/src/cvc5 && git init . && (git remote add origin https://github.com/cvc5/cvc5.git || true) && git fetch --depth 1 origin ${CVC5_STABLE_COMMIT} && git checkout FETCH_HEAD"
+)
 
 if(ENABLE_ASAN)
     ExternalProject_Add(
         cvc5
         PREFIX ${CVC5_PREFIX}
-        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
-        GIT_TAG main
+        DOWNLOAD_COMMAND ${CVC5_DOWNLOAD_COMMAND}
+        SOURCE_DIR ${CVC5_PREFIX}/src/cvc5
         BUILD_IN_SOURCE YES
-        CONFIGURE_COMMAND ${SHELL} ./configure.sh debug --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix=${CVC5_BUILD} --asan
+        CONFIGURE_COMMAND ${SHELL} ./configure.sh debug --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD} --asan
         BUILD_COMMAND make -C build -j8
         INSTALL_COMMAND make -C build install
         UPDATE_COMMAND ""     # No update step
@@ -25,10 +31,10 @@ else()
     ExternalProject_Add(
         cvc5
         PREFIX ${CVC5_PREFIX}
-        GIT_REPOSITORY "https://github.com/cvc5/cvc5.git"
-        GIT_TAG main
+        DOWNLOAD_COMMAND ${CVC5_DOWNLOAD_COMMAND}
+        SOURCE_DIR ${CVC5_PREFIX}/src/cvc5
         BUILD_IN_SOURCE YES
-        CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=/usr/bin/clang -DCMAKE_CXX_COMPILER=/usr/bin/clang++ --prefix=${CVC5_BUILD}
+        CONFIGURE_COMMAND ${SHELL} ./configure.sh production --gpl --auto-download --cocoa --cryptominisat --kissat -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER} --prefix=${CVC5_BUILD}
         BUILD_COMMAND make -C build -j8
         INSTALL_COMMAND make -C build install
         UPDATE_COMMAND ""     # No update step

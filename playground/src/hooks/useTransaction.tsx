@@ -1,27 +1,21 @@
 import { useContext } from 'react';
-import { AztecContext } from '../aztecEnv';
-import {
-  TxReceipt,
-  TxStatus,
-  type AztecAddress,
-  type ContractFunctionInteraction,
-  type DeployMethod,
-  type DeployOptions,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { AztecContext } from '../aztecContext';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { ContractFunctionInteraction, DeployMethod, DeployOptions, SendInteractionOptions } from '@aztec/aztec.js/contracts';
+import { TxReceipt, TxStatus } from '@aztec/aztec.js/tx';
 import { TimeoutError } from '@aztec/foundation/error';
 import { useNotifications } from '@toolpad/core/useNotifications';
 import { TX_TIMEOUT } from '../constants';
 
 export function useTransaction() {
-  const { walletDB, currentTx, setCurrentTx } = useContext(AztecContext);
+  const { playgroundDB, currentTx, setCurrentTx } = useContext(AztecContext);
   const notifications = useNotifications();
 
   async function sendTx(
     name: string,
     interaction: ContractFunctionInteraction | DeployMethod,
     contractAddress: AztecAddress,
-    opts: SendMethodOptions | DeployOptions,
+    opts: SendInteractionOptions | DeployOptions,
     displayOptions?: {
       showNotifications?: boolean;
     },
@@ -38,25 +32,19 @@ export function useTransaction() {
     setCurrentTx(tx);
 
     try {
-      notifications.show('Proving transaction...', {
+      notifications.show('Sending transaction...', {
         severity: 'info',
       });
-      const provenInteraction = await interaction.prove(opts);
+      const tx = await interaction.send(opts);
 
-      if (showNotifications) {
-        notifications.show('Proof generated successfully, sending transaction...', {
-          severity: 'success',
-        });
-      }
-
-      txHash = await provenInteraction.getTxHash();
+      txHash = await tx.getTxHash();
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
 
       // TODO: Don't send the tx if the user has cancelled the transaction
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
+      receipt = await tx.wait({ dontThrowOnRevert: true, timeout: TX_TIMEOUT, interval: 5 });
 
       if (showNotifications && receipt.status === TxStatus.SUCCESS) {
         notifications.show('Congratulations! Your transaction was included in a block.', {
@@ -64,7 +52,7 @@ export function useTransaction() {
         });
       }
 
-      await walletDB.storeTx({
+      await playgroundDB.storeTx({
         contractAddress,
         txHash,
         name,
@@ -83,7 +71,7 @@ export function useTransaction() {
     } catch (e) {
       if (e instanceof TimeoutError) {
         const txReceipt = new TxReceipt(txHash, TxStatus.PENDING, e.message);
-        await walletDB.storeTx({
+        await playgroundDB.storeTx({
           contractAddress,
           txHash,
           name,

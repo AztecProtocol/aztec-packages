@@ -39,7 +39,7 @@ export function loadKeystoreFile(filePath: string): KeyStore {
     const content = readFileSync(filePath, 'utf-8');
 
     // Parse JSON and validate with Zod schema (following Aztec patterns)
-    return keystoreSchema.parse(JSON.parse(content)) as KeyStore;
+    return keystoreSchema.parse(JSON.parse(content));
   } catch (error) {
     if (error instanceof SyntaxError) {
       throw new KeyStoreLoadError('Invalid JSON format', filePath, error);
@@ -285,17 +285,37 @@ export function mergeKeystores(keystores: KeyStore[]): KeyStore {
  * @returns Array of string keys used to detect duplicates.
  */
 function extractAttesterKeys(attester: unknown): string[] {
+  // String forms (private key or other) - return as-is for coarse uniqueness
   if (typeof attester === 'string') {
     return [attester];
   }
 
+  // Arrays of attester items
   if (Array.isArray(attester)) {
-    return attester.map(a => (typeof a === 'string' ? a : JSON.stringify(a)));
+    const keys: string[] = [];
+    for (const item of attester) {
+      keys.push(...extractAttesterKeys(item));
+    }
+    return keys;
   }
 
-  if (attester && typeof attester === 'object' && 'address' in attester) {
-    return [(attester as { address: string }).address];
+  if (attester && typeof attester === 'object') {
+    const obj = attester as Record<string, unknown>;
+
+    // New shape: { eth: EthAccount, bls?: BLSAccount }
+    if ('eth' in obj) {
+      return extractAttesterKeys(obj.eth);
+    }
+
+    // Remote signer account object shape: { address, remoteSignerUrl?, ... }
+    if ('address' in obj) {
+      return [String((obj as any).address)];
+    }
+
+    // Mnemonic or other object shapes: stringify
+    return [JSON.stringify(attester)];
   }
 
+  // Fallback stringify for anything else (null/undefined)
   return [JSON.stringify(attester)];
 }

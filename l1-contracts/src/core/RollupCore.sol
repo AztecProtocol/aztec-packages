@@ -5,7 +5,10 @@ pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
-  IRollupCore, RollupStore, SubmitEpochRootProofArgs, RollupConfigInput
+  IRollupCore,
+  RollupStore,
+  SubmitEpochRootProofArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
@@ -17,7 +20,6 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RollupOperationsExtLib} from "@aztec/core/libraries/rollup/RollupOperationsExtLib.sol";
 import {ValidatorOperationsExtLib} from "@aztec/core/libraries/rollup/ValidatorOperationsExtLib.sol";
-import {RewardDeploymentExtLib} from "@aztec/core/libraries/rollup/RewardDeploymentExtLib.sol";
 import {TallySlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/TallySlasherDeploymentExtLib.sol";
 import {EmpireSlasherDeploymentExtLib} from "@aztec/core/libraries/rollup/EmpireSlasherDeploymentExtLib.sol";
 import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
@@ -33,11 +35,12 @@ import {GSE} from "@aztec/governance/GSE.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardExtLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardExtLib.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {FeeConfigLib, CompressedFeeConfig} from "@aztec/core/libraries/compressed-data/fees/FeeConfig.sol";
 import {G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compressed-data/Tips.sol";
+import {Signature} from "@aztec/shared/libraries/SignatureLib.sol";
 
 /**
  * @title RollupCore
@@ -121,8 +124,8 @@ import {ChainTipsLib, CompressedChainTips} from "@aztec/core/libraries/compresse
  *         - And pushes messages to the outbox for L1 processing
  *
  *      Unhappy path for invalid attestations:
- *      - Attestations in blocks are not validated on-chain to save gas. Since attestations are still posted to L1,
- *        nodes are expected to verify them off-chain, and skip a block if its attestations are invalid.
+ *      - Attestations in blocks are not validated onchain to save gas. Since attestations are still posted to L1,
+ *        nodes are expected to verify them offchain, and skip a block if its attestations are invalid.
  *      - If a block has invalid attestation signatures, anyone can call `invalidateBadAttestation()`
  *      - If a block has insufficient valid attestations (<= 2/3 of committee), anyone can call
  *        `invalidateInsufficientAttestations()`
@@ -193,14 +196,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
 
   /**
    * @notice Flag to enable/disable blob verification during simulations
-   * @dev Always true, gets unset only via state overrides during off-chain simulations or in tests
+   * @dev Always true, gets unset only via state overrides during offchain simulations or in tests
    */
   bool public checkBlob = true;
-
-  /**
-   * @notice Flag controlling whether rewards can be claimed
-   */
-  bool public isRewardsClaimable = false;
 
   /**
    * @notice Initializes the Aztec rollup with all required configurations
@@ -211,8 +209,9 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _gse The Governance Staking Escrow contract
    * @param _epochProofVerifier The honk verifier contract for root epoch proofs
    * @param _governance The address with owner privileges
-   * @param _genesisState Initial state containing VK tree root, protocol contract tree root, and genesis archive
-   * @param _config Comprehensive configuration including timing, staking, slashing, and reward parameters
+   * @param _genesisState Initial state containing VK tree root, protocol contracts hash, and genesis archive
+   * @param _config Comprehensive configuration including timing, staking, slashing, reward parameters, and unlock
+   * timestamp
    */
   constructor(
     IERC20 _feeAsset,
@@ -227,6 +226,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     // from the onset). It might be updated later to 0 by governance in order to close the validator set for this
     // instance. For details see `StakingLib.getEntryQueueFlushSize` function.
     require(_config.stakingQueueConfig.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.stakingQueueConfig.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
 
     TimeLib.initialize(
       block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration, _config.aztecProofSubmissionEpochs
@@ -254,7 +254,8 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashAmounts,
         _config.targetCommitteeSize,
         _config.aztecEpochDuration,
-        _config.slashingOffsetInRounds
+        _config.slashingOffsetInRounds,
+        _config.slashingDisableDuration
       );
     } else {
       slasher = EmpireSlasherDeploymentExtLib.deployEmpireSlasher(
@@ -264,19 +265,23 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
         _config.slashingQuorum,
         _config.slashingRoundSize,
         _config.slashingLifetimeInRounds,
-        _config.slashingExecutionDelayInRounds
+        _config.slashingExecutionDelayInRounds,
+        _config.slashingDisableDuration
       );
     }
 
-    StakingLib.initialize(_stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig);
-    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize);
+    StakingLib.initialize(
+      _stakingAsset, _gse, exitDelay, address(slasher), _config.stakingQueueConfig, _config.localEjectionThreshold
+    );
+    ValidatorOperationsExtLib.initializeValidatorSelection(_config.targetCommitteeSize, _config.lagInEpochs);
 
     // If no booster is specifically provided, deploy one.
     if (address(_config.rewardConfig.booster) == address(0)) {
-      _config.rewardConfig.booster = RewardDeploymentExtLib.deployRewardBooster(_config.rewardBoostConfig);
+      _config.rewardConfig.booster = RewardExtLib.deployRewardBooster(_config.rewardBoostConfig);
     }
 
-    RewardLib.setConfig(_config.rewardConfig);
+    RewardExtLib.initialize(_config.earliestRewardsClaimableTimestamp);
+    RewardExtLib.setConfig(_config.rewardConfig);
 
     L1_BLOCK_AT_GENESIS = block.number;
 
@@ -306,7 +311,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @param _config The new reward configuration including rates and booster settings
    */
   function setRewardConfig(RewardConfig memory _config) external override(IRollupCore) onlyOwner {
-    RewardLib.setConfig(_config);
+    RewardExtLib.setConfig(_config);
     emit RewardConfigUpdated(_config);
   }
 
@@ -334,10 +339,11 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
   /**
    * @notice Enables or disables reward claiming
    * @dev Only callable by owner. This is a safety mechanism to control when rewards can be withdrawn.
+   *      Cannot set rewards as claimable before the earliest reward claimable timestamp.
    * @param _isRewardsClaimable True to enable reward claims, false to disable
    */
   function setRewardsClaimable(bool _isRewardsClaimable) external override(IRollupCore) onlyOwner {
-    isRewardsClaimable = _isRewardsClaimable;
+    RewardExtLib.setIsRewardsClaimable(_isRewardsClaimable);
     emit RewardsClaimableUpdated(_isRewardsClaimable);
   }
 
@@ -348,6 +354,16 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    */
   function setSlasher(address _slasher) external override(IStakingCore) onlyOwner {
     ValidatorOperationsExtLib.setSlasher(_slasher);
+  }
+
+  /**
+   * @notice Updates the local ejection threshold
+   * @dev Only callable by owner. The local ejection threshold is the minimum amount of stake that a validator can have
+   *      after being slashed.
+   * @param _localEjectionThreshold The new local ejection threshold
+   */
+  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) external override(IStakingCore) onlyOwner {
+    ValidatorOperationsExtLib.setLocalEjectionThreshold(_localEjectionThreshold);
   }
 
   /**
@@ -375,8 +391,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @return The amount of rewards claimed
    */
   function claimSequencerRewards(address _coinbase) external override(IRollupCore) returns (uint256) {
-    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimSequencerRewards(_coinbase);
+    return RewardExtLib.claimSequencerRewards(_coinbase);
   }
 
   /**
@@ -392,8 +407,7 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     override(IRollupCore)
     returns (uint256)
   {
-    require(isRewardsClaimable, Errors.Rollup__RewardsNotClaimable());
-    return RewardLib.claimProverRewards(_coinbase, _epochs);
+    return RewardExtLib.claimProverRewards(_coinbase, _epochs);
   }
 
   /**
@@ -433,9 +447,14 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
    * @notice Processes the validator entry queue to add new validators to the active set
    * @dev Can be called by anyone. The number of validators added is limited by queue configuration.
    *      This helps maintain a controlled growth rate of the validator set.
+   * @param _toAdd - The max number the caller will try to add
    */
+  function flushEntryQueue(uint256 _toAdd) external override(IStakingCore) {
+    ValidatorOperationsExtLib.flushEntryQueue(_toAdd);
+  }
+
   function flushEntryQueue() external override(IStakingCore) {
-    ValidatorOperationsExtLib.flushEntryQueue();
+    ValidatorOperationsExtLib.flushEntryQueue(type(uint256).max);
   }
 
   /**
@@ -507,9 +526,12 @@ contract RollupCore is EIP712("Aztec Rollup", "1"), Ownable, IStakingCore, IVali
     ProposeArgs calldata _args,
     CommitteeAttestations memory _attestations,
     address[] calldata _signers,
+    Signature calldata _attestationsAndSignersSignature,
     bytes calldata _blobInput
   ) external override(IRollupCore) {
-    RollupOperationsExtLib.propose(_args, _attestations, _signers, _blobInput, checkBlob);
+    RollupOperationsExtLib.propose(
+      _args, _attestations, _signers, _attestationsAndSignersSignature, _blobInput, checkBlob
+    );
   }
 
   /**

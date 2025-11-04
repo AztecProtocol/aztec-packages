@@ -1,5 +1,6 @@
 use crate::traits::{Deserialize, Serialize};
 
+global U1_SERIALIZED_LEN: u32 = 1;
 global BOOL_SERIALIZED_LEN: u32 = 1;
 global U8_SERIALIZED_LEN: u32 = 1;
 global U16_SERIALIZED_LEN: u32 = 1;
@@ -27,6 +28,24 @@ impl Deserialize for bool {
     #[inline_always]
     fn deserialize(fields: [Field; Self::N]) -> bool {
         fields[0] != 0
+    }
+}
+
+impl Serialize for u1 {
+    let N: u32 = U1_SERIALIZED_LEN;
+
+    #[inline_always]
+    fn serialize(self) -> [Field; Self::N] {
+        [self as Field]
+    }
+}
+
+impl Deserialize for u1 {
+    let N: u32 = U1_SERIALIZED_LEN;
+
+    #[inline_always]
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        fields[0] as u1
     }
 }
 

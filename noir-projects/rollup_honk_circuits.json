@@ -1,1 +1,1 @@
-["rollup_base.*", "rollup_block.*", "rollup_merge"]
+["chonk_verifier.*", "rollup_tx.*", "rollup_block.*", "rollup_checkpoint.*"]

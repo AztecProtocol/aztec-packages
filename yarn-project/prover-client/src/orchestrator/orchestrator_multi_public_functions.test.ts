@@ -1,10 +1,9 @@
-import { BatchedBlob, Blob } from '@aztec/blob-lib';
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractsHash } from '@aztec/protocol-contracts';
 import {
   PublicTxSimulationTester,
   SimpleContractDataSource,
@@ -16,6 +15,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { TestContext } from '../mocks/test_context.js';
+import { buildBlobDataFromTxs } from './block-building-helpers.js';
 
 const logger = createLogger('prover-client:test:orchestrator-multi-public-functions');
 
@@ -96,9 +96,9 @@ describe('prover/orchestrator/public-functions', () => {
           );
         }
         for (const tx of txs) {
-          tx.data.constants.historicalHeader = context.getBlockHeader(0);
+          tx.data.constants.anchorBlockHeader = context.getBlockHeader(0);
           tx.data.constants.vkTreeRoot = getVKTreeRoot();
-          tx.data.constants.protocolContractTreeRoot = protocolContractTreeRoot;
+          tx.data.constants.protocolContractsHash = protocolContractsHash;
           await tx.recomputeHash();
         }
 
@@ -109,17 +109,31 @@ describe('prover/orchestrator/public-functions', () => {
         expect(processed.length).toBe(numTransactions);
         expect(failed.length).toBe(0);
 
-        const blobs = await Blob.getBlobsPerBlock(processed.map(tx => tx.txEffect.toBlobFields()).flat());
-        const finalBlobChallenges = await BatchedBlob.precomputeBatchedBlobChallenges(blobs);
-        context.orchestrator.startNewEpoch(1, 1, 1, finalBlobChallenges);
-        await context.orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
+        const {
+          blobFieldsLengths: [blobFieldsLength],
+          finalBlobChallenges,
+        } = await buildBlobDataFromTxs([processed]);
+        context.orchestrator.startNewEpoch(1, 1, finalBlobChallenges);
+        await context.orchestrator.startNewCheckpoint(
+          0, // checkpointIndex
+          context.getCheckpointConstants(),
+          [],
+          1,
+          blobFieldsLength,
+          context.getPreviousBlockHeader(),
+        );
+        await context.orchestrator.startNewBlock(
+          context.blockNumber,
+          context.globalVariables.timestamp,
+          processed.length,
+        );
 
         await context.orchestrator.addTxs(processed);
 
-        const block = await context.orchestrator.setBlockCompleted(context.blockNumber);
+        const header = await context.orchestrator.setBlockCompleted(context.blockNumber);
         await context.orchestrator.finalizeEpoch();
 
-        expect(block.number).toEqual(context.blockNumber);
+        expect(header.getBlockNumber()).toEqual(context.blockNumber);
       },
     );
 

@@ -102,9 +102,8 @@ contract SlashingTest is TestBase {
     }
 
     RollupBuilder builder = new RollupBuilder(address(this)).setValidators(initialValidators).setTargetCommitteeSize(4)
-      .setSlashingLifetimeInRounds(_slashingLifetimeInRounds).setSlashingExecutionDelayInRounds(
-      _slashingExecutionDelayInRounds
-    );
+      .setSlashingLifetimeInRounds(_slashingLifetimeInRounds)
+      .setSlashingExecutionDelayInRounds(_slashingExecutionDelayInRounds);
     builder.deploy();
 
     rollup = builder.getConfig().rollup;
@@ -147,7 +146,7 @@ contract SlashingTest is TestBase {
 
     vm.expectRevert(
       abi.encodeWithSelector(
-        Errors.GovernanceProposer__RoundTooNew.selector, firstSlashingRound, slashingProposer.getCurrentRound()
+        Errors.EmpireBase__RoundTooNew.selector, firstSlashingRound, slashingProposer.getCurrentRound()
       )
     );
     slashingProposer.submitRoundWinner(firstSlashingRound);

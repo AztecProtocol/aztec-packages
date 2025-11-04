@@ -32,9 +32,9 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<Flavor::BF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_Fq = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_Fr = FrCodec::calc_num_fields<Flavor::BF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<typename Flavor::Commitment>();
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fq;
 
         size_t round = 0;
@@ -124,7 +124,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_NOT_EMPTY", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_X", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_ACCUMULATOR_Y", frs_per_G);
-        manifest_expected.add_challenge(round, "beta", "gamma");
+        manifest_expected.add_challenge(round, std::array{ "beta", "gamma" });
 
         round++;
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
@@ -220,8 +220,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
     {
         TranscriptManifest manifest_expected;
         // Size of types is number of bb::frs needed to represent the type
-        size_t frs_per_Fq = bb::field_conversion::calc_num_bn254_frs<FF>();
-        size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
+        size_t frs_per_Fq = FrCodec::calc_num_fields<FF>();
+        size_t frs_per_G = FrCodec::calc_num_fields<Flavor::Commitment>();
         size_t round = 0;
 
         manifest_expected.add_entry(round, "IPA:commitment", frs_per_G);
@@ -376,7 +376,8 @@ TEST_F(ECCVMTranscriptTests, ChallengeGenerationTest)
     // initialized with random value sent to verifier
     auto transcript = Flavor::Transcript::prover_init_empty();
     // test a bunch of challenges
-    auto challenges = transcript->template get_challenges<FF>("a", "b", "c", "d", "e", "f");
+    std::vector<std::string> challenge_labels{ "a", "b", "c", "d", "e", "f" };
+    auto challenges = transcript->template get_challenges<FF>(challenge_labels);
     // check they are not 0
     for (size_t i = 0; i < challenges.size(); ++i) {
         ASSERT_NE(challenges[i], 0) << "Challenge " << i << " is 0";
@@ -384,9 +385,10 @@ TEST_F(ECCVMTranscriptTests, ChallengeGenerationTest)
     constexpr uint32_t random_val{ 17 }; // arbitrary
     transcript->send_to_verifier("random val", random_val);
     // test more challenges
-    auto [a, b, c] = transcript->template get_challenges<FF>("a", "b", "c");
+    challenge_labels = { "a", "b", "c" };
+    challenges = transcript->template get_challenges<FF>(challenge_labels);
 
-    ASSERT_NE(a, 0) << "Challenge a is 0";
-    ASSERT_NE(b, 0) << "Challenge b is 0";
-    ASSERT_NE(c, 0) << "Challenge c is 0";
+    ASSERT_NE(challenges[0], 0) << "Challenge a is 0";
+    ASSERT_NE(challenges[1], 0) << "Challenge b is 0";
+    ASSERT_NE(challenges[2], 0) << "Challenge c is 0";
 }

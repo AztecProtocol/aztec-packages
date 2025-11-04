@@ -16,9 +16,8 @@ library Errors {
   error Governance__CallerNotGovernanceProposer(address caller, address governanceProposer);
   error Governance__GovernanceProposerCannotBeSelf();
   error Governance__CallerNotSelf(address caller, address self);
-  error Governance__NoCheckpointsFound();
+  error Governance__CallerCannotBeSelf();
   error Governance__InsufficientPower(address voter, uint256 have, uint256 required);
-  error Governance__InvalidConfiguration();
   error Governance__CannotWithdrawToAddressZero();
   error Governance__WithdrawalNotInitiated();
   error Governance__WithdrawalAlreadyClaimed();
@@ -44,25 +43,18 @@ library Errors {
   error Governance__ConfigurationLib__TimeTooSmall(string name);
   error Governance__ConfigurationLib__TimeTooBig(string name);
 
-  error Governance__ProposalLib__ZeroMinimum();
-  error Governance__ProposalLib__ZeroVotesNeeded();
-  error Governance__ProposalLib__MoreVoteThanExistNeeded();
-  error Governance__ProposalLib__ZeroYeaVotesNeeded();
-  error Governance__ProposalLib__MoreYeaVoteThanExistNeeded();
-
-  error GovernanceProposer__FailedToSubmitRoundWinner(IPayload payload);
-  error GovernanceProposer__InstanceHaveNoCode(address instance);
-  error GovernanceProposer__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
-  error GovernanceProposer__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
-  error GovernanceProposer__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
-  error GovernanceProposer__OnlyProposerCanSignal(address caller, address proposer);
-  error GovernanceProposer__PayloadAlreadySubmitted(uint256 roundNumber);
-  error GovernanceProposer__PayloadCannotBeAddressZero();
-  error GovernanceProposer__PayloadHaveNoCode(IPayload payload);
-  error GovernanceProposer__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
-  error GovernanceProposer__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
-  error GovernanceProposer__SignalAlreadyCastForSlot(Slot slot);
+  error EmpireBase__FailedToSubmitRoundWinner(IPayload payload);
+  error EmpireBase__InstanceHaveNoCode(address instance);
+  error EmpireBase__InsufficientSignals(uint256 signalsCast, uint256 signalsNeeded);
+  error EmpireBase__InvalidQuorumAndRoundSize(uint256 quorumSize, uint256 roundSize);
+  error EmpireBase__QuorumCannotBeLargerThanRoundSize(uint256 quorumSize, uint256 roundSize);
+  error EmpireBase__InvalidLifetimeAndExecutionDelay(uint256 lifetimeInRounds, uint256 executionDelayInRounds);
+  error EmpireBase__OnlyProposerCanSignal(address caller, address proposer);
+  error EmpireBase__PayloadAlreadySubmitted(uint256 roundNumber);
+  error EmpireBase__PayloadCannotBeAddressZero();
+  error EmpireBase__RoundTooOld(uint256 roundNumber, uint256 currentRoundNumber);
+  error EmpireBase__RoundTooNew(uint256 roundNumber, uint256 currentRoundNumber);
+  error EmpireBase__SignalAlreadyCastForSlot(Slot slot);
   error GovernanceProposer__GSEPayloadInvalid();
 
   error CoinIssuer__InsufficientMintAvailable(uint256 available, uint256 needed); // 0xa1cc8799
@@ -91,7 +83,4 @@ library Errors {
   error GSE__ProofOfPossessionAlreadySeen(bytes32 hashedPK1);
 
   error Delegation__InsufficientPower(address, uint256, uint256);
-
-  error Governance__BlsKeyInvalidG1Point(uint256[2]);
-  error Governance__BlsKeyInvalidG2Point(uint256[4]);
 }

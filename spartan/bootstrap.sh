@@ -7,25 +7,20 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 dump_fail "flock scripts/logs/install_deps.lock retry scripts/install_deps.sh >&2"
 
-function build {
-  denoise "helm lint ./aztec-network/"
-  denoise ./spartan/scripts/check_env_vars.sh
-}
+source ./scripts/source_env_basic.sh
+source ./scripts/source_network_env.sh
+source ./scripts/gcp_auth.sh
 
-function source_network_env {
-  local env_file="environments/$1"
-  # Optionally source an env file passed as first argument
-  if [[ -n "${env_file:-}" ]]; then
-    if [[ -f "$env_file" ]]; then
-      set -a
-      # shellcheck disable=SC1090
-      source "$env_file"
-      set +a
-    else
-      echo "Env file not found: $env_file" >&2
-      exit 1
-    fi
-  fi
+function build {
+  denoise "helm lint ./aztec-bot/"
+  denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./aztec-keystore/"
+  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-prover-stack/"
+  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-validator/"
+  denoise "helm lint ./eth-devnet/"
+  denoise ./spartan/scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -76,9 +71,15 @@ function test_cmds {
 }
 
 function network_test_cmds {
+  # a github runner has a maximum of 6 hours.
+  # currently, we allocate just shy of one hour for each test, so we can have at most 6 tests.
+  # If we have more tests, we can reduce the epoch/slot duration in the tests,
+  # or parallelize somehow. It's just something to be aware of if you are adding new tests here.
+  local prefix="disabled-cache:CPUS=10:MEM=16g:TIMEOUT=120m"
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  echo $run_test_script simple src/spartan/smoke.test.ts
-  echo $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/smoke.test.ts
+  echo $prefix $run_test_script simple src/spartan/transfer.test.ts
+  echo $prefix $run_test_script simple src/spartan/slash_inactivity.test.ts
 }
 
 function single_test {
@@ -98,17 +99,6 @@ function stop_env {
   fi
 }
 
-function gcp_auth {
-  # if the GCP_PROJECT_ID is set, activate the service account
-  if [[ -n "${GCP_PROJECT_ID:-}" && "${CLUSTER}" != "kind" ]]; then
-    echo "Activating service account"
-    if [ "$CI" -eq 1 ]; then
-      gcloud auth activate-service-account --key-file=$GOOGLE_APPLICATION_CREDENTIALS
-    fi
-    gcloud config set project "$GCP_PROJECT_ID"
-    gcloud container clusters get-credentials ${CLUSTER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID}
-  fi
-}
 
 function test {
   echo_header "spartan test (deprecated)"
@@ -118,9 +108,14 @@ function test {
 }
 
 function network_tests {
+  local env_file="$1"
   echo_header "spartan scenario test"
 
   # no parallelize here as we want to run the tests sequentially
+  export SCENARIO_TESTS=1
+  source_network_env $env_file
+
+  gcp_auth
   network_test_cmds | filter_test_cmds | parallelize 1
 }
 
@@ -147,16 +142,39 @@ case "$cmd" in
     env_file="$1"
     amount="$2"
 
-    source_network_env $env_file
+    # First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+    source_env_basic "$env_file"
+
+    # Perform GCP auth (needs CLUSTER and other basic vars)
+    gcp_auth
+
+    # Second pass: source environment with GCP secret processing
+    source_network_env "$env_file"
+
     ensure_eth_balances "$amount"
+    ;;
+  "ensure_funded_environment")
+    shift
+    env_file="$1"
+    low_watermark="${2:-0.5}"
+    high_watermark="${3:-1.0}"
+
+    ./scripts/ensure_funded_environment.sh "$env_file" "$FUNDING_PRIVATE_KEY" "$low_watermark" "$high_watermark"
     ;;
   "network_deploy")
     shift
     env_file="$1"
-    source_network_env $env_file
 
-    gcp_auth
-    ./scripts/deploy_network.sh
+    #Sets up basic env vars like RUN_TESTS
+    source_env_basic "$env_file"
+
+    # Run the network deploy script
+    ./scripts/network_deploy.sh "$env_file"
+
+    if [[ "${RUN_TESTS:-}" == "true" ]]; then
+      echo "Running tests"
+      network_tests "$env_file"
+    fi
     ;;
   "single_test")
     shift
@@ -171,10 +189,7 @@ case "$cmd" in
   "network_tests")
     shift
     env_file="$1"
-    source_network_env $env_file
-
-    gcp_auth
-    network_tests
+    network_tests $env_file
     ;;
   "kind")
     if ! kubectl config get-clusters | grep -q "^kind-kind$" || ! docker ps | grep -q "kind-control-plane"; then

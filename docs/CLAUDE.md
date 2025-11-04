@@ -56,7 +56,6 @@ For development:
 
 - **Developer Guides** (`/developers/`) - Getting started, tutorials, references
 - **Aztec Concepts** (`/aztec/`) - Core protocol concepts and architecture
-- **Protocol Specs** (`/protocol-specs/`) - Detailed technical specifications
 - **Network Guides** (`/the_aztec_network/`) - Node operation and network participation
 
 ### Versioning System
@@ -67,7 +66,7 @@ Uses Docusaurus versioning with:
 - `versioned_docs/version-X.X.X/` contains historical versions
 - `versioned_sidebars/` contains version-specific sidebar configurations
 - Macros (`#include_code`, `#include_aztec_version`, etc.) only work in source `docs/` folder, not in versioned copies
-- Version dropdown shows: `Next`, `alpha-testnet`, and latest sandbox release versions
+- Version dropdown shows: `Next`, `testnet`, and latest sandbox release versions
 
 ## Documentation Review Standards
 

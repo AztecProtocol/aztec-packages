@@ -1,214 +1,175 @@
-// import { Fr, ProvenTx, Tx, readFieldCompressedString, sleep } from '@aztec/aztec.js';
-// import { createLogger } from '@aztec/foundation/log';
-// import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import { readFieldCompressedString } from '@aztec/aztec.js/utils';
+import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
+import { ProvenTx, TestWallet, proveInteraction } from '@aztec/test-wallet/server';
 
-// import { jest } from '@jest/globals';
-// import type { ChildProcess } from 'child_process';
+import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 
-// import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
-// import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
+import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import {
+  type TestAccounts,
+  createWalletAndAztecNodeClient,
+  deploySponsoredTestAccounts,
+} from './setup_test_wallets.js';
+import { setupEnvironment, startPortForwardForRPC } from './utils.js';
 
-// const config = setupEnvironment(process.env);
+const config = { ...setupEnvironment(process.env) };
 
-// describe('sustained 10 TPS test', () => {
-//   jest.setTimeout(20 * 60 * 1000); // 20 minutes
+// TODO: parallelize tx creation
+describe('sustained 10 TPS test', () => {
+  jest.setTimeout(60 * 60 * 1000); // 1 hour
 
-//   const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
-//   const MINT_AMOUNT = 10000n;
-//   const TEST_DURATION_SECONDS = 10;
-//   const TARGET_TPS = 5; // 10
-//   const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+  const logger = createLogger(`e2e:spartan-test:sustained-10tps`);
+  const MINT_AMOUNT = 10000n;
+  const TEST_DURATION_SECONDS = 5;
+  const TARGET_TPS = 10;
+  const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
 
-//   let testWallets: TestWallets;
-//   let PXE_URL: string;
-//   let ETHEREUM_HOSTS: string[];
-//   const forwardProcesses: ChildProcess[] = [];
+  let testAccounts: TestAccounts;
+  let wallet: TestWallet;
+  let aztecNode: AztecNode;
 
-//   afterAll(async () => {
-//     // Give processes time to clean up gracefully
-//     forwardProcesses.forEach(p => {
-//       if (!p.killed) {
-//         p.kill();
-//       }
-//     });
+  let cleanup: undefined | (() => Promise<void>);
+  const forwardProcesses: ChildProcess[] = [];
 
-//     // Wait a bit for processes to terminate
-//     await new Promise(resolve => setTimeout(resolve, 1000));
-//   });
+  afterAll(async () => {
+    await cleanup?.();
+    forwardProcesses.forEach(p => p.kill());
+  });
 
-//   beforeAll(async () => {
-//     if (isK8sConfig(config)) {
-//       const { process: pxeProcess, port: pxePort } = await startPortForward({
-//         resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
-//         namespace: config.NAMESPACE,
-//         containerPort: config.CONTAINER_PXE_PORT,
-//       });
-//       forwardProcesses.push(pxeProcess);
-//       PXE_URL = `http://127.0.0.1:${pxePort}`;
+  beforeAll(async () => {
+    logger.info('Starting port forward for PXE');
+    const { process: aztecRpcProcess, port: aztecRpcPort } = await startPortForwardForRPC(config.NAMESPACE);
+    forwardProcesses.push(aztecRpcProcess);
+    const rpcUrl = `http://127.0.0.1:${aztecRpcPort}`;
 
-//       const { process: ethProcess, port: ethPort } = await startPortForward({
-//         resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
-//         namespace: config.NAMESPACE,
-//         containerPort: config.CONTAINER_ETHEREUM_PORT,
-//       });
-//       forwardProcesses.push(ethProcess);
-//       ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
+    ({ wallet, aztecNode, cleanup } = await createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger));
 
-//       const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
-//         resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
-//         namespace: config.NAMESPACE,
-//         containerPort: config.CONTAINER_SEQUENCER_PORT,
-//       });
-//       forwardProcesses.push(sequencerProcess);
-//       const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
+    // Setup wallets
+    logger.info('deploying test wallets');
+    testAccounts = await deploySponsoredTestAccounts(wallet, aztecNode, MINT_AMOUNT, logger);
+    logger.info(`testAccounts ready`);
 
-//       const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
+    logger.info(
+      `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
+    );
+  });
 
-//       logger.info('deploying test wallets');
+  // it('can verify token setup', async () => {
+  //   const name = readFieldCompressedString(await tokenContract.methods.private_get_name().simulate());
+  //   expect(name).toBeDefined();
+  //   expect(name.length).toBeGreaterThan(0);
+  //   logger.info(`Token verified: ${name}`);
+  // });
 
-//       testWallets = await deployTestWalletWithTokens(
-//         PXE_URL,
-//         NODE_URL,
-//         ETHEREUM_HOSTS,
-//         L1_ACCOUNT_MNEMONIC,
-//         MINT_AMOUNT,
-//         logger,
-//       );
-//       logger.info(`testWallets ready 1`);
-//     } else {
-//       PXE_URL = config.PXE_URL;
+  it('can get info', async () => {
+    const name = readFieldCompressedString(
+      await testAccounts.tokenContract.methods.private_get_name().simulate({ from: testAccounts.tokenAdminAddress }),
+    );
+    expect(name).toBe(testAccounts.tokenName);
+  });
 
-//       testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
-//     }
+  it('can transfer 10tps tokens', async () => {
+    const recipient = testAccounts.recipientAddress;
+    const transferAmount = 1n;
 
-//     logger.info(
-//       `Test setup complete. Planning ${TOTAL_TXS} transactions over ${TEST_DURATION_SECONDS} seconds at ${TARGET_TPS} TPS`,
-//     );
-//   });
+    for (const acc of testAccounts.accounts) {
+      expect(MINT_AMOUNT).toBe(
+        await testAccounts.tokenContract.methods
+          .balance_of_public(acc)
+          .simulate({ from: testAccounts.tokenAdminAddress }),
+      );
+    }
 
-//   // it('can verify token setup', async () => {
-//   //   const name = readFieldCompressedString(await tokenContract.methods.private_get_name().simulate());
-//   //   expect(name).toBeDefined();
-//   //   expect(name.length).toBeGreaterThan(0);
-//   //   logger.info(`Token verified: ${name}`);
-//   // });
+    expect(0n).toBe(
+      await testAccounts.tokenContract.methods
+        .balance_of_public(recipient)
+        .simulate({ from: testAccounts.tokenAdminAddress }),
+    );
 
-//   it('can get info', async () => {
-//     const name = readFieldCompressedString(
-//       await testWallets.tokenAdminWallet.methods.private_get_name().simulate({ from: testWallets.tokenAdminAddress }),
-//     );
-//     expect(name).toBe(testWallets.tokenName);
-//   });
+    const defaultAccountAddress = testAccounts.accounts[0];
 
-//   it('can transfer 10tps tokens', async () => {
-//     const recipient = testWallets.recipientWallet.getAddress();
-//     const transferAmount = 1n;
+    // Pre-prove all transactions (avoid cloning/mutating nullifiers)
+    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+    const TOTAL_TXS = TEST_DURATION_SECONDS * TARGET_TPS;
+    const txs: ProvenTx[] = await Promise.all(
+      Array.from({ length: TOTAL_TXS }, () =>
+        proveInteraction(
+          wallet,
+          testAccounts.tokenContract.methods.transfer_in_public(defaultAccountAddress, recipient, transferAmount, 0),
+          {
+            from: testAccounts.tokenAdminAddress,
+            fee: { paymentMethod: sponsor },
+          },
+        ),
+      ),
+    );
 
-//     for (const w of testWallets.wallets) {
-//       expect(MINT_AMOUNT).toBe(
-//         await testWallets.tokenAdminWallet.methods
-//           .balance_of_public(w.getAddress())
-//           .simulate({ from: testWallets.tokenAdminAddress }),
-//       );
-//     }
+    const allSentTxs: any[] = [];
+    let sentSoFar = 0;
+    for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
+      const secondStart = Date.now();
+      const chunk = txs.splice(0, TARGET_TPS);
+      chunk.forEach((tx, idx) => {
+        const sentTx = tx.send();
+        allSentTxs.push(sentTx);
+        logger.info(`sec ${sec + 1}: sent tx ${sentSoFar + idx + 1}`);
+      });
 
-//     expect(0n).toBe(
-//       await testWallets.tokenAdminWallet.methods
-//         .balance_of_public(recipient)
-//         .simulate({ from: testWallets.tokenAdminAddress }),
-//     );
+      sentSoFar += chunk.length;
+      const elapsed = Date.now() - secondStart;
+      if (elapsed < 1000) {
+        await sleep(1000 - elapsed);
+      }
+    }
 
-//     const wallet = testWallets.wallets[0];
+    // Now wait for all transactions to be included
+    logger.info(`All ${TOTAL_TXS} transactions sent. Waiting for inclusion...`);
 
-//     const baseTx = await (await TokenContract.at(testWallets.tokenAddress, wallet)).methods
-//       .transfer_in_public(wallet.getAddress(), recipient, transferAmount, 0)
-//       .prove({ from: testWallets.tokenAdminAddress });
+    const inclusionPromises = allSentTxs.map((sentTx, idx) =>
+      (async () => {
+        try {
+          await sentTx.wait({
+            timeout: 120,
+            interval: 1,
+            ignoreDroppedReceiptsFor: 2,
+          });
+          const receipt = await sentTx.getReceipt();
+          logger.info(`tx ${idx + 1} included in block ${receipt.blockNumber}`);
+          return { success: true, tx: sentTx };
+        } catch (error) {
+          logger.error(`tx ${idx + 1} was not included: ${error}`);
+          return { success: false, tx: sentTx, error };
+        }
+      })(),
+    );
 
-//     const allSentTxs: any[] = []; // Store sent transactions separately
+    // Wait for every transaction to be included
+    const results = await Promise.all(inclusionPromises);
 
-//     let globalIdx = 0;
+    // Count successes and failures
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
 
-//     for (let sec = 0; sec < TEST_DURATION_SECONDS; sec++) {
-//       const secondStart = Date.now();
+    expect(allSentTxs.length).toBe(TOTAL_TXS);
 
-//       const batchTxs: ProvenTx[] = [];
+    // Log failed transactions for debugging
+    results
+      .filter(r => !r.success)
+      .forEach((result, idx) => {
+        logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
+      });
 
-//       for (let i = 0; i < TARGET_TPS; i++, globalIdx++) {
-//         const clonedTxData = Tx.clone(baseTx);
+    logger.info(
+      `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
+    );
 
-//         const nullifiers = clonedTxData.data.getNonEmptyNullifiers();
-//         if (nullifiers.length > 0) {
-//           const newNullifier = nullifiers[0].add(Fr.fromString(globalIdx.toString()));
-//           if (clonedTxData.data.forRollup) {
-//             clonedTxData.data.forRollup.end.nullifiers[0] = newNullifier;
-//           } else if (clonedTxData.data.forPublic) {
-//             clonedTxData.data.forPublic.nonRevertibleAccumulatedData.nullifiers[0] = newNullifier;
-//           }
-//         }
-
-//         const clonedTx = new ProvenTx(wallet, clonedTxData, []);
-//         batchTxs.push(clonedTx);
-//       }
-
-//       // Send transactions without waiting for inclusion
-//       for (let idx = 0; idx < batchTxs.length; idx++) {
-//         const tx = batchTxs[idx];
-//         const sentTx = tx.send();
-//         allSentTxs.push(sentTx);
-//         logger.info(`sec ${sec + 1}: sent tx ${globalIdx - TARGET_TPS + idx + 1}`);
-//       }
-
-//       // 1 second spacing between batches
-//       const elapsed = Date.now() - secondStart;
-//       if (elapsed < 1000) {
-//         await sleep(1000 - elapsed);
-//       }
-//     }
-
-//     // Now wait for all transactions to be included
-//     logger.info(`All ${TOTAL_TXS} transactions sent. Waiting for inclusion...`);
-
-//     const inclusionPromises = allSentTxs.map((sentTx, idx) =>
-//       (async () => {
-//         try {
-//           await sentTx.wait({
-//             timeout: 120,
-//             interval: 1,
-//             ignoreDroppedReceiptsFor: 2,
-//           });
-//           const receipt = await sentTx.getReceipt();
-//           logger.info(`tx ${idx + 1} included in block ${receipt.blockNumber}`);
-//           return { success: true, tx: sentTx };
-//         } catch (error) {
-//           logger.error(`tx ${idx + 1} was not included: ${error}`);
-//           return { success: false, tx: sentTx, error };
-//         }
-//       })(),
-//     );
-
-//     // Wait for every transaction to be included
-//     const results = await Promise.all(inclusionPromises);
-
-//     // Count successes and failures
-//     const successCount = results.filter(r => r.success).length;
-//     const failureCount = results.filter(r => !r.success).length;
-
-//     expect(allSentTxs.length).toBe(TOTAL_TXS);
-
-//     // Log failed transactions for debugging
-//     results
-//       .filter(r => !r.success)
-//       .forEach((result, idx) => {
-//         logger.warn(`Failed transaction ${idx + 1}: ${result.error}`);
-//       });
-
-//     logger.info(
-//       `Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed out of ${TOTAL_TXS} total`,
-//     );
-
-//     const recipientBalance = await testWallets.tokenAdminWallet.methods
-//       .balance_of_public(recipient)
-//       .simulate({ from: testWallets.tokenAdminAddress });
-//     logger.info(`recipientBalance after load test: ${recipientBalance}`);
-//   });
-// });
+    const recipientBalance = await testAccounts.tokenContract.methods
+      .balance_of_public(recipient)
+      .simulate({ from: testAccounts.tokenAdminAddress });
+    logger.info(`recipientBalance after load test: ${recipientBalance}`);
+  });
+});

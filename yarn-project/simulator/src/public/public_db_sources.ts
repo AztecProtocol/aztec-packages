@@ -1,4 +1,9 @@
-import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT } from '@aztec/constants';
+import {
+  L1_TO_L2_MSG_TREE_LEAF_COUNT,
+  NOTE_HASH_TREE_LEAF_COUNT,
+  NULLIFIER_SUBTREE_HEIGHT,
+  PUBLIC_DATA_SUBTREE_HEIGHT,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -27,7 +32,10 @@ import {
 import { TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
+import { strict as assert } from 'assert';
+
 import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
+import { L1ToL2MessageIndexOutOfRangeError, NoteHashIndexOutOfRangeError } from './side_effect_errors.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
@@ -323,9 +331,13 @@ export class PublicTreesDB implements PublicStateDBInterface {
     } satisfies PublicDBAccessStats);
   }
 
-  public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
+  public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr> {
     const timer = new Timer();
+    if (leafIndex > L1_TO_L2_MSG_TREE_LEAF_COUNT) {
+      throw new L1ToL2MessageIndexOutOfRangeError(Number(leafIndex));
+    }
     const leafValue = await this.db.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    assert(leafValue !== undefined, 'Unexpected null response from l1 to l2 message tree');
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
 
@@ -337,9 +349,13 @@ export class PublicTreesDB implements PublicStateDBInterface {
     return leafValue;
   }
 
-  public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
+  public async getNoteHash(leafIndex: bigint): Promise<Fr> {
     const timer = new Timer();
+    if (leafIndex > NOTE_HASH_TREE_LEAF_COUNT) {
+      throw new NoteHashIndexOutOfRangeError(Number(leafIndex));
+    }
     const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    assert(leafValue !== undefined, 'Unexpected null response from note hash tree');
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
 

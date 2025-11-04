@@ -223,35 +223,4 @@ template <typename FF_>
 using perm_poseidon2_mem_pos_write_mem_3_relation =
     permutation_relation_base<FF_, perm_poseidon2_mem_pos_write_mem_3_settings>;
 
-/////////////////// perm_poseidon2_mem_dispatch_exec_pos2 ///////////////////
-
-struct perm_poseidon2_mem_dispatch_exec_pos2_settings_ {
-    static constexpr std::string_view NAME = "PERM_POSEIDON2_MEM_DISPATCH_EXEC_POS2";
-    static constexpr std::string_view RELATION_NAME = "poseidon2_mem";
-    static constexpr size_t COLUMNS_PER_SET = 5;
-    static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_poseidon2_perm;
-    static constexpr Column DST_SELECTOR = Column::poseidon2_perm_mem_sel;
-    static constexpr Column INVERSES = Column::perm_poseidon2_mem_dispatch_exec_pos2_inv;
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
-        ColumnAndShifts::precomputed_clk,
-        ColumnAndShifts::execution_context_id,
-        ColumnAndShifts::execution_rop_0_,
-        ColumnAndShifts::execution_rop_1_,
-        ColumnAndShifts::execution_sel_opcode_error
-    };
-    static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> DST_COLUMNS = {
-        ColumnAndShifts::poseidon2_perm_mem_execution_clk,
-        ColumnAndShifts::poseidon2_perm_mem_space_id,
-        ColumnAndShifts::poseidon2_perm_mem_read_address_0_,
-        ColumnAndShifts::poseidon2_perm_mem_write_address_0_,
-        ColumnAndShifts::poseidon2_perm_mem_err
-    };
-};
-
-using perm_poseidon2_mem_dispatch_exec_pos2_settings =
-    permutation_settings<perm_poseidon2_mem_dispatch_exec_pos2_settings_>;
-template <typename FF_>
-using perm_poseidon2_mem_dispatch_exec_pos2_relation =
-    permutation_relation_base<FF_, perm_poseidon2_mem_dispatch_exec_pos2_settings>;
-
 } // namespace bb::avm2

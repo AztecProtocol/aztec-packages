@@ -1,0 +1,94 @@
+{
+  "name": "@aztec/test-wallet",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/test-wallet",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./client/bundle": "./dest/bundle.js",
+    "./client/lazy": "./dest/lazy.js",
+    "./server": "./dest/server.js"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/index.ts"
+    ],
+    "tsconfig": "./tsconfig.json"
+  },
+  "scripts": {
+    "build": "yarn clean && tsc -b",
+    "build:dev": "tsc -b --watch",
+    "build:ts": "tsc -b",
+    "clean": "rm -rf ./dest .tsbuildinfo",
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
+  },
+  "inherits": [
+    "../package.common.json"
+  ],
+  "jest": {
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
+    },
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "rootDir": "./src",
+    "transform": {
+      "^.+\\.tsx?$": [
+        "@swc/jest",
+        {
+          "jsc": {
+            "parser": {
+              "syntax": "typescript",
+              "decorators": true
+            },
+            "transform": {
+              "decoratorVersion": "2022-03"
+            }
+          }
+        }
+      ]
+    },
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
+    "reporters": [
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
+    ],
+    "testEnvironment": "../../foundation/src/jest/env.mjs",
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs"
+    ]
+  },
+  "dependencies": {
+    "@aztec/accounts": "workspace:^",
+    "@aztec/aztec.js": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
+    "@aztec/foundation": "workspace:^",
+    "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/pxe": "workspace:^",
+    "@aztec/stdlib": "workspace:^"
+  },
+  "devDependencies": {
+    "@jest/globals": "^30.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.15.17",
+    "jest": "^30.0.0",
+    "resolve-typescript-plugin": "^2.0.1",
+    "ts-loader": "^9.5.4",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.3.3",
+    "util": "^0.12.5"
+  },
+  "files": [
+    "dest",
+    "src",
+    "!*.test.*",
+    "artifacts"
+  ],
+  "types": "./dest/index.d.ts",
+  "engines": {
+    "node": ">=20.10"
+  }
+}

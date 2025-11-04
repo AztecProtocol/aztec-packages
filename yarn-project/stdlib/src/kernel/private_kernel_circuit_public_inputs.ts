@@ -3,7 +3,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { TxConstantData } from '../tx/tx_constant_data.js';
+import { PrivateTxConstantData } from '../tx/private_tx_constant_data.js';
 import type { UInt64 } from '../types/shared.js';
 import { PrivateAccumulatedData } from './private_accumulated_data.js';
 import { PrivateValidationRequests } from './private_validation_requests.js';
@@ -17,7 +17,7 @@ export class PrivateKernelCircuitPublicInputs {
     /**
      * Data which is not modified by the circuits.
      */
-    public constants: TxConstantData,
+    public constants: PrivateTxConstantData,
     /**
      * The side effect counter that non-revertible side effects are all beneath.
      */
@@ -82,7 +82,7 @@ export class PrivateKernelCircuitPublicInputs {
   static fromBuffer(buffer: Buffer | BufferReader): PrivateKernelCircuitPublicInputs {
     const reader = BufferReader.asReader(buffer);
     return new PrivateKernelCircuitPublicInputs(
-      reader.readObject(TxConstantData),
+      reader.readObject(PrivateTxConstantData),
       reader.readObject(Fr),
       reader.readObject(PrivateValidationRequests),
       reader.readObject(PrivateAccumulatedData),
@@ -96,7 +96,7 @@ export class PrivateKernelCircuitPublicInputs {
 
   static empty() {
     return new PrivateKernelCircuitPublicInputs(
-      TxConstantData.empty(),
+      PrivateTxConstantData.empty(),
       Fr.zero(),
       PrivateValidationRequests.empty(),
       PrivateAccumulatedData.empty(),

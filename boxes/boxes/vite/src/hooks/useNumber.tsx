@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Contract } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js/contracts";
 import { toast } from "react-toastify";
 import { deployerEnv } from "../config";
 
@@ -10,10 +10,10 @@ export function useNumber({ contract }: { contract: Contract }) {
     e.preventDefault();
 
     setWait(true);
-    const deployerWallet = await deployerEnv.getWallet();
+    const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
     const viewTxReceipt = await contract!.methods
-      .getNumber(deployerWallet.getCompleteAddress().address)
-      .simulate({ from: deployerWallet.getAddress() });
+      .getNumber(defaultAccountAddress)
+      .simulate({ from: defaultAccountAddress });
     toast(`Number is: ${viewTxReceipt.value}`);
     setWait(false);
   };
@@ -28,12 +28,11 @@ export function useNumber({ contract }: { contract: Contract }) {
       setWait(true);
 
       const value = BigInt(el.value);
-      const deployerWallet = await deployerEnv.getWallet();
-
+      const defaultAccountAddress = deployerEnv.getDefaultAccountAddress();
       await toast.promise(
         contract!.methods
-          .setNumber(value, deployerWallet.getCompleteAddress().address)
-          .send({ from: deployerWallet.getAddress() })
+          .setNumber(value, defaultAccountAddress)
+          .send({ from: defaultAccountAddress })
           .wait(),
         {
           pending: "Setting number...",

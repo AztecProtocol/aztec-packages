@@ -66,7 +66,6 @@ pub trait ProveNoteNotNullified {
 }
 
 impl ProveNoteNotNullified for BlockHeader {
-    // docs:start:prove_note_not_nullified
     fn prove_note_not_nullified<Note>(
         self,
         retrieved_note: RetrievedNote<Note>,
@@ -80,5 +79,4 @@ impl ProveNoteNotNullified for BlockHeader {
 
         self.prove_nullifier_non_inclusion(nullifier);
     }
-    // docs:end:prove_note_not_nullified
 }

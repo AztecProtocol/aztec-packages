@@ -1,20 +1,24 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import { Fr, GrumpkinScalar, type Logger, type SentTx, TxStatus, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { SentTx } from '@aztec/aztec.js/contracts';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { times } from '@aztec/foundation/collection';
-import type { PXEService } from '@aztec/pxe/server';
+import type { TestWallet } from '@aztec/test-wallet/server';
 
-// submits a set of transactions to the provided Private eXecution Environment (PXE)
+// submits a set of transactions to the provided Wallet
 export const submitTxsTo = async (
-  pxe: PXEService,
+  wallet: TestWallet,
+  submitter: AztecAddress,
   numTxs: number,
-  wallet: Wallet,
   logger: Logger,
 ): Promise<SentTx[]> => {
   const txs: SentTx[] = [];
   await Promise.all(
     times(numTxs, async () => {
-      const accountManager = await getSchnorrAccount(pxe, Fr.random(), GrumpkinScalar.random(), Fr.random());
-      const tx = accountManager.deploy({ deployWallet: wallet });
+      const accountManager = await wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random());
+      const deployMethod = await accountManager.getDeployMethod();
+      const tx = deployMethod.send({ from: submitter });
       const txHash = await tx.getTxHash();
 
       logger.info(`Tx sent with hash ${txHash}`);

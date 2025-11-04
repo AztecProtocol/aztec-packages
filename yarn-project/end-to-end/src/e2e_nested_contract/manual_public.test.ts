@@ -1,19 +1,23 @@
-import { type AztecAddress, BatchCall, Fr, toBigIntBE } from '@aztec/aztec.js';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { Fr } from '@aztec/aztec.js/fields';
+import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { NestedContractTest } from './nested_contract_test.js';
 
 describe('e2e_nested_contract manual', () => {
   const t = new NestedContractTest('manual');
-  let { wallet, pxe, parentContract, childContract, defaultAccountAddress } = t;
+  let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyManualSnapshots();
     await t.setup();
-    ({ wallet, pxe, parentContract, childContract, defaultAccountAddress } = t);
+    ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
   });
 
   afterAll(async () => {
@@ -49,7 +53,7 @@ describe('e2e_nested_contract manual', () => {
 
     const tx = await new BatchCall(wallet, actions).send({ from: defaultAccountAddress }).wait();
     const extendedLogs = (
-      await pxe.getPublicLogs({
+      await aztecNode.getPublicLogs({
         fromBlock: tx.blockNumber!,
       })
     ).logs;

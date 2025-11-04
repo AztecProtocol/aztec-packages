@@ -36,6 +36,7 @@ describe('GasTxValidator', () => {
       'txsPermittedValidator',
       'dataValidator',
       'metadataValidator',
+      'timestampValidator',
       'doubleSpendValidator',
       'gasValidator',
       'phasesValidator',

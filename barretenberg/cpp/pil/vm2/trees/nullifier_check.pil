@@ -131,14 +131,14 @@ namespace nullifier_check;
     sel * (tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
 
     #[LOW_LEAF_POSEIDON2]
-    sel { low_leaf_nullifier, low_leaf_next_nullifier, low_leaf_next_index, low_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    sel { sel /* =1 */, low_leaf_nullifier, low_leaf_next_nullifier, low_leaf_next_index, low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2]
-    should_insert { low_leaf_nullifier, updated_low_leaf_next_nullifier, updated_low_leaf_next_index, updated_low_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_insert { sel /* =1 */, low_leaf_nullifier, updated_low_leaf_next_nullifier, updated_low_leaf_next_index, updated_low_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[LOW_LEAF_MERKLE_CHECK]
     sel { should_insert, low_leaf_hash, updated_low_leaf_hash,
@@ -182,8 +182,8 @@ namespace nullifier_check;
     pol commit new_leaf_hash;
 
     #[NEW_LEAF_POSEIDON2]
-    should_insert { siloed_nullifier, low_leaf_next_nullifier, low_leaf_next_index, new_leaf_hash }
-    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+    should_insert { sel /* =1 */, siloed_nullifier, low_leaf_next_nullifier, low_leaf_next_index, new_leaf_hash }
+    in poseidon2_hash.end { poseidon2_hash.start, poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[NEW_LEAF_MERKLE_CHECK]
     should_insert { sel, precomputed.zero, new_leaf_hash,

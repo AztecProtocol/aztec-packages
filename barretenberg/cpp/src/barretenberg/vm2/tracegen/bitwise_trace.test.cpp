@@ -57,7 +57,7 @@ TEST(BitwiseTraceGenTest, U1And)
                                   ROW_FIELD_EQ(bitwise_tag_c, static_cast<int>(MemoryTag::U1)),
                                   ROW_FIELD_EQ(bitwise_ctr, 1),
                                   ROW_FIELD_EQ(bitwise_ctr_inv, 1),
-                                  ROW_FIELD_EQ(bitwise_ctr_min_one_inv, 1),
+                                  ROW_FIELD_EQ(bitwise_ctr_min_one_inv, 0),
                                   ROW_FIELD_EQ(bitwise_last, 1),
                                   ROW_FIELD_EQ(bitwise_sel, 1),
                                   ROW_FIELD_EQ(bitwise_sel_get_ctr, 1),
@@ -157,7 +157,7 @@ TEST(BitwiseTraceGenTest, U32And)
                                   ROW_FIELD_EQ(bitwise_tag_c, 0),
                                   ROW_FIELD_EQ(bitwise_ctr, 1),
                                   ROW_FIELD_EQ(bitwise_ctr_inv, 1),
-                                  ROW_FIELD_EQ(bitwise_ctr_min_one_inv, 1),
+                                  ROW_FIELD_EQ(bitwise_ctr_min_one_inv, 0),
                                   ROW_FIELD_EQ(bitwise_last, 1),
                                   ROW_FIELD_EQ(bitwise_sel, 1),
                                   ROW_FIELD_EQ(bitwise_start, 0))));

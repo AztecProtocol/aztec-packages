@@ -114,7 +114,7 @@ class ECCVMPointTablePrecomputationBuilder {
                     row.pc = entry.pc;
 
                     if (last_row) {
-                        ASSERT(scalar_sum - entry.wnaf_skew, entry.scalar);
+                        BB_ASSERT(scalar_sum - entry.wnaf_skew, entry.scalar);
                     }
                     // the last element of the `precomputed_table` field of a `ScalarMul` is the double of the point.
                     row.precompute_double = entry.precomputed_table[bb::eccvm::POINT_TABLE_SIZE];

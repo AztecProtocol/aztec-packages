@@ -1,4 +1,9 @@
-import { AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS, AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS } from '@aztec/constants';
+import {
+  AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS,
+  AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS,
+  AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS,
+  AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS,
+} from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
@@ -12,12 +17,7 @@ import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/initializers.js';
-import {
-  mockCheckNullifierExists,
-  mockL1ToL2MessageExists,
-  mockNoteHashCount,
-  mockNoteHashExists,
-} from '../test_utils.js';
+import { mockCheckNullifierExists, mockGetL1ToL2LeafValue, mockGetNoteHash, mockNoteHashCount } from '../test_utils.js';
 import {
   EmitNoteHash,
   EmitNullifier,
@@ -89,7 +89,10 @@ describe('Accrued Substate', () => {
       const foundAtStr = existsElsewhere ? `at leafIndex=${mockAtLeafIndex} (exists at leafIndex=${leafIndex})` : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
+          mockGetNoteHash(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetNoteHash(treesDB, leafIndex);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -255,7 +258,10 @@ describe('Accrued Substate', () => {
 
       it(`Should return ${expectFound} (and be traced) when l1 to l2 message ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockGetL1ToL2LeafValue(treesDB, mockAtLeafIndex, value0);
+        } else {
+          // We still need to mock a response for the state manager to handle:
+          mockGetL1ToL2LeafValue(treesDB, leafIndex);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // msg hash
@@ -278,10 +284,10 @@ describe('Accrued Substate', () => {
       const buf = Buffer.from([
         EmitUnencryptedLog.opcode, // opcode
         0x01, // indirect
-        ...Buffer.from('1234', 'hex'), // log offset
         ...Buffer.from('a234', 'hex'), // length offset
+        ...Buffer.from('1234', 'hex'), // log offset
       ]);
-      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*offset=*/ 0x1234, /*lengthOffset=*/ 0xa234);
+      const inst = new EmitUnencryptedLog(/*indirect=*/ 0x01, /*lengthOffset=*/ 0xa234, /*offset=*/ 0x1234);
 
       expect(EmitUnencryptedLog.fromBuffer(buf)).toEqual(inst);
       expect(inst.toBuffer()).toEqual(buf);
@@ -298,7 +304,7 @@ describe('Accrued Substate', () => {
       );
       context.machineState.memory.set(logSizeOffset, new Uint32(values.length));
 
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
       expect(trace.tracePublicLog).toHaveBeenCalledTimes(1);
       expect(trace.tracePublicLog).toHaveBeenCalledWith(address, values);
@@ -317,10 +323,14 @@ describe('Accrued Substate', () => {
 
       const l2GasBefore = context.machineState.l2GasLeft;
       const daGasBefore = context.machineState.daGasLeft;
-      await new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ startOffset, logSizeOffset).execute(context);
+      await new EmitUnencryptedLog(/*indirect=*/ 0, logSizeOffset, /*offset=*/ startOffset).execute(context);
 
-      expect(context.machineState.l2GasLeft).toEqual(l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS);
-      expect(context.machineState.daGasLeft).toEqual(daGasBefore - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length);
+      expect(context.machineState.l2GasLeft).toEqual(
+        l2GasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_L2_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_L2_GAS * values.length,
+      );
+      expect(context.machineState.daGasLeft).toEqual(
+        daGasBefore - AVM_EMITUNENCRYPTEDLOG_BASE_DA_GAS - AVM_EMITUNENCRYPTEDLOG_DYN_DA_GAS * values.length,
+      );
     });
   });
 
@@ -360,7 +370,7 @@ describe('Accrued Substate', () => {
     const instructions = [
       new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ 0),
       new EmitNullifier(/*indirect=*/ 0, /*offset=*/ 0),
-      new EmitUnencryptedLog(/*indirect=*/ 0, /*offset=*/ 0, /*logSizeOffset=*/ 0),
+      new EmitUnencryptedLog(/*indirect=*/ 0, /*logSizeOffset=*/ 0, /*offset=*/ 0),
       new SendL2ToL1Message(/*indirect=*/ 0, /*recipientOffset=*/ 0, /*contentOffset=*/ 1),
     ];
 

@@ -117,6 +117,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getAttestationForSlot"');
   }
 
+  public deleteAttestation(_attestation: BlockAttestation): Promise<void> {
+    return Promise.resolve();
+  }
+
   public addAttestations(_attestations: BlockAttestation[]): Promise<void> {
     throw new Error('DummyP2P does not implement "addAttestations"');
   }

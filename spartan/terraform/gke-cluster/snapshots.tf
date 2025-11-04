@@ -48,30 +48,55 @@ resource "google_storage_bucket" "snapshots-bucket" {
   }
 }
 
-resource "google_storage_managed_folder" "aztec_testnet_auto_update_folder" {
-  bucket        = google_storage_bucket.snapshots-bucket.name
-  name          = "auto-update/"
-  force_destroy = true
-}
 
-resource "google_storage_managed_folder_iam_policy" "aztec_testnet_auto_update_folder_policy" {
-  bucket         = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
-  managed_folder = google_storage_managed_folder.aztec_testnet_auto_update_folder.name
-  policy_data    = data.google_iam_policy.all_users_storage_read.policy_data
-}
+resource "google_storage_bucket" "snapshots-bucket-mainnet" {
+  name     = "aztec-mainnet"
+  location = "us-west1"
 
-resource "google_storage_bucket_object" "alpha_testnet_json" {
-  bucket        = google_storage_managed_folder.aztec_testnet_auto_update_folder.bucket
-  name          = "${google_storage_managed_folder.aztec_testnet_auto_update_folder.name}alpha-testnet.json"
-  content_type  = "application/json"
-  cache_control = "no-store"
-  # see yarn-project/foundation/src/update-checker/update-checker.ts for latest schema
-  content = jsonencode({
-    version = ""
-    config = {
-      maxTxsPerBlock            = 8
-      publishTxsWithProposals   = false
-      governanceProposerPayload = "0x0000000000000000000000000000000000000000"
+  uniform_bucket_level_access = true
+
+  logging {
+    log_bucket        = "usage_log_bucket"
+    log_object_prefix = "aztec-mainnet"
+  }
+
+  autoclass {
+    enabled                = true
+    terminal_storage_class = "ARCHIVE"
+  }
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
     }
-  })
+
+    condition {
+      num_newer_versions = 3
+      with_state         = "ARCHIVED"
+    }
+  }
+
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+
+    condition {
+      days_since_noncurrent_time = 15
+      with_state                 = "ANY"
+    }
+  }
+
+  # Delete all snapshot db files after 1 week
+  lifecycle_rule {
+    action {
+      type = "Delete"
+    }
+    condition {
+      age            = 7
+      matches_prefix = ["snapshots/"]
+      matches_suffix = [".db"]
+    }
+  }
 }
+

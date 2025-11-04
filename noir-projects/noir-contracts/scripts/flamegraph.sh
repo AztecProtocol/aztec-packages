@@ -71,7 +71,7 @@ fi
 # Extract artifact for the specific function (will save to $FUNCTION_ARTIFACT)
 node "$SCRIPT_DIR/extractFunctionAsNoirArtifact.js" "$ARTIFACT_PATH" $FUNCTION
 
-if [ "$SERVE" == "true" ]; then
+if [ "$SERVE" == "1" ]; then
   # We create dest directory and use it as an output for the generated main.svg file
   OUTPUT_DIR="$SCRIPT_DIR/../dest"
   mkdir -p "$OUTPUT_DIR"
@@ -81,12 +81,12 @@ else
 fi
 
 # At last, generate the flamegraph
-$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates" --output "$OUTPUT_DIR" --scheme client_ivc --include_gates_per_opcode
+$PROFILER gates --artifact-path "$FUNCTION_ARTIFACT" --backend-path "$BACKEND_PATH" --backend-gates-command "gates" --output "$OUTPUT_DIR" --scheme chonk --include_gates_per_opcode
 
 echo "Flamegraph generated for contract: $CONTRACT"
 # save as $ARTIFACT_NAME-${FUNCTION}-flamegraph.svg
 OUTPUT_FILE="${OUTPUT_DIR}/$(basename ${ARTIFACT_PATH%%.json})-${FUNCTION}-flamegraph.svg"
-mv "$OUTPUT_DIR/main_gates.svg" "$OUTPUT_FILE"
+mv "$OUTPUT_DIR/${FUNCTION}_gates.svg" "$OUTPUT_FILE"
 
 if [ "$SERVE" == "1" ]; then
   # serve the file over http

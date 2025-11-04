@@ -20,35 +20,35 @@ using Curve = curve::Grumpkin;
 CommitmentKey<Curve> ck;
 VerifierCommitmentKey<Curve> vk;
 /**
- * @brief Class that allows us to call internal IPA methods, because it's friendly
+ * @brief Wrapper class that allows us to call IPA methods.
  *
  */
 class ProxyCaller {
   public:
     template <typename Transcript>
-    static void compute_opening_proof_internal(const CommitmentKey<Curve>& ck,
-                                               const ProverOpeningClaim<Curve>& opening_claim,
-                                               const std::shared_ptr<Transcript>& transcript,
-                                               size_t poly_log_size)
+    static void compute_opening_proof(const CommitmentKey<Curve>& ck,
+                                      const ProverOpeningClaim<Curve>& opening_claim,
+                                      const std::shared_ptr<Transcript>& transcript,
+                                      size_t poly_log_size)
     {
         if (poly_log_size == 1) {
-            IPA<Curve, 1>::compute_opening_proof_internal(ck, opening_claim, transcript);
+            IPA<Curve, 1>::compute_opening_proof(ck, opening_claim, transcript);
         }
         if (poly_log_size == 2) {
-            IPA<Curve, 2>::compute_opening_proof_internal(ck, opening_claim, transcript);
+            IPA<Curve, 2>::compute_opening_proof(ck, opening_claim, transcript);
         }
     }
     template <typename Transcript>
-    static bool verify_internal(const VerifierCommitmentKey<Curve>& vk,
-                                const OpeningClaim<Curve>& opening_claim,
-                                const std::shared_ptr<Transcript>& transcript,
-                                size_t poly_log_size)
+    static bool verify(const VerifierCommitmentKey<Curve>& vk,
+                       const OpeningClaim<Curve>& opening_claim,
+                       const std::shared_ptr<Transcript>& transcript,
+                       size_t poly_log_size)
     {
         if (poly_log_size == 1) {
-            return IPA<Curve, 1>::reduce_verify_internal_native(vk, opening_claim, transcript);
+            return IPA<Curve, 1>::reduce_verify(vk, opening_claim, transcript);
         }
         if (poly_log_size == 2) {
-            return IPA<Curve, 2>::reduce_verify_internal_native(vk, opening_claim, transcript);
+            return IPA<Curve, 2>::reduce_verify(vk, opening_claim, transcript);
         }
         return false;
     }
@@ -180,13 +180,13 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     }
     auto const opening_pair = OpeningPair<Curve>{ x, poly.evaluate(x) };
     auto const opening_claim = OpeningClaim<Curve>{ opening_pair, ck.commit(poly) };
-    ProxyCaller::compute_opening_proof_internal(ck, { poly, opening_pair }, transcript, log_size);
+    ProxyCaller::compute_opening_proof(ck, { poly, opening_pair }, transcript, log_size);
 
     // Reset challenge indices
     transcript->reset_indices();
 
     // Should verify
-    if (!ProxyCaller::verify_internal(vk, opening_claim, transcript, log_size)) {
+    if (!ProxyCaller::verify(vk, opening_claim, transcript, log_size)) {
         return 1;
     }
     return 0;

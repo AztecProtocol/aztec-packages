@@ -35,7 +35,7 @@ using crypto::merkle_tree::index_t;
 
 template <typename LeafValueType> struct BatchInsertionResult {
     std::vector<crypto::merkle_tree::LeafUpdateWitnessData<LeafValueType>> low_leaf_witness_data;
-    std::vector<std::pair<LeafValueType, size_t>> sorted_leaves;
+    std::vector<std::pair<LeafValueType, index_t>> sorted_leaves;
     crypto::merkle_tree::fr_sibling_path subtree_path;
 
     MSGPACK_FIELDS(low_leaf_witness_data, sorted_leaves, subtree_path);
@@ -482,6 +482,8 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
         const auto& wrapper = std::get<TreeWithStore<FrTree>>(fork->_trees.at(tree_id));
         auto callback = [&signal, &leaf, &success, &error_msg](const TypedResponse<GetLeafResponse>& response) {
             if (!response.success || !response.inner.leaf.has_value()) {
+                // TODO(#17755): Permeate errors to TS? (native_world_state_instance.ts -> call() translates this to
+                // null)
                 success = false;
                 error_msg = response.message;
             } else {

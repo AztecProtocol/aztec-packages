@@ -1,10 +1,11 @@
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import { AuthWitness, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
+import { AuthWitness } from '@aztec/aztec.js/authorization';
+import { type SendInteractionOptions, ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import { useContext, useEffect, useState } from 'react';
-import { AztecContext } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecContext';
 import FormControl from '@mui/material/FormControl';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -21,7 +22,7 @@ interface ConfigureInteractionDialogProps {
   name: string;
   interaction: ContractFunctionInteraction;
   open: boolean;
-  onClose: (name?: string, tx?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
+  onClose: (name?: string, tx?: ContractFunctionInteraction, opts?: SendInteractionOptions) => void;
 }
 
 export function ConfigureInteractionDialog({ name, interaction, open, onClose }: ConfigureInteractionDialogProps) {
@@ -31,15 +32,15 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   const [authWits, setAuthwits] = useState([]);
   const [selectedAuthwits, setSelectedAuthwits] = useState([]);
 
-  const { walletDB, wallet } = useContext(AztecContext);
+  const { playgroundDB, from } = useContext(AztecContext);
 
   useEffect(() => {
     const refreshAuthwits = async () => {
       setLoading(true);
-      const authwitBuffers = await walletDB.listAliases('authwits');
-      const authwits = parseAliasedBuffersAsString(authwitBuffers).map(({ key, value }) => ({
-        key,
-        value: AuthWitness.fromString(value),
+      const authwitBuffers = await playgroundDB.listAliases('authwits');
+      const authwits = parseAliasedBuffersAsString(authwitBuffers).map(({ alias, item }) => ({
+        alias,
+        item: AuthWitness.fromString(item),
       }));
       setAuthwits(authwits);
       setLoading(false);
@@ -48,7 +49,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
   }, []);
 
   const send = async () => {
-    onClose(name, interaction, { from: wallet.getAddress(), authWitnesses: selectedAuthwits, fee: { paymentMethod: feePaymentMethod } });
+    onClose(name, interaction, { from, authWitnesses: selectedAuthwits, fee: { paymentMethod: feePaymentMethod } });
   };
 
   const handleClose = () => {
@@ -102,9 +103,7 @@ export function ConfigureInteractionDialog({ name, interaction, open, onClose }:
         <Box sx={{ flexGrow: 1 }} />
 
         <DialogActions>
-          <Button disabled={!feePaymentMethod} onClick={send}>
-            Send
-          </Button>
+          <Button onClick={send}>Send</Button>
           <Button color="error" onClick={handleClose}>
             Cancel
           </Button>

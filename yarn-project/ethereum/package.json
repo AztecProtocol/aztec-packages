@@ -8,7 +8,7 @@
     "./contracts": "./dest/contracts/index.js",
     "./deploy-l1-contracts": "./dest/deploy_l1_contracts.js",
     "./l1-contract-addresses": "./dest/l1_contract_addresses.js",
-    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils_with_blobs.js",
+    "./l1-tx-utils-with-blobs": "./dest/l1_tx_utils/l1_tx_utils_with_blobs.js",
     "./utils": "./dest/utils.js"
   },
   "typedocOptions": {
@@ -40,7 +40,7 @@
     "lodash.chunk": "^4.2.0",
     "lodash.pickby": "^4.5.0",
     "tslib": "^2.4.0",
-    "viem": "2.23.7",
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

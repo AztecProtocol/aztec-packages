@@ -10,22 +10,26 @@ import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js'
 import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
-import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
+import {
+  type ProcessedPhase,
+  type PublicTxResult,
+  PublicTxSimulator,
+  type PublicTxSimulatorConfig,
+} from './public_tx_simulator.js';
+import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
 
 /**
  * A public tx simulator that tracks miscellaneous simulation metrics without telemetry.
  */
-export class MeasuredPublicTxSimulator extends PublicTxSimulator {
+export class MeasuredPublicTxSimulator extends PublicTxSimulator implements MeasuredPublicTxSimulatorInterface {
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
-    doMerkleOperations: boolean = false,
-    skipFeeEnforcement: boolean = false,
-    clientInitiatedSimulation: boolean = false,
     protected readonly metrics: ExecutorMetricsInterface,
+    config?: Partial<PublicTxSimulatorConfig>,
   ) {
-    super(merkleTree, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, clientInitiatedSimulation);
+    super(merkleTree, contractsDB, globalVariables, config);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -45,11 +49,10 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'non-revertible');
   }
 
-  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx): Promise<boolean> {
+  protected override async insertRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const timer = new Timer();
-    const result = await super.insertRevertiblesFromPrivate(context, tx);
+    await super.insertRevertiblesFromPrivate(context, tx);
     this.metrics.recordPrivateEffectsInsertion(timer.us(), 'revertible');
-    return result;
   }
 
   protected override async simulatePhase(phase: TxExecutionPhase, context: PublicTxContext): Promise<ProcessedPhase> {

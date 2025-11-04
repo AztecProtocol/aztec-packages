@@ -10,8 +10,9 @@ import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { CommitteeAttestation, L2BlockHash } from '../block/index.js';
 import { L2Block } from '../block/l2_block.js';
-import type { L2Tips, ValidateBlockResult } from '../block/l2_block_source.js';
-import type { PublishedL2Block } from '../block/published_l2_block.js';
+import type { L2Tips } from '../block/l2_block_source.js';
+import { PublishedL2Block } from '../block/published_l2_block.js';
+import type { ValidateBlockResult } from '../block/validate_block_result.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
   type ContractClassPublic,
@@ -90,6 +91,16 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeInstanceOf(BlockHeader);
   });
 
+  it('getBlockHeaderByArchive', async () => {
+    const result = await context.client.getBlockHeaderByArchive(Fr.random());
+    expect(result).toBeInstanceOf(BlockHeader);
+  });
+
+  it('getBlockHeaderByHash', async () => {
+    const result = await context.client.getBlockHeaderByHash(Fr.random());
+    expect(result).toBeInstanceOf(BlockHeader);
+  });
+
   it('getBlocks', async () => {
     const result = await context.client.getBlocks(1, 1);
     expect(result).toEqual([expect.any(L2Block)]);
@@ -101,6 +112,22 @@ describe('ArchiverApiSchema', () => {
     expect(response[0].block.constructor.name).toEqual('L2Block');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
+  });
+
+  it('getPublishedBlockByArchive', async () => {
+    const result = await context.client.getPublishedBlockByArchive(Fr.random());
+    expect(result).toBeDefined();
+    expect(result!.block.constructor.name).toEqual('L2Block');
+    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result!.l1).toBeDefined();
+  });
+
+  it('getPublishedBlockByHash', async () => {
+    const result = await context.client.getPublishedBlockByHash(Fr.random());
+    expect(result).toBeDefined();
+    expect(result!.block.constructor.name).toEqual('L2Block');
+    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
+    expect(result!.l1).toBeDefined();
   });
 
   it('getTxEffect', async () => {
@@ -255,11 +282,19 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.isPendingChainInvalid();
     expect(result).toBe(false);
   });
+
+  it('getGenesisValues', async () => {
+    const result = await context.client.getGenesisValues();
+    expect(result).toEqual({ genesisArchiveRoot: expect.any(Fr) });
+  });
 });
 
 class MockArchiver implements ArchiverApi {
   constructor(private artifact: ContractArtifact) {}
 
+  getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
+    return Promise.resolve({ genesisArchiveRoot: Fr.random() });
+  }
   isPendingChainInvalid(): Promise<boolean> {
     return Promise.resolve(false);
   }
@@ -292,12 +327,32 @@ class MockArchiver implements ArchiverApi {
   }
   async getPublishedBlocks(from: number, _limit: number, _proven?: boolean): Promise<PublishedL2Block[]> {
     return [
-      {
+      PublishedL2Block.fromFields({
         block: await L2Block.random(from),
         attestations: [CommitteeAttestation.random()],
         l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
-      },
+      }),
     ];
+  }
+  async getPublishedBlockByHash(_blockHash: Fr): Promise<PublishedL2Block | undefined> {
+    return PublishedL2Block.fromFields({
+      block: await L2Block.random(1),
+      attestations: [CommitteeAttestation.random()],
+      l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+    });
+  }
+  async getPublishedBlockByArchive(_archive: Fr): Promise<PublishedL2Block | undefined> {
+    return PublishedL2Block.fromFields({
+      block: await L2Block.random(1),
+      attestations: [CommitteeAttestation.random()],
+      l1: { blockHash: `0x`, blockNumber: 1n, timestamp: 0n },
+    });
+  }
+  getBlockHeaderByHash(_blockHash: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
+  }
+  getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
+    return Promise.resolve(BlockHeader.empty());
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
@@ -324,8 +379,8 @@ class MockArchiver implements ArchiverApi {
   }
   async getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
     expect(epochNumber).toEqual(1n);
-    const { header } = await L2Block.random(Number(epochNumber));
-    return [header];
+    const block = await L2Block.random(Number(epochNumber));
+    return [block.getBlockHeader()];
   }
   isEpochComplete(epochNumber: bigint): Promise<boolean> {
     expect(epochNumber).toEqual(1n);

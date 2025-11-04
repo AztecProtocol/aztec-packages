@@ -8,6 +8,7 @@
 #include <ostream>
 #include <string_view>
 #include <tracy/Tracy.hpp>
+#include <unordered_map>
 #include <vector>
 
 /**
@@ -22,6 +23,7 @@ extern bool use_bb_bench;
 // Compile-time string
 // See e.g. https://www.reddit.com/r/cpp_questions/comments/pumi9r/does_c20_not_support_string_literals_as_template/
 template <std::size_t N> struct OperationLabel {
+    constexpr static std::size_t size() { return N; }
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     constexpr OperationLabel(const char (&str)[N])
     {
@@ -34,6 +36,14 @@ template <std::size_t N> struct OperationLabel {
     char value[N];
 };
 
+template <OperationLabel op1, OperationLabel op2> constexpr auto concat()
+{
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
+    char result_cstr[op1.size() + op2.size() - 1] = {};
+    std::copy(op1.value, op1.value + op1.size() - 1, result_cstr);
+    std::copy(op2.value, op2.value + op2.size(), result_cstr + op1.size() - 1);
+    return OperationLabel{ result_cstr };
+}
 struct TimeStats;
 struct TimeStatsEntry;
 using OperationKey = std::string_view;
@@ -48,10 +58,11 @@ struct AggregateEntry {
     // For convenience, even though redundant with map store
     OperationKey key;
     OperationKey parent;
-    std::size_t time = 0;
-    std::size_t count = 0;
+    uint64_t time = 0;
+    uint64_t count = 0;
     size_t num_threads = 0;
     double time_mean = 0;
+    uint64_t time_max = 0;
     double time_stddev = 0;
 
     // Welford's algorithm state
@@ -64,7 +75,7 @@ struct AggregateEntry {
 // AggregateData: Result of normalizing benchmark data
 // entries: Key -> ParentKey -> Entry
 // Empty string is used as key if the entry has no parent.
-using AggregateData = std::map<OperationKey, std::map<OperationKey, AggregateEntry>>;
+using AggregateData = std::unordered_map<OperationKey, std::map<OperationKey, AggregateEntry>>;
 
 // Contains all statically known op counts
 struct GlobalBenchStatsContainer {
@@ -72,14 +83,15 @@ struct GlobalBenchStatsContainer {
     static inline thread_local TimeStatsEntry* parent = nullptr;
     ~GlobalBenchStatsContainer();
     std::mutex mutex;
-    std::vector<TimeStatsEntry*> entries;
+    std::vector<std::shared_ptr<TimeStatsEntry>> entries;
     void print() const;
     // NOTE: Should be called when other threads aren't active
     void clear();
-    void add_entry(const char* key, TimeStatsEntry* entry);
+    void add_entry(const char* key, const std::shared_ptr<TimeStatsEntry>& entry);
     void print_stats_recursive(const OperationKey& key, const TimeStats* stats, const std::string& indent) const;
     void print_aggregate_counts(std::ostream&, size_t) const;
     void print_aggregate_counts_hierarchical(std::ostream&) const;
+    void serialize_aggregate_data_json(std::ostream&) const;
 
     // Normalize the raw benchmark data into a clean structure for display
     AggregateData aggregate() const;
@@ -94,19 +106,19 @@ extern GlobalBenchStatsContainer GLOBAL_BENCH_STATS;
 // but doesn't provide recursive parent-child relationships through the entire call stack.
 struct TimeStats {
     TimeStatsEntry* parent = nullptr;
-    std::size_t count = 0;
-    std::size_t time = 0;
+    uint64_t count = 0;
+    uint64_t time = 0;
     // Used if the parent changes from last call - chains to handle multiple parent contexts
     std::unique_ptr<TimeStats> next;
 
     TimeStats() = default;
-    TimeStats(TimeStatsEntry* parent_ptr, std::size_t count_val, std::size_t time_val)
+    TimeStats(TimeStatsEntry* parent_ptr, uint64_t count_val, uint64_t time_val)
         : parent(parent_ptr)
         , count(count_val)
         , time(time_val)
     {}
 
-    void track(TimeStatsEntry* current_parent, std::size_t time_val)
+    void track(TimeStatsEntry* current_parent, uint64_t time_val)
     {
         // Try to track with current stats if parent matches
         // Check if 'next' already handles this parent to avoid creating duplicates
@@ -126,7 +138,7 @@ struct TimeStats {
 
   private:
     // Returns true if successfully tracked (parent matches), false otherwise
-    bool raw_track(TimeStatsEntry* expected_parent, std::size_t time_val)
+    bool raw_track(TimeStatsEntry* expected_parent, uint64_t time_val)
     {
         if (parent != expected_parent) {
             return false;
@@ -150,16 +162,17 @@ struct TimeStatsEntry {
 template <OperationLabel Op> struct ThreadBenchStats {
   public:
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
-    static inline thread_local TimeStatsEntry stats;
+    static inline thread_local std::shared_ptr<TimeStatsEntry> stats;
 
     static void init_entry(TimeStatsEntry& entry);
     // returns null if use_bb_bench not enabled
-    static TimeStatsEntry* ensure_stats()
+    static std::shared_ptr<TimeStatsEntry> ensure_stats()
     {
-        if (bb::detail::use_bb_bench && BB_UNLIKELY(stats.key.empty())) {
-            GLOBAL_BENCH_STATS.add_entry(Op.value, &stats);
+        if (bb::detail::use_bb_bench && BB_UNLIKELY(stats == nullptr)) {
+            stats = std::make_shared<TimeStatsEntry>();
+            GLOBAL_BENCH_STATS.add_entry(Op.value, stats);
         }
-        return bb::detail::use_bb_bench ? &stats : nullptr;
+        return stats;
     }
 };
 
@@ -168,7 +181,7 @@ template <OperationLabel Op> struct ThreadBenchStats {
 struct BenchReporter {
     TimeStatsEntry* parent;
     TimeStatsEntry* stats;
-    std::size_t time;
+    uint64_t time;
     BenchReporter(TimeStatsEntry* entry);
     ~BenchReporter();
 };
@@ -183,7 +196,7 @@ struct BenchReporter {
 #define BB_BENCH_ONLY_NAME(name) (void)0
 #define BB_BENCH_ENABLE_NESTING() (void)0
 #define BB_BENCH_ONLY() (void)0
-#elif defined __wasm__
+#elif defined __wasm__ && !defined ENABLE_WASM_BENCH
 #define BB_TRACY() (void)0
 #define BB_TRACY_NAME(name) (void)0
 #define BB_BENCH_TRACY() (void)0
@@ -197,7 +210,7 @@ struct BenchReporter {
 #define BB_BENCH_TRACY() BB_BENCH_ONLY_NAME(__func__)
 #define BB_BENCH_TRACY_NAME(name) BB_BENCH_ONLY_NAME(name)
 #define BB_BENCH_ONLY_NAME(name)                                                                                       \
-    bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats()))
+    bb::detail::BenchReporter _bb_bench_reporter((bb::detail::ThreadBenchStats<name>::ensure_stats().get()))
 #define BB_BENCH_ENABLE_NESTING()                                                                                      \
     if (_bb_bench_reporter.stats)                                                                                      \
     bb::detail::GlobalBenchStatsContainer::parent = _bb_bench_reporter.stats

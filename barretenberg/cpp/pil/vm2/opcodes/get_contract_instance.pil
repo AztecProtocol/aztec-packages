@@ -52,7 +52,7 @@ include "../bytecode/contract_instance_retrieval.pil";
  *
  * Usage from execution:
  *
- * sel_execute_get_contract_instance {
+ * sel_exec_dispatch_get_contract_instance {
  *     // inputs
  *     precomputed.clk,
  *     register[0],

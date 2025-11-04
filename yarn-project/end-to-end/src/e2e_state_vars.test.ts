@@ -1,7 +1,11 @@
-import { AztecAddress, type AztecNode, BatchCall, type PXE, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
 import { StateVarsContract } from '@aztec/noir-test-contracts.js/StateVars';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 
@@ -13,8 +17,7 @@ describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;
-  let pxe: PXE;
-  let wallet: Wallet;
+  let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   let teardown: () => Promise<void>;
@@ -26,7 +29,6 @@ describe('e2e_state_vars', () => {
   beforeAll(async () => {
     ({
       teardown,
-      pxe,
       aztecNode,
       wallet,
       accounts: [defaultAccountAddress],
@@ -52,7 +54,7 @@ describe('e2e_state_vars', () => {
 
       const read = await contract.methods.get_public_immutable().simulate({ from: defaultAccountAddress });
 
-      expect(read).toEqual({ account: wallet.getAddress(), value: read.value });
+      expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
 
     it('private read of PublicImmutable', async () => {
@@ -129,7 +131,7 @@ describe('e2e_state_vars', () => {
         .send({ from: defaultAccountAddress })
         .wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
@@ -156,7 +158,7 @@ describe('e2e_state_vars', () => {
       );
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
 
     it('replace with same value', async () => {
@@ -169,7 +171,7 @@ describe('e2e_state_vars', () => {
         .send({ from: defaultAccountAddress })
         .wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -190,7 +192,7 @@ describe('e2e_state_vars', () => {
         .send({ from: defaultAccountAddress })
         .wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -198,7 +200,7 @@ describe('e2e_state_vars', () => {
 
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE + 1n);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
 
     it('replace PrivateMutable dependent on prior value', async () => {
@@ -208,7 +210,7 @@ describe('e2e_state_vars', () => {
       const noteBefore = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       const receipt = await contract.methods.increase_private_value().send({ from: defaultAccountAddress }).wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the nullifier of the previous note
@@ -216,7 +218,7 @@ describe('e2e_state_vars', () => {
 
       const { value, owner } = await contract.methods.get_private_mutable().simulate({ from: defaultAccountAddress });
       expect(value).toEqual(noteBefore.value + 1n);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
   });
 
@@ -235,7 +237,7 @@ describe('e2e_state_vars', () => {
         .send({ from: defaultAccountAddress })
         .wait();
 
-      const txEffects = await pxe.getTxEffect(receipt.txHash);
+      const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
@@ -257,7 +259,7 @@ describe('e2e_state_vars', () => {
         .view_private_immutable()
         .simulate({ from: defaultAccountAddress });
       expect(value).toEqual(VALUE);
-      expect(owner).toEqual(wallet.getAddress());
+      expect(owner).toEqual(defaultAccountAddress);
     });
   });
 
@@ -274,7 +276,7 @@ describe('e2e_state_vars', () => {
 
     beforeAll(async () => {
       // We use the auth contract here because has a nice, clear, simple implementation of Delayed Public Mutable
-      authContract = await AuthContract.deploy(wallet, wallet.getAddress())
+      authContract = await AuthContract.deploy(wallet, defaultAccountAddress)
         .send({ from: defaultAccountAddress })
         .deployed();
 
@@ -301,7 +303,9 @@ describe('e2e_state_vars', () => {
         (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay;
 
       // We now call our AuthContract to see if the change in include by timestamp has reflected our delay change
-      const tx = await authContract.methods.get_authorized_in_private().prove({ from: defaultAccountAddress });
+      const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {
+        from: defaultAccountAddress,
+      });
 
       expect(tx.data.includeByTimestamp).toEqual(expectedModifiedIncludeByTimestamp);
     });

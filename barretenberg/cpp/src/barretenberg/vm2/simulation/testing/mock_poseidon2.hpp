@@ -3,7 +3,7 @@
 #include <array>
 #include <gmock/gmock.h>
 
-#include "barretenberg/vm2/simulation/poseidon2.hpp"
+#include "barretenberg/vm2/simulation/interfaces/poseidon2.hpp"
 
 namespace bb::avm2::simulation {
 

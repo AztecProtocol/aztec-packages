@@ -36,11 +36,11 @@ class table : public FixedBaseParams {
         return crypto::generator_data<curve::Grumpkin>::precomputed_generators[1];
     }
 
-    inline static single_lookup_table generate_single_lookup_table(const affine_element& base_point,
-                                                                   const affine_element& offset_generator);
+    static single_lookup_table generate_single_lookup_table(const affine_element& base_point,
+                                                            const affine_element& offset_generator);
     template <size_t num_bits> static fixed_base_scalar_mul_tables generate_tables(const affine_element& input);
 
-    template <size_t num_table_bits> static affine_element generate_generator_offset(const affine_element& input);
+    template <size_t num_table_bits> static affine_element compute_generator_offset(const affine_element& input);
 
     static constexpr uint256_t MAX_LO_SCALAR = uint256_t(1) << BITS_PER_LO_SCALAR;
     // We split each scalar mulitplier into BITS_PER_LO_SCALAR, BITS_PER_HI_SCALAR chunks and perform 2 scalar muls of
@@ -84,8 +84,8 @@ class table : public FixedBaseParams {
     static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>& fixed_base_table_offset_generators();
 
     static bool lookup_table_exists_for_point(const affine_element& input);
-    static std::optional<std::array<MultiTableId, 2>> get_lookup_table_ids_for_point(const affine_element& input);
-    static std::optional<affine_element> get_generator_offset_for_table_id(MultiTableId table_id);
+    static std::array<MultiTableId, 2> get_lookup_table_ids_for_point(const affine_element& input);
+    static affine_element get_generator_offset_for_table_id(MultiTableId table_id);
 
     template <size_t multitable_index>
     static BasicTable generate_basic_fixed_base_table(BasicTableId id, size_t basic_table_index, size_t table_index);

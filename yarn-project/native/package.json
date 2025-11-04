@@ -12,7 +12,7 @@
     "clean:cpp": "rm -rf $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "generate": "mkdir -p build && cp -v $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic/lib/nodejs_module.node build"
+    "generate": "bash scripts/copy-modules.sh"
   },
   "inherits": [
     "../package.common.json",
@@ -20,12 +20,10 @@
   ],
   "dependencies": {
     "@aztec/foundation": "workspace:^",
-    "bindings": "^1.5.0",
     "msgpackr": "^1.11.2"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
-    "@types/bindings": "^1.5.5",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.15.17",
     "jest": "^30.0.0",
@@ -35,6 +33,7 @@
   "files": [
     "dest",
     "src",
+    "build",
     "!*.test.*"
   ],
   "engines": {

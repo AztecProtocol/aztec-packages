@@ -1,22 +1,22 @@
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import {
+  DeployMethod,
+  getContractInstanceFromInstantiationParams,
+} from '@aztec/aztec.js/contracts';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { Fr } from '@aztec/aztec.js/fields';
+import { PublicKeys } from '@aztec/aztec.js/keys';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import type { DeployAccountOptions, Wallet } from '@aztec/aztec.js/wallet';
+import { type AztecNode } from '@aztec/aztec.js/node';
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { createStore } from '@aztec/kv-store/lmdb';
+import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { getPXEConfig } from '@aztec/pxe/server';
+import { getDefaultInitializer } from '@aztec/stdlib/abi';
+import { TestWallet } from '@aztec/test-wallet/server';
 import fs from 'fs';
 import path from 'path';
-import {
-  AztecAddress,
-  createAztecNodeClient,
-  DeployMethod,
-  Fr,
-  getContractInstanceFromInstantiationParams,
-  PublicKeys,
-  type PXE,
-  SponsoredFeePaymentMethod,
-  type Wallet,
-} from '@aztec/aztec.js';
-import { createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa';
-import { createStore } from '@aztec/kv-store/lmdb';
-import { getDefaultInitializer } from '@aztec/stdlib/abi';
-import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { SPONSORED_FPC_SALT } from '@aztec/constants';
 // @ts-ignore
 import { PrivateVotingContract } from '../artifacts/PrivateVoting.ts';
 
@@ -26,28 +26,22 @@ const WRITE_ENV_FILE = process.env.WRITE_ENV_FILE === 'false' ? false : true;
 
 const PXE_STORE_DIR = path.join(import.meta.dirname, '.store');
 
-async function setupPXE() {
-  const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
-
+async function setupWallet(aztecNode: AztecNode) {
   fs.rmSync(PXE_STORE_DIR, { recursive: true, force: true });
 
   const store = await createStore('pxe', {
     dataDirectory: PXE_STORE_DIR,
-    dataStoreMapSizeKB: 1e6,
+    dataStoreMapSizeKb: 1e6,
   });
 
-  const config = getPXEServiceConfig();
+  const config = getPXEConfig();
   config.dataDirectory = 'pxe';
   config.proverEnabled = PROVER_ENABLED;
-  const configWithContracts = {
-    ...config,
-  };
 
-  const pxe = await createPXEService(aztecNode, configWithContracts, {
+  return await TestWallet.create(aztecNode, config, {
     store,
     useLogSuffix: true,
   });
-  return pxe;
 }
 
 async function getSponsoredPFCContract() {
@@ -61,39 +55,34 @@ async function getSponsoredPFCContract() {
   return instance;
 }
 
-async function createAccount(pxe: PXE) {
+async function createAccount(wallet: TestWallet) {
   const salt = Fr.random();
   const secretKey = Fr.random();
   const signingKey = Buffer.alloc(32, Fr.random().toBuffer());
-  const ecdsaAccount = await getEcdsaRAccount(pxe, secretKey, signingKey, salt);
+  const accountManager = await wallet.createECDSARAccount(
+    secretKey,
+    salt,
+    signingKey
+  );
 
-  const deployMethod = await ecdsaAccount.getDeployMethod();
+  const deployMethod = await accountManager.getDeployMethod();
   const sponsoredPFCContract = await getSponsoredPFCContract();
-  const deployOpts = {
+  const deployOpts: DeployAccountOptions = {
     from: AztecAddress.ZERO,
-    contractAddressSalt: Fr.fromString(ecdsaAccount.salt.toString()),
     fee: {
-      paymentMethod: await ecdsaAccount.getSelfPaymentMethod(
-        new SponsoredFeePaymentMethod(sponsoredPFCContract.address)
+      paymentMethod: new SponsoredFeePaymentMethod(
+        sponsoredPFCContract.address
       ),
     },
-    universalDeploy: true,
     skipClassPublication: true,
     skipInstancePublication: true,
   };
-  const provenInteraction = await deployMethod.prove(deployOpts);
-  await provenInteraction.send().wait({ timeout: 120 });
+  await deployMethod.send(deployOpts).wait({ timeout: 120 });
 
-  await ecdsaAccount.register();
-  const wallet = await ecdsaAccount.getWallet();
-
-  return {
-    wallet,
-    signingKey,
-  };
+  return accountManager.address;
 }
 
-async function deployContract(pxe: PXE, deployer: Wallet) {
+async function deployContract(wallet: Wallet, deployer: AztecAddress) {
   const salt = Fr.random();
   const contract = await getContractInstanceFromInstantiationParams(
     PrivateVotingContract.artifact,
@@ -102,42 +91,40 @@ async function deployContract(pxe: PXE, deployer: Wallet) {
       constructorArtifact: getDefaultInitializer(
         PrivateVotingContract.artifact
       ),
-      constructorArgs: [deployer.getAddress().toField()],
-      deployer: deployer.getAddress(),
+      constructorArgs: [deployer.toField()],
+      deployer: deployer,
       salt,
     }
   );
 
   const deployMethod = new DeployMethod(
     contract.publicKeys,
-    deployer,
+    wallet,
     PrivateVotingContract.artifact,
     (address: AztecAddress, wallet: Wallet) =>
       PrivateVotingContract.at(address, wallet),
-    [deployer.getAddress().toField()],
+    [deployer.toField()],
     getDefaultInitializer(PrivateVotingContract.artifact)?.name
   );
 
   const sponsoredPFCContract = await getSponsoredPFCContract();
 
-  const provenInteraction = await deployMethod.prove({
-    from: deployer.getAddress(),
-    contractAddressSalt: salt,
-    fee: {
-      paymentMethod: new SponsoredFeePaymentMethod(
-        sponsoredPFCContract.address
-      ),
-    },
-  });
-  await provenInteraction.send().wait({ timeout: 120 });
-  await pxe.registerContract({
-    instance: contract,
-    artifact: PrivateVotingContract.artifact,
-  });
+  await deployMethod
+    .send({
+      from: deployer,
+      contractAddressSalt: salt,
+      fee: {
+        paymentMethod: new SponsoredFeePaymentMethod(
+          sponsoredPFCContract.address
+        ),
+      },
+    })
+    .wait({ timeout: 120 });
+  await wallet.registerContract(contract, PrivateVotingContract.artifact);
 
   return {
     contractAddress: contract.address.toString(),
-    deployerAddress: deployer.getAddress().toString(),
+    deployerAddress: deployer.toString(),
     deploymentSalt: salt.toString(),
   };
 }
@@ -164,32 +151,20 @@ async function writeEnvFile(deploymentInfo) {
 }
 
 async function createAccountAndDeployContract() {
-  const pxe = await setupPXE();
+  const aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
+  const wallet = await setupWallet(aztecNode);
 
   // Register the SponsoredFPC contract (for sponsored fee payments)
-  await pxe.registerContract({
-    instance: await getSponsoredPFCContract(),
-    artifact: SponsoredFPCContractArtifact,
-  });
+  await wallet.registerContract(
+    await getSponsoredPFCContract(),
+    SponsoredFPCContractArtifact
+  );
 
   // Create a new account
-  const { wallet /* signingKey */ } = await createAccount(pxe);
-
-  // // Save the wallet info
-  // const walletInfo = {
-  //   address: wallet.getAddress().toString(),
-  //   salt: wallet.salt.toString(),
-  //   secretKey: wallet.getSecretKey().toString(),
-  //   signingKey: Buffer.from(signingKey).toString('hex'),
-  // };
-  // fs.writeFileSync(
-  //   path.join(import.meta.dirname, '../wallet-info.json'),
-  //   JSON.stringify(walletInfo, null, 2)
-  // );
-  // console.log('\n\n\nWallet info saved to wallet-info.json\n\n\n');
+  const accountAddress = await createAccount(wallet);
 
   // Deploy the contract
-  const deploymentInfo = await deployContract(pxe, wallet);
+  const deploymentInfo = await deployContract(wallet, accountAddress);
 
   // Save the deployment info to app/public
   if (WRITE_ENV_FILE) {

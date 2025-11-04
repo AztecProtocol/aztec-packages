@@ -49,9 +49,9 @@ template <typename Builder> class straus_lookup_table {
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
 
-    static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
-                                                                  const Element& offset_generator,
-                                                                  size_t table_bits);
+    static std::vector<Element> compute_native_table(const Element& base_point,
+                                                     const Element& offset_generator,
+                                                     size_t table_bits);
 
     straus_lookup_table() = default;
     straus_lookup_table(Builder* context,
@@ -60,10 +60,10 @@ template <typename Builder> class straus_lookup_table {
                         size_t table_bits,
                         std::optional<std::span<AffineElement>> hints = std::nullopt);
     cycle_group<Builder> read(const field_t& index);
-    size_t _table_bits;
+
+  private:
     Builder* _context;
-    std::vector<cycle_group<Builder>> point_table;
-    size_t rom_id = 0;
+    size_t rom_id = 0; // Ultra ROM array ID
     OriginTag tag{};
 };
 

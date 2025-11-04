@@ -29,16 +29,20 @@ class AvmVerifierTests : public ::testing::Test {
         auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
 
         Prover prover;
+        auto public_inputs_cols = public_inputs.to_columns();
         const auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = prover.create_verification_key(vk_data);
 
-        auto public_inputs_cols = public_inputs.to_columns();
         return { proof, verification_key, public_inputs_cols };
     }
 };
 
 TEST_F(AvmVerifierTests, GoodPublicInputs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     NativeProofResult proof_result = create_proof_and_vk();
     auto [proof, verification_key, public_inputs_cols] = proof_result;
 
@@ -51,6 +55,10 @@ TEST_F(AvmVerifierTests, GoodPublicInputs)
 
 TEST_F(AvmVerifierTests, NegativeBadPublicInputs)
 {
+    if (testing::skip_slow_tests()) {
+        GTEST_SKIP() << "Skipping slow test";
+    }
+
     NativeProofResult proof_result = create_proof_and_vk();
     auto [proof, verification_key, public_inputs_cols] = proof_result;
     auto verify_with_corrupt_pi_col = [&](size_t col_idx) {

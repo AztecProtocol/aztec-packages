@@ -1,4 +1,5 @@
 #include "hash.hpp"
+#include "barretenberg/stdlib/hash/pedersen/pedersen.hpp"
 #include "memory_tree.hpp"
 #include <gtest/gtest.h>
 

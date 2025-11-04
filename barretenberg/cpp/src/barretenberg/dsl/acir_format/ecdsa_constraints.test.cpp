@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/crypto/ecdsa/ecdsa.hpp"
+#include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -15,19 +16,100 @@ using namespace bb;
 using namespace bb::crypto;
 using namespace acir_format;
 
-template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
+template <class Curve> class EcdsaTestingFunctions {
   public:
     using Builder = Curve::Builder;
     using FrNative = Curve::fr;
     using FqNative = Curve::fq;
     using G1Native = Curve::g1;
-    using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    using AcirConstraint = EcdsaConstraint;
+
+    struct Tampering {
+      public:
+        enum class Mode : uint8_t {
+            None,
+            TamperR,
+        };
+
+        static std::vector<Mode> get_all() { return { Mode::None, Mode::TamperR }; }
+
+        static std::vector<std::string> get_labels() { return { "None", "Tamper R" }; }
+    };
+
+    struct WitnessOverride {
+      public:
+        enum class Case : uint8_t { None, R, ZeroS, HighS, P, Result };
+
+        static std::vector<Case> get_all()
+        {
+            return { Case::None, Case::R, Case::ZeroS, Case::HighS, Case::P, Case::Result };
+        }
+
+        static std::vector<std::string> get_labels()
+        {
+            return { "None", "R", "Zero S", "High S", "Public key", "Result" };
+        }
+    };
 
     // Reproducible test
     static constexpr FrNative private_key =
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
-    static size_t generate_ecdsa_constraint(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
+    static void override_witness(EcdsaConstraint& ecdsa_constraints,
+                                 WitnessVector& witness_values,
+                                 const WitnessOverride::Case& witness_override)
+    {
+        witness_values[ecdsa_constraints.result] = bb::fr(0);
+        switch (witness_override) {
+        case WitnessOverride::Case::R:
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
+            };
+            break;
+        case WitnessOverride::Case::ZeroS:
+            for (size_t idx = 32; idx < 64; idx++) {
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
+            };
+            break;
+        case WitnessOverride::Case::HighS:
+            for (size_t idx = 32; idx < 64; idx++) {
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(255);
+            };
+            break;
+        case WitnessOverride::Case::P:
+            witness_values[ecdsa_constraints.pub_x_indices[0]] += bb::fr(1);
+            break;
+        case WitnessOverride::Case::Result:
+            // Tamper with the signature so that signature verification fails
+            witness_values[ecdsa_constraints.signature[31]] = bb::fr(0);
+            // Set signature result to true
+            witness_values[ecdsa_constraints.result] = bb::fr(1);
+            break;
+        case WitnessOverride::Case::None:
+            break;
+        }
+    }
+
+    static void tampering(EcdsaConstraint& ecdsa_constraints,
+                          WitnessVector& witness_values,
+                          const Tampering::Mode& tampering_mode)
+    {
+        switch (tampering_mode) {
+        case (Tampering::Mode::None):
+            break;
+        case (Tampering::Mode::TamperR):
+            // Set r = 0
+            for (size_t idx = 0; idx < 32; idx++) {
+                witness_values[ecdsa_constraints.signature[idx]] = bb::fr(0);
+            };
+            break;
+        }
+    }
+
+    /**
+     * @brief Generate valid ECDSA constraint with witness predicate equal to true
+     */
+    static void generate_constraints(EcdsaConstraint& ecdsa_constraint, WitnessVector& witness_values)
     {
         std::string message_string = "Instructions unclear, ask again later.";
 
@@ -51,76 +133,51 @@ template <class Curve> class EcdsaConstraintsTest : public ::testing::Test {
         FqNative::serialize_to_buffer(account.public_key.y, &buffer_y[0]);
 
         // Create witness indices and witnesses
-        size_t num_variables = 0;
-
         std::array<uint32_t, 32> hashed_message_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(hashed_message));
-        num_variables += hashed_message_indices.size();
 
         std::array<uint32_t, 32> pub_x_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_x));
-        num_variables += pub_x_indices.size();
 
         std::array<uint32_t, 32> pub_y_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(buffer_y));
-        num_variables += pub_y_indices.size();
 
         std::array<uint32_t, 32> r_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.r));
-        num_variables += r_indices.size();
 
         std::array<uint32_t, 32> s_indices =
             add_to_witness_and_track_indices<uint8_t, 32>(witness_values, std::span(signature.s));
-        num_variables += s_indices.size();
 
-        uint32_t result_index = static_cast<uint32_t>(num_variables);
+        uint32_t result_index = static_cast<uint32_t>(witness_values.size());
         bb::fr result = bb::fr::one();
         witness_values.emplace_back(result);
-        num_variables += 1;
+
+        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+        bb::fr predicate = bb::fr::one();
+        witness_values.emplace_back(predicate);
 
         // Restructure vectors into array
         std::array<uint32_t, 64> signature_indices;
         std::ranges::copy(r_indices, signature_indices.begin());
         std::ranges::copy(s_indices, signature_indices.begin() + 32);
 
-        ecdsa_constraint = EcdsaConstraint{ .hashed_message = hashed_message_indices,
+        ecdsa_constraint = EcdsaConstraint{ .type = Curve::type,
+                                            .hashed_message = hashed_message_indices,
                                             .signature = signature_indices,
                                             .pub_x_indices = pub_x_indices,
                                             .pub_y_indices = pub_y_indices,
-                                            .predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr::one()),
+                                            .predicate = WitnessOrConstant<bb::fr>::from_index(predicate_index),
                                             .result = result_index };
-
-        return num_variables;
     }
+};
 
-    static std::pair<AcirFormat, WitnessVector> generate_constraint_system()
-    {
-        EcdsaConstraint ecdsa_constraint;
-        WitnessVector witness_values;
-        size_t num_variables = generate_ecdsa_constraint(ecdsa_constraint, witness_values);
-        AcirFormat constraint_system = {
-            .varnum = static_cast<uint32_t>(num_variables),
-            .num_acir_opcodes = 1,
-            .public_inputs = {},
-            .original_opcode_indices = create_empty_original_opcode_indices(),
-        };
-
-        if constexpr (Curve::type == bb::CurveType::SECP256K1) {
-            constraint_system.ecdsa_k1_constraints = { ecdsa_constraint };
-        } else {
-            constraint_system.ecdsa_r1_constraints = { ecdsa_constraint };
-        }
-
-        mock_opcode_indices(constraint_system);
-
-        return { constraint_system, witness_values };
-    }
-
+template <class Curve>
+class EcdsaConstraintsTest : public ::testing::Test, public TestClassWithPredicate<EcdsaTestingFunctions<Curve>> {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using CurveTypes = testing::Types<stdlib::secp256k1<MegaCircuitBuilder>,
+using CurveTypes = testing::Types<stdlib::secp256k1<UltraCircuitBuilder>,
                                   stdlib::secp256r1<UltraCircuitBuilder>,
                                   stdlib::secp256k1<MegaCircuitBuilder>,
                                   stdlib::secp256r1<MegaCircuitBuilder>>;
@@ -129,33 +186,40 @@ TYPED_TEST_SUITE(EcdsaConstraintsTest, CurveTypes);
 
 TYPED_TEST(EcdsaConstraintsTest, GenerateVKFromConstraints)
 {
-    using Flavor = TestFixture::Flavor;
-    using Builder = TestFixture::Builder;
-    using ProvingKey = DeciderProvingKey_<Flavor>;
-    using VerificationKey = Flavor::VerificationKey;
+    using Flavor =
+        std::conditional_t<std::is_same_v<typename TypeParam::Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    TestFixture::template test_vk_independence<Flavor>();
+}
 
-    auto [constraint_system, witness_values] = TestFixture::generate_constraint_system();
+TYPED_TEST(EcdsaConstraintsTest, ConstantTrue)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_constant_true(TestFixture::TamperingMode::TamperR);
+}
 
-    std::shared_ptr<VerificationKey> vk_from_witness;
-    {
-        AcirProgram program{ constraint_system, witness_values };
-        auto builder = create_circuit<Builder>(program);
-        info("Num gates: ", builder.get_estimated_num_finalized_gates());
+TYPED_TEST(EcdsaConstraintsTest, WitnessTrue)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_true(TestFixture::TamperingMode::TamperR);
+}
 
-        auto proving_key = std::make_shared<ProvingKey>(builder);
-        vk_from_witness = std::make_shared<VerificationKey>(proving_key->get_precomputed());
+TYPED_TEST(EcdsaConstraintsTest, WitnessFalse)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_false(TestFixture::TamperingMode::TamperR);
+}
 
-        // Validate the builder
-        EXPECT_TRUE(CircuitChecker::check(builder));
-    }
+TYPED_TEST(EcdsaConstraintsTest, WitnessFalseSlow)
+{
+    // This test is equal to WitnessFalse but also checks that each configuration would have failed if the
+    // predicate were witness true. It can be useful for debugging.
+    GTEST_SKIP();
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::TamperR);
+}
 
-    std::shared_ptr<VerificationKey> vk_from_constraint;
-    {
-        AcirProgram program{ constraint_system, /*witness=*/{} };
-        auto builder = create_circuit<Builder>(program);
-        auto proving_key = std::make_shared<ProvingKey>(builder);
-        vk_from_constraint = std::make_shared<VerificationKey>(proving_key->get_precomputed());
-    }
-
-    EXPECT_EQ(*vk_from_witness, *vk_from_constraint);
+TYPED_TEST(EcdsaConstraintsTest, Tampering)
+{
+    BB_DISABLE_ASSERTS();
+    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
 }

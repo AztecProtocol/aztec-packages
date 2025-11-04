@@ -61,6 +61,7 @@ template <typename Hash, typename Fq, typename Fr, typename G1>
 typename G1::affine_element ecdsa_recover_public_key(const std::string& message, const ecdsa_signature& sig)
 {
     using serialize::read;
+    using Point = G1::affine_element;
     uint256_t r_uint;
     uint256_t s_uint;
     uint8_t v_uint;
@@ -74,17 +75,11 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
     read(v_buf, v_uint);
 
     // We need to check that r and s are in Field according to specification
-    if ((r_uint >= mod) || (s_uint >= mod)) {
-        throw_or_abort("r or s value exceeds the modulus");
-    }
-    if ((r_uint == 0) || (s_uint == 0)) {
-        throw_or_abort("r or s value is zero");
-    }
+    BB_ASSERT((r_uint < mod) && (s_uint < mod), "r or s value exceeds the modulus");
+    BB_ASSERT((r_uint != 0) && (s_uint != 0), "r or s value is zero");
 
     // Check that the s value is less than |Fr| / 2
-    if (s_uint * 2 > mod) {
-        throw_or_abort("s value is not less than curve order by 2");
-    }
+    BB_ASSERT_LTE(s_uint * 2, mod, "s value is not less than curve order by 2");
 
     // Check that v must either be in {27, 28, 29, 30}
     Fr r = Fr(r_uint);
@@ -98,15 +93,15 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
         BB_ASSERT_LT(uint256_t(r), uint256_t(r_fq));
         is_r_finite = false;
     } else {
-        throw_or_abort("v value is not in {27, 28, 29, 30}");
+        bb::assert_failure("v value is not in {27, 28, 29, 30}");
     }
 
     // Decompress the x-coordinate r_uint to get two possible R points
     // The first uncompressed R point is selected when r < |Fr|
     // The second uncompressed R point is selected when |Fr| <= r < |Fq|
     // Note that the second condition can occur with probability 1/2^128 so its highly unlikely.
-    auto uncompressed_points = G1::affine_element::from_compressed_unsafe(r_uint);
-    typename G1::affine_element point_R = uncompressed_points[!is_r_finite];
+    auto uncompressed_points = Point::from_compressed_unsafe(r_uint);
+    Point point_R = uncompressed_points[!is_r_finite];
 
     // Negate the y-coordinate point of R based on the parity of v
     bool y_parity_R = uint256_t(point_R.y).get_bit(0);
@@ -125,7 +120,7 @@ typename G1::affine_element ecdsa_recover_public_key(const std::string& message,
     Fr u1 = -(z * r_inv);
     Fr u2 = s * r_inv;
 
-    typename G1::affine_element recovered_public_key(typename G1::element(point_R) * u2 + G1::one * u1);
+    Point recovered_public_key(Point(point_R) * u2 + G1::one * u1);
     return recovered_public_key;
 }
 
@@ -138,7 +133,7 @@ bool ecdsa_verify_signature(const std::string& message,
     uint256_t r_uint;
     uint256_t s_uint;
     uint256_t mod = uint256_t(Fr::modulus);
-    if (!public_key.on_curve()) {
+    if ((!public_key.on_curve()) || (public_key.is_point_at_infinity())) {
         return false;
     }
     const auto* r_buf = &sig.r[0];
@@ -154,9 +149,7 @@ bool ecdsa_verify_signature(const std::string& message,
     }
 
     // Check that the s value is less than |Fr| / 2
-    if (s_uint * 2 > mod) {
-        throw_or_abort("s value is not less than curve order by 2");
-    }
+    BB_ASSERT_LT(s_uint, (mod + 1) / 2, "s value is not less than curve order by 2");
 
     Fr r = Fr(r_uint);
     Fr s = Fr(s_uint);
@@ -171,7 +164,9 @@ bool ecdsa_verify_signature(const std::string& message,
     Fr u1 = z * s_inv;
     Fr u2 = r * s_inv;
 
-    typename G1::affine_element R(typename G1::element(public_key) * u2 + G1::one * u1);
+    typename G1::affine_element R((typename G1::element(public_key) * u2) + (G1::one * u1));
+    BB_ASSERT_EQ(R.is_point_at_infinity(), false, "Result of the scalar multiplication is the point at infinity.");
+
     uint256_t Rx(R.x);
     Fr result(Rx);
     return result == r;

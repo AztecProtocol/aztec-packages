@@ -22,7 +22,7 @@ struct GetContractInstanceEvent {
     AztecAddress contract_address;
     MemoryAddress dst_offset;
     uint8_t member_enum;
-    uint32_t space_id;
+    uint16_t space_id;
     FF nullifier_tree_root;
     FF public_data_tree_root;
 

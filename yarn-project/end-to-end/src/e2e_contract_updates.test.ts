@@ -1,6 +1,9 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { type AztecNode, Fr, type Wallet, getContractClassFromArtifact } from '@aztec/aztec.js';
+import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum';

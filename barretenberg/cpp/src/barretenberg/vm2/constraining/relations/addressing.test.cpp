@@ -8,14 +8,17 @@
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/addressing.hpp"
+#include "barretenberg/vm2/simulation/events/gt_event.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/tracegen/execution_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
+using tracegen::ExecutionTraceBuilder;
 using tracegen::TestTraceContainer;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
@@ -35,7 +38,7 @@ TEST(AddressingConstrainingTest, EmptyRow)
 
 TEST(AddressingConstrainingTest, BaseAddressGating)
 {
-    // If the are no relative operands, it's ok that sel_do_base_check is 0.
+    // If there are no relative operands, it's ok that sel_do_base_check is 0.
     TestTraceContainer trace({ {
         // These set pol SEL_SHOULD_RESOLVE_ADDRESS.
         // If this is off the whole subrelation is unconstrained.
@@ -62,14 +65,6 @@ TEST(AddressingConstrainingTest, BaseAddressGating)
                   { C::execution_sel_op_is_relative_wire_4_, 1 }, // not an address
                   { C::execution_sel_op_is_relative_wire_5_, 0 },
                   { C::execution_sel_op_is_relative_wire_6_, 0 },
-                  // Derived.
-                  { C::execution_sel_op_is_relative_effective_0_, 1 },
-                  { C::execution_sel_op_is_relative_effective_1_, 0 },
-                  { C::execution_sel_op_is_relative_effective_2_, 1 },
-                  { C::execution_sel_op_is_relative_effective_3_, 0 },
-                  { C::execution_sel_op_is_relative_effective_4_, 0 },
-                  { C::execution_sel_op_is_relative_effective_5_, 0 },
-                  { C::execution_sel_op_is_relative_effective_6_, 0 },
                   // should be 1
                   { C::execution_sel_do_base_check, 0 },
               } });
@@ -231,14 +226,6 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagation)
             { C::execution_sel_op_is_address_4_, 1 },
             { C::execution_sel_op_is_address_5_, 1 },
             { C::execution_sel_op_is_address_6_, 1 },
-            // Derived.
-            { C::execution_sel_op_is_relative_effective_0_, 1 },
-            { C::execution_sel_op_is_relative_effective_1_, 0 },
-            { C::execution_sel_op_is_relative_effective_2_, 1 },
-            { C::execution_sel_op_is_relative_effective_3_, 0 },
-            { C::execution_sel_op_is_relative_effective_4_, 1 },
-            { C::execution_sel_op_is_relative_effective_5_, 0 },
-            { C::execution_sel_op_is_relative_effective_6_, 1 },
             // Selectors that enable the subrelation.
             { C::execution_sel_op_is_relative_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_1_, 0 },
@@ -350,26 +337,35 @@ TEST(AddressingConstrainingTest, RelativeAddressPropagationWhenBaseAddressIsInva
 TEST(AddressingConstrainingTest, RelativeOverflowCheck)
 {
     FF base_address_val = 100;
-    FF two_to_32 = FF(1ULL << 32);
+
+    std::array<FF, 7> resolved_addrs = {
+        FF(123) + base_address_val,    FF(456),    FF(0xFFFFFFFF) + base_address_val, FF(101112),
+        FF(131415) + base_address_val, FF(161718), FF(192021) + base_address_val,
+    };
 
     TestTraceContainer trace({
         {
-            // Derived.
-            { C::execution_sel_op_is_relative_effective_0_, 1 },
-            { C::execution_sel_op_is_relative_effective_1_, 0 },
-            { C::execution_sel_op_is_relative_effective_2_, 1 },
-            { C::execution_sel_op_is_relative_effective_3_, 0 },
-            { C::execution_sel_op_is_relative_effective_4_, 1 },
-            { C::execution_sel_op_is_relative_effective_5_, 0 },
-            { C::execution_sel_op_is_relative_effective_6_, 1 },
+            // The operands which are "relative effective" are 0, 2, 4, 6.
+            { C::execution_sel_op_is_relative_wire_0_, 1 },
+            { C::execution_sel_op_is_relative_wire_2_, 1 },
+            { C::execution_sel_op_is_relative_wire_4_, 1 },
+            { C::execution_sel_op_is_relative_wire_6_, 1 },
+            { C::execution_sel_op_is_address_0_, 1 },
+            { C::execution_sel_op_is_address_2_, 1 },
+            { C::execution_sel_op_is_address_4_, 1 },
+            { C::execution_sel_op_is_address_6_, 1 },
+            { C::execution_sel_op_do_overflow_check_0_, 1 },
+            { C::execution_sel_op_do_overflow_check_2_, 1 },
+            { C::execution_sel_op_do_overflow_check_4_, 1 },
+            { C::execution_sel_op_do_overflow_check_6_, 1 },
             // After relative step. Base address was added when applicable.
-            { C::execution_op_after_relative_0_, FF(123) + base_address_val },
-            { C::execution_op_after_relative_1_, 456 },
-            { C::execution_op_after_relative_2_, FF(0xFFFFFFFF) + base_address_val },
-            { C::execution_op_after_relative_3_, 101112 },
-            { C::execution_op_after_relative_4_, FF(131415) + base_address_val },
-            { C::execution_op_after_relative_5_, 161718 },
-            { C::execution_op_after_relative_6_, FF(192021) + base_address_val },
+            { C::execution_op_after_relative_0_, resolved_addrs[0] },
+            { C::execution_op_after_relative_1_, resolved_addrs[1] },
+            { C::execution_op_after_relative_2_, resolved_addrs[2] },
+            { C::execution_op_after_relative_3_, resolved_addrs[3] },
+            { C::execution_op_after_relative_4_, resolved_addrs[4] },
+            { C::execution_op_after_relative_5_, resolved_addrs[5] },
+            { C::execution_op_after_relative_6_, resolved_addrs[6] },
             // Overflow bits.
             { C::execution_sel_relative_overflow_0_, 0 },
             { C::execution_sel_relative_overflow_1_, 0 },
@@ -378,36 +374,39 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
             { C::execution_sel_relative_overflow_4_, 0 },
             { C::execution_sel_relative_overflow_5_, 0 },
             { C::execution_sel_relative_overflow_6_, 0 },
-            // Intermediary columns.
-            { C::execution_overflow_range_check_result_0_, two_to_32 - (FF(123) + base_address_val) - 1 },
-            { C::execution_overflow_range_check_result_1_, 0 }, // N/A due to not relative effective.
-            { C::execution_overflow_range_check_result_2_, (FF(0xFFFFFFFF) + base_address_val) - two_to_32 },
-            { C::execution_overflow_range_check_result_3_, 0 }, // N/A due to not relative effective.
-            { C::execution_overflow_range_check_result_4_, two_to_32 - (FF(131415) + base_address_val) - 1 },
-            { C::execution_overflow_range_check_result_5_, 0 }, // N/A due to not relative effective.
-            { C::execution_overflow_range_check_result_6_, two_to_32 - (FF(192021) + base_address_val) - 1 },
-            // Sigh...
-            { C::execution_two_to_32, two_to_32 },
+            // Required for the gt lookup.
+            { C::execution_highest_address, AVM_HIGHEST_MEM_ADDRESS },
         },
     });
 
-    check_relation<addressing>(trace,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_0,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_1,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_2,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_3,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_4,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_5,
-                               addressing::SR_RELATIVE_OVERFLOW_RESULT_6,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_0,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_2,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_4,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5,
-                               addressing::SR_NOT_RELATIVE_NO_OVERFLOW_6);
+    // GT trace.
+    for (uint32_t i = 0; i < 7; i++) {
+        trace.set(C::gt_sel, i, 1);
+        trace.set(C::gt_input_a, i, resolved_addrs[i]);
+        trace.set(C::gt_input_b, i, AVM_HIGHEST_MEM_ADDRESS);
+        trace.set(C::gt_res, i, static_cast<uint128_t>(resolved_addrs[i]) > AVM_HIGHEST_MEM_ADDRESS ? 1 : 0);
+    }
 
-    // If we swap bits it should fail.
+    check_relation<addressing>(trace,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_0,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5,
+                               addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6);
+
+    check_interaction<ExecutionTraceBuilder,
+                      lookup_addressing_relative_overflow_result_0_settings,
+                      lookup_addressing_relative_overflow_result_1_settings,
+                      lookup_addressing_relative_overflow_result_2_settings,
+                      lookup_addressing_relative_overflow_result_3_settings,
+                      lookup_addressing_relative_overflow_result_4_settings,
+                      lookup_addressing_relative_overflow_result_5_settings,
+                      lookup_addressing_relative_overflow_result_6_settings>(trace);
+
+    // If we swap bits, a lookup or a relation should fail.
+    // If the address was not relative effective, the relation should fail. (lookup is inactive)
     trace.set(0,
               { {
                   { C::execution_sel_relative_overflow_0_, 1 }, // No overflow.
@@ -418,20 +417,28 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
                   { C::execution_sel_relative_overflow_5_, 1 }, // Wasn't relative effective.
                   { C::execution_sel_relative_overflow_6_, 1 }, // No overflow.
               } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_0),
-                              "RELATIVE_OVERFLOW_RESULT_0");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_1),
-                              "NOT_RELATIVE_NO_OVERFLOW_1");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_2),
-                              "RELATIVE_OVERFLOW_RESULT_2");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_3),
-                              "NOT_RELATIVE_NO_OVERFLOW_3");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_4),
-                              "RELATIVE_OVERFLOW_RESULT_4");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_NO_OVERFLOW_5),
-                              "NOT_RELATIVE_NO_OVERFLOW_5");
-    EXPECT_THROW_WITH_MESSAGE(check_relation<addressing>(trace, addressing::SR_RELATIVE_OVERFLOW_RESULT_6),
-                              "RELATIVE_OVERFLOW_RESULT_6");
+
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_0_settings>(trace)),
+        "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_0.*Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_1");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_2_settings>(trace)),
+        "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_2.*Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_4_settings>(trace)),
+        "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_4.*Could not find tuple in destination.");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<addressing>(trace, addressing::SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5),
+        "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5");
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<ExecutionTraceBuilder, lookup_addressing_relative_overflow_result_6_settings>(trace)),
+        "Failed.*LOOKUP_ADDRESSING_RELATIVE_OVERFLOW_RESULT_6.*Could not find tuple in destination.");
 }
 
 /**************************************************************************************************
@@ -752,15 +759,14 @@ TEST(AddressingConstrainingTest, IndirectPropagationWhenIndirection)
 
 TEST(AddressingConstrainingTest, FinalCheckNoFailure)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 0, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U32 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 0, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U32 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
@@ -803,15 +809,14 @@ TEST(AddressingConstrainingTest, FinalCheckNoFailure)
 
 TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U32,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3
@@ -857,15 +862,14 @@ TEST(AddressingConstrainingTest, FinalCheckSingleFailure)
 
 TEST(AddressingConstrainingTest, FinalCheckMultipleFailures)
 {
-    constexpr size_t NUM_OPERANDS = 7;
-    FF should_apply_indirection[NUM_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
-    MemoryTag rop_tag[NUM_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U8,
-                                        MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
+    FF should_apply_indirection[AVM_MAX_OPERANDS] = { 0, 1, 0, 1, 0, 1, 1 };
+    MemoryTag rop_tag[AVM_MAX_OPERANDS] = { MemoryTag::FF, MemoryTag::U8,  MemoryTag::U16, MemoryTag::U8,
+                                            MemoryTag::U1, MemoryTag::U32, MemoryTag::U1 };
 
     auto get_tag_diff_inv = [&]() {
         FF batched_tags_diff = 0;
         FF power_of_2 = 1;
-        for (size_t i = 0; i < NUM_OPERANDS; ++i) {
+        for (size_t i = 0; i < AVM_MAX_OPERANDS; ++i) {
             batched_tags_diff +=
                 should_apply_indirection[i] * power_of_2 * (FF(static_cast<uint8_t>(rop_tag[i])) - FF(MEM_TAG_U32));
             power_of_2 *= 8; // 2^3

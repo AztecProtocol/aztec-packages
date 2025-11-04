@@ -1,0 +1,22 @@
+{{- if .Values.serviceAccount.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "aztec-keystore.serviceAccountName" . }}-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps","secrets"]
+    verbs: ["get", "create","update","patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "aztec-keystore.serviceAccountName" . }}-role-binding
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "aztec-keystore.serviceAccountName" . }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "aztec-keystore.serviceAccountName" . }}-role
+{{- end }}

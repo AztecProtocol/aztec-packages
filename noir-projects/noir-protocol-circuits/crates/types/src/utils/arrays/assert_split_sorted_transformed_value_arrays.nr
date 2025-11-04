@@ -1,7 +1,7 @@
 pub mod get_split_order_hints;
 
 use crate::{
-    abis::side_effect::Ordered,
+    side_effect::Ordered,
     traits::Empty,
     utils::arrays::{
         array_length,

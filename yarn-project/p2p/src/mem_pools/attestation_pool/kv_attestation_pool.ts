@@ -66,7 +66,19 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender().toString();
+        const sender = attestation.getSender();
+
+        // Skip attestations with invalid signatures
+        if (!sender) {
+          this.log.warn(`Skipping attestation with invalid signature for slot ${slotNumber.toBigInt()}`, {
+            signature: attestation.signature.toString(),
+            slotNumber,
+            proposalId,
+          });
+          continue;
+        }
+
+        const address = sender.toString();
 
         await this.attestations.set(this.getAttestationKey(slotNumber, proposalId, address), attestation.toBuffer());
 
@@ -176,7 +188,15 @@ export class KvAttestationPool implements AttestationPool {
       for (const attestation of attestations) {
         const slotNumber = attestation.payload.header.slotNumber;
         const proposalId = attestation.archive;
-        const address = attestation.getSender().toString();
+        const sender = attestation.getSender();
+
+        // Skip attestations with invalid signatures
+        if (!sender) {
+          this.log.warn(`Skipping deletion of attestation with invalid signature for slot ${slotNumber.toBigInt()}`);
+          continue;
+        }
+
+        const address = sender.toString();
         const key = this.getAttestationKey(slotNumber, proposalId, address);
 
         if (await this.attestations.hasAsync(key)) {
@@ -193,6 +213,22 @@ export class KvAttestationPool implements AttestationPool {
     });
   }
 
+  public async hasAttestation(attestation: BlockAttestation): Promise<boolean> {
+    const slotNumber = attestation.payload.header.slotNumber;
+    const proposalId = attestation.archive;
+    const sender = attestation.getSender();
+
+    // Attestations with invalid signatures are never in the pool
+    if (!sender) {
+      return false;
+    }
+
+    const address = sender.toString();
+    const key = this.getAttestationKey(slotNumber, proposalId, address);
+
+    return await this.attestations.hasAsync(key);
+  }
+
   public async getBlockProposal(id: string): Promise<BlockProposal | undefined> {
     const buffer = await this.proposals.getAsync(id);
     try {
@@ -204,6 +240,11 @@ export class KvAttestationPool implements AttestationPool {
     }
 
     return Promise.resolve(undefined);
+  }
+
+  public async hasBlockProposal(idOrProposal: string | BlockProposal): Promise<boolean> {
+    const id = typeof idOrProposal === 'string' ? idOrProposal : idOrProposal.payload.archive.toString();
+    return await this.proposals.hasAsync(id);
   }
 
   public async addBlockProposal(blockProposal: BlockProposal): Promise<void> {

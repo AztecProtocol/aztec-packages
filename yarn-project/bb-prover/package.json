@@ -28,7 +28,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "generate": "scripts/copy_ivc_hiding_circuit_vks.sh",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
@@ -99,7 +98,7 @@
     "jest-mock-extended": "^4.0.0",
     "ts-node": "^10.9.1",
     "typescript": "^5.3.3",
-    "viem": "2.23.7"
+    "viem": "npm:@spalladino/viem@2.38.2-eip7594.0"
   },
   "files": [
     "dest",

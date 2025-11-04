@@ -6,16 +6,12 @@ import {
   l1ContractAddressesMapping,
 } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
-  type AztecAddressHex,
-  type EthAddressHex,
-  type EthPrivateKey,
-  type EthRemoteSignerAccount,
-  type Hex,
   type KeyStore,
-  type KeyStoreConfig,
   type ValidatorKeyStore,
+  ethPrivateKeySchema,
   keyStoreConfigMappings,
 } from '@aztec/node-keystore';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
@@ -50,7 +46,6 @@ export type AztecNodeConfig = ArchiverConfig &
   Pick<ProverClientUserConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
   DataStoreConfig &
-  KeyStoreConfig &
   SentinelConfig &
   SharedNodeConfig &
   GenesisStateConfig &
@@ -60,6 +55,8 @@ export type AztecNodeConfig = ArchiverConfig &
     l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
+    /** Whether to skip waiting for the archiver to be fully synced before starting other services */
+    skipArchiverInitialSync: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -85,6 +82,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
   },
+  skipArchiverInitialSync: {
+    env: 'SKIP_ARCHIVER_INITIAL_SYNC',
+    description: 'Whether to skip waiting for the archiver to be fully synced before starting other services.',
+    ...booleanConfigHelper(false),
+  },
 };
 
 /**
@@ -97,7 +99,7 @@ export function getConfigEnvVars(): AztecNodeConfig {
 
 type ConfigRequiredToBuildKeyStore = TxSenderConfig & SequencerClientConfig & SharedNodeConfig & ValidatorClientConfig;
 
-function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
+function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
 
   if (
@@ -108,22 +110,13 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
   ) {
     return undefined;
   }
-  const coinbase = config.coinbase ? config.coinbase.toString() : config.validatorAddresses[0].toString();
-  const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();
-
-  const publisherAddresses =
-    config.publisherAddresses && config.publisherAddresses.length > 0
-      ? config.publisherAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount)
-      : [];
-
-  const attestors = config.validatorAddresses.map(k => k.toChecksumString() as EthRemoteSignerAccount);
 
   validatorKeyStores.push({
-    attester: attestors,
-    feeRecipient: feeRecipient as AztecAddressHex,
-    coinbase: coinbase as EthAddressHex,
+    attester: config.validatorAddresses,
+    feeRecipient: config.feeRecipient ?? AztecAddress.ZERO,
+    coinbase: config.coinbase ?? config.validatorAddresses[0],
     remoteSigner: config.web3SignerUrl,
-    publisher: publisherAddresses,
+    publisher: config.publisherAddresses ?? [],
   });
 
   const keyStore: KeyStore = {
@@ -136,30 +129,26 @@ function createKeyStoreFromWeb3Signer(config: ConfigRequiredToBuildKeyStore) {
   return keyStore;
 }
 
-function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
+function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore): KeyStore | undefined {
   const validatorKeyStores: ValidatorKeyStore[] = [];
-  const ethPrivateKeys: EthPrivateKey[] = [];
-  const validatorKeys = config.validatorPrivateKeys ? config.validatorPrivateKeys.getValue() : [];
-  for (let i = 0; i < validatorKeys.length; i++) {
-    const key = validatorKeys[i];
-    const ethPrivateKey: EthPrivateKey = key as Hex<32>;
-    ethPrivateKeys.push(ethPrivateKey);
-  }
+  const ethPrivateKeys = config.validatorPrivateKeys
+    ? config.validatorPrivateKeys.getValue().map(x => ethPrivateKeySchema.parse(x))
+    : [];
 
   if (!ethPrivateKeys.length) {
     return undefined;
   }
-  const coinbase = config.coinbase ? config.coinbase.toString() : privateKeyToAddress(ethPrivateKeys[0]);
-  const feeRecipient = config.feeRecipient ? config.feeRecipient.toString() : AztecAddress.ZERO.toString();
+  const coinbase = config.coinbase ?? EthAddress.fromString(privateKeyToAddress(ethPrivateKeys[0]));
+  const feeRecipient = config.feeRecipient ?? AztecAddress.ZERO;
 
   const publisherKeys = config.publisherPrivateKeys
-    ? config.publisherPrivateKeys.map(k => k.getValue() as EthPrivateKey)
+    ? config.publisherPrivateKeys.map(k => ethPrivateKeySchema.parse(k.getValue()))
     : [];
 
   validatorKeyStores.push({
     attester: ethPrivateKeys,
-    feeRecipient: feeRecipient as AztecAddressHex,
-    coinbase: coinbase as EthAddressHex,
+    feeRecipient: feeRecipient,
+    coinbase: coinbase,
     remoteSigner: undefined,
     publisher: publisherKeys,
   });
@@ -174,7 +163,9 @@ function createKeyStoreFromPrivateKeys(config: ConfigRequiredToBuildKeyStore) {
   return keyStore;
 }
 
-export function createKeyStoreForValidator(config: TxSenderConfig & SequencerClientConfig & SharedNodeConfig) {
+export function createKeyStoreForValidator(
+  config: TxSenderConfig & SequencerClientConfig & SharedNodeConfig,
+): KeyStore | undefined {
   if (config.web3SignerUrl !== undefined && config.web3SignerUrl.length > 0) {
     return createKeyStoreFromWeb3Signer(config);
   }

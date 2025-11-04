@@ -25,10 +25,11 @@ template <typename Flavor> class RelationUtils {
     using Relations = typename Flavor::Relations;
     using PolynomialEvaluations = typename Flavor::AllValues;
     using RelationEvaluations = decltype(create_tuple_of_arrays_of_values<typename Flavor::Relations>());
-    using SubrelationSeparators = typename Flavor::SubrelationSeparators;
 
     static constexpr size_t NUM_RELATIONS = Flavor::NUM_RELATIONS;
     static constexpr size_t NUM_SUBRELATIONS = Flavor::NUM_SUBRELATIONS;
+
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     /**
      * Utility methods for tuple of tuples of Univariates
@@ -148,18 +149,21 @@ template <typename Flavor> class RelationUtils {
      * @details For each relation, use the purported values (supplied by the prover) of the multivariates to
      * calculate a contribution to the purported value of the full Honk relation. These are stored in `evaluations`.
      * Adding these together, with appropriate scaling factors, produces the expected value of the full Honk
-     * relation. This value is checked against the final value of the target total sum (called sigma_0 in the
-     * thesis).
+     * relation. This value is checked against the final value of the target total sum.
+     *
+     * @param evaluations The evaluations of the prover polynomials (one row in the trace)
+     * @param relation_parameters
+     * @param scaling_factor Value used to scale the contribution of this row
+     *
      */
     template <typename Parameters>
     inline static RelationEvaluations accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
                                                                       const Parameters& relation_parameters,
-                                                                      const FF& partial_evaluation_result)
+                                                                      const FF& scaling_factor)
     {
         RelationEvaluations result{};
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
-            accumulate_single_relation<Parameters, rel_index>(
-                evaluations, result, relation_parameters, partial_evaluation_result);
+            accumulate_single_relation<Parameters, rel_index>(evaluations, result, relation_parameters, scaling_factor);
         });
         return result;
     }
@@ -168,7 +172,7 @@ template <typename Flavor> class RelationUtils {
     inline static void accumulate_single_relation(const PolynomialEvaluations& evaluations,
                                                   RelationEvaluations& relation_evaluations,
                                                   const Parameters& relation_parameters,
-                                                  const FF& partial_evaluation_result)
+                                                  const FF& scaling_factor)
     {
         using Relation = std::tuple_element_t<relation_idx, Relations>;
 
@@ -176,17 +180,13 @@ template <typename Flavor> class RelationUtils {
         if constexpr (!consider_skipping || !isSkippable<Relation, decltype(evaluations)> ||
                       !std::is_same_v<FF, bb::fr>) {
             // If not, accumulate normally
-            Relation::accumulate(std::get<relation_idx>(relation_evaluations),
-                                 evaluations,
-                                 relation_parameters,
-                                 partial_evaluation_result);
+            Relation::accumulate(
+                std::get<relation_idx>(relation_evaluations), evaluations, relation_parameters, scaling_factor);
         } else {
             // If so, only compute the contribution if the relation is active
             if (!Relation::skip(evaluations)) {
-                Relation::accumulate(std::get<relation_idx>(relation_evaluations),
-                                     evaluations,
-                                     relation_parameters,
-                                     partial_evaluation_result);
+                Relation::accumulate(
+                    std::get<relation_idx>(relation_evaluations), evaluations, relation_parameters, scaling_factor);
             }
         }
     }

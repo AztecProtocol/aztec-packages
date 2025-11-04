@@ -1,5 +1,7 @@
 import type { Fr } from '@aztec/foundation/fields';
+import type { LogLevel } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { DebugLog } from '@aztec/stdlib/logs';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
@@ -18,5 +20,9 @@ export interface PublicSideEffectTraceInterface {
   traceNewNullifier(siloedNullifier: Fr): void;
   traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
   tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
+  traceDebugLog(contractAddress: AztecAddress, level: LogLevel, message: string, fields: Fr[]): void;
+  getDebugLogs(): DebugLog[];
+  getDebugLogMemoryReads(): number;
+  traceDebugLogMemoryReads(memoryReads: number): void;
   traceGetContractClass(contractClassId: Fr, exists: boolean): void;
 }

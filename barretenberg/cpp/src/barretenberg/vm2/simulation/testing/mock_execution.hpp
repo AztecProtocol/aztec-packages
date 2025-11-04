@@ -7,7 +7,8 @@
 #include <gmock/gmock.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
-#include "barretenberg/vm2/simulation/execution.hpp"
+#include "barretenberg/vm2/simulation/interfaces/context.hpp"
+#include "barretenberg/vm2/simulation/interfaces/execution.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -17,7 +18,7 @@ class MockExecution : public ExecutionInterface {
     MockExecution();
     ~MockExecution() override;
 
-    MOCK_METHOD(ExecutionResult, execute, (std::unique_ptr<ContextInterface> context), (override));
+    MOCK_METHOD(EnqueuedCallResult, execute, (std::unique_ptr<ContextInterface> context), (override));
 };
 
 } // namespace bb::avm2::simulation

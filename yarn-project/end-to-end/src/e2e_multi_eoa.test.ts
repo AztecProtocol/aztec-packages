@@ -1,14 +1,19 @@
-import { ContractDeployer, EthAddress, Fr, type Logger, TxStatus, type Wallet } from '@aztec/aztec.js';
+import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { TxStatus } from '@aztec/aztec.js/tx';
 import { EthCheatCodes } from '@aztec/aztec/testing';
 import type { PublisherManager, ViemClient } from '@aztec/ethereum';
 import type { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
+import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { AztecNodeAdmin, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TestWallet } from '@aztec/test-wallet/server';
+import { proveInteraction } from '@aztec/test-wallet/server';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -37,9 +42,10 @@ const createPublisherKeysAndAddresses = () => {
 describe('e2e_multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
-  let pxe: PXE;
+  let aztecNode: AztecNode;
   let logger: Logger;
-  let owner: Wallet;
+  let wallet: TestWallet;
+  let defaultAccountAddress: AztecAddress;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let publisherManager: PublisherManager;
@@ -52,8 +58,6 @@ describe('e2e_multi_eoa', () => {
   });
 
   describe('multi-txs block', () => {
-    const artifact = StatefulTestContractArtifact;
-
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
       let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
@@ -62,10 +66,11 @@ describe('e2e_multi_eoa', () => {
 
       ({
         teardown,
-        pxe,
+        aztecNode,
         logger,
         aztecNodeAdmin: maybeAztecNodeAdmin,
-        wallets: [owner],
+        wallet,
+        accounts: [defaultAccountAddress],
         sequencer: sequencerClient,
         ethCheatCodes,
       } = await setup(2, {
@@ -75,6 +80,7 @@ describe('e2e_multi_eoa', () => {
         blockCheckIntervalMS: 200,
         publisherPrivateKeys: sequencerKeysAndAddresses.map(k => k.key),
         l1PublisherKey: allKeysAndAddresses[0].key,
+        maxSpeedUpAttempts: 0, // Disable speed ups, so that cancellation txs never make it through
       }));
       sequencer = sequencerClient! as TestSequencerClient;
       publisherManager = sequencer.publisherManager;
@@ -100,13 +106,12 @@ describe('e2e_multi_eoa', () => {
     // We should then see that another block is published but this time with a different expected account
     const testAccountRotation = async (expectedFirstSender: number, expectedSecondSender: number) => {
       // the L2 tx we are going to try and execute
-      const deployer = new ContractDeployer(artifact, owner);
-      const ownerAddress = owner.getCompleteAddress().address;
-      const deployMethodTx = await deployer.deploy(ownerAddress, 0).prove({
-        from: ownerAddress,
+      const deployMethod = StatefulTestContract.deploy(wallet, defaultAccountAddress, 0);
+      const deployMethodTx = await proveInteraction(wallet, deployMethod, {
         contractAddressSalt: Fr.random(),
         skipClassPublication: true,
         skipInstancePublication: true,
+        from: defaultAccountAddress,
       });
 
       const l1Utils: L1TxUtilsWithBlobs[] = (publisherManager as any).publishers;
@@ -115,6 +120,10 @@ describe('e2e_multi_eoa', () => {
       const blockedTxs: Hex[] = [];
       const fallbackSender = l1Utils[expectedSecondSender].getSenderAddress();
       const fallbackTxs: Hex[] = [];
+
+      logger.warn(
+        `Testing account rotation with blocked sender ${blockedSender} and fallback sender ${fallbackSender}`,
+      );
 
       // NOTE: we only need to spy on a single client because all l1Utils use the same ViemClient instance
       const originalSendRawTransaction = l1Utils[expectedFirstSender].client.sendRawTransaction;
@@ -132,23 +141,30 @@ describe('e2e_multi_eoa', () => {
           if (blockedSender.equals(signerAddress)) {
             const txHash = randomEthTxHash(); // block this sender/ Its txs don't actually reach any L1 nodes
             blockedTxs.push(txHash);
+            logger.warn(`Blocking tx from sender ${signerAddress.toString()} with hash ${txHash}`);
             return txHash;
           } else {
             const txHash = await originalSendRawTransaction.call(this, arg);
             if (fallbackSender.equals(signerAddress)) {
+              logger.warn(`Found fallback tx from signer ${signerAddress.toString()} with hash ${txHash}`);
               fallbackTxs.push(txHash);
+            } else {
+              logger.warn(`Found fallback tx from unexpected sender ${signerAddress.toString()} with hash ${txHash}`);
             }
             return txHash;
           }
         });
 
       const tx = deployMethodTx.send();
-      logger.info(`L2 Tx sent with hash: ${(await tx.getTxHash()).toString()} `);
+      logger.warn(`L2 deploy tx sent with hash ${(await tx.getTxHash()).toString()}`);
 
       const receipt = await tx.wait();
       expect(receipt.status).toBe(TxStatus.SUCCESS);
 
+      logger.warn(`Got ${blockedTxs.length} blocked txs for ${blockedSender}`);
       expect(blockedTxs.length).toBeGreaterThan(0);
+
+      logger.warn(`Got ${fallbackTxs.length} fallback txs for ${fallbackSender}`);
       expect(fallbackTxs.length).toBeGreaterThan(0);
 
       const transactionHashToKeep = fallbackTxs.at(-1)!;
@@ -182,7 +198,7 @@ describe('e2e_multi_eoa', () => {
       };
 
       // We should be at L2 block 2
-      const blockNumber = await pxe.getBlockNumber();
+      const blockNumber = await aztecNode.getBlockNumber();
       expect(blockNumber).toBe(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.
@@ -197,7 +213,13 @@ describe('e2e_multi_eoa', () => {
 
       // The first sender used above will now be out of action as it is unable to get anything MINED.
       const validAddresses = sortedAddresses.slice(1);
+      logger.warn(`Removing invalidated publisher ${sortedAddresses[0].address}`, {
+        validAddresses,
+        invalidAddress: sortedAddresses[0],
+      });
+
       const sortedValidAddresses = await getSortedAddressesByBalance(validAddresses);
+      logger.warn(`Re-sorted valid addresses by balance`, { sortedValidAddresses });
 
       // All of our valid addresses have published transactions so will be in MINED state
       // the sequencer should select the 2 highest balance accounts in this next test

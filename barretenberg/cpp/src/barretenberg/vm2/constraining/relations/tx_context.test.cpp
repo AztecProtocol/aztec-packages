@@ -39,6 +39,7 @@ TEST(TxContextConstrainingTest, Continuity)
             // Row 0: end of setup
             { C::tx_sel, 1 },
             { C::tx_reverted, 0 },
+            { C::tx_tx_reverted, 0 },
             { C::tx_next_note_hash_tree_root, 1 },
             { C::tx_next_note_hash_tree_size, 2 },
             { C::tx_next_num_note_hashes_emitted, 3 },
@@ -52,13 +53,14 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_next_retrieved_bytecodes_tree_root, 12 },
             { C::tx_next_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_next_num_unencrypted_logs, 14 },
+            { C::tx_next_num_unencrypted_log_fields, 14 },
             { C::tx_next_num_l2_to_l1_messages, 15 },
         },
         {
             // Row 1: app logic, reverts
             { C::tx_sel, 1 },
             { C::tx_reverted, 1 },
+            { C::tx_tx_reverted, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -72,7 +74,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_prev_num_unencrypted_logs, 14 },
+            { C::tx_prev_num_unencrypted_log_fields, 14 },
             { C::tx_prev_num_l2_to_l1_messages, 15 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
@@ -86,13 +88,14 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_next_written_public_data_slots_tree_size, 100 },
             { C::tx_next_retrieved_bytecodes_tree_root, 120 },
             { C::tx_next_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_next_num_unencrypted_logs, 140 },
+            { C::tx_next_num_unencrypted_log_fields, 140 },
             { C::tx_next_num_l2_to_l1_messages, 150 },
         },
         {
             // Row 2: restored end of setup state
             { C::tx_sel, 1 },
             { C::tx_reverted, 0 },
+            { C::tx_tx_reverted, 1 },
             { C::tx_prev_note_hash_tree_root, 1 },
             { C::tx_prev_note_hash_tree_size, 2 },
             { C::tx_prev_num_note_hashes_emitted, 3 },
@@ -106,7 +109,7 @@ TEST(TxContextConstrainingTest, Continuity)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 120 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_prev_num_unencrypted_logs, 14 },
+            { C::tx_prev_num_unencrypted_log_fields, 14 },
             { C::tx_prev_num_l2_to_l1_messages, 15 },
         },
     });
@@ -126,7 +129,8 @@ TEST(TxContextConstrainingTest, Continuity)
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_ROOT_CONTINUITY,
                                tx_context::SR_RETRIEVED_BYTECODES_TREE_SIZE_CONTINUITY,
                                tx_context::SR_NUM_UNENCRYPTED_LOGS_CONTINUITY,
-                               tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY);
+                               tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY,
+                               tx_context::SR_TX_REVERTED_CONTINUITY);
 
     // Negative test: if not reverted, it shouldn't be able to rollback state from row 1 to row 2
 
@@ -158,6 +162,8 @@ TEST(TxContextConstrainingTest, Continuity)
                               "NUM_UNENCRYPTED_LOGS_CONTINUITY");
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NUM_L2_TO_L1_MESSAGES_CONTINUITY),
                               "NUM_L2_TO_L1_MESSAGES_CONTINUITY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
+                              "TX_REVERTED_CONTINUITY");
 
     // Negative test: l1 to l2 root should not change
 
@@ -202,7 +208,7 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_l1_l2_tree_root, 11 },
             { C::tx_prev_retrieved_bytecodes_tree_root, 12 },
             { C::tx_prev_retrieved_bytecodes_tree_size, 13 },
-            { C::tx_prev_num_unencrypted_logs, 13 },
+            { C::tx_prev_num_unencrypted_log_fields, 13 },
             { C::tx_prev_num_l2_to_l1_messages, 14 },
             { C::tx_next_note_hash_tree_root, 10 },
             { C::tx_next_note_hash_tree_size, 20 },
@@ -217,7 +223,7 @@ TEST(TxContextConstrainingTest, StateMutability)
             { C::tx_l1_l2_tree_root, 110 },
             { C::tx_next_retrieved_bytecodes_tree_root, 120 },
             { C::tx_next_retrieved_bytecodes_tree_size, 130 },
-            { C::tx_next_num_unencrypted_logs, 140 },
+            { C::tx_next_num_unencrypted_log_fields, 140 },
             { C::tx_next_num_l2_to_l1_messages, 150 },
         },
     });
@@ -374,7 +380,7 @@ TEST(TxContextConstrainingTest, InitialStateChecks)
             { C::tx_prev_da_gas_used, start_gas_used.daGas },
             { C::tx_l2_gas_limit, gas_limit.l2Gas },
             { C::tx_da_gas_limit, gas_limit.daGas },
-            { C::tx_prev_num_unencrypted_logs, 0 },
+            { C::tx_prev_num_unencrypted_log_fields, 0 },
             { C::tx_prev_num_l2_to_l1_messages, 0 },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_START_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_should_read_note_hash_tree, 1 },
@@ -435,13 +441,21 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                                      .noteHashTree = { .root = 21, .nextAvailableLeafIndex = 20 },
                                      .nullifierTree = { .root = 22, .nextAvailableLeafIndex = 21 },
                                      .publicDataTree = { .root = 23, .nextAvailableLeafIndex = 22 } };
-    AvmAccumulatedDataArrayLengths array_lengths = {
-        .noteHashes = 10, .nullifiers = 11, .l2ToL1Msgs = 12, .publicLogs = 13
+    AvmAccumulatedDataArrayLengths array_lengths = { .noteHashes = 10, .nullifiers = 11, .l2ToL1Msgs = 12 };
+
+    PublicLog log = {
+        .fields = { FF(4), FF(5) },
+        .contractAddress = 11223,
     };
+    PublicLogs public_logs = {};
+    public_logs.add_log(log);
+    AvmAccumulatedData accumulated_data = { .publicLogs = public_logs };
+
     auto public_inputs = PublicInputsBuilder()
                              .set_end_gas_used(end_gas_used)
                              .set_end_tree_snapshots(tree_snapshots)
                              .set_accumulated_data_array_lengths(array_lengths)
+                             .set_accumulated_data(accumulated_data)
                              .build();
 
     TestTraceContainer trace({
@@ -464,7 +478,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_l1_l2_tree_root, tree_snapshots.l1ToL2MessageTree.root },
             { C::tx_prev_l2_gas_used, end_gas_used.l2Gas },
             { C::tx_prev_da_gas_used, end_gas_used.daGas },
-            { C::tx_prev_num_unencrypted_logs, array_lengths.publicLogs },
+            { C::tx_prev_num_unencrypted_log_fields, public_logs.length },
             { C::tx_prev_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
             { C::tx_note_hash_pi_offset, FF(AVM_PUBLIC_INPUTS_END_TREE_SNAPSHOTS_NOTE_HASH_TREE_ROW_IDX) },
             { C::tx_should_read_note_hash_tree, 1 },
@@ -476,14 +490,15 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_should_read_l1_l2_tree, 1 },
             { C::tx_gas_used_pi_offset, FF(AVM_PUBLIC_INPUTS_END_GAS_USED_ROW_IDX) },
             { C::tx_should_read_gas_used, 1 },
+            { C::tx_reverted_pi_offset, AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX },
             { C::tx_array_length_note_hashes_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX) },
             { C::tx_array_length_nullifiers_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX) },
             { C::tx_array_length_l2_to_l1_messages_pi_offset,
               FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX) },
-            { C::tx_array_length_unencrypted_logs_pi_offset,
-              FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_ARRAY_LENGTHS_PUBLIC_LOGS_ROW_IDX) },
+            { C::tx_fields_length_unencrypted_logs_pi_offset,
+              FF(AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX) },
             { C::tx_next_note_hash_tree_root, tree_snapshots.noteHashTree.root },
             { C::tx_next_note_hash_tree_size, tree_snapshots.noteHashTree.nextAvailableLeafIndex },
             { C::tx_next_num_note_hashes_emitted, array_lengths.noteHashes },
@@ -494,7 +509,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
             { C::tx_next_public_data_tree_size, tree_snapshots.publicDataTree.nextAvailableLeafIndex },
             { C::tx_next_l2_gas_used, end_gas_used.l2Gas },
             { C::tx_next_da_gas_used, end_gas_used.daGas },
-            { C::tx_next_num_unencrypted_logs, array_lengths.publicLogs },
+            { C::tx_next_num_unencrypted_log_fields, public_logs.length },
             { C::tx_next_num_l2_to_l1_messages, array_lengths.l2ToL1Msgs },
             { C::tx_setup_phase_value, static_cast<uint8_t>(TransactionPhase::SETUP) },
         },
@@ -516,6 +531,7 @@ TEST(TxContextConstrainingTest, EndStateChecks)
                       lookup_tx_context_public_inputs_l1_l2_tree_settings,
                       lookup_tx_context_public_inputs_gas_used_settings,
                       lookup_tx_context_public_inputs_read_gas_limit_settings,
+                      lookup_tx_context_public_inputs_read_reverted_settings,
                       lookup_tx_context_public_inputs_write_note_hash_count_settings,
                       lookup_tx_context_public_inputs_write_nullifier_count_settings,
                       lookup_tx_context_public_inputs_write_l2_to_l1_message_count_settings,
@@ -560,6 +576,47 @@ TEST(TxContextConstrainingTest, NegativeContextIdChecks)
     trace.set(C::tx_next_context_id, 2, 42);
     EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_NEXT_CONTEXT_ID_CONTINUITY),
                               "NEXT_CONTEXT_ID_CONTINUITY");
+}
+
+TEST(TxContextConstrainingTest, NegativeTxRevertedChecks)
+{
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: no revert
+            { C::tx_sel, 1 },
+            { C::tx_start_tx, 1 },
+        },
+        {
+            // Row 2: revert
+            { C::tx_sel, 1 },
+            { C::tx_reverted, 1 },
+            { C::tx_tx_reverted, 1 },
+        },
+        {
+            // Row 3: no revert
+            { C::tx_sel, 1 },
+            { C::tx_tx_reverted, 1 },
+        },
+    });
+    check_relation<tx_context>(
+        trace, tx_context::SR_INIT_TX_REVERTED, tx_context::SR_SET_TX_REVERTED, tx_context::SR_TX_REVERTED_CONTINUITY);
+
+    // Negative test: initial tx_reverted should match reverted
+    trace.set(C::tx_tx_reverted, 1, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_INIT_TX_REVERTED), "INIT_TX_REVERTED");
+
+    // Negative test: continuity check
+    trace.set(C::tx_tx_reverted, 3, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_TX_REVERTED_CONTINUITY),
+                              "TX_REVERTED_CONTINUITY");
+
+    // Negative test: tx_reverted should match reverted if reverted == 1
+    trace.set(C::tx_tx_reverted, 2, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx_context>(trace, tx_context::SR_SET_TX_REVERTED), "SET_TX_REVERTED");
 }
 
 } // namespace

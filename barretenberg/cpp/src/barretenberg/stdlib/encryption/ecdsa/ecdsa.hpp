@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], date: YYYY-MM-DD }
+// internal:    { status: completed, auditors: [Federico], date: 2025-10-24 }
 // external_1:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // external_2:  { status: not started, auditors: [], date: YYYY-MM-DD }
 // =====================
@@ -33,11 +33,6 @@ template <typename Builder, typename Curve, typename Fq, typename Fr, typename G
 bool_t<Builder> ecdsa_verify_signature(const stdlib::byte_array<Builder>& hashed_message,
                                        const G1& public_key,
                                        const ecdsa_signature<Builder>& sig);
-
-template <typename Builder, typename Curve, typename Fq, typename Fr, typename G1>
-void validate_inputs(const stdlib::byte_array<Builder>& hashed_message,
-                     const G1& public_key,
-                     const ecdsa_signature<Builder>& sig);
 
 template <typename Builder> void generate_ecdsa_verification_test_circuit(Builder& builder, size_t num_iterations);
 

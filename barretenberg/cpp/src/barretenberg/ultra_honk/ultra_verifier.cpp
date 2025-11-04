@@ -27,22 +27,22 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
     using FF = typename Flavor::FF;
 
     transcript->load_proof(proof);
-    OinkVerifier<Flavor> oink_verifier{ verification_key, transcript };
+    OinkVerifier<Flavor> oink_verifier{ verifier_instance, transcript };
     oink_verifier.verify();
 
     // Determine the number of rounds in the sumcheck based on whether or not padding is employed
     const size_t log_n =
-        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verification_key->vk->log_circuit_size);
-    verification_key->target_sum = 0;
-    verification_key->gate_challenges =
+        Flavor::USE_PADDING ? Flavor::VIRTUAL_LOG_N : static_cast<size_t>(verifier_instance->vk->log_circuit_size);
+    verifier_instance->target_sum = 0;
+    verifier_instance->gate_challenges =
         transcript->template get_powers_of_challenge<FF>("Sumcheck:gate_challenge", log_n);
 
-    DeciderVerifier decider_verifier{ verification_key, transcript };
+    DeciderVerifier decider_verifier{ verifier_instance, transcript };
     auto decider_output = decider_verifier.verify();
 
     // Reconstruct the public inputs
     IO inputs;
-    inputs.reconstruct_from_public(verification_key->public_inputs);
+    inputs.reconstruct_from_public(verifier_instance->public_inputs);
 
     // Aggregate new pairing points with those reconstructed from the public inputs
     decider_output.pairing_points.aggregate(inputs.pairing_inputs);
@@ -73,7 +73,8 @@ UltraVerifier_<Flavor>::UltraVerifierOutput UltraVerifier_<Flavor>::verify_proof
         // Update output
         output.result &= ipa_result;
     } else if constexpr (std::is_same_v<IO, HidingKernelIO>) {
-        // Add ecc op tables if we are verifying a ClientIVC proof
+        // Add kernel return data and ecc op tables if we are verifying a Chonk proof
+        output.kernel_return_data = inputs.kernel_return_data;
         output.ecc_op_tables = inputs.ecc_op_tables;
     }
 
@@ -121,7 +122,7 @@ template UltraVerifier_<MegaFlavor>::UltraVerifierOutput UltraVerifier_<MegaFlav
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<DefaultIO>(
     const Proof& proof, const Proof& ipa_proof);
 
-// ClientIVC specialization
+// Chonk specialization
 template UltraVerifier_<MegaZKFlavor>::UltraVerifierOutput UltraVerifier_<MegaZKFlavor>::verify_proof<HidingKernelIO>(
     const Proof& proof, const Proof& ipa_proof);
 

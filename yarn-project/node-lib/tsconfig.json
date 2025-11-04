@@ -59,6 +59,9 @@
     },
     {
       "path": "../world-state"
+    },
+    {
+      "path": "../blob-lib"
     }
   ],
   "include": ["src"]

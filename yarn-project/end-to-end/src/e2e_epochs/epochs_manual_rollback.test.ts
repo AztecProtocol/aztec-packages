@@ -1,5 +1,7 @@
-import { type AztecNode, type Logger, retryUntil } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js/log';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { RollupContract } from '@aztec/ethereum';
+import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
@@ -17,7 +19,7 @@ describe('e2e_epochs/manual_rollback', () => {
   let test: EpochsTestContext;
 
   const setup = async (opts: Partial<EpochsTestOpts> = {}) => {
-    test = await EpochsTestContext.setup({ ...opts, txPropagationMaxQueryAttempts: 1 });
+    test = await EpochsTestContext.setup({ ...opts });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   };
@@ -34,13 +36,13 @@ describe('e2e_epochs/manual_rollback', () => {
 
     it('manually rolls back', async () => {
       logger.info(`Starting manual rollback test to unfinalized block`);
-      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 0 });
+      context.sequencer?.updateConfig({ minTxsPerBlock: 0 });
       await test.waitUntilL2BlockNumber(4, test.L2_SLOT_DURATION_IN_S * 6);
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
 
       logger.info(`Synced to block 4. Pausing syncing and rolling back the chain.`);
       await context.aztecNodeAdmin!.pauseSync();
-      context.sequencer?.updateSequencerConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
+      context.sequencer?.updateConfig({ minTxsPerBlock: 100 }); // Ensure no new blocks are produced
       await context.cheatCodes.eth.reorg(2);
       const blockAfterReorg = Number(await rollup.getBlockNumber());
       expect(blockAfterReorg).toBeLessThan(4);

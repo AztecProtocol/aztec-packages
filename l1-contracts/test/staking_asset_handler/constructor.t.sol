@@ -11,23 +11,26 @@ import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 // solhint-disable ordering
 
 contract ConstructorTest is StakingAssetHandlerBase {
+  Fakerollup public fakeRollup;
+
   function test_WhenDepositsPerMintIs0() external {
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: address(this),
-      stakingAsset: address(0),
-      registry: registry,
-      withdrawer: address(0),
-      mintInterval: 0,
-      depositsPerMint: 0,
-      depositMerkleRoot: 0,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: new address[](0),
-      domain: CORRECT_DOMAIN,
-      scope: CORRECT_SCOPE,
-      skipBindCheck: false,
-      skipMerkleCheck: false
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: address(this),
+        stakingAsset: address(0),
+        registry: registry,
+        withdrawer: address(0),
+        mintInterval: 0,
+        depositsPerMint: 0,
+        depositMerkleRoot: 0,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: new address[](0),
+        domain: CORRECT_DOMAIN,
+        scope: CORRECT_SCOPE,
+        skipBindCheck: false,
+        skipMerkleCheck: false,
+        validatorsToFlush: 48
+      });
 
     // it reverts
     vm.expectRevert(abi.encodeWithSelector(IStakingAssetHandler.CannotMintZeroAmount.selector));
@@ -45,7 +48,8 @@ contract ConstructorTest is StakingAssetHandlerBase {
     string memory _domain,
     string memory _scope,
     bool _skipBindCheck,
-    bool _skipMerkleCheck
+    bool _skipMerkleCheck,
+    uint256 _validatorsToFlush
   ) external {
     vm.assume(_owner != address(0));
 
@@ -56,7 +60,7 @@ contract ConstructorTest is StakingAssetHandlerBase {
       unhinged[i] = address(uint160(uint256(keccak256(abi.encodePacked(i + 1)))));
     }
 
-    Fakerollup fakeRollup = new Fakerollup();
+    fakeRollup = new Fakerollup();
     registry.addRollup(IRollup(address(fakeRollup)));
 
     _depositsPerMint = bound(_depositsPerMint, 1, 100);
@@ -84,22 +88,23 @@ contract ConstructorTest is StakingAssetHandlerBase {
     vm.expectEmit(true, true, true, true);
     emit IStakingAssetHandler.DepositMerkleRootUpdated(_depositMerkleRoot);
 
-    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs = StakingAssetHandler
-      .StakingAssetHandlerArgs({
-      owner: _owner,
-      stakingAsset: _stakingAsset,
-      registry: registry,
-      withdrawer: _withdrawer,
-      mintInterval: _mintInterval,
-      depositsPerMint: _depositsPerMint,
-      depositMerkleRoot: _depositMerkleRoot,
-      zkPassportVerifier: zkPassportVerifier,
-      unhinged: unhinged,
-      domain: _domain,
-      scope: _scope,
-      skipBindCheck: _skipBindCheck,
-      skipMerkleCheck: _skipMerkleCheck
-    });
+    StakingAssetHandler.StakingAssetHandlerArgs memory stakingAssetHandlerArgs =
+      StakingAssetHandler.StakingAssetHandlerArgs({
+        owner: _owner,
+        stakingAsset: _stakingAsset,
+        registry: registry,
+        withdrawer: _withdrawer,
+        mintInterval: _mintInterval,
+        depositsPerMint: _depositsPerMint,
+        depositMerkleRoot: _depositMerkleRoot,
+        zkPassportVerifier: zkPassportVerifier,
+        unhinged: unhinged,
+        domain: _domain,
+        scope: _scope,
+        skipBindCheck: _skipBindCheck,
+        skipMerkleCheck: _skipMerkleCheck,
+        validatorsToFlush: _validatorsToFlush
+      });
 
     vm.prank(_owner);
     stakingAssetHandler = new StakingAssetHandler(stakingAssetHandlerArgs);
@@ -110,6 +115,7 @@ contract ConstructorTest is StakingAssetHandlerBase {
     assertEq(stakingAssetHandler.withdrawer(), _withdrawer);
     assertEq(stakingAssetHandler.mintInterval(), _mintInterval);
     assertEq(stakingAssetHandler.depositsPerMint(), _depositsPerMint);
+    assertEq(stakingAssetHandler.validatorsToFlush(), _validatorsToFlush);
     for (uint256 i = 0; i < unhinged.length; i++) {
       assertTrue(stakingAssetHandler.isUnhinged(unhinged[i]));
     }

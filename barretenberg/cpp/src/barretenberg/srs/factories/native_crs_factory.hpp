@@ -5,6 +5,9 @@
 #include "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp"
 #include <filesystem>
 #include <memory>
+#ifndef NO_MULTITHREADING
+#include <mutex>
+#endif
 
 namespace bb::srs::factories {
 
@@ -40,6 +43,9 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
     {}
     std::shared_ptr<Crs<curve::BN254>> get_crs(size_t degree) override
     {
+#ifndef NO_MULTITHREADING
+        std::lock_guard<std::mutex> lock(mutex_);
+#endif
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_shared<MemBn254CrsFactory>(init_bn254_crs(path_, degree, allow_download_));
             last_degree_ = degree;
@@ -52,6 +58,9 @@ class NativeBn254CrsFactory : public CrsFactory<curve::BN254> {
     bool allow_download_ = true;
     size_t last_degree_ = 0;
     std::shared_ptr<MemBn254CrsFactory> mem_crs_;
+#ifndef NO_MULTITHREADING
+    std::mutex mutex_;
+#endif
 };
 
 class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
@@ -63,6 +72,9 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
 
     std::shared_ptr<Crs<curve::Grumpkin>> get_crs(size_t degree) override
     {
+#ifndef NO_MULTITHREADING
+        std::lock_guard<std::mutex> lock(mutex_);
+#endif
         if (degree > last_degree_ || mem_crs_ == nullptr) {
             mem_crs_ = std::make_unique<MemGrumpkinCrsFactory>(init_grumpkin_crs(path_, degree, allow_download_));
             last_degree_ = degree;
@@ -75,6 +87,9 @@ class NativeGrumpkinCrsFactory : public CrsFactory<curve::Grumpkin> {
     bool allow_download_ = true;
     size_t last_degree_ = 0;
     std::unique_ptr<MemGrumpkinCrsFactory> mem_crs_;
+#ifndef NO_MULTITHREADING
+    std::mutex mutex_;
+#endif
 };
 
 } // namespace bb::srs::factories

@@ -18,6 +18,7 @@ function pr_has_auto_merge {
 # Function to enable auto-merge for a PR (includes approval if needed)
 function enable_auto_merge {
   local pr_number="$1"
+  local merge_strategy="$2"
 
   local reviews=$(gh pr view "$pr_number" --json reviews --jq '.reviews[] | select(.state == "APPROVED")')
   if [[ -z "$reviews" ]]; then
@@ -26,17 +27,19 @@ function enable_auto_merge {
     GH_TOKEN="${MERGE_TRAIN_GITHUB_TOKEN}" gh pr review "$pr_number" --approve --body "🤖 Auto-approved"
   fi
 
-  echo "Enabling auto-merge for PR #$pr_number"
-  gh pr merge "$pr_number" --auto --merge
+  echo "Enabling auto-merge for PR #$pr_number with strategy: $merge_strategy"
+  gh pr merge "$pr_number" --auto "--${merge_strategy}"
 }
 
-# Constants
+# Configuration (can be overridden via environment variables)
+BRANCH_PATTERN="${BRANCH_PATTERN:-merge-train/}"
+MERGE_STRATEGY="${MERGE_STRATEGY:-merge}"
 INACTIVITY_HOURS="${INACTIVITY_HOURS:-4}"
 INACTIVITY_SECONDS=$((INACTIVITY_HOURS * 3600))
 
-function get_merge_train_prs {
+function get_prs_by_branch_pattern {
   gh pr list --state open --json number,headRefName,updatedAt \
-    --jq '.[] | select(.headRefName | startswith("merge-train/"))'
+    --jq '.[] | select(.headRefName | startswith("'"$BRANCH_PATTERN"'"))'
 }
 
 function get_meaningful_commits_for_pr {
@@ -94,13 +97,15 @@ function is_pr_inactive {
 }
 
 # Start execution
-echo "Starting auto-merge check for inactive merge-train PRs"
+echo "Starting auto-merge check for inactive PRs"
+echo "Branch pattern: $BRANCH_PATTERN"
+echo "Merge strategy: $MERGE_STRATEGY"
 echo "Inactivity threshold: $INACTIVITY_HOURS hours"
 
-prs=$(get_merge_train_prs)
+prs=$(get_prs_by_branch_pattern)
 
 if [[ -z "$prs" ]]; then
-  echo "No merge-train PRs found"
+  echo "No PRs found matching pattern: $BRANCH_PATTERN"
   exit 0
 fi
 
@@ -144,7 +149,7 @@ while IFS= read -r pr_json; do
     if pr_has_auto_merge "$pr_number"; then
         echo "PR #$pr_number already has auto-merge enabled"
     else
-        enable_auto_merge "$pr_number"
+        enable_auto_merge "$pr_number" "${MERGE_STRATEGY:-merge}"
         gh pr comment "$pr_number" --body "🤖 Auto-merge enabled after $INACTIVITY_HOURS hours of inactivity. This PR will be merged automatically once all checks pass."
     fi
   else

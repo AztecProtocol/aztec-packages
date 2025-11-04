@@ -1,6 +1,6 @@
-import { BLOBS_PER_BLOCK, FIELDS_PER_BLOB } from '@aztec/constants';
+import { createBlockEndMarker, getNumTxsFromBlockEndMarker, isBlockEndMarker } from '@aztec/blob-lib/encoding';
 import { timesParallel } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, FieldReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { inspect } from 'util';
@@ -9,14 +9,16 @@ import { z } from 'zod';
 import type { ZodFor } from '../schemas/index.js';
 import { TxEffect } from '../tx/tx_effect.js';
 
+export { createBlockEndMarker };
+
+export function getBlockBlobFields(txEffects: TxEffect[]) {
+  const blobFields = txEffects.flatMap(txEffect => txEffect.toBlobFields());
+  blobFields.push(createBlockEndMarker(txEffects.length));
+  return blobFields;
+}
+
 export class Body {
-  constructor(public txEffects: TxEffect[]) {
-    txEffects.forEach(txEffect => {
-      if (txEffect.isEmpty()) {
-        throw new Error('Empty tx effect not allowed in Body');
-      }
-    });
-  }
+  constructor(public txEffects: TxEffect[]) {}
 
   equals(other: Body) {
     return (
@@ -54,19 +56,7 @@ export class Body {
    * Returns a flat packed array of fields of all tx effects - used for blobs.
    */
   toBlobFields() {
-    let flattened: Fr[] = [];
-    this.txEffects.forEach((effect: TxEffect) => {
-      flattened = flattened.concat(effect.toBlobFields());
-    });
-    if (flattened.length > BLOBS_PER_BLOCK * FIELDS_PER_BLOB) {
-      throw new Error(
-        `Attempted to overfill block's blobs with ${flattened.length} elements. The maximum is ${
-          BLOBS_PER_BLOCK * FIELDS_PER_BLOB
-        }`,
-      );
-    }
-
-    return flattened;
+    return getBlockBlobFields(this.txEffects);
   }
 
   /**
@@ -74,10 +64,22 @@ export class Body {
    */
   static fromBlobFields(fields: Fr[]) {
     const txEffects: TxEffect[] = [];
-    const reader = new FieldReader(fields);
+    const reader = new FieldReader(fields.slice(0, -1));
     while (!reader.isFinished()) {
       txEffects.push(TxEffect.fromBlobFields(reader));
     }
+
+    // If the fields are from a proven block, or are constructed by calling `toBlobFields`, the following errors should never throw.
+
+    if (!isBlockEndMarker(fields[fields.length - 1])) {
+      throw new Error('Block end marker not found');
+    }
+
+    const numTxs = getNumTxsFromBlockEndMarker(fields[fields.length - 1]);
+    if (numTxs !== txEffects.length) {
+      throw new Error(`Expected ${numTxs} txs, but got ${txEffects.length}`);
+    }
+
     return new this(txEffects);
   }
 
