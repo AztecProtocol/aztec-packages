@@ -103,9 +103,9 @@ template <typename Curve> class MergeVerifier_ {
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
             if constexpr (IsRecursive) {
+                concatenation_verified &= concatenation_diff.get_value() == 0;
                 concatenation_diff.assert_equal(FF(0),
                                                 "assert_equal: merge concatenation identity failed in Merge Verifier");
-                concatenation_verified &= concatenation_diff.get_value() == 0;
             } else {
                 concatenation_verified &= concatenation_diff == 0;
             }
