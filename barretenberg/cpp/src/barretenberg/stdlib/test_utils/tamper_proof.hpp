@@ -109,6 +109,7 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
     using Commitment = typename InnerFlavor::Curve::AffineElement;
     using FF = typename InnerFlavor::FF;
     using Fq = typename InnerFlavor::Curve::BaseField;
+    using ProofFF = typename ProofType::value_type;
 
     // Helper to deserialize bigfield-encoded coordinate (4 limbs of 68 bits each)
     auto deserialize_bigfield_fq = [](std::span<const FF> limbs) -> Fq {
@@ -121,9 +122,10 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
     auto serialize_bigfield_fq = [](const Fq& coord) -> std::array<FF, 4> {
         constexpr uint256_t LIMB_MASK = (uint256_t(1) << 68) - 1;
         uint256_t val = uint256_t(coord);
-        return {
-            FF(val & LIMB_MASK), FF((val >> 68) & LIMB_MASK), FF((val >> 136) & LIMB_MASK), FF((val >> 204) & LIMB_MASK)
-        };
+        return { ProofFF(val & LIMB_MASK),
+                 ProofFF((val >> 68) & LIMB_MASK),
+                 ProofFF((val >> 136) & LIMB_MASK),
+                 ProofFF((val >> 204) & LIMB_MASK) };
     };
 
     if (!end_of_proof) {
