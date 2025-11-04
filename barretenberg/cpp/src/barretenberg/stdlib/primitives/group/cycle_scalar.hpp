@@ -26,6 +26,10 @@ template <typename Builder> class cycle_group;
  * @note The reason for not using `bigfield` to represent cycle scalars is that `bigfield` is inefficient in this
  * context. All required range checks for `cycle_scalar` can be obtained for free from the `batch_mul` algorithm, making
  * the range checks performed by `bigfield` largely redundant.
+ *
+ * @warning: The field validation performed by cycle_scalar constructors assumes that the lo/hi limbs will
+ * be range-constrained during scalar multiplication. The validation is ONLY sound when the cycle_scalar is used in a
+ * batch_mul operation (which applies range constraints as part of the MSM algorithm).
  */
 template <typename Builder> class cycle_scalar {
   public:
@@ -37,6 +41,8 @@ template <typename Builder> class cycle_scalar {
     static constexpr size_t NUM_BITS = ScalarField::modulus.get_msb() + 1; // equivalent for both bn254 and grumpkin
     static constexpr size_t LO_BITS = field_t::native::Params::MAX_BITS_PER_ENDOMORPHISM_SCALAR;
     static constexpr size_t HI_BITS = NUM_BITS - LO_BITS;
+
+    enum class SkipValidation { FLAG };
 
     field_t lo; // LO_BITS of the scalar
     field_t hi; // Remaining HI_BITS of the scalar
@@ -55,10 +61,17 @@ template <typename Builder> class cycle_scalar {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
 
+    cycle_scalar(const field_t& _lo, const field_t& _hi, SkipValidation flag);
+
+    /**
+     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
+     */
+    void validate_scalar_is_in_field() const;
+
   public:
     // AUDITTODO: this is used only in the fuzzer.
     cycle_scalar(const ScalarField& _in = 0);
-    cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation = false);
+    cycle_scalar(const field_t& _lo, const field_t& _hi);
     // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
     // production entrypoint.
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
@@ -70,11 +83,6 @@ template <typename Builder> class cycle_scalar {
     ScalarField get_value() const;
     Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
     [[nodiscard]] size_t num_bits() const { return _num_bits; }
-
-    /**
-     * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
-     */
-    void validate_scalar_is_in_field() const;
 
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)

@@ -12,15 +12,42 @@
 
 namespace bb::stdlib {
 
+/**
+ * @brief Private constructor that skips field validation (for internal use only)
+ * @details This constructor is used internally in contexts where validation has already been performed externally
+ * or where it is not required at all (e.g., 256-bit bitstrings).
+ *
+ * @tparam Builder
+ * @param _lo Low LO_BITS of the scalar
+ * @param _hi High HI_BITS of the scalar
+ * @param flag SkipValidation::FLAG explicitly indicates that validation should be skipped
+ */
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, bool skip_validation)
+cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, [[maybe_unused]] SkipValidation flag)
+    : lo(_lo)
+    , hi(_hi)
+{}
+
+/**
+ * @brief Construct a cycle_scalar from lo and hi field elements
+ * @details Standard public constructor. Validates that (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field
+ * modulus. Use this constructor when creating cycle_scalars from arbitrary field elements that may not have been
+ * previously validated.
+ *
+ * @warning The validation performed by this constructor is only sound if the resulting cycle_scalar is used in a
+ * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and hi. See
+ * validate_scalar_is_in_field() documentation for details.
+ *
+ * @tparam Builder
+ * @param _lo Low LO_BITS of the scalar
+ * @param _hi High HI_BITS of the scalar
+ */
+template <typename Builder>
+cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
     : lo(_lo)
     , hi(_hi)
 {
-    // Unless explicitly skipped, validate the scalar is in the Grumpkin scalar field
-    if (!skip_validation) {
-        validate_scalar_is_in_field();
-    }
+    validate_scalar_is_in_field();
 }
 
 /**
@@ -81,7 +108,7 @@ cycle_scalar<Builder> cycle_scalar<Builder>::from_u256_witness(Builder* context,
     const uint256_t hi_v = bitstring.slice(LO_BITS, num_bits);
     auto lo = field_t::from_witness(context, typename field_t::native(lo_v));
     auto hi = field_t::from_witness(context, typename field_t::native(hi_v));
-    cycle_scalar result{ lo, hi, /*skip_validation=*/true };
+    cycle_scalar result{ lo, hi, SkipValidation::FLAG };
     result._num_bits = num_bits;
     return result;
 }
@@ -102,7 +129,7 @@ template <typename Builder> cycle_scalar<Builder> cycle_scalar<Builder>::create_
     // Note: split_unique validates the value is less than bn254::fr::modulus
     auto [lo, hi] = split_unique(in, LO_BITS, /*skip_range_constraints=*/true);
     // Note: we skip validation here since it is redundant with `split_unique`
-    return cycle_scalar{ lo, hi, /*skip_validation=*/true };
+    return cycle_scalar{ lo, hi, SkipValidation::FLAG };
 }
 
 /**
@@ -218,13 +245,22 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 
 /**
  * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
- * @details Delegates to `validate_split_in_field`
+ * @details Delegates to `validate_split_in_field_unsafe`, which uses a borrow-subtraction algorithm to check the
+ * inequality.
+ *
+ * @warning This validation assumes range constraints on the lo and hi limbs. Specifically:
+ * - lo < 2^LO_BITS (128 bits)
+ * - hi < 2^HI_BITS (126 bits)
+ *
+ * By design, these range constraints are not applied by this function. Instead, they are implicitly enforced when
+ * the cycle_scalar is used in scalar multiplication via batch_mul.
  *
  * @tparam Builder
  */
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
-    validate_split_in_field(lo, hi, LO_BITS, ScalarField::modulus);
+    // Using _unsafe variant: range constraints are deferred to batch_mul's decompose_into_default_range
+    validate_split_in_field_unsafe(lo, hi, LO_BITS, ScalarField::modulus);
 }
 
 template <typename Builder> typename cycle_scalar<Builder>::ScalarField cycle_scalar<Builder>::get_value() const

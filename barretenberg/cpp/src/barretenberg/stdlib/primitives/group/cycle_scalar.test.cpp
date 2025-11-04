@@ -222,9 +222,9 @@ TYPED_TEST(CycleScalarTest, TestScalarFieldValidationFailureBetweenModuli)
             uint256_t(scalar.lo.get_value()) + (uint256_t(scalar.hi.get_value()) << cycle_scalar::LO_BITS);
         EXPECT_EQ(reconstructed, value_between_moduli);
 
-        // Now directly call validate_split_in_field with BN254::fr modulus
+        // Now directly call validate_split_in_field_unsafe with BN254::fr modulus
         // This should create unsatisfied constraints because value > BN254::fr modulus
-        bb::stdlib::validate_split_in_field(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
+        bb::stdlib::validate_split_in_field_unsafe(lo, hi, cycle_scalar::LO_BITS, bn254_fr_modulus);
 
         // The builder should have failed
         EXPECT_TRUE(builder.failed());
