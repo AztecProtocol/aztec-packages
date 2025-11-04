@@ -33,6 +33,9 @@ namespace bb::stdlib {
  *    f_1 = |
  *           \  0x000...00   otherwise
  *
+ * Note that although blake2s_state is a circuit constant, we use designated functions such as
+ * `ranged_less_than` to enforce constraints as appropriate.
+ *
  * Further, the internal state 4x4 matrix used by the compression function is denoted by v.
  * The input data is stored in the 16-word message m.
  */
@@ -41,9 +44,8 @@ template <typename Builder> void Blake2s<Builder>::increment_counter(blake2s_sta
 {
     field_ct inc_scalar(static_cast<uint256_t>(inc));
     S.t[0] = S.t[0] + inc_scalar;
-    // TODO: Secure!? Think so as inc is known at "compile" time as it's derived from the msg length.
-    const bool to_inc = uint32_t(uint256_t(S.t[0].get_value())) < inc;
-    S.t[1] = S.t[1] + (to_inc ? field_ct(1) : field_ct(0));
+    bool_ct to_inc = S.t[0].template ranged_less_than<32>(inc_scalar);
+    S.t[1] = S.t[1] + field_ct(to_inc);
 }
 
 template <typename Builder> void Blake2s<Builder>::compress(blake2s_state& S, byte_array_ct const& in)
