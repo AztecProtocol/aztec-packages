@@ -18,14 +18,14 @@ namespace bb::stdlib {
  * or where it is not required at all (e.g., 256-bit bitstrings).
  *
  * @tparam Builder
- * @param _lo Low LO_BITS of the scalar
- * @param _hi High HI_BITS of the scalar
+ * @param lo Low LO_BITS of the scalar
+ * @param hi High HI_BITS of the scalar
  * @param flag SkipValidation::FLAG explicitly indicates that validation should be skipped
  */
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, [[maybe_unused]] SkipValidation flag)
-    : lo(_lo)
-    , hi(_hi)
+cycle_scalar<Builder>::cycle_scalar(const field_t& lo, const field_t& hi, [[maybe_unused]] SkipValidation flag)
+    : _lo(lo)
+    , _hi(hi)
 {}
 
 /**
@@ -35,17 +35,17 @@ cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi, [[ma
  * previously validated.
  *
  * @warning The validation performed by this constructor is only sound if the resulting cycle_scalar is used in a
- * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and hi. See
+ * scalar multiplication operation (batch_mul), which provides the necessary range constraints on lo and _hi. See
  * validate_scalar_is_in_field() documentation for details.
  *
  * @tparam Builder
- * @param _lo Low LO_BITS of the scalar
- * @param _hi High HI_BITS of the scalar
+ * @param lo Low LO_BITS of the scalar
+ * @param hi High HI_BITS of the scalar
  */
 template <typename Builder>
-cycle_scalar<Builder>::cycle_scalar(const field_t& _lo, const field_t& _hi)
-    : lo(_lo)
-    , hi(_hi)
+cycle_scalar<Builder>::cycle_scalar(const field_t& lo, const field_t& hi)
+    : _lo(lo)
+    , _hi(hi)
 {
     validate_scalar_is_in_field();
 }
@@ -60,8 +60,8 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(const ScalarFiel
 {
     const uint256_t value(in);
     const auto [lo_v, hi_v] = decompose_into_lo_hi_u256(value);
-    lo = lo_v;
-    hi = hi_v;
+    _lo = lo_v;
+    _hi = hi_v;
 }
 
 /**
@@ -174,10 +174,10 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
         const uint256_t value((scalar.get_value() % uint512_t(ScalarField::modulus)).lo);
         const auto [value_lo, value_hi] = decompose_into_lo_hi_u256(value);
 
-        lo = value_lo;
-        hi = value_hi;
-        lo.set_origin_tag(scalar.get_origin_tag());
-        hi.set_origin_tag(scalar.get_origin_tag());
+        _lo = value_lo;
+        _hi = value_hi;
+        _lo.set_origin_tag(scalar.get_origin_tag());
+        _hi.set_origin_tag(scalar.get_origin_tag());
         return;
     }
 
@@ -214,7 +214,7 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     BB_ASSERT_GT(NUM_LIMB_BITS * 2, LO_BITS);
     BB_ASSERT_LT(NUM_LIMB_BITS, LO_BITS);
 
-    // Step 3: limb1 contributes to both *this.lo and *this.hi. Compute the values of the two limb1 slices
+    // Step 3: limb1 contributes to both *this.lo and *this._hi. Compute the values of the two limb1 slices
     const size_t lo_bits_in_limb_1 = LO_BITS - NUM_LIMB_BITS;
     const auto limb1_max_bits = static_cast<size_t>(limb1_max.get_msb() + 1);
     auto [limb1_lo, limb1_hi] = limb1.no_wrap_split_at(lo_bits_in_limb_1, limb1_max_bits);
@@ -223,24 +223,24 @@ template <typename Builder> cycle_scalar<Builder>::cycle_scalar(BigScalarField& 
     limb1_lo.set_origin_tag(limb1.get_origin_tag());
     limb1_hi.set_origin_tag(limb1.get_origin_tag());
 
-    // Step 4: Construct *this.lo out of limb0 and limb1_lo
-    lo = limb0 + (limb1_lo * BigScalarField::shift_1);
+    // Step 4: Construct *this._lo out of limb0 and limb1_lo
+    _lo = limb0 + (limb1_lo * BigScalarField::shift_1);
 
-    // Step 5: Construct *this.hi out of limb1_hi, limb2 and limb3
+    // Step 5: Construct *this._hi out of limb1_hi, limb2 and limb3
     const uint256_t limb_2_shift = uint256_t(1) << ((2 * NUM_LIMB_BITS) - LO_BITS);
     const uint256_t limb_3_shift = uint256_t(1) << ((3 * NUM_LIMB_BITS) - LO_BITS);
-    hi = limb1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
+    _hi = limb1_hi.add_two(limb2 * limb_2_shift, limb3 * limb_3_shift);
 
     // Manually propagate the origin tag of the scalar to the lo/hi limbs
-    lo.set_origin_tag(scalar.get_origin_tag());
-    hi.set_origin_tag(scalar.get_origin_tag());
+    _lo.set_origin_tag(scalar.get_origin_tag());
+    _hi.set_origin_tag(scalar.get_origin_tag());
 
     validate_scalar_is_in_field();
 };
 
 template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 {
-    return (lo.is_constant() && hi.is_constant());
+    return (_lo.is_constant() && _hi.is_constant());
 }
 
 /**
@@ -260,13 +260,13 @@ template <typename Builder> bool cycle_scalar<Builder>::is_constant() const
 template <typename Builder> void cycle_scalar<Builder>::validate_scalar_is_in_field() const
 {
     // Using _unsafe variant: range constraints are deferred to batch_mul's decompose_into_default_range
-    validate_split_in_field_unsafe(lo, hi, LO_BITS, ScalarField::modulus);
+    validate_split_in_field_unsafe(_lo, _hi, LO_BITS, ScalarField::modulus);
 }
 
 template <typename Builder> typename cycle_scalar<Builder>::ScalarField cycle_scalar<Builder>::get_value() const
 {
-    uint256_t lo_v(lo.get_value());
-    uint256_t hi_v(hi.get_value());
+    uint256_t lo_v(_lo.get_value());
+    uint256_t hi_v(_hi.get_value());
     return ScalarField(lo_v + (hi_v << LO_BITS));
 }
 

@@ -44,10 +44,9 @@ template <typename Builder> class cycle_scalar {
 
     enum class SkipValidation { FLAG };
 
-    field_t lo; // LO_BITS of the scalar
-    field_t hi; // Remaining HI_BITS of the scalar
-
   private:
+    field_t _lo; // LO_BITS of the scalar
+    field_t _hi; // Remaining HI_BITS of the scalar
     size_t _num_bits = NUM_BITS;
 
     /**
@@ -81,15 +80,18 @@ template <typename Builder> class cycle_scalar {
 
     [[nodiscard]] bool is_constant() const;
     ScalarField get_value() const;
-    Builder* get_context() const { return lo.get_context() != nullptr ? lo.get_context() : hi.get_context(); }
+    Builder* get_context() const { return _lo.get_context() != nullptr ? _lo.get_context() : _hi.get_context(); }
     [[nodiscard]] size_t num_bits() const { return _num_bits; }
+
+    const field_t& lo() const { return _lo; }
+    const field_t& hi() const { return _hi; }
 
     /**
      * @brief Get the origin tag of the cycle_scalar (a merge of the lo and hi tags)
      *
      * @return OriginTag
      */
-    OriginTag get_origin_tag() const { return OriginTag(lo.get_origin_tag(), hi.get_origin_tag()); }
+    OriginTag get_origin_tag() const { return OriginTag(_lo.get_origin_tag(), _hi.get_origin_tag()); }
     /**
      * @brief Set the origin tag of lo and hi members of cycle scalar
      *
@@ -97,24 +99,24 @@ template <typename Builder> class cycle_scalar {
      */
     void set_origin_tag(const OriginTag& tag) const
     {
-        lo.set_origin_tag(tag);
-        hi.set_origin_tag(tag);
+        _lo.set_origin_tag(tag);
+        _hi.set_origin_tag(tag);
     }
     /**
      * @brief Set the free witness flag for the cycle scalar's tags
      */
     void set_free_witness_tag()
     {
-        lo.set_free_witness_tag();
-        hi.set_free_witness_tag();
+        _lo.set_free_witness_tag();
+        _hi.set_free_witness_tag();
     }
     /**
      * @brief Unset the free witness flag for the cycle scalar's tags
      */
     void unset_free_witness_tag()
     {
-        lo.unset_free_witness_tag();
-        hi.unset_free_witness_tag();
+        _lo.unset_free_witness_tag();
+        _hi.unset_free_witness_tag();
     }
 };
 
