@@ -205,8 +205,7 @@ const config = {
             position: "right",
           },
           {
-            to: "/try_testnet",
-            label: "Try Testnet",
+            type: "custom-versionedLink",
             position: "right",
           },
           {
