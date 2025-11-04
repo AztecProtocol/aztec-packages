@@ -135,13 +135,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operato
             };
         }
         default: {
-            return std::array<MultiTableId, 5>{
-                use_endomorphism ? MultiTableId::SECP256K1_XLO_ENDO : MultiTableId::SECP256K1_XLO,
-                use_endomorphism ? MultiTableId::SECP256K1_XHI_ENDO : MultiTableId::SECP256K1_XHI,
-                MultiTableId::SECP256K1_YLO,
-                MultiTableId::SECP256K1_YHI,
-                use_endomorphism ? MultiTableId::SECP256K1_XYPRIME_ENDO : MultiTableId::SECP256K1_XYPRIME,
-            };
+            throw_or_abort("eight_bit_fixed_base_table only supports SECP256K1 curve type");
         }
         }
     };
