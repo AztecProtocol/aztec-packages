@@ -76,8 +76,10 @@ goblin_element<C, Fq, Fr, G> goblin_element<C, Fq, Fr, G>::batch_mul(const std::
         // Note: These constraints do not assume or enforce that the coordinates of the original point have been
         // asserted to be in the field, only that they are less than the smallest power of 2 greater than the field
         // modulus (a la the bigfield(lo, hi) constructor with can_overflow == false).
-        BB_ASSERT_LTE(uint1024_t(point._x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
-        BB_ASSERT_LTE(uint1024_t(point._y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        if (!point.get_value().is_point_at_infinity()) {
+            BB_ASSERT_LTE(uint1024_t(point._x.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+            BB_ASSERT_LTE(uint1024_t(point._y.get_maximum_value()), Fq::DEFAULT_MAXIMUM_REMAINDER);
+        }
         x_lo.assert_equal(point._x.limbs[0]);
         x_hi.assert_equal(point._x.limbs[1]);
         y_lo.assert_equal(point._y.limbs[0]);

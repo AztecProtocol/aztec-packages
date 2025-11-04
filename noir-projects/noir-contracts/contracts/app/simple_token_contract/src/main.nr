@@ -130,7 +130,7 @@ pub contract SimpleToken {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        SimpleToken::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
     }
 
     #[external("private")]
@@ -160,16 +160,15 @@ pub contract SimpleToken {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        SimpleToken::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
+        self.enqueue_self._reduce_total_supply(amount);
     }
 
     #[external("private")]
     fn transfer_from_public_to_private(to: AztecAddress, amount: u128) {
         let from = self.msg_sender().unwrap();
-        let token = SimpleToken::at(self.address);
 
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
-        token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(self.context);
+        self.enqueue_self._finalize_transfer_to_private_unsafe(from, amount, partial_note);
     }
 
     #[external("private")]
@@ -238,11 +237,12 @@ pub contract SimpleToken {
 
     #[external("private")]
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
-        let token = SimpleToken::at(self.address);
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
-        token
-            ._finalize_mint_to_private_unsafe(self.msg_sender().unwrap(), amount, partial_note)
-            .enqueue(self.context);
+        self.enqueue_self._finalize_mint_to_private_unsafe(
+            self.msg_sender().unwrap(),
+            amount,
+            partial_note,
+        );
     }
 
     #[external("public")]

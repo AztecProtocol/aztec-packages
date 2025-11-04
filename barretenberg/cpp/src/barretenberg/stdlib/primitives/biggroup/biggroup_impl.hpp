@@ -250,9 +250,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::checked_unconditional_subtract(cons
 template <typename C, class Fq, class Fr, class G>
 std::array<element<C, Fq, Fr, G>, 2> element<C, Fq, Fr, G>::checked_unconditional_add_sub(const element& other) const
 {
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/971): This will fail when the two elements are
-    // the same even in the case of a valid circuit
+    // validate we can use incomplete addition formulae
     other._x.assert_is_not_equal(_x);
 
     const Fq denominator = other._x - _x;
@@ -384,114 +382,6 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::chain_add_end(const chain_add_accum
 
     Fq y3 = lambda.madd((acc.x1_prev - x3), { -acc.y1_prev });
     return element(x3, y3);
-}
-/**
- * Compute one round of a Montgomery ladder: i.e. compute 2 * (*this) + other
- * Compute D = A + B + A, where A = `this` and B = `other`
- *
- * We can skip computing the y-coordinate of C = A + B:
- *
- * To compute D = A + C, A=(x_1,y_1), we need the gradient of our two coordinates, specifically:
- *
- *
- *               y_3 - y_1    lambda_1 * (x_1 - x_3) - 2 * y_1                 2 * y_1
- *  lambda_2 =  __________ =  ________________________________ = -\lambda_1 - _________
- *               x_3 - x_1              x_3 - x_1                             x_3 - x_1
- *
- * We don't need y_3 to compute this. We can then compute D.x and D.y as usual:
- *
- *  D.x = lambda_2 * lambda_2 - (C.x + A.x)
- *  D.y = lambda_2 * (A.x - D.x) - A.y
- *
- * Requires 5 non-native field reductions. Doubling and adding would require 6
- **/
-
-// #################################
-// ### SCALAR MULTIPLICATION METHODS
-// #################################
-/**
- * Compute D = A + B + A, where A = `this` and B = `other`
- *
- * We can skip computing the y-coordinate of C = A + B:
- *
- * To compute D = A + C, A=(x_1,y_1), we need the gradient of our two coordinates, specifically:
- *
- *
- *               y_3 - y_1    lambda_1 * (x_1 - x_3) - 2 * y_1                 2 * y_1
- *  lambda_2 =  __________ =  ________________________________ = -\lambda_1 - _________
- *               x_3 - x_1              x_3 - x_1                             x_3 - x_1
- *
- * We don't need y_3 to compute this. We can then compute D.x and D.y as usual:
- *
- *  D.x = lambda_2 * lambda_2 - (C.x + A.x)
- *  D.y = lambda_2 * (A.x - D.x) - A.y
- **/
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const element& other) const
-{
-    other._x.assert_is_not_equal(_x);
-    const Fq lambda_1 = Fq::div_without_denominator_check({ other._y - _y }, (other._x - _x));
-
-    const Fq x_3 = lambda_1.sqradd({ -other._x, -_x });
-
-    const Fq minus_lambda_2 = lambda_1 + Fq::div_without_denominator_check({ _y + _y }, (x_3 - _x));
-
-    const Fq x_4 = minus_lambda_2.sqradd({ -_x, -x_3 });
-
-    const Fq y_4 = minus_lambda_2.madd(x_4 - _x, { -_y });
-    return element(x_4, y_4);
-}
-
-/**
- * Implementation of `montgomery_ladder` using chain_add_accumulator.
- *
- * If the input to `montgomery_ladder` is the output of a chain of additions,
- * we can avoid computing the y-coordinate of the input `to_add`, which saves us a non-native field reduction.
- *
- * We substitute `to_add.y` with `lambda_prev * (to_add.x1_prev - to_add.x) - to_add.y1_prev`
- *
- * Here, `x1_prev, y1_prev, lambda_prev` are the values of `x1, y1, lambda` for the addition operation that
- *PRODUCED to_add
- *
- * The reason why this saves us gates, is because the montgomery ladder does not multiply to_add.y by any values
- * i.e. to_add.y is only used in addition operations
- *
- * This allows us to substitute to_add.y with the above relation without requiring additional field reductions
- *
- * e.g. the term (lambda * (x3 - x1) + to_add.y) remains "quadratic" if we replace to_add.y with the above
- *quadratic relation
- *
- **/
-template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::montgomery_ladder(const chain_add_accumulator& to_add)
-{
-    if (to_add.is_full_element) {
-        throw_or_abort("An accumulator expected");
-    }
-    _x.assert_is_not_equal(to_add.x3_prev);
-
-    // lambda = (y2 - y1) / (x2 - x1)
-    // but we don't have y2!
-    // however, we do know that y2 = lambda_prev * (x1_prev - x2) - y1_prev
-    // => lambda * (x2 - x1) = lambda_prev * (x1_prev - x2) - y1_prev - y1
-    // => lambda * (x2 - x1) + lambda_prev * (x2 - x1_prev) + y1 + y1_pev = 0
-    // => lambda = lambda_prev * (x1_prev - x2) - y1_prev - y1 / (x2 - x1)
-    // => lambda = - (lambda_prev * (x2 - x1_prev) + y1_prev + y1) / (x2 - x1)
-
-    auto& x2 = to_add.x3_prev;
-    const auto lambda = Fq::msub_div({ to_add.lambda_prev },
-                                     { (x2 - to_add.x1_prev) },
-                                     (x2 - _x),
-                                     { to_add.y1_prev, _y },
-                                     /*enable_divisor_nz_check*/ false); // divisor is non-zero as x2 != x is enforced
-    const auto x3 = lambda.sqradd({ -x2, -_x });
-
-    const Fq minus_lambda_2 = lambda + Fq::div_without_denominator_check({ _y + _y }, (x3 - _x));
-
-    const Fq x4 = minus_lambda_2.sqradd({ -_x, -x3 });
-
-    const Fq y4 = minus_lambda_2.madd(x4 - _x, { -_y });
-    return element(x4, y4);
 }
 
 /**

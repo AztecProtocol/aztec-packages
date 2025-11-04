@@ -69,9 +69,10 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
 
         auto transcript = std::make_shared<NativeTranscript>();
         MergeVerifier merge_verifier{ settings, transcript };
-        auto [pairing_points, _, degree_check_passed] = merge_verifier.verify_proof(merge_proof, merge_commitments);
+        auto [pairing_points, _, degree_check_passed, concatenation_check_passed] =
+            merge_verifier.verify_proof(merge_proof, merge_commitments);
 
-        return pairing_points.check() && degree_check_passed;
+        return pairing_points.check() && degree_check_passed && concatenation_check_passed;
     }
 };
 

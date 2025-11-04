@@ -204,7 +204,7 @@ pub contract TokenBlacklist {
 
         self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
     }
 
     // docs:start:transfer_private
@@ -228,7 +228,7 @@ pub contract TokenBlacklist {
 
         self.storage.balances.sub(from, amount).emit(from, MessageDelivery.CONSTRAINED_ONCHAIN);
 
-        TokenBlacklist::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
+        self.enqueue_self._reduce_total_supply(amount);
     }
 
     #[external("public")]

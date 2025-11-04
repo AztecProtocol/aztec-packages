@@ -112,17 +112,23 @@ typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
     using field_ct = bb::stdlib::field_t<Builder>;
     using cycle_scalar_ct = typename bb::stdlib::cycle_group<Builder>::cycle_scalar;
 
-    bool constant_limbs = scalar_lo.is_constant && scalar_hi.is_constant;
-
     auto lo_as_field = to_field_ct(scalar_lo, builder);
     auto hi_as_field = to_field_ct(scalar_hi, builder);
 
+    // We assert that scalar_hi is not a witness when scalar_lo is constant as this might indicate unintended behavior.
+    BB_ASSERT(!(scalar_lo.is_constant && !scalar_hi.is_constant),
+              "to_grumpkin_scalar: scalar_lo is constant while scalar_hi is not.");
+
     // If a witness is not provided (we are in a write_vk scenario) we ensure the scalar is valid.
-    // We set it to 1 (low=1, high=0). We only do this if the limbs are non-constant since otherwise
-    // no variable indices exist.
-    if (!has_valid_witness_assignments && !constant_limbs) {
-        builder.set_variable(scalar_lo.index, bb::fr(1));
-        builder.set_variable(scalar_hi.index, bb::fr(0));
+    // We only do this if the limbs are non-constant since otherwise no variable indices exist.
+    // Note: the two limbs may have different constancy, e.g. if the scalar is a witness known to be <= 128 bits.
+    if (!has_valid_witness_assignments) {
+        if (!scalar_lo.is_constant) {
+            builder.set_variable(scalar_lo.index, bb::fr(1));
+        }
+        if (!scalar_hi.is_constant) {
+            builder.set_variable(scalar_hi.index, bb::fr(0));
+        }
     }
 
     // If the predicate is a non-constant witness, conditionally replace the scalar with 1.

@@ -12,7 +12,14 @@ source ./scripts/source_network_env.sh
 source ./scripts/gcp_auth.sh
 
 function build {
-  denoise "helm lint ./aztec-network/"
+  denoise "helm lint ./aztec-bot/"
+  denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./aztec-keystore/"
+  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-prover-stack/"
+  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-validator/"
+  denoise "helm lint ./eth-devnet/"
   denoise ./spartan/scripts/check_env_vars.sh
 }
 

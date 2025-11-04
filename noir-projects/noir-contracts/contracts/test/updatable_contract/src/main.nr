@@ -30,7 +30,7 @@ contract Updatable {
             owner,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        Updatable::at(self.address).set_public_value(initial_value).enqueue(self.context);
+        self.enqueue_self.set_public_value(initial_value);
     }
 
     #[external("public")]

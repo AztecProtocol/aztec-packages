@@ -590,7 +590,7 @@ TEST(stdlib_plookup, secp256k1_generator)
         const auto yhi = plookup_read::read_pair_from_table(MultiTableId::SECP256K1_YHI, circuit_naf_values[i]);
         curve::fq_ct x = curve::fq_ct::unsafe_construct_from_limbs(xlo.first, xlo.second, xhi.first, xhi.second);
         curve::fq_ct y = curve::fq_ct::unsafe_construct_from_limbs(ylo.first, ylo.second, yhi.first, yhi.second);
-        accumulator = accumulator.montgomery_ladder(curve::g1_ct(x, y));
+        accumulator = accumulator.dbl() + curve::g1_ct(x, y);
     }
 
     if (skew) {

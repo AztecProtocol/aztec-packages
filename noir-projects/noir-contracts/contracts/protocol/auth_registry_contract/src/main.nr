@@ -96,9 +96,7 @@ pub contract AuthRegistry {
     #[external("private")]
     fn set_authorized_private(approver: AztecAddress, message_hash: Field, authorize: bool) {
         assert_current_call_valid_authwit::<3>(self.context, approver);
-        AuthRegistry::at(self.address)._set_authorized(approver, message_hash, authorize).enqueue(
-            self.context,
-        );
+        self.enqueue_self._set_authorized(approver, message_hash, authorize);
     }
 
     /**

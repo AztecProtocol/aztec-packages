@@ -8,7 +8,7 @@ description: Learn how to make calls between public and private functions in Azt
 
 import Image from "@theme/IdealImage";
 
-import Disclaimer from "@site/src/components/Disclaimers/\_wip_disclaimer.mdx";
+import Disclaimer from "@site/src/components/Disclaimers/_wip_disclaimer.mdx";
 
 <Disclaimer/>
 

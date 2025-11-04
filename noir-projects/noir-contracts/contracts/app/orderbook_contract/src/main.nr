@@ -99,7 +99,7 @@ pub contract Orderbook {
         let order_id = maker_partial_note.to_field();
 
         // Store the order in public storage and emit an event.
-        Orderbook::at(self.address)._create_order(order_id, order).enqueue(self.context);
+        self.enqueue_self._create_order(order_id, order);
 
         order_id
     }
@@ -150,9 +150,7 @@ pub contract Orderbook {
         self.context.push_nullifier(order_id);
 
         // Enqueue the fulfillment to finalize both partial notes
-        Orderbook::at(self.address)
-            ._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount)
-            .enqueue(self.context);
+        self.enqueue_self._fulfill_order(order_id, taker_partial_note, bid_token, order.bid_amount);
     }
 
     #[external("public")]

@@ -67,11 +67,11 @@ pub contract Parent {
     fn enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions: u32) {
         let args = [0; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10];
         // +1 for function selector brings us to max
-        Parent::at(self.address).public_call_with_max_over_n_args(args).enqueue(self.context);
+        self.enqueue_self.public_call_with_max_over_n_args(args);
         if remaining_recursions > 0 {
-            Parent::at(self.address)
-                .enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions - 1)
-                .call(self.context);
+            self.call_self.enqueue_call_to_child_with_many_args_and_recurse(
+                remaining_recursions - 1,
+            );
         }
     }
 
