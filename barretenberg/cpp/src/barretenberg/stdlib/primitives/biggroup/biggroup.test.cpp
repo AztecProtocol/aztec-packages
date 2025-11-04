@@ -793,7 +793,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
     static void test_short_scalar_mul_infinity()
     {
         // We check that a point at infinity preserves `is_point_at_infinity()` flag after being multiplied against a
-        // short scalar and also check that the number of gates in this case is equal to the number of gates spent on a
+        // short scalar and also check that the number of gates in this case is more than the number of gates spent on a
         // finite point.
 
         // Populate test points.
@@ -881,6 +881,145 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             EXPECT_EQ(c_y_result, expected.y);
         }
         EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_twin_mul_with_infinity()
+    {
+        Builder builder;
+        size_t num_repetitions = 1;
+        for (size_t i = 0; i < num_repetitions; ++i) {
+            affine_element input_a(element::random_element());
+            affine_element input_b(element::random_element());
+            input_b.self_set_infinity();
+
+            // Get two 128-bit scalars
+            const size_t max_num_bits = 128;
+            uint256_t scalar_raw_a = engine.get_random_uint256();
+            scalar_raw_a = scalar_raw_a >> (256 - max_num_bits);
+            fr scalar_a = fr(scalar_raw_a);
+
+            uint256_t scalar_raw_b = engine.get_random_uint256();
+            scalar_raw_b = scalar_raw_b >> (256 - max_num_bits);
+            fr scalar_b = fr(scalar_raw_b);
+
+            element_ct P_a = element_ct::from_witness(&builder, input_a); // A
+            scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);  // s_1 (128 bits)
+            element_ct P_b = element_ct::from_witness(&builder, input_b); // ∞
+            scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);  // s_2 (128 bits)
+
+            // Set tags
+            P_a.set_origin_tag(submitted_value_origin_tag);
+            x_a.set_origin_tag(challenge_origin_tag);
+            P_b.set_origin_tag(next_submitted_value_origin_tag);
+            x_b.set_origin_tag(next_challenge_tag);
+
+            element_ct c = element_ct::batch_mul({ P_a, P_b }, { x_a, x_b }, 128);
+
+            // Check that the resulting tag is a union of all tags
+            EXPECT_EQ(c.get_origin_tag(), first_to_fourth_merged_tag);
+            element input_c = (element(input_a) * scalar_a);
+            element input_d = (element(input_b) * scalar_b);
+            affine_element expected(input_c + input_d);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            EXPECT_EQ(c_x_result, expected.x);
+            EXPECT_EQ(c_y_result, expected.y);
+        }
+        EXPECT_CIRCUIT_CORRECTNESS(builder);
+    }
+
+    static void test_batch_mul_linearly_dependent_generators()
+    {
+        Builder builder;
+        affine_element input_P(element::random_element());
+
+        affine_element input_P_a = affine_element(element(input_P) + element(input_P));     // 2P
+        affine_element input_P_b = affine_element(element(input_P_a) + element(input_P));   // 3P
+        affine_element input_P_c = affine_element(element(input_P_a) + element(input_P_b)); // 5P
+
+        // Choose scalars such that their NAF representations are:
+        //    skew msd          lsd
+        // a: 0    [+1, +1, -1, +1] = -0 + 2^3 + 2^2 - 2^1 + 2^0 = 11
+        // b: 1    [+1, +1, +1, +1] = -1 + 2^3 + 2^2 + 2^1 + 2^0 = 14
+        // c: 1    [+1, -1, +1, +1] = -1 + 2^3 - 2^2 + 2^1 + 2^0 = 6
+        fr scalar_a(11);
+        fr scalar_b(14);
+        fr scalar_c(6);
+
+        OriginTag tag_union{};
+
+        element_ct P_a = element_ct::from_witness(&builder, input_P_a);
+        // Set all element tags to submitted tags from sequential rounds
+        P_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_a.get_origin_tag());
+
+        scalar_ct x_a = scalar_ct::from_witness(&builder, scalar_a);
+        // Set all scalar tags to challenge tags from sequential rounds
+        x_a.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/0, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_a.get_origin_tag());
+
+        element_ct P_b = element_ct::from_witness(&builder, input_P_b);
+        P_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_b.get_origin_tag());
+
+        scalar_ct x_b = scalar_ct::from_witness(&builder, scalar_b);
+        x_b.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/1, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_b.get_origin_tag());
+
+        element_ct P_c = element_ct::from_witness(&builder, input_P_c);
+        P_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/true));
+        tag_union = OriginTag(tag_union, P_c.get_origin_tag());
+
+        scalar_ct x_c = scalar_ct::from_witness(&builder, scalar_c);
+        x_c.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/2, /*is_submitted=*/false));
+        tag_union = OriginTag(tag_union, x_c.get_origin_tag());
+
+        {
+            // If with_edgecases = true, should handle linearly dependent points correctly
+            // Define masking scalar (128 bits)
+            const auto get_128_bit_scalar = []() {
+                uint256_t scalar_u256(0, 0, 0, 0);
+                scalar_u256.data[0] = engine.get_random_uint64();
+                scalar_u256.data[1] = engine.get_random_uint64();
+                fr scalar(scalar_u256);
+                return scalar;
+            };
+            fr masking_scalar = get_128_bit_scalar();
+            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c },
+                                                 { x_a, x_b, x_c },
+                                                 /*max_num_bits*/ 128,
+                                                 /*with_edgecases*/ true,
+                                                 /*masking_scalar*/ masking_scalar_ct);
+
+            // Check that the result tag is a union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), tag_union);
+            element input_e = (element(input_P_a) * scalar_a);
+            element input_f = (element(input_P_b) * scalar_b);
+            element input_g = (element(input_P_c) * scalar_c);
+
+            affine_element expected(input_e + input_f + input_g);
+            fq c_x_result(c.x().get_value().lo);
+            fq c_y_result(c.y().get_value().lo);
+
+            EXPECT_EQ(c_x_result, expected.x);
+            EXPECT_EQ(c_y_result, expected.y);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+        {
+            // If with_edgecases = false, the lookup table cannot be created as we encounter
+            // a point at infinity during the table construction.
+            element_ct c = element_ct::batch_mul(
+                { P_a, P_b, P_c }, { x_a, x_b, x_c }, /*max_num_bits*/ 4, /*with_edgecases*/ false);
+
+            // Check that the result tag is a union of inputs' tags
+            EXPECT_EQ(c.get_origin_tag(), tag_union);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder, false);
+            EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
+        }
     }
 
     static void test_triple_mul()
@@ -1002,7 +1141,19 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             x_d.set_origin_tag(OriginTag(/*parent_index=*/0, /*child_index=*/3, /*is_submitted=*/false));
             tag_union = OriginTag(tag_union, x_d.get_origin_tag());
 
-            element_ct c = element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d });
+            // Define masking scalar (128 bits)
+            const auto get_128_bit_scalar = []() {
+                uint256_t scalar_u256(0, 0, 0, 0);
+                scalar_u256.data[0] = engine.get_random_uint64();
+                scalar_u256.data[1] = engine.get_random_uint64();
+                fr scalar(scalar_u256);
+                return scalar;
+            };
+            fr masking_scalar = get_128_bit_scalar();
+            scalar_ct masking_scalar_ct = scalar_ct::from_witness(&builder, masking_scalar);
+
+            element_ct c =
+                element_ct::batch_mul({ P_a, P_b, P_c, P_d }, { x_a, x_b, x_c, x_d }, 0, true, masking_scalar_ct);
 
             // Check that the tag of the batched product is the union of inputs' tags
             EXPECT_EQ(c.get_origin_tag(), tag_union);
@@ -1730,6 +1881,25 @@ HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
         TestFixture::test_twin_mul();
     };
 }
+
+HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul_with_infinity)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_twin_mul_with_infinity();
+    };
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
+    } else {
+        TestFixture::test_batch_mul_linearly_dependent_generators();
+    };
+}
+
 HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {

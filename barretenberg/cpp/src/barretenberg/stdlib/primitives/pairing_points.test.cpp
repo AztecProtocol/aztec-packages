@@ -1,6 +1,8 @@
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/srs/global_crs.hpp"
+#include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include <gtest/gtest.h>
 
@@ -11,14 +13,14 @@ template <typename Builder> class PairingPointsTests : public testing::Test {
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 
-using Builders = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
-TYPED_TEST_SUITE(PairingPointsTests, Builders);
+using Curves = testing::Types<stdlib::bn254<UltraCircuitBuilder>, stdlib::bn254<MegaCircuitBuilder>>;
+TYPED_TEST_SUITE(PairingPointsTests, Curves);
 
 TYPED_TEST(PairingPointsTests, ConstructDefault)
 {
     static constexpr size_t NUM_GATES_ADDED = 20;
 
-    TypeParam builder;
+    typename TypeParam::Builder builder;
 
     size_t num_gates = builder.num_gates();
     PairingPoints<TypeParam>::set_default_to_public(&builder);
@@ -30,8 +32,8 @@ TYPED_TEST(PairingPointsTests, ConstructDefault)
 
 TYPED_TEST(PairingPointsTests, TestDefault)
 {
-    using Builder = TypeParam;
-    using Group = PairingPoints<Builder>::Group;
+    using Builder = TypeParam::Builder;
+    using Group = PairingPoints<TypeParam>::Group;
     using CommitmentKey = bb::CommitmentKey<curve::BN254>;
 
     Builder builder;
@@ -40,23 +42,24 @@ TYPED_TEST(PairingPointsTests, TestDefault)
     Group P1(DEFAULT_PAIRING_POINTS_P1_X, DEFAULT_PAIRING_POINTS_P1_Y);
     P0.convert_constant_to_fixed_witness(&builder);
     P1.convert_constant_to_fixed_witness(&builder);
-    PairingPoints<Builder> pp(P0, P1);
+    PairingPoints<TypeParam> pp(P0, P1);
     pp.set_public();
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Validate default PairingPoints
     CommitmentKey commitment_key;
-    bb::PairingPoints native_pp(P0.get_value(), P1.get_value());
+    bb::PairingPoints<curve::BN254> native_pp(P0.get_value(), P1.get_value());
     EXPECT_TRUE(native_pp.check()) << "Default PairingPoints are not valid pairing points.";
 }
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 {
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
 
     Builder builder;
 
@@ -111,13 +114,13 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismWorks)
 
 TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
 {
-    BB_DISABLE_ASSERTS();
 
-    using Builder = TypeParam;
-    using PairingPoints = PairingPoints<Builder>;
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+    using PairingPoints = PairingPoints<Curve>;
     using Group = PairingPoints::Group;
-    using Fr = PairingPoints::Curve::ScalarField;
-    using NativeFr = PairingPoints::Curve::ScalarFieldNative;
+    using Fr = PairingPoints::Fr;
+    using NativeFr = typename Curve::ScalarFieldNative;
     using Flavor = std::conditional_t<IsMegaBuilder<Builder>, MegaFlavor, UltraFlavor>;
     using ProverInstance = ProverInstance_<Flavor>;
 
@@ -146,13 +149,57 @@ TYPED_TEST(PairingPointsTests, TaggingMechanismFails)
     // Check that the tags have not been merged
     EXPECT_FALSE(builder.pairing_points_tagging.has_single_pairing_point_tag());
 
-    // Create a ProverInstance, expect failure
-    try {
-        ProverInstance prover_instance(builder);
-    } catch (std::exception& e) {
-        BB_ASSERT_EQ(e.what(),
-                     "Pairing points must all be aggregated together. Either no pairing points should be created, or "
-                     "all created pairing points must be aggregated into a single pairing point.");
-    }
+    // Create a ProverInstance, expect failure because pairing points have not been aggregated
+    EXPECT_THROW_OR_ABORT(
+        ProverInstance prover_instance(builder),
+        ::testing::HasSubstr(
+            "Pairing points must all be aggregated together. Either no pairing points should be created, or all "
+            "created pairing points must be aggregated into a single pairing point. Found 2 different pairing "
+            "points."));
+
+    // Aggregate pairing points
+    pp_one.aggregate(pp_three);
+
+    // Create a ProverInstance, expect failure because pairing points have not been set to public
+    EXPECT_THROW_OR_ABORT(
+        ProverInstance prover_instance(builder),
+        ::testing::HasSubstr(
+            "Pairing points must be set to public in the circuit before constructing the ProverInstance."));
+
+    stdlib::recursion::honk::DefaultIO<Builder> inputs;
+    inputs.pairing_inputs = pp_one;
+    inputs.set_public();
+
+    // Construct Prover instance successfully
+    ProverInstance prover_instance(builder);
 }
+
+TYPED_TEST(PairingPointsTests, CopyConstructorWorks)
+{
+    using Curve = TypeParam;
+    using Builder = typename Curve::Builder;
+
+    using PairingPoints = PairingPoints<Curve>;
+    using Group = PairingPoints::Group;
+    using Fr = Curve::ScalarField;
+    using NativeFr = Curve::ScalarFieldNative;
+
+    Builder builder;
+
+    Fr scalar_one = Fr::from_witness(&builder, NativeFr::random_element());
+    Fr scalar_two = Fr::from_witness(&builder, NativeFr::random_element());
+    Group P0 = Group::batch_mul({ Group::one(&builder) }, { scalar_one });
+    Group P1 = Group::batch_mul({ Group::one(&builder) }, { scalar_two });
+
+    PairingPoints pp_original = { P0, P1 };
+    PairingPoints pp_copy(pp_original);
+
+    // Check that there is only one tag
+    EXPECT_TRUE(builder.pairing_points_tagging.has_single_pairing_point_tag());
+
+    // Check that the tags are the same
+    BB_ASSERT_EQ(builder.pairing_points_tagging.get_tag(pp_original.tag_index),
+                 builder.pairing_points_tagging.get_tag(pp_copy.tag_index));
+}
+
 } // namespace bb::stdlib::recursion

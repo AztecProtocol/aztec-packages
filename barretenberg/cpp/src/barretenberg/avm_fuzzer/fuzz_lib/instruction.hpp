@@ -91,7 +91,13 @@ struct DIV_8_Instruction {
     MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
-// TODO(defkit) FDIV skipping for now
+struct FDIV_8_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
 
 /// @brief mem[result_offset] = mem[a_address] == mem[b_address]
 struct EQ_8_Instruction {
@@ -147,8 +153,12 @@ struct XOR_8_Instruction {
     MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
 };
 
-// TODO(defkit) not skipping for now
-// struct NOT_8_Instruction {
+struct NOT_8_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint8_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, result_offset);
+};
 
 /// @brief mem[result_offset] = mem[a_address] << mem[b_address]
 struct SHL_8_Instruction {
@@ -176,7 +186,149 @@ struct SET_8_Instruction {
     MSGPACK_FIELDS(value_tag, offset, value);
 };
 
+/// @brief mem[result_offset] = mem[a_address] + mem[b_address] (16-bit)
+struct ADD_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] - mem[b_address] (16-bit)
+struct SUB_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] * mem[b_address] (16-bit)
+struct MUL_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] / mem[b_address] (16-bit)
+struct DIV_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+struct FDIV_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] == mem[b_address] (16-bit)
+struct EQ_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] < mem[b_address] (16-bit)
+struct LT_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] <= mem[b_address] (16-bit)
+struct LTE_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] & mem[b_address] (16-bit)
+struct AND_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] | mem[b_address] (16-bit)
+struct OR_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] ^ mem[b_address] (16-bit)
+struct XOR_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+struct NOT_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] << mem[b_address] (16-bit)
+struct SHL_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief mem[result_offset] = mem[a_address] >> mem[b_address] (16-bit)
+struct SHR_16_Instruction {
+    MemoryTagWrapper argument_tag;
+    uint16_t a_offset_index;
+    uint16_t b_offset_index;
+    uint16_t result_offset;
+    MSGPACK_FIELDS(argument_tag, a_offset_index, b_offset_index, result_offset);
+};
+
+/// @brief CAST_8: cast mem[src_offset_index] to target_tag and store at dst_offset
+struct CAST_8_Instruction {
+    MemoryTagWrapper src_tag;
+    uint16_t src_offset_index;
+    uint8_t dst_offset;
+    MemoryTagWrapper target_tag;
+    MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
+};
+
+/// @brief CAST_16: cast mem[src_offset_index] to target_tag and store at dst_offset
+struct CAST_16_Instruction {
+    MemoryTagWrapper src_tag;
+    uint16_t src_offset_index;
+    uint16_t dst_offset;
+    MemoryTagWrapper target_tag;
+    MSGPACK_FIELDS(src_tag, src_offset_index, dst_offset, target_tag);
+};
+
 using FuzzInstruction = std::variant<ADD_8_Instruction,
+                                     FDIV_8_Instruction,
                                      SET_8_Instruction,
                                      SUB_8_Instruction,
                                      MUL_8_Instruction,
@@ -188,7 +340,24 @@ using FuzzInstruction = std::variant<ADD_8_Instruction,
                                      OR_8_Instruction,
                                      XOR_8_Instruction,
                                      SHL_8_Instruction,
-                                     SHR_8_Instruction>;
+                                     SHR_8_Instruction,
+                                     NOT_8_Instruction,
+                                     ADD_16_Instruction,
+                                     SUB_16_Instruction,
+                                     MUL_16_Instruction,
+                                     DIV_16_Instruction,
+                                     FDIV_16_Instruction,
+                                     EQ_16_Instruction,
+                                     LT_16_Instruction,
+                                     LTE_16_Instruction,
+                                     AND_16_Instruction,
+                                     OR_16_Instruction,
+                                     XOR_16_Instruction,
+                                     NOT_16_Instruction,
+                                     SHL_16_Instruction,
+                                     SHR_16_Instruction,
+                                     CAST_8_Instruction,
+                                     CAST_16_Instruction>;
 
 template <class... Ts> struct overloaded_instruction : Ts... {
     using Ts::operator()...;
@@ -224,6 +393,10 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                        os << "DIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
                           << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
                    },
+                   [&](FDIV_8_Instruction arg) {
+                       os << "FDIV_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
+                   },
                    [&](EQ_8_Instruction arg) {
                        os << "EQ_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
                           << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
@@ -255,6 +428,74 @@ inline std::ostream& operator<<(std::ostream& os, const FuzzInstruction& instruc
                    [&](SHR_8_Instruction arg) {
                        os << "SHR_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
                           << arg.b_offset_index << " " << static_cast<uint16_t>(arg.result_offset);
+                   },
+                   [&](NOT_8_Instruction arg) {
+                       os << "NOT_8_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << static_cast<uint16_t>(arg.result_offset);
+                   },
+                   [&](ADD_16_Instruction arg) {
+                       os << "ADD_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](SUB_16_Instruction arg) {
+                       os << "SUB_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](MUL_16_Instruction arg) {
+                       os << "MUL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](DIV_16_Instruction arg) {
+                       os << "DIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](FDIV_16_Instruction arg) {
+                       os << "FDIV_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](EQ_16_Instruction arg) {
+                       os << "EQ_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](LT_16_Instruction arg) {
+                       os << "LT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](LTE_16_Instruction arg) {
+                       os << "LTE_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](AND_16_Instruction arg) {
+                       os << "AND_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](OR_16_Instruction arg) {
+                       os << "OR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](XOR_16_Instruction arg) {
+                       os << "XOR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](NOT_16_Instruction arg) {
+                       os << "NOT_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.result_offset;
+                   },
+                   [&](SHL_16_Instruction arg) {
+                       os << "SHL_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](SHR_16_Instruction arg) {
+                       os << "SHR_16_Instruction " << arg.argument_tag << " " << arg.a_offset_index << " "
+                          << arg.b_offset_index << " " << arg.result_offset;
+                   },
+                   [&](CAST_8_Instruction arg) {
+                       os << "CAST_8_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
+                          << static_cast<int>(arg.dst_offset) << " " << arg.target_tag;
+                   },
+                   [&](CAST_16_Instruction arg) {
+                       os << "CAST_16_Instruction " << arg.src_tag << " " << arg.src_offset_index << " "
+                          << arg.dst_offset << " " << arg.target_tag;
                    },
                    [&](auto) { os << "Unknown instruction"; },
                },

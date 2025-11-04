@@ -846,6 +846,90 @@ groups:
           labels:
             <<: *common_labels
           isPaused: false
+        - uid: ajslazlqf4dy7lct
+          title: Snapshot errors
+          condition: C
+          data:
+            - refId: A
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: spartan-metrics-prometheus
+              model:
+                editorMode: code
+                expr: max by (k8s_namespace_name) (increase(aztec_node_snapshot_error_count{k8s_namespace_name!=""}[$__rate_interval]))
+                instant: true
+                intervalMs: 50000
+                legendFormat: __auto
+                maxDataPoints: 43200
+                range: false
+                refId: A
+            - refId: B
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params: []
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - B
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: A
+                intervalMs: 1000
+                maxDataPoints: 43200
+                reducer: last
+                refId: B
+                type: reduce
+            - refId: C
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: __expr__
+              model:
+                conditions:
+                    - evaluator:
+                        params:
+                            - 1
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params:
+                            - C
+                      reducer:
+                        params: []
+                        type: last
+                      type: query
+                datasource:
+                    type: __expr__
+                    uid: __expr__
+                expression: B
+                intervalMs: 1000
+                maxDataPoints: 43200
+                refId: C
+                type: threshold
+          dashboardUid: ""
+          panelId: 0
+          noDataState: NoData
+          execErrState: Error
+          for: 0s
+          annotations:
+            summary: There was an error taking a snapshot in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+          labels:
+            <<: *common_labels
+          isPaused: false
     - orgId: 1
       name: Every minute
       folder: Metrics

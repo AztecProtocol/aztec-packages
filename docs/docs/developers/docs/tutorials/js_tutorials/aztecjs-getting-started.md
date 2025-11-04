@@ -43,15 +43,20 @@ Aztec.js assumes your project is using ESM, so make sure you add `"type": "modul
 
 ### Connecting to the sandbox
 
-We want to [connect to our running sandbox](../../aztec-js/how_to_connect_to_sandbox.md) and import the test accounts into the local PXE. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
+We want to [connect to our running sandbox](../../aztec-js/how_to_connect_to_sandbox.md) and import the test accounts into a new wallet. Let's call them Alice and Bob (of course). Create an `index.ts` with it:
 
 ```typescript
-import { createPXEClient } from "@aztec/aztec.js";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
-const pxe = await createPXEClient("http://localhost:8080");
 
-const alice = (await getInitialTestAccountsData())[0];
-const bob = (await getInitialTestAccountsData())[1];
+const nodeUrl = "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
+const wallet = await TestWallet.create(node);
+
+const [alice, bob] = await getInitialTestAccountsData();
+await wallet.createSchnorrAccount(alice.secret, alice.salt);
+await wallet.createSchnorrAccount(bob.secret, bob.salt);
 ```
 
 ## Deploy the token contract
@@ -64,7 +69,7 @@ Let's import the interface directly, and make Alice the admin:
 import { TokenContract } from "@aztec/noir-contracts.js/Token";
 
 const token = await TokenContract.deploy(
-  alice,
+  wallet,
   alice.address,
   "TokenName",
   "TKN",

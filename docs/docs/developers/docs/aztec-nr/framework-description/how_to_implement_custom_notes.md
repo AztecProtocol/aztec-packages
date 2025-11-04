@@ -23,25 +23,28 @@ You may want to create your own note type if you need to:
 - Store multiple pieces of related data together (e.g., a card in a game with multiple attributes)
 - Optimize storage by combining data that's used together
 
-
 :::info Built-in Note Types
 Aztec.nr provides pre-built note types for common use cases:
 
 **ValueNote** - For numeric values like token balances:
+
 ```toml
 # In Nargo.toml
 value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/value-note" }
 ```
+
 ```rust
 use value_note::value_note::ValueNote;
 let note = ValueNote::new(100, owner);
 ```
 
 **AddressNote** - For storing Aztec addresses:
+
 ```toml
 # In Nargo.toml
 address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/smart-contracts/address-note" }
 ```
+
 ```rust
 use address_note::address_note::AddressNote;
 let note = AddressNote::new(stored_address, owner);
@@ -49,7 +52,6 @@ let note = AddressNote::new(stored_address, owner);
 
 If these don't meet your needs, continue reading to create your own custom note type.
 :::
-
 
 ## Standard note implementation
 
@@ -224,7 +226,7 @@ use dep::aztec::messages::message_delivery::MessageDelivery;
 
 #[external("private")]
 fn create_note(value: Field, data: u32) {
-    let owner = context.msg_sender();
+    let owner = context.msg_sender().unwrap();
     let note = CustomNote::new(value, data, owner);
 
     storage.balances
@@ -315,6 +317,7 @@ struct Storage<Context> {
 ```
 
 Common patterns:
+
 - `Map<AztecAddress, PrivateSet<CustomNote>>` - Multiple notes per user (like token balances, card collections)
 - `Map<AztecAddress, PrivateMutable<CustomNote>>` - Single note per user (like user profile, active state)
 - `Map<Field, Map<AztecAddress, PrivateSet<CustomNote>>>` - Nested organization (game sessions, channels)

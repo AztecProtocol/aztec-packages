@@ -300,9 +300,7 @@ pub contract PendingNoteHashes {
     ) {
         create_max_notes(owner, self.storage);
 
-        PendingNoteHashes::at(self.address)
-            .recursively_destroy_and_create_notes(owner, sender, how_many_recursions)
-            .call(self.context);
+        self.call_self.recursively_destroy_and_create_notes(owner, sender, how_many_recursions);
     }
 
     #[external("private")]
@@ -319,9 +317,7 @@ pub contract PendingNoteHashes {
         let executions_left = executions_left - 1;
 
         if executions_left > 0 {
-            PendingNoteHashes::at(self.address)
-                .recursively_destroy_and_create_notes(owner, sender, executions_left)
-                .call(self.context);
+            self.call_self.recursively_destroy_and_create_notes(owner, sender, executions_left);
         }
     }
 

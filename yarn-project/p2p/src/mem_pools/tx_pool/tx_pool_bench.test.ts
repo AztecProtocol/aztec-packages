@@ -24,7 +24,7 @@ import type { TxPool } from './tx_pool.js';
 const TEST_TIMEOUT = 150_000;
 jest.setTimeout(TEST_TIMEOUT);
 
-const RUNS = 50;
+const RUNS = 10;
 const batchSizes = [
   // regular gossip
   1,

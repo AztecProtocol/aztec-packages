@@ -17,11 +17,10 @@ class CircuitChecker {
     template <typename Builder> static bool check(const Builder& builder)
     {
         static_assert(IsCheckable<Builder>);
-        if constexpr (IsUltraBuilder<Builder> || IsMegaBuilder<Builder>) {
+        if (IsUltraOrMegaBuilder<Builder>) {
             return UltraCircuitChecker::check(builder);
-        } else {
-            return false;
         }
+        return false;
     }
 };
 

@@ -73,7 +73,10 @@ import { AddressDataProvider } from './storage/address_data_provider/address_dat
 import { CapsuleDataProvider } from './storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from './storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from './storage/note_data_provider/note_data_provider.js';
-import { PrivateEventDataProvider } from './storage/private_event_data_provider/private_event_data_provider.js';
+import {
+  type PrivateEvent,
+  PrivateEventDataProvider,
+} from './storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from './storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from './storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from './synchronizer/index.js';
@@ -1094,7 +1097,9 @@ export class PXE {
       eventMetadataDef.eventSelector,
     );
 
-    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
+    const decodedEvents = events.map(
+      (event: PrivateEvent): T => decodeFromAbi([eventMetadataDef.abiType], event.msgContent) as T,
+    );
 
     return decodedEvents;
   }

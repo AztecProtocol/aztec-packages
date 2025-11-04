@@ -264,6 +264,7 @@ pub struct PublicCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
+    // TODO(F-131): Determine the length at comptime and drop the use of slices.
     args: [Field],
     gas_opts: GasOpts,
     return_type: T,

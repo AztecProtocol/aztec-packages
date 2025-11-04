@@ -161,7 +161,7 @@ To connect to the testnet, pass the `AZTEC_NODE_URL` to the wallet with the `--n
 
 ```bash
 export AZTEC_NODE_URL=<testnet-ip-address>
-export SPONSORED_FPC_ADDRESS=0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529
+export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
 # Register a new account
 aztec-wallet create-account --register-only -a main -n $AZTEC_NODE_URL
 aztec-wallet register-contract $SPONSORED_FPC_ADDRESS SponsoredFPC --from main -n $AZTEC_NODE_URL --salt 0 -a sponsoredfpc

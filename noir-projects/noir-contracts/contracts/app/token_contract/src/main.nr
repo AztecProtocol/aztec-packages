@@ -198,7 +198,7 @@ pub contract Token {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        Token::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
     }
 
     /// Transfers tokens from private balance of `from` to public balance of `to` and prepares a partial note for
@@ -227,7 +227,7 @@ pub contract Token {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        Token::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
 
         // We prepare the private balance increase (the partial note for the change).
         _prepare_private_balance_increase(from, self.context, self.storage)
@@ -347,7 +347,7 @@ pub contract Token {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        Token::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
+        self.enqueue_self._reduce_total_supply(amount);
     }
 
     // Transfers token `amount` from public balance of message sender to a private balance of `to`.
@@ -355,14 +355,13 @@ pub contract Token {
     fn transfer_to_private(to: AztecAddress, amount: u128) {
         // `from` is the owner of the public balance from which we'll subtract the `amount`.
         let from = self.msg_sender().unwrap();
-        let token = Token::at(self.address);
 
         // We prepare the private balance increase (the partial note).
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own tokens.
-        token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(self.context);
+        self.enqueue_self._finalize_transfer_to_private_unsafe(from, amount, partial_note);
     }
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
@@ -486,17 +485,17 @@ pub contract Token {
     /// in the enqueued call).
     #[external("private")]
     fn mint_to_private(to: AztecAddress, amount: u128) {
-        let token = Token::at(self.address);
-
         // We prepare the partial note to which we'll "send" the minted amount.
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
 
         // At last we finalize the mint. Usage of the `unsafe` method here is safe because we set
         // the `minter_and_completer` function argument to a message sender, guaranteeing that only a message sender
         // with minter permissions can successfully execute the function.
-        token
-            ._finalize_mint_to_private_unsafe(self.msg_sender().unwrap(), amount, partial_note)
-            .enqueue(self.context);
+        self.enqueue_self._finalize_mint_to_private_unsafe(
+            self.msg_sender().unwrap(),
+            amount,
+            partial_note,
+        );
     }
 
     /// Finalizes a mint of token `amount` to a private balance of `to`. The mint must be prepared by calling

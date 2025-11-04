@@ -255,3 +255,36 @@ TEST_F(MegaHonk, DatabusReturn)
 
     EXPECT_TRUE(CircuitChecker::check(circuit));
 }
+
+// Test that all block constraint types handle empty initialization gracefully
+TEST_F(MegaHonk, EmptyBlockConstraints)
+{
+    // Test each block constraint type
+    std::vector<BlockType> types_to_test = {
+        BlockType::ROM, BlockType::RAM, BlockType::CallData, BlockType::ReturnData
+    };
+
+    // Create empty block constraint
+    for (auto block_type : types_to_test) {
+        BlockConstraint block{
+            .init = {},  // Empty initialization data
+            .trace = {}, // Empty trace
+            .type = block_type,
+        };
+
+        AcirProgram program;
+        program.constraints = {
+            .varnum = 0, // No variables needed for empty block constraints
+            .num_acir_opcodes = 1,
+            .public_inputs = {},
+            .block_constraints = { block },
+            .original_opcode_indices = create_empty_original_opcode_indices(),
+        };
+
+        mock_opcode_indices(program.constraints);
+
+        // Circuit construction should succeed without errors
+        auto circuit = create_circuit<Builder>(program);
+        EXPECT_TRUE(CircuitChecker::check(circuit));
+    }
+}

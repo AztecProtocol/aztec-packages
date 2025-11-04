@@ -48,7 +48,7 @@ std::pair<OpeningClaim<stdlib::grumpkin<Builder>>, HonkProof> handle_IPA_accumul
     const std::vector<stdlib::Proof<Builder>>& nested_ipa_proofs);
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     PairingPoints points_accumulator;
     std::vector<OpeningClaim<stdlib::grumpkin<Builder>>> nested_ipa_claims;
     std::vector<stdlib::Proof<Builder>> nested_ipa_proofs;
@@ -85,7 +85,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
-    using PairingPoints = stdlib::recursion::PairingPoints<Builder>;
+    using PairingPoints = stdlib::recursion::PairingPoints<stdlib::bn254<Builder>>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;

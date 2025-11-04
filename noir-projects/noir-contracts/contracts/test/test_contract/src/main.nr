@@ -123,7 +123,7 @@ pub contract Test {
         self.context.set_include_by_timestamp(include_by_timestamp);
 
         if make_tx_hybrid {
-            Test::at(self.address).dummy_public_call().enqueue(self.context)
+            self.enqueue_self.dummy_public_call()
         }
     }
 
@@ -145,7 +145,7 @@ pub contract Test {
         );
 
         if make_tx_hybrid {
-            Test::at(self.address).dummy_public_call().enqueue(self.context);
+            self.enqueue_self.dummy_public_call();
         }
     }
 
@@ -168,7 +168,7 @@ pub contract Test {
         let partial_note =
             UintNote::partial(owner, storage_slot, self.context, owner, self.address);
 
-        Test::at(self.address).call_complete_partial_note(partial_note, value).enqueue(self.context);
+        self.enqueue_self.call_complete_partial_note(partial_note, value);
     }
 
     #[external("private")]
@@ -303,9 +303,7 @@ pub contract Test {
         // this contract has reached max number of functions, so using this one fn
         // to test nested and non nested encrypted logs
         if nest {
-            Test::at(self.address).emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false).call(
-                self.context,
-            );
+            self.call_self.emit_array_as_encrypted_log([0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
             let leaky_log = event.serialize().concat([0; PRIVATE_LOG_SIZE_IN_FIELDS - 5]);
