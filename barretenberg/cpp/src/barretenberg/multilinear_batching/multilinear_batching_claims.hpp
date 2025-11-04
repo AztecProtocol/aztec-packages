@@ -101,8 +101,8 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         using Codec = typename T::Codec;
         std::vector<FF> claim_elements;
 
-        // Create origin tag for all claim components
-        const OriginTag tag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+        // Create origin tag for all claim components (securely extracts transcript state)
+        const OriginTag tag = bb::create_transcript_tag(transcript);
 
         // Helper to tag, serialize, and append
         auto append_tagged = [&]<typename U>(const U& component) {

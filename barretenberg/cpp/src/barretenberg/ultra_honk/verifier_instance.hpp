@@ -76,8 +76,8 @@ template <IsUltraOrMegaHonk Flavor_> class VerifierInstance_ {
         using Codec = typename Transcript::Codec;
         std::vector<FF> instance_elements;
 
-        // Create origin tag for all instance components
-        const OriginTag tag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+        // Create origin tag for all instance components (securely extracts transcript state)
+        const OriginTag tag = bb::create_transcript_tag(transcript);
 
         // Helper to tag, serialize, and append to instance_elements
         auto append_tagged = [&]<typename T>(const T& component) {

@@ -298,6 +298,20 @@ inline std::vector<typename Codec::DataType> tag_and_serialize(const T& componen
     return Codec::serialize_to_fields(component);
 }
 
+/**
+ * @brief Securely extract origin tag context from a transcript.
+ * @details Friend function that has controlled access to transcript's private round tracking state.
+ * This ensures transcript_index and round_index are not exposed as public members.
+ *
+ * @tparam TranscriptType The type of transcript (NativeTranscript or StdlibTranscript)
+ * @param transcript The transcript to extract tag context from
+ * @return OriginTag with (transcript_index, round_index, is_submitted=true)
+ */
+template <typename TranscriptType> inline OriginTag create_transcript_tag(const TranscriptType& transcript)
+{
+    return OriginTag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+}
+
 } // namespace bb
 template <typename T>
 concept usesTag = requires(T x, const bb::OriginTag& tag) { x.set_origin_tag(tag); };

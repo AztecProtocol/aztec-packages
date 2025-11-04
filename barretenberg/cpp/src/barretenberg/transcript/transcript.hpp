@@ -49,16 +49,21 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     // A `DataType` challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
-    // The unique index of the transcript
-    size_t transcript_index = 0;
-
-    // The index of the current round of the transcript (used for the origin tag, round is only incremented if we switch
-    // from generating to receiving)
-    size_t round_index = 0;
-
     // Indicates whether the transcript is receiving data from the prover
     bool reception_phase = true;
 
+    // Friend function for secure tag context extraction
+    template <typename T> friend OriginTag bb::create_transcript_tag(const T& transcript);
+
+  private:
+    // The unique index of the transcript (PRIVATE - access via create_transcript_tag)
+    size_t transcript_index = 0;
+
+    // The index of the current round of the transcript (PRIVATE - access via create_transcript_tag)
+    // Round is only incremented if we switch from generating to receiving
+    size_t round_index = 0;
+
+  public:
     BaseTranscript()
     {
         // If we are in circuit, we need to get a unique index for the transcript
