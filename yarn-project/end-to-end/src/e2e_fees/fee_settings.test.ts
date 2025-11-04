@@ -24,8 +24,6 @@ describe('e2e_fees fee settings', () => {
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
-
     ({ aliceAddress, wallet, gasSettings, cheatCodes, aztecNode } = await t.setup());
 
     testContract = await TestContract.deploy(wallet).send({ from: aliceAddress }).deployed();

@@ -34,7 +34,6 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
-    await t.setupCrossChainInfrastructure();
     await t.setup();
     ({ crossChainTestHarness, aztecNode, wallet, user1Address } = t);
     aztecNodeAdmin = t.aztecNodeAdmin!;

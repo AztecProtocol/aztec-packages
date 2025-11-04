@@ -13,7 +13,6 @@ describe('e2e_nested_contract manual_enqueue', () => {
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.publishAccountContracts();
     // We don't have the manual snapshot because every test requires a fresh setup and teardown
     await t.setup();
     ({ wallet, defaultAccountAddress, aztecNode } = t);

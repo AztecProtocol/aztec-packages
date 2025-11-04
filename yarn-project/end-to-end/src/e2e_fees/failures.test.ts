@@ -28,9 +28,9 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
+    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, gasSettings } = await t.setup());
     await t.setupFPC();
-    ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    ({ bananaFPC } = t);
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving

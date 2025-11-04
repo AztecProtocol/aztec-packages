@@ -6,9 +6,8 @@ describe('e2e_token_contract transfer_to_private', () => {
   let { asset, adminAddress, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
-    await t.deployContracts();
-    await t.mintTokens();
     await t.setup();
+    await t.mintTokens();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, adminAddress, account1Address, tokenSim } = t);
   });

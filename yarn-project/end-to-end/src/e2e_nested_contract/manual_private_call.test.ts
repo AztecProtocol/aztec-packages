@@ -5,8 +5,6 @@ describe('e2e_nested_contract manual', () => {
   let { parentContract, childContract, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.publishAccountContracts();
-    await t.deployContracts();
     await t.setup();
     ({ parentContract, childContract, defaultAccountAddress } = t);
   });

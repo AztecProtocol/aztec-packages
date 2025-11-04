@@ -20,9 +20,8 @@ describe('e2e_fees Fee Juice payments', () => {
   const t = new FeesTest('fee_juice', 1);
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
-    await t.fundAliceWithBananas();
     ({ feeJuiceContract, aliceAddress, wallet, bananaCoin, gasSettings } = await t.setup());
+    await t.fundAliceWithBananas();
 
     const [bob] = await generateSchnorrAccounts(1);
     const bobsAccountManager = await wallet.createAccount({

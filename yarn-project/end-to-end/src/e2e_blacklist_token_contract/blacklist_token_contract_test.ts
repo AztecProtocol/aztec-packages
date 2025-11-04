@@ -116,6 +116,7 @@ export class BlacklistTokenContractTest extends BaseEndToEndTest {
 
   override async setup(): Promise<this> {
     await super.setup(3);
+    await this.deployContracts();
     return this;
   }
 

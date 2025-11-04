@@ -25,10 +25,10 @@ describe('e2e_fees account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
+    ({ aliceAddress, wallet, bananaCoin, logger, aztecNode } = await t.setup());
     await t.fundAliceWithBananas();
     await t.setupFPC();
-    ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = await t.setup());
+    ({ bananaFPC } = t);
   });
 
   afterAll(async () => {

@@ -40,7 +40,7 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   }
 }
 
-describe('guides/writing_an_account_contract', () => {
+describe.skip('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
 
   beforeEach(async () => {

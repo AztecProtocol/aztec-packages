@@ -51,6 +51,7 @@ export class CrossChainMessagingTest extends BaseEndToEndTest {
     await super.setup(3, this.setupOptions);
     this.aztecNodeConfig = this.context.config;
     this.aztecNodeAdmin = this.context.aztecNodeAdmin;
+    await this.setupCrossChainInfrastructure();
     return this;
   }
 

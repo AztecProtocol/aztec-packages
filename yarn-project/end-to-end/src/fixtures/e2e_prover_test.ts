@@ -120,6 +120,9 @@ export class FullProverTest extends BaseEndToEndTest {
       realProofs: this.realProofs,
     });
 
+    // Initialize contracts and accounts
+    await this.applyBaseSnapshots();
+
     // We don't wish to mark as proven automatically, so we set the flag to false
     this.context.watcher!.setIsMarkingAsProven(false);
 

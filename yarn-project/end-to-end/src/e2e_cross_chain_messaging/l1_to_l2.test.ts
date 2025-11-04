@@ -31,7 +31,6 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       aztecProofSubmissionEpochs: 2,
       aztecEpochDuration: 4,
     });
-    await t.setupCrossChainInfrastructure();
     await t.setup();
 
     ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);

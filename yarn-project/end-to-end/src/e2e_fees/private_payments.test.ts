@@ -25,11 +25,10 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, gasSettings, aztecNode } = await t.setup());
     await t.setupFPC();
     await t.fundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
-      await t.setup());
+    ({ bananaFPC } = t);
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving

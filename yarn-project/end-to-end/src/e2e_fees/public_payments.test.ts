@@ -22,11 +22,10 @@ describe('e2e_fees public_payment', () => {
   const t = new FeesTest('public_payment');
 
   beforeAll(async () => {
-    await t.setupBasicContracts();
+    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, gasSettings, aztecNode } = await t.setup());
     await t.setupFPC();
     await t.fundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } =
-      await t.setup());
+    ({ bananaFPC } = t);
   });
 
   afterAll(async () => {

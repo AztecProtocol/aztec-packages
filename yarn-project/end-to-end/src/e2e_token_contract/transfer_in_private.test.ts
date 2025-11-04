@@ -9,9 +9,8 @@ describe('e2e_token_contract transfer private', () => {
   let { asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t;
 
   beforeAll(async () => {
-    await t.deployContracts();
-    await t.mintTokens();
     await t.setup();
+    await t.mintTokens();
     ({ asset, tokenSim, wallet, adminAddress, account1Address, account2Address, badAccount } = t);
   });
 

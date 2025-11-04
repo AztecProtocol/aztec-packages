@@ -95,6 +95,8 @@ export class FeesTest extends BaseEndToEndTest {
     this.rollupContract = RollupContract.getFromConfig(this.context.config);
     this.chainMonitor = new ChainMonitor(this.rollupContract, this.dateProvider!, this.logger, 200).start();
 
+    await this.setupBasicContracts();
+
     return this;
   }
 

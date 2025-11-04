@@ -33,6 +33,14 @@ export class TokenContractTest extends BaseEndToEndTest {
     super(testName, createLogger(`e2e:e2e_token_contract:${testName}`));
   }
 
+  override async setup(): Promise<this> {
+    await super.setup(3, {
+      metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
+    });
+    await this.deployContracts();
+    return this;
+  }
+
   /**
    * Sets up base state:
    * 1. Add 3 accounts.
@@ -81,13 +89,6 @@ export class TokenContractTest extends BaseEndToEndTest {
     expect(await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).toBe(
       this.adminAddress.toBigInt(),
     );
-  }
-
-  override async setup(): Promise<this> {
-    await super.setup(3, {
-      metricsPort: metricsPort ? parseInt(metricsPort) : undefined,
-    });
-    return this;
   }
 
   async mintTokens() {
