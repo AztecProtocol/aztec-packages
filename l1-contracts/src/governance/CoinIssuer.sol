@@ -32,8 +32,20 @@ import {Ownable2Step} from "@oz/access/Ownable2Step.sol";
  * of year N+1, which reflects only what was actually minted.
  *
  * @dev The NOMINAL_ANNUAL_PERCENTAGE_CAP is in e18 precision where 1e18 = 100%
+ *      Note that values larger than 100% are accepted
  *
  * @dev The token MUST have a non-zero initial supply at deployment, or an alternative way to mint the token.
+ *      If it has alternative ways to mint, these can bypass the budget.
+ *
+ * @dev The `CoinIssuer` must be a minter of the `ASSET`. e.g.,  through a specified role, or by being the owner,
+ *      or some other means.
+ *
+ * @dev The `CoinIssuer` is limited to a single asset, if you need more, consider deploying multiple `CoinIssuer`s
+ *      or use a different setup.
+ *
+ * @dev Beware that the `CoinIssuer` might behave unexpected if the `ASSET` is a "weird" ERC20, e.g., fee-on-mint
+ *      and fee-on-transfer or rebasing assets. Also manipulation of `totalSupply` outside of the `mint` function
+ *      might have unexpected implications.
  */
 contract CoinIssuer is ICoinIssuer, Ownable {
   IMintableERC20 public immutable ASSET;
@@ -52,6 +64,9 @@ contract CoinIssuer is ICoinIssuer, Ownable {
 
     cachedBudgetYear = 0;
     cachedBudget = _getNewBudget();
+
+    // If the budget is 0, it is likely a misconfiguration with tiny _annualPercentage or lack of initial supply
+    require(cachedBudget > 0, Errors.CoinIssuer__InvalidConfiguration());
 
     emit BudgetReset(0, cachedBudget);
   }
@@ -72,8 +87,10 @@ contract CoinIssuer is ICoinIssuer, Ownable {
     // Update state if we've crossed into a new year (will reset budget and forfeit unused amount)
     _updateBudgetIfNeeded();
 
-    require(_amount <= cachedBudget, Errors.CoinIssuer__InsufficientMintAvailable(cachedBudget, _amount));
-    cachedBudget -= _amount;
+    uint256 budget = cachedBudget;
+
+    require(_amount <= budget, Errors.CoinIssuer__InsufficientMintAvailable(budget, _amount));
+    cachedBudget = budget - _amount;
 
     ASSET.mint(_to, _amount);
   }

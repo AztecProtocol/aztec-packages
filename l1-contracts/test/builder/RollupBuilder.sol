@@ -259,6 +259,8 @@ contract RollupBuilder is Test {
   function deploy() public returns (RollupBuilder) {
     if (address(config.testERC20) == address(0)) {
       config.testERC20 = new TestERC20("test", "TEST", address(this));
+      // We need some supply to exist for the CoinIssuer to make sense, so we mint a single token.
+      config.testERC20.mint(address(this), 1e18);
     }
 
     if (address(config.coinIssuer) == address(0)) {
