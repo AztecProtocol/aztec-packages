@@ -33,6 +33,8 @@ export class NodeMetrics {
       description: 'How many snapshot errors have happened',
       valueType: ValueType.INT,
     });
+
+    this.snapshotErrorCount.add(0);
   }
 
   receivedTx(durationMs: number, isAccepted: boolean) {
