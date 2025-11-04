@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-tags: [sandbox, connection, pxe]
+tags: [sandbox, connection, wallet]
 sidebar_position: 1
 description: Connect your application to the Aztec sandbox and interact with accounts.
 ---
@@ -30,26 +30,22 @@ const node = createAztecNodeClient("http://localhost:8080");
 const l1Contracts = await node.getL1ContractAddresses();
 ```
 
-As the name implies, we want to know the L1 Contracts addresses for our PXE.
+As the name implies, we want to know the L1 Contracts addresses for our wallet.
 
-## Create a PXE
+## Create a TestWallet
 
-Although the sandbox comes with its own PXE, it's useful to create one specifically for your use-case. You will need to bring your own PXE to the testnet eventually. Let's create a PXE store and configure it:
+You will need to create your own TestWallet to connect to sandbox accounts. Let's create a TestWallet:
 
 ```typescript
-import { createStore } from "@aztec/kv-store/lmdb";
-import { createPXE, getPXEConfig } from "@aztec/pxe/server";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TestWallet } from "@aztec/test-wallet/server";
 
-const config = getPXEConfig();
-const fullConfig = { ...config, l1Contracts };
-fullConfig.proverEnabled = false; // you'll want to set this to "true" once you're ready to connect to the testnet
-
-const store = await createStore("pxe", {
-  dataDirectory: "store",
-  dataStoreMapSizeKb: 1e6,
-});
-const pxe = await createPXE(node, fullConfig, { store });
-await waitForPXE(pxe);
+export async function setupWallet(): Promise<TestWallet> {
+  const nodeUrl = "http://localhost:8080";
+  const node = createAztecNodeClient(nodeUrl);
+  const wallet = await TestWallet.create(node);
+  return wallet;
+}
 ```
 
 ### Verify the connection
@@ -57,24 +53,12 @@ await waitForPXE(pxe);
 Get node information to confirm your connection:
 
 ```typescript
-const nodeInfo = await pxe.getNodeInfo();
+const nodeInfo = await node.getNodeInfo();
 console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
 console.log("Chain ID:", nodeInfo.l1ChainId);
 ```
 
-## Create wallets
-
-Now that we have a PXE running, we can create a Wallet:
-
-```typescript
-import { createAztecNodeClient } from "@aztec/aztec.js";
-import { TestWallet } from "@aztec/test-wallet/server";
-
-const node = createAztecNodeClient("http://localhost:8080");
-const wallet = await TestWallet.create(node);
-```
-
-### Get test accounts
+### Get sandbox accounts
 
 The sandbox has some accounts pre-funded with fee-juice to pay for gas. You can import them and create accounts:
 
@@ -91,9 +75,9 @@ await wallet.createSchnorrAccount(bobAccount.secret, bobAccount.salt);
 Verify that the accounts have fee juice for transactions:
 
 ```typescript
-import { getFeeJuiceBalance } from "@aztec/aztec.js";
+import { getFeeJuiceBalance } from "@aztec/aztec.js/utils";
 
-const aliceBalance = await getFeeJuiceBalance(aliceAccount.address, pxe);
+const aliceBalance = await getFeeJuiceBalance(aliceAccount.address, node);
 console.log(`Alice's fee juice balance: ${aliceBalance}`);
 ```
 

@@ -53,7 +53,7 @@ aztec-up -v latest
 ```
 
 :::warning
-The testnet is version dependent. It is currently running version `2.0.2`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `2.0.4`. Maintain version consistency when interacting with the testnet to reduce errors.
 :::
 
 ## Getting Started on Testnet

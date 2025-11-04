@@ -8,7 +8,7 @@ tags: [sandbox, testnet]
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using the sandbox. If you'd rather jump into testnet, read the [getting started on testnet guide](./getting_started_on_testnet.md).
+Get started on your local environment using the sandbox. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
 
 The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
@@ -97,6 +97,7 @@ Choose a boilerplate and click "create new codespace":
 [![One-Click React Starter](/img/codespaces_badges/react_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Freact%2Fdevcontainer.json) [![One-Click HTML/TS Starter](/img/codespaces_badges/vanilla_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Fvanilla%2Fdevcontainer.json) [![One-Click Token Starter](/img/codespaces_badges/token_cta_badge.svg)](https://codespaces.new/AztecProtocol/aztec-packages?devcontainer_path=.devcontainer%2Ftoken%2Fdevcontainer.json)
 
 This creates a codespace with a prebuilt image containing one of the "Aztec Boxes" and a development network (sandbox).
+
 - You can develop directly on the codespace, push it to a repo, make yourself at home.
 - You can also just use the sandbox that comes with it. The URL will be logged, you just need to use it as your `PXE_URL`.
 
@@ -112,7 +113,7 @@ import { CLI_Add_Test_Accounts } from '@site/src/components/Snippets/general_sni
 
 <CLI_Add_Test_Accounts />
 
-To add the test accounts in the PXE, run this in another terminal:
+To add the test accounts in the wallet, run this in another terminal:
 
 ```bash
 aztec-wallet import-test-accounts

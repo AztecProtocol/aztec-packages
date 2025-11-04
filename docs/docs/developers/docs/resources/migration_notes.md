@@ -9,6 +9,169 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [Aztec.nr]
+
+### Renaming #[internal] as #[only_self]
+
+We want for internal to mean the same as in Solidity where internal function can be called only from the same contract
+and is also inlined (EVM JUMP opcode and not EVM CALL). The original implementation of our `#[internal]` macro also
+results in the function being callable only from the same contract but it results in a different call (hence it doesn't
+map to EVM JUMP). This is very confusing for people that know Solidity hence we are doing the rename. A true
+`#[internal]` will be introduced in the future.
+
+To migrate your contracts simply rename all the occurrences of `#[internal]` with `#[only_self]` and update the imports:
+
+```diff
+- use aztec::macros::functions::internal;
++ use aztec::macros::functions::only_self;
+```
+
+```diff
+#[external("public")]
+- #[internal]
++ #[only_self]
+fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
+    ...
+}
+```
+
+### Introducing `self` in contracts
+
+Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface for accessing the contract's address, storage, and execution context.
+
+#### What is `self`?
+
+`self` is an instance of `ContractSelf<Context, Storage>` that provides:
+
+- `self.address` - The contract's own address
+- `self.storage` - Access to your contract's storage
+- `self.context` - The execution context (private, public, or utility)
+- `self.msg_sender()` - Get the address of the caller
+- `self.emit(...)` - Emit events
+
+And soon to be implemented also:
+
+- `self.call(...)` - Make contract calls
+
+#### How it works
+
+The `#[external(...)]` macro automatically injects `self` into your function. When you write:
+
+```noir
+#[external("private")]
+fn transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+    self.storage.balances.at(recipient).add(amount);
+}
+```
+
+The macro transforms it to initialize `self` with the context and storage before your code executes.
+
+#### Migration guide
+
+**Before:** Access context and storage as separate parameters
+
+```noir
+#[external("private")]
+fn old_transfer(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    storage.balances.at(sender).sub(amount);
+}
+```
+
+**After:** Use `self` to access everything
+
+```noir
+#[external("private")]
+fn new_transfer(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    self.storage.balances.at(sender).sub(amount);
+}
+```
+
+#### Key changes
+
+1. **Storage and context access:**
+
+Storage and context are no longer injected into the function as standalone variables and instead you need to access them via `self`:
+
+```diff
+- let balance = storage.balances.at(owner).read();
++ let balance = self.storage.balances.at(owner).read();
+```
+
+```diff
+- context.push_nullifier(nullifier);
++ self.context.push_nullifier(nullifier);
+```
+
+Note that `context` is expected to be use only when needing to access a low-level API (like directly emitting a nullifier).
+
+2. **Getting caller address:** Use `self.msg_sender()` instead of `context.msg_sender()`
+
+   ```diff
+   - let caller = context.msg_sender().unwrap();
+   + let caller = self.msg_sender().unwrap();
+   ```
+
+3. **Getting contract address:** Use `self.address` instead of `context.this_address()`
+
+   ```diff
+   - let this_contract = context.this_address();
+   + let this_contract = self.address;
+   ```
+
+4. **Emitting events:**
+
+   In private functions:
+
+   ```diff
+   - emit_event_in_private(event, context, recipient, delivery_mode);
+   + self.emit(event, recipient, delivery_mode);
+   ```
+
+   In public functions:
+
+   ```diff
+   - emit_event_in_public(event, context);
+   + self.emit(event);
+   ```
+
+#### Example: Full contract migration
+
+**Before:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let storage = Storage::init(context);
+    let sender = context.msg_sender().unwrap();
+    let token = storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    emit_event_in_private(Withdraw { withdrawer, amount }, context, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+**After:**
+
+```noir
+#[external("private")]
+fn withdraw(amount: u128, recipient: AztecAddress) {
+    let sender = self.msg_sender().unwrap();
+    let token = self.storage.donation_token.get_note().get_address();
+
+    // ... withdrawal logic
+
+    self.emit(Withdraw { withdrawer, amount }, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+}
+```
+
+## 3.0.0-devnet.2
+
 ## [aztec.js] Removal of barrel export
 
 `aztec.js` is now divided into granular exports, which improves loading performance in node.js and also makes the job of web bundlers easier:
@@ -196,165 +359,6 @@ The following commands were dropped from the `aztec` command:
 - `get-pxe-info`: debug-only and not considered important enough to need a replacement
 
 ## [Aztec.nr]
-
-### Introducing `self` in contracts
-
-Aztec contracts now automatically inject a `self` parameter into every contract function, providing a unified interface for accessing the contract's address, storage, and execution context.
-
-#### What is `self`?
-
-`self` is an instance of `ContractSelf<Context, Storage>` that provides:
-
-- `self.address` - The contract's own address
-- `self.storage` - Access to your contract's storage
-- `self.context` - The execution context (private, public, or utility)
-- `self.msg_sender()` - Get the address of the caller
-- `self.emit(...)` - Emit events
-
-And soon to be implemented also:
-
-- `self.call(...)` - Make contract calls
-
-#### How it works
-
-The `#[external(...)]` macro automatically injects `self` into your function. When you write:
-
-```noir
-#[external("private")]
-fn transfer(amount: u128, recipient: AztecAddress) {
-    let sender = self.msg_sender().unwrap();
-    self.storage.balances.at(sender).sub(amount);
-    self.storage.balances.at(recipient).add(amount);
-}
-```
-
-The macro transforms it to initialize `self` with the context and storage before your code executes.
-
-#### Migration guide
-
-**Before:** Access context and storage as separate parameters
-
-```noir
-#[external("private")]
-fn old_transfer(amount: u128, recipient: AztecAddress) {
-    let storage = Storage::init(context);
-    let sender = context.msg_sender().unwrap();
-    storage.balances.at(sender).sub(amount);
-}
-```
-
-**After:** Use `self` to access everything
-
-```noir
-#[external("private")]
-fn new_transfer(amount: u128, recipient: AztecAddress) {
-    let sender = self.msg_sender().unwrap();
-    self.storage.balances.at(sender).sub(amount);
-}
-```
-
-#### Key changes
-
-1. **Storage and context access:**
-
-Storage and context are no longer injected into the function as standalone variables and instead you need to access them via `self`:
-
-```diff
-- let balance = storage.balances.at(owner).read();
-+ let balance = self.storage.balances.at(owner).read();
-```
-
-```diff
-- context.push_nullifier(nullifier);
-+ self.context.push_nullifier(nullifier);
-```
-
-Note that `context` is expected to be use only when needing to access a low-level API (like directly emitting a nullifier).
-
-2. **Getting caller address:** Use `self.msg_sender()` instead of `context.msg_sender()`
-
-   ```diff
-   - let caller = context.msg_sender().unwrap();
-   + let caller = self.msg_sender().unwrap();
-   ```
-
-3. **Getting contract address:** Use `self.address` instead of `context.this_address()`
-
-   ```diff
-   - let this_contract = context.this_address();
-   + let this_contract = self.address;
-   ```
-
-4. **Emitting events:**
-
-   In private functions:
-
-   ```diff
-   - emit_event_in_private(event, context, recipient, delivery_mode);
-   + self.emit(event, recipient, delivery_mode);
-   ```
-
-   In public functions:
-
-   ```diff
-   - emit_event_in_public(event, context);
-   + self.emit(event);
-   ```
-
-#### Example: Full contract migration
-
-**Before:**
-
-```noir
-#[external("private")]
-fn withdraw(amount: u128, recipient: AztecAddress) {
-    let storage = Storage::init(context);
-    let sender = context.msg_sender().unwrap();
-    let token = storage.donation_token.get_note().get_address();
-
-    // ... withdrawal logic
-
-    emit_event_in_private(Withdraw { withdrawer, amount }, context, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
-}
-```
-
-**After:**
-
-```noir
-#[external("private")]
-fn withdraw(amount: u128, recipient: AztecAddress) {
-    let sender = self.msg_sender().unwrap();
-    let token = self.storage.donation_token.get_note().get_address();
-
-    // ... withdrawal logic
-
-    self.emit(Withdraw { withdrawer, amount }, withdrawer, MessageDelivery.UNCONSTRAINED_ONCHAIN);
-}
-```
-
-### Renaming #[internal] as #[only_self]
-
-We want for internal to mean the same as in Solidity where internal function can be called only from the same contract
-and is also inlined (EVM JUMP opcode and not EVM CALL). The original implementation of our `#[internal]` macro also
-results in the function being callable only from the same contract but it results in a different call (hence it doesn't
-map to EVM JUMP). This is very confusing for people that know Solidity hence we are doing the rename. A true
-`#[internal]` will be introduced in the future.
-
-To migrate your contracts simply rename all the occurrences of `#[internal]` with `#[only_self]` and update the imports:
-
-```diff
-- use aztec::macros::functions::internal;
-+ use aztec::macros::functions::only_self;
-```
-
-```diff
-#[external("public")]
-- #[internal]
-+ #[only_self]
-fn _deduct_public_balance(owner: AztecAddress, amount: u64) {
-    ...
-}
-```
 
 ### Replacing #[private], #[public], #[utility] with #[external(...)] macro
 

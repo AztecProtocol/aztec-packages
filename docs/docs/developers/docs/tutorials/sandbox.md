@@ -1,7 +1,7 @@
 ---
 title: Run Aztec in a Sandbox
 sidebar_position: 0
-tags: [sandbox, PXE]
+tags: [sandbox, wallet]
 description: Information about running the Aztec sandbox development environment.
 ---
 
@@ -17,7 +17,6 @@ On this page you will find
 - [How to update Aztec.nr packages](#updating-aztecnr-packages)
 - [How to update Aztec.js packages](#updating-aztecjs-packages)
 - [How to enable client-side proving](#sandbox-pxe-proving)
-- [How to run multiple PXEs](#running-multiple-pxes-in-the-sandbox)
 
 ## Versions
 

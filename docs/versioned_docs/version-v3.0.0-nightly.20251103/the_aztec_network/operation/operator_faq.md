@@ -31,15 +31,18 @@ ERROR: world-state:database Call SYNC_BLOCK failed: Error: Can't synch block: bl
 **Solution**:
 
 1. Stop your node:
+
    - Docker Compose: `docker compose down`
    - CLI: Press `Ctrl+C` to stop the process
 
 2. Remove the archiver data directory:
+
    ```bash
    rm -rf ~/.aztec/v2.0.2/data/archiver
    ```
 
 3. Update to the latest version:
+
    ```bash
    aztec-up -v latest
    ```
@@ -62,11 +65,13 @@ This process removes local state and requires full resynchronization. Consider u
 **Solutions**:
 
 1. **Verify L1 endpoint configuration**:
+
    - Check your `L1_CONSENSUS_HOST_URLS` setting points to your beacon node
    - Check your `ETHEREUM_HOSTS` setting points to your execution client
    - Ensure URLs are formatted correctly (e.g., `http://localhost:5052` for beacon)
 
 2. **Test endpoint connectivity**:
+
    ```bash
    # Test beacon endpoint
    curl [YOUR_BEACON_ENDPOINT]/eth/v1/beacon/headers
@@ -78,6 +83,7 @@ This process removes local state and requires full resynchronization. Consider u
    ```
 
 3. **Verify L1 clients are synced**:
+
    - Check that your beacon node is fully synced
    - Check that your execution client is fully synced
    - Use `docker compose logs` or check L1 client logs for sync status
@@ -103,11 +109,13 @@ Error: too many requests
 **Solutions**:
 
 1. **Register for an API key with your RPC provider**:
+
    - Most providers (Infura, Alchemy, QuickNode) offer higher limits with authenticated requests
    - Update your configuration to include the API key in your RPC URL
    - Example: `https://mainnet.infura.io/v3/YOUR_API_KEY`
 
 2. **Use your own L1 node** (recommended for sequencers):
+
    - Running your own Ethereum node eliminates rate limits entirely
    - Provides better performance, reliability, and privacy
    - See [Eth Docker's guide](https://ethdocker.com/Usage/QuickStart) for setup instructions
@@ -136,12 +144,14 @@ Error: Unable to get blob sidecar, Gateway Time-out (504)
 **Solutions**:
 
 1. **Verify beacon endpoint configuration**:
+
    ```bash
    # Check L1_CONSENSUS_HOST_URLS in your configuration
    # Should point to your beacon node's API endpoint
    ```
 
 2. **Test beacon endpoint health**:
+
    ```bash
    # Check if beacon node is responding
    curl [YOUR_BEACON_ENDPOINT]/eth/v1/node/health
@@ -151,6 +161,7 @@ Error: Unable to get blob sidecar, Gateway Time-out (504)
    ```
 
 3. **Ensure beacon node is fully synced**:
+
    - Check your beacon client logs
    - Verify the sync status shows as synced
    - Blob data is only available for recent blocks (typically 18 days)
@@ -176,16 +187,19 @@ Error: insufficient funds for gas * price + value
 **Solutions**:
 
 1. **Get Sepolia ETH from a faucet**:
+
    - [Sepolia Faucet](https://sepoliafaucet.com/)
    - [Alchemy Sepolia Faucet](https://www.alchemy.com/faucets/ethereum-sepolia)
    - [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia)
 
 2. **Maintain sufficient balance**:
+
    - Keep at least **0.1 ETH** in your publisher account at all times
    - Monitor your balance regularly to avoid running out
    - Falling below the minimum balance may result in slashing
 
 3. **Set up balance monitoring**:
+
    ```bash
    # Check your publisher balance
    cast balance [YOUR_PUBLISHER_ADDRESS] --rpc-url [YOUR_RPC_URL]
@@ -241,13 +255,13 @@ To update to a specific version instead of latest:
 
 ```bash
 # CLI method
-aztec-up -v 2.0.2
+aztec-up -v 2.0.4
 
 # Docker Compose: Update your docker-compose.yml
 # Change the image tag from:
 image: "aztecprotocol/aztec:latest"
 # To:
-image: "aztecprotocol/aztec:2.0.2"
+image: "aztecprotocol/aztec:2.0.4"
 ```
 
 :::tip Stay Informed About Updates
@@ -265,6 +279,7 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
 **Solutions**:
 
 1. **Verify your external IP address**:
+
    ```bash
    curl ipv4.icanhazip.com
    ```
@@ -272,17 +287,20 @@ Join the [Aztec Discord](https://discord.gg/aztec) and follow the announcements 
    Confirm this matches your `P2P_IP` configuration.
 
 2. **Test port connectivity**:
+
    ```bash
    # From another machine, test if your P2P port is accessible
    nc -zv [YOUR_EXTERNAL_IP] 40400
    ```
 
 3. **Configure router port forwarding**:
+
    - Log into your router's admin interface
    - Forward port 40400 (TCP and UDP) to your node's local IP address
    - Save and restart router if needed
 
 4. **Check local firewall rules**:
+
    ```bash
    # Linux: Allow P2P port through firewall
    sudo ufw allow 40400/tcp
@@ -321,6 +339,7 @@ CodeError: stream reset
 **Solutions**:
 
 1. **Verify keystore.json format**:
+
    ```json
    {
      "schemaVersion": 1,
@@ -336,11 +355,13 @@ CodeError: stream reset
    ```
 
 2. **Validate private key format**:
+
    - Keys should start with `0x`
    - Keys should be 64 hexadecimal characters (plus the `0x` prefix)
    - No spaces or extra characters
 
 3. **Check file permissions**:
+
    ```bash
    # Ensure keystore is readable
    chmod 600 ~/.aztec/keys/keystore.json
@@ -364,6 +385,7 @@ For more information on keystore configuration, see the [advanced keystore guide
 **Solutions**:
 
 1. **Check container logs**:
+
    ```bash
    docker compose logs aztec-sequencer
    ```
@@ -371,11 +393,13 @@ For more information on keystore configuration, see the [advanced keystore guide
    Look for specific error messages that indicate the problem.
 
 2. **Verify Docker resources**:
+
    - Ensure sufficient disk space: `df -h`
    - Check Docker has adequate memory allocated (16GB+ recommended)
    - Verify CPU resources are available
 
 3. **Check environment file format**:
+
    ```bash
    # Verify .env file exists and is properly formatted
    cat .env
@@ -385,6 +409,7 @@ For more information on keystore configuration, see the [advanced keystore guide
    ```
 
 4. **Verify port availability**:
+
    ```bash
    # Check if ports are already in use
    lsof -i :8080
@@ -392,6 +417,7 @@ For more information on keystore configuration, see the [advanced keystore guide
    ```
 
 5. **Update Docker and Docker Compose**:
+
    ```bash
    # Check versions
    docker --version
@@ -413,12 +439,14 @@ For more information on keystore configuration, see the [advanced keystore guide
 If you've tried the solutions above and are still experiencing issues:
 
 1. **Gather diagnostic information**:
+
    - Recent log output from your node
    - Your configuration (remove private keys!)
    - Aztec version you're running
    - Operating system and hardware specs
 
 2. **Check existing issues**:
+
    - Browse the [Aztec GitHub issues](https://github.com/AztecProtocol/aztec-packages/issues)
    - Search for similar problems and solutions
 

@@ -20,11 +20,11 @@ This guide shows you how to implement cross-chain communication between Ethereum
 
 Use the `Inbox` contract to send messages from L1 to L2. Call `sendL2Message` with these parameters:
 
-| Parameter   | Type     | Description |
-|-------------|----------|-------------|
-| `actor` | `L2Actor` | Your L2 contract address and rollup version |
+| Parameter     | Type      | Description                                             |
+| ------------- | --------- | ------------------------------------------------------- |
+| `actor`       | `L2Actor` | Your L2 contract address and rollup version             |
 | `contentHash` | `bytes32` | Hash of your message content (use `Hash.sha256ToField`) |
-| `secretHash` | `bytes32` | Hash of a secret for message consumption |
+| `secretHash`  | `bytes32` | Hash of a secret for message consumption                |
 
 In your Solidity contract:
 
@@ -135,10 +135,11 @@ function consumeMessageFromL2(
 
 :::info
 
-The `_leafIndex` and `_path` parameters are merkle tree proofs needed to verify the message exists. Get them using JavaScript:
+You can get the witness for the l2 to l1 message as follows:
 
 ```ts
-import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
+import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
+import { computeL2ToL1MessageHash } from "@aztec/stdlib/hash";
 
 // Compute the message hash
 const l2ToL1Message = computeL2ToL1MessageHash({
@@ -149,9 +150,9 @@ const l2ToL1Message = computeL2ToL1MessageHash({
   chainId: new Fr(chainId),
 });
 
-// Get the merkle proof
-const [leafIndex, siblingPath] = await pxe.getL2ToL1MembershipWitness(
-  await pxe.getBlockNumber(),
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  exitReceipt.blockNumber!,
   l2ToL1Message
 );
 ```

@@ -32,7 +32,7 @@ Before diving into the setup, it's important to understand the differences betwe
 - Ideal for production-like testing
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/tutorials/sandbox.md).
+If you're new to Aztec and want to understand local development first, check out the [sandbox guide](./docs/guides/local_env/sandbox.md).
 :::
 
 ## Prerequisites
@@ -53,7 +53,7 @@ aztec-up -v latest
 ```
 
 :::warning
-The testnet is version dependent. It is currently running version `#include_testnet_version`. Maintain version consistency when interacting with the testnet to reduce errors.
+The testnet is version dependent. It is currently running version `2.0.4`. Maintain version consistency when interacting with the testnet to reduce errors.
 :::
 
 ## Getting Started on Testnet
@@ -155,34 +155,34 @@ You can connect to testnet directly from your app using AztecJS:
 In the browser:
 
 ```javascript
-import { createPXE } from "@aztec/pxe/client/lazy";
+import { createPXEService } from "@aztec/pxe/client/lazy";
 ```
 
 In Node.js:
 
 ```javascript
-import { createPXE } from "@aztec/pxe/server";
+import { createPXEService } from "@aztec/pxe/server";
 ```
 
 Then initialize with testnet configuration:
 
 ```javascript
 import { createAztecNodeClient } from "@aztec/aztec.js";
-import { getPXEConfig } from "@aztec/pxe/server";
+import { getPXEServiceConfig } from "@aztec/pxe/server";
 import { createStore } from "@aztec/kv-store/lmdb";
 
 const NODE_URL = "https://aztec-testnet-fullnode.zkv.xyz";
 const node = createAztecNodeClient(NODE_URL);
 const l1Contracts = await node.getL1ContractAddresses();
-const config = getPXEConfig();
+const config = getPXEServiceConfig();
 const fullConfig = { ...config, l1Contracts };
 
 const store = await createStore("pxe1", {
   dataDirectory: "store",
-  dataStoreMapSizeKb: 1e6,
+  dataStoreMapSizeKB: 1e6,
 });
 
-const pxe = await createPXE(node, fullConfig, { store });
+const pxe = await createPXEService(node, fullConfig, { store });
 ```
 
 ### 3. Handle Fees on Testnet
@@ -240,13 +240,13 @@ const nodeUrl = process.env.NODE_URL || "http://localhost:8080";
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [sandbox tutorial](../developers/docs/tutorials/sandbox.md) for faster development
+- **New to Aztec?** Start with the [sandbox guide](./docs/guides/local_env/sandbox.md) for faster development
 - **Ready for production testing?** Continue using testnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
 
 ## Additional Resources
 
-- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
+- [Fee payment guide](./docs/guides/js_apps/how_to_pay_fees.md)
 - [Running a node](../the_aztec_network/index.md)
 - [Block explorers](https://aztecscan.xyz)

@@ -18,6 +18,7 @@ In this tutorial, we'll build a token contract that allows Giggle to mint BOB to
 ## Prerequisites
 
 This is an intermediate tutorial that assumes you have:
+
 - Completed the [Counter Contract tutorial](./counter_contract.md)
 - A running Aztec Sandbox (see the Counter tutorial for setup)
 - Basic understanding of Aztec.nr syntax and structure
@@ -184,7 +185,7 @@ You should now have a nice typescript interface in a new `artifacts` folder. Pre
 
 ### Deploy and Test
 
-Create `index.ts`. We will connect to our running sandbox and its PXE, then deploy the test accounts and get three wallets out of it.
+Create `index.ts`. We will connect to our running sandbox and its wallet, then deploy the test accounts and get three wallets out of it.
 
 Then we will use the `giggleWallet` to deploy our contract, mint 100 BOB to Alice, then transfer 10 of those to Bob's Clinic publicly... for now. Let's go:
 

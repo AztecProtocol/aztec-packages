@@ -26,21 +26,21 @@ The .md files in the `docs/` directory are the docs. See the [Docusaurus website
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not, it allows you to hot-fix previous versions.
 
-When you look at the published docs site, you will see three versions in the version dropdown: `Next`, `testnet`, and the latest sandbox release e.g. `v0.86.0`. Updating the files in the `docs` folder will update the next version (which is not currently published, but will be when the next release is cut), updating the files in `versioned_docs/version-v0.87.8` folder will update the `0.87.8` version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
+When you look at the published docs site, you will see versions in the version dropdown such as `nightly`, `devnet`, and `testnet`. Updating the files in the `docs` folder will update the dev version (which is not currently published to production, but will be when the next release is cut), updating the files in versioned folders like `versioned_docs/version-v2.0.4` will update that specific version. Note that you cannot use the macros (`#include_aztec_version` and `#include_code`) in the `versioned_docs` folder, since those docs have already been processed and built. Instead, just drop the code snippets, version numbers or links directly in the docs as you'd like them to be rendered.
 
 The way docs builds work is the following:
 
-- CI runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
-- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
-- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
+- CI runs on merge to next (the default branch), builds the dependencies needed to build the docs, then deploys on the main docs website
+- [The main CI workflow](../.github/workflows/ci3.yml) runs on pull requests and builds the dependencies and the docs, giving you a preview to check that everything is correct. You can also trigger docs CI specifically with the `ci-docs` label on a PR.
+- [The nightly docs workflow](../.github/workflows/nightly-docs-release.yml) runs daily to create versioned documentation for nightly releases, automatically cutting a new version of the docs for the latest nightly tag
 
-The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v2.0.4). Remove the versions listed in `versions.json` before running:
 
 ```bash
-COMMIT_TAG=v0.84.0 yarn build
+COMMIT_TAG=v2.0.4 yarn build
 ```
 
-You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v0.85.0` will render as `0.85.0`.
+You can add the aztec version to a docs page without the `v` prefix with `#include_version_without_prefix`, so COMMIT_TAG `v2.0.4` will render as `2.0.4`.
 
 ### How do I change the versions that show in the website
 
@@ -48,7 +48,7 @@ When docusaurus builds, it looks for the `versions.json` file, and builds the ve
 
 ## Releases
 
-A new docs site is published on every merge to the master branch.
+A new docs site is published on every merge to the next branch.
 
 ### Installation
 
@@ -71,7 +71,7 @@ This step does the following:
 - Puts the final documentation in a `processed-docs` folder.
 
 > [!NOTE]
-> The `yarn dev` command runs preprocessing once at startup and then serves from the `processed-docs` folder. This means that changes to files in the `docs` folder will NOT be reflected until you restart the dev server. This applies to all changes - both regular markdown edits and changes to code included via `#include_code` macros.
+> The `yarn start` command runs preprocessing once at startup and then serves from the `processed-docs` folder. This means that changes to files in the `docs` folder will NOT be reflected until you restart the dev server. This applies to all changes - both regular markdown edits and changes to code included via `#include_code` macros.
 > For a full build with all preprocessing, use `yarn build` instead.
 
 #### Run locally
@@ -79,13 +79,13 @@ This step does the following:
 To run docusaurus development server, run:
 
 ```
-$ yarn dev
+$ yarn start
 ```
 
-This command will start the development server on `HOST=0.0.0.0` by default, which allows access from remote targets like codespaces. You can override the host by setting the `HOST` environment variable.
+This command will start the development server on `HOST=localhost` by default. You can override the host by setting the `HOST` environment variable (e.g., `HOST=0.0.0.0 yarn start` to allow access from remote targets like codespaces).
 
 > [!TIP]
-> Since hot reloading is not available, you'll need to restart the dev server (`Ctrl+C` and run `yarn dev` again) to see any changes you make to the documentation.
+> Since hot reloading is not available, you'll need to restart the dev server (`Ctrl+C` and run `yarn start` again) to see any changes you make to the documentation.
 
 #### Netlify Development (Full-Stack Testing)
 
@@ -112,7 +112,7 @@ Browser Request to localhost:8888
 ```
 
 **When to use each:**
-- `yarn dev` → Fast docs development (requires dev server restart for changes)
+- `yarn start` → Fast docs development (requires dev server restart for changes)
 - `yarn dev:netlify` → Testing email subscriptions, functions, full production-like environment
 
 **Environment Setup:**
@@ -217,6 +217,11 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 
 This macro will be replaced inline with the provided testnet version. This value is sourced from the `TESTNET_TAG` environment variable when running `yarn build` (e.g. `TESTNET_TAG=0.87.5 yarn build`).
 This value may be different from the `#include_aztec_version` macro, since the testnet version is not always the same as the latest aztec packages version.
+
+### `#include_devnet_version`
+
+This macro will be replaced inline with the provided devnet version. This value is sourced from the `DEVNET_TAG` environment variable when running `yarn build` (e.g. `DEVNET_TAG=3.0.0-devnet.2 yarn build`). If not specified, it defaults to `3.0.0-devnet.2`.
+This value may be different from both `#include_aztec_version` and `#include_testnet_version` macros, since the devnet version represents a separate development network release.
 
 ## Viewing (outdated) protocol specs
 

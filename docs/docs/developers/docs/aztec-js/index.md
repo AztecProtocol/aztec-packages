@@ -15,17 +15,6 @@ Aztec.js is a library that provides APIs for managing accounts and interacting w
 npm install @aztec/aztec.js
 ```
 
-## Importing
-
-At the top of your JavaScript file, you can import what you need, eg:
-
-```typescript
-import {
-  createPXEClient,
-  waitForPXE,
-} from '@aztec/aztec.js';
-```
-
 ## Flow
 
 These are some of the important functions you'll need to use in your Aztec.js:
