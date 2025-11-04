@@ -76,8 +76,8 @@ class MultilinearBatchingFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_non_shifted_accumulator, // column 0
                               w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2
-                              w_evaluations_instance);   // column 3
+                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
+                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
     };
 
     /**
@@ -90,8 +90,8 @@ class MultilinearBatchingFlavor {
         DEFINE_FLAVOR_MEMBERS(DataType,
                               w_non_shifted_accumulator, // column 0
                               w_non_shifted_instance,    // column 1
-                              w_evaluations_accumulator, // column 2
-                              w_evaluations_instance);   // column 3
+                              w_evaluations_accumulator, // column 2, eq(Sumcheck::alpha, accumulator_challenge)
+                              w_evaluations_instance);   // column 3, eq(Sumcheck::alpha, instance_challenge)
 
         MSGPACK_FIELDS(this->w_non_shifted_accumulator,
                        this->w_non_shifted_instance,
