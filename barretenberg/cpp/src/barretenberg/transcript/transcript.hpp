@@ -31,14 +31,16 @@ concept InCircuit = !IsAnyOf<T, bb::fr, grumpkin::fr, uint256_t>;
 // A static counter for the number of transcripts created
 // This is used to generate unique labels for the transcript origin tags
 
-// ‘inline’ (since C++17) ensures a single shared definition with external linkage.
+// 'inline' (since C++17) ensures a single shared definition with external linkage.
 inline std::atomic<size_t> unique_transcript_index{ 0 };
+
 /**
  * @brief Common transcript class for both parties. Stores the data for the current round, as well as the
  * manifest.
  */
 template <typename Codec_, typename HashFunction_> class BaseTranscript {
   public:
+    // ==================== TYPE ALIASES & CONSTANTS ====================
     using Codec = Codec_;
     using HashFunction = HashFunction_;
     using DataType = typename Codec::DataType;
@@ -49,21 +51,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     // A `DataType` challenge is split into two limbs that consitute challenge buffer
     static constexpr size_t CHALLENGE_BUFFER_SIZE = 2;
 
-    // Indicates whether the transcript is receiving data from the prover
-    bool reception_phase = true;
-
-    // Friend function for secure tag context extraction
-    template <typename T> friend OriginTag bb::create_transcript_tag(const T& transcript);
-
-  private:
-    // The unique index of the transcript (PRIVATE - access via create_transcript_tag)
-    size_t transcript_index = 0;
-
-    // The index of the current round of the transcript (PRIVATE - access via create_transcript_tag)
-    // Round is only incremented if we switch from generating to receiving
-    size_t round_index = 0;
-
-  public:
+    // ==================== CONSTRUCTORS ====================
     BaseTranscript()
     {
         // If we are in circuit, we need to get a unique index for the transcript
@@ -73,23 +61,43 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     }
 
     // Verifier-specific constructor.
-    BaseTranscript(const Proof& proof) { load_proof(proof); }
+    explicit BaseTranscript(const Proof& proof) { load_proof(proof); }
 
-    std::ptrdiff_t proof_start = 0;
-    size_t num_frs_written = 0; // the number of bb::frs written to proof_data by the prover
-    size_t num_frs_read = 0;    // the number of bb::frs read from proof_data by the verifier
-    size_t round_number = 0;    // current round for manifest
+    // ==================== PROTOCOL METHODS & UTILITIES ====================
+    // (public protocol methods defined below in the class body)
+
+  protected:
+    // ==================== PROTECTED STATE (for derived classes) ====================
+    Proof proof_data; // Contains the raw data sent by the prover.
+
+    // ==================== PROTECTED HELPERS (for derived classes) ====================
+    // (protected helper methods defined below in the class body)
 
   private:
-    bool is_first_challenge = true; // indicates if this is the first challenge this transcript is generating
-    DataType previous_challenge{};  // default-initialized to zeros
-    std::vector<DataType>
-        current_round_data; // the data for the current round that will be hashed to generate challenges
+    // Friend function for secure tag context extraction
+    template <typename T> friend OriginTag bb::create_transcript_tag(const T& transcript);
 
-    bool use_manifest = false; // indicates whether the manifest is turned on, currently only on for manifest tests.
+    // ==================== FIAT-SHAMIR ROUND TRACKING (security-critical) ====================
+    size_t transcript_index = 0; // Unique transcript ID (PRIVATE - access via create_transcript_tag)
+    size_t round_index = 0;      // Current FS round (PRIVATE - access via create_transcript_tag)
+    bool reception_phase = true; // Whether receiving from prover or generating challenges
 
-    // "Manifest" object that records a summary of the transcript interactions
-    TranscriptManifest manifest;
+    // ==================== CHALLENGE GENERATION STATE ====================
+    bool is_first_challenge = true;           // Indicates if this is the first challenge this transcript is generating
+    DataType previous_challenge{};            // Previous challenge buffer (default-initialized to zeros)
+    std::vector<DataType> current_round_data; // Data for the current round that will be hashed to generate challenges
+
+    // ==================== PROOF PARSING STATE ====================
+    std::ptrdiff_t proof_start = 0;
+    size_t num_frs_written = 0; // Number of frs written to proof_data by the prover
+    size_t num_frs_read = 0;    // Number of frs read from proof_data by the verifier
+    size_t round_number = 0;    // Current round number for manifest
+
+    // ==================== MANIFEST (optional debugging) ====================
+    bool use_manifest = false;   // Indicates whether the manifest is turned on (only for manifest tests)
+    TranscriptManifest manifest; // Records a summary of the transcript interactions
+
+    // ==================== PRIVATE HELPERS ====================
 
     /**
      * @brief Compute next challenge c_next = H( Compress(c_prev || round_buffer) )
@@ -131,11 +139,9 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         // update previous challenge buffer for next time we call this function
         previous_challenge = new_challenge;
         return new_challenges;
-    };
+    }
 
   protected:
-    Proof proof_data; // Contains the raw data sent by the prover.
-
     /**
      * @brief Adds challenge elements to the current_round_buffer and updates the manifest.
      *
@@ -470,6 +476,26 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         }
         manifest.print();
     }
+
+    // ==================== TEST-SPECIFIC UTILITIES ====================
+    // Methods for test utilities to manipulate proof parsing state.
+    // These should ONLY be used in test code for proof tampering/validation.
+
+    /**
+     * @brief Test utility: Set proof parsing state for export after deserialization
+     * @details Used by test utilities that need to re-export proofs after tampering
+     */
+    void test_set_proof_parsing_state(std::ptrdiff_t start, size_t written)
+    {
+        proof_start = start;
+        num_frs_written = written;
+    }
+
+    /**
+     * @brief Test utility: Get proof_start for validation
+     * @details Used by test fixtures to verify transcript conversion
+     */
+    std::ptrdiff_t test_get_proof_start() const { return proof_start; }
 };
 
 using NativeTranscript = BaseTranscript<FrCodec, bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>>;

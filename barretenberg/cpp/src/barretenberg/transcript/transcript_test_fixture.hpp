@@ -384,7 +384,7 @@ template <typename Codec, typename HashFunction> class TranscriptTest : public :
         auto verifier_transcript =
             NativeTranscript::convert_prover_transcript_to_verifier_transcript(prover_transcript);
 
-        BB_ASSERT_EQ(verifier_transcript->proof_start, 0);
+        BB_ASSERT_EQ(verifier_transcript->test_get_proof_start(), 0);
         BB_ASSERT_EQ(prover_transcript->template get_challenge<bb::fr>("test_challenge"),
                      verifier_transcript->template get_challenge<bb::fr>("test_challenge"));
     }
