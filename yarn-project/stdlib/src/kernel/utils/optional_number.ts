@@ -37,7 +37,7 @@ export class OptionalNumber {
 
   static fromFields(fields: Fr[] | FieldReader): OptionalNumber {
     const reader = FieldReader.asReader(fields);
-    return new OptionalNumber(reader.readBoolean(), reader.readU32());
+    return new OptionalNumber(reader.readBoolean(), Number(reader.readU32()));
   }
 
   isEmpty(): boolean {
