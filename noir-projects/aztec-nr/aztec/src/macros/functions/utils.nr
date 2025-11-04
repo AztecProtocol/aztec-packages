@@ -2,7 +2,7 @@ use crate::macros::{
     functions::{
         auth_registry::AUTHORIZE_ONCE_REGISTRY,
         call_interface_stubs::{
-            register_private_fn_stub, register_public_fn_stub, register_utility_fn_stub,
+            register_private_fn_stubs, register_public_fn_stubs, register_utility_fn_stub,
         },
     },
     notes::NOTES,
@@ -16,7 +16,7 @@ use dep::protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::{ctstring::AsCtString, type_of};
 
 pub(crate) comptime fn transform_private(f: FunctionDefinition) {
-    register_private_fn_stub(f);
+    register_private_fn_stubs(f);
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
@@ -60,7 +60,12 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
             let args_hash = aztec::hash::hash_args_array($serialized_args_name);
             let mut context = aztec::context::private_context::PrivateContext::new(inputs, args_hash);
             $storage_init
-            aztec::contract_self::ContractSelf::new_private(&mut context, storage)
+            let self_address = context.this_address();
+            let call_self: CallSelf<&mut aztec::context::private_context::PrivateContext> = CallSelf { address: self_address, context: &mut context };
+            let enqueue_self: EnqueueSelf<&mut aztec::context::private_context::PrivateContext> = EnqueueSelf { address: self_address, context: &mut context };
+            let call_self_static: CallSelfStatic<&mut aztec::context::private_context::PrivateContext> = CallSelfStatic { address: self_address, context: &mut context };
+            let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::private_context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
+            aztec::contract_self::ContractSelf::new_private(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static)
         };
     };
 
@@ -184,7 +189,7 @@ pub(crate) comptime fn transform_private(f: FunctionDefinition) {
 }
 
 pub(crate) comptime fn transform_public(f: FunctionDefinition) {
-    register_public_fn_stub(f);
+    register_public_fn_stubs(f);
 
     let module_has_initializer = module_has_initializer(f.module());
     let module_has_storage = module_has_storage(f.module());
@@ -229,7 +234,10 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) {
             dep::aztec::hash::hash_args_array(serialized_args)
             });
             $storage_init
-            aztec::contract_self::ContractSelf::new_public(context, storage)
+            let self_address = context.this_address();
+            let call_self: CallSelf<aztec::context::public_context::PublicContext> = CallSelf { address: self_address, context };
+            let call_self_static: CallSelfStatic<aztec::context::public_context::PublicContext> = CallSelfStatic { address: self_address, context };
+            aztec::contract_self::ContractSelf::new_public(context, storage, call_self, call_self_static)
         };
     };
 

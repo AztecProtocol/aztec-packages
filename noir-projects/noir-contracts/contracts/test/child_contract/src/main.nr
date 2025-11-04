@@ -78,7 +78,7 @@ pub contract Child {
 
     #[external("public")]
     fn set_value_twice_with_nested_first() {
-        let _result = Child::at(self.address).pub_set_value(10).call(self.context);
+        let _result = self.call_self.pub_set_value(10);
         self.storage.current_value.write(20);
         self.context.emit_public_log(20);
     }
@@ -87,13 +87,13 @@ pub contract Child {
     fn set_value_twice_with_nested_last() {
         self.storage.current_value.write(20);
         self.context.emit_public_log(20);
-        let _result = Child::at(self.address).pub_set_value(10).call(self.context);
+        let _result = self.call_self.pub_set_value(10);
     }
 
     #[external("public")]
     fn set_value_with_two_nested_calls() {
-        Child::at(self.address).set_value_twice_with_nested_first().call(self.context);
-        Child::at(self.address).set_value_twice_with_nested_last().call(self.context);
+        self.call_self.set_value_twice_with_nested_first();
+        self.call_self.set_value_twice_with_nested_last();
         self.storage.current_value.write(20);
         self.context.emit_public_log(20);
     }

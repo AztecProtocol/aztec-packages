@@ -270,7 +270,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn external_call_to_assertion_failure() {
-        AvmTest::at(self.address).assertion_failure().call(self.context);
+        self.call_self.assertion_failure();
     }
 
     #[external("public")]
@@ -281,7 +281,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn external_call_to_divide_by_zero() {
-        let _ = AvmTest::at(self.address).divide_by_zero(0).call(self.context);
+        let _ = self.call_self.divide_by_zero(0);
     }
 
     #[external("public")]
@@ -352,7 +352,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn returndata_copy_oracle() {
-        let _ = AvmTest::at(self.address).return_oracle().call(self.context);
+        let _ = self.call_self.return_oracle();
         let returndatasize = returndata_size();
         let returndata = returndata_copy(0, returndatasize);
         assert(returndata == &[1, 2, 3], "Returndata copy failed");
@@ -618,6 +618,7 @@ pub contract AvmTest {
         l2_gas: u32,
         da_gas: u32,
     ) -> pub Field {
+        // Note: can't use self.call_self here because we need .with_gas() chaining
         AvmTest::at(self.address)
             .add_args_return(arg_a, arg_b)
             .with_gas(GasOpts::new(l2_gas, da_gas))
@@ -627,7 +628,7 @@ pub contract AvmTest {
     // Use the `call_public_function` wrapper to initiate a nested call to the add function
     #[external("public")]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
-        AvmTest::at(self.address).add_args_return(arg_a, arg_b).call(self.context)
+        self.call_self.add_args_return(arg_a, arg_b)
     }
 
     #[external("public")]
@@ -668,7 +669,7 @@ pub contract AvmTest {
 
     #[external("public")]
     fn nested_call_to_assert_same(arg_a: Field, arg_b: Field) -> pub Field {
-        AvmTest::at(self.address).assert_same(arg_a, arg_b).call(self.context)
+        self.call_self.assert_same(arg_a, arg_b)
     }
 
     // function with large array as calldata (for benchmarking call interface macros)
@@ -679,7 +680,7 @@ pub contract AvmTest {
     }
     #[external("public")]
     fn nested_call_large_calldata(arr: [Field; 300]) -> pub Field {
-        AvmTest::at(self.address).fn_w_large_calldata(arr).call(self.context)
+        self.call_self.fn_w_large_calldata(arr)
     }
 
     /**
@@ -688,7 +689,7 @@ pub contract AvmTest {
     #[external("private")]
     fn enqueue_public_from_private() {
         AvmTest::at(self.address).set_opcode_u8().enqueue_view(self.context);
-        AvmTest::at(self.address).set_read_storage_single(5).enqueue(self.context);
+        self.enqueue_self.set_read_storage_single(5);
     }
 
     /************************************************************************

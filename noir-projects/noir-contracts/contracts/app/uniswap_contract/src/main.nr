@@ -73,13 +73,11 @@ pub contract Uniswap {
             .call(self.context);
 
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
-        Uniswap::at(self.address)
-            ._approve_bridge_and_exit_input_asset_to_L1(
-                input_asset,
-                input_asset_bridge,
-                input_amount,
-            )
-            .call(self.context);
+        let _ = self.call_self._approve_bridge_and_exit_input_asset_to_L1(
+            input_asset,
+            input_asset_bridge,
+            input_amount,
+        );
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.
         let output_asset_bridge_portal_address =
@@ -147,13 +145,11 @@ pub contract Uniswap {
             .call(self.context);
 
         // Approve bridge to burn this contract's funds and exit to L1 Uniswap Portal
-        Uniswap::at(self.address)
-            ._approve_bridge_and_exit_input_asset_to_L1(
-                input_asset,
-                input_asset_bridge,
-                input_amount,
-            )
-            .enqueue(self.context);
+        self.enqueue_self._approve_bridge_and_exit_input_asset_to_L1(
+            input_asset,
+            input_asset_bridge,
+            input_amount,
+        );
 
         // Create swap message and send to Outbox for Uniswap Portal
         // this ensures the integrity of what the user originally intends to do on L1.

@@ -41,9 +41,7 @@ pub contract PrivateVoting {
         let secret = self.context.request_nsk_app(msg_sender_npk_m_hash); // get secret key of caller of function
         let nullifier = std::hash::pedersen_hash([self.msg_sender().unwrap().to_field(), secret]); // derive nullifier from sender and secret
         self.context.push_nullifier(nullifier);
-        PrivateVoting::at(self.address).add_to_tally_public(candidate).enqueue(
-            self.context,
-        );
+        self.enqueue_self.add_to_tally_public(candidate);
     }
 
     #[external("public")]

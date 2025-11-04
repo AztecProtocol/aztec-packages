@@ -54,7 +54,7 @@ pub contract NFTPunk {
         self.storage.owners.at(to).insert(new_nft).emit( to, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         // calling the internal public function above to indicate that the NFT is taken
-        NFTPunk::at(self.address)._mark_nft_exists(token_id, true).enqueue(self.context);
+        self.enqueue_self._mark_nft_exists(token_id, true);
     }
     // docs:end:mint
 
@@ -76,7 +76,7 @@ pub contract NFTPunk {
         let notes = self.storage.owners.at(from).pop_notes(options);
         assert(notes.len() == 1, "NFT not found");
 
-        NFTPunk::at(self.address)._mark_nft_exists(token_id, false).enqueue(self.context);
+        self.enqueue_self._mark_nft_exists(token_id, false);
     }
     // docs:end:burn
 }
