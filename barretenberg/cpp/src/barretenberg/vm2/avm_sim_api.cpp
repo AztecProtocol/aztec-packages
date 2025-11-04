@@ -8,6 +8,18 @@ namespace bb::avm2 {
 
 using namespace bb::avm2::simulation;
 
+TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
+                                       simulation::ContractDBInterface& contract_db,
+                                       world_state::WorldState& ws)
+{
+    info("Simulating...");
+    AvmSimulationHelper simulation_helper;
+    return AVM_TRACK_TIME_V(
+        "simulation/all",
+        simulation_helper.simulate_fast_with_existing_ws(
+            contract_db, inputs.wsRevision, ws, inputs.tx, inputs.globalVariables, inputs.protocolContracts));
+}
+
 TxSimulationResult AvmSimAPI::simulate_with_hinted_dbs(const ProvingInputs& inputs)
 {
     info("Simulating...");

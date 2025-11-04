@@ -14,6 +14,13 @@ class AvmSimulationHelper {
     simulation::EventsContainer simulate_for_witgen(const ExecutionHints& hints);
 
     // Fast simulation without event collection.
+    TxSimulationResult simulate_fast_with_existing_ws(simulation::ContractDBInterface& raw_contract_db,
+                                                      const world_state::WorldStateRevision& world_state_revision,
+                                                      world_state::WorldState& ws,
+                                                      const Tx& tx,
+                                                      const GlobalVariables& global_variables,
+                                                      const ProtocolContracts& protocol_contracts);
+
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints);
 
     // Simulate a bytecode with some calldata and additional context.

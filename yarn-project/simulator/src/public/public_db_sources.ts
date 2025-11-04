@@ -13,14 +13,15 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  AllContractDeploymentData,
   type ContractClassPublic,
   type ContractDataSource,
+  type ContractDeploymentData,
   type ContractInstanceWithAddress,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
-import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
 import {
   MerkleTreeId,
@@ -34,182 +35,90 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 
+import { ContractsDbCheckpoint } from './contracts_db_checkpoint.js';
 import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
 import { L1ToL2MessageIndexOutOfRangeError, NoteHashIndexOutOfRangeError } from './side_effect_errors.js';
-import { TxContractCache } from './tx_contract_cache.js';
 
 /**
  * Implements the PublicContractsDBInterface using a ContractDataSource.
- * Progressively records contracts in transaction as they are processed in a block.
- * Separates block-level contract information (from processed/included txs) from the
- * current tx's contract information (which may be cleared on tx revert/death).
+ * Uses a stack-based checkpoint model for managing contract state.
  */
 export class PublicContractsDB implements PublicContractsDBInterface {
-  // Two caching layers for contract classes and instances.
-  // Tx-level cache:
-  //   - The current tx's new contract information is cached
-  //     in currentTxNonRevertibleCache and currentTxRevertibleCache.
-  // Block-level cache:
-  //   - Contract information from earlier in the block, usable by later txs.
-  // When a tx succeeds, that tx's caches are merged into the block cache and cleared.
-  private currentTxNonRevertibleCache = new TxContractCache();
-  private currentTxRevertibleCache = new TxContractCache();
-  private blockCache = new TxContractCache();
-  // Separate flat cache for bytecode commitments.
+  private contractStateStack: ContractsDbCheckpoint[] = [new ContractsDbCheckpoint()];
   private bytecodeCommitmentCache = new Map<string, Fr>();
 
   private log = createLogger('simulator:contracts-data-source');
 
   constructor(private dataSource: ContractDataSource) {}
 
-  /**
-   * Add new contracts from a transaction
-   * @param tx - The transaction to add contracts from.
-   */
-  public async addNewContracts(tx: Tx): Promise<void> {
-    await this.addNonRevertibleContractClasses(tx);
-    await this.addRevertibleContractClasses(tx);
-    this.addNonRevertibleContractInstances(tx);
-    this.addRevertibleContractInstances(tx);
-  }
+  public async addContracts(contractDeploymentData: ContractDeploymentData): Promise<void> {
+    const currentState = this.getCurrentState();
 
-  /**
-   * Add non revertible contracts from a transaction
-   * @param tx - The transaction to add non revertible contracts from.
-   */
-  public async addNewNonRevertibleContracts(tx: Tx) {
-    await this.addNonRevertibleContractClasses(tx);
-    this.addNonRevertibleContractInstances(tx);
-  }
+    await this.addContractClassesFromEvents(
+      ContractClassPublishedEvent.extractContractClassEvents(contractDeploymentData.getContractClassLogs()),
+      currentState,
+    );
 
-  /**
-   * Add revertible contracts from a transaction
-   * @param tx - The transaction to add revertible contracts from.
-   */
-  public async addNewRevertibleContracts(tx: Tx) {
-    await this.addRevertibleContractClasses(tx);
-    this.addRevertibleContractInstances(tx);
-  }
-
-  /**
-   * Add non-revertible contract classes from a transaction
-   * For private-only txs, this will be all contract classes (found in tx.data.forPublic)
-   * @param tx - The transaction to add non-revertible contract classes from.
-   */
-  private async addNonRevertibleContractClasses(tx: Tx) {
-    const siloedContractClassLogs = tx.data.forPublic
-      ? tx.getSplitContractClassLogs(false /* revertible */)
-      : tx.getContractClassLogs();
-    await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxNonRevertibleCache, 'non-revertible');
-  }
-
-  /**
-   * Add revertible contract classes from a transaction
-   * None for private-only txs.
-   * @param tx - The transaction to add revertible contract classes from.
-   */
-  private async addRevertibleContractClasses(tx: Tx) {
-    const siloedContractClassLogs = tx.data.forPublic ? tx.getSplitContractClassLogs(true /* revertible */) : [];
-    await this.addContractClassesFromLogs(siloedContractClassLogs, this.currentTxRevertibleCache, 'revertible');
-  }
-
-  /**
-   * Add non-revertible contract instances from a transaction
-   * For private-only txs, this will be all contract instances (found in tx.data.forRollup)
-   * @param tx - The transaction to add non-revertible contract instances from.
-   */
-  private addNonRevertibleContractInstances(tx: Tx) {
-    const contractInstanceLogs = tx.data.forPublic
-      ? tx.data.forPublic!.nonRevertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
-      : tx.data.forRollup!.end.privateLogs.filter(l => !l.isEmpty());
-
-    this.addContractInstancesFromLogs(contractInstanceLogs, this.currentTxNonRevertibleCache, 'non-revertible');
-  }
-
-  /**
-   * Add revertible contract instances from a transaction
-   * None for private-only txs.
-   * @param tx - The transaction to add revertible contract instances from.
-   */
-  private addRevertibleContractInstances(tx: Tx) {
-    const contractInstanceLogs = tx.data.forPublic
-      ? tx.data.forPublic!.revertibleAccumulatedData.privateLogs.filter(l => !l.isEmpty())
-      : [];
-
-    this.addContractInstancesFromLogs(contractInstanceLogs, this.currentTxRevertibleCache, 'revertible');
-  }
-
-  /**
-   * Given a tx's siloed contract class logs, add the contract classes to the cache
-   * @param siloedContractClassLogs - Contract class logs to process
-   * @param cache - The cache to store the contract classes in
-   * @param cacheType - Type of cache (for logging)
-   */
-  private async addContractClassesFromLogs(
-    siloedContractClassLogs: ContractClassLog[],
-    cache: TxContractCache,
-    cacheType: string,
-  ) {
-    const contractClassEvents = siloedContractClassLogs
-      .filter((log: ContractClassLog) => ContractClassPublishedEvent.isContractClassPublishedEvent(log))
-      .map((log: ContractClassLog) => ContractClassPublishedEvent.fromLog(log));
-
-    // Cache contract classes
-    await Promise.all(
-      contractClassEvents.map(async (event: ContractClassPublishedEvent) => {
-        this.log.debug(`Adding class ${event.contractClassId.toString()} to contract's ${cacheType} tx cache`);
-        const contractClass = await event.toContractClassPublic();
-
-        cache.addClass(event.contractClassId, contractClass);
-      }),
+    this.addContractInstancesFromEvents(
+      ContractInstancePublishedEvent.extractContractInstanceEvents(contractDeploymentData.getPrivateLogs()),
+      currentState,
     );
   }
 
-  /**
-   * Given a tx's contract instance logs, add the contract instances to the cache
-   * @param contractInstanceLogs - Contract instance logs to process
-   * @param cache - The cache to store the contract instances in
-   * @param cacheType - Type of cache (for logging)
-   */
-  private addContractInstancesFromLogs(contractInstanceLogs: PrivateLog[], cache: TxContractCache, cacheType: string) {
-    const contractInstanceEvents = contractInstanceLogs
-      .filter(log => ContractInstancePublishedEvent.isContractInstancePublishedEvent(log))
-      .map(log => ContractInstancePublishedEvent.fromLog(log));
-
-    // Cache contract instances
-    contractInstanceEvents.forEach(e => {
-      this.log.debug(
-        `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to ${cacheType} tx contract cache`,
-      );
-      cache.addInstance(e.address, e.toContractInstance());
-    });
+  public async addNewContracts(tx: Tx): Promise<void> {
+    const contractDeploymentData = AllContractDeploymentData.fromTx(tx);
+    await this.addContracts(contractDeploymentData.getNonRevertibleContractDeploymentData());
+    await this.addContracts(contractDeploymentData.getRevertibleContractDeploymentData());
   }
 
   /**
-   * Clear new contracts from the current tx's cache
+   * Creates a new checkpoint, copying the current state for upcoming modifications,
+   * and enabling rollbacks to current state in case of a revert.
    */
-  public clearContractsForTx() {
-    this.currentTxRevertibleCache.clear();
-    this.currentTxRevertibleCache.clear();
-    this.currentTxNonRevertibleCache.clear();
+  public createCheckpoint(): void {
+    const currentState = this.getCurrentState();
+    const newState = currentState.deepCopy();
+    this.contractStateStack.push(newState);
   }
 
   /**
-   * Commits the current transaction's cached contracts to the block-level cache.
-   * Then, clears the tx cache.
+   * Commits the current checkpoint, accepting its state latest.
    */
-  public commitContractsForTx(onlyNonRevertibles: boolean = false) {
-    // Merge non-revertible tx cache into block cache
-    this.blockCache.mergeFrom(this.currentTxNonRevertibleCache);
-
-    if (!onlyNonRevertibles) {
-      // Merge revertible tx cache into block cache
-      this.blockCache.mergeFrom(this.currentTxRevertibleCache);
+  public commitCheckpoint(): void {
+    if (this.contractStateStack.length <= 1) {
+      throw new Error('No checkpoint to commit');
     }
+    const topState = this.contractStateStack.pop()!;
+    this.contractStateStack[this.contractStateStack.length - 1] = topState;
+  }
 
-    // Clear the tx's caches
-    this.currentTxNonRevertibleCache.clear();
-    this.currentTxRevertibleCache.clear();
+  /**
+   * Commits the current checkpoint, not erroring if there is no checkpoint
+   * to commit. This is useful to do a sanity commit at the end of tx execution,
+   * doing nothing if the checkpoint was already reverted, but truly committing
+   * otherwise.
+   */
+  public commitCheckpointOkIfNone(): void {
+    if (this.contractStateStack.length <= 1) {
+      return;
+    }
+    const topState = this.contractStateStack.pop()!;
+    this.contractStateStack[this.contractStateStack.length - 1] = topState;
+  }
+
+  /**
+   * Reverts the current checkpoint, discarding its state and rolling back
+   * to the state as of the latest checkpoint.
+   */
+  public revertCheckpoint(): void {
+    if (this.contractStateStack.length <= 1) {
+      throw new Error('No checkpoint to revert');
+    }
+    this.contractStateStack.pop();
+  }
+
+  private getCurrentState(): ContractsDbCheckpoint {
+    return this.contractStateStack[this.contractStateStack.length - 1];
   }
 
   // TODO(fcarreiro/alvaro): This method currently needs a blockNumber. Since this class
@@ -225,23 +134,13 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     address: AztecAddress,
     timestamp: UInt64,
   ): Promise<ContractInstanceWithAddress | undefined> {
-    // Check caches in order: tx revertible -> tx non-revertible -> block -> data source
-    return (
-      this.currentTxRevertibleCache.getInstance(address) ??
-      this.currentTxNonRevertibleCache.getInstance(address) ??
-      this.blockCache.getInstance(address) ??
-      (await this.dataSource.getContract(address, timestamp))
-    );
+    const currentState = this.getCurrentState();
+    return currentState.getInstance(address) ?? (await this.dataSource.getContract(address, timestamp));
   }
 
   public async getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined> {
-    // Check caches in order: tx revertible -> tx non-revertible -> block -> data source
-    return (
-      this.currentTxRevertibleCache.getClass(contractClassId) ??
-      this.currentTxNonRevertibleCache.getClass(contractClassId) ??
-      this.blockCache.getClass(contractClassId) ??
-      (await this.dataSource.getContractClass(contractClassId))
-    );
+    const currentState = this.getCurrentState();
+    return currentState.getClass(contractClassId) ?? (await this.dataSource.getContractClass(contractClassId));
   }
 
   public async getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined> {
@@ -271,6 +170,31 @@ export class PublicContractsDB implements PublicContractsDBInterface {
 
   public async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     return await this.dataSource.getDebugFunctionName(address, selector);
+  }
+
+  private async addContractClassesFromEvents(
+    contractClassEvents: ContractClassPublishedEvent[],
+    state: ContractsDbCheckpoint,
+  ) {
+    await Promise.all(
+      contractClassEvents.map(async (event: ContractClassPublishedEvent) => {
+        this.log.debug(`Adding class ${event.contractClassId.toString()} to contract state`);
+        const contractClass = await event.toContractClassPublic();
+        state.addClass(event.contractClassId, contractClass);
+      }),
+    );
+  }
+
+  private addContractInstancesFromEvents(
+    contractInstanceEvents: ContractInstancePublishedEvent[],
+    state: ContractsDbCheckpoint,
+  ) {
+    contractInstanceEvents.forEach(e => {
+      this.log.debug(
+        `Adding instance ${e.address.toString()} with class ${e.contractClassId.toString()} to contract state`,
+      );
+      state.addInstance(e.address, e.toContractInstance());
+    });
   }
 }
 

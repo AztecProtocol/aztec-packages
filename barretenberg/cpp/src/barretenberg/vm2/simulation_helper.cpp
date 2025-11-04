@@ -248,6 +248,7 @@ EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& h
 
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
@@ -420,6 +421,7 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
                               merkle_db);
     TxExecution tx_execution(execution,
                              context_provider,
+                             contract_db,
                              merkle_db,
                              written_public_data_slots_tree_check,
                              retrieved_bytecodes_tree_check,
@@ -450,6 +452,19 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
         .app_logic_output = tx_execution_result.app_logic_output,
         .reverted = tx_execution_result.reverted,
     };
+}
+
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
+    simulation::ContractDBInterface& raw_contract_db,
+    const world_state::WorldStateRevision& world_state_revision,
+    world_state::WorldState& ws,
+    const Tx& tx,
+    const GlobalVariables& global_variables,
+    const ProtocolContracts& protocol_contracts)
+{
+    // Create PureRawMerkleDB with the provided WorldState instance
+    PureRawMerkleDB raw_merkle_db(world_state_revision, ws);
+    return simulate_fast(raw_contract_db, raw_merkle_db, tx, global_variables, protocol_contracts);
 }
 
 TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const ExecutionHints& hints)

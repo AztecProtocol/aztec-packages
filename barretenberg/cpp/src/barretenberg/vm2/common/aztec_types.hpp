@@ -19,6 +19,8 @@ using AffinePoint = grumpkin::g1::affine_element;
 // it's represented as a field element for simplicity
 using EthAddress = FF;
 
+using FunctionSelector = FF; // really a 4-byte BE buffer in TS, but we use FF for simplicity
+
 enum TransactionPhase {
     NR_NULLIFIER_INSERTION = 1,
     NR_NOTE_INSERTION = 2,
@@ -81,26 +83,114 @@ struct PublicKeys {
     }
 
     bool operator==(const PublicKeys& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    // TODO(fcarreiro): solve with macro
+    void msgpack(auto pack_fn)
+    {
+        pack_fn("masterNullifierPublicKey",
+                nullifier_key,
+                "masterIncomingViewingPublicKey",
+                incoming_viewing_key,
+                "masterOutgoingViewingPublicKey",
+                outgoing_viewing_key,
+                "masterTaggingPublicKey",
+                tagging_key);
+    }
 };
 
 struct ContractInstance {
     FF salt;
-    AztecAddress deployer_addr;
-    ContractClassId current_class_id;
-    ContractClassId original_class_id;
-    FF initialisation_hash;
+    AztecAddress deployer;
+    ContractClassId current_contract_class_id;
+    ContractClassId original_contract_class_id;
+    FF initialization_hash;
     PublicKeys public_keys;
 
     bool operator==(const ContractInstance& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    // TODO(fcarreiro): solve with macro
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(salt),
+                "deployer",
+                deployer,
+                "currentContractClassId",
+                current_contract_class_id,
+                "originalContractClassId",
+                original_contract_class_id,
+                "initializationHash",
+                initialization_hash,
+                "publicKeys",
+                public_keys);
+    }
 };
 
-struct ContractClass {
+// Similar to ContractClassPublicWithCommitment in TS but without:
+// - version
+// - privateFunctions[]
+// - utilityFunctions[]
+struct ContractClassWithCommitment {
+    FF id;
     FF artifact_hash;
-    FF private_function_root;
+    FF private_functions_root;
+    std::vector<uint8_t> packed_bytecode;
     FF public_bytecode_commitment;
+
+    bool operator==(const ContractClassWithCommitment& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    // TODO(fcarreiro): solve with macro
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(id),
+                "artifactHash",
+                artifact_hash,
+                "privateFunctionsRoot",
+                private_functions_root,
+                "packedBytecode",
+                packed_bytecode,
+                "publicBytecodeCommitment",
+                public_bytecode_commitment);
+    }
+};
+
+// Similar to ContractClassPublic in TS but without:
+// - version
+// - privateFunctions[]
+// - utilityFunctions[]
+struct ContractClass {
+    FF id;
+    FF artifact_hash;
+    FF private_functions_root;
     std::vector<uint8_t> packed_bytecode;
 
     bool operator==(const ContractClass& other) const = default;
+
+    // Custom msgpack with TS camelCase field names
+    // TODO(fcarreiro): solve with macro
+    void msgpack(auto pack_fn)
+    {
+        pack_fn(NVP(id),
+                "artifactHash",
+                artifact_hash,
+                "privateFunctionsRoot",
+                private_functions_root,
+                "packedBytecode",
+                packed_bytecode);
+    }
+
+    ContractClassWithCommitment with_commitment(const FF& public_bytecode_commitment) const
+    {
+        return {
+            .id = id,
+            .artifact_hash = artifact_hash,
+            .private_functions_root = private_functions_root,
+            .packed_bytecode = packed_bytecode,
+            .public_bytecode_commitment = public_bytecode_commitment,
+        };
+    }
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -251,6 +341,46 @@ struct AvmAccumulatedDataArrayLengths {
     bool operator==(const AvmAccumulatedDataArrayLengths& other) const = default;
 
     MSGPACK_FIELDS(noteHashes, nullifiers, l2ToL1Msgs, publicDataWrites);
+};
+
+////////////////////////////////////////////////////////////////////////////
+// Contract Deployment Data Types
+////////////////////////////////////////////////////////////////////////////
+
+struct ContractClassLogFields {
+    std::vector<FF> fields;
+
+    bool operator==(const ContractClassLogFields& other) const = default;
+
+    MSGPACK_FIELDS(fields);
+};
+
+struct ContractClassLog {
+    AztecAddress contractAddress;
+    ContractClassLogFields fields;
+    uint32_t emittedLength;
+
+    bool operator==(const ContractClassLog& other) const = default;
+
+    MSGPACK_FIELDS(contractAddress, fields, emittedLength);
+};
+
+struct PrivateLog {
+    std::vector<FF> fields;
+    uint32_t emittedLength;
+
+    bool operator==(const PrivateLog& other) const = default;
+
+    MSGPACK_FIELDS(fields, emittedLength);
+};
+
+struct ContractDeploymentData {
+    std::vector<ContractClassLog> contractClassLogs;
+    std::vector<PrivateLog> privateLogs;
+
+    bool operator==(const ContractDeploymentData& other) const = default;
+
+    MSGPACK_FIELDS(contractClassLogs, privateLogs);
 };
 
 ////////////////////////////////////////////////////////////////////////////

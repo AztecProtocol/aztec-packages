@@ -61,6 +61,7 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   AvmCreateCheckpointHint,
+  AvmDebugFunctionNameHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
@@ -79,6 +80,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { L2BlockHeader } from '../block/index.js';
 import {
   type ContractClassPublic,
+  ContractDeploymentData,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
@@ -118,7 +120,7 @@ import {
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
 import { PublicKeys, computeAddress } from '../keys/index.js';
-import { ContractClassLogFields } from '../logs/index.js';
+import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
 import { FlatPublicLogs, PublicLog } from '../logs/public_log.js';
 import { CountedL2ToL1Message, L2ToL1Message, ScopedL2ToL1Message } from '../messaging/l2_to_l1_message.js';
@@ -1369,6 +1371,7 @@ export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevert
  */
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
+    seed,
     new AztecAddress(new Fr(seed)),
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
@@ -1384,19 +1387,28 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   );
 }
 
+/**
+ * Makes arbitrary AvmDebugFunctionNameHint.
+ * @param seed - The seed to use for generating the hint.
+ * @returns AvmDebugFunctionNameHint.
+ */
+export function makeAvmDebugFunctionNameHint(seed = 0): AvmDebugFunctionNameHint {
+  return new AvmDebugFunctionNameHint(new AztecAddress(new Fr(seed)), new Fr(seed + 0x2), `function-${seed}`);
+}
+
 /* Makes arbitrary AvmContractClassHint.
  * @param seed - The seed to use for generating the state reference.
  * @returns AvmContractClassHint.
  */
 export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+  return new AvmContractClassHint(seed, new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
 }
 
 export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
   const classId = new Fr(seed + 2);
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
+  return new AvmBytecodeCommitmentHint(seed, classId, await computePublicBytecodeCommitment(bytecode));
 }
 
 export async function makePublicCallRequestWithCalldata(seed = 0): Promise<PublicCallRequestWithCalldata> {
@@ -1411,11 +1423,23 @@ export async function makePublicCallRequestWithCalldata(seed = 0): Promise<Publi
   return new PublicCallRequestWithCalldata(publicCallRequest, calldata);
 }
 
+export function makeContractClassLog(seed = 0): ContractClassLog {
+  return new ContractClassLog(makeAztecAddress(seed + 0x1000), makeContractClassLogFields(seed + 0x2000), seed % 20);
+}
+
+export function makeContractDeploymentData(seed = 0): ContractDeploymentData {
+  const contractClassLogs = makeArray(seed % 20, i => makeContractClassLog(i), seed + 0x1000);
+  const privateLogs = makeArray(seed % 20, i => makePrivateLog(i), seed + 0x2000);
+  return new ContractDeploymentData(contractClassLogs, privateLogs);
+}
+
 export async function makeAvmTxHint(seed = 0): Promise<AvmTxHint> {
   return new AvmTxHint(
     `txhash-${seed}`,
     makeGasSettings(),
     makeGasFees(seed + 0x1000),
+    makeContractDeploymentData(seed + 0x2000),
+    makeContractDeploymentData(seed + 0x3000),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1454,6 +1478,7 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    debugFunctionNames: makeArray(baseLength + 5, makeAvmDebugFunctionNameHint, seed + 0x4a00),
     startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
@@ -1488,6 +1513,7 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
+    fields.debugFunctionNames,
     fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,

@@ -35,6 +35,17 @@ class ContractDB final : public ContractDBInterface {
     // This does NOT prove that the class id is in the nullifier tree.
     // Silo the class id and use the MerkleDB to prove that.
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
+    // Gets the bytecode commitment for a contract class ID.
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    // Gets the debug function name for a contract address and function selector.
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
+
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override { raw_contract_db.create_checkpoint(); }
+    void commit_checkpoint() override { raw_contract_db.commit_checkpoint(); }
+    void revert_checkpoint() override { raw_contract_db.revert_checkpoint(); }
 
   private:
     ContractDBInterface& raw_contract_db;

@@ -46,12 +46,15 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using class_id_derivation_relation = bb::avm2::class_id_derivation<FF>;
 
-ContractClass generate_contract_class()
+ContractClassWithCommitment generate_contract_class()
 {
-    return ContractClass{ .artifact_hash = FF::random_element(),
-                          .private_function_root = FF::random_element(),
-                          .public_bytecode_commitment = FF::random_element(),
-                          .packed_bytecode = {} };
+    return ContractClassWithCommitment{
+        .id = FF::random_element(),
+        .artifact_hash = FF::random_element(),
+        .private_functions_root = FF::random_element(),
+        .packed_bytecode = {},
+        .public_bytecode_commitment = FF::random_element(),
+    };
 }
 
 TEST(ClassIdDerivationConstrainingTest, EmptyRow)
@@ -65,11 +68,11 @@ TEST(ClassIdDerivationConstrainingTest, Basic)
     ClassIdDerivationTraceBuilder builder;
 
     auto klass = generate_contract_class();
-
     FF class_id =
-        compute_contract_class_id(klass.artifact_hash, klass.private_function_root, klass.public_bytecode_commitment);
+        compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
+    klass.id = class_id;
 
-    builder.process({ { .class_id = class_id, .klass = klass } }, trace);
+    builder.process({ { .klass = klass } }, trace);
 
     check_relation<class_id_derivation_relation>(trace);
 }
@@ -89,7 +92,8 @@ TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
 
     auto klass = generate_contract_class();
     FF class_id =
-        compute_contract_class_id(klass.artifact_hash, klass.private_function_root, klass.public_bytecode_commitment);
+        compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
+    klass.id = class_id;
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -98,10 +102,10 @@ TEST(ClassIdDerivationPoseidonTest, WithHashInteraction)
     ClassIdDerivationTraceBuilder builder;
     Poseidon2TraceBuilder poseidon2_builder;
 
-    class_id_derivation.assert_derivation(class_id, klass);
+    class_id_derivation.assert_derivation(klass);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
-    builder.process({ { .class_id = class_id, .klass = klass } }, trace);
+    builder.process({ { .klass = klass } }, trace);
 
     check_interaction<ClassIdDerivationTraceBuilder,
                       lookup_class_id_derivation_class_id_poseidon2_0_settings,
@@ -118,7 +122,8 @@ TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
 
     auto klass = generate_contract_class();
     FF class_id =
-        compute_contract_class_id(klass.artifact_hash, klass.private_function_root, klass.public_bytecode_commitment);
+        compute_contract_class_id(klass.artifact_hash, klass.private_functions_root, klass.public_bytecode_commitment);
+    klass.id = class_id;
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -127,13 +132,21 @@ TEST(ClassIdDerivationPoseidonTest, WithRetrievalInteraction)
     ClassIdDerivationTraceBuilder builder;
     BytecodeTraceBuilder bc_trace_builder;
 
-    class_id_derivation.assert_derivation(class_id, klass);
-    builder.process({ { .class_id = class_id, .klass = klass } }, trace);
+    class_id_derivation.assert_derivation(klass);
+    builder.process({ { .klass = klass } }, trace);
+
+    // Create a basic ContractClass without commitment for the retrieval event
+    ContractClass klass_without_commitment = {
+        .id = klass.id,
+        .artifact_hash = klass.artifact_hash,
+        .private_functions_root = klass.private_functions_root,
+        .packed_bytecode = klass.packed_bytecode,
+    };
 
     bc_trace_builder.process_retrieval({ { .bytecode_id = klass.public_bytecode_commitment,
                                            .address = 1,
-                                           .current_class_id = class_id,
-                                           .contract_class = klass,
+                                           .current_class_id = klass.id,
+                                           .contract_class = klass_without_commitment,
                                            .nullifier_root = 3 } },
                                        trace);
 

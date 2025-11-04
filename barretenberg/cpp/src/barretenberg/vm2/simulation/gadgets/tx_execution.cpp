@@ -89,7 +89,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         emit_empty_phase(TransactionPhase::SETUP);
     } else {
         for (const auto& call : tx.setupEnqueuedCalls) {
-            vinfo("[SETUP] Executing enqueued call to ", call.request.contractAddress);
+            std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
+            vinfo("[SETUP] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
             TxContextEvent state_before = tx_context.serialize_tx_context_event();
             Gas start_gas = tx_context.gas_used;
             auto context = context_provider.make_enqueued_context(call.request.contractAddress,
@@ -121,6 +122,7 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
     // The checkpoint we should go back to if anything from now on reverts.
     merkle_db.create_checkpoint();
+    contract_db.create_checkpoint();
 
     try {
         // Insert revertibles. This can throw if there is a nullifier collision.
@@ -132,7 +134,8 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             emit_empty_phase(TransactionPhase::APP_LOGIC);
         } else {
             for (const auto& call : tx.appLogicEnqueuedCalls) {
-                vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress);
+                std::string fn_name = get_debug_function_name(call.request.contractAddress, call.calldata);
+                vinfo("[APP_LOGIC] Executing enqueued call to ", call.request.contractAddress, "::", fn_name);
                 TxContextEvent state_before = tx_context.serialize_tx_context_event();
                 Gas start_gas = tx_context.gas_used;
                 auto context = context_provider.make_enqueued_context(call.request.contractAddress,
@@ -167,9 +170,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         tx_context.reverted = true;
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
+        contract_db.revert_checkpoint();
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
         merkle_db.create_checkpoint();
+        contract_db.create_checkpoint();
     }
 
     // Compute the transaction fee here so it can be passed to teardown
@@ -184,7 +189,12 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
         if (!tx.teardownEnqueuedCall) {
             emit_empty_phase(TransactionPhase::TEARDOWN);
         } else {
-            vinfo("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->request.contractAddress);
+            std::string fn_name = get_debug_function_name(tx.teardownEnqueuedCall->request.contractAddress,
+                                                          tx.teardownEnqueuedCall->calldata);
+            vinfo("[TEARDOWN] Executing enqueued call to ",
+                  tx.teardownEnqueuedCall->request.contractAddress,
+                  "::",
+                  fn_name);
             // Teardown has its own gas limit and usage.
             Gas start_gas = { 0, 0 };
             gas_limit = teardown_gas_limit;
@@ -217,11 +227,13 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
 
         // We commit the forked state and we are done.
         merkle_db.commit_checkpoint();
+        contract_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
         tx_context.reverted = true;
         // We rollback to the post-setup state.
         merkle_db.revert_checkpoint();
+        contract_db.revert_checkpoint();
     }
 
     // Fee payment
@@ -375,6 +387,9 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
             emit_l2_to_l1_message(false, l2_to_l1_msg);
         }
     }
+
+    // Add new contracts to the contracts DB so that their code may be found and called
+    contract_db.add_contracts(tx.nonRevertibleContractDeploymentData);
 }
 
 // TODO: Error Handling
@@ -415,6 +430,9 @@ void TxExecution::insert_revertibles(const Tx& tx)
             emit_l2_to_l1_message(true, l2_to_l1_msg);
         }
     }
+
+    // Add new contracts to the contracts DB so that their functions may be found and called
+    contract_db.add_contracts(tx.revertibleContractDeploymentData);
 }
 
 void TxExecution::pay_fee(const FF& fee_payer,
@@ -474,6 +492,24 @@ void TxExecution::emit_empty_phase(TransactionPhase phase)
                               .state_after = current_state,
                               .reverted = false,
                               .event = EmptyPhaseEvent{} });
+}
+
+std::string TxExecution::get_debug_function_name(const AztecAddress& contract_address, const std::vector<FF>& calldata)
+{
+    // Public function is dispatched and therefore the target function is passed in the first argument.
+    if (calldata.empty()) {
+        return format("<calldata[0] undefined> (Contract Address: ", contract_address, ")");
+    }
+
+    const FF& selector = calldata[0];
+    auto debug_name = contract_db.get_debug_function_name(contract_address, selector);
+
+    if (debug_name.has_value()) {
+        return debug_name.value();
+    }
+
+    // Return selector as hex string if debug name not found
+    return format("<selector: ", selector, ">");
 }
 
 } // namespace bb::avm2::simulation

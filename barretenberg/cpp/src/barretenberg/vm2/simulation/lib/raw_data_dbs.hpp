@@ -27,13 +27,33 @@ class HintedRawContractDB final : public ContractDBInterface {
 
     std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<FF> get_bytecode_commitment(const ContractClassId& class_id) const override;
+    std::optional<std::string> get_debug_function_name(const AztecAddress& address,
+                                                       const FunctionSelector& selector) const override;
+
+    void add_contracts(const ContractDeploymentData& contract_deployment_data) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
   private:
-    FF get_bytecode_commitment(const ContractClassId& class_id) const;
+    uint32_t get_checkpoint_id() const;
 
-    unordered_flat_map<AztecAddress, ContractInstanceHint> contract_instances;
-    unordered_flat_map<ContractClassId, ContractClassHint> contract_classes;
-    unordered_flat_map<ContractClassId, FF> bytecode_commitments;
+    using GetContractInstanceKey = std::tuple<uint32_t, AztecAddress>;
+    using GetContractClassKey = std::tuple<uint32_t, ContractClassId>;
+    using GetBytecodeCommitmentKey = std::tuple<uint32_t, ContractClassId>;
+
+    unordered_flat_map<GetContractInstanceKey, ContractInstanceHint> contract_instances;
+    unordered_flat_map<GetContractClassKey, ContractClassHint> contract_classes;
+    unordered_flat_map<GetBytecodeCommitmentKey, FF> bytecode_commitments;
+    unordered_flat_map<std::pair<AztecAddress, FunctionSelector>, std::string> debug_function_names;
+
+    uint32_t action_counter = 0;
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
+    unordered_flat_map<uint32_t, ContractDBCreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBCommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map<uint32_t, ContractDBRevertCheckpointHint> revert_checkpoint_hints;
 };
 
 // This class interacts with the external world, without emiting any simulation events.

@@ -19,6 +19,8 @@
         "maxPriorityFeesPerGas": { "feePerDaGas": "0", "feePerL2Gas": "0" }
       },
       "effectiveGasFees": { "feePerDaGas": "2", "feePerL2Gas": "3" },
+      "nonRevertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
+      "revertibleContractDeploymentData": { "contractClassLogs": [], "privateLogs": [] },
       "nonRevertibleAccumulatedData": {
         "noteHashes": [],
         "nullifiers": ["0x00000000000000000000000000000000000000000000000000000000000668a0"],
@@ -58,6 +60,7 @@
     },
     "contractInstances": [
       {
+        "hintKey": 1,
         "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
         "salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
         "deployer": "0x000000000000000000000000000000000000000000000000000000000000002a",
@@ -74,6 +77,7 @@
     ],
     "contractClasses": [
       {
+        "hintKey": 1,
         "classId": "0x296f245361997268ff14bfab8664aee8768ddddcad0e25ab13b2d79426a039d9",
         "artifactHash": "0x0000000000000000000000000000000000000000000000000000000000000001",
         "privateFunctionsRoot": "0x0000000000000000000000000000000000000000000000000000000000000003",
@@ -82,8 +86,16 @@
     ],
     "bytecodeCommitments": [
       {
+        "hintKey": 1,
         "classId": "0x296f245361997268ff14bfab8664aee8768ddddcad0e25ab13b2d79426a039d9",
         "commitment": "0x253955340ab6819b564797927db2433e18decc4b3f37cbd27dcf3b4d6222a694"
+      }
+    ],
+    "debugFunctionNames": [
+      {
+        "address": "0x03deefb26b3b88ef515e0ce5bd1402ea3a7c12569597cddb19ce6260444d625f",
+        "selector": "0x000000000000000000000000000000000000000000000000000000000d6ab3ae",
+        "name": "0x0d6ab3ae"
       }
     ],
     "startingTreeRoots": {
@@ -880,7 +892,10 @@
     "appendLeavesHints": [],
     "createCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
     "commitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
-    "revertCheckpointHints": []
+    "revertCheckpointHints": [],
+    "contractDBCreateCheckpointHints": [{ "actionCounter": 0, "oldCheckpointId": 0, "newCheckpointId": 1 }],
+    "contractDBCommitCheckpointHints": [{ "actionCounter": 1, "oldCheckpointId": 1, "newCheckpointId": 0 }],
+    "contractDBRevertCheckpointHints": []
   },
   "publicInputs": {
     "globalVariables": {
