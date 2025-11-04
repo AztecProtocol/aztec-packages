@@ -131,18 +131,16 @@ pub contract AMM {
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
         // partial notes.
-        AMM::at(self.address)
-            ._add_liquidity(
-                config,
-                refund_token0_partial_note,
-                refund_token1_partial_note,
-                liquidity_partial_note,
-                amount0_max,
-                amount1_max,
-                amount0_min,
-                amount1_min,
-            )
-            .enqueue(self.context);
+        self.enqueue_self._add_liquidity(
+            config,
+            refund_token0_partial_note,
+            refund_token1_partial_note,
+            liquidity_partial_note,
+            amount0_max,
+            amount1_max,
+            amount0_min,
+            amount1_min,
+        );
     }
 
     #[external("public")]
@@ -270,16 +268,14 @@ pub contract AMM {
         // We then complete the flow in public. Note that the type of operation and amounts will all be publicly known,
         // but the identity of the caller is not revealed despite us being able to send tokens to them by completing the
         // partial notes.
-        AMM::at(self.address)
-            ._remove_liquidity(
-                config,
-                liquidity,
-                token0_partial_note,
-                token1_partial_note,
-                amount0_min,
-                amount1_min,
-            )
-            .enqueue(self.context);
+        self.enqueue_self._remove_liquidity(
+            config,
+            liquidity,
+            token0_partial_note,
+            token1_partial_note,
+            amount0_min,
+            amount1_min,
+        );
     }
 
     #[external("public")]
@@ -345,15 +341,13 @@ pub contract AMM {
         let token_out_partial_note =
             Token::at(token_out).prepare_private_balance_increase(sender).call(self.context);
 
-        AMM::at(self.address)
-            ._swap_exact_tokens_for_tokens(
-                token_in,
-                token_out,
-                amount_in,
-                amount_out_min,
-                token_out_partial_note,
-            )
-            .enqueue(self.context);
+        self.enqueue_self._swap_exact_tokens_for_tokens(
+            token_in,
+            token_out,
+            amount_in,
+            amount_out_min,
+            token_out_partial_note,
+        );
     }
 
     #[external("public")]
@@ -423,16 +417,14 @@ pub contract AMM {
         let token_out_partial_note =
             Token::at(token_out).prepare_private_balance_increase(sender).call(self.context);
 
-        AMM::at(self.address)
-            ._swap_tokens_for_exact_tokens(
-                token_in,
-                token_out,
-                amount_in_max,
-                amount_out,
-                change_token_in_partial_note,
-                token_out_partial_note,
-            )
-            .enqueue(self.context);
+        self.enqueue_self._swap_tokens_for_exact_tokens(
+            token_in,
+            token_out,
+            amount_in_max,
+            amount_out,
+            change_token_in_partial_note,
+            token_out_partial_note,
+        );
     }
 
     #[external("public")]

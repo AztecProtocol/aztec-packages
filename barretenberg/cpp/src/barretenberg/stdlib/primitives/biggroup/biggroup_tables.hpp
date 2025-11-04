@@ -33,11 +33,11 @@ template <size_t num_elements>
 std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_group_element_rom_tables(
     const std::array<element, num_elements>& rom_data, std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max)
 {
-    std::vector<std::array<field_t<C>, 2>> x_lo_limbs;
-    std::vector<std::array<field_t<C>, 2>> x_hi_limbs;
-    std::vector<std::array<field_t<C>, 2>> y_lo_limbs;
-    std::vector<std::array<field_t<C>, 2>> y_hi_limbs;
-    std::vector<std::array<field_t<C>, 2>> prime_limbs;
+    std::vector<std::array<field_ct, 2>> x_lo_limbs;
+    std::vector<std::array<field_ct, 2>> x_hi_limbs;
+    std::vector<std::array<field_ct, 2>> y_lo_limbs;
+    std::vector<std::array<field_ct, 2>> y_hi_limbs;
+    std::vector<std::array<field_ct, 2>> prime_limbs;
 
     for (size_t i = 0; i < num_elements; ++i) {
         limb_max[0] = std::max(limb_max[0], rom_data[i]._x.binary_basis_limbs[0].maximum_value);
@@ -49,16 +49,16 @@ std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> element<C, Fq, Fr, G>::create_g
         limb_max[6] = std::max(limb_max[6], rom_data[i]._y.binary_basis_limbs[2].maximum_value);
         limb_max[7] = std::max(limb_max[7], rom_data[i]._y.binary_basis_limbs[3].maximum_value);
 
-        x_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._x.binary_basis_limbs[0].element,
-                                                           rom_data[i]._x.binary_basis_limbs[1].element });
-        x_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._x.binary_basis_limbs[2].element,
-                                                           rom_data[i]._x.binary_basis_limbs[3].element });
-        y_lo_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._y.binary_basis_limbs[0].element,
-                                                           rom_data[i]._y.binary_basis_limbs[1].element });
-        y_hi_limbs.emplace_back(std::array<field_t<C>, 2>{ rom_data[i]._y.binary_basis_limbs[2].element,
-                                                           rom_data[i]._y.binary_basis_limbs[3].element });
+        x_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[0].element,
+                                                         rom_data[i]._x.binary_basis_limbs[1].element });
+        x_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._x.binary_basis_limbs[2].element,
+                                                         rom_data[i]._x.binary_basis_limbs[3].element });
+        y_lo_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[0].element,
+                                                         rom_data[i]._y.binary_basis_limbs[1].element });
+        y_hi_limbs.emplace_back(std::array<field_ct, 2>{ rom_data[i]._y.binary_basis_limbs[2].element,
+                                                         rom_data[i]._y.binary_basis_limbs[3].element });
         prime_limbs.emplace_back(
-            std::array<field_t<C>, 2>{ rom_data[i]._x.prime_basis_limb, rom_data[i]._y.prime_basis_limb });
+            std::array<field_ct, 2>{ rom_data[i]._x.prime_basis_limb, rom_data[i]._y.prime_basis_limb });
     }
     std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1> output_tables;
     output_tables[0] = twin_rom_table<C>(x_lo_limbs);
@@ -73,7 +73,7 @@ template <typename C, class Fq, class Fr, class G>
 template <size_t>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::read_group_element_rom_tables(
     const std::array<twin_rom_table<C>, Fq::NUM_LIMBS + 1>& tables,
-    const field_t<C>& index,
+    const field_ct& index,
     const std::array<uint256_t, Fq::NUM_LIMBS * 2>& limb_max)
 {
     const auto xlo = tables[0][index];
@@ -115,13 +115,13 @@ element<C, Fq, Fr, G>::four_bit_table_plookup::four_bit_table_plookup(const elem
 }
 
 template <typename C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::four_bit_table_plookup::operator[](const field_t<C>& index) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::four_bit_table_plookup::operator[](const field_ct& index) const
 {
     return read_group_element_rom_tables<16>(coordinates, index, limb_max);
 }
 
 template <class C, class Fq, class Fr, class G>
-element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operator[](const field_t<C>& index) const
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operator[](const field_ct& index) const
 {
     const auto get_plookup_tags = [this]() {
         switch (curve_type) {
@@ -178,7 +178,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operato
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::eight_bit_fixed_base_table::operator[](const size_t index) const
 {
-    return operator[](field_t<C>(index));
+    return operator[](field_ct(index));
 }
 
 /**
@@ -331,11 +331,11 @@ template <size_t length>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::lookup_table_plookup<length>::get(
     const std::array<bool_ct, length>& bits) const
 {
-    std::vector<field_t<C>> accumulators;
+    std::vector<field_ct> accumulators;
     for (size_t i = 0; i < length; ++i) {
-        accumulators.emplace_back(field_t<C>(bits[i]) * (1ULL << i));
+        accumulators.emplace_back(field_ct(bits[i]) * (1ULL << i));
     }
-    field_t<C> index = field_t<C>::accumulate(accumulators);
+    field_ct index = field_ct::accumulate(accumulators);
     return read_group_element_rom_tables<table_size>(coordinates, index, limb_max);
 }
 

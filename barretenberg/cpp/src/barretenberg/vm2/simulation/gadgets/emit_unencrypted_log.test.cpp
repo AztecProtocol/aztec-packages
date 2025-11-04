@@ -4,12 +4,16 @@
 #include <gtest/gtest.h>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/lib/side_effect_tracker.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_context.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_execution_id_manager.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_memory.hpp"
+#include "barretenberg/vm2/simulation/testing/mock_side_effect_tracker.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 
 namespace bb::avm2::simulation {
+namespace {
 
 using ::testing::_;
 using ::testing::ElementsAre;
@@ -17,31 +21,46 @@ using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
 
+std::vector<MemoryValue> to_memory_values(const std::vector<FF>& fields)
+{
+    std::vector<MemoryValue> memory_values;
+    memory_values.reserve(fields.size());
+    for (const FF& field : fields) {
+        memory_values.push_back(MemoryValue::from<FF>(field));
+    }
+    return memory_values;
+}
+
 TEST(EmitUnencryptedLogTest, Basic)
 {
     StrictMock<MockMemory> memory;
     StrictMock<MockContext> context;
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     EventEmitter<EmitUnencryptedLogEvent> event_emitter;
 
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_offset = 27;
-    uint32_t log_size = 2;
+    const std::vector<FF> log_fields = { log_offset, log_offset + 1 };
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     uint64_t end_log_address = 28;
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
-    uint32_t expected_next_num_unencrypted_log_fields = PUBLIC_LOG_HEADER_LENGTH + log_size;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = expected_next_num_unencrypted_log_fields };
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    TrackedSideEffects side_effect_states_after = { .public_logs = PublicLogs{ { { log_fields, address } } } };
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than,
+                gt(side_effect_states_after.get_num_unencrypted_log_fields(), FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
-    EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
+    EXPECT_CALL(context, get_side_effect_tracker()).WillRepeatedly(ReturnRef(side_effect_tracker));
+    EXPECT_CALL(side_effect_tracker, get_side_effects())
+        .WillOnce(ReturnRef(side_effect_states))
+        .WillOnce(ReturnRef(side_effect_states_after));
+    EXPECT_CALL(side_effect_tracker, add_public_log(address, std::vector<FF>{ log_offset, log_offset + 1 }));
 
     EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
         static thread_local MemoryValue value;
@@ -60,10 +79,10 @@ TEST(EmitUnencryptedLogTest, Basic)
         .space_id = 57,
         .log_address = log_offset,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
-        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = false,
-        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
+        .values = to_memory_values(log_fields),
         .error_memory_out_of_bounds = false,
         .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
@@ -78,25 +97,31 @@ TEST(EmitUnencryptedLogTest, NegativeMemoryOutOfBounds)
     StrictMock<MockContext> context;
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     EventEmitter<EmitUnencryptedLogEvent> event_emitter;
 
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_offset = AVM_HIGHEST_MEM_ADDRESS;
-    uint32_t log_size = 2;
+    const std::vector<FF> log_fields = { log_offset, log_offset + 1 };
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     uint64_t end_log_address = static_cast<uint64_t>(log_offset) + log_size - 1;
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
-    uint32_t expected_next_num_unencrypted_log_fields = PUBLIC_LOG_HEADER_LENGTH + log_size;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 0 };
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    // No change to side effect states due to failure.
+    const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than,
+                gt(side_effect_states.get_num_unencrypted_log_fields() + PUBLIC_LOG_HEADER_LENGTH + log_size,
+                   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(true));
 
-    EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
-    EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
+    EXPECT_CALL(context, get_side_effect_tracker()).WillRepeatedly(ReturnRef(side_effect_tracker));
+    EXPECT_CALL(side_effect_tracker, get_side_effects())
+        .WillOnce(ReturnRef(side_effect_states))
+        .WillOnce(ReturnRef(side_effect_states_after));
 
     EXPECT_CALL(memory, get_space_id()).WillOnce(Return(57));
     EXPECT_CALL(context, get_is_static()).WillOnce(Return(false));
@@ -110,11 +135,10 @@ TEST(EmitUnencryptedLogTest, NegativeMemoryOutOfBounds)
         .space_id = 57,
         .log_address = log_offset,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
-        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = false,
         .values = {},
-
         .error_memory_out_of_bounds = true,
         .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
@@ -129,26 +153,36 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
     StrictMock<MockContext> context;
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     EventEmitter<EmitUnencryptedLogEvent> event_emitter;
 
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_offset = 27;
-    uint32_t log_size = 2;
+    const std::vector<FF> log_fields = { log_offset, log_offset + 1 };
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     uint64_t end_log_address = 28;
     // Minus three so header = 2 + log_size = 2 doesn't fit
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
-    uint32_t expected_next_num_unencrypted_log_fields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + 1;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - 3 };
+    TrackedSideEffects side_effect_states = {
+        .public_logs = PublicLogs{ { { .fields = testing::random_fields(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH -
+                                                                        FLAT_PUBLIC_LOGS_HEADER_LENGTH - 3),
+                                       .contractAddress = 0xdeadbeef } } }
+    };
+    // No change to side effect states due to failure.
+    const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than,
+                gt(side_effect_states.get_num_unencrypted_log_fields() + PUBLIC_LOG_HEADER_LENGTH + log_size,
+                   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(true));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
-    EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
+    EXPECT_CALL(context, get_side_effect_tracker()).WillOnce(ReturnRef(side_effect_tracker));
+    EXPECT_CALL(side_effect_tracker, get_side_effects())
+        .WillOnce(ReturnRef(side_effect_states))
+        .WillOnce(ReturnRef(side_effect_states_after));
 
     EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
         static thread_local MemoryValue value;
@@ -168,10 +202,10 @@ TEST(EmitUnencryptedLogTest, NegativeTooManyLogs)
         .space_id = 57,
         .log_address = log_offset,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
-        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = false,
-        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
+        .values = to_memory_values(log_fields),
         .error_memory_out_of_bounds = false,
         .error_too_many_log_fields = true,
         .error_tag_mismatch = false,
@@ -186,25 +220,30 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
     StrictMock<MockContext> context;
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     EventEmitter<EmitUnencryptedLogEvent> event_emitter;
 
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_offset = 27;
     uint32_t log_size = 2;
     uint64_t end_log_address = 28;
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
-    uint32_t expected_next_num_unencrypted_log_fields = PUBLIC_LOG_HEADER_LENGTH + log_size;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 0 };
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    // No change to side effect states due to failure.
+    const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than,
+                gt(side_effect_states.get_num_unencrypted_log_fields() + PUBLIC_LOG_HEADER_LENGTH + log_size,
+                   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
-    EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
+    EXPECT_CALL(context, get_side_effect_tracker()).WillOnce(ReturnRef(side_effect_tracker));
+    EXPECT_CALL(side_effect_tracker, get_side_effects())
+        .WillOnce(ReturnRef(side_effect_states))
+        .WillOnce(ReturnRef(side_effect_states_after));
 
     EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
         static thread_local MemoryValue value;
@@ -224,8 +263,8 @@ TEST(EmitUnencryptedLogTest, NegativeTagMismatch)
         .space_id = 57,
         .log_address = log_offset,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
-        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = false,
         .values = { MemoryValue::from<uint32_t>(log_offset), MemoryValue::from<uint32_t>(log_offset + 1) },
         .error_memory_out_of_bounds = false,
@@ -242,25 +281,31 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
     StrictMock<MockContext> context;
     StrictMock<MockGreaterThan> greater_than;
     StrictMock<MockExecutionIdManager> execution_id_manager;
+    StrictMock<MockSideEffectTracker> side_effect_tracker;
     EventEmitter<EmitUnencryptedLogEvent> event_emitter;
 
     AztecAddress address = 0xdeadbeef;
     MemoryAddress log_offset = 27;
-    uint32_t log_size = 2;
+    const std::vector<FF> log_fields = { log_offset, log_offset + 1 };
+    uint32_t log_size = static_cast<uint32_t>(log_fields.size());
     uint64_t end_log_address = 28;
-    SideEffectStates side_effect_states = { .numUnencryptedLogFields = 0 };
-    uint32_t expected_next_num_unencrypted_log_fields = PUBLIC_LOG_HEADER_LENGTH + log_size;
-    SideEffectStates next_side_effect_states = { .numUnencryptedLogFields = 0 };
+    TrackedSideEffects side_effect_states = { .public_logs = {} };
+    // No change to side effect states due to failure.
+    const TrackedSideEffects& side_effect_states_after = side_effect_states;
 
     EmitUnencryptedLog emit_unencrypted_log(execution_id_manager, greater_than, event_emitter);
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(1));
-    EXPECT_CALL(greater_than, gt(expected_next_num_unencrypted_log_fields, FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
+    EXPECT_CALL(greater_than,
+                gt(side_effect_states.get_num_unencrypted_log_fields() + PUBLIC_LOG_HEADER_LENGTH + log_size,
+                   FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH))
         .WillOnce(Return(false));
     EXPECT_CALL(greater_than, gt(end_log_address, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
-    EXPECT_CALL(context, get_side_effect_states()).WillOnce(ReturnRef(side_effect_states));
-    EXPECT_CALL(context, set_side_effect_states(next_side_effect_states));
+    EXPECT_CALL(context, get_side_effect_tracker()).WillOnce(ReturnRef(side_effect_tracker));
+    EXPECT_CALL(side_effect_tracker, get_side_effects())
+        .WillOnce(ReturnRef(side_effect_states))
+        .WillOnce(ReturnRef(side_effect_states_after));
 
     EXPECT_CALL(memory, get(_)).WillRepeatedly([](MemoryAddress address) -> const MemoryValue& {
         static thread_local MemoryValue value;
@@ -280,11 +325,10 @@ TEST(EmitUnencryptedLogTest, NegativeStatic)
         .space_id = 57,
         .log_address = log_offset,
         .log_size = log_size,
-        .prev_num_unencrypted_log_fields = side_effect_states.numUnencryptedLogFields,
-        .next_num_unencrypted_log_fields = next_side_effect_states.numUnencryptedLogFields,
+        .prev_num_unencrypted_log_fields = side_effect_states.get_num_unencrypted_log_fields(),
+        .next_num_unencrypted_log_fields = side_effect_states_after.get_num_unencrypted_log_fields(),
         .is_static = true,
-        .values = { MemoryValue::from<FF>(FF(log_offset)), MemoryValue::from<FF>(FF(log_offset + 1)) },
-
+        .values = to_memory_values(log_fields),
         .error_memory_out_of_bounds = false,
         .error_too_many_log_fields = false,
         .error_tag_mismatch = false,
@@ -312,4 +356,5 @@ TEST(EmitUnencryptedLogTest, CheckpointListener)
                             CheckPointEventType::REVERT_CHECKPOINT));
 }
 
+} // namespace
 } // namespace bb::avm2::simulation

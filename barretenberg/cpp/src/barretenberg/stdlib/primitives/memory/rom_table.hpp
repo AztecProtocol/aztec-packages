@@ -12,10 +12,10 @@
 namespace bb::stdlib {
 
 // A runtime-defined read-only memory table. Table entries must be initialized in the constructor.
-// N.B. Only works with the UltraBuilder at the moment!
+// Works with UltraBuilder and MegaBuilder.
 template <typename Builder> class rom_table {
   private:
-    typedef field_t<Builder> field_pt;
+    using field_pt = field_t<Builder>;
 
   public:
     rom_table() {};
@@ -39,12 +39,13 @@ template <typename Builder> class rom_table {
     Builder* get_context() const { return context; }
 
   private:
-    std::vector<field_pt> raw_entries;
-    mutable std::vector<field_pt> entries;
+    std::vector<field_pt> raw_entries;     // the entries of the ROM table
+    mutable std::vector<field_pt> entries; // processed version of `raw_entries`, where circuit constants are explicitly
+                                           // turned into constant witnesses.
     // Origin Tags for detecting problematic interactions of stdlib primitives
     mutable std::vector<OriginTag> _tags;
     size_t length = 0;
-    mutable size_t rom_id = 0; // Builder identifier for this ROM table
+    mutable size_t rom_id = 0; // Identifier of this ROM table for the builder.
     mutable bool initialized = false;
     mutable Builder* context = nullptr;
 };

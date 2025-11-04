@@ -51,7 +51,7 @@ template <typename FF_> class MemoryRelationImpl {
      * N.B.2 The q_c selector is used to store circuit-specific values in the RAM/ROM access gate
      *
      * @param evals transformed to `evals + C(in(X)...)*scaling_factor`
-     * @param in an std::array containing the Totaly extended Univariate edges.
+     * @param in an std::array containing the totally extended univariate edges.
      * @param parameters contains beta, gamma, and public_input_delta, ....
      * @param scaling_factor optional term to scale the evaluation before adding to evals.
      */
@@ -124,8 +124,7 @@ template <typename FF_> class MemoryRelationImpl {
 
         /**
          * Memory Record Check
-         * Partial degree: 1
-         * Total degree: 2
+         * Degree: 1
          *
          * A ROM/RAM access gate can be evaluated with the `memory_record_check` identity:
          *
@@ -135,20 +134,16 @@ template <typename FF_> class MemoryRelationImpl {
          * Here, informally, w4 is the "record" (a.k.a. fingerprint) of the access gate.
          */
 
-        // memory_record_check and partial_record_check_m have either deg 1 or 2 (the latter refers to the
-        // functional univariate degree when we use HN as opposed to sumcheck.)
-        auto memory_record_check_m = w_3_m * eta_three_m;
+        auto memory_record_check_m = w_3_m * eta_three_m; // degree 1
         memory_record_check_m += w_2_m * eta_two_m;
         memory_record_check_m += w_1_m * eta_m;
         memory_record_check_m += q_c_m;
-        auto partial_record_check_m = memory_record_check_m; // used later in RAM consistency check
+        auto partial_record_check_m = memory_record_check_m; // degree 1. used later in RAM consistency check
         memory_record_check_m = memory_record_check_m - w_4_m;
-
         auto memory_record_check = Accumulator(memory_record_check_m);
         /**
          * ROM Consistency Check
-         * Partial degree: 1
-         * Total degree: 4
+         * Degree: 5
          *
          * For every ROM read, we require a multiset check applied between the record witnesses and a
          * second set of records that are sorted. (See the Plookup paper.)
@@ -161,14 +156,15 @@ template <typename FF_> class MemoryRelationImpl {
          * 2. index values for adjacent records are monotonically increasing
          * 3. if, at gate i, index_i == index_{i + 1}, then value1_i == value1_{i + 1} and value2_i == value2_{i + 1}
          *
+         * (1) is witnessed jointly with corresponding other constraints in `std::get<0>(accumulators)`
          */
         auto neg_index_delta_m = w_1_m - w_1_shift_m;
         auto index_delta_is_zero_m = neg_index_delta_m + FF(1); // deg 1
         auto record_delta_m = w_4_shift_m - w_4_m;
 
-        Accumulator index_is_monotonically_increasing(neg_index_delta_m.sqr() +
-                                                      neg_index_delta_m); // check if next index minus current index is
-                                                                          // 0 or 1. deg 2
+        Accumulator index_increases_by_zero_or_one(neg_index_delta_m.sqr() +
+                                                   neg_index_delta_m); // check if next index minus current index is
+                                                                       // boolean. applies to both ROM and RAM. deg 2
 
         auto adjacent_values_match_if_adjacent_indices_match =
             Accumulator(index_delta_is_zero_m * record_delta_m); // deg 2
@@ -178,11 +174,13 @@ template <typename FF_> class MemoryRelationImpl {
         auto q_one_by_two_m = q_1_m * q_2_m; // deg 2
         auto q_one_by_two = Accumulator(q_one_by_two_m);
         auto q_one_by_two_by_memory_by_scaling = q_one_by_two * q_memory_by_scaling; // deg 3
-
+        // witnesses that for consecutive ROM gates, values match if indices match.
         std::get<1>(accumulators) +=
-            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_memory_by_scaling;            // deg 5
-        std::get<2>(accumulators) += index_is_monotonically_increasing * q_one_by_two_by_memory_by_scaling; // deg 5
-        auto ROM_consistency_check_identity = memory_record_check * q_one_by_two; // deg 3 or 4
+            adjacent_values_match_if_adjacent_indices_match * q_one_by_two_by_memory_by_scaling; // deg 5
+        // witnesses that index increases by {0, 1} for sorted ROM gates.
+        std::get<2>(accumulators) += index_increases_by_zero_or_one * q_one_by_two_by_memory_by_scaling; // deg 5
+
+        auto ROM_consistency_check_identity = memory_record_check * q_one_by_two; // deg 3
 
         /**
          * RAM Consistency Check
@@ -201,66 +199,80 @@ template <typename FF_> class MemoryRelationImpl {
          *
          * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
          * with a WRITE operation.
+         *
+         * We apply the following checks for the sorted records:
+         *
+         * 1. If adjacent indicies match and next access is a read, then the adjacent values must match.
+         * 2. The index increases by {0, 1}
+         * 3. The _next_ gate access is either a READ or a WRITE (i.e., boolean).
          */
-        auto neg_access_type_m = (partial_record_check_m - w_4_m); // will be 0 or 1 for honest Prover; deg 1 or 2
+        auto neg_access_type_m = (partial_record_check_m - w_4_m); // will be boolean for honest Prover; degree 1.
         Accumulator neg_access_type(neg_access_type_m);
-        auto access_check = neg_access_type.sqr() + neg_access_type; // check value is 0 or 1; deg 2 or 4
+        auto access_check = neg_access_type.sqr() + neg_access_type; // check value is boolean; degree 2.
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/757): If we sorted in
-        // reverse order we could re-use `partial_record_check`  1 -  (w3' * eta_three + w2' * eta_two + w1' *
-        // eta) deg 1 or 2
-        auto neg_next_gate_access_type_m = w_3_shift_m * eta_three_m;
+        auto neg_next_gate_access_type_m = w_3_shift_m * eta_three_m; // degree 1
         neg_next_gate_access_type_m += w_2_shift_m * eta_two_m;
         neg_next_gate_access_type_m += w_1_shift_m * eta_m;
         neg_next_gate_access_type_m = neg_next_gate_access_type_m - w_4_shift_m;
-        Accumulator neg_next_gate_access_type(neg_next_gate_access_type_m); // deg 1 or 2
-        auto value_delta_m = w_3_shift_m - w_3_m;
+        Accumulator neg_next_gate_access_type(neg_next_gate_access_type_m); // degree 1
+        auto value_delta_m = w_3_shift_m - w_3_m;                           // degree 1
         auto adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
             Accumulator(index_delta_is_zero_m * value_delta_m) *
-            Accumulator(neg_next_gate_access_type_m + FF(1)); // deg 3 or 4
+            Accumulator(neg_next_gate_access_type_m + FF(1)); // deg 3
 
-        // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
-        // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
-        // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
-        // type is  correct, to cover this edge case
-        // deg 2 or 4
-        auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type;
+        // We can't apply the RAM consistency check identity on the final entry in the sorted list: the wires in the
+        // next gate would make the identity fail.  We need to validate that its 'access type' bool is correct. Can't
+        // do with an arithmetic gate because of the  `eta` factors.
+        // Our solution is that we have the final sorted RAM record be unconstrained (i.e., none of the
+        // `MEMORY_SELECTORS` are turned on); then, we may _uniformly_ check that the *next* gate's access type is
+        // correct, to cover this edge case.
+        auto next_gate_access_type_is_boolean = neg_next_gate_access_type.sqr() + neg_next_gate_access_type; // deg 2
 
         auto q_3_by_memory_and_scaling = Accumulator(q_3_m * q_memory_by_scaling_m);
-        // Putting it all together...
+        // For RAM entries, if adjacent indices match and the next access is a read, then
+        // values must be equal.
         std::get<3>(accumulators) +=
             adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation *
-            q_3_by_memory_and_scaling;                                                              // deg 5 or 6
-        std::get<4>(accumulators) += index_is_monotonically_increasing * q_3_by_memory_and_scaling; // deg 4
-        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_3_by_memory_and_scaling;  // deg 4 or 6
+            q_3_by_memory_and_scaling;                                                             // deg 5
+        std::get<4>(accumulators) += index_increases_by_zero_or_one * q_3_by_memory_and_scaling;   // deg 4
+        std::get<5>(accumulators) += next_gate_access_type_is_boolean * q_3_by_memory_and_scaling; // deg 4
 
-        auto RAM_consistency_check_identity = access_check * q_3_by_memory_and_scaling; // deg 3 or 5
+        auto RAM_consistency_check_identity = access_check * q_3_by_memory_and_scaling; // deg 4
 
         /**
          * RAM Timestamp Consistency Check
          *
-         * | w1 | w2 | w3 | w4 |
+         * The gates constructed to witness the consistency of the jumps in the timestamp have the following form. They
+         * are constructed to be sorted, first with respect to `index`, then with respect to `timestamp`. (This is the
+         * same structure as the sorted RAM gates.) This is enforced by copy constraints (the witness indices of the
+         * gates are _the same_ as those of the sorted RAM gates, so we _do not_ need to explicitly check the
+         * lexicographic ordering again.)
+         *
+         * | w1    | w2        | w3              | w4 |
          * | index | timestamp | timestamp_check | -- |
          *
          * Let delta_index = index_{i + 1} - index_{i}
          *
          * Iff delta_index == 0, timestamp_check = timestamp_{i + 1} - timestamp_i
-         * Else timestamp_check = 0
+         * Else timestamp_check = 0.
+         *
+         * @note the timestamp_deltas are range-constrained elsewhere.
          */
         auto timestamp_delta_m = w_2_shift_m - w_2_m;                                            // deg 1
         auto RAM_timestamp_check_identity_m = index_delta_is_zero_m * timestamp_delta_m - w_3_m; // deg 2
         Accumulator RAM_timestamp_check_identity(RAM_timestamp_check_identity_m);
         /**
          * The complete RAM/ROM memory identity
-         * Partial degree:
+         * Degree: 5
          */
-        auto memory_identity = ROM_consistency_check_identity;                        // deg 3 or 4
-        memory_identity += RAM_timestamp_check_identity * Accumulator(q_4_m * q_1_m); // deg 4
-        memory_identity += memory_record_check * Accumulator(q_m_m * q_1_m); // deg 4 ( = deg 4 + (deg 3 or deg 4))
 
-        // (deg 4) + (deg 4) + (deg 3)
+        // degree 5
+        auto memory_identity = ROM_consistency_check_identity;
+        memory_identity += RAM_timestamp_check_identity * Accumulator(q_4_m * q_1_m); // deg 4
+        memory_identity += memory_record_check * Accumulator(q_m_m * q_1_m);          // deg 4
+
         memory_identity *= q_memory_by_scaling;            // deg 5
-        memory_identity += RAM_consistency_check_identity; // deg 5 ( = deg 5 + (deg 3 or deg 5))
+        memory_identity += RAM_consistency_check_identity; // deg 5
         std::get<0>(accumulators) += memory_identity;      // deg 5
     };
 };

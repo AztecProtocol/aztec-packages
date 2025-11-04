@@ -45,7 +45,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using PairingObject = PairingPoints<OuterBuilder>;
+    using PairingObject = PairingPoints<bn254<OuterBuilder>>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
     using StdlibProof = bb::stdlib::Proof<OuterBuilder>;
 
@@ -128,7 +128,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
             output.ipa_claim.set_public();
             outer_circuit.ipa_proof = output.ipa_proof.get_value();
         }
-        info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
+        info("Recursive Verifier: num gates = ", outer_circuit.get_num_finalized_gates_inefficient());
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();

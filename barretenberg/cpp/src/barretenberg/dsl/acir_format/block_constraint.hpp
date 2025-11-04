@@ -52,7 +52,9 @@ void process_call_data_operations(Builder& builder,
                                   bool has_valid_witness_assignments,
                                   std::vector<bb::stdlib::field_t<Builder>>& init);
 template <typename Builder>
-void process_return_data_operations(const BlockConstraint& constraint, std::vector<bb::stdlib::field_t<Builder>>& init);
+void process_return_data_operations(Builder& builder,
+                                    const BlockConstraint& constraint,
+                                    std::vector<bb::stdlib::field_t<Builder>>& init);
 
 template <typename B> inline void read(B& buf, MemOp& mem_op)
 {

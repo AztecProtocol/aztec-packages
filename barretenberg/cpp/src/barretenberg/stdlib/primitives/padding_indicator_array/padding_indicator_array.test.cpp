@@ -33,7 +33,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             auto result = compute_padding_indicator_array<Curve, domain_size>(x);
             EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
+            info("num gates = ", builder.get_num_finalized_gates_inefficient());
             // Check that the sum of indicators is indeed x
             Fr sum_of_indicators = std::accumulate(result.begin(), result.end(), Fr{ 0 });
             EXPECT_TRUE((sum_of_indicators == x).get_value());
@@ -53,7 +53,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr zero = Fr::from_witness(&builder, typename Fr::native(0));
 
             compute_padding_indicator_array<Curve, domain_size>(zero);
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
+            info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
@@ -65,7 +65,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr N = Fr::from_witness(&builder, typename Fr::native(domain_size));
 
             compute_padding_indicator_array<Curve, domain_size>(N);
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
+            info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
@@ -80,7 +80,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr x = Fr::from_witness(&builder, typename Fr::native(scalar_raw));
 
             compute_padding_indicator_array<Curve, domain_size>(x);
-            info("num gates = ", builder.get_estimated_num_finalized_gates());
+            info("num gates = ", builder.get_num_finalized_gates_inefficient());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
@@ -93,7 +93,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr x = Fr::from_witness(&builder, typename Fr::native(scalar_raw));
             auto result = compute_padding_indicator_array<Curve, domain_size>(x);
 
-            return builder.get_estimated_num_finalized_gates();
+            return builder.get_num_finalized_gates_inefficient();
         };
 
         // Valid input: x in [1, domain_size - 1]

@@ -4,8 +4,10 @@
 //!
 //!   ExternalContract.at(address).some_method(arg1, arg2).enqueue()
 
-use crate::macros::utils::{AsStrQuote, compute_fn_selector, is_fn_view};
-use super::stub_registry;
+use crate::macros::{
+    functions::{self_call_registry, stub_registry as call_registry},
+    utils::{AsStrQuote, compute_fn_selector, is_fn_view},
+};
 use protocol_types::meta::utils::derive_serialization_quotes;
 use std::meta::unquote;
 
@@ -19,27 +21,45 @@ comptime global FROM_FIELD: TypedExpr = {
         .as_typed_expr()
 };
 
-pub comptime fn register_private_fn_stub(f: FunctionDefinition) {
-    let stub = if is_fn_view(f) {
-        create_private_static_stub(f)
+// Call registry is used to register calls to the contract from other contracts.
+// Self-call registry is used to register calls to the contract from itself.
+
+pub comptime fn register_private_fn_stubs(f: FunctionDefinition) {
+    if is_fn_view(f) {
+        call_registry::register(f.module(), create_private_static_stub(f));
+        self_call_registry::register_call_self_private_static(
+            f.module(),
+            create_private_self_call_stub(f, true),
+        );
     } else {
-        create_private_stub(f)
+        call_registry::register(f.module(), create_private_stub(f));
+        self_call_registry::register_call_self_private(
+            f.module(),
+            create_private_self_call_stub(f, false),
+        );
     };
-    stub_registry::register(f.module(), stub);
 }
 
-pub comptime fn register_public_fn_stub(f: FunctionDefinition) {
-    let stub = if is_fn_view(f) {
-        create_public_static_stub(f)
+pub comptime fn register_public_fn_stubs(f: FunctionDefinition) {
+    if is_fn_view(f) {
+        call_registry::register(f.module(), create_public_static_stub(f));
+        self_call_registry::register_call_self_public_static(
+            f.module(),
+            create_public_self_call_static_stub(f),
+        );
+        self_call_registry::register_enqueue_self_static(
+            f.module(),
+            create_public_self_enqueue_static_stub(f),
+        );
     } else {
-        create_public_stub(f)
+        call_registry::register(f.module(), create_public_stub(f));
+        self_call_registry::register_call_self_public(f.module(), create_public_self_call_stub(f));
+        self_call_registry::register_enqueue_self(f.module(), create_public_self_enqueue_stub(f));
     };
-    stub_registry::register(f.module(), stub);
 }
 
 pub comptime fn register_utility_fn_stub(f: FunctionDefinition) {
-    let stub = create_utility_stub(f);
-    stub_registry::register(f.module(), stub);
+    call_registry::register(f.module(), create_utility_stub(f));
 }
 
 /// Utility function creating stubs used by all the stub functions in this file.
@@ -101,13 +121,13 @@ comptime fn create_private_stub(f: FunctionDefinition) -> Quoted {
 }
 
 comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PrivateStaticCallInterface<$fn_name_len, $fn_return_type> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PrivateStaticCallInterface::new(
                 self.target_contract,
@@ -120,13 +140,13 @@ comptime fn create_private_static_stub(f: FunctionDefinition) -> Quoted {
 }
 
 comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, $fn_return_type> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicCallInterface::new(
                 self.target_contract,
@@ -140,13 +160,13 @@ comptime fn create_public_stub(f: FunctionDefinition) -> Quoted {
 }
 
 comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, $fn_return_type> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::PublicStaticCallInterface::new(
                 self.target_contract,
@@ -159,13 +179,13 @@ comptime fn create_public_static_stub(f: FunctionDefinition) -> Quoted {
 }
 
 comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
-    let (fn_name, fn_parameters_list, serialized_args_slice_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
         create_stub_base(f);
     let fn_return_type = f.return_type();
 
     quote {
         pub fn $fn_name(self, $fn_parameters_list) -> dep::aztec::context::call_interfaces::UtilityCallInterface<$fn_name_len, $fn_return_type> {
-            $serialized_args_slice_construction
+            $serialized_args_array_construction
             let selector = $FROM_FIELD($fn_selector);
             dep::aztec::context::call_interfaces::UtilityCallInterface::new(
                 self.target_contract,
@@ -173,6 +193,128 @@ comptime fn create_utility_stub(f: FunctionDefinition) -> Quoted {
                 $fn_name_str,
                 $serialized_args_array_name,
             )
+        }
+    }
+}
+
+// Self-call stub generation functions for CallSelf, CallSelfStatic, EnqueueSelf and EnqueueSelfStatic structs
+
+// Note: Unlike for the call registry, the self-call registry stubs directly perform the call instead of returning a
+// call interface struct.
+// TODO(F-131): This ^ is confusing and should be reflected in the naming.
+
+/// Creates a stub for calling a private function (or static private function if `is_static` is true) from private
+/// context (for CallSelf<&mut PrivateContext> and CallSelfStatic<&mut PrivateContext>).
+pub comptime fn create_private_self_call_stub(f: FunctionDefinition, is_static: bool) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, _, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+
+    quote {
+        pub fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            let args_hash = aztec::hash::hash_args($serialized_args_array_name);
+            aztec::oracle::execution_cache::store($serialized_args_array_name, args_hash);
+            let returns_hash = self.context.call_private_function_with_args_hash(
+                self.address,
+                selector,
+                args_hash,
+                $is_static
+            );
+            returns_hash.get_preimage()
+        }
+    }
+}
+
+// TODO(F-131): Drop the use of the CallInterface in the following 4 functions - it doesn't make sense to not not
+// perform the call directly using the context. I tried doing this already but it became a lot of pain due to the use of
+// slices and them being illegal to return from unconstrained functions. Makes sense to tackle this when cleaning up the
+// call interface code.
+// Note: Once we get rid of the structs we will be able to merge some of the static and non-static stub functions.
+
+/// Creates a stub for calling a public function from public context (for CallSelf<PublicContext>)
+pub comptime fn create_public_self_call_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, _, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+
+    quote {
+        pub fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            unsafe {
+                aztec::context::call_interfaces::PublicCallInterface::new(
+                    self.address,
+                    selector,
+                    $fn_name_str,
+                    $serialized_args_array_name,
+                    false
+                ).call(self.context)
+            }
+        }
+    }
+}
+
+/// Creates a static stub for calling a public view function from public context (for CallSelfStatic<PublicContext>)
+pub comptime fn create_public_self_call_static_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, _, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+
+    quote {
+        pub fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            unsafe {
+                aztec::context::call_interfaces::PublicStaticCallInterface::new(
+                    self.address,
+                    selector,
+                    $fn_name_str,
+                    $serialized_args_array_name,
+                ).view(self.context)
+            }
+        }
+    }
+}
+
+/// Creates a static stub for enqueuing a public view function from private context (for EnqueueSelfStatic<&mut PrivateContext>)
+pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+
+    quote {
+        pub fn $fn_name(self, $fn_parameters_list) {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            let interface: aztec::context::call_interfaces::PublicStaticCallInterface<$fn_name_len, ()> = aztec::context::call_interfaces::PublicStaticCallInterface::new(
+                self.address,
+                selector,
+                $fn_name_str,
+                $serialized_args_array_name,
+            );
+            interface.enqueue_view(self.context);
+        }
+    }
+}
+
+/// Creates a stub for enqueuing a public function from private context (for EnqueueSelf<&mut PrivateContext>)
+pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, fn_name_str, fn_name_len, fn_selector) =
+        create_stub_base(f);
+
+    quote {
+        pub fn $fn_name(self, $fn_parameters_list) {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            let interface: aztec::context::call_interfaces::PublicCallInterface<$fn_name_len, ()> = aztec::context::call_interfaces::PublicCallInterface::new(
+                self.address,
+                selector,
+                $fn_name_str,
+                $serialized_args_array_name,
+                false
+            );
+            interface.enqueue(self.context);
         }
     }
 }

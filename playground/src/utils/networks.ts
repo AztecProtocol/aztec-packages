@@ -1,5 +1,5 @@
-import { VERSION } from './constants';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { VERSION } from './constants';
 
 export type Network = {
   nodeURL: string;
@@ -17,25 +17,16 @@ export type Network = {
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL: 'https://rpc.testnet.aztec-labs.com/',
-    name: 'Aztec Testnet',
-    description: 'Public testnet',
-    hasTestAccounts: false,
-    hasSponsoredFPC: true,
-    version: '2.0.2',
-    sponsoredFPC: {
-      version: '2.0.2',
-      address: AztecAddress.fromString('0x299f255076aa461e4e94a843f0275303470a6b8ebe7cb44a471c66711151e529'),
-    },
-    transactionCongestionThreshold: 40,
-  },
-  {
-    nodeURL: 'http://34.169.170.55:8080',
+    nodeURL: 'https://devnet.aztec-labs.com',
     name: 'Aztec Devnet',
     description: 'Public development network',
-    hasTestAccounts: false,
+    hasTestAccounts: true,
     hasSponsoredFPC: true,
-    version: '0.85.0',
+    version: '3.0.0-devnet.2',
+    sponsoredFPC: {
+      version: '3.0.0-devnet.2',
+      address: AztecAddress.fromString('0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97'),
+    },
   },
   {
     nodeURL: 'http://localhost:8080',

@@ -12,7 +12,8 @@ network:
 ethereum:
   chainId: "11155111"
   l1GasPriceMax: 1000
-  l1FixedPriorityFeePerGas: 3
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
 
 aztec:
   realProofs: true

@@ -130,7 +130,7 @@ pub contract SimpleToken {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        SimpleToken::at(self.address)._increase_public_balance(to, amount).enqueue(self.context);
+        self.enqueue_self._increase_public_balance(to, amount);
     }
 
     #[external("private")]
@@ -160,16 +160,15 @@ pub contract SimpleToken {
             from,
             MessageDelivery.CONSTRAINED_ONCHAIN,
         );
-        SimpleToken::at(self.address)._reduce_total_supply(amount).enqueue(self.context);
+        self.enqueue_self._reduce_total_supply(amount);
     }
 
     #[external("private")]
     fn transfer_from_public_to_private(to: AztecAddress, amount: u128) {
         let from = self.msg_sender().unwrap();
-        let token = SimpleToken::at(self.address);
 
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
-        token._finalize_transfer_to_private_unsafe(from, amount, partial_note).enqueue(self.context);
+        self.enqueue_self._finalize_transfer_to_private_unsafe(from, amount, partial_note);
     }
 
     #[external("private")]
@@ -227,8 +226,8 @@ pub contract SimpleToken {
         from_and_completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         let from_balance = storage.public_balances.at(from_and_completer).read().sub(amount);
         storage.public_balances.at(from_and_completer).write(from_balance);
@@ -238,11 +237,12 @@ pub contract SimpleToken {
 
     #[external("private")]
     fn mint_privately(from: AztecAddress, to: AztecAddress, amount: u128) {
-        let token = SimpleToken::at(self.address);
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
-        token
-            ._finalize_mint_to_private_unsafe(self.msg_sender().unwrap(), amount, partial_note)
-            .enqueue(self.context);
+        self.enqueue_self._finalize_mint_to_private_unsafe(
+            self.msg_sender().unwrap(),
+            amount,
+            partial_note,
+        );
     }
 
     #[external("public")]
@@ -277,8 +277,8 @@ pub contract SimpleToken {
         completer: AztecAddress,
         amount: u128,
         partial_note: PartialUintNote,
-        context: &mut PublicContext,
-        storage: Storage<&mut PublicContext>,
+        context: PublicContext,
+        storage: Storage<PublicContext>,
     ) {
         let supply = storage.total_supply.read().add(amount);
         storage.total_supply.write(supply);
@@ -296,7 +296,7 @@ pub contract SimpleToken {
     fn _increase_public_balance_inner(
         to: AztecAddress,
         amount: u128,
-        storage: Storage<&mut PublicContext>,
+        storage: Storage<PublicContext>,
     ) {
         let new_balance = storage.public_balances.at(to).read().add(amount);
         storage.public_balances.at(to).write(new_balance);

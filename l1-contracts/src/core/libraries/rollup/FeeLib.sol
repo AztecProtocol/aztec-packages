@@ -2,6 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {
   EthValue,
   FeeAssetValue,
@@ -26,7 +27,6 @@ import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 import {SignedMath} from "@oz/utils/math/SignedMath.sol";
 import {Errors} from "./../Errors.sol";
 import {Slot, Timestamp, TimeLib} from "./../TimeLib.sol";
-import {BlobLib} from "./BlobLib.sol";
 import {STFLib} from "./STFLib.sol";
 
 // The lowest number of fee asset per eth is 10 with a precision of 1e9.

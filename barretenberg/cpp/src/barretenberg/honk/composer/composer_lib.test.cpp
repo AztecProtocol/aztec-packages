@@ -53,10 +53,7 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     Polynomial read_tags{ circuit_size };
 
     builder.blocks.compute_offsets();
-    construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder, circuit_size);
-
-    // The table polys are constructed at the start of the lookup gates block, thus so to are the counts/tags
-    size_t offset = builder.blocks.lookup.trace_offset();
+    construct_lookup_read_counts<Flavor>(read_counts, read_tags, builder);
 
     // The uint32 XOR lookup table is constructed for 6 bit operands via double for loop that iterates through the left
     // operand externally (0 to 63) then the right operand internally (0 to 63). Computing (1 XOR 5) will thus result in
@@ -64,13 +61,13 @@ TEST_F(ComposerLibTests, LookupReadCounts)
     // 6-bits limbs  that are all 0) and one lookup from second table from the (64 * 64 + 0) index (for last 2 bits).
     // The counts and tags at all other indices should be zero.
     for (auto [idx, count, tag] : zip_polys(read_counts, read_tags)) {
-        if (idx == (0 + offset)) {
+        if (idx == (0)) {
             EXPECT_EQ(count, 4);
             EXPECT_EQ(tag, 1);
-        } else if (idx == (69 + offset)) {
+        } else if (idx == (69)) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
-        } else if (idx == (64 * 64 + offset)) {
+        } else if (idx == (64 * 64)) {
             EXPECT_EQ(count, 1);
             EXPECT_EQ(tag, 1);
         } else {

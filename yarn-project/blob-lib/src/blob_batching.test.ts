@@ -111,20 +111,23 @@ describe('Blob Batching', () => {
     );
   });
 
-  it('should construct and verify a batch of 3 blobs in a single block', async () => {
-    // Initialize enough fields to require 3 blobs
-    const numFields = FIELDS_PER_BLOB * 2 + 123;
+  it('should construct and verify a batch of BLOBS_PER_BLOCK blobs in a single block', async () => {
+    // Initialize enough fields to require BLOBS_PER_BLOCK blobs
+    const numFields = FIELDS_PER_BLOB * (BLOBS_PER_BLOCK - 1) + 123;
     const blobFields = Array.from({ length: numFields }, (_, i) => new Fr(456 + i));
     blobFields[0] = new Fr(numFields); // Change the first field to indicate the total number of fields.
     const blobs = getBlobsPerL1Block(blobFields);
-    expect(blobs.length).toBe(3);
+    expect(blobs.length).toBe(BLOBS_PER_BLOCK);
 
     const finalChallenges = await BatchedBlob.precomputeBatchedBlobChallenges([blobs]);
 
     // Challenge for the final opening (z)
     const blobFieldsHash = await computeBlobFieldsHash(blobFields);
     const zis = await Promise.all(blobs.map(b => b.computeChallengeZ(blobFieldsHash)));
-    const finalZ = await poseidon2Hash([await poseidon2Hash([zis[0], zis[1]]), zis[2]]);
+    let finalZ = zis[0];
+    for (let i = 1; i < BLOBS_PER_BLOCK; i++) {
+      finalZ = await poseidon2Hash([finalZ, zis[i]]);
+    }
     expect(finalZ).toEqual(finalChallenges.z);
 
     // Batched commitment
@@ -139,12 +142,11 @@ describe('Blob Batching', () => {
     // Challenge gamma
     const evalYsToBLSBignum = evalYs.map(y => y.toNoirBigNum());
     const hashedEvals = await Promise.all(evalYsToBLSBignum.map(e => poseidon2Hash(e.limbs.map(Fr.fromHexString))));
-    const finalGamma = BLS12Fr.fromBN254Fr(
-      await poseidon2Hash([
-        await poseidon2Hash([await poseidon2Hash([hashedEvals[0], hashedEvals[1]]), hashedEvals[2]]),
-        finalZ,
-      ]),
-    );
+    let evaluationsHash = hashedEvals[0];
+    for (let i = 1; i < BLOBS_PER_BLOCK; i++) {
+      evaluationsHash = await poseidon2Hash([evaluationsHash, hashedEvals[i]]);
+    }
+    const finalGamma = BLS12Fr.fromBN254Fr(await poseidon2Hash([evaluationsHash, finalZ]));
     expect(finalGamma).toEqual(finalChallenges.gamma);
 
     let batchedC = BLS12Point.ZERO;
@@ -152,7 +154,7 @@ describe('Blob Batching', () => {
     let finalY = BLS12Fr.ZERO;
     let powGamma = new BLS12Fr(1n); // Since we start at gamma^0 = 1
     let finalBlobCommitmentsHash: Buffer = Buffer.alloc(0);
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < BLOBS_PER_BLOCK; i++) {
       const cOperand = commitments[i].mul(powGamma);
       const yOperand = evalYs[i].mul(powGamma);
       const qOperand = qs[i].mul(powGamma);
@@ -174,52 +176,53 @@ describe('Blob Batching', () => {
 
     // If the snapshot has changed, update the noir test data as well.
     expect(finalY.toString()).toMatchInlineSnapshot(
-      `"0x667543d4808e38ca8eb79c7e45b86112d1837f44d9eea6c580f48caff8e9d367"`,
+      `"0x11163d3ed3ccecbc6dbf093e8e7dabcc5a0b6956714bd922f3f75bb37bc1ad7b"`,
     );
 
-    // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
-    for (let i = 0; i < 3; i++) {
+    function writeNoirTestData(filePath: string) {
+      // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data.
+      for (let i = 0; i < BLOBS_PER_BLOCK; i++) {
+        updateInlineTestData(
+          filePath,
+          `kzg_commitment_x_limbs_blob_${i}_from_ts`,
+          toInlineStrArray(commitments[i].x.toNoirBigNum().limbs),
+        );
+        updateInlineTestData(
+          filePath,
+          `kzg_commitment_y_limbs_blob_${i}_from_ts`,
+          toInlineStrArray(commitments[i].y.toNoirBigNum().limbs),
+        );
+      }
+      updateInlineTestData(filePath, `z_${BLOBS_PER_BLOCK}_blobs_from_ts`, finalZ.toString());
       updateInlineTestData(
-        'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-        `kzg_commitment_x_limbs_blob_${i}_from_ts`,
-        toInlineStrArray(commitments[i].x.toNoirBigNum().limbs),
+        filePath,
+        `gamma_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        toInlineStrArray(finalGamma.toNoirBigNum().limbs),
       );
       updateInlineTestData(
-        'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-        `kzg_commitment_y_limbs_blob_${i}_from_ts`,
-        toInlineStrArray(commitments[i].y.toNoirBigNum().limbs),
+        filePath,
+        `y_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        toInlineStrArray(finalY.toNoirBigNum().limbs),
+      );
+      updateInlineTestData(
+        filePath,
+        `batched_c_x_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        toInlineStrArray(batchedC.x.toNoirBigNum().limbs),
+      );
+      updateInlineTestData(
+        filePath,
+        `batched_c_y_limbs_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        toInlineStrArray(batchedC.y.toNoirBigNum().limbs),
+      );
+      updateInlineTestData(
+        filePath,
+        `blob_commitments_hash_${BLOBS_PER_BLOCK}_blobs_from_ts`,
+        batchedBlob.blobCommitmentsHash.toString(),
       );
     }
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'z_3_blobs_from_ts',
-      finalZ.toString(),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'gamma_limbs_3_blobs_from_ts',
-      toInlineStrArray(finalGamma.toNoirBigNum().limbs),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'y_limbs_3_blobs_from_ts',
-      toInlineStrArray(finalY.toNoirBigNum().limbs),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'batched_c_x_limbs_3_blobs_from_ts',
-      toInlineStrArray(batchedC.x.toNoirBigNum().limbs),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'batched_c_y_limbs_3_blobs_from_ts',
-      toInlineStrArray(batchedC.y.toNoirBigNum().limbs),
-    );
-    updateInlineTestData(
-      'noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr',
-      'blob_commitments_hash_3_blobs_from_ts',
-      batchedBlob.blobCommitmentsHash.toString(),
-    );
+
+    writeNoirTestData('noir-projects/noir-protocol-circuits/crates/blob/src/blob_batching.nr');
+    writeNoirTestData('noir-projects/noir-protocol-circuits/crates/rollup-lib/src/checkpoint_root/tests/blob_tests.nr');
   });
 
   it.each([

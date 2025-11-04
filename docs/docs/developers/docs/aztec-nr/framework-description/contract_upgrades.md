@@ -99,7 +99,7 @@ Only deployed contract instances can upgrade or change its upgrade delay current
 
 ### How to interact with an upgraded contract
 
-The PXE stores the contract instances and classes in a local database. When a contract is updated, in order to interact with it we need to pass the new artifact to the PXE, since the protocol doesn't publish artifacts.
+The PXE in the wallet stores the contract instances and classes in a local database. When a contract is updated, in order to interact with it we need to pass the new artifact to the PXE in the wallet, since the protocol doesn't publish artifacts.
 Consider this contract as an example:
 
 ```rust
@@ -128,17 +128,17 @@ const updatedContractClassId = (
 await contract.methods.update_to(updatedContractClassId).send().wait();
 ```
 
-Now, when the update has happened, calling `at` with the new contract artifact will automatically update the contract instance in the PXE if it's outdated:
+Now, when the update has happened, calling `at` with the new contract artifact will automatically update the contract instance in the wallet if it's outdated:
 
 ```typescript
-// 'at' will call PXE updateContract if outdated
+// 'at' will call wallet updateContract if outdated
 const updatedContract = await UpdatedContract.at(address, wallet);
 ```
 
 If you try to call `at` with a different contract that is not the current version, it'll fail
 
 ```typescript
-// throws when trying to update the PXE instance to RandomContract
+// throws when trying to update the wallet instance to RandomContract
 // since the current one is UpdatedContract
 await RandomContract.at(address, wallet);
 ```

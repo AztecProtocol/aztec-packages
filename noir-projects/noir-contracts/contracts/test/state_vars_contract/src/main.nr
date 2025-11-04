@@ -54,9 +54,7 @@ pub contract StateVars {
 
     #[external("private")]
     fn get_public_immutable_constrained_private_indirect() -> MockStruct {
-        let mut mock_struct = StateVars::at(self.address)
-            .get_public_immutable_constrained_private()
-            .view(self.context);
+        let mut mock_struct = self.call_self_static.get_public_immutable_constrained_private();
         mock_struct.value += 1;
         mock_struct
     }
@@ -67,9 +65,7 @@ pub contract StateVars {
         // and returns the response.
         // Used to test that we can retrieve values through calls and
         // correctly return them in the simulation
-        let mut mock_struct = StateVars::at(self.address)
-            .get_public_immutable_constrained_public()
-            .view(self.context);
+        let mut mock_struct = self.call_self_static.get_public_immutable_constrained_public();
         mock_struct.value += 1;
         mock_struct
     }

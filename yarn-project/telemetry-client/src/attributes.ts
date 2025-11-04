@@ -126,3 +126,6 @@ export const TX_COLLECTION_METHOD = 'aztec.tx_collection.method';
 
 /** Scope of L1 transaction (sequencer, prover, or other) */
 export const L1_TX_SCOPE = 'aztec.l1_tx.scope';
+
+/** Generic error type attribute */
+export const IS_COMMITTEE_MEMBER = 'aztec.is_committee_member';

@@ -25,7 +25,7 @@ template <typename Builder> struct UltraRecursiveVerifierOutput {
     using FF = Curve::ScalarField;
     using G1 = Curve::Group;
 
-    PairingPoints<Builder> points_accumulator;
+    PairingPoints<Curve> points_accumulator;
     OpeningClaim<grumpkin<Builder>> ipa_claim;
     stdlib::Proof<Builder> ipa_proof;
     G1 kernel_return_data;

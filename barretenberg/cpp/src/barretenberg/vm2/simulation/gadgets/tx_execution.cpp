@@ -58,7 +58,7 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
 // (3) Revertible insertions of nullifiers, note hashes, and L2 to L1 messages.
 // (4) App logic phase, where the app logic enqueued calls are executed.
 // (5) Collec Gas fee
-void TxExecution::simulate(const Tx& tx)
+TxExecutionResult TxExecution::simulate(const Tx& tx)
 {
     Gas gas_limit = tx.gasSettings.gasLimits;
     Gas teardown_gas_limit = tx.gasSettings.teardownGasLimits;
@@ -99,11 +99,9 @@ void TxExecution::simulate(const Tx& tx)
                                                                   call.request.isStaticCall,
                                                                   gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states,
                                                                   TransactionPhase::SETUP);
             // This call should not throw unless it's an unexpected unrecoverable failure.
-            ExecutionResult result = call_execution.execute(std::move(context));
-            tx_context.side_effect_states = result.side_effect_states;
+            EnqueuedCallResult result = call_execution.execute(std::move(context));
             tx_context.gas_used = result.gas_used;
             emit_public_call_request(call,
                                      TransactionPhase::SETUP,
@@ -120,7 +118,6 @@ void TxExecution::simulate(const Tx& tx)
             }
         }
     }
-    SideEffectStates end_setup_side_effect_states = tx_context.side_effect_states;
 
     // The checkpoint we should go back to if anything from now on reverts.
     merkle_db.create_checkpoint();
@@ -145,12 +142,11 @@ void TxExecution::simulate(const Tx& tx)
                                                                       call.request.isStaticCall,
                                                                       gas_limit,
                                                                       start_gas,
-                                                                      tx_context.side_effect_states,
                                                                       TransactionPhase::APP_LOGIC);
                 // This call should not throw unless it's an unexpected unrecoverable failure.
-                ExecutionResult result = call_execution.execute(std::move(context));
-                tx_context.side_effect_states = result.side_effect_states;
+                EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
+                tx_context.app_logic_output = std::move(result.output);
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
                                          /*transaction_fee=*/FF(0),
@@ -168,9 +164,9 @@ void TxExecution::simulate(const Tx& tx)
         }
     } catch (const TxExecutionException& e) {
         info("Revertible failure while simulating tx ", tx.hash, ": ", e.what());
+        tx_context.reverted = true;
         // We revert to the post-setup state.
         merkle_db.revert_checkpoint();
-        tx_context.side_effect_states = end_setup_side_effect_states;
         // But we also create a new fork so that the teardown phase can transparently
         // commit or rollback to the end of teardown.
         merkle_db.create_checkpoint();
@@ -200,11 +196,9 @@ void TxExecution::simulate(const Tx& tx)
                                                                   tx.teardownEnqueuedCall->request.isStaticCall,
                                                                   gas_limit,
                                                                   start_gas,
-                                                                  tx_context.side_effect_states,
                                                                   TransactionPhase::TEARDOWN);
             // This call should not throw unless it's an unexpected unrecoverable failure.
-            ExecutionResult result = call_execution.execute(std::move(context));
-            tx_context.side_effect_states = result.side_effect_states;
+            EnqueuedCallResult result = call_execution.execute(std::move(context));
             // Check what to do here for GAS
             emit_public_call_request(*tx.teardownEnqueuedCall,
                                      TransactionPhase::TEARDOWN,
@@ -225,6 +219,7 @@ void TxExecution::simulate(const Tx& tx)
         merkle_db.commit_checkpoint();
     } catch (const TxExecutionException& e) {
         info("Teardown failure while simulating tx ", tx.hash, ": ", e.what());
+        tx_context.reverted = true;
         // We rollback to the post-setup state.
         merkle_db.revert_checkpoint();
     }
@@ -235,6 +230,12 @@ void TxExecution::simulate(const Tx& tx)
     pad_trees();
 
     cleanup();
+
+    return {
+        .gas_used = tx_context.gas_used,
+        .reverted = tx_context.reverted,
+        .app_logic_output = std::move(tx_context.app_logic_output),
+    };
 }
 
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
@@ -310,14 +311,15 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
 {
     TransactionPhase phase = revertible ? TransactionPhase::R_L2_TO_L1_MESSAGE : TransactionPhase::NR_L2_TO_L1_MESSAGE;
     TxContextEvent state_before = tx_context.serialize_tx_context_event();
+    auto& side_effect_tracker = tx_context.side_effect_tracker;
+    const auto& side_effects = side_effect_tracker.get_side_effects();
 
     try {
-        if (tx_context.side_effect_states.numL2ToL1Messages == MAX_L2_TO_L1_MSGS_PER_TX) {
+        if (side_effects.l2_to_l1_messages.size() == MAX_L2_TO_L1_MSGS_PER_TX) {
             throw TxExecutionException("Maximum number of L2 to L1 messages reached");
         }
-        // TODO: We don't store the l2 to l1 message in the context since it's not needed until cpp has to generate
-        // public inputs.
-        tx_context.side_effect_states.numL2ToL1Messages++;
+        side_effect_tracker.add_l2_to_l1_message(
+            l2_to_l1_message.contractAddress, l2_to_l1_message.message.recipient, l2_to_l1_message.message.content);
         events.emit(TxPhaseEvent{ .phase = phase,
                                   .state_before = state_before,
                                   .state_after = tx_context.serialize_tx_context_event(),

@@ -53,7 +53,7 @@ class KernelIO {
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1490): Make PublicInputComponent work with arrays
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
@@ -115,6 +115,8 @@ class KernelIO {
         }
         output_hn_accum_hash.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -148,7 +150,7 @@ template <typename Builder_> class DefaultIO {
     using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
 
@@ -180,6 +182,8 @@ template <typename Builder_> class DefaultIO {
 
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -208,7 +212,7 @@ template <typename Builder_> class GoblinAvmIO {
     using Builder = Builder_;
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
 
     using PublicFF = stdlib::PublicInputComponent<FF>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -239,11 +243,14 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void set_public()
     {
+        Builder* builder = pairing_inputs.P0.get_context();
+
         mega_hash.set_public();
         pairing_inputs.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
-        Builder* builder = pairing_inputs.P0.get_context();
         builder->finalize_public_inputs();
     }
 };
@@ -257,7 +264,7 @@ template <class Builder_> class HidingKernelIO {
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using G1 = Curve::Group;
     using FF = Curve::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
@@ -308,6 +315,8 @@ template <class Builder_> class HidingKernelIO {
             commitment.set_public();
         }
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }
@@ -338,7 +347,7 @@ class RollupIO {
     using Builder = UltraCircuitBuilder;  // rollup circuits are always Ultra
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
     using FF = stdlib::bn254<Builder>::ScalarField;
-    using PairingInputs = stdlib::recursion::PairingPoints<Builder>;
+    using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using IpaClaim = OpeningClaim<stdlib::grumpkin<Builder>>;
 
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
@@ -380,6 +389,8 @@ class RollupIO {
         }
         ipa_claim.set_public();
 
+        // Record that pairing points have been set to public
+        builder->pairing_points_tagging.set_public_pairing_points();
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
         builder->finalize_public_inputs();
     }

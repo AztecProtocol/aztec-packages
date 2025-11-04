@@ -81,9 +81,7 @@ pub contract TestLog {
         );
 
         if num_nested_calls > 0 {
-            TestLog::at(self.address)
-                .emit_encrypted_events_nested(other, num_nested_calls - 1)
-                .call(self.context);
+            self.call_self.emit_encrypted_events_nested(other, num_nested_calls - 1);
         }
     }
 }

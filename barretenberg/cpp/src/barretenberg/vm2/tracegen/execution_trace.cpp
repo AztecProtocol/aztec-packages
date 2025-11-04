@@ -412,14 +412,10 @@ void ExecutionTraceBuilder::process(
                 { C::execution_retrieved_bytecodes_tree_size,
                   ex_event.after_context_event.retrieved_bytecodes_tree_snapshot.nextAvailableLeafIndex },
                 // Context - side effects
-                { C::execution_prev_num_unencrypted_log_fields,
-                  ex_event.before_context_event.side_effect_states.numUnencryptedLogFields },
-                { C::execution_num_unencrypted_log_fields,
-                  ex_event.after_context_event.side_effect_states.numUnencryptedLogFields },
-                { C::execution_prev_num_l2_to_l1_messages,
-                  ex_event.before_context_event.side_effect_states.numL2ToL1Messages },
-                { C::execution_num_l2_to_l1_messages,
-                  ex_event.after_context_event.side_effect_states.numL2ToL1Messages },
+                { C::execution_prev_num_unencrypted_log_fields, ex_event.before_context_event.numUnencryptedLogFields },
+                { C::execution_num_unencrypted_log_fields, ex_event.after_context_event.numUnencryptedLogFields },
+                { C::execution_prev_num_l2_to_l1_messages, ex_event.before_context_event.numL2ToL1Messages },
+                { C::execution_num_l2_to_l1_messages, ex_event.after_context_event.numL2ToL1Messages },
                 // Helpers for identifying parent context
                 { C::execution_has_parent_ctx, has_parent ? 1 : 0 },
                 { C::execution_is_parent_id_inv, has_parent ? last_seen_parent_id : 0 },
@@ -664,7 +660,7 @@ void ExecutionTraceBuilder::process(
                           } });
             } else if (exec_opcode == ExecutionOpCode::SENDL2TOL1MSG) {
                 uint32_t remaining_l2_to_l1_msgs =
-                    MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.side_effect_states.numL2ToL1Messages;
+                    MAX_L2_TO_L1_MSGS_PER_TX - ex_event.before_context_event.numL2ToL1Messages;
 
                 trace.set(row,
                           { { { C::execution_sel_l2_to_l1_msg_limit_error, remaining_l2_to_l1_msgs == 0 },
@@ -674,7 +670,7 @@ void ExecutionTraceBuilder::process(
                               {
                                   C::execution_public_inputs_index,
                                   AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX +
-                                      ex_event.before_context_event.side_effect_states.numL2ToL1Messages,
+                                      ex_event.before_context_event.numL2ToL1Messages,
                               } } });
             }
         }

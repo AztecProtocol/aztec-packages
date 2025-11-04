@@ -264,6 +264,7 @@ pub struct PublicCallInterface<let M: u32, T> {
     target_contract: AztecAddress,
     selector: FunctionSelector,
     name: str<M>,
+    // TODO(F-131): Determine the length at comptime and drop the use of slices.
     args: [Field],
     gas_opts: GasOpts,
     return_type: T,
@@ -309,7 +310,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn call(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn call(self, context: PublicContext) -> T {
         let returns = context.call_public_function(
             self.target_contract,
             self.selector,
@@ -337,7 +338,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,
@@ -610,7 +611,7 @@ where
     /// # Returns
     /// * `T` - Whatever data the called function has returned.
     ///
-    pub unconstrained fn view(self, context: &mut PublicContext) -> T {
+    pub unconstrained fn view(self, context: PublicContext) -> T {
         let returns = context.static_call_public_function(
             self.target_contract,
             self.selector,

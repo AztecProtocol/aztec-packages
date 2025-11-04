@@ -1,4 +1,4 @@
-import { getKeys, merge, pick, times } from '@aztec/foundation/collection';
+import { getKeys, median, merge, pick, times } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -33,6 +33,8 @@ import {
 import type { GasPrice, L1BlobInputs, L1TxRequest, TransactionStats } from './types.js';
 import { getCalldataGasUsage, tryGetCustomErrorNameContractFunction } from './utils.js';
 
+const HISTORICAL_BLOCK_COUNT = 5;
+
 export class ReadOnlyL1TxUtils {
   public config: Required<L1TxUtilsConfig>;
   protected interrupted = false;
@@ -64,6 +66,124 @@ export class ReadOnlyL1TxUtils {
   }
 
   /**
+   * Analyzes pending transactions and recent fee history to determine a competitive priority fee.
+   * Falls back to network estimate if data is unavailable or fails.
+   * @param networkEstimateResult - Result from estimateMaxPriorityFeePerGas RPC call
+   * @param pendingBlockResult - Result from getBlock with pending tag RPC call
+   * @param feeHistoryResult - Result from getFeeHistory RPC call
+   * @returns A competitive priority fee based on pending txs and recent block history
+   */
+  protected getCompetitivePriorityFee(
+    networkEstimateResult: PromiseSettledResult<bigint | null>,
+    pendingBlockResult: PromiseSettledResult<Awaited<ReturnType<ViemClient['getBlock']>> | null>,
+    feeHistoryResult: PromiseSettledResult<Awaited<ReturnType<ViemClient['getFeeHistory']>> | null>,
+  ): bigint {
+    const networkEstimate =
+      networkEstimateResult.status === 'fulfilled' && typeof networkEstimateResult.value === 'bigint'
+        ? networkEstimateResult.value
+        : 0n;
+    let competitiveFee = networkEstimate;
+
+    if (
+      pendingBlockResult.status === 'fulfilled' &&
+      pendingBlockResult.value !== null &&
+      pendingBlockResult.value.transactions &&
+      pendingBlockResult.value.transactions.length > 0
+    ) {
+      const pendingBlock = pendingBlockResult.value;
+      // Extract priority fees from pending transactions
+      const pendingFees = pendingBlock.transactions
+        .map(tx => {
+          // Transaction can be just a hash string, so we need to check if it's an object
+          if (typeof tx === 'string') {
+            return 0n;
+          }
+          const fee = tx.maxPriorityFeePerGas || 0n;
+          // Debug: Log suspicious fees
+          if (fee > 100n * WEI_CONST) {
+            this.logger?.warn('Suspicious high priority fee in pending tx', {
+              txHash: tx.hash,
+              maxPriorityFeePerGas: formatGwei(fee),
+              maxFeePerGas: formatGwei(tx.maxFeePerGas || 0n),
+              maxFeePerBlobGas: tx.maxFeePerBlobGas ? formatGwei(tx.maxFeePerBlobGas) : 'N/A',
+            });
+          }
+          return fee;
+        })
+        .filter((fee: bigint) => fee > 0n);
+
+      if (pendingFees.length > 0) {
+        // Use 75th percentile of pending fees to be competitive
+        const sortedPendingFees = [...pendingFees].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+        const percentile75Index = Math.floor((sortedPendingFees.length - 1) * 0.75);
+        const pendingCompetitiveFee = sortedPendingFees[percentile75Index];
+
+        if (pendingCompetitiveFee > competitiveFee) {
+          competitiveFee = pendingCompetitiveFee;
+        }
+
+        this.logger?.debug('Analyzed pending transactions for competitive pricing', {
+          pendingTxCount: pendingFees.length,
+          pendingP75: formatGwei(pendingCompetitiveFee),
+        });
+      }
+    }
+    if (
+      feeHistoryResult.status === 'fulfilled' &&
+      feeHistoryResult.value !== null &&
+      feeHistoryResult.value.reward &&
+      feeHistoryResult.value.reward.length > 0
+    ) {
+      const feeHistory = feeHistoryResult.value;
+      // Extract 75th percentile fees from each block
+      const percentile75Fees = feeHistory.reward!.map(rewards => rewards[0] || 0n).filter(fee => fee > 0n);
+
+      if (percentile75Fees.length > 0) {
+        // Calculate median of the 75th percentile fees across blocks
+        const medianHistoricalFee = median(percentile75Fees) ?? 0n;
+
+        // Debug: Log suspicious fees from history
+        if (medianHistoricalFee > 100n * WEI_CONST) {
+          this.logger?.warn('Suspicious high fee in history', {
+            historicalMedian: formatGwei(medianHistoricalFee),
+            allP75Fees: percentile75Fees.map(f => formatGwei(f)),
+          });
+        }
+
+        if (medianHistoricalFee > competitiveFee) {
+          competitiveFee = medianHistoricalFee;
+        }
+
+        this.logger?.debug('Analyzed fee history for competitive pricing', {
+          historicalMedian: formatGwei(medianHistoricalFee),
+        });
+      }
+    }
+
+    // Sanity check: cap competitive fee at 100x network estimate to avoid using unrealistic fees
+    // (e.g., Anvil returns inflated historical fees that don't reflect actual network conditions)
+    const maxReasonableFee = networkEstimate * 100n;
+    if (competitiveFee > maxReasonableFee) {
+      this.logger?.warn('Competitive fee exceeds sanity cap, using capped value', {
+        competitiveFee: formatGwei(competitiveFee),
+        networkEstimate: formatGwei(networkEstimate),
+        cappedTo: formatGwei(maxReasonableFee),
+      });
+      competitiveFee = maxReasonableFee;
+    }
+
+    // Log final decision
+    if (competitiveFee > networkEstimate) {
+      this.logger?.debug('Using competitive fee from market analysis', {
+        networkEstimate: formatGwei(networkEstimate),
+        competitive: formatGwei(competitiveFee),
+      });
+    }
+
+    return competitiveFee;
+  }
+
+  /**
    * Gets the current gas price with bounds checking
    */
   public async getGasPrice(
@@ -73,23 +193,54 @@ export class ReadOnlyL1TxUtils {
     previousGasPrice?: typeof attempt extends 0 ? never : GasPrice,
   ): Promise<GasPrice> {
     const gasConfig = merge(this.config, gasConfigOverrides);
-    const block = await this.client.getBlock({ blockTag: 'latest' });
-    const baseFee = block.baseFeePerGas ?? 0n;
+
+    // Make all RPC calls in parallel upfront with retry logic
+    const latestBlockPromise = this.tryTwice(
+      () => this.client.getBlock({ blockTag: 'latest' }),
+      'Getting latest block',
+    );
+    const networkEstimatePromise = gasConfig.fixedPriorityFeePerGas
+      ? null
+      : this.tryTwice(() => this.client.estimateMaxPriorityFeePerGas(), 'Estimating max priority fee per gas');
+    const pendingBlockPromise = gasConfig.fixedPriorityFeePerGas
+      ? null
+      : this.tryTwice(
+          () => this.client.getBlock({ blockTag: 'pending', includeTransactions: true }),
+          'Getting pending block',
+        );
+    const feeHistoryPromise = gasConfig.fixedPriorityFeePerGas
+      ? null
+      : this.tryTwice(
+          () => this.client.getFeeHistory({ blockCount: HISTORICAL_BLOCK_COUNT, rewardPercentiles: [75] }),
+          'Getting fee history',
+        );
+    const blobBaseFeePromise = isBlobTx
+      ? this.tryTwice(() => this.client.getBlobBaseFee(), 'Getting blob base fee')
+      : null;
+
+    const [latestBlockResult, networkEstimateResult, pendingBlockResult, feeHistoryResult, blobBaseFeeResult] =
+      await Promise.allSettled([
+        latestBlockPromise,
+        networkEstimatePromise ?? Promise.resolve(0n),
+        pendingBlockPromise ?? Promise.resolve(null),
+        feeHistoryPromise ?? Promise.resolve(null),
+        blobBaseFeePromise ?? Promise.resolve(0n),
+      ]);
+
+    // Extract results
+    const baseFee =
+      latestBlockResult.status === 'fulfilled' &&
+      typeof latestBlockResult.value === 'object' &&
+      latestBlockResult.value.baseFeePerGas
+        ? latestBlockResult.value.baseFeePerGas
+        : 0n;
 
     // Get blob base fee if available
     let blobBaseFee = 0n;
-    if (isBlobTx) {
-      try {
-        blobBaseFee = await retry<bigint>(
-          () => this.client.getBlobBaseFee(),
-          'Getting L1 blob base fee',
-          makeBackoff(times(2, () => 1)),
-          this.logger,
-          true,
-        );
-      } catch {
-        this.logger?.warn('Failed to get L1 blob base fee', attempt);
-      }
+    if (isBlobTx && blobBaseFeeResult.status === 'fulfilled' && typeof blobBaseFeeResult.value === 'bigint') {
+      blobBaseFee = blobBaseFeeResult.value;
+    } else if (isBlobTx) {
+      this.logger?.warn('Failed to get L1 blob base fee', attempt);
     }
 
     let priorityFee: bigint;
@@ -100,8 +251,8 @@ export class ReadOnlyL1TxUtils {
       // try to maintain precision up to 1000000 wei
       priorityFee = BigInt(gasConfig.fixedPriorityFeePerGas * 1_000_000) * (WEI_CONST / 1_000_000n);
     } else {
-      // Get initial priority fee from the network
-      priorityFee = await this.client.estimateMaxPriorityFeePerGas();
+      // Get competitive priority fee (includes network estimate + analysis)
+      priorityFee = this.getCompetitivePriorityFee(networkEstimateResult, pendingBlockResult, feeHistoryResult);
     }
     let maxFeePerGas = baseFee;
 
@@ -115,6 +266,7 @@ export class ReadOnlyL1TxUtils {
       // same for blob gas fee
       maxFeePerBlobGas = (maxFeePerBlobGas * (1_000n + 125n)) / 1_000n;
     }
+
     if (attempt > 0) {
       const configBump =
         gasConfig.priorityFeeRetryBumpPercentage ?? defaultL1TxUtilsConfig.priorityFeeRetryBumpPercentage!;
@@ -129,29 +281,57 @@ export class ReadOnlyL1TxUtils {
         (previousGasPrice!.maxPriorityFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
       const minMaxFee = (previousGasPrice!.maxFeePerGas * (100_00n + BigInt(bumpPercentage * 1_00))) / 100_00n;
 
-      // Add priority fee to maxFeePerGas
-      maxFeePerGas += priorityFee;
+      let competitivePriorityFee = priorityFee;
+      if (!gasConfig.fixedPriorityFeePerGas) {
+        // Apply bump percentage to competitive fee
+        competitivePriorityFee = (priorityFee * (100_00n + BigInt(configBump * 1_00))) / 100_00n;
 
-      // Use maximum between current network values and minimum required values
-      priorityFee = priorityFee > minPriorityFee ? priorityFee : minPriorityFee;
+        this.logger?.debug(`Speed-up attempt ${attempt}: using competitive fee strategy`, {
+          networkEstimate: formatGwei(priorityFee),
+          competitiveFee: formatGwei(competitivePriorityFee),
+          minRequired: formatGwei(minPriorityFee),
+          bumpPercentage: configBump,
+        });
+      }
+
+      // Use maximum between competitive fee and minimum required bump
+      const finalPriorityFee = competitivePriorityFee > minPriorityFee ? competitivePriorityFee : minPriorityFee;
+      const feeSource = finalPriorityFee === competitivePriorityFee ? 'competitive' : 'minimum-bump';
+
+      priorityFee = finalPriorityFee;
+      // Add the final priority fee to maxFeePerGas
+      maxFeePerGas += finalPriorityFee;
       maxFeePerGas = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
+
+      if (!gasConfig.fixedPriorityFeePerGas) {
+        this.logger?.debug(`Speed-up fee decision: using ${feeSource} fee`, {
+          finalPriorityFee: formatGwei(finalPriorityFee),
+        });
+      }
     } else {
-      // first attempt, just bump priority fee, unless it's a fixed config
+      // First attempt: apply configured bump percentage to competitive fee
       // multiply by 100 & divide by 100 to maintain some precision
       if (!gasConfig.fixedPriorityFeePerGas) {
         priorityFee = (priorityFee * (100_00n + BigInt((gasConfig.priorityFeeBumpPercentage || 0) * 1_00))) / 100_00n;
+        this.logger?.debug('Initial transaction: using competitive fee from market analysis', {
+          networkEstimate: formatGwei(priorityFee),
+        });
       }
       maxFeePerGas += priorityFee;
     }
 
+    // maxGwei and maxBlobGwei are hard limits
+    const effectiveMaxGwei = gasConfig.maxGwei! * WEI_CONST;
+    const effectiveMaxBlobGwei = gasConfig.maxBlobGwei! * WEI_CONST;
+
     // Ensure we don't exceed maxGwei
-    const maxGweiInWei = gasConfig.maxGwei! * WEI_CONST;
-    maxFeePerGas = maxFeePerGas > maxGweiInWei ? maxGweiInWei : maxFeePerGas;
+    if (effectiveMaxGwei > 0n) {
+      maxFeePerGas = maxFeePerGas > effectiveMaxGwei ? effectiveMaxGwei : maxFeePerGas;
+    }
 
     // Ensure we don't exceed maxBlobGwei
-    if (maxFeePerBlobGas) {
-      const maxBlobGweiInWei = gasConfig.maxBlobGwei! * WEI_CONST;
-      maxFeePerBlobGas = maxFeePerBlobGas > maxBlobGweiInWei ? maxBlobGweiInWei : maxFeePerBlobGas;
+    if (maxFeePerBlobGas && effectiveMaxBlobGwei > 0n) {
+      maxFeePerBlobGas = maxFeePerBlobGas > effectiveMaxBlobGwei ? effectiveMaxBlobGwei : maxFeePerBlobGas;
     }
 
     // Ensure priority fee doesn't exceed max fee
@@ -368,5 +548,12 @@ export class ReadOnlyL1TxUtils {
       bumpedGasLimit,
     });
     return bumpedGasLimit;
+  }
+
+  /**
+   * Helper function to retry RPC calls twice
+   */
+  private tryTwice<T>(fn: () => Promise<T>, description: string): Promise<T> {
+    return retry<T>(fn, description, makeBackoff(times(2, () => 0)), this.logger, true);
   }
 }

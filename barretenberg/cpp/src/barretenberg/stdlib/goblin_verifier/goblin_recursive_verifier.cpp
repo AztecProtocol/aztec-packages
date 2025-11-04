@@ -35,17 +35,17 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
                                                               const MergeSettings merge_settings)
 {
     // Verify the final merge step
-    MergeVerifier merge_verifier{ builder, merge_settings, transcript };
-    auto [merge_pairing_points, merged_table_commitments] =
+    MergeVerifier merge_verifier{ merge_settings, transcript };
+    auto [merge_pairing_points, merged_table_commitments, degree_check_verified] =
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
-
+    vinfo("Merge Verifier: degree check identity passed", degree_check_verified);
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
     auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
     // Run the Translator recursive verifier
     TranslatorVerifier translator_verifier{ builder, verification_keys.translator_verification_key, transcript };
-    PairingPoints<Builder> translator_pairing_points = translator_verifier.verify_proof(
+    PairingPoints<bn254<Builder>> translator_pairing_points = translator_verifier.verify_proof(
         proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations

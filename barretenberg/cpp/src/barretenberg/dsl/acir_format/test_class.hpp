@@ -190,7 +190,7 @@ template <TestBase Base> class TestClass {
         {
             AcirProgram program{ constraint_system, witness_values };
             auto builder = create_circuit<Builder>(program);
-            info("Num gates: ", builder.get_estimated_num_finalized_gates());
+            info("Num gates: ", builder.get_num_finalized_gates_inefficient());
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
@@ -223,8 +223,8 @@ template <TestBase Base> class TestClass {
             error_msgs.emplace_back(builder_err);
 
             if (mode != Tampering::Mode::None) {
-                EXPECT_FALSE(circuit_checker_result)
-                    << "Circuit checker succeeded unexpectedly for tampering mode " + label;
+                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " + label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label;
             } else {
                 EXPECT_TRUE(circuit_checker_result)
