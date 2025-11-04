@@ -900,6 +900,22 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const 
     OriginTag tag{};
     tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
 
+    // Fast path: if both point and scalar are constants, compute the result out of circuit
+    if (_x.is_constant() && _y.is_constant() && scalar.is_constant()) {
+        // Get native values
+        auto point_native = this->get_value();
+        auto scalar_native = scalar.get_value();
+
+        // Compute result natively
+        auto result_native =
+            typename G::affine_element(typename G::element(point_native) * (typename G::Fr(scalar_native)));
+
+        // Return as a constant element
+        element result(result_native);
+        result.set_origin_tag(tag);
+        return result;
+    }
+
     bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
     element result = element::batch_mul({ *this }, { scalar }, max_num_bits, /*with_edgecases=*/false);
