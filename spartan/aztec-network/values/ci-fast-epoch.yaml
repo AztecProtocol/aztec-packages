@@ -14,7 +14,8 @@ telemetry:
   enabled: false
 
 validator:
-  l1FixedPriorityFeePerGas: 1
+  l1PriorityFeeBumpPercentage: 30
+  l1PriorityFeeRetryBumpPercentage: 80
   replicas: 4
   gke:
     spotEnabled: false

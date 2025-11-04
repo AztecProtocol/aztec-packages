@@ -11,12 +11,12 @@ import { getGenesisValues } from '@aztec/world-state/testing';
  */
 describe('Testnet compatibility', () => {
   it('has expected VK tree root', () => {
-    const expectedRoots = [Fr.fromHexString('0x0c7576d33473911a15b9b490f1d9ba378355e17b956d974bf89d604b6b1b0b0f')];
+    const expectedRoots = [Fr.fromHexString('0x229eadb7c540c82204b5373633d3c25557f8264ad8fca760660fe853e5275e39')];
     expect(expectedRoots).toContainEqual(getVKTreeRoot());
   });
   it('has expected Protocol Contracts tree root', () => {
     expect(protocolContractTreeRoot).toEqual(
-      Fr.fromHexString('0x227802391f582e49922178a4d4de61384eda4ee4ba69708f0349b76dd04db461'),
+      Fr.fromHexString('0x12e9aa367b065eff3e48912b8cae62209970117d34a8c9ef1e9e4116e41bc8d6'),
     );
   });
   it('has expected Genesis tree roots', async () => {

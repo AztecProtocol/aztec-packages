@@ -1,7 +1,7 @@
 {
-  "name": "testnet-monitor",
+  "name": "irm-monitor",
   "version": "1.0.0",
-  "description": "Monitors rollup block height",
+  "description": "Monitors Aztec rollup block height",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

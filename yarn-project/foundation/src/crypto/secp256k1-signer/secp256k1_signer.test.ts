@@ -22,7 +22,7 @@ describe('Secp256k1Signer', () => {
     lightSigner = new Secp256k1Signer(Buffer32.fromBuffer(Buffer.from(privateKey.slice(2), 'hex')));
   });
 
-  it('Compare implementation against viem', async () => {
+  it('compares implementation against viem', async () => {
     const message = Buffer.from('0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef', 'hex');
     // Use to compare addresses at the end
     const accountAddress = viemSigner.address;

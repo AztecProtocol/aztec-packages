@@ -319,11 +319,13 @@ export const testnetL2ChainConfig: L2ChainConfig = {
 };
 
 export const mainnetL2ChainConfig: L2ChainConfig = {
+  txPoolDeleteTxsAfterReorg: true,
+  disableTransactions: true,
+
   l1ChainId: 1,
   testAccounts: false,
   sponsoredFPC: false,
   p2pEnabled: true,
-  disableTransactions: true,
   p2pBootstrapNodes: [],
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
@@ -335,7 +337,6 @@ export const mainnetL2ChainConfig: L2ChainConfig = {
   publicIncludeMetrics,
   publicMetricsCollectorUrl: 'https://telemetry.alpha-testnet.aztec-labs.com/v1/metrics',
   publicMetricsCollectFrom: ['sequencer'],
-  txPoolDeleteTxsAfterReorg: false,
 
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: 12,

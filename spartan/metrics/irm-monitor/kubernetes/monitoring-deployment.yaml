@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: testnet-monitor
+  name: ${DEPLOYMENT_NAME}
   labels:
-    app: testnet-monitor
+    app: ${DEPLOYMENT_NAME}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: testnet-monitor
+      app: ${DEPLOYMENT_NAME}
   template:
     metadata:
       labels:
-        app: testnet-monitor
+        app: ${DEPLOYMENT_NAME}
     spec:
       containers:
         - name: aztec-chain-monitor
-          image: spypsy/block-height-monitor:latest
+          image: ${IMAGE}
           imagePullPolicy: Always
           ports:
             - name: http
@@ -26,16 +26,16 @@ spec:
             - name: ETHEREUM_HOST
               valueFrom:
                 secretKeyRef:
-                  name: testnet-monitor-secrets
+                  name: irm-monitor-secrets
                   key: infura-sepolia-url
             - name: ROLLUP_CONTRACT_ADDRESS
-              value: ""
+              value: "${ROLLUP_CONTRACT_ADDRESS}"
             - name: NETWORK
-              value: ""
+              value: "${NETWORK}"
             - name: GRAFANA_CLOUD_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: testnet-monitor-secrets
+                  name: irm-monitor-secrets
                   key: grafana-cloud-password
           livenessProbe:
             httpGet:
@@ -56,19 +56,21 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-        - name: grafana-agent
-          image: grafana/agent:v0.40.3
+        - name: grafana-alloy
+          image: grafana/alloy:latest
           args:
-            - --config.file=/etc/agent/agent.yml
-            - --metrics.wal-directory=/tmp/wal
+            - run
+            - --server.http.listen-addr=0.0.0.0:12345
+            - --storage.path=/tmp/alloy
+            - /etc/alloy/config.alloy
           ports:
-            - containerPort: 9090
-              name: agent-http
+            - containerPort: 12345
+              name: alloy-http
           volumeMounts:
-            - name: agent-config
-              mountPath: /etc/agent
-            - name: agent-secret
-              mountPath: /etc/agent/secret
+            - name: alloy-config
+              mountPath: /etc/alloy
+            - name: alloy-secret
+              mountPath: /etc/alloy/secret
               readOnly: true
           resources:
             requests:
@@ -78,9 +80,9 @@ spec:
               memory: "128Mi"
               cpu: "100m"
       volumes:
-        - name: agent-config
+        - name: alloy-config
           configMap:
-            name: grafana-agent-config
-        - name: agent-secret
+            name: grafana-alloy-config
+        - name: alloy-secret
           secret:
-            secretName: testnet-monitor-secrets
+            secretName: irm-monitor-secrets
