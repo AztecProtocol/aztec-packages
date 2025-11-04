@@ -31,6 +31,7 @@ on:
           - staging-public
           - staging-ignition
           - testnet
+          - testnet-canary
           - next-net
       semver:
         description: "Semver version (e.g., 2.3.4)"
