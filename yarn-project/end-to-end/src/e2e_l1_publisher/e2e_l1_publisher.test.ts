@@ -599,7 +599,6 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
       const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
@@ -619,7 +618,6 @@ describe('L1Publisher integration', () => {
 
       const canPropose = await publisher.canProposeAtNextEthBlock(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
-      await publisher.validateBlockHeader(block.getCheckpointHeader());
 
       const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
       const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
