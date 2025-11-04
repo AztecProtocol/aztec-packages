@@ -60,7 +60,7 @@ template <typename Builder> class cycle_scalar {
         return { value.slice(0, LO_BITS), value.slice(LO_BITS, NUM_BITS) };
     }
 
-    cycle_scalar(const field_t& _lo, const field_t& _hi, SkipValidation flag);
+    cycle_scalar(const field_t& lo, const field_t& hi, SkipValidation flag);
 
     /**
      * @brief Validates that the scalar (lo + hi * 2^LO_BITS) is less than the Grumpkin scalar field modulus
@@ -94,7 +94,7 @@ template <typename Builder> class cycle_scalar {
      *
      * @param tag
      */
-    void set_origin_tag(const OriginTag& tag) const
+    void set_origin_tag(const OriginTag& tag)
     {
         _lo.set_origin_tag(tag);
         _hi.set_origin_tag(tag);
