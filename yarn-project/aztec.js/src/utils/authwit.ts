@@ -22,7 +22,7 @@ export type IntentInnerHash = {
   /** The consumer   */
   consumer: AztecAddress;
   /** The action to approve */
-  innerHash: Buffer<ArrayBuffer> | Fr;
+  innerHash: Buffer | Fr;
 };
 
 /** Intent with a call */

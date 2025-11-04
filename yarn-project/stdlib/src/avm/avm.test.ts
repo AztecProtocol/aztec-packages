@@ -34,13 +34,13 @@ describe('Avm circuit inputs', () => {
     expect(buffer.equals(expected)).toBe(true);
   });
 
-  // TODO(fcarreiro): fix this test.
-  it.skip('serializes with MP and deserializes it back', async () => {
+  // This is a minimal requirement. It only tests that the MP serialization from TS
+  // works, but it doesn't say much about the C++ MP serialization.
+  it('serializes with MessagePack and deserializes it back', async () => {
     const avmCircuitInputs = await makeAvmCircuitInputs(/*seed=*/ 0x1234);
     const buffer = avmCircuitInputs.serializeWithMessagePack();
     const json = deserializeFromMessagePack(buffer);
-    // Parsing fails.
     const res = AvmCircuitInputs.schema.parse(json);
-    expect(res).toStrictEqual(avmCircuitInputs);
+    expect(res).toEqual(avmCircuitInputs);
   });
 });

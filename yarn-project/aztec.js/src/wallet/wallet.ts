@@ -187,7 +187,7 @@ export type Wallet = {
   sendTx(exec: ExecutionPayload, opts: SendOptions): Promise<TxHash>;
   createAuthWit(
     from: AztecAddress,
-    messageHashOrIntent: Fr | Buffer<ArrayBuffer> | IntentInnerHash | CallIntent,
+    messageHashOrIntent: Fr | Buffer | IntentInnerHash | CallIntent,
   ): Promise<AuthWitness>;
   batch<const T extends readonly BatchedMethod<keyof BatchableMethods>[]>(methods: T): Promise<BatchResults<T>>;
 };
