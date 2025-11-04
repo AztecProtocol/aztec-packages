@@ -29,8 +29,8 @@ export default function VersionedLink() {
     href = '/devnet/try_devnet';
   } else if (versionName === 'current' || versionName === 'dev') {
     // Development version - show devnet as it's the latest
-    label = 'Try Devnet';
-    href = '/devnet/try_devnet';
+    label = 'Try Testnet';
+    href = '/try_testnet';
   } else {
     // Default for unknown versions
     label = 'Try Testnet';
