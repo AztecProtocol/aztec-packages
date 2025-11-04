@@ -1,7 +1,7 @@
 ---
 title: Setting up for Devnet
 sidebar_position: 3
-tags: [testnet]
+tags: [devnet]
 description: Guide for developers to get started with the Aztec devnet, including account creation and contract deployment.
 ---
 
@@ -24,13 +24,13 @@ Before diving into the setup, it's important to understand the differences betwe
 
 ### Devnet (Remote Network)
 
-- Remote environment with network of sequencers
+- Remote environment with Aztec Labs running sequencers
 - Always has fees enabled (need to pay or sponsor fees)
 - ~36 second block times, longer L1 settlement
 - No automatic test accounts
 
 :::info
-If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/tutorials/sandbox.md).
+If you're new to Aztec and want to understand local development first, check out the [sandbox guide](../developers/docs/guides/local_env/sandbox.md).
 :::
 
 ## Prerequisites
@@ -47,11 +47,11 @@ bash -i <(curl -s https://install.aztec.network)
 3. The devnet version installed:
 
 ```bash
-aztec-up #include_devnet_version
+aztec-up 3.0.0-devnet.4
 ```
 
 :::warning
-The devnet is version dependent. It is currently running version `#include_devnet_version`. Maintain version consistency when interacting with the devnet to reduce errors.
+The devnet is version dependent. It is currently running version `3.0.0-devnet.4`. Maintain version consistency when interacting with the devnet to reduce errors.
 :::
 
 ## Getting Started on Devnet
@@ -61,7 +61,7 @@ The devnet is version dependent. It is currently running version `#include_devne
 Set the required environment variables:
 
 ```bash
-export VERSION=#include_devnet_version
+export VERSION=3.0.0-devnet.4
 export NODE_URL=https://devnet.aztec-labs.com/
 export SPONSORED_FPC_ADDRESS=0x280e5686a148059543f4d0968f9a18cd4992520fcd887444b8689bf2726a1f97
 ```
@@ -88,7 +88,7 @@ aztec-wallet create-account \
 ```
 
 :::note
-The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on testnet.
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing - this is normal on devnet.
 :::
 
 ### Step 3: Deploy and interact with contracts
@@ -118,16 +118,16 @@ aztec-wallet send mint_to_private \
     --args accounts:my-wallet 10
 ```
 
-## Migrating from Sandbox to Testnet
+## Migrating from Sandbox to Devnet
 
-If you have an existing app running on sandbox, here's how to migrate it to testnet:
+If you have an existing app running on sandbox, here's how to migrate it to devnet:
 
-### 1. Connect to Testnet Node
+### 1. Connect to Devnet Node
 
-Instead of running a local sandbox, connect to the testnet node:
+Instead of running a local sandbox, connect to the devnet node:
 
 ```sh
-export NODE_URL=https://aztec-testnet-fullnode.zkv.xyz
+export NODE_URL=https://devnet.aztec-labs.com/
 ```
 
 When running `aztec-wallet` commands, include the node URL:
@@ -138,7 +138,7 @@ aztec-wallet create-account -a main --node-url $NODE_URL
 
 ### 2. Initialize a TestWallet for Devnet
 
-You can connect to testnet directly from your app using AztecJS:
+You can connect to devnet directly from your app using AztecJS:
 
 In the browser:
 
@@ -158,7 +158,7 @@ Then initialize with devnet configuration:
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { TestWallet } from "@aztec/test-wallet/server";
 
-const NODE_URL = "https://devnet.aztec-labs.com";
+const NODE_URL = "https://devnet.aztec-labs.com/";
 const node = createAztecNodeClient(NODE_URL);
 const wallet = await TestWallet.create(node);
 ```
@@ -229,7 +229,7 @@ https://devnet.aztec-labs.com
 
 ## Migration Notes
 
-[Migration Notes](./docs/resources/migration_notes.md)
+[Migration Notes](./migration_notes.md)
 
 ## L1 Contract Addresses
 
@@ -258,13 +258,13 @@ https://devnet.aztec-labs.com
 
 ## Next Steps
 
-- **New to Aztec?** Start with the [sandbox tutorial](../developers/docs/tutorials/sandbox.md) for faster development
+- **New to Aztec?** Start with the [sandbox guide](../developers/docs/guides/local_env/sandbox.md) for faster development
 - **Ready for production testing?** Continue using devnet
 - **Learn more:** Check out our [tutorials](./docs/tutorials/contract_tutorials/counter_contract.md)
 - **Explore:** Visit [Aztec Playground](https://play.aztec.network/)
 
 ## Additional Resources
 
-- [Fee payment guide](./docs/aztec-js/how_to_pay_fees.md)
+- [Fee payment guide](./docs/guides/aztec-js/how_to_pay_fees.md)
 - [Running a node](../the_aztec_network/index.md)
 - [Block explorers](https://aztecscan.xyz)
