@@ -345,7 +345,7 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       require(bytes(boundData.customData).length == 0, ExtraDiscloseDataNonZero());
 
       // Age check
-      bool isAgeValid = zkPassportVerifier.isAgeAboveOrEqual(MIN_AGE, _params.commitments, _params.serviceConfig);
+      bool isAgeValid = zkPassportVerifier.isAgeAboveOrEqual(MIN_AGE, _params.commitments);
       require(isAgeValid, InvalidAge());
 
       // Country exclusion check
@@ -358,11 +358,10 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
       require(isCountryValid, InvalidCountry());
 
       // Sanctions check
-      zkPassportVerifier.enforceSanctionsRoot(_params.commitments);
+      zkPassportVerifier.enforceSanctionsRoot(true, _params.commitments); // true = strict mode
 
       // Face match check
-      bool isFaceMatchValid =
-        zkPassportVerifier.isFaceMatchVerified(FaceMatchMode.STRICT, OS.ANY, _params.commitments, _params.serviceConfig);
+      bool isFaceMatchValid = zkPassportVerifier.isFaceMatchVerified(FaceMatchMode.STRICT, OS.ANY, _params.commitments);
       require(isFaceMatchValid, InvalidFaceMatch());
     }
 

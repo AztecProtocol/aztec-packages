@@ -1133,14 +1133,17 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@ethersproject/wallet": "npm:^5.8.0"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
     "@libp2p/peer-id-factory": "npm:^3.0.4"
+    "@scure/bip39": "npm:^2.0.1"
     "@types/jest": "npm:^30.0.0"
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.groupby": "npm:^4.6.9"
@@ -1361,6 +1364,8 @@ __metadata:
     "@koa/cors": "npm:^5.0.0"
     "@libp2p/interface": "npm:1.3.1"
     "@noble/curves": "npm:=1.7.0"
+    "@noble/hashes": "npm:^1.6.1"
+    "@scure/bip39": "npm:^2.0.1"
     "@types/detect-node": "npm:^2.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/koa": "npm:^2.15.0"
@@ -3443,7 +3448,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@ethersproject/wallet@npm:^5.7.0":
+"@ethersproject/wallet@npm:^5.7.0, @ethersproject/wallet@npm:^5.8.0":
   version: 5.8.0
   resolution: "@ethersproject/wallet@npm:5.8.0"
   dependencies:
@@ -5228,10 +5233,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
+"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.6.1, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
   version: 1.8.0
   resolution: "@noble/hashes@npm:1.8.0"
   checksum: 10/474b7f56bc6fb2d5b3a42132561e221b0ea4f91e590f4655312ca13667840896b34195e2b53b7f097ec080a1fdd3b58d902c2a8d0fbdf51d2e238b53808a177e
+  languageName: node
+  linkType: hard
+
+"@noble/hashes@npm:2.0.1":
+  version: 2.0.1
+  resolution: "@noble/hashes@npm:2.0.1"
+  checksum: 10/f4d00e7564eb4ff4e6d16be151dd0e404aede35f91e4372b0a8a6ec888379c1dd1e02c721b480af8e7853bea9637185b5cb9533970c5b77d60c254ead0cfd8f7
   languageName: node
   linkType: hard
 
@@ -5942,6 +5954,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@scure/base@npm:2.0.0":
+  version: 2.0.0
+  resolution: "@scure/base@npm:2.0.0"
+  checksum: 10/8fb86024f22e9c532d513b8df8a672252e58bd5695920ce646162287f0accd38e89cab58722a738b3d247b5dcf7760362ae2d82d502be7e62a555f5d98f8a110
+  languageName: node
+  linkType: hard
+
 "@scure/base@npm:~1.1.4":
   version: 1.1.6
   resolution: "@scure/base@npm:1.1.6"
@@ -5995,6 +6014,16 @@ __metadata:
     "@noble/hashes": "npm:~1.8.0"
     "@scure/base": "npm:~1.2.5"
   checksum: 10/63e60c40fa1bda2c1b50351546fee6d7b0947cc814aa7a4209dcedd3693b5053302c8fca28292f5f50735e11c613265359acdc019127393dbab17e53489fc449
+  languageName: node
+  linkType: hard
+
+"@scure/bip39@npm:^2.0.1":
+  version: 2.0.1
+  resolution: "@scure/bip39@npm:2.0.1"
+  dependencies:
+    "@noble/hashes": "npm:2.0.1"
+    "@scure/base": "npm:2.0.0"
+  checksum: 10/d05271c3a339447802e87c921b3630d5477ce1e137340bb31692c2936dea382f2f73ecb60100e22a96632d70b67d32f7e10b7f36e7395c879f7ff0efadcd1ad0
   languageName: node
   linkType: hard
 
@@ -6118,26 +6147,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@smithy/core@npm:^3.11.0":
-  version: 3.11.0
-  resolution: "@smithy/core@npm:3.11.0"
-  dependencies:
-    "@smithy/middleware-serde": "npm:^4.1.1"
-    "@smithy/protocol-http": "npm:^5.2.1"
-    "@smithy/types": "npm:^4.5.0"
-    "@smithy/util-base64": "npm:^4.1.0"
-    "@smithy/util-body-length-browser": "npm:^4.1.0"
-    "@smithy/util-middleware": "npm:^4.1.1"
-    "@smithy/util-stream": "npm:^4.3.1"
-    "@smithy/util-utf8": "npm:^4.1.0"
-    "@types/uuid": "npm:^9.0.1"
-    tslib: "npm:^2.6.2"
-    uuid: "npm:^9.0.1"
-  checksum: 10/bb5d2825cfbf105d6e21abc0ef214e98ccce8fcae29918a1d926e15c94f356c1c2f42aca71898adbdd3cde8b25ce22169a5c384819cccae7ff3e6fb95fc8e3ac
-  languageName: node
-  linkType: hard
-
-"@smithy/core@npm:^3.11.1":
+"@smithy/core@npm:^3.11.0, @smithy/core@npm:^3.11.1":
   version: 3.11.1
   resolution: "@smithy/core@npm:3.11.1"
   dependencies:
@@ -6640,23 +6650,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@smithy/util-stream@npm:^4.3.1":
-  version: 4.3.1
-  resolution: "@smithy/util-stream@npm:4.3.1"
-  dependencies:
-    "@smithy/fetch-http-handler": "npm:^5.2.1"
-    "@smithy/node-http-handler": "npm:^4.2.1"
-    "@smithy/types": "npm:^4.5.0"
-    "@smithy/util-base64": "npm:^4.1.0"
-    "@smithy/util-buffer-from": "npm:^4.1.0"
-    "@smithy/util-hex-encoding": "npm:^4.1.0"
-    "@smithy/util-utf8": "npm:^4.1.0"
-    tslib: "npm:^2.6.2"
-  checksum: 10/3592265200bddfa28b06370b48a2687f915dd61623c5edc8802a8d275de35c4ea9681d0a1e8cb1a20ef15f6e0b20cd688f0f47c12e7f42828d5abfcc4daf3843
-  languageName: node
-  linkType: hard
-
-"@smithy/util-stream@npm:^4.3.2":
+"@smithy/util-stream@npm:^4.3.1, @smithy/util-stream@npm:^4.3.2":
   version: 4.3.2
   resolution: "@smithy/util-stream@npm:4.3.2"
   dependencies:
@@ -9716,10 +9710,17 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bn.js@npm:^5.0.0, bn.js@npm:^5.2.0, bn.js@npm:^5.2.1":
+"bn.js@npm:^5.0.0, bn.js@npm:^5.2.1":
   version: 5.2.1
   resolution: "bn.js@npm:5.2.1"
   checksum: 10/7a7e8764d7a6e9708b8b9841b2b3d6019cc154d2fc23716d0efecfe1e16921b7533c6f7361fb05471eab47986c4aa310c270f88e3507172104632ac8df2cfd84
+  languageName: node
+  linkType: hard
+
+"bn.js@npm:^5.2.0":
+  version: 5.2.2
+  resolution: "bn.js@npm:5.2.2"
+  checksum: 10/51ebb2df83b33e5d8581165206e260d5e9c873752954616e5bf3758952b84d7399a9c6d00852815a0aeefb1150a7f34451b62d4287342d457fa432eee869e83e
   languageName: node
   linkType: hard
 

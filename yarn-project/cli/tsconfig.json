@@ -28,6 +28,9 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../node-keystore"
+    },
+    {
       "path": "../node-lib"
     },
     {

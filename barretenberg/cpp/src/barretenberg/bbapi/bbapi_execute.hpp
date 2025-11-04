@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/bbapi/bbapi_client_ivc.hpp"
+#include "barretenberg/bbapi/bbapi_ecc.hpp"
 #include "barretenberg/bbapi/bbapi_shared.hpp"
 #include "barretenberg/bbapi/bbapi_ultra_honk.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -22,9 +23,16 @@ using Command = NamedUnion<CircuitProve,
                            VkAsFields,
                            CircuitWriteSolidityVerifier,
                            ClientIvcCheckPrecomputedVk,
-                           ClientIvcStats>;
+                           ClientIvcStats,
+                           Bn254FrSqrt,
+                           Bn254FqSqrt,
+                           Bn254G1Mul,
+                           Bn254G2Mul,
+                           Bn254G1IsOnCurve,
+                           Bn254G1FromCompressed>;
 
-using CommandResponse = NamedUnion<CircuitProve::Response,
+using CommandResponse = NamedUnion<ErrorResponse,
+                                   CircuitProve::Response,
                                    CircuitComputeVk::Response,
                                    CircuitStats::Response,
                                    CircuitVerify::Response,
@@ -38,7 +46,13 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
                                    VkAsFields::Response,
                                    CircuitWriteSolidityVerifier::Response,
                                    ClientIvcCheckPrecomputedVk::Response,
-                                   ClientIvcStats::Response>;
+                                   ClientIvcStats::Response,
+                                   Bn254FrSqrt::Response,
+                                   Bn254FqSqrt::Response,
+                                   Bn254G1Mul::Response,
+                                   Bn254G2Mul::Response,
+                                   Bn254G1IsOnCurve::Response,
+                                   Bn254G1FromCompressed::Response>;
 
 /**
  * @brief Executes a command by visiting a variant of all possible commands.
@@ -49,10 +63,20 @@ using CommandResponse = NamedUnion<CircuitProve::Response,
  */
 inline CommandResponse execute(BBApiRequest& request, Command&& command)
 {
-    return std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
+    // Reset error state before execution
+    request.error_message.clear();
+
+    CommandResponse response = std::move(command).visit([&request](auto&& cmd) -> CommandResponse {
         using CmdType = std::decay_t<decltype(cmd)>;
         return std::forward<CmdType>(cmd).execute(request);
     });
+
+    // Check if an error occurred during execution
+    if (!request.error_message.empty()) {
+        return ErrorResponse{ .message = std::move(request.error_message) };
+    }
+
+    return response;
 }
 
 // The msgpack scheme is an ad-hoc format that allows for cbind/compiler.ts to
