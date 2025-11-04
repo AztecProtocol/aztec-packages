@@ -23,7 +23,6 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
     using InnerProverInstance = ProverInstance_<InnerFlavor>;
     using InnerProver = bb::UltraProver_<InnerFlavor>;
     using InnerVerificationKey = typename InnerFlavor::VerificationKey;
-    using InnerVerifier = bb::UltraVerifier_<InnerFlavor>;
     using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
     using OuterFlavor =
         std::conditional_t<IsMegaBuilder<OuterBuilder>,
@@ -147,9 +146,9 @@ template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public :
 
             auto prover_instance = std::make_shared<InnerProverInstance>(inner_circuit);
             auto verification_key = std::make_shared<InnerVerificationKey>(prover_instance->get_precomputed());
-            InnerProver prover(prover_instance, verification_key);
-            InnerVerifier verifier(verification_key);
-            auto inner_proof = prover.construct_proof();
+            size_t virtual_log_n = small_inner_circuit ? 21 : InnerFlavor::VIRTUAL_LOG_N;
+            InnerProver prover(prover_instance, verification_key, prover_instance->commitment_key, virtual_log_n);
+            auto inner_proof = prover.construct_proof(virtual_log_n);
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
             fr key_hash_witness = verification_key->hash();
