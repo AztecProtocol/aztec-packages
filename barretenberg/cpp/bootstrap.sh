@@ -59,9 +59,10 @@ function build_preset() {
 
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
 # Allow the build system to get a head start on compilation while building dependencies.
-function build_objects {
+# This is a noop if the final artifacts exist in the cache.
+function build_native_objects {
   set -eu
-  if ! cache_download barretenberg-$native_preset-$hash.zst; then
+  if ! cache_exists barretenberg-$native_preset-$hash.zst; then
     cmake --preset "$native_preset"
     targets=$(cmake --build --preset "$native_preset" --target help | awk -F: '$1 ~ /(_objects|_tests|_bench|_gen|.a)$/ && $1 !~ /^cmake_/{print $1}' | tr '\n' ' ')
     cmake --build --preset "$native_preset" --target $targets nodejs_module
@@ -81,10 +82,11 @@ function build_native {
 # Builds as many targets as possible that don't have any external dependencies, e.g. on avm_transpiler.
 # Allow the build system to get a head start on compilation while building dependencies.
 # For cross compilation we're only building bb and napi module.
+# This is a noop if the final artifacts exist in the cache.
 function build_cross_objects {
   set -eu
   target=$1
-  if ! cache_download barretenberg-$target-$hash.zst; then
+  if ! cache_exists barretenberg-$target-$hash.zst; then
     build_preset zig-$target --target barretenberg nodejs_module vm2_stub circuit_checker honk
   fi
 }
@@ -125,8 +127,16 @@ function build_wasm {
 function build_wasm_threads {
   set -eu
   if ! cache_download barretenberg-wasm-threads-$hash.zst; then
-    build_preset wasm-threads --target barretenberg.wasm barretenberg.wasm.gz ecc_tests
+    build_preset wasm-threads
     cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
+  fi
+}
+
+function build_wasm_threads_benches {
+  set -eu
+  if ! cache_download barretenberg-wasm-threads-benches-$hash.zst; then
+    build_preset wasm-threads --target ultra_honk_bench chonk_bench bb
+    cache_upload barretenberg-wasm-threads-benches-$hash.zst build-wasm-threads/bin/{ultra_honk_bench,chonk_bench,bb}
   fi
 }
 
@@ -219,7 +229,7 @@ function build_release_dir {
   tar -czf build-release/barretenberg-amd64-darwin.tar.gz -C build-release --remove-files bb
 }
 
-export -f build_preset build_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
+export -f build_preset build_native_objects build_cross_objects build_native build_cross build_asan_fast build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only build_smt_verification
 
 function build {
     (cd $root && make barretenberg)
@@ -283,18 +293,6 @@ function test_cmds {
 function test {
   echo_header "bb test"
   test_cmds | filter_test_cmds | parallelize
-}
-
-function build_bench {
-  set -eu
-  if ! cache_download barretenberg-benchmarks-$hash.zst; then
-    # Run builds in parallel with different targets per preset
-    parallel --line-buffered denoise ::: \
-      "build_preset $native_preset --target ultra_honk_bench --target chonk_bench --target bb --target honk_solidity_proof_gen" \
-      "build_preset wasm-threads --target ultra_honk_bench --target chonk_bench --target bb"
-    cache_upload barretenberg-benchmarks-$hash.zst \
-      {build,build-wasm-threads}/bin/{ultra_honk_bench,chonk_bench,bb}
-  fi
 }
 
 function bench_cmds {
@@ -391,10 +389,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|bench_cmds|build_preset|build_bench|release|build_objects|build_cross_objects|build_native|build_cross|build_asan_fast|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_smt_verification|inject_version)
+  *)
     $cmd "$@"
     ;;
-  *)
-    echo "Unknown command: $cmd"
-    exit 1
 esac

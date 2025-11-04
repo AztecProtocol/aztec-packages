@@ -4,7 +4,14 @@
 # It coordinates the build order and dependencies between projects.
 # The actual build logic remains in each project's bootstrap.sh script.
 #
-# The BUILD_MODE variable is passed from bootstrap.sh (fast/full/etc)
+# The BUILD_MODE variable is passed from bootstrap.sh (fast/full/etc).
+#
+# Note that "test" targets don't *run* tests, they just output test commands to /tmp/test_cmds.
+#
+# Expectation is to run with one of the following targets:
+# - make [all]
+# - make full
+# - make release
 
 # Shell to use for all commands
 SHELL := /bin/bash
@@ -12,30 +19,12 @@ SHELL := /bin/bash
 export DENOISE := 1
 
 ROOT := $(shell git rev-parse --show-toplevel)
-ARCH := $(shell $(ROOT)/ci3/arch 2>/dev/null || echo "unknown")
-CI ?= 0
-CI_FULL ?= 0
-IS_RELEASE := $(shell $(ROOT)/ci3/semver check "$(REF_NAME)" && echo 1 || echo 0)
-IS_AMD64 := $(shell [ "$(ARCH)" = "amd64" ] && echo 1 || echo 0)
-
-# Function to compute color from project name hash
-# Picks a color between 20 and 231 (avoiding very dark/light colors)
-define compute_color
-$(shell echo "$$((($$(printf '%s' '$(1)' | cksum | cut -d' ' -f1) % 212) + 20))")
-endef
 
 # Core helper to run a shell command with colored, prefixed output
 # Usage: $(call run_command,label,directory,command)
-# Color is automatically computed from label hash
+# Color is automatically computed from label hash by color_prefix script
 define run_command
-	@color=$(call compute_color,$(1)); \
-	project=$(1); \
-	set -o pipefail; \
-	cd $(2) && stdbuf -oL -eL $(3) 2>&1 | \
-	while IFS= read -r line; do \
-		printf '\033[38;5;%sm[%s]\033[0m %s\n' "$$color" "$$project" "$$line"; \
-	done; \
-	exit $${PIPESTATUS[0]}
+	@cd $(2) && $(ROOT)/ci3/color_prefix $(1) "$(3)"
 endef
 
 # Main build helper - calls bootstrap.sh with optional function argument
@@ -47,37 +36,37 @@ define build
 	$(call run_command,$(1),$(ROOT)/$(2),$(ROOT)/ci3/denoise './bootstrap.sh $(if $(3),$(3),$(BUILD_MODE))')
 endef
 
+# Collects the test commands from the given project
+# Writes them line-by-line (important to prevent line splitting, lines must be < 4k) to /tmp/test_cmds.
+# The test engine is expected to be running and it will read commands from this file.
 define test
 	$(call run_command,$(1),$(ROOT)/$(2),\
-	  ./bootstrap.sh test_cmds | filter_test_cmds | while IFS= read -r line; do \
+	  ./bootstrap.sh test_cmds $(3) | $(ROOT)/ci3/filter_test_cmds | while IFS= read -r line; do \
 	    echo "$$line" >> /tmp/test_cmds; \
 	  done)
 endef
 
 #==============================================================================
-# PHONY TARGETS
+# PHONY TARGETS - Everything, we're just a dependency tree...
 #==============================================================================
 
-.PHONY: all tests
-.PHONY: noir avm-transpiler avm-transpiler-native avm-transpiler-cross avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos barretenberg noir-projects noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr l1-contracts l1-contracts-src l1-contracts-verifier yarn-project release-image
-.PHONY: bb-crs bb-bbup bb-cpp bb-ts bb-acir bb-docs bb-sol
-.PHONY: bb-cpp-objects bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
-.PHONY: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
-.PHONY: bb-cpp-cross-arm64-linux-objects bb-cpp-cross-amd64-macos-objects bb-cpp-cross-arm64-macos-objects
-.PHONY: bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt
-.PHONY: boxes playground docs spartan aztec-up
+.PHONY: all $(MAKECMDGOALS)
 
 #==============================================================================
-# DEFAULT TARGET
+# BOOTSTRAP TARGETS
 #==============================================================================
 
-all: release-image barretenberg boxes playground docs spartan aztec-up
+# Fast bootstrap
+all: release-image barretenberg boxes playground docs spartan aztec-up \
+		 bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
 
-#==============================================================================
-# TESTS
-#==============================================================================
+# Full bootstrap
+full: release-image barretenberg boxes playground docs spartan aztec-up \
+			bb-cpp-full yarn-project-benches \
+		  bb-full-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
 
-tests: bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests
+# Release. Everything plus copy bb cross compiles to bb.js.
+release: full bb-ts-cross-copy
 
 #==============================================================================
 # Noir
@@ -92,68 +81,26 @@ noir: noir-sync
 # AVM Transpiler
 #==============================================================================
 
-# Determine which cross-compilation targets to build for avm-transpiler
-AVM_CROSS_TARGETS :=
-ifeq ($(IS_RELEASE),1)
-  ifeq ($(IS_AMD64),1)
-    AVM_CROSS_TARGETS := avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
-  endif
-endif
-
-# Native build (always needed)
 avm-transpiler-native: noir-sync
 	$(call build,$@,avm-transpiler,build_native)
 
-# Cross-compile for AMD64 macOS (release only)
 avm-transpiler-cross-amd64-macos: noir-sync
 	$(call build,$@,avm-transpiler,build_cross amd64-macos)
 
-# Cross-compile for ARM64 macOS (release only)
 avm-transpiler-cross-arm64-macos: noir-sync
 	$(call build,$@,avm-transpiler,build_cross arm64-macos)
 
-# Aggregate cross-compile target
-avm-transpiler-cross: $(AVM_CROSS_TARGETS)
-
-# Default avm-transpiler target (just native, cross builds happen conditionally)
-avm-transpiler: avm-transpiler-native $(AVM_CROSS_TARGETS)
+avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm64-macos
 
 #==============================================================================
 # Barretenberg
 #==============================================================================
 
-# Determine which cross-compilation targets to build
-BB_CPP_CROSS_TARGETS :=
-ifeq ($(IS_RELEASE),1)
-  ifeq ($(IS_AMD64),1)
-    BB_CPP_CROSS_TARGETS := bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
-  endif
-else ifeq ($(CI_FULL),1)
-  ifeq ($(IS_AMD64),1)
-    BB_CPP_CROSS_TARGETS := bb-cpp-cross-arm64-macos
-  endif
-endif
-
-# Determine which CI targets to build
-BB_CPP_CI_TARGETS :=
-ifeq ($(CI),1)
-  ifeq ($(IS_AMD64),1)
-    ifneq ($(IS_RELEASE),1)
-      BB_CPP_CI_TARGETS := bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan
-    endif
-  endif
-endif
-ifeq ($(CI_FULL),1)
-  ifeq ($(IS_AMD64),1)
-    BB_CPP_CI_TARGETS += bb-cpp-smt
-  endif
-endif
-
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
 barretenberg: bb-cpp bb-ts bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
-bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-cross bb-cpp-ci
+bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
 
 # BB CRS Download
 bb-crs:
@@ -165,11 +112,11 @@ bb-bbup:
 
 # BB C++ Native - Split into compilation and linking phases
 # Compilation phase: Build barretenberg + vm2_sim objects (can run in parallel with avm-transpiler)
-bb-cpp-objects:
-	$(call build,$@,barretenberg/cpp,build_objects)
+bb-cpp-native-objects:
+	$(call build,$@,barretenberg/cpp,build_native_objects)
 
 # Linking phase: Link all native binaries (needs avm-transpiler)
-bb-cpp-native: bb-cpp-objects avm-transpiler-native
+bb-cpp-native: bb-cpp-native-objects avm-transpiler-native
 	$(call build,$@,barretenberg/cpp,build_native)
 
 # BB C++ WASM - Single-threaded WebAssembly build
@@ -179,6 +126,9 @@ bb-cpp-wasm:
 # BB C++ WASM Threads - Multi-threaded WebAssembly build
 bb-cpp-wasm-threads:
 	$(call build,$@,barretenberg/cpp,build_wasm_threads)
+
+bb-cpp-wasm-threads-benches: bb-cpp-wasm-threads
+	$(call build,$@,barretenberg/cpp,build_wasm_threads_benches)
 
 # Cross-compile object phases (parallel with avm-transpiler cross-compile)
 bb-cpp-cross-arm64-linux-objects:
@@ -202,6 +152,8 @@ bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-
 bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos
 	$(call build,$@,barretenberg/cpp,build_cross arm64-macos)
 
+bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos
+
 # GCC syntax check (CI only, non-release)
 bb-cpp-gcc:
 	$(call build,$@,barretenberg/cpp,build_gcc_syntax_check_only)
@@ -218,14 +170,15 @@ bb-cpp-asan:
 bb-cpp-smt:
 	$(call build,$@,barretenberg/cpp,build_smt_verification)
 
-# Conditional aggregate targets using parse-time dependency lists
-bb-cpp-cross: $(BB_CPP_CROSS_TARGETS)
-
-bb-cpp-ci: $(BB_CPP_CI_TARGETS)
+bb-cpp-full: bb-cpp-gcc bb-cpp-fuzzing bb-cpp-asan bb-cpp-smt bb-cpp-cross-arm64-macos bb-cpp-wasm-threads-benches
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native
 	$(call build,$@,barretenberg/ts)
+
+# Copies the cross-compiles into bb.js.
+bb-ts-cross-copy: bb-ts bb-cpp-cross
+	$(call build,$@,barretenberg/ts,cross_copy)
 
 # BB ACIR Tests - ACIR compatibility tests
 bb-acir: noir bb-cpp-native
@@ -244,7 +197,10 @@ bb-sol: bb-cpp-native
 #==============================================================================
 
 # TODO: Each group of tests could be triggered as build completes, rather than need to wait for all.
-bb-cpp-tests: bb-cpp-native bb-cpp-smt bb-cpp-asan bb-cpp-smt
+bb-cpp-tests: bb-cpp-native
+	$(call test,$@,barretenberg/cpp)
+
+bb-cpp-full-tests: bb-cpp-native bb-cpp-smt bb-cpp-asan bb-cpp-smt
 	$(call test,$@,barretenberg/cpp)
 
 bb-acir-tests: bb-acir
@@ -263,6 +219,8 @@ bb-bbup-tests: bb-bbup
 	$(call test,$@,barretenberg/bbup)
 
 bb-tests: bb-cpp-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
+
+bb-full-tests: bb-cpp-full-tests bb-acir-tests bb-ts-tests bb-sol-tests bb-bbup-tests bb-docs-tests
 
 #==============================================================================
 # Noir Projects
@@ -315,12 +273,15 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-cpp-wasm bb-cpp-wasm-threads bb-ts noir-projects l1-contracts
+yarn-project: bb-ts noir-projects l1-contracts
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project
 	$(call test,$@,yarn-project/end-to-end)
 	$(call test,$@,yarn-project)
+
+yarn-project-benches: yarn-project
+	$(call build,$@,yarn-project/end-to-end,build_bench)
 
 #==============================================================================
 # The Rest
@@ -355,5 +316,5 @@ spartan: yarn-project
 aztec-up: yarn-project
 	$(call build,$@,aztec-up)
 
-aztec-up-tests: aztec-up
+aztec-up-tests: aztec-up release-image
 	$(call test,$@,aztec-up)

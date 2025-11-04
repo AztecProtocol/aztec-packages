@@ -235,43 +235,32 @@ function build {
   make BUILD_MODE=${1:-} $@
 }
 
-function test {
-  echo_header "test all"
+# function test {
+#   echo_header "test from /tmp/test_cmds"
 
-  start_txes
+#   start_txes
 
-  # We will start half as many jobs as we have cpu's.
-  # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
-  # and also that half the cpus are logical, not physical.
-  echo "Gathering tests to run..."
-  tests=$(test_cmds $@)
+#   # We will start half as many jobs as we have cpu's.
+#   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
+#   # and also that half the cpus are logical, not physical.
+#   echo "Gathering tests to run..."
+#   tests=$(test_cmds $@)
 
-  # Note: Capturing strips last newline. The echo re-adds it.
-  local num
-  [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
-  echo "Gathered $num tests."
+#   # Note: Capturing strips last newline. The echo re-adds it.
+#   local num
+#   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
+#   echo "Gathered $num tests."
 
-  echo "$tests" | parallelize
-}
+#   echo "$tests" | parallelize
+# }
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- yarn-project/end-to-end yarn-project barretenberg/cpp barretenberg/sol barretenberg/acir_tests noir-projects/noir-protocol-circuits l1-contracts
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@ | sort_by_cpus
+  parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
-
-function build_bench {
-  # TODO bench for arm64.
-  if [ $(arch) == arm64 ]; then
-    return
-  fi
-  parallel --line-buffer --tag --halt now,fail=1 'denoise "{}/bootstrap.sh build_bench"' ::: \
-    barretenberg/cpp \
-    yarn-project/end-to-end
-}
-export -f build_bench
 
 function bench_merge {
   find . -path "*/bench-out/*.bench.json" -type f -print0 | \
@@ -393,9 +382,13 @@ case "$cmd" in
     check_toolchains
     echo "Toolchains look good! 🎉"
   ;;
-  ""|"fast"|"full")
+  ""|"fast")
     install_hooks
     build
+  ;;
+  "full")
+    install_hooks
+    build full
   ;;
   "ci-fast")
     export CI=1
@@ -407,16 +400,16 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
-    build_and_test
+    build_and_test full
     bench
     ;;
   "ci-nightly")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_NIGHTLY=1
-    build
-    release-image/bootstrap.sh push
-    test
+    build release
+    # release-image/bootstrap.sh push
+    # test
     release
     ;;
   "ci-network-deploy")
@@ -435,7 +428,7 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       exit 1
     fi
-    build
+    build release
     release
     ;;
   "ci-docs")

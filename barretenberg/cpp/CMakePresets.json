@@ -634,13 +634,7 @@
       "configurePreset": "wasm",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": [
-        "barretenberg.wasm",
-        "barretenberg.wasm.gz",
-        "barretenberg",
-        "wasi",
-        "env"
-      ]
+      "targets": ["barretenberg.wasm.gz"]
     },
     {
       "name": "wasm-threads-dbg",
@@ -654,7 +648,7 @@
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": ["barretenberg.wasm.gz", "ecc_tests"]
     },
     {
       "name": "xray",

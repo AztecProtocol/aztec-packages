@@ -92,15 +92,15 @@ function compile {
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
         # We still need the standalone IVC vk. We also create the final IVC vk from the tail (specifically, the number of public inputs is used from it).
-        denoise "$BB write_vk --scheme chonk --verifier_type standalone_hiding -b - -o $outdir"
+        $BB write_vk --scheme chonk --verifier_type standalone_hiding -b - -o $outdir
       elif echo "$name" | grep -qE "${ivc_regex}"; then
-        denoise "$BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir"
+        $BB write_vk --scheme chonk --verifier_type standalone -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
-        denoise "$BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk --ipa_accumulation -b - -o $outdir
       elif echo "$name" | grep -qE "rollup_root"; then
-        denoise "$BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk --oracle_hash keccak -b - -o $outdir
       else
-        denoise "$BB write_vk --scheme ultra_honk -b - -o $outdir"
+        $BB write_vk --scheme ultra_honk -b - -o $outdir
       fi
     }
 
