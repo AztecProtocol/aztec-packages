@@ -152,7 +152,7 @@ pol FF_TAG_ERR = (sel_op_div + sel_op_not + SHIFT_OPS) * sel_is_ff + sel_op_fdiv
 // b's tag as 0 (FF) which, in turn, will cause sel_ab_tag_mismatch to be 0.
 // The output of NOT opcode is in ib, and we need to unconditionally exclude a mismatched tag error for this case.
 // For this reason, we do not remove "NOT" from the CHECK_AB_TAGS selector.
-pol CHECK_AB_TAGS = 1 - sel_op_truncate;
+pol CHECK_AB_TAGS = 1 - sel_op_truncate; // For truncation both tags are not expected to match.
 pol AB_TAGS_EQ = 1 - sel_ab_tag_mismatch;
 pol commit ab_tags_diff_inv;
 // sel_ab_tag_mismatch = 1 <==> ia_tag - ib_tag != 0
@@ -509,11 +509,11 @@ pol SHIFT_OVERFLOW = SHIFT_OPS * (1 - sel_shift_ops_no_overflow);
 pol commit shift_lo_bits;
 pol commit two_pow_shift_lo_bits;
 
-// *For SHL and SHR, when the shift (b) > max_bits we want SHIFT_OVERFLOW == 1 and c == 0:
-//  SHL: a_lo_bits = max_bits - b -> will underflow
-//  SHR: a_hi_bits = max_bits - b -> will underflow
+// *For SHL and SHR, when the shift `b > max_bits` we want SHIFT_OVERFLOW == 1 and c == 0:
+//  SHL: shift_lo_bits = max_bits - b -> will underflow
+//  SHR: SHIFT_HI_BITS = max_bits - b -> will underflow
 //  so instead set a_lo = b - max_bits and shift_lo_bits = max_bits for both SHL and SHR (see DECOMPOSED_A) and reuse the range check
-//  RANGE_CHECK_DECOMPOSITION_A_LO to prove that b > max_bits <==> SHIFT_OVERFLOW = 1 <==> c = 0.
+//  RANGE_CHECK_DECOMPOSITION_A_LO to prove that b >= max_bits when SHIFT_OVERFLOW = 1.
 
 #[SHIFTS_LO_BITS]
 shift_lo_bits = (1 - sel_err) * (
@@ -539,7 +539,7 @@ sel_shift_ops_no_overflow { shift_lo_bits, two_pow_shift_lo_bits } in precompute
 // cannnot be satisfied.
 // Note that for the edge case ib == max_bits, we can either set sel_shift_ops_no_overflow == 0 or 1,
 // as both cases can satisfy the relations. Note that our tracegen will handle this case
-// as not an overflow; i.e., sel_shift_ops_no_overflow == 1.
+// as not an overflow i.e., sel_shift_ops_no_overflow == 1.
 
 // ------------------------------------------------------------
 // TRUNCATE

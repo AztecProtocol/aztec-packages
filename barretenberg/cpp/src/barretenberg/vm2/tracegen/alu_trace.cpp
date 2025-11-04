@@ -244,7 +244,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             uint128_t a_lo_bits = overflow ? tag_bits : tag_bits - b_num;
             // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
             // prove b > max_bits):
-            // Cast to uint256_t to be sure that the shift 1 << shift_lo_bits is cpp defined behaviour.
+            // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
                 static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
             uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
@@ -285,7 +285,7 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
             uint8_t a_lo_bits = overflow ? tag_bits : static_cast<uint8_t>(b_num);
             // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
             // prove b > max_bits):
-            // Cast to uint256_t to be sure that the shift 1 << shift_lo_bits is cpp defined behaviour.
+            // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
                 static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
             uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
