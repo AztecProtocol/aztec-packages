@@ -1,11 +1,13 @@
 #!/bin/bash
 
-# Script to check that all environment variables used in Helm templates and Terraform scripts
+# Script to check that all environment variables used in Helm templates, values files, and Terraform scripts
 # are defined in yarn-project/foundation/src/config/env_var.ts
 #
 # This script scans:
-# - Helm templates in spartan/aztec-network/templates/ for "- name: VAR_NAME" patterns
-# - Terraform files in spartan/terraform/ for "VAR_NAME = var.VAR_NAME" and variable definitions
+# - Helm templates in spartan/aztec-*/templates/ directories (excluding aztec-network) for "- name: VAR_NAME" patterns
+# - Helm values files in spartan/aztec-*/ (excluding aztec-network) and spartan/terraform/deploy-aztec-infra/values/ for "VAR_NAME:" patterns
+# - Terraform files in spartan/terraform/deploy-aztec-infra/ for env vars set via Helm chart values: "*.env.VAR_NAME"
+#   (Note: Terraform input variables are NOT scanned, only actual env vars passed to the application)
 #
 # It then checks if each found environment variable is defined in the TypeScript EnvVar union type.
 # Variables in the exclusion list (system/k8s/deployment-specific vars) are ignored.
@@ -32,7 +34,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Files to check
 ENV_VAR_FILE="$PROJECT_ROOT/yarn-project/foundation/src/config/env_var.ts"
-HELM_TEMPLATES_DIR="$PROJECT_ROOT/spartan/aztec-network/templates"
+HELM_CHARTS_DIR="$PROJECT_ROOT/spartan"
 TERRAFORM_DIR="$PROJECT_ROOT/spartan/terraform"
 
 echo -e "${YELLOW}Checking environment variables in Helm templates and Terraform scripts...${NC}"
@@ -46,6 +48,7 @@ EXCLUDED_VARS_ARRAY=(
     "K8S_NAMESPACE_NAME"
     "POD_IP"
     "POD_NAME"
+    "NODE_NAME"
 
     # System environment variables
     "PATH"
@@ -72,6 +75,13 @@ EXCLUDED_VARS_ARRAY=(
     "WS_PORT"
     "BEACON_HTTP_PORT"
     "MAX_TX_INPUT_SIZE_BYTES"
+
+    # AWS/Cloud credentials (should be managed via secrets, not env_var.ts)
+    "AWS_ACCESS_KEY_ID"
+    "AWS_SECRET_ACCESS_KEY"
+
+    # Hardware configuration
+    "HARDWARE_CONCURRENCY"
 
     # Network/infrastructure variables
     "NETWORK_PUBLIC"
@@ -167,6 +177,10 @@ EXCLUDED_VARS_ARRAY=(
     "VALIDATORS_PER_NODE"
     "VALIDATOR_VALUES"
     "VALUES_FILE"
+    "PUBLISHER_KEY_INDEX_START"
+    "PUBLISHERS_PER_VALIDATOR_KEY"
+    "PUBLISHERS_PER_PROVER"
+    "AGENT_COUNT"
 )
 
 # Join array elements with | for regex
@@ -175,26 +189,50 @@ EXCLUDED_VARS=$(IFS='|'; echo "${EXCLUDED_VARS_ARRAY[*]}")
 # Extract environment variables from Helm templates
 echo "Scanning Helm templates..."
 helm_vars=""
-if [[ -d "$HELM_TEMPLATES_DIR" ]]; then
-    helm_vars=$(find "$HELM_TEMPLATES_DIR" -name "*.yaml" -o -name "*.yml" -o -name "*.tpl" | \
+if [[ -d "$HELM_CHARTS_DIR" ]]; then
+    # Find templates directories in aztec-* charts only (excluding aztec-network)
+    helm_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -type d -name templates -path "*/aztec-*/*" ! -path "*/aztec-network/*" | \
+                xargs -I {} find {} -name "*.yaml" -o -name "*.yml" -o -name "*.tpl" 2>/dev/null | \
                 xargs grep -hE "^\s*- name:\s+[A-Z][A-Z0-9_]*\s*$" 2>/dev/null | \
                 sed -E 's/.*- name:\s+([A-Z][A-Z0-9_]*).*/\1/' | \
                 sort -u || true)
 fi
 
+# Extract environment variables from Helm values files (node.env, validator.node.env, etc.)
+echo "Scanning Helm values files..."
+values_vars=""
+if [[ -d "$HELM_CHARTS_DIR" ]]; then
+    # Find values.yaml files in aztec-* chart directories only (excluding aztec-network)
+    values_vars=$(find "$HELM_CHARTS_DIR" -maxdepth 2 -name "values.yaml" -path "*/aztec-*/*" ! -path "*/aztec-network/*" 2>/dev/null | \
+                  xargs grep -hE "^\s+[A-Z][A-Z0-9_]*:" 2>/dev/null | \
+                  sed -E 's/^\s+([A-Z][A-Z0-9_]*):.*/\1/' | \
+                  sort -u || true)
+
+    # Also scan terraform values files in deploy-aztec-infra
+    if [[ -d "$TERRAFORM_DIR/deploy-aztec-infra/values" ]]; then
+        terraform_values_vars=$(find "$TERRAFORM_DIR/deploy-aztec-infra/values" -name "*.yaml" 2>/dev/null | \
+                                xargs grep -hE "^\s+[A-Z][A-Z0-9_]*:" 2>/dev/null | \
+                                sed -E 's/^\s+([A-Z][A-Z0-9_]*):.*/\1/' | \
+                                sort -u || true)
+        values_vars=$(echo -e "$values_vars\n$terraform_values_vars" | grep -v "^$" | sort -u)
+    fi
+fi
+
 # Extract environment variables from Terraform scripts
 echo "Scanning Terraform scripts..."
 terraform_vars=""
-if [[ -d "$TERRAFORM_DIR" ]]; then
-    terraform_vars=$(find "$TERRAFORM_DIR" -name "*.tf" | \
-                     xargs grep -hE "(^\s*[A-Z][A-Z0-9_]*\s*=|^variable \"[A-Z][A-Z0-9_]*\")" 2>/dev/null | \
-                     sed -E 's/^\s*([A-Z][A-Z0-9_]*)\s*=.*/\1/; s/^variable "([A-Z][A-Z0-9_]*)".*/\1/' | \
+if [[ -d "$TERRAFORM_DIR/deploy-aztec-infra" ]]; then
+    # Extract env vars set through Helm chart values like "node.env.VAR_NAME" or "validator.node.env.VAR_NAME"
+    # Only these represent actual environment variables passed to the application
+    terraform_vars=$(find "$TERRAFORM_DIR/deploy-aztec-infra" -name "*.tf" | \
+                     xargs grep -hE '\.env\.[A-Z][A-Z0-9_]*"' 2>/dev/null | \
+                     sed -E 's/.*\.env\.([A-Z][A-Z0-9_]*).*/\1/' | \
                      sort -u || true)
 fi
 
 # Combine and deduplicate all found variables
 echo "Processing found variables..."
-all_vars=$(echo -e "$helm_vars\n$terraform_vars" | grep -v "^$" | sort -u)
+all_vars=$(echo -e "$helm_vars\n$values_vars\n$terraform_vars" | grep -v "^$" | sort -u)
 
 # Extract defined variables from env_var.ts
 echo "Extracting defined variables..."
