@@ -201,7 +201,7 @@ class HintingDBsTest : public ::testing::Test {
 TEST_F(HintingDBsTest, Basic)
 {
     AvmSimulationHelper simulation_helper;
-    TxSimulationResult result = simulation_helper.simulate_fast_without_hinted_dbs(inputs.hints);
+    TxSimulationResult result = simulation_helper.simulate_fast_with_real_dbs(inputs.hints);
 
     EXPECT_TRUE(result.execution_hints.has_value());
     auto collected_hints = result.execution_hints.value();

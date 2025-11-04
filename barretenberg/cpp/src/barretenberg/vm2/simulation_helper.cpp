@@ -368,8 +368,8 @@ TxSimulationResult AvmSimulationHelper::simulate_fast(ContractDBInterface& raw_c
     SideEffectTrackingDB merkle_db(tx.nonRevertibleAccumulatedData.nullifiers[0], base_merkle_db, side_effect_tracker);
 
     // NoopUpdateCheck update_check;
-    // TODO(MW): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip collecting
-    // a required hint for a storage_read. Optionally use Noop if we don't need hints:
+    // TODO(#18161): Note that if we need to gather hints here, we can't use the NoopUpdateCheck as it will skip
+    // collecting a required hint for a storage_read. Optionally use Noop if we don't need hints:
 
     UpdateCheck update_check(poseidon2, range_check, greater_than, merkle_db, update_check_emitter, global_variables);
 
@@ -483,10 +483,10 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_with_hinted_dbs(const Exec
     return simulate_fast(raw_contract_db, raw_merkle_db, hints.tx, hints.globalVariables, hints.protocolContracts);
 }
 
-// Note: we currently only have hinted raw dbs, TODO eventually remove hints:
-TxSimulationResult AvmSimulationHelper::simulate_fast_without_hinted_dbs(const ExecutionHints& hints)
+// Note: we currently only have hinted raw dbs, TODO eventually use real dbs and remove hint inputs:
+TxSimulationResult AvmSimulationHelper::simulate_fast_with_real_dbs(const ExecutionHints& hints)
 {
-    // Note: we currently only have hinted raw dbs, TODO eventually replace with raw db:
+    // Note: we currently only have hinted raw dbs, TODO eventually replace with real db:
     HintedRawContractDB base_contract_db(hints);
     HintedRawMerkleDB base_merkle_db(hints);
 
