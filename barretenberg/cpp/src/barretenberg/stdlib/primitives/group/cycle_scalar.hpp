@@ -68,14 +68,11 @@ template <typename Builder> class cycle_scalar {
     void validate_scalar_is_in_field() const;
 
   public:
-    // AUDITTODO: this is used only in the fuzzer.
-    cycle_scalar(const ScalarField& _in = 0);
-    cycle_scalar(const field_t& _lo, const field_t& _hi);
-    // AUDITTODO: this is used only in the fuzzer. Its not inherently problematic, but perhaps the fuzzer should use a
-    // production entrypoint.
+    cycle_scalar(const ScalarField& in = 0);
+    cycle_scalar(const field_t& lo, const field_t& hi);
     static cycle_scalar from_witness(Builder* context, const ScalarField& value);
     static cycle_scalar from_u256_witness(Builder* context, const uint256_t& bitstring);
-    static cycle_scalar create_from_bn254_scalar(const field_t& _in);
+    static cycle_scalar create_from_bn254_scalar(const field_t& in);
     explicit cycle_scalar(BigScalarField& scalar);
 
     [[nodiscard]] bool is_constant() const;
