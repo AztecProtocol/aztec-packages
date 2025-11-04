@@ -72,7 +72,7 @@ pol commit ia;
 pol commit ib;
 pol commit ic;
 
-// Input and output tags.
+// Input and output tags. Range values [0, MemoryTag::MAX].
 pol commit ia_tag;
 pol commit ib_tag;
 pol commit ic_tag;
@@ -82,8 +82,8 @@ pol commit sel_is_ff; // @boolean (whether input a is a field)
 pol commit sel_is_u128; // @boolean (whether input a is a u128)
 pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
 pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
-pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition.
-pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition.
+pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition and mutual exlcusion.
+pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition and mutual exlcusion.
 
 // Note that #[OP_ID_CHECK] ensures selectors are mutually exclusive.
 // Therefore, SHIFT_OPS and DIV_OPS are boolean.
@@ -188,9 +188,9 @@ cf * (1 - cf) = 0;
 // Current use: DIV (remainder), and SHL (2**ib)
 pol commit helper1;
 
-// maximum bits the number can hold (i.e. 8 for a u8):
+// maximum bits the number can hold (i.e. 8 for a u8) but 0 for FF:
 pol commit max_bits;
-// maximum value the number can hold (i.e. 255 for a u8), we 'mod' by max_value + 1
+// maximum value the number can hold (i.e. 255 for a u8), we use `max_value + 1` as modulus for the corresponding tag. For FF, we use `p - 1`.
 pol commit max_value;
 
 #[TAG_MAX_BITS_VALUE]
@@ -220,11 +220,10 @@ pol SEL_DIV_U128 = sel_div_no_err * sel_is_u128;
 * BIT DECOMPOSITION (Common helper for MUL, DIV, SHL, SHR)
 ******************************************************************************/
 // We use the below to prove correct decomposition of some values into limbs. Currently used by MUL, DIV, SHL, and SHR.
-pol commit sel_decompose_a;
-// #[OP_ID_CHECK] ensures selectors are mutually exclusive:
+pol commit sel_decompose_a; // @boolean by definition and mutual exclusion of opcode selectors.
 sel_decompose_a = (1 - sel_err) * (sel_mul_div_u128 + SHIFT_OPS);
 // Currently, sel_decompose_b would just equal sel_mul_div_u128, so no need for another column.
-pol commit a_lo, a_hi, b_lo, b_hi;
+pol commit a_lo, a_hi, b_lo, b_hi; // Limbs of the decomposed value. Range values defined by LIMB_SIZE.
 pol TWO_POW_64 = 2 ** 64;
 
 // Reusing columns for decomposition (#[OP_ID_CHECK] ensures selectors are mutually exclusive):
@@ -288,7 +287,7 @@ sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.valu
 // ------------------------------------------------------------
 // MUL
 // ------------------------------------------------------------
-pol commit c_hi;
+pol commit c_hi; // Helper value limb of 64 bits.
 
 // MUL - non u128
 
@@ -304,15 +303,15 @@ sel_op_mul * IS_NOT_U128 * (1 - sel_err) * (ia * ib - ic - (max_value + 1) * c_h
 
 // MUL - u128
 
-// We express a, b in 64-bit slices: a = a_l + a_h * 2^64
-//                                   b = b_l + b_h * 2^64
-// => a * b = a_l * b_l + (a_h * b_l + a_l * b_h) * 2^64 + (a_h * b_h) * 2^128 = c_hi_full * 2^128 + c
-// for c_hi_full and c being 128-bit limbs. We can remove the term a_h * b_h * 2^128 when working modulo 2^128
+// We express a, b in 64-bit slices: a = a_lo + a_hi * 2^64
+//                                   b = b_lo + b_hi * 2^64
+// => a * b = a_lo * b_lo + (a_hi * b_lo + a_lo * b_hi) * 2^64 + (a_hi * b_hi) * 2^128 = c_hi_full * 2^128 + c
+// for c_hi_full and c being 128-bit limbs. We can remove the term a_hi * b_hi * 2^128 when working modulo 2^128
 // and to avoid handling field overflows. We rewrite the relation as:
-// a * b_l + a_l * b_h * 2^64 = (cf * 2^64 + c_hi) * 2^128 + c for a bit cf and c_hi < 2^64.
+// a * b_lo + a_lo * b_hi * 2^64 = (cf * 2^64 + c_hi) * 2^128 + c for a bit cf and c_hi < 2^64.
 // Namely, the left hand side is strictly less than 2 * 2^192.
-// c_hi can be computed explicitly as (c_hi_full - (a_h * b_h)) % 2^64 and
-// cf == 1 iff c_hi_full - (a_h * b_h) >= 2^64 equivalently cf == (c_hi_full - (a_h * b_h)) / 2^64.
+// c_hi can be computed explicitly as (c_hi_full - (a_hi * b_hi)) % 2^64 and
+// cf == 1 iff c_hi_full - (a_hi * b_hi) >= 2^64 equivalently cf == (c_hi_full - (a_hi * b_hi)) / 2^64.
 
 #[ALU_MUL_U128]
 SEL_MUL_U128 * (
@@ -322,7 +321,7 @@ SEL_MUL_U128 * (
     ) = 0;
 
 // For FF values, this range check would not be required but it makes code simpler.
-pol commit sel_mul_no_err; //  Follows from definition.
+pol commit sel_mul_no_err; // @boolean Follows from definition.
 sel_mul_no_err = (1 - sel_err) * sel_op_mul;
 #[RANGE_CHECK_MUL_C_HI]
 sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
@@ -338,22 +337,22 @@ sel_div_no_err = sel_op_div * (1 - sel_err);
 // DIV - u128
 
 // Using this to switch on the range checks for decomposed u128 integers (#[OP_ID_CHECK] ensures selectors are mutually exclusive)
-pol commit sel_mul_div_u128;
+pol commit sel_mul_div_u128; // @boolean Follows from definition.
 // SEL_MUL_U128 || SEL_DIV_U128
 sel_mul_div_u128 = SEL_MUL_U128 + SEL_DIV_U128;
 
 // We share the logic from MUL, since here we also must show a product evaluates to a result:
 //  c * b = a - remainder
 
-// We express c, b in 64-bit slices: c = c_l + c_h * 2^64
-//                                   b = b_l + b_h * 2^64
-// => c * b = c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 + (c_h * b_h) * 2^128 = a - r
-// => the 'top bits' of the LHS are given by (c_h * b_h) * 2^128
+// We express c, b in 64-bit slices: c = c_lo + c_hi * 2^64
+//                                   b = b_lo + b_hi * 2^64
+// => c * b = c_lo * b_lo + (c_hi * b_lo + c_lo * b_hi) * 2^64 + (c_hi * b_hi) * 2^128 = a - r
+// => the 'top bits' of the LHS are given by (c_hi * b_hi) * 2^128
 // For a happy path of 128 bit integer division (a / b = c), we cannot have both b and c > 64 bits
-//  => c_h * b_h = 0 (see ALU_DIV_U128_CHECK)
+//  => c_hi * b_hi = 0 (see ALU_DIV_U128_CHECK)
 //  => above is equivalent to:
-// c_l * b_l + (c_h * b_l + c_l * b_h) * 2^64 = a - r
-// c * b_l + c_l * b_h * 2^64 = a - r
+// c_lo * b_lo + (c_hi * b_lo + c_lo * b_hi) * 2^64 = a - r
+// c * b_lo + c_lo * b_hi * 2^64 = a - r
 
 // We do not need to decompose a - r because the LHS is constrained to be < 192 bits, protecting against
 // field underflows.
@@ -402,11 +401,11 @@ sel_op_eq * (1 - sel_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 +
 // ------------------------------------------------------------
 pol SEL_LT_OPS = (1 - sel_err) * (sel_op_lt + sel_op_lte);
 
-pol commit sel_ff_gt;
+pol commit sel_ff_gt; // @boolean Follows from definition.
 // sel_is_ff & SEL_LT_OPS:
 sel_ff_gt = sel_is_ff * SEL_LT_OPS;
 
-pol commit sel_int_gt;
+pol commit sel_int_gt; // @boolean Follows from definition.
 // (!sel_is_ff & SEL_LT_OPS) || sel_div_no_err:
 sel_int_gt = IS_NOT_FF * SEL_LT_OPS + sel_div_no_err;
 
@@ -573,7 +572,7 @@ sel_trunc_lt_128 * (1 - sel_trunc_lt_128) = 0;
 
 // Truncation separation case
 // Mutually exclusive due to sel_op_truncate being boolean
-pol commit sel_trunc_non_trivial; // TODO: Aliases this once lookups support aliases for selectors.
+pol commit sel_trunc_non_trivial; // @boolean Follows from definition. TODO: Aliases this once lookups support aliases for selectors.
 
 #[SEL_TRUNC_NON_TRIVIAL]
 sel_trunc_non_trivial = sel_trunc_gte_128 + sel_trunc_lt_128;
@@ -587,6 +586,7 @@ sel_trunc_trivial * (ia - ic) = 0;
 
 // NOTE: reusing a_lo column from MUL in TRUNC:
 // For truncate, a_lo = 128-bit low limb of ia.
+// mid is a limb of `128 - max_bits` bits.
 pol commit mid;
 
 // Note that we do not need to fetch the 128-bit high limb of ia. We invoke
