@@ -108,47 +108,48 @@ void tamper_with_proof(ProofType& inner_proof, bool end_of_proof)
 {
     using Commitment = typename InnerFlavor::Curve::AffineElement;
     using FF = typename InnerFlavor::FF;
-    using Fq = typename InnerFlavor::Curve::BaseField;
     using ProofFF = typename ProofType::value_type;
-
-    // Helper to deserialize bigfield-encoded coordinate (4 limbs of 68 bits each)
-    auto deserialize_bigfield_fq = [](std::span<const FF> limbs) -> Fq {
-        BB_ASSERT_EQ(limbs.size(), size_t(4));
-        return Fq(uint256_t(limbs[0]) + (uint256_t(limbs[1]) << 68) + (uint256_t(limbs[2]) << (136)) +
-                  (uint256_t(limbs[3]) << (204)));
-    };
-
-    // Helper to serialize coordinate to bigfield limbs
-    auto serialize_bigfield_fq = [](const Fq& coord) -> std::array<FF, 4> {
-        constexpr uint256_t LIMB_MASK = (uint256_t(1) << 68) - 1;
-        uint256_t val = uint256_t(coord);
-        return { ProofFF(val & LIMB_MASK),
-                 ProofFF((val >> 68) & LIMB_MASK),
-                 ProofFF((val >> 136) & LIMB_MASK),
-                 ProofFF((val >> 204) & LIMB_MASK) };
-    };
 
     if (!end_of_proof) {
         // Tamper with the first pairing point (P0) by adding the generator
-        // P0 is stored as bigfield limbs: P0.x at indices [0-3], P0.y at indices [4-7]
-        constexpr size_t LIMBS_PER_FQ = 4;                 // bigfield uses 4 limbs per coordinate
-        constexpr size_t FRS_PER_POINT = 2 * LIMBS_PER_FQ; // 8 frs for one point (x and y)
+        // The number of field elements per point depends on the curve:
+        // - BN254: 8 field elements (4 limbs per coordinate)
+        // - Grumpkin: 2 field elements (1 per coordinate)
+        constexpr size_t FRS_PER_POINT = Commitment::PUBLIC_INPUTS_SIZE;
+        constexpr size_t NUM_LIMB_BITS = bb::stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
 
         if (inner_proof.size() >= FRS_PER_POINT) {
-            // Deserialize P0 from proof
-            auto p0_frs = std::span{ inner_proof }.subspan(0, FRS_PER_POINT);
-            Commitment P0(deserialize_bigfield_fq(p0_frs.subspan(0, LIMBS_PER_FQ)),
-                          deserialize_bigfield_fq(p0_frs.subspan(LIMBS_PER_FQ, LIMBS_PER_FQ)));
+            // Deserialize P0 from proof using the native reconstruct_from_public method
+            std::array<ProofFF, FRS_PER_POINT> p0_limbs;
+            std::copy_n(inner_proof.begin(), FRS_PER_POINT, p0_limbs.begin());
+            Commitment P0 = Commitment::reconstruct_from_public(p0_limbs);
 
             // Tamper: P0 + G (still on curve, but invalid for verification)
             Commitment tampered_point = P0 + Commitment::one();
 
-            // Serialize tampered point back to proof
-            auto x_limbs = serialize_bigfield_fq(tampered_point.x);
-            auto y_limbs = serialize_bigfield_fq(tampered_point.y);
-            for (size_t idx = 0; idx < LIMBS_PER_FQ; ++idx) {
-                inner_proof[idx] = x_limbs[idx];
-                inner_proof[LIMBS_PER_FQ + idx] = y_limbs[idx];
+            // Manually serialize tampered point back to proof based on curve type
+            if constexpr (FRS_PER_POINT == 8) {
+                // BN254: Serialize using bigfield representation (4 limbs of 68 bits each per coordinate)
+                constexpr uint256_t LIMB_MASK = (uint256_t(1) << NUM_LIMB_BITS) - 1;
+
+                uint256_t x_val = uint256_t(tampered_point.x);
+                inner_proof[0] = ProofFF(x_val & LIMB_MASK);
+                inner_proof[1] = ProofFF((x_val >> NUM_LIMB_BITS) & LIMB_MASK);
+                inner_proof[2] = ProofFF((x_val >> (2 * NUM_LIMB_BITS)) & LIMB_MASK);
+                inner_proof[3] = ProofFF((x_val >> (3 * NUM_LIMB_BITS)) & LIMB_MASK);
+
+                uint256_t y_val = uint256_t(tampered_point.y);
+                inner_proof[4] = ProofFF(y_val & LIMB_MASK);
+                inner_proof[5] = ProofFF((y_val >> NUM_LIMB_BITS) & LIMB_MASK);
+                inner_proof[6] = ProofFF((y_val >> (2 * NUM_LIMB_BITS)) & LIMB_MASK);
+                inner_proof[7] = ProofFF((y_val >> (3 * NUM_LIMB_BITS)) & LIMB_MASK);
+            } else if constexpr (FRS_PER_POINT == 2) {
+                // Grumpkin: Serialize directly (1 field element per coordinate)
+                inner_proof[0] = ProofFF(tampered_point.x);
+                inner_proof[1] = ProofFF(tampered_point.y);
+            } else {
+                static_assert(FRS_PER_POINT == 8 || FRS_PER_POINT == 2,
+                              "Unsupported curve: FRS_PER_POINT must be 8 (BN254) or 2 (Grumpkin)");
             }
         }
     } else {
