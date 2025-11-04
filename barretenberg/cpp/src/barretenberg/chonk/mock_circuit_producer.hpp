@@ -167,6 +167,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
     {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
+        // Check if this is one of the trailing kernels (reset, tail, hiding)
+        const bool is_trailing_kernel = (ivc.num_circuits_accumulated >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -179,8 +181,12 @@ class PrivateFunctionExecutionMockCircuitProducer {
         } else {
             // If the number of gates is not specified we create a structured mock circuit
             if (is_kernel) {
-                GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
-                mock_databus.populate_kernel_databus(circuit);              // populate databus inputs/outputs
+                // For trailing kernels (reset, tail, hiding), skip the expensive mock kernel logic to match real Noir
+                // flows. These kernels are simpler and mainly contain the completion logic added by Chonk.
+                if (!is_trailing_kernel) {
+                    GoblinMockCircuits::construct_mock_folding_kernel(circuit); // construct mock base logic
+                }
+                mock_databus.populate_kernel_databus(circuit); // populate databus inputs/outputs
             } else {
                 GoblinMockCircuits::construct_mock_app_circuit(circuit, use_large_circuit); // construct mock app
                 mock_databus.populate_app_databus(circuit);                                 // populate databus outputs
