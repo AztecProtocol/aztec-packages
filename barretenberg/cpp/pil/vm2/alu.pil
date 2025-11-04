@@ -83,7 +83,7 @@ pol commit sel_is_u128; // @boolean (whether input a is a u128)
 pol IS_NOT_FF = 1 - sel_is_ff; // @boolean Follows from definition.
 pol IS_NOT_U128 = 1 - sel_is_u128; // @boolean Follows from definition.
 pol SHIFT_OPS = sel_op_shl + sel_op_shr; // @boolean Follows from definition.
-pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows
+pol DIV_OPS = sel_op_div + sel_op_fdiv; // @boolean Follows from definition.
 
 // Note that #[OP_ID_CHECK] ensures selectors are mutually exclusive.
 // Therefore, SHIFT_OPS and DIV_OPS are boolean.
@@ -322,7 +322,7 @@ SEL_MUL_U128 * (
     ) = 0;
 
 // For FF values, this range check would not be required but it makes code simpler.
-pol commit sel_mul_no_err; // @boolean
+pol commit sel_mul_no_err; //  Follows from definition.
 sel_mul_no_err = (1 - sel_err) * sel_op_mul;
 #[RANGE_CHECK_MUL_C_HI]
 sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value, range_check.rng_chk_bits };
@@ -330,7 +330,7 @@ sel_mul_no_err { c_hi, constant_64 } in range_check.sel_alu { range_check.value,
 // ------------------------------------------------------------
 // DIV & FDIV
 // ------------------------------------------------------------
-pol commit sel_div_no_err; // @boolean
+pol commit sel_div_no_err; // @boolean Follows from definition.
 sel_div_no_err = sel_op_div * (1 - sel_err);
 // We need to show that remainder < b (remainder stored in helper1)
 // We use #[INT_GT] below (see LT/LTE) by setting gt_input_a = b, gt_input_b = helper1, gt_result_c = 1 (gated by sel_div_no_err).
