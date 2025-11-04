@@ -1,15 +1,143 @@
 #include "block_constraint.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
+#include "barretenberg/dsl/acir_format/block_constraint.hpp"
+#include "barretenberg/dsl/acir_format/test_class.hpp"
+#include "barretenberg/dsl/acir_format/utils.hpp"
+
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <vector>
 
 using namespace acir_format;
+
+namespace {
+auto& engine = numeric::get_debug_randomness();
+}
+template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
+    using Builder = Builder_;
+    static constexpr size_t table_size = TableSize_;
+    static constexpr size_t num_reads = NumReads_;
+};
+template <typename Builder_, size_t table_size, size_t num_reads> class ROMTestingFunctions {
+  public:
+    using MemoryConstraint = BlockConstraint;
+    using Builder = Builder_;
+    using AcirConstraint = BlockConstraint;
+    struct Tampering {
+      public:
+        enum class Mode : uint8_t { None, ReadValueIncremented };
+        static std::vector<Mode> get_all()
+        {
+            std::vector<Mode> modes = { Mode::None };
+            if constexpr (num_reads > 0 && table_size > 0) {
+                modes.push_back(Mode::ReadValueIncremented);
+            }
+            return modes;
+        };
+        static std::vector<std::string> get_labels()
+        {
+            std::vector<std::string> labels = { "None" };
+            if constexpr (num_reads > 0 && table_size > 0) {
+                labels.push_back("ReadValueIncremented");
+            }
+            return labels;
+        };
+    };
+
+    // TODO(RAJU): remove `poly_triple`.
+    // returns a standard `poly_triple` from an index in our WitnessVector, which just corresponds to the aforementioned
+    // value.
+    static poly_triple poly_triple_from_witness_values_index(uint32_t value_index)
+    {
+        return poly_triple{ .a = value_index, .b = 0, .c = 0, .q_m = 0, .q_l = 1, .q_r = 0, .q_o = 0, .q_c = 0 };
+    }
+
+    static void generate_constraints(MemoryConstraint& memory_constraint, WitnessVector& witness_values)
+    {
+        // 1. Create initial memory values "natively"
+        std::vector<bb::fr> table_values;
+        table_values.reserve(table_size);
+        for (size_t _i = 0; _i < table_size; _i++) {
+            table_values.push_back(bb::fr::random_element());
+        }
+
+        // 2. Add these values to witness_values and track their indices
+        std::vector<poly_triple> init_polys;
+        for (const auto& val : table_values) {
+            uint32_t value_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(val); // Add actual value to witness
+
+            // push the circuit incarnation of the value in `init_polys`
+            init_polys.push_back(poly_triple_from_witness_values_index(value_index));
+        }
+
+        // 3. Initialize and create memory operations
+        std::vector<MemOp> trace;
+
+        // Add index witness only if we have a non-empty table
+        if constexpr (table_size > 0) {
+            for (size_t _i = 0; _i < num_reads; ++_i) {
+                const size_t rom_index_to_read = static_cast<size_t>(engine.get_random_uint32() % table_size);
+
+                // Add index witness
+                const uint32_t index_for_read = static_cast<uint32_t>(witness_values.size());
+                witness_values.emplace_back(bb::fr(rom_index_to_read));
+
+                // Add value witness
+                const uint32_t value_for_read = static_cast<uint32_t>(witness_values.size());
+                witness_values.emplace_back(table_values[rom_index_to_read]);
+
+                const MemOp read_op = { .access_type = 0, // READ
+                                        .index = poly_triple_from_witness_values_index(index_for_read),
+                                        .value = poly_triple_from_witness_values_index(value_for_read) };
+                trace.push_back(read_op);
+            }
+        }
+        // 4. Create the MemoryConstraint
+        memory_constraint = MemoryConstraint{ .init = init_polys, .trace = trace, .type = BlockType::ROM };
+    }
+    static void tampering([[maybe_unused]] MemoryConstraint& memory_constraint,
+                          WitnessVector& witness_values,
+                          const Tampering::Mode& tampering_mode)
+    {
+        switch (tampering_mode) {
+        case Tampering::Mode::None:
+            break;
+        case Tampering::Mode::ReadValueIncremented:
+            if constexpr (num_reads > 0 && table_size > 0) {
+                // change the first read value to 0
+                size_t first_read_value_index = table_size + 1;
+                witness_values[first_read_value_index] += bb::fr(1);
+            }
+            break;
+        }
+    }
+};
+template <typename Params>
+class ROMTest : public ::testing::Test,
+                public TestClass<ROMTestingFunctions<typename Params::Builder, Params::table_size, Params::num_reads>> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+using ROMTestConfigs = testing::Types<ROMTestParams<UltraCircuitBuilder, 0, 0>,
+                                      ROMTestParams<UltraCircuitBuilder, 10, 0>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 10>,
+                                      ROMTestParams<MegaCircuitBuilder, 10, 20>>;
+
+TYPED_TEST_SUITE(ROMTest, ROMTestConfigs);
+
+TYPED_TEST(ROMTest, Basic)
+{
+    TestFixture::test_tampering();
+}
 
 class UltraPlonkRAM : public ::testing::Test {
   protected:

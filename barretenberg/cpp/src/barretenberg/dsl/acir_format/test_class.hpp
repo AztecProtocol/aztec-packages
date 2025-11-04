@@ -118,6 +118,7 @@ concept TestBase = requires {
 };
 
 template <TestBase Base> class TestClass {
+  public:
     using Builder = Base::Builder;
     using AcirConstraint = Base::AcirConstraint;
     using Tampering = Base::Tampering;
