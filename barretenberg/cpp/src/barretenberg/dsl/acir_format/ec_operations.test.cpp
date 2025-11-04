@@ -56,47 +56,83 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
         GrumpkinPoint result = input1 + input2;
         BB_ASSERT(result != GrumpkinPoint::one()); // Ensure that tampering works correctly
 
-        // Helper to add a point: either as witness or constant
-        auto construct_point = [&](const GrumpkinPoint& point, bool as_constant) -> std::vector<WitnessOrConstant<FF>> {
-            if (as_constant) {
-                // Point is constant
-                return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y),
-                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
-            }
-            // Point is witness
-            std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
-            return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                     WitnessOrConstant<FF>::from_index(point_indices[1]),
-                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
-        };
+        if constexpr (Constancy == InputConstancy::None) {
+            std::vector<uint32_t> input1_indices = add_to_witness_and_track_indices(witness_values, input1);
+            std::vector<uint32_t> input2_indices = add_to_witness_and_track_indices(witness_values, input2);
+            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
 
-        // Determine which inputs are constants based on the Constancy template parameter
-        constexpr bool input1_is_constant = (Constancy == InputConstancy::Input1 || Constancy == InputConstancy::Both);
-        constexpr bool input2_is_constant = (Constancy == InputConstancy::Input2 || Constancy == InputConstancy::Both);
+            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(FF::one()); // predicate
 
-        // Add inputs according to constancy template parameter
-        auto input1_fields = construct_point(input1, input1_is_constant);
-        auto input2_fields = construct_point(input2, input2_is_constant);
+            ec_add_constraint = EcAdd{
+                .input1_x = WitnessOrConstant<FF>::from_index(input1_indices[0]),
+                .input1_y = WitnessOrConstant<FF>::from_index(input1_indices[1]),
+                .input1_infinite = WitnessOrConstant<FF>::from_index(input1_indices[2]),
+                .input2_x = WitnessOrConstant<FF>::from_index(input2_indices[0]),
+                .input2_y = WitnessOrConstant<FF>::from_index(input2_indices[1]),
+                .input2_infinite = WitnessOrConstant<FF>::from_index(input2_indices[2]),
+                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
+                .result_x = result_indices[0],
+                .result_y = result_indices[1],
+                .result_infinite = result_indices[2],
+            };
+        } else if constexpr (Constancy == InputConstancy::Input1) {
+            std::vector<uint32_t> input2_indices = add_to_witness_and_track_indices(witness_values, input2);
+            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
 
-        // Construct result and predicate as witnesses
-        std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
-        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-        witness_values.emplace_back(FF::one()); // predicate
+            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(FF::one()); // predicate
 
-        // Build the constraint
-        ec_add_constraint = EcAdd{
-            .input1_x = input1_fields[0],
-            .input1_y = input1_fields[1],
-            .input1_infinite = input1_fields[2],
-            .input2_x = input2_fields[0],
-            .input2_y = input2_fields[1],
-            .input2_infinite = input2_fields[2],
-            .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-            .result_x = result_indices[0],
-            .result_y = result_indices[1],
-            .result_infinite = result_indices[2],
-        };
+            ec_add_constraint = EcAdd{
+                .input1_x = WitnessOrConstant<FF>::from_constant(input1.x),
+                .input1_y = WitnessOrConstant<FF>::from_constant(input1.y),
+                .input1_infinite = WitnessOrConstant<FF>::from_constant(input1.is_point_at_infinity() ? FF(1) : FF(0)),
+                .input2_x = WitnessOrConstant<FF>::from_index(input2_indices[0]),
+                .input2_y = WitnessOrConstant<FF>::from_index(input2_indices[1]),
+                .input2_infinite = WitnessOrConstant<FF>::from_index(input2_indices[2]),
+                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
+                .result_x = result_indices[0],
+                .result_y = result_indices[1],
+                .result_infinite = result_indices[2],
+            };
+        } else if constexpr (Constancy == InputConstancy::Input2) {
+            std::vector<uint32_t> input1_indices = add_to_witness_and_track_indices(witness_values, input1);
+            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
+
+            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(FF::one()); // predicate
+
+            ec_add_constraint = EcAdd{
+                .input1_x = WitnessOrConstant<FF>::from_index(input1_indices[0]),
+                .input1_y = WitnessOrConstant<FF>::from_index(input1_indices[1]),
+                .input1_infinite = WitnessOrConstant<FF>::from_index(input1_indices[2]),
+                .input2_x = WitnessOrConstant<FF>::from_constant(input2.x),
+                .input2_y = WitnessOrConstant<FF>::from_constant(input2.y),
+                .input2_infinite = WitnessOrConstant<FF>::from_constant(input2.is_point_at_infinity() ? FF(1) : FF(0)),
+                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
+                .result_x = result_indices[0],
+                .result_y = result_indices[1],
+                .result_infinite = result_indices[2],
+            };
+        } else if constexpr (Constancy == InputConstancy::Both) {
+            std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
+
+            uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
+            witness_values.emplace_back(FF::one()); // predicate
+
+            ec_add_constraint = EcAdd{
+                .input1_x = WitnessOrConstant<FF>::from_constant(input1.x),
+                .input1_y = WitnessOrConstant<FF>::from_constant(input1.y),
+                .input1_infinite = WitnessOrConstant<FF>::from_constant(input1.is_point_at_infinity() ? FF(1) : FF(0)),
+                .input2_x = WitnessOrConstant<FF>::from_constant(input2.x),
+                .input2_y = WitnessOrConstant<FF>::from_constant(input2.y),
+                .input2_infinite = WitnessOrConstant<FF>::from_constant(input2.is_point_at_infinity() ? FF(1) : FF(0)),
+                .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
+                .result_x = result_indices[0],
+                .result_y = result_indices[1],
+                .result_infinite = result_indices[2],
+            };
+        }
     }
 
     static void override_witness(AcirConstraint& constraint,
