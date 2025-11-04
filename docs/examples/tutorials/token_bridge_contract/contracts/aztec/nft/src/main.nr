@@ -59,7 +59,7 @@ pub contract NFTPunk {
     // docs:end:mint
 
     // docs:start:notes_of
-    #[utility]
+    #[external("utility")]
     unconstrained fn notes_of(from: AztecAddress) -> Field {
         let notes = self.storage.owners.at(from).view_notes(NoteViewerOptions::new());
         notes.len() as Field
