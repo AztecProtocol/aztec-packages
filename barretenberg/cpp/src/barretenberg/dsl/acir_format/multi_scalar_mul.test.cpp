@@ -1,325 +1,333 @@
 #include "multi_scalar_mul.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
+#include "acir_to_constraint_buf.hpp"
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
-#include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
-#include "barretenberg/dsl/acir_format/utils.hpp"
-#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
-
+#include <cstdint>
 #include <gtest/gtest.h>
 #include <vector>
 
-using namespace ::acir_format;
+namespace acir_format::tests {
 
-enum class InputConstancy : uint8_t { None, Points, Scalars, Both };
+using namespace bb;
+
+class MSMTests : public ::testing::Test {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+using fr = field<Bn254FrParams>;
+
+// Create a simple multi scalar mul with constant/witness inputs
+// constant_point false => witness indexes 4,5,6
+// constant_scalar false => witness indexes 7,8
+MultiScalarMul generate_msm(bool constant_point, bool constant_scalar)
+{
+    MultiScalarMul result;
+    result.out_point_x = 1;
+    result.out_point_y = 2;
+    result.out_point_is_infinite = 3;
+    if (constant_point) {
+        result.points = { WitnessOrConstant<fr>{
+                              .index = 0,
+                              .value = fr(1),
+                              .is_constant = true,
+                          },
+                          WitnessOrConstant<fr>{
+                              .index = 0,
+                              .value = fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272c"),
+                              .is_constant = true,
+                          },
+                          WitnessOrConstant<fr>{
+                              .index = 0,
+                              .value = fr(0),
+                              .is_constant = true,
+                          } };
+    } else {
+        result.points = { WitnessOrConstant<fr>{
+                              .index = 4,
+                              .value = fr(0),
+                              .is_constant = false,
+                          },
+                          WitnessOrConstant<fr>{
+                              .index = 5,
+                              .value = fr(0),
+                              .is_constant = false,
+                          },
+                          WitnessOrConstant<fr>{
+                              .index = 6,
+                              .value = fr(0),
+                              .is_constant = false,
+                          } };
+    }
+    if (constant_scalar) {
+        result.scalars = { WitnessOrConstant<fr>{
+                               .index = 0,
+                               .value = fr(
+                                   std::string("0x000000000000000000000000000000000000000000000000000000616c696365")),
+                               .is_constant = true,
+                           },
+                           WitnessOrConstant<fr>{
+                               .index = 0,
+                               .value = fr(0),
+                               .is_constant = true,
+                           } };
+    } else {
+        result.scalars = { WitnessOrConstant<fr>{
+                               .index = 7,
+                               .value = fr(0),
+                               .is_constant = false,
+                           },
+                           WitnessOrConstant<fr>{
+                               .index = 8,
+                               .value = fr(0),
+                               .is_constant = false,
+                           } };
+    }
+    return result;
+}
+
+// Creates a circuit containing the 'msm_constrain' with the provided witness values
+// Check if the circuit is valid
+// Return (true, true) if the circuit is valid.
+static std::pair<bool, bool> check_msm(MultiScalarMul& msm_constrain, WitnessVector& witness)
+{
+    AcirFormat constraint_system{
+        .varnum = static_cast<uint32_t>(witness.size()),
+        .num_acir_opcodes = 1,
+        .public_inputs = {},
+        .multi_scalar_mul_constraints = { msm_constrain },
+        .original_opcode_indices = create_empty_original_opcode_indices(),
+    };
+    mock_opcode_indices(constraint_system);
+    // The tests need to disable asserts because of tests using bad inputs
+    // that are not on the curve.
+    BB_DISABLE_ASSERTS();
+    AcirProgram program{ constraint_system, witness };
+    auto builder = create_circuit(program);
+
+    std::pair<bool, bool> result;
+    result.first = CircuitChecker::check(builder);
+    result.second = !builder.failed();
+    info(builder.err());
+    return result;
+}
+
+// These tests are testing a simple MSM constraint with 0 or 1 predicate:
+// TestMSMConstantPredicate: constant inputs, false predicate
+// TestMSMConstant: constant inputs, true predicate
+// TestMSMWitnessPredicate: witness inputs, false predicate
+// TestMSMWitness: witness inputs, true predicate
+// TestMSMConstantBad: bad constant inputes, check_circuit is expected to fail
+// TestMSMConstantPredicateBad: bad constant inputs, false predicate, circuit is expected to succeed
+// TestMSMWitnessPredicateBad: bad witness inputs, false predicate, circuit is expected to succeed
+// TestMSMWitnessBad: bad witness inputs, true predicate, check_circuit is expected to fail
 
 /**
- * @brief Testing functions to generate the MultiScalarMul test suite. Constancy specifies which inputs to the
- * constraints should be constant.
- *
- * @details Edge cases for MSM on Grumpkin are tested in cycle_group. Here we test that:
- * 1. If sum(scalars[i] * points[i]) != result, then the circuit fails (TamperingMode::Result)
- * 2. If the inputs are not valid points/scalars on Grumpkin, or the MSM is incorrect, but the predicate is witness
- * false, then the circuit is satisfied.
+ * @brief Create a circuit testing the a simple scalar mul with a constant generator
+ * and a false predicate
  */
-template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTestingFunctions {
-  public:
-    using Builder = Builder_;
-    using AcirConstraint = MultiScalarMul;
-    using G1 = bb::grumpkin::g1;
-    using GrumpkinPoint = G1::affine_element;
-    using FF = bb::fr;
+TEST_F(MSMTests, TestMSMConstantPredicate)
+{
+    MultiScalarMul msm_constrain = generate_msm(true, true);
+    WitnessVector witness{
 
-    class Tampering {
-      public:
-        enum class Mode : uint8_t { None, Result };
-
-        static std::vector<Mode> get_all() { return { Mode::None, Mode::Result }; }
-
-        static std::vector<std::string> get_labels() { return { "None", "Result" }; }
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
     };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(0));
 
-    class WitnessOverride {
-      public:
-        enum class Case : uint8_t { None, Points, Scalars };
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
+}
 
-        static std::vector<Case> get_all() { return { Case::None, Case::Points, Case::Scalars }; }
+/**
+ * @brief Create a circuit testing the a simple scalar mul with a constant generator
+ * and a true predicate
+ */
+TEST_F(MSMTests, TestMSMConstant)
+{
+    MultiScalarMul msm_constrain = generate_msm(true, true);
+    WitnessVector witness{
 
-        static std::vector<std::string> get_labels() { return { "None", "Points", "Scalars" }; }
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
     };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(1));
 
-    static void generate_constraints(AcirConstraint& msm_constraint, WitnessVector& witness_values)
-    {
-        // Generate a single point and scalar for simplicity
-        GrumpkinPoint point = GrumpkinPoint::random_element();
-        bb::fq scalar_native = bb::fq::random_element();
-        GrumpkinPoint result = point * scalar_native;
-        BB_ASSERT(result != GrumpkinPoint::one()); // Ensure that tampering works correctly
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
+}
 
-        // Split scalar into low and high limbs (128 bits each) as FF for witness values
-        uint256_t scalar_u256 = uint256_t(scalar_native);
-        FF scalar_lo = scalar_u256.slice(0, 128);
-        FF scalar_hi = scalar_u256.slice(128, 256);
+TEST_F(MSMTests, TestMSMWitnessPredicate)
+{
+    MultiScalarMul msm_constrain = generate_msm(false, false);
+    WitnessVector witness{
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        // output
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+        // point
+        fr(1),
+        fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272c"),
+        fr(0),
 
-        // Determine which inputs are constants based on the Constancy template parameter
-        constexpr bool points_are_constant = (Constancy == InputConstancy::Points || Constancy == InputConstancy::Both);
-        constexpr bool scalars_are_constant =
-            (Constancy == InputConstancy::Scalars || Constancy == InputConstancy::Both);
+        // scalar
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr(0),
 
-        // Helper to add points: either as witnesses or constants based on Constancy
-        auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
-            if constexpr (points_are_constant) {
-                // Points are constants
-                return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y),
-                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
-            }
-            // Points are witnesses
-            std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
-            return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                     WitnessOrConstant<FF>::from_index(point_indices[1]),
-                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
-        };
-
-        // Helper to add scalars: either as witnesses or constants based on Constancy
-        auto construct_scalars = [&]() -> std::vector<WitnessOrConstant<FF>> {
-            if constexpr (scalars_are_constant) {
-                // Scalars are constants
-                return { WitnessOrConstant<FF>::from_constant(scalar_lo),
-                         WitnessOrConstant<FF>::from_constant(scalar_hi) };
-            }
-            // Scalars are witnesses
-            uint32_t scalar_lo_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(scalar_lo);
-            uint32_t scalar_hi_index = static_cast<uint32_t>(witness_values.size());
-            witness_values.emplace_back(scalar_hi);
-            return { WitnessOrConstant<FF>::from_index(scalar_lo_index),
-                     WitnessOrConstant<FF>::from_index(scalar_hi_index) };
-        };
-
-        // Add points and scalars according to constancy template parameter
-        auto point_fields = construct_points();
-        auto scalar_fields = construct_scalars();
-
-        // Construct result and predicate as witnesses
-        std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
-        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-        witness_values.emplace_back(FF::one()); // predicate
-
-        // Build the constraint
-        msm_constraint = MultiScalarMul{
-            .points = point_fields,
-            .scalars = scalar_fields,
-            .predicate = WitnessOrConstant<FF>::from_index(predicate_index),
-            .out_point_x = result_indices[0],
-            .out_point_y = result_indices[1],
-            .out_point_is_infinite = result_indices[2],
-        };
-    }
-
-    static void override_witness(AcirConstraint& constraint,
-                                 WitnessVector& witness_values,
-                                 const WitnessOverride::Case& witness_override)
-    {
-        switch (witness_override) {
-        case WitnessOverride::Case::Points: {
-            // Invalidate the point by adding 1 to x coordinate
-            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Scalars) {
-                witness_values[constraint.points[0].index] += bb::fr(1);
-            } else {
-                constraint.points[0] = WitnessOrConstant<FF>::from_constant(constraint.points[0].value + bb::fr(1));
-            }
-            break;
-        }
-        case WitnessOverride::Case::Scalars: {
-            // Invalidate the scalar by adding 1 to the low limb
-            if constexpr (Constancy == InputConstancy::None || Constancy == InputConstancy::Points) {
-                witness_values[constraint.scalars[0].index] += bb::fr(1);
-            } else {
-                constraint.scalars[0] = WitnessOrConstant<FF>::from_constant(constraint.scalars[0].value + bb::fr(1));
-            }
-            break;
-        }
-        case WitnessOverride::Case::None:
-        default:
-            break;
-        }
-    }
-
-    static void tampering(AcirConstraint& constraint,
-                          WitnessVector& witness_values,
-                          const Tampering::Mode& tampering_mode)
-    {
-        switch (tampering_mode) {
-        case Tampering::Mode::Result: {
-            // Tamper with the result by setting it to the generator point
-            witness_values[constraint.out_point_x] = GrumpkinPoint::one().x;
-            witness_values[constraint.out_point_y] = GrumpkinPoint::one().y;
-            witness_values[constraint.out_point_is_infinite] = FF::zero();
-            break;
-        }
-        case Tampering::Mode::None:
-        default:
-            break;
-        }
     };
-};
-
-template <typename Builder>
-class MultiScalarMulTestsNoneConstant
-    : public ::testing::Test,
-      public TestClassWithPredicate<MultiScalarMulTestingFunctions<Builder, InputConstancy::None>> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
-
-template <typename Builder>
-class MultiScalarMulTestsPointsConstant
-    : public ::testing::Test,
-      public TestClassWithPredicate<MultiScalarMulTestingFunctions<Builder, InputConstancy::Points>> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
-
-template <typename Builder>
-class MultiScalarMulTestsScalarsConstant
-    : public ::testing::Test,
-      public TestClassWithPredicate<MultiScalarMulTestingFunctions<Builder, InputConstancy::Scalars>> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
-
-template <typename Builder>
-class MultiScalarMulTestsBothConstant
-    : public ::testing::Test,
-      public TestClassWithPredicate<MultiScalarMulTestingFunctions<Builder, InputConstancy::Both>> {
-  protected:
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
-};
-
-using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
-
-TYPED_TEST_SUITE(MultiScalarMulTestsNoneConstant, BuilderTypes);
-TYPED_TEST_SUITE(MultiScalarMulTestsPointsConstant, BuilderTypes);
-TYPED_TEST_SUITE(MultiScalarMulTestsScalarsConstant, BuilderTypes);
-TYPED_TEST_SUITE(MultiScalarMulTestsBothConstant, BuilderTypes);
-
-TYPED_TEST(MultiScalarMulTestsNoneConstant, GenerateVKFromConstraints)
-{
-    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
-    TestFixture::template test_vk_independence<Flavor>();
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(0));
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsNoneConstant, ConstantTrue)
+TEST_F(MSMTests, TestMSMWitness)
 {
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
+    MultiScalarMul msm_constrain = generate_msm(false, false);
+    WitnessVector witness{
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        // output
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+        // point
+        fr(1),
+        fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272c"),
+        fr(0),
+
+        // scalar
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr(0),
+
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(1));
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsNoneConstant, WitnessTrue)
+TEST_F(MSMTests, TestMSMConstantBad)
 {
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
+    MultiScalarMul msm_constrain = generate_msm(true, true);
+    WitnessVector witness{
+
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(1));
+
+    msm_constrain.predicate = predicate;
+    // Modify the MSM inputs to be invalid
+    msm_constrain.points[0].value = fr(0);
+
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_FALSE(check.first);
+    EXPECT_FALSE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsNoneConstant, WitnessFalseSlow)
+TEST_F(MSMTests, TestMSMConstantPredicateBad)
 {
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
+    MultiScalarMul msm_constrain = generate_msm(true, true);
+    WitnessVector witness{
+
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(0));
+
+    msm_constrain.predicate = predicate;
+    // Modify the MSM inputs to be invalid
+    msm_constrain.points[0].value = fr(0);
+    msm_constrain.points[1].value = fr(2);
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsNoneConstant, Tampering)
+TEST_F(MSMTests, TestMSMWitnessPredicateBad)
 {
-    BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
+    MultiScalarMul msm_constrain = generate_msm(false, false);
+    WitnessVector witness{
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        // output
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+        // point
+        fr(1),
+        fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272d"), // bad input
+        fr(0),
+
+        // scalar
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr(0),
+
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(0));
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_TRUE(check.first);
+    EXPECT_TRUE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsPointsConstant, GenerateVKFromConstraints)
+TEST_F(MSMTests, TestMSMWitnessBad)
 {
-    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
-    TestFixture::template test_vk_independence<Flavor>();
+    MultiScalarMul msm_constrain = generate_msm(false, false);
+    WitnessVector witness{
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        // output
+        fr("0x0bff8247aa94b08d1c680d7a3e10831bd8c8cf2ea2c756b0d1d89acdcad877ad"),
+        fr("0x2a5d7253a6ed48462fedb2d350cc768d13956310f54e73a8a47914f34a34c5c4"),
+        fr(0),
+        // point
+        fr(1),
+        fr("0x0000000000000002cf135e7506a45d632d270d45f1181294833fc48d823f272d"), // bad point
+        fr(0),
+
+        // scalar
+        fr("0x000000000000000000000000000000000000000000000000000000616c696365"),
+        fr(0),
+
+    };
+    // Create a predicate witness or constant which takes the index of the last witness in the array
+    auto predicate = WitnessOrConstant<fr>::from_index(static_cast<uint32_t>(witness.size()));
+    witness.push_back(fr(1));
+    msm_constrain.predicate = predicate;
+    auto check = check_msm(msm_constrain, witness);
+    EXPECT_FALSE(check.first);
+    EXPECT_FALSE(check.second);
 }
 
-TYPED_TEST(MultiScalarMulTestsPointsConstant, ConstantTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsPointsConstant, WitnessTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsPointsConstant, WitnessFalseSlow)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsPointsConstant, Tampering)
-{
-    BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
-}
-
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, GenerateVKFromConstraints)
-{
-    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
-    TestFixture::template test_vk_independence<Flavor>();
-}
-
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, ConstantTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, WitnessTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, WitnessFalseSlow)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsScalarsConstant, Tampering)
-{
-    BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
-}
-
-TYPED_TEST(MultiScalarMulTestsBothConstant, GenerateVKFromConstraints)
-{
-    using Flavor = std::conditional_t<std::is_same_v<TypeParam, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
-    TestFixture::template test_vk_independence<Flavor>();
-}
-
-TYPED_TEST(MultiScalarMulTestsBothConstant, ConstantTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_constant_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsBothConstant, WitnessTrue)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_true(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsBothConstant, WitnessFalseSlow)
-{
-    BB_DISABLE_ASSERTS();
-    TestFixture::test_witness_false_slow(TestFixture::TamperingMode::Result);
-}
-
-TYPED_TEST(MultiScalarMulTestsBothConstant, Tampering)
-{
-    BB_DISABLE_ASSERTS();
-    [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_tampering();
-}
+} // namespace acir_format::tests
