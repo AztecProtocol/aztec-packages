@@ -695,9 +695,9 @@ sel_exec_dispatch_bitwise {
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[1] and rop[2].
 #[DISPATCH_TO_CAST]
 sel_exec_dispatch_cast {
-    register[0], rop[2], subtrace_operation_id, register[1], mem_tag_reg[1], sel_opcode_error
+    register[0], rop[2], register[1], mem_tag_reg[1], subtrace_operation_id, sel_opcode_error
 } in alu.sel {
-    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+    alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, /*sel_opcode_error=*/ precomputed.zero
 };
 
 #[DISPATCH_TO_CD_COPY]
@@ -746,9 +746,9 @@ sel_exec_dispatch_returndata_copy {
 // Note that we enforce the output tag through this dispatching lookup by having ia_tag matching both mem_tag_reg[0] and rop[1].
 #[DISPATCH_TO_SET]
 sel_exec_dispatch_set {
-    rop[2], rop[1], subtrace_operation_id, register[0], mem_tag_reg[0], sel_opcode_error
+    rop[2], rop[1], register[0], mem_tag_reg[0], subtrace_operation_id, sel_opcode_error
 } in alu.sel {
-    alu.ia, alu.ia_tag, alu.op_id, alu.ic, alu.ia_tag, /*sel_opcode_error=*/ precomputed.zero
+    alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, /*sel_opcode_error=*/ precomputed.zero
 };
 
 // Note: GetContractInstance performs its memory writes internally, so it doesn't have any "outputs" back

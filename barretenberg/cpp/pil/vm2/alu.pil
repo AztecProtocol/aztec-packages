@@ -4,6 +4,65 @@ include "gt.pil";
 include "precomputed.pil";
 include "range_check.pil";
 
+/**
+ * PRECONDITIONS: a, b, c are in the range [0, 2^(max_bits) - 1] for non-FF values.
+ * They are enforced through the range check on every MemoryValue during memory write.
+ * See #[RANGE_CHECK_WRITE_TAGGED_VALUE] in memory.pil for more details.
+ * When there is no error, the output c (resp. b for NOT) is written to memory and
+ * is therefore guaranteed to be in the range [0, 2^(max_bits) - 1].
+ * If an error occurs, the output value and tags are set to 0 (FF(0))
+ * to satisfy the permutation between execution and alu, but the output
+ * is not written to memory.
+ *
+ * USAGE: There are only specific usages of this gadget from the execution trace consisting in
+ *        3 different dispatching lookups defined in execution.pil:
+ *        1. #[DISPATCH_TO_ALU]: Defaults ones for every opcode except for SET and CAST which are dispatched to an ALU truncate operation.
+ *        2. #[DISPATCH_TO_SET]: Dispatches SET opcode to the ALU truncate operation.
+ *        3. #[DISPATCH_TO_CAST]: Dispatches CAST opcode to the ALU truncate operation.
+ *
+ *        1. #[DISPATCH_TO_ALU]:
+ *        sel_exec_dispatch_alu {
+ *           register[0], mem_tag_reg[0], register[1],
+ *           mem_tag_reg[1], register[2], mem_tag_reg[2], subtrace_operation_id, sel_opcode_error
+ *        } in alu.sel {
+ *           alu.ia, alu.ia_tag, alu.ib, alu.ib_tag, alu.ic, alu.ic_tag, alu.op_id, alu.sel_err
+ *        };
+ *
+ *        Except for NOT opcode, both inputs a and b come from registers 0 and 1 respectively.
+ *        Auxiliary input is the operation id op_id which specifies the operation to perform.
+ *        The output is c and is written to register 2. Additionally, the errot flag sel_err is
+ *        passed through as sel_opcode_error.
+ *        For NOT, a is the input and b the output. Register 2 is ignored.
+ *
+ *        2. #[DISPATCH_TO_SET]:
+ *        sel_exec_dispatch_set {
+ *          rop[2], rop[1], register[0], mem_tag_reg[0], subtrace_operation_id, sel_opcode_error
+ *        } in alu.sel {
+ *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, // alu.sel_err = 0 // precomputed.zero
+ *        };
+ *
+ *        3. #[DISPATCH_TO_CAST]:
+ *        sel_exec_dispatch_cast {
+ *          register[0], rop[2], register[1], mem_tag_reg[1], subtrace_operation_id, sel_opcode_error
+ *        } in alu.sel {
+ *           alu.ia, alu.ia_tag, alu.ic, alu.ia_tag, alu.op_id, // alu.sel_err = 0 // precomputed.zero
+ *        };
+ *
+ *        For SET and CAST, the input is a and the output is c. The output is written to register 0.
+ *        Additionally, the error flag sel_err is passed through as sel_opcode_error.
+ *        See execution.pil for more details and explanations on use of rop[XX], register[XX], mem_tag_reg[XX], etc.
+ *
+ * TRACE SHAPE: 1 single row per computation for each operation and independently of error occurrence.
+ *
+ * ERROR HANDLING: See below.
+ *
+ * INERACTIONS: This trace interacts with:
+ * - precomputed.pil: To retrieve tag related paramters (max_bits, max_value, etc) and power of two constants.
+ * - range_check.pil: For various range checks in particular decomposition into limbs.
+ * - ff_gt.pil: Used for LT/LTE operations when inputs are of type FF.
+ * - gt.pil: Used for LT/LTE operations when inputs are of integral types. Also used for DIV operation (remainder smaller than divisor).
+ *
+*/
 namespace alu;
 
 pol commit sel; // @boolean
@@ -266,15 +325,6 @@ sel_mul_div_u128 { b_hi, constant_64 } in range_check.sel_alu { range_check.valu
 /******************************************************************************
 * Opcode Computations
 ******************************************************************************/
-// Preconditions: a, b, c are in the range [0, 2^(max_bits) - 1] for non-FF values.
-// They are enforced through the range check on every MemoryValue during memory write.
-// See #[RANGE_CHECK_WRITE_TAGGED_VALUE] in memory.pil for more details.
-// When there is no error, the output c (resp. b for NOT) is written to memory and
-// is therefore guaranteed to be in the range [0, 2^(max_bits) - 1].
-// If an error occurs, the output value and tags are set to 0 (FF(0))
-// to satisfy the permutation between execution and alu, but the output
-// is not written to memory.
-
 // ------------------------------------------------------------
 // ADD & SUB
 // ------------------------------------------------------------
