@@ -220,9 +220,18 @@ class PrivateFunctionExecutionMockCircuitProducer {
                 }
             } else {
                 if (is_kernel) {
-                    BB_ASSERT_EQ(log2_dyadic_size,
-                                 18UL,
-                                 "There has been a change in the number of gates of a mock kernel circuit.");
+                    // Trailing kernels (reset, tail, hiding) are simpler than regular kernels
+                    if (is_trailing_kernel) {
+                        // Trailing kernels should be significantly smaller, with hiding kernel < 2^16
+                        BB_ASSERT_LTE(log2_dyadic_size,
+                                      16UL,
+                                      "Trailing kernel circuit size has exceeded expected bound (should be <= 2^16).");
+                        vinfo("Log number of gates in a trailing kernel circuit is: ", log2_dyadic_size);
+                    } else {
+                        BB_ASSERT_EQ(log2_dyadic_size,
+                                     18UL,
+                                     "There has been a change in the number of gates of a mock kernel circuit.");
+                    }
                 } else {
                     BB_ASSERT_EQ(log2_dyadic_size,
                                  use_large_circuit ? 19UL : 17UL,
