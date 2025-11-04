@@ -810,7 +810,10 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     const validationFunc: () => Promise<ReceivedMessageValidationResult<BlockProposal>> = async () => {
       const block = BlockProposal.fromBuffer(payloadData);
       const isValid = await this.validateBlockProposal(source, block);
-      const exists = isValid && (await this.mempools.attestationPool!.hasBlockProposal(block));
+
+      // Note that we dont have an attestation pool if we're a prover node, but we still
+      // subscribe to block proposal topics in order to prevent their txs from being cleared.
+      const exists = isValid && (await this.mempools.attestationPool?.hasBlockProposal(block));
 
       this.logger.trace(`Validate propagated block proposal`, {
         isValid,

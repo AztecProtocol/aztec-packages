@@ -269,9 +269,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
         // Constant true, default tampering
         {
-            auto [circuit_checker_result, builder_failed, _] =
+            auto [circuit_checker_result, builder_failed, builder_err] =
                 test_constraints(PredicateTestCase::ConstantTrue, WitnessOverrideCase::None, default_tampering_mode);
-            EXPECT_FALSE(circuit_checker_result) << "Circuit checker succeeded unexpectedly.";
+            // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
+            // failed, or the builder error resulted from an assert_eq.
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
     }
@@ -293,9 +296,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
         // Witness true, default tampering
         {
-            auto [circuit_checker_result, builder_failed, _] =
+            auto [circuit_checker_result, builder_failed, builder_err] =
                 test_constraints(PredicateTestCase::WitnessTrue, WitnessOverrideCase::None, default_tampering_mode);
-            EXPECT_FALSE(circuit_checker_result) << "Circuit checker succeeded unexpectedly.";
+            // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
+            // failed, or the builder error resulted from an assert_eq.
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
     }
@@ -349,10 +355,14 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
 
             {
                 // Check that the same configuration would have failed if the predicate was witness true
-                auto [circuit_checker_result, builder_failed, _] = test_constraints(
+                auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(
                     PredicateTestCase::WitnessTrue, override_case, tampering_mode, /*forced_override=*/true);
 
-                EXPECT_FALSE(circuit_checker_result) << "Check builder succeeded for override case " + override_label;
+                // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the
+                // CircuitChecker failed, or the builder error resulted from an assert_eq.
+                EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                    << "Circuit checker succeeded unexpectedly and no assert_eq failure for override case " +
+                           override_label;
                 EXPECT_TRUE(builder_failed) << "Builder succeeded for override case " + override_label;
                 vinfo("Passed override case (witness true confirmation): ", override_label);
             }
@@ -377,9 +387,9 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 if (predicate_case != PredicateTestCase::WitnessFalse) {
                     // If the predicate is not witness false, tampering should cause failure
                     if (mode != Tampering::Mode::None) {
-                        EXPECT_FALSE(circuit_checker_result)
-                            << "Circuit checker succeeded unexpectedly for tampering mode " + label +
-                                   " with predicate " + predicate_label;
+                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                            << "Circuit checker succeeded unexpectedly and no assert_eq failure for tampering mode " +
+                                   label + " with predicate " + predicate_label;
                         EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly for tampering mode " + label +
                                                            " with predicate " + predicate_label;
                     } else {

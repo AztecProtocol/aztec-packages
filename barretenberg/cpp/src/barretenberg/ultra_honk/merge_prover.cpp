@@ -81,27 +81,35 @@ MergeProver::MergeProof MergeProver::construct_proof()
         left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
         right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
     }
-    // Compute g_j(X)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        left_table_reversed[idx] = left_table[idx].reverse();
-    }
 
     const size_t merged_table_size = merged_table[0].size();
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
-    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
-    // subtable when sending a merge proof to the rollup.
+    // Send shift_size to the verifier
     const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
-    // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
+    // Compute commitments [m_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
                                      pcs_commitment_key.commit(merged_table[idx]));
-        transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),
-                                     pcs_commitment_key.commit(left_table_reversed[idx]));
     }
+
+    // Generate degree check batching challenges
+    std::array<std::string, NUM_WIRES> labels_degree_check;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        labels_degree_check[idx] = "LEFT_TABLE_DEGREE_CHECK_" + std::to_string(idx);
+    }
+    std::array<FF, NUM_WIRES> degree_check_challenges =
+        transcript->template get_challenges<FF, NUM_WIRES>(labels_degree_check);
+
+    // Batch polynomials, compute reversed polynomial, send commitment to the verifier
+    Polynomial reversed_batched_left_tables(left_table[0].size());
+    for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
+    }
+    reversed_batched_left_tables = reversed_batched_left_tables.reverse();
+    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
+                                 pcs_commitment_key.commit(reversed_batched_left_tables));
 
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
@@ -112,10 +120,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
     //
     // The opening claims are sent in the following order:
     // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
-    //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
-    //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
-    //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
-    //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
+    //   {1/kappa, l_1(1/kappa)}, {1/kappa, l_2(1/kappa)},
+    //      {1/kappa, l_3(1/kappa)}, {1/kappa, l_4(1/kappa)},
+    //          {kappa, g(kappa)}
     std::vector<OpeningClaim> opening_claims;
 
     // Set opening claims p_j(\kappa) = l_j(X) + kappa^l r_j(X) - m_j(X)
@@ -127,7 +134,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
 
         opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
     }
-    // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
+    // Compute evaluation l_j(1/kappa) send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation;
 
@@ -135,12 +142,12 @@ MergeProver::MergeProof MergeProver::construct_proof()
         evaluation = left_table[idx].evaluate(kappa_inv);
         transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
-
-        // Evaluate g_j(\kappa)
-        evaluation = left_table_reversed[idx].evaluate(kappa);
-        transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
     }
+
+    // Compute evaluation g(kappa) send to verifier, and set opening claim
+    FF evaluation = reversed_batched_left_tables.evaluate(kappa);
+    transcript->send_to_verifier("reversed_batched_left_tables_eval", evaluation);
+    opening_claims.emplace_back(OpeningClaim{ reversed_batched_left_tables, { kappa, evaluation } });
 
     // Shplonk prover
     OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);

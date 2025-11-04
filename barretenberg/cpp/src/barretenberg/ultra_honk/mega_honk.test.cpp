@@ -56,7 +56,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     bool construct_and_verify_merge_proof(auto& op_queue, MergeSettings settings = MergeSettings::PREPEND)
     {
         MergeProver merge_prover{ op_queue, settings };
-        MergeVerifier merge_verifier{ settings };
         auto merge_proof = merge_prover.construct_proof();
 
         // Construct Merge commitments
@@ -68,9 +67,11 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto [verified, _] = merge_verifier.verify_proof(merge_proof, merge_commitments);
+        auto transcript = std::make_shared<NativeTranscript>();
+        MergeVerifier merge_verifier{ settings, transcript };
+        auto [pairing_points, _, degree_check_passed] = merge_verifier.verify_proof(merge_proof, merge_commitments);
 
-        return verified;
+        return pairing_points.check() && degree_check_passed;
     }
 };
 

@@ -40,7 +40,6 @@ std::optional<uint16_t> MemoryManager::get_memory_offset_16_bit(bb::avm2::Memory
 std::optional<uint8_t> MemoryManager::get_memory_offset_8_bit(bb::avm2::MemoryTag tag, uint16_t index)
 {
     auto value = get_memory_offset_16_bit(tag, index);
-
     if (!value.has_value()) {
         return std::nullopt;
     }

@@ -46,11 +46,11 @@ using MemoryTagGenerationConfig = WeightedSelectionConfig<MemoryTagOptions, 7>;
 constexpr MemoryTagGenerationConfig BASIC_MEMORY_TAG_GENERATION_CONFIGURATION = MemoryTagGenerationConfig({
     { MemoryTagOptions::U1, 1 },
     { MemoryTagOptions::U8, 1 },
-    { MemoryTagOptions::U16, 0 },
-    { MemoryTagOptions::U32, 0 },
-    { MemoryTagOptions::U64, 0 },
-    { MemoryTagOptions::U128, 0 },
-    { MemoryTagOptions::FF, 0 },
+    { MemoryTagOptions::U16, 1 },
+    { MemoryTagOptions::U32, 1 },
+    { MemoryTagOptions::U64, 1 },
+    { MemoryTagOptions::U128, 1 },
+    { MemoryTagOptions::FF, 1 },
 });
 
 using MemoryTagMutationConfig = WeightedSelectionConfig<MemoryTagOptions, 7>;
@@ -58,12 +58,23 @@ using MemoryTagMutationConfig = WeightedSelectionConfig<MemoryTagOptions, 7>;
 constexpr MemoryTagMutationConfig BASIC_MEMORY_TAG_MUTATION_CONFIGURATION = MemoryTagMutationConfig({
     { MemoryTagOptions::U1, 1 },
     { MemoryTagOptions::U8, 1 },
-    { MemoryTagOptions::U16, 0 },
-    { MemoryTagOptions::U32, 0 },
-    { MemoryTagOptions::U64, 0 },
-    { MemoryTagOptions::U128, 0 },
-    { MemoryTagOptions::FF, 0 },
+    { MemoryTagOptions::U16, 1 },
+    { MemoryTagOptions::U32, 1 },
+    { MemoryTagOptions::U64, 1 },
+    { MemoryTagOptions::U128, 1 },
+    { MemoryTagOptions::FF, 1 },
 });
+
+enum class UnaryInstruction8MutationOptions { memory_tag, offset, result_offset };
+
+using UnaryInstruction8MutationConfig = WeightedSelectionConfig<UnaryInstruction8MutationOptions, 3>;
+
+constexpr UnaryInstruction8MutationConfig BASIC_UNARY_INSTRUCTION_8_MUTATION_CONFIGURATION =
+    UnaryInstruction8MutationConfig({
+        { UnaryInstruction8MutationOptions::memory_tag, 1 },
+        { UnaryInstruction8MutationOptions::offset, 1 },
+        { UnaryInstruction8MutationOptions::result_offset, 1 },
+    });
 
 enum class BinaryInstruction8MutationOptions { memory_tag, a_offset_index, b_offset_index, result_offset };
 
@@ -111,24 +122,42 @@ enum class InstructionGenerationOptions {
     SHL_8,
     SHR_8,
     SET_8,
+    ADD_16,
+    SUB_16,
+    MUL_16,
+    DIV_16,
+    FDIV_16,
+    EQ_16,
+    LT_16,
+    LTE_16,
+    AND_16,
+    OR_16,
+    XOR_16,
+    NOT_16,
+    SHL_16,
+    SHR_16,
+    CAST_8,
+    CAST_16,
 };
 
-using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 13>;
+using InstructionGenerationConfig = WeightedSelectionConfig<InstructionGenerationOptions, 29>;
 
 constexpr InstructionGenerationConfig BASIC_INSTRUCTION_GENERATION_CONFIGURATION = InstructionGenerationConfig({
-    { InstructionGenerationOptions::ADD_8, 1 },
-    { InstructionGenerationOptions::SUB_8, 1 },
-    { InstructionGenerationOptions::MUL_8, 1 },
-    { InstructionGenerationOptions::DIV_8, 1 },
-    { InstructionGenerationOptions::EQ_8, 1 },
-    { InstructionGenerationOptions::LT_8, 1 },
-    { InstructionGenerationOptions::LTE_8, 1 },
-    { InstructionGenerationOptions::AND_8, 1 },
-    { InstructionGenerationOptions::OR_8, 1 },
-    { InstructionGenerationOptions::XOR_8, 1 },
-    { InstructionGenerationOptions::SHL_8, 1 },
-    { InstructionGenerationOptions::SHR_8, 1 },
-    { InstructionGenerationOptions::SET_8, 1 },
+    { InstructionGenerationOptions::ADD_8, 1 },   { InstructionGenerationOptions::SUB_8, 1 },
+    { InstructionGenerationOptions::MUL_8, 1 },   { InstructionGenerationOptions::DIV_8, 1 },
+    { InstructionGenerationOptions::EQ_8, 1 },    { InstructionGenerationOptions::LT_8, 1 },
+    { InstructionGenerationOptions::LTE_8, 1 },   { InstructionGenerationOptions::AND_8, 1 },
+    { InstructionGenerationOptions::OR_8, 1 },    { InstructionGenerationOptions::XOR_8, 1 },
+    { InstructionGenerationOptions::SHL_8, 1 },   { InstructionGenerationOptions::SHR_8, 1 },
+    { InstructionGenerationOptions::SET_8, 1 },   { InstructionGenerationOptions::ADD_16, 1 },
+    { InstructionGenerationOptions::SUB_16, 1 },  { InstructionGenerationOptions::MUL_16, 1 },
+    { InstructionGenerationOptions::DIV_16, 1 },  { InstructionGenerationOptions::FDIV_16, 1 },
+    { InstructionGenerationOptions::EQ_16, 1 },   { InstructionGenerationOptions::LT_16, 1 },
+    { InstructionGenerationOptions::LTE_16, 1 },  { InstructionGenerationOptions::AND_16, 1 },
+    { InstructionGenerationOptions::OR_16, 1 },   { InstructionGenerationOptions::XOR_16, 1 },
+    { InstructionGenerationOptions::NOT_16, 1 },  { InstructionGenerationOptions::SHL_16, 1 },
+    { InstructionGenerationOptions::SHR_16, 1 },  { InstructionGenerationOptions::CAST_8, 1 },
+    { InstructionGenerationOptions::CAST_16, 1 },
 });
 
 enum class ReturnOptionsMutationOptions { return_size, return_value_tag, return_value_offset_index };

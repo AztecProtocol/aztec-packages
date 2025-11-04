@@ -2,13 +2,14 @@
 
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
+#include "barretenberg/common/log.hpp"
 
-void log_result(const SimulatorResult& result)
+void log_result(const SimulatorResult& result, FuzzerData& fuzzer_data, const std::vector<uint8_t>& bytecode)
 {
-    std::cout << "Reverted: " << result.reverted << std::endl;
-    for (const auto& output : result.output) {
-        std::cout << output << std::endl;
-    }
+    info("Reverted: ", result.reverted);
+    info("Output: ", result.output);
+    info("Bytecode: ", bytecode);
+    info("Fuzzer data: ", fuzzer_data);
 }
 
 SimulatorResult fuzz(FuzzerData& fuzzer_data)
@@ -23,15 +24,16 @@ SimulatorResult fuzz(FuzzerData& fuzzer_data)
     JsSimulator* js_simulator = JsSimulator::getInstance();
     auto result = cpp_simulator.simulate(bytecode, fuzzer_data.calldata);
     auto js_result = js_simulator->simulate(bytecode, fuzzer_data.calldata);
-    if (compare_simulator_results(result, js_result)) {
-        // TODO(defkit) log success
-    } else {
-        std::cout << "Simulator results are different" << std::endl;
-        std::cout << "CPP result:" << std::endl;
-        log_result(result);
-        std::cout << "JS result:" << std::endl;
-        log_result(js_result);
+
+    // If the results does not match
+    if (!compare_simulator_results(result, js_result)) {
+        log_result(result, fuzzer_data, bytecode);
         throw std::runtime_error("Simulator results are different");
+    }
+    bool logging_enabled = std::getenv("AVM_FUZZER_LOGGING") != nullptr;
+    if (logging_enabled) {
+        info("Simulator results match successfully");
+        log_result(result, fuzzer_data, bytecode);
     }
     return result;
 }

@@ -833,7 +833,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       content,
       txHash,
       Number(nullifierIndex.data), // Index of the event commitment in the nullifier tree
-      nullifierIndex.l2BlockNumber, // Block in which the event was emitted
+      nullifierIndex.l2BlockNumber, // Block number in which the event was emitted
+      nullifierIndex.l2BlockHash, // Block hash in which the event was emitted
     );
   }
 

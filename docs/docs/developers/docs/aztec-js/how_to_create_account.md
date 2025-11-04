@@ -42,9 +42,15 @@ These keys serve the following purposes:
 You need a Wallet to hold your account contract. Use `TestWallet` since most third-party wallets implement the same interface:
 
 ```typescript
+// for use in the browser
+import { TestWallet } from "@aztec/test-wallet/client/lazy";
+// for use on a server
 import { TestWallet } from "@aztec/test-wallet/server";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
 
-const wallet = new TestWallet(pxe);
+const nodeUrl = process.env.AZTEC_NODE_URL || "http://localhost:8080";
+const node = createAztecNodeClient(nodeUrl);
+const wallet = await TestWallet.create(node);
 ```
 
 ## Deploy the account
@@ -57,37 +63,50 @@ On testnet, accounts start without Fee Juice. You can either [use an account tha
 
 ### Register and deploy accounts
 
-Test accounts on the Sandbox are already deployed but need to be registered in the wallet and the PXE (Private eXecution Environment):
+Test accounts on the Sandbox are already deployed but need to be registered in the wallet:
 
 ```typescript
 // on the Sandbox, you can get the initial test accounts data using getInitialTestAccountsData
 const [initialAccountData] = await getInitialTestAccountsData();
 // add the funded account to the wallet
-const initialAccount = await wallet.createSchnorrAccount(initialAccountData.secret, initialAccountData.salt);
+const initialAccount = await wallet.createSchnorrAccount(
+  initialAccountData.secret,
+  initialAccountData.salt
+);
 ```
 
 Other accounts require deployment. To deploy an account that already has Fee Juice:
 
 ```ts
-const anotherAccount = await wallet.createSchnorrAccount(accountWithFeeJuice.secret, accountWithFeeJuice.salt);
+const anotherAccount = await wallet.createSchnorrAccount(
+  accountWithFeeJuice.secret,
+  accountWithFeeJuice.salt
+);
 const deployMethod = await anotherAccount.getDeployMethod();
 
 // using the default fee payment method (Fee Juice)
-await deployMethod.send({
+await deployMethod
+  .send({
     from: AztecAddress.ZERO, // the zero address is used because there's no account to send from: the transaction itself will create the account!
-}).wait()
+  })
+  .wait();
 ```
 
 To deploy using the Sponsored FPC:
 
 ```typescript
 // deploy an account with random salt and secret
-const anotherAccount = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
+const anotherAccount = await wallet.createSchnorrAccount(
+  Fr.random(),
+  Fr.random()
+);
 const deployMethod = await anotherAccount.getDeployMethod();
-await deployMethod.send({
+await deployMethod
+  .send({
     from: AztecAddress.ZERO,
-    fee: { paymentMethod: sponsoredPaymentMethod }
-}).wait()
+    fee: { paymentMethod: sponsoredPaymentMethod },
+  })
+  .wait();
 ```
 
 :::info

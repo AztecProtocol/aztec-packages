@@ -43,7 +43,7 @@ The `MessageDelivery` enum provides three modes:
 
 ### Event processing
 
-Events are automatically discovered and decrypted by the PXE when contract functions are invoked.
+Events are automatically discovered and decrypted by the wallet when contract functions are invoked.
 
 ## Emit public events
 
@@ -76,12 +76,12 @@ context.emit_public_log("My message");
 Query public events from offchain applications:
 
 ```typescript
-const fromBlock = await pxe.getBlockNumber();
+const fromBlock = await node.getBlockNumber();
 const logFilter = {
   fromBlock,
   toBlock: fromBlock + 1,
 };
-const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
+const publicLogs = (await node.getPublicLogs(logFilter)).logs;
 ```
 
 ## Consider costs

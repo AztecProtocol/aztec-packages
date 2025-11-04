@@ -4,19 +4,20 @@
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "twin_rom_table.hpp"
 
 using namespace bb;
 
-// Defining ultra-specific types for local testing.
-using Builder = UltraCircuitBuilder;
-using field_ct = stdlib::field_t<Builder>;
-using witness_ct = stdlib::witness_t<Builder>;
-using twin_rom_table_ct = stdlib::twin_rom_table<Builder>;
-using field_pair_ct = std::array<field_ct, 2>;
-
+template <typename Builder> class TwinRomTableTests : public ::testing::Test {
+  public:
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using twin_rom_table_ct = stdlib::twin_rom_table<Builder>;
+    using field_pair_ct = std::array<field_ct, 2>;
+};
+using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 namespace {
 auto& engine = numeric::get_debug_randomness();
 }
@@ -28,7 +29,11 @@ STANDARD_TESTING_TAGS
  */
 TEST(TwinRomTable, TagCorrectness)
 {
-
+    using Builder = UltraCircuitBuilder;
+    using field_ct = stdlib::field_t<Builder>;
+    using witness_ct = stdlib::witness_t<Builder>;
+    using twin_rom_table_ct = stdlib::twin_rom_table<Builder>;
+    using field_pair_ct = std::array<field_ct, 2>;
     Builder builder;
     std::vector<field_pair_ct> table_values;
 
@@ -42,11 +47,7 @@ TEST(TwinRomTable, TagCorrectness)
     entry_1.set_origin_tag(submitted_value_origin_tag);
     entry_2.set_origin_tag(challenge_origin_tag);
     entry_3.set_origin_tag(next_challenge_tag);
-
-    // Assign the instant death tag to one of the
-    // entries
-    // It causes an error in Debug if it is being merged with another tag (when arithmetic actions are being performed
-    // on it)
+    // The last one is "poisoned" (calculating with this element should result in runtime error)
     entry_4.set_origin_tag(instant_death_tag);
 
     // Form entries in the twin table
@@ -66,13 +67,19 @@ TEST(TwinRomTable, TagCorrectness)
     EXPECT_THROW(table[1][1] + 1, std::runtime_error);
 #endif
 }
-
+TYPED_TEST_SUITE(TwinRomTableTests, BuilderTypes);
 /**
- * @brief Check the consistency of read-write operations in the TwinRomTable
- *
+ * @brief tests basic functionality, as well as the number of gates added per ROM read (not including the
+ * finalization/processing): one gate per variable lookup, zero gates per constant lookup.
  */
-TEST(TwinRomTable, ReadWriteConsistency)
+TYPED_TEST(TwinRomTableTests, ReadWriteConsistency)
 {
+    using Builder = TypeParam;
+    using field_ct = typename TestFixture::field_ct;
+    using witness_ct = typename TestFixture::witness_ct;
+    using twin_rom_table_ct = typename TestFixture::twin_rom_table_ct;
+    using field_pair_ct = typename TestFixture::field_pair_ct;
+
     Builder builder;
 
     std::vector<field_pair_ct> table_values;
@@ -89,11 +96,11 @@ TEST(TwinRomTable, ReadWriteConsistency)
     field_pair_ct result{ field_ct(0), field_ct(0) };
     std::array<fr, 2> expected{ 0, 0 };
 
-    // Go throught the cycle of accessing all entries
-    for (size_t i = 0; i < 10; ++i) {
-        field_ct index(witness_ct(&builder, (uint64_t)i));
+    // Go through the cycle of accessing all entries
+    for (size_t i = 0; i < table_size; ++i) {
 
         if (i % 2 == 0) {
+            field_ct index(witness_ct(&builder, (uint64_t)i));
             const auto before_n = builder.num_gates();
             // Get the entry from the table
             const auto to_add = table[index];

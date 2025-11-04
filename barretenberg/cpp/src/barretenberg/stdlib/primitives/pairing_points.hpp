@@ -5,10 +5,10 @@
 // =====================
 
 #pragma once
-#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -30,9 +30,8 @@ static constexpr bb::fq DEFAULT_PAIRING_POINTS_P1_Y(
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1571): Implement tagging mechanism
  * @tparam Builder_
  */
-template <typename Builder_> struct PairingPoints {
-    using Builder = Builder_;
-    using Curve = bn254<Builder>;
+template <typename Curve> struct PairingPoints {
+    using Builder = typename Curve::Builder;
     using Group = Curve::Group;
     using Fq = Curve::BaseField;
     using Fr = Curve::ScalarField;
@@ -62,6 +61,18 @@ template <typename Builder_> struct PairingPoints {
     PairingPoints(std::array<Group, 2> const& points)
         : PairingPoints(points[0], points[1])
     {}
+
+    Group& operator[](size_t idx)
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
+
+    const Group& operator[](size_t idx) const
+    {
+        BB_ASSERT(idx < 2, "Index out of bounds");
+        return idx == 0 ? P0 : P1;
+    }
 
     typename Curve::bool_ct operator==(PairingPoints const& other) const { return P0 == other.P0 && P1 == other.P1; };
 
@@ -200,9 +211,9 @@ template <typename Builder_> struct PairingPoints {
      * @brief Reconstruct an PairingPoints from its representation as limbs (generally stored in the public inputs)
      *
      * @param limbs The limbs of the pairing points
-     * @return PairingPoints<Builder>
+     * @return PairingPoints<Curve>
      */
-    static PairingPoints<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    static PairingPoints<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
@@ -210,25 +221,6 @@ template <typename Builder_> struct PairingPoints {
         Group P0 = Group::reconstruct_from_public(P0_limbs);
         Group P1 = Group::reconstruct_from_public(P1_limbs);
         return { P0, P1 };
-    }
-
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
-        size_t idx = 0;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
-            for (auto& val : element_vals) {
-                dummy_pairing_points_values[idx++] = val;
-            }
-        }
-
-        return dummy_pairing_points_values;
     }
 
     /**

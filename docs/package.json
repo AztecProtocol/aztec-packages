@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "yarn preprocess && docusaurus start --host ${HOST:-localhost}",
+    "start": "yarn clean && yarn preprocess && docusaurus start --host ${HOST:-localhost}",
     "dev:netlify": "yarn netlify dev",
     "build": "yarn clean && yarn preprocess && yarn spellcheck && yarn preprocess:move && docusaurus build",
     "serve": "docusaurus serve",

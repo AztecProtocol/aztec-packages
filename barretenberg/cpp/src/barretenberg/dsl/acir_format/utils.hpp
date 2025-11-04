@@ -105,6 +105,27 @@ std::array<uint32_t, N> add_to_witness_and_track_indices(WitnessVector& witness,
 };
 
 /**
+ * @brief Append input to a witness vector and track indices
+ *
+ * @details This function is useful in testing situations, it is meant to be extended to support the types required.
+ */
+template <typename T> std::vector<uint32_t> add_to_witness_and_track_indices(WitnessVector& witness, const T& input)
+{
+    std::vector<uint32_t> indices;
+
+    if constexpr (std::is_same_v<T, bb::grumpkin::g1::affine_element>) {
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.x);
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.y);
+        indices.emplace_back(witness.size());
+        witness.emplace_back(input.is_point_at_infinity() ? bb::fr(1) : bb::fr(0));
+    }
+
+    return indices;
+};
+
+/**
  * @brief Populate fields in the builder with the given values. To be used in mocking situations.
  *
  */

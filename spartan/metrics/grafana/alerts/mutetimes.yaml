@@ -4,7 +4,6 @@ muteTimes:
       name: nightly_deployment
       time_intervals:
         - times:
-            - start_time: "05:00"
-              end_time: "05:30"
+            - start_time: "04:00"
+              end_time: "05:00"
           weekdays: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
-          location: Europe/London

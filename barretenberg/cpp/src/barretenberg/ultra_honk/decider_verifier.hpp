@@ -26,7 +26,7 @@ template <typename Flavor> class DeciderVerifier_ {
     struct Output {
         bool sumcheck_verified;
         bool libra_evals_verified;
-        PairingPoints pairing_points;
+        bb::PairingPoints<curve::BN254> pairing_points;
 
         bool check()
         {

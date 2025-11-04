@@ -153,14 +153,12 @@ pub contract NFT {
     fn transfer_to_private(to: AztecAddress, token_id: Field) {
         let from = self.msg_sender().unwrap();
 
-        let nft = NFT::at(self.address);
-
         // We prepare the private balance increase.
         let partial_note = _prepare_private_balance_increase(to, self.context, self.storage);
 
         // At last we finalize the transfer. Usage of the `unsafe` method here is safe because we set the `from`
         // function argument to a message sender, guaranteeing that he can transfer only his own NFTs.
-        nft._finalize_transfer_to_private_unsafe(from, token_id, partial_note).enqueue(self.context);
+        self.enqueue_self._finalize_transfer_to_private_unsafe(from, token_id, partial_note);
     }
 
     /// Prepares an increase of private balance of `to` (partial note). The increase needs to be finalized by calling
@@ -298,7 +296,7 @@ pub contract NFT {
             .set_limit(1));
         assert(notes.len() == 1, "NFT not found when transferring to public");
 
-        NFT::at(self.address)._finish_transfer_to_public(to, token_id).enqueue(self.context);
+        self.enqueue_self._finish_transfer_to_public(to, token_id);
     }
 
     #[external("public")]

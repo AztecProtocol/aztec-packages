@@ -11,7 +11,6 @@
 #include "barretenberg/eccvm/eccvm_prover.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/types.hpp"
-#include "barretenberg/stdlib/merge_verifier/merge_recursive_verifier.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
@@ -36,7 +35,7 @@ class Goblin {
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
-    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<MegaBuilder>;
+    using MergeRecursiveVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier<MegaBuilder>;
     using PairingPoints = MergeRecursiveVerifier::PairingPoints;
     using TableCommitments = MergeVerifier::TableCommitments;
     using RecursiveTableCommitments = MergeRecursiveVerifier::TableCommitments;

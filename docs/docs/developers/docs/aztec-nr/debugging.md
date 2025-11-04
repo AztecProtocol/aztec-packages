@@ -81,6 +81,7 @@ LOG_LEVEL="info;debug:simulator;debug:execution"
 # Default level + specific submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
 ```
+
 :::
 
 ## Debugging common errors
@@ -91,8 +92,8 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Aztec dependency not found`                             | Add to Nargo.toml: `aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/aztec" }` |
 | `Public state writes only supported in public functions` | Move state writes to public functions                                                                                                                           |
-| `Unknown contract 0x0`                                   | Call `pxe.addContracts(...)` to register contract                                                                                                               |
-| `No public key registered for address`                   | Call `pxe.registerRecipient(...)` or `pxe.registerAccount(...)`                                                                                                 |
+| `Unknown contract 0x0`                                   | Call `wallet.registerContract(...)` to register contract                                                                                                        |
+| `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
 
 ### Circuit Errors
@@ -211,8 +212,7 @@ use dep::aztec::oracle::debug_log::{ debug_log, debug_log_format };
 ### Check contract registration
 
 ```javascript
-await pxe.getContracts();
-await pxe.getRegisteredAccounts();
+await wallet.getContractMetadata(myContractInstance.address);
 ```
 
 ### Decode L1 errors

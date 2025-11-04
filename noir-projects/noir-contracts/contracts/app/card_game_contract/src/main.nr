@@ -45,9 +45,7 @@ pub contract CardGame {
         let mut game_deck = self.storage.game_decks.at(game as Field).at(player);
         let _added_to_game_deck = game_deck.add_cards(cards, player);
         let strength = compute_deck_strength(cards);
-        CardGame::at(self.address).on_game_joined(game, player, strength as u32).enqueue(
-            self.context,
-        );
+        self.enqueue_self.on_game_joined(game, player, strength as u32);
     }
 
     #[external("public")]
@@ -80,9 +78,7 @@ pub contract CardGame {
         let mut game_deck = self.storage.game_decks.at(game as Field).at(player);
         game_deck.remove_cards([card]);
 
-        CardGame::at(self.address).on_card_played(game, player, card.to_field()).enqueue(
-            self.context,
-        );
+        self.enqueue_self.on_card_played(game, player, card.to_field());
     }
 
     #[external("public")]
@@ -107,9 +103,7 @@ pub contract CardGame {
 
         let mut collection = self.storage.collections.at(player);
         let _inserted_cards = collection.add_cards(cards, player);
-        CardGame::at(self.address)
-            .on_cards_claimed(game, player, pedersen_hash(cards_fields, 0))
-            .enqueue(self.context);
+        self.enqueue_self.on_cards_claimed(game, player, pedersen_hash(cards_fields, 0));
     }
 
     #[external("public")]
