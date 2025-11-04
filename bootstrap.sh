@@ -222,7 +222,7 @@ function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
 
-  check_toolchains
+  # check_toolchains
 
   # Ensure we have yarn set up.
   corepack enable

@@ -6,9 +6,10 @@ import { SecretValue, getConfigFromMappings } from '@aztec/foundation/config';
 import { Secp256k1Signer, makeEthSignDigest } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
+import type { Hex } from '@aztec/foundation/string';
 import { TestDateProvider, Timer } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
-import { type Hex, type KeyStore, KeystoreManager } from '@aztec/node-keystore';
+import { type KeyStore, KeystoreManager } from '@aztec/node-keystore';
 import {
   AuthRequest,
   AuthResponse,

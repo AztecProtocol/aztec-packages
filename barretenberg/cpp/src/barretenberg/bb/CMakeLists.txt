@@ -3,6 +3,7 @@ if (NOT(FUZZING))
         bb
         main.cpp
         cli.cpp
+        curve_constants.cpp
     )
     target_link_libraries(
         bb
