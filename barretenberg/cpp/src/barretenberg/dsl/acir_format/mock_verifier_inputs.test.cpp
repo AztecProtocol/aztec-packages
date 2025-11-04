@@ -2,6 +2,7 @@
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/stdlib/chonk_verifier/chonk_recursive_verifier.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
@@ -192,4 +193,13 @@ TEST(MockVerifierInputsTest, MockChonkProofSize)
 
     HonkProof chonk_proof = create_mock_chonk_proof<Builder>();
     EXPECT_EQ(chonk_proof.size(), Chonk::Proof::PROOF_LENGTH());
+}
+
+/**
+ * @brief Check that the size of a mock MultiLinearBatching proof matches expectation
+ */
+TEST(MockVerifierInputsTest, MockMultilinearBatchingProofSize)
+{
+    HonkProof batching_proof = create_mock_multilinear_batch_proof();
+    EXPECT_EQ(batching_proof.size(), MultilinearBatchingFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS());
 }

@@ -110,12 +110,7 @@ HypernovaFoldingProver::Accumulator HypernovaFoldingProver::instance_to_accumula
 
     Accumulator accumulator = sumcheck_output_to_accumulator(sumcheck_output, instance, precomputed_vk);
 
-    if (sumcheck_output.verified) {
-        vinfo("HypernovaFoldingProver: accumulator constructed.");
-    } else {
-        vinfo("HypernovaFoldingProver: Failed to prove Sumcheck to turn instance into an accumulator. "
-              "Ignore if generating the VKs");
-    }
+    vinfo("HypernovaFoldingProver: accumulator constructed.");
 
     return accumulator;
 }
