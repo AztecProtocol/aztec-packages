@@ -47,7 +47,12 @@ contract TestBase is Test {
         assembly {
             pop(
                 staticcall(
-                    gas(), 0x4, add(_proofData, add(0x20, mul(0x20, _numberOfPublicInputs))), len, add(proof, 0x20), len
+                    gas(),
+                    0x4,
+                    add(_proofData, add(0x20, mul(0x20, _numberOfPublicInputs))),
+                    len,
+                    add(proof, 0x20),
+                    len
                 )
             )
         }
@@ -71,7 +76,12 @@ contract TestBase is Test {
         assembly {
             pop(
                 staticcall(
-                    gas(), 0x4, add(_proofData, add(0x20, mul(0x20, _numberOfPublicInputs))), len, add(proof, 0x20), len
+                    gas(),
+                    0x4,
+                    add(_proofData, add(0x20, mul(0x20, _numberOfPublicInputs))),
+                    len,
+                    add(proof, 0x20),
+                    len
                 )
             )
         }
