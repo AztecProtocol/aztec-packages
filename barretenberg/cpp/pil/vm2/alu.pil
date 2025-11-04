@@ -398,7 +398,7 @@ pol commit ab_diff_inv; // Helper column for inverting DIFF.
 sel_op_eq * (1 - sel_err) * (DIFF * (ic * (1 - ab_diff_inv) + ab_diff_inv) - 1 + ic) = 0;
 
 // ------------------------------------------------------------
-// LT & LTE + Greater Than helper for DIV
+// LT & LTE + `Greater Than` helper for DIV
 // ------------------------------------------------------------
 pol SEL_LT_OPS = (1 - sel_err) * (sel_op_lt + sel_op_lte);
 

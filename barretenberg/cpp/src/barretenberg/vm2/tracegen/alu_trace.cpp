@@ -236,20 +236,21 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         if (!has_error) {
             uint128_t a_num = static_cast<uint128_t>(event.a.as_ff());
             uint128_t b_num = static_cast<uint128_t>(event.b.as_ff());
-            uint128_t tag_bits = static_cast<uint128_t>(get_tag_bits(a_tag));
+            uint128_t max_bits = static_cast<uint128_t>(get_tag_bits(a_tag));
             // Whether we shift by more than the bit size (=> result is 0):
-            bool overflow = b_num > tag_bits;
+            bool overflow = b_num > max_bits;
             // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
-            // b - max_bits):
-            uint128_t a_lo_bits = overflow ? tag_bits : tag_bits - b_num;
-            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
-            // prove b > max_bits):
+            // otherwise b - max_bits):
+            uint128_t a_lo_bits = overflow ? max_bits : max_bits - b_num;
             // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
                 static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
-            uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
+            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+            // prove b > max_bits).
+            uint128_t a_lo =
+                overflow ? b_num - max_bits : a_num & mask; // Make use of x % pow_of_two = x & (pow_of_two - 1)
             uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.
-            uint128_t a_hi_bits = overflow ? tag_bits : b_num;
+            uint128_t a_hi_bits = overflow ? max_bits : b_num;
             res.insert(
                 res.end(),
                 {
@@ -277,20 +278,21 @@ std::vector<std::pair<Column, FF>> get_operation_specific_columns(const simulati
         if (!has_error) {
             uint128_t a_num = static_cast<uint128_t>(event.a.as_ff());
             uint128_t b_num = static_cast<uint128_t>(event.b.as_ff());
-            uint8_t tag_bits = get_tag_bits(a_tag);
+            uint8_t max_bits = get_tag_bits(a_tag);
             // Whether we shift by more than the bit size (=> result is 0):
-            bool overflow = b_num > tag_bits;
+            bool overflow = b_num > max_bits;
             // The bit size of the low limb of decomposed input a (if overflow, assigned as max_bits to range check
-            // b - max_bits):
-            uint8_t a_lo_bits = overflow ? tag_bits : static_cast<uint8_t>(b_num);
-            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
-            // prove b > max_bits):
+            // otherwise b.
+            uint8_t a_lo_bits = overflow ? max_bits : static_cast<uint8_t>(b_num);
             // Cast to uint256_t to be sure that the shift 1 << a_lo_bits is cpp defined behaviour.
             const uint128_t mask =
                 static_cast<uint128_t>((static_cast<uint256_t>(1) << static_cast<uint256_t>(a_lo_bits)) - 1);
-            uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
+            // The low limb of decomposed input a (if overflow, assigned as b - max_bits to range check and
+            // prove b > max_bits).
+            uint128_t a_lo =
+                overflow ? b_num - max_bits : a_num & mask; // Make use of x % pow_of_two = x & (pow_of_two - 1)
             uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.
-            uint128_t a_hi_bits = overflow ? tag_bits : tag_bits - b_num;
+            uint128_t a_hi_bits = overflow ? max_bits : max_bits - b_num;
             res.insert(res.end(),
                        {
                            { Column::alu_sel_shift_ops_no_overflow, overflow ? 0 : 1 },
@@ -388,7 +390,7 @@ std::vector<std::pair<Column, FF>> get_error_columns(const simulation::AluEvent&
         error_columns.push_back({ Column::alu_sel_div_0_err, 1 });
     }
 
-    // We shouldn't have emitted an event with a tag error when one doesn't exist:
+    // We shouldn't have emitted an event with an error when one doesn't exist:
     assert(error_columns.size() == 1 && "ALU Event emitted with an error, but none exists");
 
     return error_columns;
@@ -429,11 +431,16 @@ void AluTraceBuilder::process(const simulation::EventEmitterInterface<simulation
         // Operation specific columns:
         trace.set(row, get_operation_specific_columns(event));
 
+        // For TRUNCATE, we set b to 0 as the destination tag is passed through b in the event, but will be
+        // set to ia_tag in the ALU subtrace. (See alu.pil for more details.).
+        // Note that setting b to 0 is not required to satisfy the relations but makes the trace cleaner.
+        const FF b_ff = event.operation != simulation::AluOperation::TRUNCATE ? event.b.as_ff() : 0;
+
         trace.set(row,
                   { {
                       { C::alu_sel, 1 },
                       { C::alu_ia, event.a },
-                      { C::alu_ib, event.b },
+                      { C::alu_ib, b_ff },
                       { C::alu_ic, event.c },
                       { C::alu_ia_tag, static_cast<uint8_t>(a_tag) },
                       { C::alu_ib_tag, b_tag },

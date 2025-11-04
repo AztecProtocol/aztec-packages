@@ -281,18 +281,18 @@ MemoryValue Alu::shl(const MemoryValue& a, const MemoryValue& b)
         MemoryValue c = a << b; // This will throw if the tags do not match or are FF.
         uint128_t a_num = static_cast<uint128_t>(a.as_ff());
         uint128_t b_num = static_cast<uint128_t>(b.as_ff());
-        uint128_t tag_bits = static_cast<uint128_t>(get_tag_bits(a.get_tag()));
+        uint128_t max_bits = static_cast<uint128_t>(get_tag_bits(a.get_tag()));
 
-        bool overflow = b_num > tag_bits;
-        uint128_t a_lo_bits = overflow ? tag_bits : tag_bits - b_num;
+        bool overflow = b_num > max_bits;
+        uint128_t a_lo_bits = overflow ? max_bits : max_bits - b_num;
         // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
         // 1 << 128 is undefined behavior on uint128_t.
         const uint128_t mask =
             static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
-        uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
+        uint128_t a_lo = overflow ? b_num - max_bits : a_num & mask;
         uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.
-        uint128_t a_hi_bits = overflow ? tag_bits : b_num;
+        uint128_t a_hi_bits = overflow ? max_bits : b_num;
 
         range_check.assert_range(a_lo, static_cast<uint8_t>(a_lo_bits));
         range_check.assert_range(a_hi, static_cast<uint8_t>(a_hi_bits));
@@ -323,18 +323,18 @@ MemoryValue Alu::shr(const MemoryValue& a, const MemoryValue& b)
         MemoryValue c = a >> b; // This will throw if the tags do not match or are FF.
         uint128_t a_num = static_cast<uint128_t>(a.as_ff());
         uint128_t b_num = static_cast<uint128_t>(b.as_ff());
-        uint128_t tag_bits = static_cast<uint128_t>(get_tag_bits(a.get_tag()));
+        uint128_t max_bits = static_cast<uint128_t>(get_tag_bits(a.get_tag()));
 
-        bool overflow = b_num > tag_bits;
-        uint128_t a_lo_bits = overflow ? tag_bits : b_num;
+        bool overflow = b_num > max_bits;
+        uint128_t a_lo_bits = overflow ? max_bits : b_num;
         // We cast to uint256_t to be sure that the shift 1 << a_lo_bits has a defined behaviour.
         // 1 << 128 is undefined behavior on uint128_t.
         const uint128_t mask =
             static_cast<uint128_t>((static_cast<uint256_t>(1) << uint256_t::from_uint128(a_lo_bits)) - 1);
         // Make use of x % pow_of_two = x & (pow_of_two - 1)
-        uint128_t a_lo = overflow ? b_num - tag_bits : a_num & mask;
+        uint128_t a_lo = overflow ? b_num - max_bits : a_num & mask;
         uint128_t a_hi = a_lo_bits >= 128 ? 0 : a_num >> a_lo_bits; // 128-bit shift undefined behaviour guard.
-        uint128_t a_hi_bits = overflow ? tag_bits : tag_bits - b_num;
+        uint128_t a_hi_bits = overflow ? max_bits : max_bits - b_num;
 
         range_check.assert_range(a_lo, static_cast<uint8_t>(a_lo_bits));
         range_check.assert_range(a_hi, static_cast<uint8_t>(a_hi_bits));
