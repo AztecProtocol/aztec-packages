@@ -108,12 +108,8 @@ void create_ecdsa_verify_constraints(typename Curve::Builder& builder,
         stdlib::ecdsa_verify_signature<Builder, Curve, Fq, Fr, G1>(hashed_message, public_key, { r, s });
 
     // Step 5.
-    if (!input.predicate.is_constant) {
-        // Ensure the circuit is satisfied when predicate is witness false
-        signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
-    } else {
-        signature_result.assert_equal(result);
-    }
+    // Ensure the circuit is satisfied when predicate is witness false
+    signature_result.assert_equal(bool_ct::conditional_assign(predicate, result, signature_result));
 }
 
 /**

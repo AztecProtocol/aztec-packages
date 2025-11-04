@@ -115,6 +115,10 @@ typename bb::stdlib::cycle_group<Builder>::cycle_scalar to_grumpkin_scalar(
     auto lo_as_field = to_field_ct(scalar_lo, builder);
     auto hi_as_field = to_field_ct(scalar_hi, builder);
 
+    // We assert that scalar_hi is not a witness when scalar_lo is constant as this might indicate unintended behavior.
+    BB_ASSERT(!(scalar_lo.is_constant && !scalar_hi.is_constant),
+              "to_grumpkin_scalar: scalar_lo is constant while scalar_hi is not.");
+
     // If a witness is not provided (we are in a write_vk scenario) we ensure the scalar is valid.
     // We only do this if the limbs are non-constant since otherwise no variable indices exist.
     // Note: the two limbs may have different constancy, e.g. if the scalar is a witness known to be <= 128 bits.
