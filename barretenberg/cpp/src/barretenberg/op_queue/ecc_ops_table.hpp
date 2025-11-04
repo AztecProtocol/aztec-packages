@@ -302,6 +302,8 @@ class UltraEccOpsTable {
         if (has_fixed_append && fixed_append_offset.has_value()) {
             size_t current_size = reconstructed_table.size();
             size_t target_offset = fixed_append_offset.value();
+            BB_ASSERT_LTE(current_size, target_offset, "Current table size is larger than fixed append offset.");
+
             // Fill gap with no-ops if needed
             reconstructed_table.insert(reconstructed_table.end(), target_offset - current_size, UltraOp{ /*no-op*/ });
         }
