@@ -223,25 +223,6 @@ template <typename Curve> struct PairingPoints {
         return { P0, P1 };
     }
 
-    static std::array<fr, PUBLIC_INPUTS_SIZE> construct_dummy()
-    {
-        // We just biggroup here instead of Group (which is either biggroup or biggroup_goblin) because this is the most
-        // efficient way of setting the default pairing points. If we use biggroup_goblin elements, we have to convert
-        // them back to biggroup elements anyway to add them to the public inputs...
-        using BigGroup = element_default::
-            element<Builder, bigfield<Builder, bb::Bn254FqParams>, field_t<Builder>, curve::BN254::Group>;
-        std::array<fr, PUBLIC_INPUTS_SIZE> dummy_pairing_points_values;
-        size_t idx = 0;
-        for (size_t i = 0; i < 2; i++) {
-            std::array<fr, BigGroup::PUBLIC_INPUTS_SIZE> element_vals = BigGroup::construct_dummy();
-            for (auto& val : element_vals) {
-                dummy_pairing_points_values[idx++] = val;
-            }
-        }
-
-        return dummy_pairing_points_values;
-    }
-
     /**
      * @brief Construct default pairing points.
      *

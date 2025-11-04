@@ -635,41 +635,6 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(builder.err(), "points at infinity with different x,y should not be equal (x coordinate)");
     }
 
-    static void test_montgomery_ladder()
-    {
-        Builder builder;
-        size_t num_repetitions = 1;
-        for (size_t i = 0; i < num_repetitions; ++i) {
-            affine_element input_a(element::random_element());
-            affine_element input_b(element::random_element());
-
-            element_ct a = element_ct::from_witness(&builder, input_a);
-            element_ct b = element_ct::from_witness(&builder, input_b);
-
-            // Set tags
-            a.set_origin_tag(submitted_value_origin_tag);
-            b.set_origin_tag(challenge_origin_tag);
-
-            element_ct c = a.montgomery_ladder(b);
-
-            // Check that the resulting tag is a union of tags
-            EXPECT_EQ(c.get_origin_tag(), first_two_merged_tag);
-
-            affine_element c_expected(element(input_a).dbl() + element(input_b));
-
-            uint256_t c_x_u256 = c.x().get_value().lo;
-            uint256_t c_y_u256 = c.y().get_value().lo;
-
-            fq c_x_result(c_x_u256);
-            fq c_y_result(c_y_u256);
-
-            EXPECT_EQ(c_x_result, c_expected.x);
-            EXPECT_EQ(c_y_result, c_expected.y);
-        }
-
-        EXPECT_CIRCUIT_CORRECTNESS(builder);
-    }
-
     static void test_mul()
     {
         Builder builder;
@@ -1833,14 +1798,6 @@ TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_fails)
 TYPED_TEST(stdlib_biggroup, incomplete_assert_equal_edge_cases)
 {
     TestFixture::test_incomplete_assert_equal_edge_cases();
-}
-TYPED_TEST(stdlib_biggroup, montgomery_ladder)
-{
-    if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
-    } else {
-        TestFixture::test_montgomery_ladder();
-    };
 }
 HEAVY_TYPED_TEST(stdlib_biggroup, mul)
 {
