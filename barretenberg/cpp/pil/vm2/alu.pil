@@ -2,6 +2,7 @@ include "constants_gen.pil";
 include "ff_gt.pil";
 include "gt.pil";
 include "precomputed.pil";
+include "range_check.pil";
 
 namespace alu;
 
