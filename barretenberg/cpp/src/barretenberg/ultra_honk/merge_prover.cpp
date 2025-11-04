@@ -39,30 +39,27 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
- * @details Let \f$l_j\f$, \f$r_j\f$, \f$m_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
+ * @details Let \f$L_j\f$, \f$R_j\f$, \f$M_j\f$ be three vectors. The Merge prover wants to convince the verifier that,
  * for j = 1, 2, 3, 4:
- *      - m_j(X) = l_j(X) + X^l r_j(X)      (1)
- *      - deg(l_j(X)) < k                   (2)
+ *      - \f$M_j(X) = L_j(X) + X^l R_j(X)\f$      (1)
+ *      - \f$deg(L_j(X)) < k\f$                   (2)
  * where k = shift_size.
  *
- * Condition (1) is equivalent, up to negligible probability, to:
- *      l_j(kappa) + kappa^k r_j(kappa) - m_j(kappa) = 0
- * so the prover constructs the polynomial
- *      p_j(X) := l_j(X) + kappa^{k-1} r_j(X) - m_j(X)
- * and proves that it opens to 0 at kappa.
- *
- * To convince the verifier of (2), the prover commits to g_j(X) (allegedly equal to X^{k-1} l_j(1/X)) and provides
- * openings:
- *      c = l_j(1/kappa)     d = g_j(kappa)
- * The verifier then checks that: c * kappa^{k-1} = d. This check is equivalent, up to negligible probability, to
- * \f$g_j(X) = X^{k-1} l_j(1/X)\f$, which implies \f$deg(l_j) < k$.
+ * 1. The prover commits to \f$L_i, R_j, M_j\f$ and receives from the verifier batching challenges \f$alpha_1, \dots,
+ *    \alpha_4\f$
+ * 2. The prover sends a commitment to \f$G(X) = X^{k-1}(\sum_i \alpha_i L_i(X))\f$.
+ * 3. The prover receives from the verifier an evaluation challenge \f$\kappa\f$ and sends evaluations
+ *    \f$l_j = L_j(\kappa), r_j = R_j(\kappa), m_j = M_j(\kappa), g = G(\kappa^{-1}\f$.
+ * 4. The prover uses Shplonk to open the commitments to the relevant points.
  *
  * In the Goblin scenario, we have:
- * - \f$l_j = t_j, r_j = T_{prev,j}, m_j = T_j\f$ if we are prepending the subtable
- * - \f$l_j = T_{prev,j}, r_j = t_j, m_j = T_j\f$ if we are appending the subtable
+ * - \f$L_i = t_j, R_j = T_{prev,j}, M_j = T_j\f$ if we are prepending the subtable
+ * - \f$L_j = T_{prev,j}, R_j = t_j, M_j = T_j\f$ if we are appending the subtable
  *
- * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds the present
- * circuit, and therefore t_j has already been added to the transcript by HN.
+ * @note The prover doesn't commit to t_j because it shares a transcript with the HN instance that folds
+ * the present circuit, and therefore t_j has already been added to the transcript by HN. Similarly, it doesn't commit
+ * to T_{prev, j} because the transcript is shared by entire recursive verification and therefore T_{prev, j} has been
+ * added to the transcript in the previous round of Merge verification.
  *
  * @return MergeProver::MergeProof
  */
@@ -81,69 +78,78 @@ MergeProver::MergeProof MergeProver::construct_proof()
         left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
         right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
     }
-    // Compute g_j(X)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        left_table_reversed[idx] = left_table[idx].reverse();
-    }
 
-    const size_t merged_table_size = merged_table[0].size();
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1341): Once the op queue is fixed, we won't have to
-    // send the shift size in the append mode. This is desirable to ensure we don't reveal the number of ecc ops in a
-    // subtable when sending a merge proof to the rollup.
+    // Send shift_size to the verifier
     const size_t shift_size = left_table[0].size();
     transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1473): remove generation of commitment to T_prev
-    // Compute commitments [T_prev], [m_j], [g_j], and send to the verifier
+    // Compute commitments [M_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         transcript->send_to_verifier("MERGED_TABLE_" + std::to_string(idx),
                                      pcs_commitment_key.commit(merged_table[idx]));
-        transcript->send_to_verifier("LEFT_TABLE_REVERSED_" + std::to_string(idx),
-                                     pcs_commitment_key.commit(left_table_reversed[idx]));
     }
+
+    // Generate degree check batching challenges, batch polynomials, compute reversed polynomial, send commitment to the
+    // verifier
+    std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
+    Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
+    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
+                                 pcs_commitment_key.commit(reversed_batched_left_tables));
+
+    // Compute batching challenges
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
-    const FF pow_kappa = kappa.pow(shift_size);
     const FF kappa_inv = kappa.invert();
 
-    // Opening claims for each polynomial p_j, l_j, g_j
-    //
-    // The opening claims are sent in the following order:
-    // {kappa, 0}, {kappa, 0}, {kappa, 0}, {kappa, 0},
-    //      {1/kappa, l_1(1/kappa)}, {kappa, g_1(kappa)},
-    //          {1/kappa, l_2(1/kappa)}, {kappa, g_2(kappa)},
-    //              {1/kappa, l_3(1/kappa)}, {kappa, g_3(kappa)},
-    //                  {1/kappa, l_4(1/kappa)}, {kappa, g_4(kappa)}
-    std::vector<OpeningClaim> opening_claims;
-
-    // Set opening claims p_j(\kappa) = l_j(X) + kappa^l r_j(X) - m_j(X)
+    // Send evaluations of [L_i], [R_i], [M_i] at kappa
+    std::vector<FF> evals;
+    evals.reserve((3 * NUM_WIRES) + 1);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        Polynomial partially_evaluated_difference(merged_table_size);
-        partially_evaluated_difference += left_table[idx];
-        partially_evaluated_difference.add_scaled(right_table[idx], pow_kappa);
-        partially_evaluated_difference -= merged_table[idx];
-
-        opening_claims.emplace_back(OpeningClaim{ partially_evaluated_difference, { kappa, FF(0) } });
+        evals.emplace_back(left_table[idx].evaluate(kappa));
+        transcript->send_to_verifier("LEFT_TABLE_EVAL_" + std::to_string(idx), evals.back());
     }
-    // Compute evaluation l_j(1/kappa), g_j(\kappa), send to verifier, and set opening claims
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        FF evaluation;
-
-        // Evaluate l_j(1/kappa)
-        evaluation = left_table[idx].evaluate(kappa_inv);
-        transcript->send_to_verifier("left_table_eval_kappa_inv_" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table[idx], { kappa_inv, evaluation } });
-
-        // Evaluate g_j(\kappa)
-        evaluation = left_table_reversed[idx].evaluate(kappa);
-        transcript->send_to_verifier("left_table_reversed_eval" + std::to_string(idx), evaluation);
-        opening_claims.emplace_back(OpeningClaim{ left_table_reversed[idx], { kappa, evaluation } });
+        evals.emplace_back(right_table[idx].evaluate(kappa));
+        transcript->send_to_verifier("RIGHT_TABLE_EVAL_" + std::to_string(idx), evals.back());
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        evals.emplace_back(merged_table[idx].evaluate(kappa));
+        transcript->send_to_verifier("MERGED_TABLE_EVAL_" + std::to_string(idx), evals.back());
     }
 
-    // Shplonk prover
-    OpeningClaim shplonk_opening_claim = ShplonkProver_<Curve>::prove(pcs_commitment_key, opening_claims, transcript);
+    // Send evaluation of G at 1/kappa
+    evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
+    transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
+
+    // Compute Shplonk batched quotient
+    Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(left_table,
+                                                                           right_table,
+                                                                           merged_table,
+                                                                           shplonk_batching_challenges,
+                                                                           kappa,
+                                                                           kappa_inv,
+                                                                           reversed_batched_left_tables,
+                                                                           evals);
+
+    transcript->send_to_verifier("SHPLONK_BATCHED_QUOTIENT", pcs_commitment_key.commit(shplonk_batched_quotient));
+
+    // Generate Shplonk opening challenge
+    FF shplonk_opening_challenge = transcript->template get_challenge<FF>("shplonk_opening_challenge");
+
+    // Compute Shplonk opening claim
+    OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
+                                                                       shplonk_opening_challenge,
+                                                                       left_table,
+                                                                       right_table,
+                                                                       merged_table,
+                                                                       shplonk_batching_challenges,
+                                                                       kappa,
+                                                                       kappa_inv,
+                                                                       reversed_batched_left_tables,
+                                                                       evals);
 
     // KZG prover
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);

@@ -36,9 +36,10 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const StdlibProof&
 {
     // Verify the final merge step
     MergeVerifier merge_verifier{ merge_settings, transcript };
-    auto [merge_pairing_points, merged_table_commitments, degree_check_verified] =
+    auto [merge_pairing_points, merged_table_commitments, degree_check_verified, concatenation_check_passed] =
         merge_verifier.verify_proof(proof.merge_proof, merge_commitments);
     vinfo("Merge Verifier: degree check identity passed", degree_check_verified);
+    vinfo("Merge Verifier: concatenation identity passed", concatenation_check_passed);
     // Run the ECCVM recursive verifier
     ECCVMVerifier eccvm_verifier{ builder, verification_keys.eccvm_verification_key, transcript };
     auto [opening_claim, ipa_proof] = eccvm_verifier.verify_proof(proof.eccvm_proof);
