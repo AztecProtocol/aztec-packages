@@ -80,8 +80,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     DataType previous_challenge{};  // default-initialized to zeros
     std::vector<DataType>
         current_round_data; // the data for the current round that will be hashed to generate challenges
-    std::vector<DataType>
-        independent_hash_buffer; // data that will be independently hashed to get the hash of an object
 
     bool use_manifest = false; // indicates whether the manifest is turned on, currently only on for manifest tests.
 
@@ -309,46 +307,6 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
             pows[i] = pows[i - 1].sqr();
         }
         return pows;
-    }
-
-    /**
-     * @brief Adds an element to an independent hash buffer.
-     * @details Serializes the element to frs and adds it to the independent hash buffer. Does NOT add the element to
-     * the proof.
-     *
-     * @param label Human-readable name for the challenge.
-     * @param element Element to be added.
-     */
-    template <class T> void add_to_independent_hash_buffer([[maybe_unused]] const std::string& label, const T& element)
-    {
-        DEBUG_LOG(label, element);
-        // In case the transcript is used for recursive verification, we can track proper Fiat-Shamir usage
-        // The verifier is receiving data from the prover. If before this we were in the challenge generation phase,
-        // then we need to increment the round index
-        if (!reception_phase) {
-            reception_phase = true;
-            round_index++;
-        }
-        // If the element is iterable, then we need to assign origin tags to all the elements
-        bb::assign_origin_tag<in_circuit>(element, OriginTag(transcript_index, round_index, /*is_submitted=*/true));
-        auto element_frs = Codec::serialize_to_fields(element);
-
-        independent_hash_buffer.insert(independent_hash_buffer.end(), element_frs.begin(), element_frs.end());
-    }
-
-    /**
-     * @brief Hashes the independent hash buffer and clears it.
-     *
-     * @return Fr The hash of the independent hash buffer.
-     */
-    DataType hash_independent_buffer()
-    {
-        // In case the transcript is used for recursive verification, we need to sanitize current round data so we don't
-        // get an origin tag violation inside the hasher
-        bb::unset_free_witness_tags<in_circuit, DataType>(independent_hash_buffer);
-        DataType buffer_hash = HashFunction::hash(independent_hash_buffer);
-        independent_hash_buffer.clear();
-        return buffer_hash;
     }
 
     /**

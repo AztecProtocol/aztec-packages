@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb {
 
@@ -91,19 +92,40 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
     }
 
     /**
-     * @brief Hash the claim via the transcript mechanism
+     * @brief Hash the claim by tagging components with origin tags and hashing directly.
+     * @details Tags all claim components (challenges, evaluations, commitments) with transcript context.
      */
-    template <typename T> FF hash_through_transcript(const std::string& domain_separator, T& transcript) const
+    template <typename T>
+    FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator, T& transcript) const
     {
-        for (size_t idx = 0; auto& element : challenge) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "challenge_" + std::to_string(idx), element);
-        }
-        transcript.add_to_independent_hash_buffer(domain_separator + "non_shifted_evaluation", non_shifted_evaluation);
-        transcript.add_to_independent_hash_buffer(domain_separator + "shifted_evaluation", shifted_evaluation);
-        transcript.add_to_independent_hash_buffer(domain_separator + "non_shifted_commitment", non_shifted_commitment);
-        transcript.add_to_independent_hash_buffer(domain_separator + "shifted_commmitment", shifted_commitment);
+        using Codec = typename T::Codec;
+        std::vector<FF> claim_elements;
 
-        return transcript.hash_independent_buffer();
+        // Create origin tag for all claim components
+        const OriginTag tag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+
+        // Helper to tag, serialize, and append
+        auto append_tagged = [&]<typename U>(const U& component) {
+            auto frs = bb::tag_and_serialize<T::in_circuit, Codec>(component, tag);
+            claim_elements.insert(claim_elements.end(), frs.begin(), frs.end());
+        };
+
+        // Tag and serialize all challenge elements
+        for (const auto& element : challenge) {
+            append_tagged(element);
+        }
+
+        // Tag and serialize evaluations and commitments
+        append_tagged(non_shifted_evaluation);
+        append_tagged(shifted_evaluation);
+        append_tagged(non_shifted_commitment);
+        append_tagged(shifted_commitment);
+
+        // Sanitize free witness tags before hashing
+        bb::unset_free_witness_tags<T::in_circuit, FF>(claim_elements);
+
+        // Hash the tagged elements directly
+        return T::HashFunction::hash(claim_elements);
     }
 };
 

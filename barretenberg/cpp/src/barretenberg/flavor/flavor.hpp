@@ -261,29 +261,47 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
-     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
-     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
-     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
-     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
-     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
+     * @brief Hashes the vk by tagging VK witnesses with origin tags and hashing directly.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
+     * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags for use
+     * later in the protocol without needing manual backpropagation.
      *
-     * @param domain_separator
-     * @param transcript
+     * @param domain_separator (currently unused, kept for API compatibility)
+     * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual typename Transcript::DataType hash_through_transcript(const std::string& domain_separator,
+    virtual typename Transcript::DataType hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
                                                                   Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+        using DataType = typename Transcript::DataType;
+        using Codec = typename Transcript::Codec;
+        std::vector<DataType> vk_elements;
 
+        // Create origin tag for all VK components
+        const OriginTag tag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+
+        // Helper to tag, serialize, and append to vk_elements
+        auto append_tagged = [&]<typename T>(const T& component) {
+            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
+        };
+
+        // Tag and serialize VK metadata
+        append_tagged(this->log_circuit_size);
+        append_tagged(this->num_public_inputs);
+        append_tagged(this->pub_inputs_offset);
+
+        // Tag and serialize VK commitments
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            append_tagged(commitment);
         }
 
-        return transcript.hash_independent_buffer();
+        // Sanitize free witness tags before hashing
+        bb::unset_free_witness_tags<Transcript::in_circuit, DataType>(vk_elements);
+
+        // Hash the tagged elements directly
+        return Transcript::HashFunction::hash(vk_elements);
     }
 };
 
@@ -357,26 +375,46 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
     }
 
     /**
-     * @brief Hashes the vk using the transcript's independent buffer and returns the hash.
-     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses in
-     * the transcript. If we instead did the hashing outside of the transcript and submitted just the hash, only the
-     * origin tag of the hash would be set properly. We want to avoid backpropagating origin tags to the actual VK
-     * witnesses because it would be manual, as backpropagation of tags is not generally correct. By doing it like this,
-     * the origin tags of the VK all get set, so our tooling won't complain when we use the VK later on in the protocol.
+     * @brief Hashes the vk by tagging VK witnesses with origin tags and hashing directly.
+     * @details Needed to make sure the Origin Tag system works. We need to set the origin tags of the VK witnesses.
+     * If we instead did the hashing outside and just submitted the hash, only the origin tag of the hash would be set
+     * properly. By tagging the VK components directly, we ensure all VK witnesses have proper origin tags for use
+     * later in the protocol without needing manual backpropagation.
      *
-     * @param domain_separator
-     * @param transcript
+     * @param domain_separator (currently unused, kept for API compatibility)
+     * @param transcript Used to extract tag context (transcript_index, round_index)
      * @returns The hash of the verification key
      */
-    virtual FF hash_through_transcript(const std::string& domain_separator, Transcript& transcript) const
+    virtual FF hash_through_transcript([[maybe_unused]] const std::string& domain_separator,
+                                       Transcript& transcript) const
     {
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_log_circuit_size", this->log_circuit_size);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_num_public_inputs", this->num_public_inputs);
-        transcript.add_to_independent_hash_buffer(domain_separator + "vk_pub_inputs_offset", this->pub_inputs_offset);
+        using Codec = stdlib::StdlibCodec<FF>;
+        std::vector<FF> vk_elements;
+
+        // Create origin tag for all VK components
+        const OriginTag tag(transcript.transcript_index, transcript.round_index, /*is_submitted=*/true);
+
+        // Helper to tag, serialize, and append to vk_elements
+        auto append_tagged = [&]<typename T>(const T& component) {
+            auto frs = bb::tag_and_serialize<Transcript::in_circuit, Codec>(component, tag);
+            vk_elements.insert(vk_elements.end(), frs.begin(), frs.end());
+        };
+
+        // Tag and serialize VK metadata
+        append_tagged(this->log_circuit_size);
+        append_tagged(this->num_public_inputs);
+        append_tagged(this->pub_inputs_offset);
+
+        // Tag and serialize VK commitments
         for (const Commitment& commitment : this->get_all()) {
-            transcript.add_to_independent_hash_buffer(domain_separator + "vk_commitment", commitment);
+            append_tagged(commitment);
         }
-        return transcript.hash_independent_buffer();
+
+        // Sanitize free witness tags before hashing
+        bb::unset_free_witness_tags<Transcript::in_circuit, FF>(vk_elements);
+
+        // Hash the tagged elements directly
+        return stdlib::poseidon2<Builder>::hash(vk_elements);
     }
 };
 

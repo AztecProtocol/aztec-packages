@@ -276,6 +276,28 @@ template <bool in_circuit, typename DataType> inline void unset_free_witness_tag
     }
 }
 
+/**
+ * @brief Tag a component with an origin tag and serialize it to field elements.
+ * @details This is a utility function for VK and verifier instance hashing. The const_cast is safe because:
+ * - In native mode (in_circuit=false): assign_origin_tag is a no-op
+ * - In recursive mode (in_circuit=true): stdlib types have mutable origin tags
+ *
+ * @tparam in_circuit Whether the transcript is in-circuit mode
+ * @tparam Codec The codec to use for serialization (provides DataType and serialize_to_fields)
+ * @tparam T The type of the component to tag and serialize
+ * @param component The component to tag and serialize
+ * @param tag The origin tag to assign
+ * @return std::vector<typename Codec::DataType> Serialized field elements
+ */
+template <bool in_circuit, typename Codec, typename T>
+inline std::vector<typename Codec::DataType> tag_and_serialize(const T& component, const OriginTag& tag)
+{
+    // Tag the component (const_cast is safe - see details above)
+    assign_origin_tag<in_circuit>(const_cast<T&>(component), tag);
+    // Serialize to field elements
+    return Codec::serialize_to_fields(component);
+}
+
 } // namespace bb
 template <typename T>
 concept usesTag = requires(T x, const bb::OriginTag& tag) { x.set_origin_tag(tag); };
