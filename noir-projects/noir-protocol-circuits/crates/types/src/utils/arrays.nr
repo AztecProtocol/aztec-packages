@@ -1,44 +1,11 @@
-pub mod assert_array_appended;
-pub mod assert_array_prepended;
-pub mod assert_exposed_sorted_transformed_value_array;
-pub mod assert_sorted_array;
-pub mod assert_sorted_transformed_padded_array;
-pub mod assert_split_sorted_transformed_value_arrays;
-pub mod assert_split_transformed_padded_arrays;
-pub mod assert_split_transformed_value_arrays;
-pub mod assert_trailing_zeros;
-pub mod find_index;
-pub mod get_sorted_result;
-pub mod get_sorted_tuple;
-pub mod sort_by;
-pub mod sort_by_counter;
+pub(crate) mod assert_trailing_zeros;
+pub(crate) mod find_index;
+pub(crate) mod get_sorted_tuples;
 
 // Re-exports.
-pub use assert_array_appended::{
-    assert_array_appended, assert_array_appended_and_scoped,
-    assert_array_appended_reversed_to_empty_dest, assert_array_appended_reversed_up_to_some_length,
-    assert_array_appended_to_empty_dest, assert_array_appended_to_empty_dest_and_scoped,
-};
-pub use assert_array_prepended::{assert_array_prepended, assert_array_prepended_up_to_some_length};
-pub use assert_exposed_sorted_transformed_value_array::{
-    assert_exposed_sorted_transformed_value_array,
-    get_order_hints::{get_order_hints_asc, OrderHint},
-};
-pub use assert_sorted_array::assert_sorted_array;
-pub use assert_sorted_transformed_padded_array::{
-    assert_sorted_transformed_i_padded_array_capped_size,
-    assert_sorted_transformed_padded_array_capped_size, check_padded_items,
-};
-pub use assert_split_sorted_transformed_value_arrays::{
-    assert_split_sorted_transformed_value_arrays_asc,
-    get_split_order_hints::{get_split_order_hints_asc, SplitOrderHints},
-};
-pub use assert_split_transformed_padded_arrays::assert_split_transformed_padded_arrays;
 pub use assert_trailing_zeros::assert_trailing_zeros;
 pub use find_index::{find_first_index, find_last_index};
-pub use get_sorted_result::{get_sorted_result, SortedResult};
-pub use get_sorted_tuple::{get_sorted_tuple, SortedTuple};
-pub use sort_by_counter::sort_by_counter_asc;
+pub use get_sorted_tuples::{get_sorted_tuples, SortedTuple};
 
 use crate::traits::{Deserialize, Empty, Serialize};
 use super::for_loop::{for_i_in_0_, for_i_only_in_0_};
@@ -98,28 +65,6 @@ pub unconstrained fn find_index_hint_in_reverse<T, let N: u32, Env>(
 //**********************************************************************************
 // FREE ARRAY FUNCTIONS (to deprecate or make into methods of array wrappers)
 //**********************************************************************************
-
-/// Deprecated.
-///
-/// Routine which validates that all zero values of an array form a contiguous region at the end, i.e.,
-/// of the form: [*,*,*...,0,0,0,0] where any * is non-zero. Note that a full array of non-zero values is
-/// valid.
-pub fn validate_array<T, let N: u32>(array: [T; N]) -> u32
-where
-    T: Empty,
-{
-    let mut seen_empty = false;
-    let mut length = 0;
-    for i in 0..N {
-        if array[i].is_empty() {
-            seen_empty = true;
-        } else {
-            assert_eq(seen_empty, false, "invalid array");
-            length += 1;
-        }
-    }
-    length
-}
 
 /// Deprecated.
 ///
@@ -211,16 +156,6 @@ where
         }
     }
     result
-}
-
-/// Helper function to convert a validated array to BoundedVec.
-/// Important: Only use it for validated arrays: validate_array(array) should be true.
-pub unconstrained fn array_to_bounded_vec<T, let N: u32>(array: [T; N]) -> BoundedVec<T, N>
-where
-    T: Empty,
-{
-    let len = array_length(array);
-    BoundedVec::from_parts_unchecked(array, len)
 }
 
 // Returns the number of consecutive elements at the start of the array for which the predicate returns false.
@@ -341,14 +276,6 @@ where
 
     // For constrained append functions, see the dedicated file: assert_array_appended.nr
 
-    pub fn push(&mut self, item: T) {
-        assert(self.length != N, "Array full");
-
-        let next_index = self.length;
-        self.array[next_index] = item;
-        self.length += 1;
-    }
-
     pub fn assert_dense_trimmed(self) {
         for_i_in_0_(
             self.length,
@@ -370,15 +297,15 @@ where
         assert_eq(self.length, 0);
     }
 
-    pub unconstrained fn push_hint(&mut self, item: T) {
+    pub fn push(&mut self, item: T) {
         assert(self.length != N, "Array full");
 
-        let mut next_index = self.length;
+        let next_index = self.length;
         self.array[next_index] = item;
         self.length += 1;
     }
 
-    pub unconstrained fn pop_hint(&mut self) -> T {
+    pub fn pop(&mut self) -> T {
         assert(self.length != 0, "Array empty");
 
         let mut top_index = self.length - 1;
@@ -427,45 +354,6 @@ where
     fn empty() -> Self {
         Self { array: [T::empty(); N], length: 0 }
     }
-}
-
-#[test]
-fn smoke_validate_array() {
-    let valid_array: [Field; 0] = [];
-    assert(validate_array(valid_array) == 0);
-
-    let valid_array = [0];
-    assert(validate_array(valid_array) == 0);
-
-    let valid_array = [3];
-    assert(validate_array(valid_array) == 1);
-
-    let valid_array = [1, 2, 3];
-    assert(validate_array(valid_array) == 3);
-
-    let valid_array = [1, 2, 3, 0];
-    assert(validate_array(valid_array) == 3);
-
-    let valid_array = [1, 2, 3, 0, 0];
-    assert(validate_array(valid_array) == 3);
-}
-
-#[test(should_fail_with = "invalid array")]
-fn smoke_validate_array_invalid_case0() {
-    let invalid_array = [0, 1];
-    let _ = validate_array(invalid_array);
-}
-
-#[test(should_fail_with = "invalid array")]
-fn smoke_validate_array_invalid_case1() {
-    let invalid_array = [1, 0, 0, 1, 0];
-    let _ = validate_array(invalid_array);
-}
-
-#[test(should_fail_with = "invalid array")]
-fn smoke_validate_array_invalid_case2() {
-    let invalid_array = [0, 0, 0, 0, 1];
-    let _ = validate_array(invalid_array);
 }
 
 #[test]

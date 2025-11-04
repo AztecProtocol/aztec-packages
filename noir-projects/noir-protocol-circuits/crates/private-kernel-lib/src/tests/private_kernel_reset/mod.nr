@@ -38,7 +38,7 @@ use dep::types::{
         utils::{pad_end, pad_end_with},
     },
     traits::Empty,
-    utils::arrays::find_index_hint,
+    utils::arrays::find_first_index,
 };
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
 
@@ -189,14 +189,13 @@ impl TestBuilder {
         self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
         // Safety: this is only used in tests.
         let num_hints = unsafe {
-            find_index_hint(
+            find_first_index(
                 self.transient_data_squashing_hints,
                 |hint: TransientDataSquashingHint| {
                     hint.nullifier_index == MAX_NULLIFIERS_PER_TX
                 },
             )
-        }
-            .unwrap();
+        };
         self.transient_data_squashing_hints[num_hints] =
             TransientDataSquashingHint { nullifier_index, note_hash_index };
     }

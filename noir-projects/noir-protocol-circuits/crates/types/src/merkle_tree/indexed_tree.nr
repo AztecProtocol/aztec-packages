@@ -36,7 +36,6 @@ where
     // Values must be sorted by key in descending order. Failing to do so will still pass the permutation check,
     // but will later fail when validating low leaves if a low leaf is already updated to point to a smaller value.
     //
-    // Note: We use `check_permutation` here instead of `assert_sorted_array` because it's cheaper.
     // Note: The original insertion order is preserved when building the tree.
     //       The sorted values are only used to validate and update low leaves more efficiently.
     check_permutation(values_to_insert, sorted_values, sorted_values_indexes);

@@ -1,8 +1,5 @@
-use crate::{
-    components::private_kernel_circuit_public_inputs_composer::create_protocol_nullifier,
-    tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder,
-};
-use dep::types::{tests::utils::assert_array_eq, traits::Empty};
+use crate::tests::private_kernel_circuit_public_inputs_composer_builder::PrivateKernelCircuitPublicInputsComposerBuilder;
+use dep::types::{hash::create_protocol_nullifier, tests::utils::assert_array_eq, traits::Empty};
 
 #[test]
 fn propagate_from_private_call_empty_data_succeeds() {

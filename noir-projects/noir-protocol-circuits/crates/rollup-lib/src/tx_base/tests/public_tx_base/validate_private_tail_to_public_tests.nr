@@ -98,7 +98,7 @@ unconstrained fn incorrect_contract_class_log_length() {
     builder.update_private_tail_accumulated_data(fixture_builder);
 
     // Tweak the length to be less.
-    builder.private_tail.non_revertible_accumulated_data.contract_class_logs_hashes[0].inner.length -=
+    builder.private_tail.revertible_accumulated_data.contract_class_logs_hashes[0].inner.length -=
         1;
 
     builder.execute_and_fail();

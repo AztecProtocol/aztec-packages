@@ -7,12 +7,13 @@ use crate::{
         note_hash::NoteHash,
         nullifier::Nullifier,
         private_log::{PrivateLog, PrivateLogData},
+        transaction::tx_request::TxRequest,
     },
     address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, FUNCTION_TREE_HEIGHT, GENERATOR_INDEX__NOTE_HASH_NONCE,
         GENERATOR_INDEX__OUTER_NULLIFIER, GENERATOR_INDEX__SILOED_NOTE_HASH,
-        GENERATOR_INDEX__UNIQUE_NOTE_HASH, TWO_POW_64,
+        GENERATOR_INDEX__UNIQUE_NOTE_HASH, NULL_MSG_SENDER_CONTRACT_ADDRESS, TWO_POW_64,
     },
     merkle_tree::root_from_sibling_path,
     messaging::l2_to_l1_message::L2ToL1Message,
@@ -118,6 +119,12 @@ pub fn silo_nullifier(nullifier: Scoped<Counted<Nullifier>>) -> Field {
     } else {
         compute_siloed_nullifier(nullifier.contract_address, value)
     }
+}
+
+pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullifier>> {
+    Nullifier { value: tx_request.hash(), note_hash: 0 }.count(1).scope(
+        NULL_MSG_SENDER_CONTRACT_ADDRESS,
+    )
 }
 
 pub fn compute_siloed_private_log_field(contract_address: AztecAddress, field: Field) -> Field {

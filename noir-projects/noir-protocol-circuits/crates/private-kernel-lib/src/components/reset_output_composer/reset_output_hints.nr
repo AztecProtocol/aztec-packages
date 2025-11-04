@@ -6,19 +6,13 @@ use dep::types::{
     },
     constants::{MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX},
     side_effect::{Counted, Scoped},
-    utils::arrays::{ClaimedLengthArray, get_order_hints_asc, OrderHint},
+    utils::arrays::ClaimedLengthArray,
 };
 
 pub struct ResetOutputHints {
-    // note_hashes
     pub kept_note_hashes: ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX>,
-    pub sorted_kept_note_hash_indexes: [u32; MAX_NOTE_HASHES_PER_TX],
-    // nullifiers
     pub kept_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
-    pub sorted_kept_nullifier_indexes: [u32; MAX_NULLIFIERS_PER_TX],
-    // private_logs
     pub kept_private_logs: ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX>,
-    pub sorted_kept_private_log_indexes: [u32; MAX_PRIVATE_LOGS_PER_TX],
 }
 
 pub unconstrained fn generate_reset_output_hints<let TransientDataSquashingHintsLen: u32>(
@@ -33,34 +27,5 @@ pub unconstrained fn generate_reset_output_hints<let TransientDataSquashingHints
         transient_data_squashing_hints,
     );
 
-    // We take the "kept" (propagated) side effects, and sort them by their counter.
-    // Or rather, we record for each side_effect where its index will be in a sorted version:
-
-    // E.g.
-    // kept note hash indices:        [  0,  1,  2,  3,  4,  5,  6,  7]
-    // counters:                      [ 12,  6, 99, 31, 32, 29, 42, 71]
-    //
-    // sorted counters:               [  6, 12, 29, 31, 32, 42, 71, 99]
-    // sorted_kept_note_hash_indexes: [  1,  0,  7,  3,  4,  2,  5,  6]
-
-    // note_hashes
-    let sorted_kept_note_hash_indexes =
-        get_order_hints_asc(kept_note_hashes.array).map(|h: OrderHint| h.sorted_index);
-
-    // nullifiers
-    let sorted_kept_nullifier_indexes =
-        get_order_hints_asc(kept_nullifiers.array).map(|h: OrderHint| h.sorted_index);
-
-    // private_logs
-    let sorted_kept_private_log_indexes =
-        get_order_hints_asc(kept_private_logs.array).map(|h: OrderHint| h.sorted_index);
-
-    ResetOutputHints {
-        kept_note_hashes,
-        sorted_kept_note_hash_indexes,
-        kept_nullifiers,
-        sorted_kept_nullifier_indexes,
-        kept_private_logs,
-        sorted_kept_private_log_indexes,
-    }
+    ResetOutputHints { kept_note_hashes, kept_nullifiers, kept_private_logs }
 }

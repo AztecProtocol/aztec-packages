@@ -1,5 +1,4 @@
 use crate::components::{
-    previous_kernel_validator::PreviousKernelValidator,
     private_call_data_validator::PrivateCallDataValidator,
     private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
     private_kernel_circuit_public_inputs_composer::PrivateKernelCircuitPublicInputsComposer,
@@ -47,9 +46,10 @@ impl PrivateKernelInnerCircuitPrivateInputs {
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
         // Validate inputs.
 
-        let previous_kernel_validator = PreviousKernelValidator::new(self.previous_kernel);
-
-        previous_kernel_validator.verify_proof(ALLOWED_PREVIOUS_CIRCUITS, false);
+        if !dep::std::runtime::is_unconstrained() {
+            self.previous_kernel.verify(false /* is_last_kernel */);
+            self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
+        }
 
         let private_call_data_validator = PrivateCallDataValidator::new(self.private_call);
 
@@ -168,7 +168,7 @@ mod tests {
         }
     }
 
-    #[test(should_fail_with = "Invalid vk index")]
+    #[test(should_fail_with = "Vk index not in allowed list")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
         builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);

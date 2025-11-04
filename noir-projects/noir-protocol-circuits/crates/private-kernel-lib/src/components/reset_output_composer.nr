@@ -4,6 +4,7 @@ pub use reset_output_hints::ResetOutputHints;
 
 use crate::{
     abis::PaddedSideEffects,
+    accumulated_data::{check_padded_items, sort_by_counter},
     components::reset_output_composer::reset_output_hints::generate_reset_output_hints,
     reset::{
         get_propagated_key_validation_requests, get_propagated_read_requests, ReadRequestAction,
@@ -24,7 +25,7 @@ use types::{
     },
     hash::{compute_unique_siloed_note_hash, silo_note_hash, silo_nullifier, silo_private_log},
     side_effect::{Counted, Ordered, Scoped},
-    utils::arrays::{check_padded_items, ClaimedLengthArray, sort_by_counter_asc},
+    utils::arrays::ClaimedLengthArray,
 };
 
 pub struct ResetOutputComposer {
@@ -145,7 +146,7 @@ impl ResetOutputComposer {
     ) -> ClaimedLengthArray<Scoped<Counted<NoteHash>>, MAX_NOTE_HASHES_PER_TX> {
         // Sort:
         let sorted_kept_note_hashes = ClaimedLengthArray {
-            array: sort_by_counter_asc(self.hints.kept_note_hashes.array),
+            array: sort_by_counter(self.hints.kept_note_hashes.array),
             // If an array is already a dense, trimmed array, then the sorted version of
             // that array will have the same length.
             // If the LHS is at all sparse, then the sorted version of the array will
@@ -221,7 +222,7 @@ impl ResetOutputComposer {
     ) -> ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX> {
         // Sort:
         let sorted_kept_nullifiers = ClaimedLengthArray {
-            array: sort_by_counter_asc(self.hints.kept_nullifiers.array),
+            array: sort_by_counter(self.hints.kept_nullifiers.array),
             length: self.hints.kept_nullifiers.length,
         };
 
@@ -267,7 +268,7 @@ impl ResetOutputComposer {
     ) -> ClaimedLengthArray<Scoped<Counted<PrivateLogData>>, MAX_PRIVATE_LOGS_PER_TX> {
         // Sort:
         let sorted_kept_private_logs = ClaimedLengthArray {
-            array: sort_by_counter_asc(self.hints.kept_private_logs.array),
+            array: sort_by_counter(self.hints.kept_private_logs.array),
             length: self.hints.kept_private_logs.length,
         };
 

@@ -2763,14 +2763,14 @@ length = "0x0000000000000000000000000000000000000000000000000000000000000001"
 
   [[previous_kernel_public_inputs.end.nullifiers.array]]
 [previous_kernel_public_inputs.end.nullifiers.array.inner]
-counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
+counter = "0x0000000000000000000000000000000000000000000000000000000000000001"
 
   [previous_kernel_public_inputs.end.nullifiers.array.inner.inner]
   value = "0x0ffd84ac80f9128c0dbde7f44fbdde515c715731a0917d18790656853d1462f1"
   note_hash = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 [previous_kernel_public_inputs.end.nullifiers.array.contract_address]
-inner = "0x0000000000000000000000000000000000000000000000000000000000000000"
+inner = "0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000000"
 
   [[previous_kernel_public_inputs.end.nullifiers.array]]
 [previous_kernel_public_inputs.end.nullifiers.array.inner]
