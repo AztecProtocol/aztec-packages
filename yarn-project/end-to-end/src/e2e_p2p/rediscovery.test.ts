@@ -35,7 +35,7 @@ describe('e2e_p2p_rediscovery', () => {
         listenAddress: '127.0.0.1',
       },
     });
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -51,7 +51,7 @@ describe('e2e_p2p_rediscovery', () => {
   it('should re-discover stored peers without bootstrap node', async () => {
     const txsSentViaDifferentNodes: SentTx[][] = [];
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -68,7 +68,7 @@ describe('e2e_p2p_rediscovery', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    await t.setupAccount();
+    t.setupAccount();
 
     // stop bootstrap node
     await t.bootstrapNode?.stop();
@@ -84,7 +84,7 @@ describe('e2e_p2p_rediscovery', () => {
       await sleep(2500);
 
       const newNode = await createNode(
-        t.ctx.aztecNodeConfig,
+        t.ctx.config,
         t.ctx.dateProvider,
         i + 1 + BOOT_NODE_UDP_PORT,
         undefined,

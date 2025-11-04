@@ -1,9 +1,9 @@
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import {
   type DeployL1ContractsReturnType,
@@ -37,7 +37,7 @@ const TIMEOUT = 360_000;
 /** Objects to be returned by the uniswap setup function */
 export type UniswapSetupContext = {
   /** Aztec Node instance */
-  aztecNode: AztecNode;
+  aztecNode: AztecNodeService;
   /** Logger instance named as the current test. */
   logger: Logger;
   /** The L1 wallet client, extended with public actions. */
@@ -65,7 +65,7 @@ export const uniswapL1L2TestSuite = (
     const WETH9_ADDRESS: EthAddress = EthAddress.fromString('0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2');
     const DAI_ADDRESS: EthAddress = EthAddress.fromString('0x6B175474E89094C44Da98b954EedeAC495271d0F');
 
-    let aztecNode: AztecNode;
+    let aztecNode: AztecNodeService;
     let logger: Logger;
 
     let l1Client: ExtendedViemWalletClient;

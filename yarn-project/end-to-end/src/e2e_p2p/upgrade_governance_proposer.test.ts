@@ -54,7 +54,7 @@ describe('e2e_p2p_governance_proposer', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
 
     l1TxUtils = createL1TxUtilsFromViemWallet(t.ctx.deployL1ContractsValues.l1Client);
@@ -144,7 +144,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
+      { ...t.ctx.config, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,

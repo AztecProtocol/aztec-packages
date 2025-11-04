@@ -42,11 +42,11 @@ describe('Transfer benchmark', () => {
   const config = t.config.transfers;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeployCandyBarTokenSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setupBasicContracts();
+    await t.deployBananaToken();
+    await t.setupFPC();
+    await t.deployCandyBarToken();
+    await t.deploySponsoredFPC();
 
     ({
       adminWallet,

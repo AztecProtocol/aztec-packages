@@ -73,7 +73,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -111,14 +111,14 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
-    t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
-    t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
+    t.ctx.config.slashDataWithholdingPenalty = slashingAmount;
+    t.ctx.config.slashPrunePenalty = slashingAmount;
+    t.ctx.config.validatorReexecute = false;
+    t.ctx.config.minTxsPerBlock = 1;
 
     t.logger.warn('Creating nodes');
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -148,7 +148,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Send Aztec txs
     t.logger.warn('Setup account');
-    await t.setupAccount();
+    t.setupAccount();
     t.logger.warn('Stopping nodes');
     // Note, we needed to keep the initial node running, as that is the one the txs were sent to.
     await t.removeInitialNode();
@@ -163,7 +163,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
     t.logger.warn('Re-creating nodes');
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -176,7 +176,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
 
     const offenses = await awaitOffenseDetected({
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      epochDuration: t.ctx.config.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: nodes[0],
       slashingRoundSize,

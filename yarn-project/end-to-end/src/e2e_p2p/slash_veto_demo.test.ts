@@ -96,11 +96,11 @@ describe('veto slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
 
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
@@ -111,7 +111,7 @@ describe('veto slash', () => {
     );
 
     vetoerL1Client = createExtendedL1Client(
-      t.ctx.aztecNodeConfig.l1RpcUrls,
+      t.ctx.config.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
     vetoerL1TxUtils = createL1TxUtilsFromViemWallet(vetoerL1Client, {
@@ -130,7 +130,7 @@ describe('veto slash', () => {
     slashingAmount = SLASHING_UNIT * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
-    t.ctx.aztecNodeConfig.slashInactivityPenalty = slashingAmount;
+    t.ctx.config.slashInactivityPenalty = slashingAmount;
     for (const node of nodes) {
       await node.setConfig({ slashInactivityPenalty: slashingAmount });
     }

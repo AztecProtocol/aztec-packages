@@ -20,9 +20,9 @@ describe('e2e_fees sponsored_public_payment', () => {
   const t = new FeesTest('sponsored_payment');
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applySponsoredFPCSetupSnapshot();
-    await t.applyFundAliceWithBananas();
+    await t.setupBasicContracts();
+    await t.setupSponsoredFPC();
+    await t.fundAliceWithBananas();
     ({ aztecNode, aliceAddress, bobAddress, sequencerAddress, sponsoredFPC, bananaCoin, gasSettings } =
       await t.setup());
   });

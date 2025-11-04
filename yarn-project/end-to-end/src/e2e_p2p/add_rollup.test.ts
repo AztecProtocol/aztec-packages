@@ -83,7 +83,7 @@ describe('e2e_p2p_add_rollup', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
     await t.removeInitialNode();
 
@@ -155,29 +155,29 @@ describe('e2e_p2p_add_rollup', () => {
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,
-        ethereumSlotDuration: t.ctx.aztecNodeConfig.ethereumSlotDuration,
-        aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
-        aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
-        aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
-        lagInEpochs: t.ctx.aztecNodeConfig.lagInEpochs,
-        aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
-        slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
-        slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
-        slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
-        slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
-        slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
-        slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
-        manaTarget: t.ctx.aztecNodeConfig.manaTarget,
-        provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
+        ethereumSlotDuration: t.ctx.config.ethereumSlotDuration,
+        aztecSlotDuration: t.ctx.config.aztecSlotDuration,
+        aztecEpochDuration: t.ctx.config.aztecEpochDuration,
+        aztecTargetCommitteeSize: t.ctx.config.aztecTargetCommitteeSize,
+        lagInEpochs: t.ctx.config.lagInEpochs,
+        aztecProofSubmissionEpochs: t.ctx.config.aztecProofSubmissionEpochs,
+        slashingQuorum: t.ctx.config.slashingQuorum,
+        slashingRoundSizeInEpochs: t.ctx.config.slashingRoundSizeInEpochs,
+        slashingLifetimeInRounds: t.ctx.config.slashingLifetimeInRounds,
+        slashingExecutionDelayInRounds: t.ctx.config.slashingExecutionDelayInRounds,
+        slashingVetoer: t.ctx.config.slashingVetoer,
+        slashingDisableDuration: t.ctx.config.slashingDisableDuration,
+        manaTarget: t.ctx.config.manaTarget,
+        provingCostPerMana: t.ctx.config.provingCostPerMana,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
-        exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
-        slasherFlavor: t.ctx.aztecNodeConfig.slasherFlavor,
-        slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
-        slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
-        slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
-        slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
-        localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
+        exitDelaySeconds: t.ctx.config.exitDelaySeconds,
+        slasherFlavor: t.ctx.config.slasherFlavor,
+        slashingOffsetInRounds: t.ctx.config.slashingOffsetInRounds,
+        slashAmountSmall: t.ctx.config.slashAmountSmall,
+        slashAmountMedium: t.ctx.config.slashAmountMedium,
+        slashAmountLarge: t.ctx.config.slashAmountLarge,
+        localEjectionThreshold: t.ctx.config.localEjectionThreshold,
       },
       t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       t.logger,
@@ -215,7 +215,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
+      { ...t.ctx.config, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -377,8 +377,8 @@ describe('e2e_p2p_add_rollup', () => {
       t.ctx.initialFundedAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
       t.ctx.deployL1ContractsValues.l1ContractAddresses,
-      BigInt(t.ctx.aztecNodeConfig.rollupVersion),
-      t.ctx.aztecNodeConfig.l1RpcUrls,
+      BigInt(t.ctx.config.rollupVersion),
+      t.ctx.config.l1RpcUrls,
     );
 
     let govData;
@@ -387,7 +387,7 @@ describe('e2e_p2p_add_rollup', () => {
       if (govData.leaderVotes >= quorumSize) {
         break;
       }
-      await sleep(t.ctx.aztecNodeConfig.ethereumSlotDuration * t.ctx.aztecNodeConfig.aztecSlotDuration * 1000);
+      await sleep(t.ctx.config.ethereumSlotDuration * t.ctx.config.aztecSlotDuration * 1000);
     }
 
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
@@ -480,7 +480,7 @@ describe('e2e_p2p_add_rollup', () => {
     // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
     // This is to avoid conflicts when the checkpoints are looking further back.
     const futureEpoch = 500n + (await newRollup.getCurrentEpochNumber());
-    const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
+    const time = await newRollup.getTimestampForSlot(futureEpoch * BigInt(t.ctx.config.aztecEpochDuration));
     if (time > BigInt(await t.ctx.cheatCodes.eth.timestamp())) {
       await t.ctx.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
@@ -498,7 +498,7 @@ describe('e2e_p2p_add_rollup', () => {
 
     const blobSinkPort = await getPort();
     const newConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
       l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },

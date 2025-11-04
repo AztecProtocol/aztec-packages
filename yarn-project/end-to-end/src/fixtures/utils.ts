@@ -190,12 +190,12 @@ export async function setupPXEAndGetWallet(
  * (will create extra accounts if the environment doesn't already have enough accounts)
  * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
-async function setupWithRemoteEnvironment(
+export async function setupWithRemoteEnvironment(
   account: HDAccount | PrivateKeyAccount,
   config: AztecNodeConfig,
   logger: Logger,
   numberOfAccounts: number,
-): Promise<EndToEndContext> {
+): Promise<RemoteEndToEndContext> {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
@@ -215,7 +215,6 @@ async function setupWithRemoteEnvironment(
   const ethCheatCodes = new EthCheatCodes(config.l1RpcUrls, new DateProvider());
   const wallet = await TestWallet.create(aztecNode);
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNode, new DateProvider());
-  const teardown = () => Promise.resolve();
 
   logger.verbose('Populating wallet from already registered accounts...');
   const initialFundedAccounts = await getInitialTestAccountsData();
@@ -234,9 +233,6 @@ async function setupWithRemoteEnvironment(
 
   return {
     aztecNode,
-    aztecNodeAdmin: undefined,
-    sequencer: undefined,
-    proverNode: undefined,
     deployL1ContractsValues,
     config,
     initialFundedAccounts,
@@ -245,13 +241,6 @@ async function setupWithRemoteEnvironment(
     logger,
     cheatCodes,
     ethCheatCodes,
-    prefilledPublicData: undefined,
-    mockGossipSubNetwork: undefined,
-    watcher: undefined,
-    dateProvider: undefined,
-    blobSink: undefined,
-    telemetryClient: undefined,
-    teardown,
   };
 }
 
@@ -301,18 +290,14 @@ export type SetupOptions = {
   anvilPort?: number;
   /** Key to use for publishing L1 contracts */
   l1PublisherKey?: SecretValue<`0x${string}`>;
+  /** Arguments for L1 contract deployment */
+  deployL1ContractsArgs?: Partial<DeployL1ContractsArgs>;
 } & Partial<AztecNodeConfig>;
 
-/** Context for an end-to-end test as returned by the `setup` function */
-export type EndToEndContext = {
+/** Context for an end-to-end test as returned by the `setupWithRemoteEnvironment` function */
+export type RemoteEndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode;
-  /** Client to the Aztec Node admin interface (undefined if connected to remote environment) */
-  aztecNodeAdmin?: AztecNodeAdmin;
-  /** The prover node service (only set if startProverNode is true) */
-  proverNode: ProverNode | undefined;
-  /** A client to the sequencer service (undefined if connected to remote environment) */
-  sequencer: SequencerClient | undefined;
   /** Return values from deployL1Contracts function. */
   deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
@@ -329,18 +314,30 @@ export type EndToEndContext = {
   cheatCodes: CheatCodes;
   /** The cheat codes for L1 */
   ethCheatCodes: EthCheatCodes;
-  /** The anvil test watcher (undefined if connected to remote environment) */
-  watcher: AnvilTestWatcher | undefined;
-  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
-  dateProvider: TestDateProvider | undefined;
-  /** The blob sink (undefined if connected to remote environment) */
-  blobSink: BlobSinkServer | undefined;
+};
+
+/** Context for an end-to-end test as returned by the `setup` function */
+export type EndToEndContext = RemoteEndToEndContext & {
+  /** Aztec Node service */
+  aztecNode: AztecNodeService;
+  /** Client to the Aztec Node admin interface */
+  aztecNodeAdmin?: AztecNodeAdmin;
+  /** The prover node service (only set if startProverNode is true) */
+  proverNode: ProverNode | undefined;
+  /** A client to the sequencer service */
+  sequencer: SequencerClient | undefined;
+  /** The anvil test watcher */
+  watcher: AnvilTestWatcher;
+  /** Allows tweaking current system time */
+  dateProvider: TestDateProvider;
+  /** The blob sink */
+  blobSink: BlobSinkServer;
   /** Telemetry client */
-  telemetryClient: TelemetryClient | undefined;
+  telemetryClient: TelemetryClient;
   /** Mock gossip sub network used for gossipping messages (only if mockGossipSubNetwork was set to true in opts) */
   mockGossipSubNetwork: MockGossipSubNetwork | undefined;
   /** Prefilled public data used for setting up nodes. */
-  prefilledPublicData: PublicDataTreeLeaf[] | undefined;
+  prefilledPublicData: PublicDataTreeLeaf[];
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -374,6 +371,12 @@ export async function setup(
 
     const logger = getLogger();
 
+    if (AZTEC_NODE_URL) {
+      throw new Error(
+        `Setting AZTEC_NODE_URL is not supported in this setup function. Use setupWithRemoteEnvironment instead.`,
+      );
+    }
+
     // Create a temp directory for any services that need it and cleanup later
     const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
     await fs.mkdir(directoryToCleanup, { recursive: true });
@@ -384,11 +387,6 @@ export async function setup(
     if (!config.l1RpcUrls?.length) {
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
-      }
-      if (AZTEC_NODE_URL) {
-        throw new Error(
-          `AZTEC_NODE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
-        );
       }
 
       const res = await startAnvil({
@@ -440,11 +438,6 @@ export async function setup(
 
     config.coinbase = EthAddress.fromString(publisherHdAccount.address);
 
-    if (AZTEC_NODE_URL) {
-      // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-      return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
-    }
-
     const initialFundedAccounts =
       opts.initialFundedAccounts ??
       (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
@@ -471,6 +464,7 @@ export async function setup(
         logger,
         {
           ...opts,
+          ...opts.deployL1ContractsArgs,
           genesisArchiveRoot,
           feeJuicePortalInitialBalance: fundingNeeded,
           initialValidators: opts.initialValidators,
@@ -657,7 +651,7 @@ export async function setup(
     }
 
     // Now we restore the original minTxsPerBlock setting.
-    sequencerClient!.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
+    sequencerClient?.getSequencer().updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
 
     if (initialFundedAccounts.length < numberOfAccounts) {
       // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.

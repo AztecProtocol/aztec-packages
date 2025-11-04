@@ -29,10 +29,10 @@ describe('Bridging benchmark', () => {
   const config = t.config.bridging;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setupBasicContracts();
+    await t.deployBananaToken();
+    await t.setupFPC();
+    await t.deploySponsoredFPC();
     ({ userWallet, bananaFPC, bananaCoin, adminAddress, sponsoredFPC } = await t.setup());
   });
 

@@ -35,7 +35,7 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
       slashingOffsetInRounds,
       slashingRoundSizeInEpochs,
       aztecSlotDuration,
-    } = test.ctx.aztecNodeConfig;
+    } = test.ctx.config;
 
     const initialEpoch = Number(test.test.monitor.l2EpochNumber) + 1;
     test.logger.warn(`Waiting until end of epoch ${initialEpoch} to reenable validator ${reenabledValidator}`);

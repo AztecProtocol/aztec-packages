@@ -141,7 +141,7 @@ describe('e2e_p2p_preferred_network', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -166,10 +166,10 @@ describe('e2e_p2p_preferred_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
+    t.ctx.config.validatorReexecute = true;
 
     const preferredNodeConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       disableValidator: true,
       // Only permit validators to connect and switch off discovery
       p2pAllowOnlyValidators: true,
@@ -211,7 +211,7 @@ describe('e2e_p2p_preferred_network', () => {
     });
 
     const nodeConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       disableValidator: true,
 
       // The regular nodes will attempt to connect to the preferred nodes but they should fail the authentication
@@ -237,7 +237,7 @@ describe('e2e_p2p_preferred_network', () => {
     t.logger.info('Creating validators');
 
     const validatorConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       disableValidator: false,
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
     };
@@ -260,7 +260,7 @@ describe('e2e_p2p_preferred_network', () => {
     // This last validator disables discovery to avoid connecting to anyone but preferred nodes
     // We do this to test that it receives ALL data via the preferred nodes
     const lastValidatorConfig: AztecNodeConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       p2pDiscoveryDisabled: true,
       disableValidator: false,
       preferredPeers: preferredNodeEnrs.filter(enr => enr !== undefined),
@@ -331,7 +331,7 @@ describe('e2e_p2p_preferred_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    await t.setupAccount();
+    t.setupAccount();
 
     // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');

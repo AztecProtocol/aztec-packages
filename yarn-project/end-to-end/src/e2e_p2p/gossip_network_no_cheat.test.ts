@@ -90,7 +90,7 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
+    t.ctx.config.validatorReexecute = true;
 
     expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
 
@@ -123,8 +123,8 @@ describe('e2e_p2p_network', () => {
       const validator = validators[i];
       const mockPassportProof = ZkPassportProofParams.random().toBuffer();
       await addL1Validator({
-        rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
-        chainId: t.ctx.aztecNodeConfig.l1ChainId,
+        rpcUrls: t.ctx.config.l1RpcUrls,
+        chainId: t.ctx.config.l1ChainId,
         privateKey: t.baseAccountPrivateKey,
         mnemonic: undefined,
         attesterAddress: EthAddress.fromString(validator.attester.toString()),
@@ -158,7 +158,7 @@ describe('e2e_p2p_network', () => {
     }
 
     // Wait for the validators to be added to the rollup
-    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(BigInt(t.ctx.aztecNodeConfig.lagInEpochs + 1));
+    const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(BigInt(t.ctx.config.lagInEpochs + 1));
 
     // Changes have now taken effect
     const attesters = await rollupWrapper.getAttesters();
@@ -185,7 +185,7 @@ describe('e2e_p2p_network', () => {
     const txsSentViaDifferentNodes: SentTx[][] = [];
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -202,7 +202,7 @@ describe('e2e_p2p_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    await t.setupAccount();
+    t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {

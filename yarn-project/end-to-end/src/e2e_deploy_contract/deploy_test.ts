@@ -3,47 +3,27 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type ContractBase, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { PublicKeys } from '@aztec/aztec.js/keys';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
-import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
+import { BaseEndToEndTest } from '../fixtures/base_end_to_end_test.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
-
-export class DeployTest {
-  private snapshotManager: ISnapshotManager;
-  public logger: Logger;
-  public wallet!: TestWallet;
+export class DeployTest extends BaseEndToEndTest {
   public defaultAccountAddress!: AztecAddress;
-  public aztecNode!: AztecNode;
-  public aztecNodeAdmin!: AztecNodeAdmin;
 
   constructor(testName: string) {
-    this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_deploy_contract/${testName}`, dataPath);
+    super(testName, createLogger(`e2e:e2e_deploy_contract:${testName}`));
   }
 
-  async setup() {
-    await this.applyInitialAccountSnapshot();
-    const context = await this.snapshotManager.setup();
-    ({ aztecNode: this.aztecNode, wallet: this.wallet } = context);
-    this.aztecNodeAdmin = context.aztecNode;
+  override async setup() {
+    await super.setup(1);
+    this.initializeAccount();
     return this;
   }
 
-  async teardown() {
-    await this.snapshotManager.teardown();
-  }
-
-  private async applyInitialAccountSnapshot() {
-    await this.snapshotManager.snapshot('initial_account', deployAccounts(1, this.logger), ({ deployedAccounts }) => {
-      this.defaultAccountAddress = deployedAccounts[0].address;
-      return Promise.resolve();
-    });
+  private initializeAccount() {
+    this.defaultAccountAddress = this.accounts[0];
   }
 
   async registerContract<T extends ContractBase>(

@@ -11,7 +11,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     t;
 
   beforeEach(async () => {
-    await t.applyBaseSnapshots();
+    await t.setupCrossChainInfrastructure();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ crossChainTestHarness, wallet, user2Address } = t);

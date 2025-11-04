@@ -26,9 +26,9 @@ describe('e2e_fees bridging_race', () => {
   });
 
   beforeAll(async () => {
-    await t.applyInitialAccountsSnapshot();
-    await t.applyPublicDeployAccountsSnapshot();
-    await t.applySetupFeeJuiceSnapshot();
+    await t.initializeAccounts();
+    await t.publishAccountContracts();
+    await t.setupFeeJuice();
 
     ({ wallet, logger } = await t.setup());
   });

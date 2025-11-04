@@ -67,7 +67,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -101,14 +101,14 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
-    t.ctx.aztecNodeConfig.slashPrunePenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.validatorReexecute = false;
-    t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
-    t.ctx.aztecNodeConfig.txPoolDeleteTxsAfterReorg = true;
+    t.ctx.config.slashPrunePenalty = slashingAmount;
+    t.ctx.config.validatorReexecute = false;
+    t.ctx.config.minTxsPerBlock = 1;
+    t.ctx.config.txPoolDeleteTxsAfterReorg = true;
 
     t.logger.warn(`Creating ${NUM_VALIDATORS} new nodes`);
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -131,7 +131,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
     // Set up a wallet and keep it out of reorgs
     await t.ctx.cheatCodes.rollup.markAsProven();
-    await t.setupAccount();
+    t.setupAccount();
     await t.ctx.cheatCodes.rollup.markAsProven();
 
     // Warp forward to after the initial grace period
@@ -163,7 +163,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       logger: t.logger,
       nodeAdmin: nodes[0],
       slashingRoundSize,
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      epochDuration: t.ctx.config.aztecEpochDuration,
       waitUntilOffenseCount: COMMITTEE_SIZE,
     });
 

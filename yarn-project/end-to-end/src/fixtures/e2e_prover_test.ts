@@ -1,9 +1,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import { type Archiver, createArchiver } from '@aztec/archiver';
-import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
-import { CheatCodes } from '@aztec/aztec/testing';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { createLogger } from '@aztec/aztec.js/log';
 import {
   BBCircuitVerifier,
   type ClientProtocolCircuitVerifier,
@@ -11,14 +9,12 @@ import {
   TestCircuitVerifier,
 } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
-import type { BlobSinkServer } from '@aztec/blob-sink/server';
 import type { DeployL1ContractsReturnType } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { SecretValue } from '@aztec/foundation/config';
 import { FeeAssetHandlerAbi } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TestWallet } from '@aztec/test-wallet/server';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -26,18 +22,15 @@ import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import { BaseEndToEndTest } from './base_end_to_end_test.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from './snapshot_manager.js';
-import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEAndGetWallet } from './utils.js';
-
-const { E2E_DATA_PATH: dataPath } = process.env;
+  ensureAccountContractsPublished,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+  setupPXEAndGetWallet,
+} from './utils.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -51,125 +44,88 @@ type ProvenSetup = {
  * We then prove and verify transactions created via this full prover PXE.
  */
 
-export class FullProverTest {
+export class FullProverTest extends BaseEndToEndTest {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
-  private snapshotManager: ISnapshotManager;
-  logger: Logger;
-  wallet!: TestWallet;
   provenWallet!: TestWallet;
-  accounts: AztecAddress[] = [];
   deployedAccounts!: InitialAccountData[];
   fakeProofsAsset!: TokenContract;
   tokenSim!: TokenSimulator;
-  aztecNode!: AztecNode;
-  aztecNodeAdmin!: AztecNodeAdmin;
-  cheatCodes!: CheatCodes;
-  blobSink!: BlobSinkServer;
   private provenComponents: ProvenSetup[] = [];
   private bbConfigCleanup?: () => Promise<void>;
   private acvmConfigCleanup?: () => Promise<void>;
   circuitProofVerifier?: ClientProtocolCircuitVerifier;
   provenAsset!: TokenContract;
-  private context!: SubsystemsContext;
-  private proverNode!: ProverNode;
+  private proverNodeInstance!: ProverNode;
   private simulatedProverNode!: ProverNode;
-  public l1Contracts!: DeployL1ContractsReturnType;
   public proverAddress!: EthAddress;
+
+  // Alias for compatibility with tests
+  get l1Contracts(): DeployL1ContractsReturnType {
+    return this.deployL1ContractsValues;
+  }
 
   constructor(
     testName: string,
     private minNumberOfTxsPerBlock: number,
-    coinbase: EthAddress,
+    private coinbase: EthAddress,
     private realProofs = true,
   ) {
-    this.logger = createLogger(`e2e:full_prover_test:${testName}`);
-    this.snapshotManager = createSnapshotManager(
-      `full_prover_integration/${testName}`,
-      dataPath,
-      { startProverNode: true, fundRewardDistributor: true, coinbase },
-      {
-        realVerifier: realProofs,
-      },
-    );
+    super(testName, createLogger(`e2e:full_prover_test:${testName}`));
   }
 
   /**
-   * Adds two state shifts to snapshot manager.
+   * Sets up base state:
    * 1. Add 2 accounts.
    * 2. Publicly deploy accounts, deploy token contract
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot(
-      '2_accounts',
-      deployAccounts(2, this.logger),
-      ({ deployedAccounts }, { wallet }) => {
-        this.deployedAccounts = deployedAccounts;
-        this.accounts = deployedAccounts.map(a => a.address);
-        this.wallet = wallet;
-        return Promise.resolve();
-      },
-    );
+    // Accounts are already deployed by setup(), just use the deployed ones
+    this.deployedAccounts = this.initialFundedAccounts.slice(0, 2);
+    this.accounts = this.deployedAccounts.map(a => a.address);
 
-    await this.snapshotManager.snapshot(
-      'client_prover_integration',
-      async () => {
-        // Create the token contract state.
-        // Move this account thing to addAccounts above?
-        this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, this.accounts.slice(0, 2));
+    // Public deploy accounts
+    this.logger.verbose(`Public deploy accounts...`);
+    await ensureAccountContractsPublished(this.wallet, this.accounts.slice(0, 2));
 
-        this.logger.verbose(`Deploying TokenContract...`);
-        const asset = await TokenContract.deploy(
-          this.wallet,
-          this.accounts[0],
-          FullProverTest.TOKEN_NAME,
-          FullProverTest.TOKEN_SYMBOL,
-          FullProverTest.TOKEN_DECIMALS,
-        )
-          .send({ from: this.accounts[0] })
-          .deployed();
-        this.logger.verbose(`Token deployed to ${asset.address}`);
+    // Deploy token contract
+    this.logger.verbose(`Deploying TokenContract...`);
+    const asset = await TokenContract.deploy(
+      this.wallet,
+      this.accounts[0],
+      FullProverTest.TOKEN_NAME,
+      FullProverTest.TOKEN_SYMBOL,
+      FullProverTest.TOKEN_DECIMALS,
+    )
+      .send({ from: this.accounts[0] })
+      .deployed();
+    this.logger.verbose(`Token deployed to ${asset.address}`);
 
-        return { tokenContractAddress: asset.address };
-      },
-      async ({ tokenContractAddress }) => {
-        // Restore the token contract state.
-        this.fakeProofsAsset = await TokenContract.at(tokenContractAddress, this.wallet);
-        this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
+    this.fakeProofsAsset = await TokenContract.at(asset.address, this.wallet);
+    this.logger.verbose(`Token contract address: ${this.fakeProofsAsset.address}`);
 
-        this.tokenSim = new TokenSimulator(
-          this.fakeProofsAsset,
-          this.wallet,
-          this.accounts[0],
-          this.logger,
-          this.accounts,
-        );
+    this.tokenSim = new TokenSimulator(this.fakeProofsAsset, this.wallet, this.accounts[0], this.logger, this.accounts);
 
-        expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
-          this.accounts[0].toBigInt(),
-        );
-      },
+    expect(await this.fakeProofsAsset.methods.get_admin().simulate({ from: this.accounts[0] })).toBe(
+      this.accounts[0].toBigInt(),
     );
   }
 
-  async setup() {
-    this.context = await this.snapshotManager.setup();
+  override async setup() {
+    await super.setup(2, {
+      startProverNode: true,
+      fundRewardDistributor: true,
+      coinbase: this.coinbase,
+      realProofs: this.realProofs,
+    });
 
     // We don't wish to mark as proven automatically, so we set the flag to false
-    this.context.watcher.setIsMarkingAsProven(false);
+    this.context.watcher!.setIsMarkingAsProven(false);
 
-    this.simulatedProverNode = this.context.proverNode!;
-    ({
-      aztecNode: this.aztecNode,
-      deployL1ContractsValues: this.l1Contracts,
-      cheatCodes: this.cheatCodes,
-      blobSink: this.blobSink,
-    } = this.context);
-    this.aztecNodeAdmin = this.context.aztecNode;
+    this.simulatedProverNode = this.proverNode!;
 
-    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
+    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink!.port}` });
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
@@ -191,14 +147,14 @@ export class FullProverTest {
       this.circuitProofVerifier = new QueuedIVCVerifier(bbConfig, verifier);
 
       this.logger.debug(`Configuring the node for real proofs...`);
-      await this.aztecNodeAdmin.setConfig({
+      await this.aztecNodeAdmin!.setConfig({
         realProofs: true,
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
       this.circuitProofVerifier = new TestCircuitVerifier();
-      await this.aztecNodeAdmin.setConfig({
+      await this.aztecNodeAdmin!.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     }
@@ -244,7 +200,7 @@ export class FullProverTest {
     // Creating temp store and archiver for fully proven prover node
     this.logger.verbose('Starting archiver for new prover node');
     const archiver = await createArchiver(
-      { ...this.context.aztecNodeConfig, dataDirectory: undefined },
+      { ...this.context.config, dataDirectory: undefined },
       { blobSinkClient },
       { blockUntilSync: true },
     );
@@ -259,7 +215,7 @@ export class FullProverTest {
 
     this.logger.verbose('Starting prover node');
     const proverConfig: ProverNodeConfig = {
-      ...this.context.aztecNodeConfig,
+      ...this.context.config,
       txCollectionNodeRpcUrls: [],
       dataDirectory: undefined,
       proverId: this.proverAddress,
@@ -278,9 +234,9 @@ export class FullProverTest {
     };
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const { prefilledPublicData } = await getGenesisValues(
-      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+      this.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     );
-    this.proverNode = await createProverNode(
+    this.proverNodeInstance = await createProverNode(
       proverConfig,
       {
         aztecNodeTxProvider: this.aztecNode,
@@ -289,86 +245,70 @@ export class FullProverTest {
       },
       { prefilledPublicData },
     );
-    await this.proverNode.start();
+    await this.proverNodeInstance.start();
 
     this.logger.warn(`Proofs are now enabled`);
     return this;
   }
 
   private async mintFeeJuice(recipient: Hex) {
-    const handlerAddress = this.context.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!;
+    const handlerAddress = this.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!;
     this.logger.verbose(`Minting fee juice to ${recipient} using handler at ${handlerAddress}`);
-    const client = this.context.deployL1ContractsValues.l1Client;
+    const client = this.deployL1ContractsValues.l1Client;
     const handler = getContract({ abi: FeeAssetHandlerAbi, address: handlerAddress.toString(), client });
     const hash = await handler.write.mint([recipient]);
-    await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
+    await this.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
   }
 
-  snapshot = <T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
-
-  async teardown() {
-    await this.snapshotManager.teardown();
-
+  override async teardown() {
     // Cleanup related to the full prover PXEs
     for (let i = 0; i < this.provenComponents.length; i++) {
       await this.provenComponents[i].teardown();
     }
 
     // clean up the full prover node
-    await this.proverNode.stop();
+    await this.proverNodeInstance?.stop();
 
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
+
+    await super.teardown();
   }
 
   async applyMintSnapshot() {
-    await this.snapshotManager.snapshot(
-      'mint',
-      async () => {
-        const { fakeProofsAsset: asset, accounts } = this;
-        const privateAmount = 10000n;
-        const publicAmount = 10000n;
+    const { fakeProofsAsset: asset, accounts } = this;
+    const privateAmount = 10000n;
+    const publicAmount = 10000n;
 
-        this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
-        await asset.methods
-          .mint_to_public(accounts[0], privateAmount + publicAmount)
-          .send({ from: accounts[0] })
-          .wait();
+    this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
+    await asset.methods
+      .mint_to_public(accounts[0], privateAmount + publicAmount)
+      .send({ from: accounts[0] })
+      .wait();
 
-        this.logger.verbose(`Transferring ${privateAmount} to private...`);
-        await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] }).wait();
+    this.logger.verbose(`Transferring ${privateAmount} to private...`);
+    await asset.methods.transfer_to_private(accounts[0], privateAmount).send({ from: accounts[0] }).wait();
 
-        this.logger.verbose(`Minting complete.`);
+    this.logger.verbose(`Minting complete.`);
 
-        return { amount: publicAmount };
-      },
-      async ({ amount }) => {
-        const {
-          fakeProofsAsset: asset,
-          accounts: [address],
-          tokenSim,
-        } = this;
-        tokenSim.mintPublic(address, amount);
+    const {
+      fakeProofsAsset,
+      accounts: [address],
+      tokenSim,
+    } = this;
+    tokenSim.mintPublic(address, publicAmount);
 
-        const publicBalance = await asset.methods.balance_of_public(address).simulate({ from: address });
-        this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
-        expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
+    const publicBalance = await fakeProofsAsset.methods.balance_of_public(address).simulate({ from: address });
+    this.logger.verbose(`Public balance of wallet 0: ${publicBalance}`);
+    expect(publicBalance).toEqual(this.tokenSim.balanceOfPublic(address));
 
-        tokenSim.mintPrivate(address, amount);
-        const privateBalance = await asset.methods.balance_of_private(address).simulate({ from: address });
-        this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
-        expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
+    tokenSim.mintPrivate(address, publicAmount);
+    const privateBalance = await fakeProofsAsset.methods.balance_of_private(address).simulate({ from: address });
+    this.logger.verbose(`Private balance of wallet 0: ${privateBalance}`);
+    expect(privateBalance).toEqual(tokenSim.balanceOfPrivate(address));
 
-        const totalSupply = await asset.methods.total_supply().simulate({ from: address });
-        this.logger.verbose(`Total supply: ${totalSupply}`);
-        expect(totalSupply).toEqual(tokenSim.totalSupply);
-
-        return Promise.resolve();
-      },
-    );
+    const totalSupply = await fakeProofsAsset.methods.total_supply().simulate({ from: address });
+    this.logger.verbose(`Total supply: ${totalSupply}`);
+    expect(totalSupply).toEqual(tokenSim.totalSupply);
   }
 }

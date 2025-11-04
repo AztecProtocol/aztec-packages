@@ -34,9 +34,10 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
+    await t.setupCrossChainInfrastructure();
     await t.setup();
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address } = t);
+    ({ crossChainTestHarness, aztecNode, wallet, user1Address } = t);
+    aztecNodeAdmin = t.aztecNodeAdmin!;
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 

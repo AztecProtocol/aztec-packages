@@ -69,7 +69,7 @@ describe('e2e_p2p_network', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -96,7 +96,7 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
+    t.ctx.config.validatorReexecute = true;
 
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
@@ -105,7 +105,7 @@ describe('e2e_p2p_network', () => {
     const txsSentViaDifferentNodes: SentTx[][] = [];
     t.logger.info('Creating validator nodes');
     nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -119,7 +119,7 @@ describe('e2e_p2p_network', () => {
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
     proverNode = await createProverNode(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
@@ -131,7 +131,7 @@ describe('e2e_p2p_network', () => {
     await proverNode.start();
 
     t.logger.warn(`Creating non validator node`);
-    const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
+    const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.config, alwaysReexecuteBlockProposals: true };
     monitoringNode = await createNonValidatorNode(
       monitoringNodeConfig,
       t.ctx.dateProvider,
@@ -148,7 +148,7 @@ describe('e2e_p2p_network', () => {
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    await t.setupAccount();
+    t.setupAccount();
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {

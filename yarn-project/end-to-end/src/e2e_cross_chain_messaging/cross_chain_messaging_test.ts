@@ -1,47 +1,25 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
-import { CheatCodes } from '@aztec/aztec/testing';
-import {
-  type DeployL1ContractsArgs,
-  type DeployL1ContractsReturnType,
-  type ExtendedViemWalletClient,
-  createExtendedL1Client,
-  deployL1Contract,
-} from '@aztec/ethereum';
+import { createLogger } from '@aztec/aztec.js/log';
+import { type ExtendedViemWalletClient, createExtendedL1Client, deployL1Contract } from '@aztec/ethereum';
 import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
-import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { TestWallet } from '@aztec/test-wallet/server';
 
 import { getContract } from 'viem';
 
+import { BaseEndToEndTest } from '../fixtures/base_end_to_end_test.js';
 import { MNEMONIC } from '../fixtures/fixtures.js';
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
-import type { SetupOptions } from '../fixtures/utils.js';
+import { type SetupOptions, ensureAccountContractsPublished } from '../fixtures/utils.js';
 import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
+export class CrossChainMessagingTest extends BaseEndToEndTest {
+  // Properties inherited from BaseEndToEndTest:
+  // - aztecNode, wallet, cheatCodes, deployL1ContractsValues, logger
 
-export class CrossChainMessagingTest {
-  private snapshotManager: ISnapshotManager;
-  logger: Logger;
-  aztecNode!: AztecNode;
   aztecNodeConfig!: AztecNodeConfig;
-  aztecNodeAdmin!: AztecNodeAdmin;
-  ctx!: SubsystemsContext;
-
   l1Client!: ExtendedViemWalletClient | undefined;
 
-  wallet!: TestWallet;
   ownerAddress!: AztecAddress;
   user1Address!: AztecAddress;
   user2Address!: AztecAddress;
@@ -52,127 +30,101 @@ export class CrossChainMessagingTest {
 
   inbox!: any; // GetContractReturnType<typeof InboxAbi> | undefined;
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
-  cheatCodes!: CheatCodes;
 
-  deployL1ContractsValues!: DeployL1ContractsReturnType;
+  private setupOptions: SetupOptions;
 
-  constructor(testName: string, opts: SetupOptions = {}, deployL1ContractsArgs: Partial<DeployL1ContractsArgs> = {}) {
-    this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_cross_chain_messaging/${testName}`, dataPath, opts, {
-      initialValidators: [],
-      ...deployL1ContractsArgs,
-    });
+  // Expose ctx for backward compatibility with existing tests
+  get ctx() {
+    return this.context;
+  }
+
+  constructor(testName: string, opts: SetupOptions = {}) {
+    super(testName, createLogger(`e2e:e2e_cross_chain_messaging:${testName}`));
+    this.setupOptions = opts;
   }
 
   async assumeProven() {
     await this.cheatCodes.rollup.markAsProven();
   }
 
-  async setup() {
-    this.ctx = await this.snapshotManager.setup();
-    this.aztecNode = this.ctx.aztecNode;
-    this.wallet = this.ctx.wallet;
-    this.aztecNodeConfig = this.ctx.aztecNodeConfig;
-    this.cheatCodes = this.ctx.cheatCodes;
-    this.deployL1ContractsValues = this.ctx.deployL1ContractsValues;
-    this.aztecNodeAdmin = this.ctx.aztecNode;
+  override async setup(): Promise<this> {
+    await super.setup(3, this.setupOptions);
+    this.aztecNodeConfig = this.context.config;
+    this.aztecNodeAdmin = this.context.aztecNodeAdmin;
+    return this;
   }
 
-  snapshot = <T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
+  async setupCrossChainInfrastructure() {
+    // Accounts are already deployed by setup() - just assign them
+    [this.ownerAddress, this.user1Address, this.user2Address] = this.accounts.slice(0, 3);
 
-  async teardown() {
-    await this.snapshotManager.teardown();
-  }
+    // Public deploy accounts
+    this.logger.verbose(`Public deploy accounts...`);
+    await ensureAccountContractsPublished(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
 
-  async applyBaseSnapshots() {
-    // Note that we are using the same `wallet`, `aztecNodeConfig` and `aztecNode` across all snapshots.
-    // This is to not have issues with different networks.
+    // Create L1 client
+    this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-    await this.snapshotManager.snapshot(
-      '3_accounts',
-      deployAccounts(3, this.logger),
-      ({ deployedAccounts }, { wallet, aztecNodeConfig, aztecNode }) => {
-        [this.ownerAddress, this.user1Address, this.user2Address] = deployedAccounts.map(a => a.address);
-        this.wallet = wallet;
-        this.aztecNode = aztecNode;
-        this.aztecNodeConfig = aztecNodeConfig;
-        return Promise.resolve();
-      },
+    // Deploy underlying ERC20
+    const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
+      'Underlying',
+      'UND',
+      this.l1Client.account.address,
+    ]).then(({ address }) => address);
+
+    // Setup cross chain harness
+    this.logger.verbose(`Setting up cross chain harness...`);
+    this.crossChainTestHarness = await CrossChainTestHarness.new(
+      this.aztecNode,
+      this.l1Client,
+      this.wallet,
+      this.ownerAddress,
+      this.logger,
+      underlyingERC20Address,
     );
 
-    await this.snapshotManager.snapshot(
-      'e2e_cross_chain_messaging',
-      async () => {
-        // Create the token contract state.
-        // Move this account thing to addAccounts above?
-        this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, [this.ownerAddress, this.user1Address, this.user2Address]);
+    this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
 
-        this.l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    // Get the cross chain context
+    const crossChainContext = this.crossChainTestHarness.toCrossChainContext();
 
-        const underlyingERC20Address = await deployL1Contract(this.l1Client, TestERC20Abi, TestERC20Bytecode, [
-          'Underlying',
-          'UND',
-          this.l1Client.account.address,
-        ]).then(({ address }) => address);
+    // Restore logic - setup contracts from context
+    this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.wallet);
+    this.l2Bridge = await TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
 
-        this.logger.verbose(`Setting up cross chain harness...`);
-        this.crossChainTestHarness = await CrossChainTestHarness.new(
-          this.aztecNode,
-          this.l1Client,
-          this.wallet,
-          this.ownerAddress,
-          this.logger,
-          underlyingERC20Address,
-        );
+    // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
+    this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
+    const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
 
-        this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
+    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
-        return this.crossChainTestHarness.toCrossChainContext();
-      },
-      async crossChainContext => {
-        this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.wallet);
-        this.l2Bridge = await TokenBridgeContract.at(crossChainContext.l2Bridge, this.wallet);
+    const inbox = getContract({
+      address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),
+      abi: InboxAbi,
+      client: l1Client,
+    });
+    const outbox = getContract({
+      address: this.aztecNodeConfig.l1Contracts.outboxAddress.toString(),
+      abi: OutboxAbi,
+      client: l1Client,
+    });
 
-        // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
-        this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
-        const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
-
-        const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-
-        const inbox = getContract({
-          address: this.aztecNodeConfig.l1Contracts.inboxAddress.toString(),
-          abi: InboxAbi,
-          client: l1Client,
-        });
-        const outbox = getContract({
-          address: this.aztecNodeConfig.l1Contracts.outboxAddress.toString(),
-          abi: OutboxAbi,
-          client: l1Client,
-        });
-
-        this.crossChainTestHarness = new CrossChainTestHarness(
-          this.aztecNode,
-          this.logger,
-          this.l2Token,
-          this.l2Bridge,
-          this.ethAccount,
-          tokenPortalAddress,
-          crossChainContext.underlying,
-          l1Client,
-          this.aztecNodeConfig.l1Contracts,
-          this.wallet,
-          this.ownerAddress,
-        );
-
-        this.l1Client = l1Client;
-        this.inbox = inbox;
-        this.outbox = outbox;
-      },
+    this.crossChainTestHarness = new CrossChainTestHarness(
+      this.aztecNode,
+      this.logger,
+      this.l2Token,
+      this.l2Bridge,
+      this.ethAccount,
+      tokenPortalAddress,
+      crossChainContext.underlying,
+      l1Client,
+      this.aztecNodeConfig.l1Contracts,
+      this.wallet,
+      this.ownerAddress,
     );
+
+    this.l1Client = l1Client;
+    this.inbox = inbox;
+    this.outbox = outbox;
   }
 }

@@ -46,7 +46,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
         aztecEpochDuration: 64, // stable committee
       },
     });
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -76,7 +76,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, p2pDisableStatusHandshake: true }, // DIFFERENCE FROM reqresp.test.ts
+      { ...t.ctx.config, p2pDisableStatusHandshake: true }, // DIFFERENCE FROM reqresp.test.ts
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
@@ -93,7 +93,7 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
     t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
 
-    await t.setupAccount();
+    t.setupAccount();
 
     t.logger.info('Preparing transactions to send');
     const txss = await timesAsync(2, () =>

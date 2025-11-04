@@ -1,3 +1,4 @@
+import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { AuthWitness } from '@aztec/aztec.js/authorization';
@@ -9,7 +10,6 @@ import {
 } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
 import type { SiblingPath } from '@aztec/aztec.js/trees';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -126,7 +126,7 @@ export type CrossChainContext = {
  */
 export class CrossChainTestHarness {
   static async new(
-    aztecNode: AztecNode,
+    aztecNode: AztecNodeService,
     l1Client: ExtendedViemWalletClient,
     wallet: Wallet,
     ownerAddress: AztecAddress,
@@ -167,7 +167,7 @@ export class CrossChainTestHarness {
 
   constructor(
     /** Aztec node instance. */
-    public aztecNode: AztecNode,
+    public aztecNode: AztecNodeService,
     /** Logger. */
     public logger: Logger,
 

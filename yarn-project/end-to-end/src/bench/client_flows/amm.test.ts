@@ -44,12 +44,12 @@ describe('AMM benchmark', () => {
   const config = t.config.amm;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeployBananaTokenSnapshot();
-    await t.applyFPCSetupSnapshot();
-    await t.applyDeployCandyBarTokenSnapshot();
-    await t.applyDeployAmmSnapshot();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setupBasicContracts();
+    await t.deployBananaToken();
+    await t.setupFPC();
+    await t.deployCandyBarToken();
+    await t.deployAMM();
+    await t.deploySponsoredFPC();
     ({ adminWallet, userWallet, adminAddress, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } =
       await t.setup());
   });

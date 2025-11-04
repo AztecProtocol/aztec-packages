@@ -81,7 +81,7 @@ export class P2PInactivityTest {
   }
 
   public async setup() {
-    await this.test.applyBaseSnapshots();
+    await this.test.setupValidators();
     await this.test.setup();
 
     // Set slashing penalties for inactivity
@@ -93,7 +93,7 @@ export class P2PInactivityTest {
     ]);
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - SLASHING_AMOUNT).toBeLessThan(biggestEjection);
-    this.test.ctx.aztecNodeConfig.slashInactivityPenalty = SLASHING_AMOUNT;
+    this.test.ctx.config.slashInactivityPenalty = SLASHING_AMOUNT;
     this.rollup = rollup;
 
     if (!this.keepInitialNode) {
@@ -102,7 +102,7 @@ export class P2PInactivityTest {
 
     // Create all active nodes
     this.activeNodes = await createNodes(
-      this.test.ctx.aztecNodeConfig,
+      this.test.ctx.config,
       this.test.ctx.dateProvider,
       this.test.bootstrapNodeEnr,
       NUM_NODES - this.inactiveNodeCount - Number(this.keepInitialNode),
@@ -114,7 +114,7 @@ export class P2PInactivityTest {
     );
 
     // And the ones with an initially disabled sequencer
-    const inactiveConfig = { ...this.test.ctx.aztecNodeConfig, dontStartSequencer: true };
+    const inactiveConfig = { ...this.test.ctx.config, dontStartSequencer: true };
     this.inactiveNodes = await createNodes(
       inactiveConfig,
       this.test.ctx.dateProvider,

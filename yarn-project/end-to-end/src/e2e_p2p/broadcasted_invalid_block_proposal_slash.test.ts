@@ -69,7 +69,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       },
     });
 
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
     await t.setup();
   });
 
@@ -103,13 +103,13 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
-    t.ctx.aztecNodeConfig.slashBroadcastedInvalidBlockPenalty = slashingAmount;
+    t.ctx.config.slashBroadcastedInvalidBlockPenalty = slashingAmount;
 
     t.logger.warn('Creating nodes');
 
     // Create first node that broadcasts invalid proposals
     const invalidProposerConfig = {
-      ...t.ctx.aztecNodeConfig,
+      ...t.ctx.config,
       broadcastInvalidBlockProposal: true,
     };
     const invalidProposerNodes = await createNodes(
@@ -129,7 +129,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
 
     // Create remaining honest nodes
     const honestNodes = await createNodes(
-      t.ctx.aztecNodeConfig,
+      t.ctx.config,
       t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_VALIDATORS - 1,
@@ -148,7 +148,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     await awaitCommitteeExists({ rollup, logger: t.logger });
 
     const offenses = await awaitOffenseDetected({
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
+      epochDuration: t.ctx.config.aztecEpochDuration,
       logger: t.logger,
       nodeAdmin: nodes[1], // Use honest node to check for offenses
       slashingRoundSize,

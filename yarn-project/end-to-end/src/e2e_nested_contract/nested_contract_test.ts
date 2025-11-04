@@ -1,26 +1,13 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import { createLogger } from '@aztec/aztec.js/log';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
-import {
-  type ISnapshotManager,
-  type SubsystemsContext,
-  createSnapshotManager,
-  deployAccounts,
-  publicDeployAccounts,
-} from '../fixtures/snapshot_manager.js';
+import { BaseEndToEndTest } from '../fixtures/base_end_to_end_test.js';
+import { ensureAccountContractsPublished } from '../fixtures/utils.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
-
-export class NestedContractTest {
-  private snapshotManager: ISnapshotManager;
-  logger: Logger;
-  wallet!: Wallet;
+export class NestedContractTest extends BaseEndToEndTest {
   defaultAccountAddress!: AztecAddress;
-  aztecNode!: AztecNode;
 
   parentContract!: ParentContract;
   childContract!: ChildContract;
@@ -29,67 +16,33 @@ export class NestedContractTest {
     testName: string,
     private numberOfAccounts = 1,
   ) {
-    this.logger = createLogger(`e2e:e2e_nested_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}-${numberOfAccounts}`, dataPath);
+    super(testName, createLogger(`e2e:e2e_nested_contract:${testName}`));
   }
 
   /**
-   * Adds two state shifts to snapshot manager.
-   * 1. Add 3 accounts.
+   * Sets up base state:
+   * 1. Add accounts.
    * 2. Publicly deploy accounts
    */
-  async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot(
-      'accounts',
-      deployAccounts(this.numberOfAccounts, this.logger),
-      ({ deployedAccounts }, { wallet, aztecNode }) => {
-        this.wallet = wallet;
-        [{ address: this.defaultAccountAddress }] = deployedAccounts;
-        this.aztecNode = aztecNode;
-        return Promise.resolve();
-      },
-    );
+  async publishAccountContracts() {
+    this.defaultAccountAddress = this.accounts[0];
 
-    await this.snapshotManager.snapshot(
-      'public_deploy',
-      async () => {},
-      async () => {
-        this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallet, [this.defaultAccountAddress]);
-      },
-    );
+    this.logger.verbose(`Public deploy accounts...`);
+    await ensureAccountContractsPublished(this.wallet, [this.defaultAccountAddress]);
   }
 
-  async setup() {
-    await this.snapshotManager.setup();
+  override async setup(): Promise<this> {
+    await super.setup(this.numberOfAccounts);
+    return this;
   }
 
-  async teardown() {
-    await this.snapshotManager.teardown();
-  }
+  async deployContracts() {
+    const parentContract = await ParentContract.deploy(this.wallet)
+      .send({ from: this.defaultAccountAddress })
+      .deployed();
+    const childContract = await ChildContract.deploy(this.wallet).send({ from: this.defaultAccountAddress }).deployed();
 
-  snapshot = <T>(
-    name: string,
-    apply: (context: SubsystemsContext) => Promise<T>,
-    restore: (snapshotData: T, context: SubsystemsContext) => Promise<void> = () => Promise.resolve(),
-  ): Promise<void> => this.snapshotManager.snapshot(name, apply, restore);
-
-  async applyManualSnapshots() {
-    await this.snapshotManager.snapshot(
-      'manual',
-      async () => {
-        const parentContract = await ParentContract.deploy(this.wallet)
-          .send({ from: this.defaultAccountAddress })
-          .deployed();
-        const childContract = await ChildContract.deploy(this.wallet)
-          .send({ from: this.defaultAccountAddress })
-          .deployed();
-        return { parentContractAddress: parentContract.address, childContractAddress: childContract.address };
-      },
-      async ({ parentContractAddress, childContractAddress }) => {
-        this.parentContract = await ParentContract.at(parentContractAddress, this.wallet);
-        this.childContract = await ChildContract.at(childContractAddress, this.wallet);
-      },
-    );
+    this.parentContract = await ParentContract.at(parentContract.address, this.wallet);
+    this.childContract = await ChildContract.at(childContract.address, this.wallet);
   }
 }

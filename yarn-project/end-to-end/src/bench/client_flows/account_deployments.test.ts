@@ -26,8 +26,8 @@ describe('Deployment benchmark', () => {
   let userWallet: TestWallet;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setupBasicContracts();
+    await t.deploySponsoredFPC();
     ({ adminWallet, adminAddress, sponsoredFPC, userWallet } = await t.setup());
     // Ensure the ECDSAR1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegistry
     // The typical interaction would be for a user to deploy an account contract that is already registered in the

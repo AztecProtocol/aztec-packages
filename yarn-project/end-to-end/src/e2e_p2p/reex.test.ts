@@ -51,7 +51,7 @@ describe('e2e_p2p_reex', () => {
     });
 
     t.logger.info('Apply base snapshots');
-    await t.applyBaseSnapshots();
+    await t.setupValidators();
 
     t.logger.info('Setup snapshot manager');
     await t.setup();
@@ -66,7 +66,7 @@ describe('e2e_p2p_reex', () => {
     t.logger.info('Creating peer nodes');
     nodes = await createNodes(
       {
-        ...t.ctx.aztecNodeConfig,
+        ...t.ctx.config,
         validatorReexecute: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
@@ -86,7 +86,7 @@ describe('e2e_p2p_reex', () => {
     await sleep(8000);
 
     t.logger.info('Setup account');
-    await t.setupAccount();
+    t.setupAccount();
 
     t.logger.info('Deploy spam contract');
     await t.deploySpamContract();
@@ -237,7 +237,7 @@ describe('e2e_p2p_reex', () => {
         const txResults = await Promise.allSettled(
           txs.map(async (tx: SentTx, i: number) => {
             t.logger.info(`Waiting for tx ${i}: ${(await tx.getTxHash()).toString()} to be mined`);
-            return await tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
+            return await tx.wait({ timeout: t.ctx.config.aztecSlotDuration * 2 });
           }),
         );
 

@@ -25,8 +25,8 @@ describe('Deployment benchmark', () => {
   const config = t.config.deployments;
 
   beforeAll(async () => {
-    await t.applyBaseSnapshots();
-    await t.applyDeploySponsoredFPCSnapshot();
+    await t.setupBasicContracts();
+    await t.deploySponsoredFPC();
 
     ({ aztecNode: node, sponsoredFPC, userWallet } = await t.setup());
   });
