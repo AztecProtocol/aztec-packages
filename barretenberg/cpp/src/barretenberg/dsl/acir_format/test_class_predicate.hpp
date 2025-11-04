@@ -117,9 +117,13 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
         case PredicateTestCase::ConstantTrue:
             constraint.predicate = WitnessOrConstant<bb::fr>::from_constant(bb::fr(1));
             witness_values.pop_back();
+            // Invalidate witnesses based on the target
+            Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
             break;
         case PredicateTestCase::WitnessTrue:
-            if (forced_invalidation) {
+            // Invalidate based on invalid_witness target
+            // In forced mode: invalidate target even though predicate is true (for test_witness_false_slow validation)
+            if (forced_invalidation || mode.invalid_witness != InvalidWitnessTarget::None) {
                 Base::invalidate_witness(constraint, witness_values, mode.invalid_witness);
             }
             break;
@@ -255,7 +259,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 test_constraints(PredicateTestCase::ConstantTrue, default_invalid_witness_target);
             // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
             // failed, or the builder error resulted from an assert_eq.
-            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") == std::string::npos))
                 << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
@@ -288,7 +292,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 test_constraints(PredicateTestCase::WitnessTrue, default_invalid_witness_target);
             // As `assert_equal` doesn't make the CircuitChecker fail, we need to check that either the CircuitChecker
             // failed, or the builder error resulted from an assert_eq.
-            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+            EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") == std::string::npos))
                 << "Circuit checker succeeded unexpectedly and no assert_eq failure.";
             EXPECT_TRUE(builder_failed) << "Builder succeeded unexpectedly.";
         }
@@ -341,7 +345,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             EXPECT_FALSE(builder_failed) << "Builder failed for invalid witness target " + target_label;
             vinfo("Passed invalid witness target: ", target_label);
 
-            {
+            // Only validate witness true failure for actual invalidation targets (skip None)
+            if (invalid_witness_target != InvalidWitnessTarget::None) {
                 // Check that the same configuration would have failed if the predicate was witness true
                 auto [circuit_checker_result, builder_failed, builder_err] = test_constraints(
                     PredicateTestCase::WitnessTrue, invalid_witness_target, /*forced_invalidation=*/true);
@@ -383,7 +388,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
                 if (predicate_case != PredicateTestCase::WitnessFalse) {
                     // If the predicate is not witness false, invalid witnesses should cause failure
                     if (target != InvalidWitnessTarget::None) {
-                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") != std::string::npos))
+                        EXPECT_FALSE(circuit_checker_result && (builder_err.find("assert_eq") == std::string::npos))
                             << "Circuit checker succeeded unexpectedly and no assert_eq failure for invalid witness "
                                "target " +
                                    label + " with predicate " + predicate_label;
