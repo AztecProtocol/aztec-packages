@@ -66,17 +66,13 @@ void create_ec_add_constraint(Builder& builder, const EcAdd& input, bool has_val
     // Step 2.
     cycle_group_ct result = input1_point + input2_point;
 
-    if (!predicate.is_constant()) {
-        cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(predicate, input_result, result);
-        result.assert_equal(to_be_asserted_equal);
-    } else {
-        // The assert_equal method standardizes both points before comparing, so if either of them is the point at
-        // infinity, the coordinates will be assigned to be (0,0). This is OK as long as Noir developers do not use the
-        // coordinates of a point at infinity (otherwise input_result might be the point at infinity different from (0,
-        // 0, true), and the fact that assert_equal passes doesn't imply anything for the original coordinates of
-        // input_result).
-        result.assert_equal(input_result);
-    }
+    // The assert_equal method standardizes both points before comparing, so if either of them is the point at
+    // infinity, the coordinates will be assigned to be (0,0). This is OK as long as Noir developers do not use the
+    // coordinates of a point at infinity (otherwise input_result might be the point at infinity different from (0,
+    // 0, true), and the fact that assert_equal passes doesn't imply anything for the original coordinates of
+    // input_result).
+    cycle_group_ct to_be_asserted_equal = cycle_group_ct::conditional_assign(predicate, input_result, result);
+    result.assert_equal(to_be_asserted_equal);
 }
 
 template void create_ec_add_constraint<bb::UltraCircuitBuilder>(bb::UltraCircuitBuilder& builder,
