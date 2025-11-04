@@ -276,6 +276,17 @@ export const deploySharedContracts = async (
     feeAssetAddress = deployedFee.address;
     logger.verbose(`Deployed Fee Asset at ${feeAssetAddress}`);
 
+    // Mint a tiny bit of tokens to satisfy coin-issuer constraints
+    const { txHash } = await deployer.sendTransaction({
+      to: feeAssetAddress.toString(),
+      data: encodeFunctionData({
+        abi: FeeAssetArtifact.contractAbi,
+        functionName: 'mint',
+        args: [l1Client.account.address, 1n * 10n ** 18n],
+      }),
+    });
+    logger.verbose(`Minted tiny bit of tokens to satisfy coin-issuer constraints in ${txHash}`);
+
     const deployedStaking = await deployer.deploy(StakingAssetArtifact, ['Staking', 'STK', l1Client.account.address]);
     stakingAssetAddress = deployedStaking.address;
     logger.verbose(`Deployed Staking Asset at ${stakingAssetAddress}`);
