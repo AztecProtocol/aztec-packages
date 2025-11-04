@@ -77,7 +77,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
     }
 
     // Vector of commitments to be passed to the Shplonk verifier
-    // The vector is composed of: [l_1], [r_1], [m_1], [g_1], ..., [l_4], [r_4], [m_4], [g_4]
+    // The vector is composed of: [l_1], [r_1], [m_1],, ..., [l_4], [r_4], [m_4], [g]
     std::vector<Commitment> table_commitments;
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         auto left_table = settings == MergeSettings::PREPEND ? input_commitments.t_commitments[idx]
@@ -89,16 +89,26 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
         table_commitments.emplace_back(right_table);
         table_commitments.emplace_back(
             transcript->template receive_from_prover<Commitment>("MERGED_TABLE_" + std::to_string(idx)));
-        table_commitments.emplace_back(
-            transcript->template receive_from_prover<Commitment>("LEFT_TABLE_REVERSED_" + std::to_string(idx)));
     }
+
+    // Generate degree check batching challenges
+    std::array<std::string, NUM_WIRES> labels_degree_check;
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        labels_degree_check[idx] = "LEFT_TABLE_DEGREE_CHECK_" + std::to_string(idx);
+    }
+    std::array<FF, NUM_WIRES> degree_check_challenges =
+        transcript->template get_challenges<FF, NUM_WIRES>(labels_degree_check);
+
+    // Receive commitment to reversed batched left table
+    table_commitments.emplace_back(
+        transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;
     size_t commitment_idx = 2; // Index of [m_j = T_j] in the vector of commitments
     for (auto& commitment : merged_table_commitments) {
         commitment = table_commitments[commitment_idx];
-        commitment_idx += NUM_WIRES;
+        commitment_idx += NUM_WIRES - 1;
     }
 
     // Evaluation challenge
@@ -126,7 +136,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
         opening_claims.emplace_back(claim);
 
         // Move commitment_idx to the index of [l_{j+1}]
-        commitment_idx += NUM_WIRES;
+        commitment_idx += NUM_WIRES - 1;
     }
 
     // Boolean keeping track of the degree identities (only used in native case)
@@ -134,6 +144,7 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
 
     // Add opening claim for l_j(1/kappa), g_j(kappa) and check g_j(kappa) = l_j(1/kappa) * kappa^{k-1}
     commitment_idx = 0;
+    FF batched_left_tables_eval(0);
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Opening claim for l_j(1/kappa)
         FF left_table_eval_kappa_inv =
@@ -141,33 +152,31 @@ typename MergeVerifier_<Curve>::VerificationResult MergeVerifier_<Curve>::verify
         Claims claim = { { commitment_idx }, { one }, { kappa_inv, left_table_eval_kappa_inv } };
         opening_claims.emplace_back(claim);
 
-        // Move commitment_idx to index of g_j
-        commitment_idx += 3;
-
-        // Opening claim for g_j(kappa)
-        FF left_table_reversed_eval =
-            transcript->template receive_from_prover<FF>("left_table_reversed_eval_" + std::to_string(idx));
-        claim = { { commitment_idx }, { one }, { kappa, left_table_reversed_eval } };
-        opening_claims.emplace_back(claim);
+        batched_left_tables_eval += left_table_eval_kappa_inv * degree_check_challenges[idx];
 
         // Move commitment_idx to index of left_table_{j+1}
-        commitment_idx += 1;
+        commitment_idx += NUM_WIRES - 1;
+    }
 
-        // Degree identity check
-        if constexpr (IsRecursive) {
-            // For debugging purposes
-            degree_check_verified &= (left_table_reversed_eval.get_value() ==
-                                      (left_table_eval_kappa_inv.get_value() * pow_kappa_minus_one.get_value()));
+    // Opening claim for g(kappa)
+    FF reversed_batched_left_tables_eval =
+        transcript->template receive_from_prover<FF>("reversed_batched_left_tables_eval");
+    Claims claim = { { table_commitments.size() - 1 }, { one }, { kappa, reversed_batched_left_tables_eval } };
+    opening_claims.emplace_back(claim);
 
-            // Constrain the equality in-circuit
-            left_table_reversed_eval.assert_equal(left_table_eval_kappa_inv * pow_kappa_minus_one,
-                                                  "assert_equal: degree check identity failed in Merge Verifier");
+    // Degree identity check
+    if constexpr (IsRecursive) {
+        // For debugging purposes
+        degree_check_verified = (reversed_batched_left_tables_eval.get_value() ==
+                                 (batched_left_tables_eval.get_value() * pow_kappa_minus_one.get_value()));
 
-        } else {
-            // In native case, track as a boolean
-            FF expected = left_table_eval_kappa_inv * pow_kappa_minus_one;
-            degree_check_verified &= (expected == left_table_reversed_eval);
-        }
+        // Constrain the equality in-circuit
+        reversed_batched_left_tables_eval.assert_equal(batched_left_tables_eval * pow_kappa_minus_one,
+                                                       "assert_equal: degree check identity failed in Merge Verifier");
+
+    } else {
+        // In native case, track as a boolean
+        degree_check_verified = (reversed_batched_left_tables_eval == (batched_left_tables_eval * pow_kappa_minus_one));
     }
 
     // Initialize Shplonk verifier
