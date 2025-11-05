@@ -180,6 +180,10 @@
     to = "/developers/docs/guides/smart_contracts/how_to_define_storage"
 
 [[redirects]]
+    from = "/developers/guides/smart_contracts/how_to_define_storage"
+    to = "/developers/docs/guides/smart_contracts/state-variables"
+
+[[redirects]]
     from = "/developers/guides/smart_contracts/call_contracts"
     to = "/developers/docs/guides/smart_contracts/how_to_call_contracts"
 

@@ -95,7 +95,7 @@ Unlike the previous three key types which are protocol-mandated, signing keys ar
 
 When using signatures, the account contract validates the signature against a stored public key. Here's an example from the Schnorr account contract:
 
-```rust title="is_valid_impl" showLineNumbers 
+```rust title="is_valid_impl" showLineNumbers
 // Load public key from storage
 let storage = Storage::init(context);
 let public_key = storage.signing_public_key.get_note();
@@ -215,7 +215,7 @@ Since signing keys are application-defined, how the public key is stored is enti
 
 Stores the key in a private note that is never nullified, providing the best balance of security and cost.
 
-```rust title="public_key" showLineNumbers 
+```rust title="public_key" showLineNumbers
 signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v3.0.0-nightly.20251103/noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L32-L34" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr#L32-L34</a></sub></sup>
@@ -255,7 +255,7 @@ Stores the key in a note that can be updated, enabling key rotation.
 
 ### Delayed Public Mutable State
 
-Stores the key in [delayed public mutable state](../../aztec-nr/framework-description/how_to_define_storage.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
+Stores the key in [delayed public mutable state](../../aztec-nr/framework-description/state-variavles.md#delayed-public-mutable) - publicly accessible but privately readable with a delay window.
 
 **Pros:**
 

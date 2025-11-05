@@ -1,5 +1,5 @@
 ---
-title: Declaring Contract Storage
+title: State Variables
 sidebar_position: 3
 tags: [contracts, storage, data-types, smart-contracts]
 description: Define and manage storage state in your Aztec smart contracts using various storage types.

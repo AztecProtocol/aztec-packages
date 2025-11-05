@@ -101,7 +101,7 @@ touch src/nft.nr
 
 In this file, you're going to create a **private note** that represents NFT ownership. This is a struct with macros that indicate it is a note that can be compared and packed:
 
-```rust title="nft_note_struct" showLineNumbers 
+```rust title="nft_note_struct" showLineNumbers
 use dep::aztec::{
     macros::notes::note,
     protocol_types::{
@@ -124,7 +124,7 @@ pub struct NFTNote {
 
 Now add a `new` method to make creating notes easier. For simplicity, set the randomness within the method. This approach is unsafe because it's unconstrained, but in the current case this won't cause problems:
 
-```rust title="nft_note_new" showLineNumbers 
+```rust title="nft_note_new" showLineNumbers
 impl NFTNote {
     pub fn new(owner: AztecAddress, token_id: Field) -> Self {
         // The randomness preserves privacy by preventing brute-forcing
@@ -152,11 +152,11 @@ Back in `main.nr`, you can now build the contract storage. You need:
 - **nfts**: Track which NFTs exist (public, needed for bridging)
 - **owners**: Private ownership using the NFTNote
 
-One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../aztec-nr/framework-description/how_to_define_storage.md).
+One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../aztec-nr/framework-description/state-variavles.md).
 
 Write the storage struct and a simple [initializer](../../foundational-topics/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
-```rust title="contract_setup" showLineNumbers 
+```rust title="contract_setup" showLineNumbers
 use aztec::macros::aztec;
 pub mod nft;
 
@@ -193,7 +193,7 @@ pub contract NFTPunk {
 
 Add an internal function to handle the `DelayedPublicMutable` value change. Mark the function as public and internal with [specific macros](../../aztec-nr/framework-description/macros.md):
 
-```rust title="mark_nft_exists" showLineNumbers 
+```rust title="mark_nft_exists" showLineNumbers
 #[external("public")]
 #[only_self]
 fn _mark_nft_exists(token_id: Field, exists: bool) {
@@ -207,7 +207,7 @@ This internal function uses `schedule_value_change` to update the `nfts` storage
 
 Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
-```rust title="notes_of" showLineNumbers 
+```rust title="notes_of" showLineNumbers
 #[utility]
 unconstrained fn notes_of(from: AztecAddress) -> Field {
     let notes = self.storage.owners.at(from).view_notes(NoteViewerOptions::new());
@@ -221,7 +221,7 @@ unconstrained fn notes_of(from: AztecAddress) -> Field {
 
 Before anything else, you need to set the minter. This will be the bridge contract, so only the bridge contract can mint NFTs. This value doesn't need to change after initialization. Here's how to initialize the `PublicImmutable`:
 
-```rust title="set_minter" showLineNumbers 
+```rust title="set_minter" showLineNumbers
 #[external("public")]
 fn set_minter(minter: AztecAddress) {
     assert(self.storage.admin.read().eq(self.msg_sender().unwrap()), "caller is not admin");
@@ -233,7 +233,7 @@ fn set_minter(minter: AztecAddress) {
 
 Now for the magic - minting NFTs **privately**. The bridge will call this to mint to a user, emit a new [constrained event](../../aztec-nr/framework-description/how_to_emit_event.md) (best practice when "sending someone a note"), and then [enqueue a public call](../../aztec-nr/framework-description/how_to_call_contracts.md) to the `_mark_nft_exists` function:
 
-```rust title="mint" showLineNumbers 
+```rust title="mint" showLineNumbers
 #[external("private")]
 fn mint(to: AztecAddress, token_id: Field) {
     assert(self.storage.minter.read().eq(self.msg_sender().unwrap()), "caller is not the authorized minter");
@@ -251,7 +251,7 @@ fn mint(to: AztecAddress, token_id: Field) {
 
 The bridge will also need to burn NFTs when users withdraw back to L1:
 
-```rust title="burn" showLineNumbers 
+```rust title="burn" showLineNumbers
 #[external("private")]
 fn burn(from: AztecAddress, token_id: Field) {
     assert(self.storage.minter.read().eq(self.msg_sender().unwrap()), "caller is not the authorized minter");
@@ -339,7 +339,7 @@ This means having knowledge about the L2 NFT contract, and the bridge on the L1 
 
 Clean up `main.nr` which is just a placeholder, and let's write the storage struct and the constructor. We'll use `PublicImmutable` since these values never change:
 
-```rust title="bridge_setup" showLineNumbers 
+```rust title="bridge_setup" showLineNumbers
 use aztec::macros::aztec;
 
 #[aztec]
@@ -382,7 +382,7 @@ You need to define how to encode messages. Here's a simple approach: when an NFT
 
 Build the `claim` function, which consumes the message and mints the NFT on the L2 side:
 
-```rust title="claim" showLineNumbers 
+```rust title="claim" showLineNumbers
 #[external("private")]
 fn claim(to: AztecAddress, token_id: Field, secret: Field, message_leaf_index: Field) {
     // Compute the message hash that was sent from L1
@@ -413,7 +413,7 @@ The secret prevents front-running. Certainly you don't want anyone to claim your
 
 Similarly, exiting to L1 means burning the NFT on the L2 side and pushing a message through the protocol. To ensure only the L1 recipient can claim it, hash the `token_id` together with the `recipient`:
 
-```rust title="exit" showLineNumbers 
+```rust title="exit" showLineNumbers
 #[external("private")]
 fn exit(
     token_id: Field,
@@ -486,7 +486,7 @@ touch contracts/SimpleNFT.sol
 
 Create a minimal NFT contract sufficient for demonstrating bridging:
 
-```solidity title="simple_nft" showLineNumbers 
+```solidity title="simple_nft" showLineNumbers
 pragma solidity >=0.8.27;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
@@ -516,7 +516,7 @@ touch contracts/NFTPortal.sol
 
 Initialize it with Aztec's registry, which holds the canonical contracts for Aztec-related contracts, including the Inbox and Outbox. These are the message-passing contracts—Aztec sequencers read any messages on these contracts.
 
-```solidity title="portal_setup" showLineNumbers 
+```solidity title="portal_setup" showLineNumbers
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {IRegistry} from "@aztec/l1-contracts/src/governance/interfaces/IRegistry.sol";
 import {IInbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
@@ -553,7 +553,7 @@ The core logic is similar to the L2 logic. `depositToAztec` calls the `Inbox` ca
 
 Add these two functions with explanatory comments:
 
-```solidity title="portal_deposit_and_withdraw" showLineNumbers 
+```solidity title="portal_deposit_and_withdraw" showLineNumbers
     // Lock NFT and send message to L2
     function depositToAztec(uint256 tokenId, bytes32 secretHash) external returns (bytes32, uint256) {
         // Lock the NFT
@@ -634,7 +634,7 @@ This section assumes you're working locally using Sandbox. For the testnet, you 
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
 
-```typescript title="setup" showLineNumbers 
+```typescript title="setup" showLineNumbers
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, createWalletClient, http, pad, getAbiItem, toEventHash } from 'viem';
 import { foundry } from 'viem/chains';
@@ -679,7 +679,7 @@ import { NFTBridgeContract } from '../contracts/aztec/artifacts/NFTBridge.js';
 
 You now have wallets for both chains, correctly connected to their respective chains. Next, deploy the L1 contracts:
 
-```typescript title="deploy_l1_contracts" showLineNumbers 
+```typescript title="deploy_l1_contracts" showLineNumbers
 console.log('📦 Deploying L1 contracts...\n');
 
 const nftDeploymentHash = await ethWallet.deployContract({
@@ -704,7 +704,7 @@ console.log(`✅ NFTPortal: ${portalAddress}\n`);
 
 Now deploy the L2 contracts. Thanks to the TypeScript bindings generated with `aztec codegen`, deployment is straightforward:
 
-```typescript title="deploy_l2_contracts" showLineNumbers 
+```typescript title="deploy_l2_contracts" showLineNumbers
 console.log('📦 Deploying L2 contracts...\n');
 
 const l2Nft = await NFTPunkContract.deploy(aztecWallet, account.address)
@@ -723,7 +723,7 @@ console.log(`✅ L2 Bridge: ${l2Bridge.address.toString()}\n`);
 
 Now that you have the L2 bridge's contract address, initialize the L1 bridge:
 
-```typescript title="initialize_portal" showLineNumbers 
+```typescript title="initialize_portal" showLineNumbers
 console.log('🔧 Initializing portal...');
 
 const hash = await ethWallet.writeContract({
@@ -750,7 +750,7 @@ The L2 contracts were already initialized when you deployed them, but you still 
 
 Complete these initialization steps:
 
-```typescript title="initialize_l2_bridge" showLineNumbers 
+```typescript title="initialize_l2_bridge" showLineNumbers
 console.log('🔧 Setting up L2 bridge...');
 
 await l2Bridge.methods.set_portal(EthAddress.fromString(portalAddress))
@@ -773,7 +773,7 @@ This completes the setup. It's a lot of configuration, but you're dealing with f
 
 Now for the main flow. Mint a CryptoPunk on L1, deposit it to Aztec, and claim it on Aztec. Put everything in the same script. To mint, call the L1 contract with `mint`, which will mint `tokenId = 0`:
 
-```typescript title="mint_nft_l1" showLineNumbers 
+```typescript title="mint_nft_l1" showLineNumbers
 console.log('🎨 Minting NFT on L1...');
 
 const mintHash = await ethWallet.writeContract({
@@ -794,7 +794,7 @@ console.log(`✅ Minted tokenId: ${tokenId}\n`);
 
 To bridge, first approve the portal address to transfer the NFT, then transfer it by calling `depositToAztec`:
 
-```typescript title="deposit_to_aztec" showLineNumbers 
+```typescript title="deposit_to_aztec" showLineNumbers
 console.log('🌉 Depositing NFT to Aztec...');
 
 const secret = Fr.random();
@@ -823,7 +823,7 @@ The `Inbox` contract will emit an important log: `MessageSent(inProgress, index,
 
 Use viem to extract this information:
 
-```typescript title="get_message_leaf_index" showLineNumbers 
+```typescript title="get_message_leaf_index" showLineNumbers
 const INBOX_ABI = [{
     type: 'event',
     name: 'MessageSent',
@@ -850,7 +850,7 @@ This extracts the logs from the deposit and retrieves the leaf index. You can no
 
 Add a utility function to mine two blocks (it deploys a contract with a random salt):
 
-```typescript title="mine_blocks" showLineNumbers 
+```typescript title="mine_blocks" showLineNumbers
 async function mine2Blocks(aztecWallet: TestWallet, accountAddress: any) {
     await NFTPunkContract.deploy(aztecWallet, accountAddress)
         .send({ from: accountAddress, contractAddressSalt: Fr.random() })
@@ -865,7 +865,7 @@ async function mine2Blocks(aztecWallet: TestWallet, accountAddress: any) {
 
 Now claim the message on L2:
 
-```typescript title="claim_on_l2" showLineNumbers 
+```typescript title="claim_on_l2" showLineNumbers
 // Mine blocks
 await mine2Blocks(aztecWallet, account.address);
 
@@ -897,7 +897,7 @@ console.log(`   Notes count: ${notesAfterClaim}\n`);
 
 Great! You can expand the L2 contract to add features like NFT transfers. For now, exit the NFT on L2 and redeem it on L1. Mine two blocks because of `DelayedMutable`:
 
-```typescript title="exit_from_l2" showLineNumbers 
+```typescript title="exit_from_l2" showLineNumbers
 // L2 → L1 flow
 console.log('🚪 Exiting NFT from L2...');
 // Mine blocks
@@ -924,7 +924,7 @@ console.log(`   Notes count: ${notesAfterBurn}\n`);
 
 Just like in the L1 → L2 flow, you need to know what to claim on L1. Where in the message tree is the message you want to claim? Use the utility `computeL2ToL1MembershipWitness`, which provides the leaf and the sibling path of the message:
 
-```typescript title="get_withdrawal_witness" showLineNumbers 
+```typescript title="get_withdrawal_witness" showLineNumbers
 // Compute the message hash directly from known parameters
 // This matches what the portal contract expects: Hash.sha256ToField(abi.encodePacked(tokenId, recipient))
 const tokenIdBuffer = new Fr(Number(tokenId)).toBuffer();
@@ -958,7 +958,7 @@ const siblingPathHex = witness!.siblingPath.toBufferArray().map((buf: Buffer) =>
 
 With this information, call the L1 contract and use the index and the sibling path to claim the L1 NFT:
 
-```typescript title="withdraw_on_l1" showLineNumbers 
+```typescript title="withdraw_on_l1" showLineNumbers
 console.log('💰 Withdrawing NFT on L1...');
 const withdrawHash = await ethWallet.writeContract({
     address: portalAddress as `0x${string}`,

@@ -153,7 +153,7 @@ Back in `main.nr`, you can now build the contract storage. You need:
 - **nfts**: Track which NFTs exist (public, needed for bridging)
 - **owners**: Private ownership using the NFTNote
 
-One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../guides/smart_contracts/how_to_define_storage.md).
+One interesting aspect of this storage configuration is the use of `DelayedPublicMutable`, which allows private functions to read and use public state. You're using it to publicly track which NFTs are already minted while keeping their owners private. Read more about `DelayedPublicMutable` in [the storage guide](../../guides/smart_contracts/state-variavles.md).
 
 Write the storage struct and a simple [initializer](../../concepts/smart_contracts/contract_creation.md#initialization) to set the admin in the `main.nr` file:
 
@@ -207,7 +207,7 @@ This internal function uses `schedule_value_change` to update the `nfts` storage
 
 Another useful function checks how many notes a caller has. You can use this later to verify the claim and exit from L2:
 
-```rust title="notes_of" showLineNumbers 
+```rust title="notes_of" showLineNumbers
 #[external("utility")]
 unconstrained fn notes_of(from: AztecAddress) -> Field {
     let notes = storage.owners.at(from).view_notes(NoteViewerOptions::new());
@@ -634,7 +634,7 @@ This section assumes you're working locally using Sandbox. For the testnet, you 
 
 First, initialize the clients: `aztec.js` for Aztec and `viem` for Ethereum:
 
-```typescript title="setup" showLineNumbers 
+```typescript title="setup" showLineNumbers
 import { privateKeyToAccount } from 'viem/accounts';
 import { createPublicClient, createWalletClient, http, pad, getAbiItem, toEventHash } from 'viem';
 import { foundry } from 'viem/chains';

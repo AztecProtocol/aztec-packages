@@ -12,26 +12,16 @@ sidebar_position: 12
 
 import Image from "@theme/IdealImage";
 
-In Aztec, what we call _portals_ are the key element in facilitating communication between L1 and L2. While typical L2 solutions rely on synchronous communication with L1, Aztec's privacy-first nature means this is not possible. You can learn more about why in the previous section.
+In Aztec, _portals_ facilitate communication between Ethereum (L1) and Aztec (L2). While typical L2 solutions rely on _synchronous_ communication with L1 via direct calls between L2 and L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 is not possible whilst maintaining privacy.
 
-Traditional L1 \<-\> L2 communication might involve direct calls between L2 and L1 contracts. However, in Aztec, due to the privacy components and the way transactions are processed (kernel proofs built on historical data), direct calls between L1 and L2 would not be possible if we want to maintain privacy.
-
-Portals are the solution to this problem, acting as bridges for communication between the two layers. These portals can transmit messages from public functions in L1 to private functions in L2 and vice versa, thus enabling messaging while maintaining privacy.
+Portals are the solution to this problem, enabling communication between the two layers by transmitting messages from public functions on Ethereum to private functions on Aztec and vice versa, thus enabling messaging while maintaining privacy.
 
 This page covers:
 
 - How portals enable privacy communication between L1 and L2
 - How messages are sent, received, and processed
-- Message Boxes and how they work
-- How and why linking of contracts between L1 and L2 occurs
-
-## Objective
-
-The goal is to set up a minimal-complexity mechanism, that will allow a base-layer (L1) and the Aztec Network (L2) to communicate arbitrary messages such that:
-
-- L2 functions can `call` L1 functions.
-- L1 functions can `call` L2 functions.
-- The rollup-block size have a limited impact by the messages and their size.
+- Message boxes and how they work
+- How L1 and L2 contracts are linked
 
 ## High Level Overview
 
@@ -39,10 +29,10 @@ This document will contain communication abstractions that we use to support int
 
 Fundamental restrictions for Aztec:
 
-- L1 and L2 have very different execution environments, stuff that is cheap on L1 is most often expensive on L2 and vice versa. As an example, `keccak256` is cheap on L1, but very expensive on L2.
-- _Private_ function calls are fully "prepared" and proven by the user, which provides the kernel proof along with commitments and nullifiers to the sequencer.
+- Due to the use of proofs, things that are cheap on Ethereum are often expensive on Aztec and vice versa. As an example, `keccak256` is cheap on L1, but very expensive on L2.
+- _Private_ function calls are fully executed and proven locally by the user. This creates a kernel proof which is sent to the sequencer along with commitments and nullifiers.
 - _Public_ functions altering public state (updatable storage) must be executed at the current "head" of the chain, which only the sequencer can ensure, so these must be executed separately to the _private_ functions.
-- _Private_ and _public_ functions within Aztec are therefore ordered such that first _private_ functions are executed, and then _public_. For a more detailed description of why, see above.
+- _Private_ and _public_ functions within Aztec are therefore ordered such that first _private_ functions are executed, and then _public_.
 - Messages are consumables, and can only be consumed by the recipient. See [Message Boxes](#message-boxes) for more information.
 
 With the aforementioned restrictions taken into account, cross-chain messages can be operated in a similar manner to when _public_ functions must transmit information to _private_ functions. In such a scenario, a "message" is created and conveyed to the recipient for future use. It is worth noting that any call made between different domains (_private, public, cross-chain_) is unilateral in nature. In other words, the caller is unaware of the outcome of the initiated call until told when some later rollup is executed (if at all). This can be regarded as message passing, providing us with a consistent mental model across all domains, which is convenient.
@@ -52,7 +42,7 @@ As an illustration, suppose a private function adds a cross-chain call. In such 
 Similarly to the ordering of private and public functions, we can also reap the benefits of intentionally ordering messages between L1 and L2. When a message is sent from L1 to L2, it has been "emitted" by an action in the past (an L1 interaction), allowing us to add it to the list of consumables at the "beginning" of the block execution. This practical approach means that a message could be consumed in the same block it is included. In a sophisticated setup, rollup $n$ could send an L2 to L1 message that is then consumed on L1, and the response is added already in $n+1$. However, messages going from L2 to L1 will be added as they are emitted.
 
 :::info
-Because everything is unilateral and async, the application developer have to explicitly handle failure cases such that user can gracefully recover. Example where recovering is of utmost importance is token bridges, where it is very inconvenient if the locking of funds on one domain occur, but never the minting or unlocking on the other.
+Because everything is unilateral and async, the application developer has to explicitly handle failure cases such that the user can gracefully recover. An example where recovering is of utmost importance is token bridges, where it is very inconvenient if the locking of funds on one domain occur, but never the minting or unlocking on the other.
 :::
 
 ## Components
@@ -63,7 +53,7 @@ A "portal" refers to the part of an application residing on L1, which is associa
 
 ### Message Boxes
 
-In a logical sense, a Message Box functions as a one-way message passing mechanism with two ends, one residing on each side of the divide, i.e., one component on L1 and another on L2. Essentially, these boxes are utilized to transmit messages between L1 and L2 via the rollup contract. The boxes can be envisaged as multi-sets that enable the same message to be inserted numerous times, a feature that is necessary to accommodate scenarios where, for instance, "deposit 10 eth to A" is required multiple times. The diagram below provides a detailed illustration of how one can perceive a message box in a logical context.
+In a logical sense, a Message Box functions as a **one-way message passing mechanism with two ends**, one residing on each side of the divide, i.e., one component on L1 and another on L2. Essentially, these boxes are utilized to transmit messages between L1 and L2 via the rollup contract. The boxes can be envisaged as multi-sets that enable the same message to be sent numerous times, a feature that is necessary to accommodate scenarios where, for instance, "deposit 10 ETH to A" is required multiple times. The diagram below provides a detailed illustration of how one can perceive a message box in a logical context.
 
 <Image img={require("@site/static/img/com-abs-5.png")} />
 
