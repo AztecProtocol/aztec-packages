@@ -32,18 +32,6 @@ template <typename Builder> class keccak {
     // base of extended representation we use for efficient logic operations
     static constexpr uint256_t BASE = 11;
 
-    // number of bits of hash output
-    static constexpr size_t BITS = 256;
-
-    // word size of hash lane
-    static constexpr size_t WORD_SIZE = 8;
-
-    // block size. We only support keccak256 with a 1088-bit rate! This is what Ethereum uses
-    static constexpr size_t BLOCK_SIZE = (1600 - BITS * 2) / WORD_SIZE;
-
-    // how many limbs fit into a block (17)
-    static constexpr size_t LIMBS_PER_BLOCK = BLOCK_SIZE / 8;
-
     static constexpr size_t NUM_KECCAK_ROUNDS = 24;
 
     // 1 "lane" = 64 bits. Instead of interpreting the keccak sponge as 1,600 bits, it's easier to work over 64-bit

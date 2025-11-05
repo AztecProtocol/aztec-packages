@@ -19,7 +19,7 @@ using namespace bb::plookup;
 /**
  * @brief Normalize a base-11 limb and left-rotate by keccak::ROTATIONS[lane_index] bits.
  *        This method also extracts the most significant bit of the normalised rotated limb.
- *        Used in the RHO and IOTA rounds and in `sponge_absorb`.
+ *        Used in the RHO and IOTA rounds.
  *
  * Normalize process:
  *  Input v = \sum_{i=0}^63 b_i * 11^i , where b is in range [0, 1, 2]
