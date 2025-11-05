@@ -5,7 +5,7 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
 import type { Signable, SignatureDomainSeparator } from '../../p2p/signature_utils.js';
-import { CommitteeAttestation } from './committee_attestation.js';
+import { CommitteeAttestation, EthAddress } from './committee_attestation.js';
 
 export class CommitteeAttestationsAndSigners implements Signable {
   constructor(public attestations: CommitteeAttestation[]) {}
@@ -117,5 +117,24 @@ export class CommitteeAttestationsAndSigners implements Signable {
       signatureIndices: `0x${Buffer.from(signatureIndices).toString('hex')}`,
       signaturesOrAddresses: `0x${Buffer.from(signaturesOrAddresses).toString('hex')}`,
     };
+  }
+}
+
+/**
+ * Malicious extension of CommitteeAttestationsAndSigners that keeps separate attestations and
+ * signers. Used for tricking the L1 contract into accepting attestations by reconstructing
+ * the correct committee commitment (which relies on the signers, ignoring the signatures)
+ * with an invalid set of attestation signatures.
+ */
+export class MaliciousCommitteeAttestationsAndSigners extends CommitteeAttestationsAndSigners {
+  constructor(
+    attestations: CommitteeAttestation[],
+    private signers: EthAddress[],
+  ) {
+    super(attestations);
+  }
+
+  override getSigners(): EthAddress[] {
+    return this.signers;
   }
 }
