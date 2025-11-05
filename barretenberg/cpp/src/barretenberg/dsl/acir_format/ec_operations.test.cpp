@@ -81,8 +81,7 @@ template <typename Builder_, InputConstancy Constancy> class EcOperationsTesting
 
         // Construct result and predicate as witnesses
         std::vector<uint32_t> result_indices = add_to_witness_and_track_indices(witness_values, result);
-        uint32_t predicate_index = static_cast<uint32_t>(witness_values.size());
-        witness_values.emplace_back(FF::one()); // predicate
+        uint32_t predicate_index = add_to_witness_and_track_indices(witness_values, FF(1));
 
         // Build the constraint
         ec_add_constraint = EcAdd{

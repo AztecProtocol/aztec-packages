@@ -1,7 +1,6 @@
 #include "multi_scalar_mul.hpp"
 #include "acir_format.hpp"
 #include "acir_format_mocks.hpp"
-
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_group.hpp"

@@ -166,10 +166,12 @@ template <TestBase Base> class TestClass {
      *
      * @tparam Flavor
      */
-    template <typename Flavor> static void test_vk_independence()
+    template <typename Flavor> static size_t test_vk_independence()
     {
         using ProverInstance = ProverInstance_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
+
+        size_t num_gates = 0;
 
         // Generate the constraint system
         auto [constraint, witness_values] = generate_constraints();
@@ -190,7 +192,7 @@ template <TestBase Base> class TestClass {
         {
             AcirProgram program{ constraint_system, witness_values };
             auto builder = create_circuit<Builder>(program);
-            info("Num gates: ", builder.get_num_finalized_gates_inefficient());
+            num_gates = builder.get_num_finalized_gates_inefficient();
 
             auto prover_instance = std::make_shared<ProverInstance>(builder);
             vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
@@ -208,6 +210,8 @@ template <TestBase Base> class TestClass {
         }
 
         EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks";
+
+        return num_gates;
     }
 
     /**

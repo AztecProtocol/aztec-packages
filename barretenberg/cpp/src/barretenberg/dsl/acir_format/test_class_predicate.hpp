@@ -200,10 +200,12 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
      *
      * @tparam Flavor
      */
-    template <typename Flavor> static void test_vk_independence()
+    template <typename Flavor> static std::vector<size_t> test_vk_independence()
     {
         using ProverInstance = ProverInstance_<Flavor>;
         using VerificationKey = Flavor::VerificationKey;
+
+        std::vector<size_t> num_gates;
 
         for (auto [predicate_case, label] :
              zip_view(Predicate<WitnessOverrideCase>::get_all(), Predicate<WitnessOverrideCase>::get_labels())) {
@@ -230,7 +232,7 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             {
                 AcirProgram program{ constraint_system, witness_values };
                 auto builder = create_circuit<Builder>(program);
-                info("Num gates: ", builder.get_num_finalized_gates_inefficient());
+                num_gates.emplace_back(builder.get_num_finalized_gates_inefficient());
 
                 auto prover_instance = std::make_shared<ProverInstance>(builder);
                 vk_from_witness = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
@@ -250,6 +252,8 @@ template <TestBaseWithPredicate Base> class TestClassWithPredicate {
             EXPECT_EQ(*vk_from_witness, *vk_from_constraint) << "Mismatch in the vks for predicate case " << label;
             vinfo("VK independence passed for predicate case: ", label);
         }
+
+        return num_gates;
     }
 
     /**
