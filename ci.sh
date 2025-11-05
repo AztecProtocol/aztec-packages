@@ -156,11 +156,8 @@ case "$cmd" in
   "release-pr")
     git config user.name  "github-actions[bot]"
     git config user.email "github-actions[bot]@users.noreply.github.com"
+    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git"
     # Prep commit release tag.
-    tag_name="v0.0.1-commit-$(git rev-parse --short HEAD)"
-    git tag "${tag_name}"
-    git push origin "${tag_name}"
-    gh pr edit "$PR_NUMBER" --remove-label 'ci-release-pr'
     ;;
   "release")
     prep_vars
