@@ -113,20 +113,22 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
             // if scalar multiplier is 0 and also a constant, we can skip
             continue;
         }
+
+        // Select either the point at infinity or the fixed generator
         element point = _point.conditional_select(one, is_point_at_infinity);
-        // For field_t (non-composite), use internal version to avoid premature normalization
-        // For bigfield (composite), conditional_assign doesn't normalize anyway
+
         Fr scalar;
         if constexpr (!Fr::is_composite) {
+            // For field_t (non-composite), use internal version to avoid premature normalization
             scalar = Fr::conditional_assign_internal(is_point_at_infinity, 0, _scalar);
         } else {
+            // For bigfield (composite), conditional_assign doesn't normalize anyway
             scalar = Fr::conditional_assign(is_point_at_infinity, 0, _scalar);
         }
 
+        // Push the selected point and scalar to their respective vectors
         points.push_back(point);
         scalars.push_back(scalar);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1002): if both point and scalar are constant,
-        // don't bother adding constraints
     }
 
     return { points, scalars };

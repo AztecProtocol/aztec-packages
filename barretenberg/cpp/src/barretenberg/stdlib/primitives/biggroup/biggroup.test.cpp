@@ -298,6 +298,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
+
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
@@ -388,6 +389,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
 
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
+
     static void test_sub(InputType a_type = InputType::WITNESS, InputType b_type = InputType::WITNESS)
     {
         Builder builder;
@@ -449,6 +451,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
             affine_element input_b(element::random_element());
             input_b.self_set_infinity();
             element_ct a = element_ct::from_witness(&builder, input_a);
+
             // create copy of a with different witness
             element_ct a_alternate = element_ct::from_witness(&builder, input_a);
             element_ct a_negated = element_ct::from_witness(&builder, -input_a);
