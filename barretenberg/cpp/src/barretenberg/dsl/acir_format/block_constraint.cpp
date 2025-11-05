@@ -142,8 +142,8 @@ void process_RAM_operations(Builder& builder,
     for (const auto& op : constraint.trace) {
         field_ct value = poly_to_field_ct(op.value, builder);
         field_ct index = poly_to_field_ct(op.index, builder);
-        // In case of invalid witness assignment, we set the value of index value to zero to not hit out of bound in
-        // RAM table
+        // In case of invalid witness assignment, we set the value of index value to zero to not hit an out-of-bounds
+        // index in the RAM table
         if (!has_valid_witness_assignments) {
             builder.set_variable(index.get_witness_index(), 0);
         }
