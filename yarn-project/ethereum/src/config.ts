@@ -250,8 +250,8 @@ const StagingPublicEntryQueueConfig = {
 };
 
 const TestnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 256n,
-  bootstrapFlushSize: 256n,
+  bootstrapValidatorSetSize: 48n,
+  bootstrapFlushSize: 48n,
   normalFlushSizeMin: 4n,
   normalFlushSizeQuotient: 2048n,
   maxQueueFlushSize: 8n,
@@ -266,8 +266,8 @@ const StagingIgnitionEntryQueueConfig = {
 };
 
 const MainnetEntryQueueConfig = {
-  bootstrapValidatorSetSize: 1_000n,
-  bootstrapFlushSize: 1_000n,
+  bootstrapValidatorSetSize: 500n,
+  bootstrapFlushSize: 500n,
   normalFlushSizeMin: 1n,
   normalFlushSizeQuotient: 2_048n,
   maxQueueFlushSize: 8n,
