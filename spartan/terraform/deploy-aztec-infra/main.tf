@@ -165,6 +165,7 @@ locals {
         "validator.node.env.SEQ_MAX_TX_PER_BLOCK"               = var.SEQ_MAX_TX_PER_BLOCK
         "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "validator.node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
       }
       boot_node_host_path  = "validator.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "validator.node.env.BOOTSTRAP_NODES"
@@ -190,6 +191,7 @@ locals {
           "node.node.env.PUBLISHER_KEY_INDEX_START"         = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
           "node.node.env.PUBLISHERS_PER_PROVER"             = var.PROVER_PUBLISHERS_PER_PROVER
           "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH" = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
+          "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"          = var.BLOB_ALLOW_EMPTY_SOURCES
           "broker.node.proverRealProofs"                    = var.PROVER_REAL_PROOFS
           "broker.node.env.NETWORK"                         = var.NETWORK
           "broker.node.env.BOOTSTRAP_NODES"                 = "asdf"
@@ -248,6 +250,7 @@ locals {
         "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -266,6 +269,7 @@ locals {
         "nodeType"                                    = "archive"
         "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
